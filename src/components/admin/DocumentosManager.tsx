@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { FolderUp, FileText, Trash2, Users, Check, Wand2 } from "lucide-react";
@@ -39,15 +39,21 @@ const estadoAccion: AccionState = { error: null, ok: false };
 
 const TIPOS: TipoDocumento[] = ["rutina", "alimentacion", "otro"];
 
-function BotonSubir({ cantidad }: { cantidad: number }) {
+function BotonSubir({ cantidad, analiza }: { cantidad: number; analiza: boolean }) {
   const { pending } = useFormStatus();
+
+  const etiqueta = () => {
+    if (pending) return "Subiendo…";
+    if (cantidad === 0) return "Subir a la biblioteca";
+    // Con una rutina, subir y analizar son un solo paso para quien lo usa:
+    // tener dos botones seguidos hacía pensar que algo había fallado.
+    if (analiza) return "Subir y analizar la rutina con IA";
+    return `Subir y asignar a ${cantidad} ${cantidad === 1 ? "alumno" : "alumnos"}`;
+  };
+
   return (
     <Button type="submit" loading={pending}>
-      {pending
-        ? "Subiendo…"
-        : cantidad === 0
-          ? "Subir a la biblioteca"
-          : `Subir y asignar a ${cantidad} ${cantidad === 1 ? "alumno" : "alumnos"}`}
+      {etiqueta()}
     </Button>
   );
 }
@@ -158,6 +164,25 @@ export function DocumentosManager({
     setDraft(resultado.datos);
   };
 
+  // Subir y analizar son un solo paso: apenas la subida termina, el análisis
+  // arranca solo. La ruta ya analizada se recuerda para no repetirlo si el
+  // componente se vuelve a renderizar por otro motivo.
+  const rutaAnalizada = useRef<string | null>(null);
+  useEffect(() => {
+    const listo =
+      subida.tipo === "rutina" &&
+      subida.storagePath &&
+      subida.alumnoIds.length > 0 &&
+      rutaAnalizada.current !== subida.storagePath;
+
+    if (listo) {
+      rutaAnalizada.current = subida.storagePath;
+      analizar();
+    }
+    // `analizar` se recrea en cada render; lo que decide es la ruta subida.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subida.storagePath, subida.tipo, subida.alumnoIds.length]);
+
   return (
     <div className="space-y-4">
       <Card>
@@ -223,11 +248,9 @@ export function DocumentosManager({
             </p>
           )}
 
-          <BotonSubir cantidad={seleccionados.size} />
+          <BotonSubir cantidad={seleccionados.size} analiza={tipo === "rutina"} />
         </form>
 
-        {/* Analizar la rutina con IA: solo si lo subido ES una rutina y quedó
-            asignada a alguien. Sin alumnos no hay a quién publicársela. */}
         {subida.tipo === "rutina" && subida.storagePath && !draft && (
           <div className="mt-4 border-t border-border pt-4">
             {subida.alumnoIds.length === 0 ? (
@@ -235,19 +258,19 @@ export function DocumentosManager({
                 El PDF quedó en la biblioteca. Para generar la rutina con IA, vuelve a subirlo
                 marcando a los alumnos, o asígnalo desde la biblioteca y créala desde su perfil.
               </p>
+            ) : analizando ? (
+              <p className="text-caption flex items-center gap-2 text-text-secondary">
+                <Wand2 size={14} className="text-vip" />
+                Leyendo la rutina del PDF…
+              </p>
             ) : (
-              <>
-                <p className="text-caption mb-2 text-text-secondary">
-                  La IA lee el PDF una sola vez y la rutina se publica a los{" "}
-                  {subida.alumnoIds.length}{" "}
-                  {subida.alumnoIds.length === 1 ? "alumno" : "alumnos"} que asignaste. Podrás
-                  revisarla antes de confirmar.
-                </p>
-                <Button variant="outline" onClick={analizar} disabled={analizando}>
+              // Solo si el análisis automático falló: reintentar sin volver a subir.
+              errorAnalisis && (
+                <Button variant="outline" onClick={analizar}>
                   <Wand2 size={16} />
-                  {analizando ? "Leyendo PDF…" : "Analizar la rutina con IA"}
+                  Reintentar el análisis
                 </Button>
-              </>
+              )
             )}
             {errorAnalisis && <p className="text-caption mt-2 text-error">{errorAnalisis}</p>}
           </div>

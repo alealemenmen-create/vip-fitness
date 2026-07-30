@@ -33,104 +33,126 @@ const GRUPOS_MUSCULARES: { value: NonNullable<Ejercicio["grupoMuscular"]>; label
   { value: "cardio", label: "Cardio" },
 ];
 
+/** Una fila por ejercicio, no una ficha.
+ *
+ * Antes se dibujaban los 7 campos apilados siempre: con una rutina de 7 días y
+ * 8 ejercicios por día eran 56 bloques altísimos, imposibles de repasar. Ahora
+ * queda a la vista lo que de verdad se corrige (nombre, series, reps, descanso)
+ * y el resto se despliega solo si hace falta — o solo si ya trae contenido, así
+ * nada de lo que extrajo la IA queda escondido. */
 function EjercicioForm({
+  numero,
   ejercicio,
   onChange,
   onRemove,
 }: {
+  numero: number;
   ejercicio: Ejercicio;
   onChange: (e: Ejercicio) => void;
   onRemove: () => void;
 }) {
+  const traeExtras = Boolean(
+    ejercicio.grupoMuscular || ejercicio.tecnicaTipo || ejercicio.observacion
+  );
+  const [ampliado, setAmpliado] = useState(traeExtras);
+
   return (
-    <div className="radius-control space-y-2 border border-border p-3">
-      <div className="flex items-center gap-2">
+    <div className="radius-control border border-border px-2.5 py-2">
+      <div className="flex items-center gap-1.5">
+        <span className="text-caption w-4 shrink-0 text-right text-text-tertiary">{numero}</span>
         <Input
           value={ejercicio.nombre}
           onChange={(e) => onChange({ ...ejercicio, nombre: e.target.value })}
           placeholder="Nombre del ejercicio"
-          className="flex-1 py-2"
+          className="flex-1 py-1.5"
         />
         <IconButton ariaLabel="Quitar ejercicio" onClick={onRemove}>
-          <Trash2 size={16} className="text-error" />
+          <Trash2 size={15} className="text-error" />
         </IconButton>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <label className="text-caption mb-1 block text-text-tertiary">SERIES</label>
-          <Input
-            type="number"
-            min="1"
-            value={ejercicio.series}
-            onChange={(e) => onChange({ ...ejercicio, series: Number(e.target.value) })}
-            className="py-2"
-          />
-        </div>
-        <div>
-          <label className="text-caption mb-1 block text-text-tertiary">REPS</label>
-          <Input
-            value={ejercicio.reps}
-            onChange={(e) => onChange({ ...ejercicio, reps: e.target.value })}
-            className="py-2"
-          />
-        </div>
-        <div>
-          <label className="text-caption mb-1 block text-text-tertiary">DESCANSO (s)</label>
-          <Input
-            type="number"
-            min="0"
-            value={ejercicio.descansoSegundos ?? ""}
-            onChange={(e) =>
-              onChange({
-                ...ejercicio,
-                descansoSegundos: e.target.value ? Number(e.target.value) : null,
-              })
-            }
-            className="py-2"
-          />
-        </div>
-      </div>
-      <div>
-        <label className="text-caption mb-1 block text-text-tertiary">GRUPO MUSCULAR</label>
-        <Select
-          value={ejercicio.grupoMuscular ?? ""}
+
+      <div className="mt-1.5 flex items-center gap-1.5 pl-[22px]">
+        <label className="text-caption shrink-0 text-text-tertiary">Series</label>
+        <Input
+          type="number"
+          min="1"
+          value={ejercicio.series}
+          onChange={(e) => onChange({ ...ejercicio, series: Number(e.target.value) })}
+          className="w-12 px-1.5 py-1 text-center"
+        />
+        <label className="text-caption shrink-0 text-text-tertiary">Reps</label>
+        <Input
+          value={ejercicio.reps}
+          onChange={(e) => onChange({ ...ejercicio, reps: e.target.value })}
+          className="w-16 px-1.5 py-1 text-center"
+        />
+        <label className="text-caption shrink-0 text-text-tertiary">Desc.</label>
+        <Input
+          type="number"
+          min="0"
+          value={ejercicio.descansoSegundos ?? ""}
           onChange={(e) =>
             onChange({
               ...ejercicio,
-              grupoMuscular: (e.target.value || null) as Ejercicio["grupoMuscular"],
+              descansoSegundos: e.target.value ? Number(e.target.value) : null,
             })
           }
-          className="py-2"
-        >
-          <option value="">Sin especificar</option>
-          {GRUPOS_MUSCULARES.map((g) => (
-            <option key={g.value} value={g.value}>
-              {g.label}
-            </option>
-          ))}
-        </Select>
-      </div>
-      <Input
-        value={ejercicio.tecnicaTipo ?? ""}
-        onChange={(e) => onChange({ ...ejercicio, tecnicaTipo: e.target.value || null })}
-        placeholder="Técnica especial (opcional, ej: Biserie (1/2))"
-        className="py-2"
-      />
-      {ejercicio.tecnicaTipo && (
-        <Textarea
-          value={ejercicio.tecnicaInstruccion ?? ""}
-          onChange={(e) => onChange({ ...ejercicio, tecnicaInstruccion: e.target.value || null })}
-          placeholder="Instrucción de la técnica"
-          rows={2}
-          className="py-2"
+          className="w-14 px-1.5 py-1 text-center"
         />
+        <button
+          type="button"
+          onClick={() => setAmpliado((v) => !v)}
+          aria-label={ampliado ? "Ocultar detalles" : "Más detalles"}
+          className="ml-auto shrink-0 p-1 text-text-tertiary"
+        >
+          {ampliado ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+        </button>
+      </div>
+
+      {ampliado && (
+        <div className="mt-2 space-y-1.5 pl-[22px]">
+          <Select
+            value={ejercicio.grupoMuscular ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...ejercicio,
+                grupoMuscular: (e.target.value || null) as Ejercicio["grupoMuscular"],
+              })
+            }
+            className="py-1.5"
+          >
+            <option value="">Grupo muscular sin especificar</option>
+            {GRUPOS_MUSCULARES.map((g) => (
+              <option key={g.value} value={g.value}>
+                {g.label}
+              </option>
+            ))}
+          </Select>
+          <Input
+            value={ejercicio.tecnicaTipo ?? ""}
+            onChange={(e) => onChange({ ...ejercicio, tecnicaTipo: e.target.value || null })}
+            placeholder="Técnica especial (ej: Biserie (1/2))"
+            className="py-1.5"
+          />
+          {ejercicio.tecnicaTipo && (
+            <Textarea
+              value={ejercicio.tecnicaInstruccion ?? ""}
+              onChange={(e) =>
+                onChange({ ...ejercicio, tecnicaInstruccion: e.target.value || null })
+              }
+              placeholder="Instrucción de la técnica"
+              rows={2}
+              className="py-1.5"
+            />
+          )}
+          <Input
+            value={ejercicio.observacion ?? ""}
+            onChange={(e) => onChange({ ...ejercicio, observacion: e.target.value || null })}
+            placeholder="Observación"
+            className="py-1.5"
+          />
+        </div>
       )}
-      <Input
-        value={ejercicio.observacion ?? ""}
-        onChange={(e) => onChange({ ...ejercicio, observacion: e.target.value || null })}
-        placeholder="Observación (opcional)"
-        className="py-2"
-      />
     </div>
   );
 }
@@ -346,6 +368,7 @@ export function RutinaDraftEditor({
               {dia.ejercicios.map((ej, ejIdx) => (
                 <EjercicioForm
                   key={ejIdx}
+                  numero={ejIdx + 1}
                   ejercicio={ej}
                   onChange={(e) => actualizarEjercicio(diaIdx, ejIdx, e)}
                   onRemove={() => quitarEjercicio(diaIdx, ejIdx)}

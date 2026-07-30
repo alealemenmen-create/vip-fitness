@@ -482,17 +482,24 @@ export async function publicarRutinaAVariosAlumnos(
   alumnoIds: string[],
   datos: RutinaExtraida
 ): Promise<PublicarAVariosState> {
-  await requireRol(["entrenador", "admin"]);
+  const sesion = await requireRol(["entrenador", "admin"]);
 
   if (alumnoIds.length === 0) {
     return { error: "Elige al menos un alumno para asignarle la rutina.", publicados: 0, fallidos: [] };
   }
 
+  // Se valida UNA vez: la rutina es la misma para todos, así que repetirlo por
+  // alumno solo gasta tiempo.
+  const invalida = validarRutina(datos);
+  if (invalida) return { error: invalida, publicados: 0, fallidos: [] };
+
   const supabase = await createClient();
-  const { data: perfiles } = await supabase
-    .from("perfiles")
-    .select("id, nombre")
-    .in("id", alumnoIds);
+
+  // La biblioteca también se carga una sola vez, no una por alumno.
+  const [biblioteca, { data: perfiles }] = await Promise.all([
+    obtenerBiblioteca(),
+    supabase.from("perfiles").select("id, nombre").in("id", alumnoIds),
+  ]);
 
   const nombrePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
 
@@ -500,7 +507,13 @@ export async function publicarRutinaAVariosAlumnos(
   const fallidos: PublicarAVariosState["fallidos"] = [];
 
   for (const alumnoId of alumnoIds) {
-    const resultado = await confirmarYPublicarRutina(alumnoId, datos);
+    const resultado = await publicarUnaRutina(
+      supabase,
+      sesion.userId,
+      alumnoId,
+      datos,
+      biblioteca
+    );
     if (resultado.ok) {
       publicados++;
     } else {
@@ -512,38 +525,47 @@ export async function publicarRutinaAVariosAlumnos(
     }
   }
 
+  revalidatePath("/alumno/entrenar");
+  revalidatePath("/alumno/inicio");
   return { error: null, publicados, fallidos };
 }
 
-export async function confirmarYPublicarRutina(
-  alumnoId: string,
-  datos: RutinaExtraida
-): Promise<PublicarRutinaState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
-  const supabase = await createClient();
-
-  if (!datos.dias.length) {
-    return { error: "La rutina no tiene días para publicar.", ok: false };
-  }
+/** Revisa la rutina antes de tocar la base. Devuelve el error o null. */
+function validarRutina(datos: RutinaExtraida): string | null {
+  if (!datos.dias.length) return "La rutina no tiene días para publicar.";
   for (const dia of datos.dias) {
-    if (!dia.nombre.trim()) return { error: "Todos los días necesitan un nombre.", ok: false };
+    if (!dia.nombre.trim()) return "Todos los días necesitan un nombre.";
     if (dia.tipo === "entrenamiento" && dia.ejercicios.length === 0) {
-      return { error: `El día "${dia.nombre}" no tiene ejercicios.`, ok: false };
+      return `El día "${dia.nombre}" no tiene ejercicios.`;
     }
     for (const ej of dia.ejercicios) {
-      if (!ej.nombre.trim()) return { error: "Hay un ejercicio sin nombre.", ok: false };
+      if (!ej.nombre.trim()) return "Hay un ejercicio sin nombre.";
       if (!Number.isFinite(ej.series) || ej.series <= 0) {
-        return { error: `"${ej.nombre}" necesita un número de series válido.`, ok: false };
+        return `"${ej.nombre}" necesita un número de series válido.`;
       }
     }
   }
+  return null;
+}
 
-  // Se resuelve cada nombre del PDF contra la biblioteca para dejar guardado
-  // el `ejercicio_id`. Lo que no empareje se publica igual con su nombre —
-  // ver la nota de la migración 0026: bloquear la rutina entera porque un
-  // ejercicio no está en la biblioteca sería peor que publicarla incompleta.
-  const biblioteca = await obtenerBiblioteca();
+type Biblioteca = Awaited<ReturnType<typeof obtenerBiblioteca>>;
 
+/**
+ * Publica la rutina para UN alumno. Recibe la biblioteca ya cargada y los
+ * datos ya validados para no repetir ese trabajo cuando se publica a varios.
+ *
+ * Escribe en 4 consultas fijas (rutina, días, ejercicios, desactivar previas)
+ * en vez de 2 por cada día. Antes, publicar a 4 alumnos una rutina de 7 días
+ * eran ~70 idas y vueltas a la base y tardaba 18,7 s medidos: el botón se veía
+ * congelado. Los INSERT por lotes lo dejan en unas pocas.
+ */
+async function publicarUnaRutina(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  alumnoId: string,
+  datos: RutinaExtraida,
+  biblioteca: Biblioteca
+): Promise<PublicarRutinaState> {
   const { data: rutinasPrevias } = await supabase
     .from("rutinas")
     .select("id, version")
@@ -559,7 +581,7 @@ export async function confirmarYPublicarRutina(
       nombre: datos.nombreRutina || "Rutina de entrenamiento",
       activa: true,
       version: siguienteVersion,
-      created_by: sesion.userId,
+      created_by: userId,
     })
     .select("id")
     .single();
@@ -568,49 +590,56 @@ export async function confirmarYPublicarRutina(
     return { error: "No fue posible crear la rutina. Intenta nuevamente.", ok: false };
   }
 
-  for (let i = 0; i < datos.dias.length; i++) {
-    const dia = datos.dias[i];
-    const { data: nuevoDia, error: errorDia } = await supabase
-      .from("rutina_dias")
-      .insert({
+  // Todos los días de una vez. `orden` es el que vincula cada fila devuelta
+  // con su día del borrador, porque el orden de la respuesta no está garantizado.
+  const { data: diasCreados, error: errorDias } = await supabase
+    .from("rutina_dias")
+    .insert(
+      datos.dias.map((dia, i) => ({
         rutina_id: nuevaRutina.id,
         numero_dia: dia.numero || i + 1,
         nombre: dia.nombre,
         orden: i + 1,
         tipo: dia.tipo,
         descripcion: dia.descripcion,
-      })
-      .select("id")
-      .single();
+      }))
+    )
+    .select("id, orden");
 
-    if (errorDia || !nuevoDia) {
-      return { error: "No fue posible guardar los días de la rutina.", ok: false };
-    }
+  if (errorDias || !diasCreados || diasCreados.length !== datos.dias.length) {
+    return { error: "No fue posible guardar los días de la rutina.", ok: false };
+  }
 
-    if (dia.ejercicios.length > 0) {
-      const { error: errorEjercicios } = await supabase.from("rutina_dia_ejercicios").insert(
-        dia.ejercicios.map((ej, idx) => {
-          const emparejado = emparejarEjercicio(ej.nombre, biblioteca);
-          return {
-            dia_id: nuevoDia.id,
-            orden: idx + 1,
-            nombre: ej.nombre,
-            series_programadas: ej.series,
-            reps_programadas: ej.reps || "10-12",
-            descanso_segundos: ej.descansoSegundos,
-            tecnica_tipo: ej.tecnicaTipo,
-            tecnica_instruccion: ej.tecnicaInstruccion,
-            observacion: ej.observacion,
-            // Si la biblioteca no lo tiene clasificado, vale lo que dijo la IA.
-            grupo_muscular: emparejado?.ejercicio.grupoMuscular ?? ej.grupoMuscular,
-            ejercicio_id: emparejado?.ejercicio.id ?? null,
-          };
-        })
-      );
+  const idPorOrden = new Map(diasCreados.map((d) => [d.orden, d.id]));
 
-      if (errorEjercicios) {
-        return { error: "No fue posible guardar los ejercicios de la rutina.", ok: false };
-      }
+  // Y todos los ejercicios de todos los días, también de una vez.
+  const filasEjercicios = datos.dias.flatMap((dia, i) =>
+    dia.ejercicios.map((ej, idx) => {
+      const emparejado = emparejarEjercicio(ej.nombre, biblioteca);
+      return {
+        dia_id: idPorOrden.get(i + 1)!,
+        orden: idx + 1,
+        nombre: ej.nombre,
+        series_programadas: ej.series,
+        reps_programadas: ej.reps || "10-12",
+        descanso_segundos: ej.descansoSegundos,
+        tecnica_tipo: ej.tecnicaTipo,
+        tecnica_instruccion: ej.tecnicaInstruccion,
+        observacion: ej.observacion,
+        // Si la biblioteca no lo tiene clasificado, vale lo que dijo la IA.
+        grupo_muscular: emparejado?.ejercicio.grupoMuscular ?? ej.grupoMuscular,
+        ejercicio_id: emparejado?.ejercicio.id ?? null,
+      };
+    })
+  );
+
+  if (filasEjercicios.length > 0) {
+    const { error: errorEjercicios } = await supabase
+      .from("rutina_dia_ejercicios")
+      .insert(filasEjercicios);
+
+    if (errorEjercicios) {
+      return { error: "No fue posible guardar los ejercicios de la rutina.", ok: false };
     }
   }
 
@@ -625,7 +654,28 @@ export async function confirmarYPublicarRutina(
   }
 
   revalidatePath(`/admin/alumnos/${alumnoId}`);
+  return { error: null, ok: true };
+}
+
+export async function confirmarYPublicarRutina(
+  alumnoId: string,
+  datos: RutinaExtraida
+): Promise<PublicarRutinaState> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+
+  const invalida = validarRutina(datos);
+  if (invalida) return { error: invalida, ok: false };
+
+  const supabase = await createClient();
+  // Se resuelve cada nombre del PDF contra la biblioteca para dejar guardado
+  // el `ejercicio_id`. Lo que no empareje se publica igual con su nombre —
+  // ver la nota de la migración 0026: bloquear la rutina entera porque un
+  // ejercicio no está en la biblioteca sería peor que publicarla incompleta.
+  const biblioteca = await obtenerBiblioteca();
+
+  const resultado = await publicarUnaRutina(supabase, sesion.userId, alumnoId, datos, biblioteca);
+
   revalidatePath("/alumno/entrenar");
   revalidatePath("/alumno/inicio");
-  return { error: null, ok: true };
+  return resultado;
 }
