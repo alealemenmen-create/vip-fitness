@@ -1,0 +1,142 @@
+# Handoff — VIP Fitness (30 de julio de 2026)
+
+Proyecto: `C:\Users\aleja\OneDrive\Escritorio\VIP`
+Este handoff reemplaza a todos los anteriores (`HANDOFF_CLAUDE_2026-07-29.md`
+y `HANDOFF_CLAUDE_2026-07-29_noche.md`, ya borrados) — acá está todo lo que
+sigue vigente.
+
+## Lo más importante: LA APP YA ESTÁ EN PRODUCCIÓN
+
+- Desplegada en Vercel, proyecto `alealemenmen-creates-projects/vip-fitness-center`.
+- Dominio propio conectado: **https://vipfitness.cl** (comprado en NIC).
+- DNS: el dominio usa nameservers de **Cloudflare**, no los de Vercel. Hay un
+  registro `A vipfitness.cl → 76.76.21.21` con el proxy de Cloudflare
+  **desactivado** (nube gris, "DNS only") — tiene que quedar así para que
+  Vercel sirva el sitio y el certificado. Si alguien reactiva el proxy
+  naranja de Cloudflare, el sitio deja de funcionar.
+- Certificado HTTPS y el sitio funcionando, confirmado con `curl` directo a
+  la IP de Vercel. El DNS local de Alejandro (Movistar) tardó en propagar el
+  cambio la primera vez — si alguna vez alguien no puede entrar recién
+  después de un cambio de DNS, probar primero desde otra red antes de tocar
+  la configuración.
+- Variables de entorno cargadas en Vercel (Production y Preview) desde
+  `.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `ANTHROPIC_API_KEY`,
+  `RESEND_API_KEY`, `RESEND_FROM_EMAIL`.
+- **Pendiente, todavía sin hacer**: cargar `NEXT_PUBLIC_SITE_URL` en Vercel
+  apuntando a `https://vipfitness.cl` (production) — hoy no está seteada ahí,
+  y esa variable arma el link de los correos de invitación a alumnos nuevos.
+  Hacerlo con `vercel env add NEXT_PUBLIC_SITE_URL production` (y `preview`)
+  y volver a desplegar.
+- El primer deploy (`vercel` sin `--prod`) Vercel lo asigna automáticamente a
+  producción la primera vez, sin importar el flag. Deploys posteriores sí
+  respetan `--prod` vs preview normal.
+- El cron semanal (`vercel.json`, `/api/cron/reconocimientos`) viaja con el
+  deploy, sigue en el horario de siempre — no se tocó.
+- Para volver a desplegar en cualquier momento: `npx vercel --prod` desde la
+  raíz del proyecto (ya está vinculado, no hace falta reconfigurar nada).
+
+## Bug de performance real que ya se resolvió — ojo si vuelve a pasar
+
+Después de "quitarle el fondo negro" a una foto real (persona/producto), el
+script de turno debe exportar en **WebP** (`sharp(...).webp({quality: 90})`),
+nunca en PNG sin comprimir. Ya pasó una vez: las 7 fotos de grupos
+musculares se procesaron como PNG y quedaron de 700KB a 1.4MB cada una (15x
+el peso del JPG original) — eso hacía sentir toda la app lenta, porque esas
+fotos se cargan en Inicio, Entrenar y cada sesión de ejercicio. Se corrigió
+regenerándolas en WebP (94-168KB, calidad igual) — ver
+`scripts/quitar-fondo-negro.mjs`. Si en el futuro se procesa alguna foto más
+así, replicar ese mismo script (ya deja el patrón correcto) y no usar PNG
+como salida para fotos reales.
+
+## Estado de las fotos de grupo muscular en Entrenar
+
+7 fotos reales, fondo transparente (sin el fondo negro original), en
+`public/grupos-musculares/*.webp` — mapa en
+`src/lib/grupos-musculares/fotos.ts`. Cardio sigue con el dibujo SVG de
+siempre (no hay foto para ese grupo). Los `.jpg` originales (con fondo negro)
+quedaron de respaldo en la misma carpeta, sin usarse en código.
+
+Componentes en `src/components/student/GrupoMuscularIcon.tsx`:
+- `FotoGrupoMuscular` — miniatura cuadrada (Inicio 68px, por-ejercicio 48px).
+- `FotoDiaEntrenamiento` — foto grande de la tarjeta de Entrenar (principal a
+  la derecha, `object-contain` para no cortar el cuerpo en poses anchas, con
+  margen del borde derecho) + miniaturas circulares de grupos secundarios.
+
+## Logo del tema Espejo
+
+Los tres temas (Espejo/VIP/Lady) comparten el mismo archivo de logo
+(`public/logo-vip-full.png`, wordmark "VIP FITNESS CENTER" gris/naranjo con
+el rayo). Espejo lo muestra a color completo sobre placa negra sólida; VIP y
+Lady lo tiñen de negro plano vía CSS (`filter: brightness(0)`) sobre su
+propia placa de color. Todo en `src/components/Logo.tsx` +
+`src/app/globals.css`. Tamaños de logo: compacto 44px, header 36px, grande de
+Inicio 70px (el header de `/alumno/*` siempre usa `compact`, así que en la
+práctica ese tamaño "grande" no se ve ahí — es preexistente, no tocar sin que
+lo pidan).
+
+## Resplandor de las medallas del ranking (Inicio)
+
+En la tarjeta "RANKING VIP" de Inicio (`RankedVipCard.tsx`), cada medalla
+(`EmblemaRango`) tiene un resplandor de su propio color que "respira"
+(`filter: drop-shadow()` animado, sigue el contorno real del hexágono de la
+medalla — NO es un `box-shadow` sobre un círculo, esa versión anterior dejaba
+un disco/círculo visible detrás en las esquinas transparentes y Alejandro lo
+pidió sacar explícitamente). Si hay que tocar este efecto de nuevo: el
+`filter: drop-shadow` vive en `.emblema-rango-movimiento` (`globals.css`) +
+las variables `--brillo-suave`/`--brillo-fuerte` que calcula el componente.
+Lección para la próxima vez que pida sacar un "círculo" o brillo raro:
+aislar y escalar el elemento 10-15x en el navegador (clonar el nodo a un
+`div` a pantalla completa con `transform: scale()`) antes de asumir qué capa
+de CSS es la culpable — ahorra una vuelta de ida y vuelta.
+
+## Íconos de la app (Windows / Android / iPhone)
+
+Ícono cuadrado con el glifo "V⚡P" recortado del logo, sobre placa negra,
+generado con `scripts/generar-iconos-app.mjs` (usa `sharp` + `png-to-ico`,
+instalado con `--no-save` — si hay que volver a correr el script, reinstalar
+con `npm install --no-save png-to-ico`). Conectado vía convenciones de Next
+App Router: `src/app/icon.png`, `src/app/apple-icon.png`,
+`src/app/favicon.ico` (multi-res 16/32/48), `src/app/manifest.ts` (íconos
+192/512/maskable en `public/icons/`).
+
+## Ajustes menores de Inicio
+
+- Tarjetas "COMIDAS DE HOY", "SESIONES DEL MES" y "ALIMENTACIÓN DE HOY" con
+  más alto (padding vertical) que antes.
+- Se eliminó la firma "by Alejandro Mendoza" (componente `Firma`) de Inicio.
+  Quedó un espacio en blanco al final a propósito — Alejandro dijo que lo
+  iba a resolver él mismo, no tocar sin que lo pida de nuevo.
+
+## Pendientes para la próxima sesión
+
+1. **`NEXT_PUBLIC_SITE_URL` en Vercel** (ver arriba) — es lo único que quedó
+   sin terminar del deploy.
+2. Confirmar que Alejandro ya puede entrar normal a `vipfitness.cl` desde su
+   celular/PC (el DNS debería haber propagado del todo a esta altura).
+3. Probar el flujo real en producción con datos reales: login de un alumno,
+   creación de alumno nuevo, que el cron y los correos (Resend) funcionen
+   desde el dominio real.
+4. El proyecto grande de "Seguimiento Semanal / Mi Reporte Semanal" sigue
+   solo diagnosticado (37 puntos, arquitectura propuesta: un cron, cálculo
+   por código, lotes de ~10 alumnos, 1 llamada a IA por lote), no
+   implementado. El detalle completo del diagnóstico vivía en handoffs
+   anteriores ya borrados — si hace falta retomarlo y no está en el
+   historial de chat disponible, hay que rehacer el diagnóstico o
+   preguntarle a Alejandro por el resumen.
+5. Alejandro mencionó una vez "necesito dos o tres cosas" y solo llegó a
+   pedir el logo y los íconos de la app de esa lista — puede que le queden
+   una o dos cosas más sin decir. Preguntarle si falta algo.
+
+## Verificaciones de esta sesión
+
+- `npx tsc --noEmit` y `npx eslint` limpios en cada cambio de código.
+- `npm run build` (producción) corrido varias veces: 25 rutas, cero errores.
+- Todo lo visual se verificó contra el servidor de desarrollo real
+  (incluyendo el truco de clonar y escalar 15x un elemento en la consola del
+  navegador para inspeccionar de cerca el resplandor de las medallas).
+- El deploy a Vercel y el dominio se verificaron con `curl --resolve`
+  apuntando directo a la IP de Vercel, sin depender del DNS local.
+- El fix de performance (PNG→WebP) se verificó revisando el peso real de los
+  archivos en disco y confirmando en las Network requests del navegador que
+  Next Image sirve el `.webp` optimizado (no el archivo completo).

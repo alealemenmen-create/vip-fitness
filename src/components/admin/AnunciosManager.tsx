@@ -1,0 +1,83 @@
+"use client";
+
+import { useActionState, useEffect, useRef } from "react";
+import { Megaphone, Trash2 } from "lucide-react";
+import { Card } from "@/components/ui/Card";
+import { Input, Textarea } from "@/components/ui/Input";
+import { Button, IconButton } from "@/components/ui/Button";
+import { crearAnuncio, eliminarAnuncio, type FormState } from "@/app/admin/noticias/actions";
+import type { Anuncio } from "@/lib/noticias/data";
+
+const initialState: FormState = { error: null, ok: false };
+
+function formatFecha(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-CL", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function AnunciosManager({ anuncios }: { anuncios: Anuncio[] }) {
+  const [state, formAction, pending] = useActionState(crearAnuncio, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (state.ok) formRef.current?.reset();
+  }, [state.ok]);
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <p className="text-card-title mb-3 flex items-center gap-2 text-text">
+          <Megaphone size={18} className="text-vip" /> Publicar anuncio
+        </p>
+        <form ref={formRef} action={formAction} className="space-y-3">
+          <Input name="titulo" type="text" placeholder="Título del anuncio" required />
+          <Textarea
+            name="mensaje"
+            rows={3}
+            placeholder="Novedades del gimnasio (horarios, mantención, eventos…)"
+            required
+          />
+          <label className="text-secondary flex items-center gap-2 text-text-secondary">
+            <input type="checkbox" name="importante" style={{ accentColor: "var(--color-vip)" }} />
+            Importante — muestra una burbuja flotante a todos los alumnos
+          </label>
+          {state.error && <p className="text-caption text-error">{state.error}</p>}
+          <Button type="submit" variant="accion" loading={pending} className="w-full">
+            {pending ? "Publicando…" : "Publicar"}
+          </Button>
+        </form>
+      </Card>
+
+      {anuncios.length === 0 ? (
+        <Card>
+          <p className="text-body text-text-secondary">Todavía no publicaste ningún anuncio.</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {anuncios.map((a) => (
+            <Card key={a.id} className="flex items-start justify-between gap-2 p-3">
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-body font-semibold text-text">
+                  {a.titulo}
+                  {a.importante && <span className="text-caption font-bold text-error">· IMPORTANTE</span>}
+                </p>
+                <p className="text-secondary mt-0.5 text-text-secondary">{a.mensaje}</p>
+                <p className="text-caption mt-1 text-text-tertiary">{formatFecha(a.creadoEn)}</p>
+              </div>
+              <form action={eliminarAnuncio}>
+                <input type="hidden" name="id" value={a.id} />
+                <IconButton ariaLabel="Eliminar anuncio" type="submit" className="bg-surface-2">
+                  <Trash2 size={16} className="text-error" />
+                </IconButton>
+              </form>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

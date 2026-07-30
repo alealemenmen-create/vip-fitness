@@ -1,0 +1,46 @@
+-- Catalogo inicial de alimentos.
+-- Los que normalmente se pesan quedan por 100g; los que normalmente se
+-- cuentan (huevo, pan, platano, manzana, aceite, mantequilla de mani)
+-- quedan con porcion_base = 1 en su unidad natural (unidad/rebanada/cucharada),
+-- para que el alumno no tenga que pesar un huevo en gramos.
+-- Migrado desde el prototipo original. Editable luego desde Admin > Alimentos.
+insert into alimentos (nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa) values
+  ('Pechuga de pollo (sin piel, cruda)', 'Proteina', 100, 'g', 110, 23.0, 0.0, 1.2),
+  ('Clara de huevo (liquida/pasteurizada)', 'Proteina', 100, 'g', 52, 11.0, 0.7, 0.2),
+  ('Huevo entero de gallina', 'Proteina', 1, 'unidad', 72, 6.3, 0.4, 4.8),
+  ('Carne de vacuno magra (Lomo liso/Pulpa)', 'Proteina', 100, 'g', 135, 21.5, 0.0, 5.2),
+  ('Carne molida magra (5% grasa max.)', 'Proteina', 100, 'g', 150, 20.0, 0.0, 7.5),
+  ('Atun en lata al agua (escurrido)', 'Proteina', 100, 'g', 103, 24.0, 0.0, 0.8),
+  ('Filete de salmon (fresco)', 'Proteina', 100, 'g', 206, 20.0, 0.0, 13.5),
+  ('Reineta / Merluza (filete crudo)', 'Proteina', 100, 'g', 85, 18.2, 0.0, 1.1),
+  ('Carne de pavo (pechuga molida o entera)', 'Proteina', 100, 'g', 115, 24.2, 0.0, 1.8),
+  ('Queso Quark / batido 0% grasa', 'Proteina', 100, 'g', 50, 8.5, 4.0, 0.2),
+  ('Queso Cottage descremado', 'Proteina', 100, 'g', 72, 12.0, 3.5, 1.0),
+  ('Proteina de suero (Whey 80%)', 'Proteina', 100, 'g', 380, 80.0, 6.0, 3.5),
+  ('Avena (hojuelas / copos enteros)', 'Carbohidrato', 100, 'g', 389, 16.9, 66.3, 6.9),
+  ('Camote / Batata (crudo)', 'Carbohidrato', 100, 'g', 86, 1.6, 20.1, 0.1),
+  ('Arroz blanco (grano largo, crudo)', 'Carbohidrato', 100, 'g', 360, 6.7, 79.0, 0.6),
+  ('Arroz integral (crudo)', 'Carbohidrato', 100, 'g', 350, 7.5, 73.5, 2.8),
+  ('Papa / Patata (con cascara, cruda)', 'Carbohidrato', 100, 'g', 77, 2.0, 17.5, 0.1),
+  ('Fideos / Pasta de semola (crudos)', 'Carbohidrato', 100, 'g', 358, 12.0, 72.0, 1.5),
+  ('Quinoa (grano crudo)', 'Carbohidrato', 100, 'g', 368, 14.1, 64.2, 6.1),
+  ('Pan de molde integral', 'Carbohidrato', 1, 'rebanada', 61, 2.3, 10.8, 0.9),
+  ('Harina de avena', 'Carbohidrato', 100, 'g', 385, 15.0, 68.0, 7.0),
+  ('Platano / Banano (maduro)', 'Fruta/Verdura', 1, 'unidad', 105, 1.3, 26.9, 0.4),
+  ('Manzana (con cascara)', 'Fruta/Verdura', 1, 'unidad', 95, 0.5, 25.1, 0.4),
+  ('Arandanos (frescos)', 'Fruta/Verdura', 100, 'g', 57, 0.7, 14.5, 0.3),
+  ('Frutillas / Fresas', 'Fruta/Verdura', 100, 'g', 32, 0.7, 7.7, 0.3),
+  ('Espinaca (cruda / fresca)', 'Fruta/Verdura', 100, 'g', 23, 2.9, 3.6, 0.4),
+  ('Brocoli (fresco, crudo)', 'Fruta/Verdura', 100, 'g', 34, 2.8, 6.6, 0.4),
+  ('Lechuga (escarola / costina)', 'Fruta/Verdura', 100, 'g', 15, 1.4, 2.9, 0.2),
+  ('Tomate (fresco)', 'Fruta/Verdura', 100, 'g', 18, 0.9, 3.9, 0.2),
+  ('Pepino de ensalada (con cascara)', 'Fruta/Verdura', 100, 'g', 15, 0.7, 3.6, 0.1),
+  ('Zapallo italiano / Calabacin', 'Fruta/Verdura', 100, 'g', 17, 1.2, 3.1, 0.2),
+  ('Aceite de oliva extra virgen', 'Grasa', 1, 'cucharada', 124, 0.0, 0.0, 14.0),
+  ('Palta / Aguacate', 'Grasa', 100, 'g', 160, 2.0, 8.5, 14.7),
+  ('Mani / Cacahuate tostado (sin sal)', 'Grasa', 100, 'g', 585, 25.8, 16.1, 49.2),
+  ('Almendras (con piel)', 'Grasa', 100, 'g', 579, 21.1, 21.6, 49.9),
+  ('Nueces (mariposa)', 'Grasa', 100, 'g', 654, 15.2, 13.7, 65.2),
+  ('Mantequilla de mani 100% natural', 'Grasa', 1, 'cucharada', 96, 4.0, 3.2, 8.0),
+  ('Semillas de chia', 'Grasa', 100, 'g', 486, 16.5, 42.1, 30.7)
+on conflict do nothing;

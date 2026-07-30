@@ -1,0 +1,98 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { requireAlumno } from "@/lib/auth";
+import { cambiarCorreoDeUsuario } from "@/lib/cuenta/correo";
+
+export type FormState = { error: string | null; ok: boolean };
+const okState: FormState = { error: null, ok: true };
+
+function fail(mensaje: string): FormState {
+  return { error: mensaje, ok: false };
+}
+
+export async function cambiarMiCorreo(_prevState: FormState, formData: FormData): Promise<FormState> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return fail("No podés editar el perfil en modo solo lectura.");
+
+  const nuevoCorreo = String(formData.get("correo") || "");
+  const mensajeError = await cambiarCorreoDeUsuario(alumnoId, nuevoCorreo);
+  if (mensajeError) return fail(mensajeError);
+
+  return okState;
+}
+
+export async function guardarDatosPersonales(
+  _prevState: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return fail("No podés editar el perfil en modo solo lectura.");
+
+  const supabase = await createClient();
+
+  const nombre = String(formData.get("nombre") || "").trim();
+  const fechaNacimiento = String(formData.get("fecha_nacimiento") || "");
+  const estaturaCm = String(formData.get("estatura_cm") || "");
+  const condicionMedica = String(formData.get("condicion_medica") || "").trim();
+  const restriccionAlimenticia = String(formData.get("restriccion_alimenticia") || "").trim();
+
+  if (!nombre) return fail("Ingresa tu nombre.");
+  if (estaturaCm && (Number(estaturaCm) <= 0 || Number(estaturaCm) > 260)) {
+    return fail("Ingresa una estatura válida en centímetros.");
+  }
+
+  const { error: errorPerfil } = await supabase
+    .from("perfiles")
+    .update({ nombre })
+    .eq("id", alumnoId);
+
+  if (errorPerfil) {
+    console.error("[perfil] update perfiles falló:", errorPerfil);
+    return fail("No fue posible guardar tu nombre. Intenta nuevamente.");
+  }
+
+  const { error: errorDatos } = await supabase
+    .from("alumno_perfil")
+    .update({
+      fecha_nacimiento: fechaNacimiento || null,
+      estatura_cm: estaturaCm ? Number(estaturaCm) : null,
+      condicion_medica: condicionMedica || null,
+      restriccion_alimenticia: restriccionAlimenticia || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", alumnoId);
+
+  if (errorDatos) {
+    console.error("[perfil] update alumno_perfil falló:", errorDatos);
+    return fail("No fue posible guardar tus datos. Intenta nuevamente.");
+  }
+
+  revalidatePath("/alumno/perfil");
+  revalidatePath("/alumno/inicio");
+  revalidatePath(`/admin/alumnos/${alumnoId}`);
+  return okState;
+}
+
+/**
+ * Guarda el tema de botones elegido en la cuenta (además de localStorage, que
+ * sigue aplicándolo al instante sin esperar esta ida y vuelta al servidor).
+ * Sin esto, entrar desde otro dispositivo o con el navegador limpio volvía
+ * siempre al tema por defecto en vez de recordar la elección del alumno.
+ */
+export async function guardarTemaBoton(tema: string): Promise<void> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return;
+  if (tema !== "espejo" && tema !== "vip" && tema !== "femenino") return;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("alumno_perfil")
+    .update({ tema_boton: tema, updated_at: new Date().toISOString() })
+    .eq("user_id", alumnoId);
+
+  if (error) {
+    console.error("[perfil] no se pudo guardar tema_boton:", error.message);
+  }
+}
