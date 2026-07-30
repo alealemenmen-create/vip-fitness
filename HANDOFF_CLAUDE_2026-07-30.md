@@ -1,59 +1,99 @@
 # Handoff — VIP Fitness (30 de julio de 2026)
 
 Proyecto: `C:\Users\aleja\OneDrive\Escritorio\VIP`
-Este handoff reemplaza a todos los anteriores (`HANDOFF_CLAUDE_2026-07-29.md`
-y `HANDOFF_CLAUDE_2026-07-29_noche.md`, ya borrados) — acá está todo lo que
-sigue vigente.
+Reemplaza a todos los handoffs anteriores. Está ordenado por **lo que hay que
+hacer**, no por orden cronológico.
 
-## Lo más importante: LA APP YA ESTÁ EN PRODUCCIÓN
+---
 
-- Desplegada en Vercel, proyecto `alealemenmen-creates-projects/vip-fitness-center`.
-- Dominio propio conectado: **https://vipfitness.cl** (comprado en NIC).
-- DNS: el dominio usa nameservers de **Cloudflare**, no los de Vercel. Hay un
-  registro `A vipfitness.cl → 76.76.21.21` con el proxy de Cloudflare
-  **desactivado** (nube gris, "DNS only") — tiene que quedar así para que
-  Vercel sirva el sitio y el certificado. Si alguien reactiva el proxy
-  naranja de Cloudflare, el sitio deja de funcionar.
-- Certificado HTTPS y el sitio funcionando, confirmado con `curl` directo a
-  la IP de Vercel. El DNS local de Alejandro (Movistar) tardó en propagar el
-  cambio la primera vez — si alguna vez alguien no puede entrar recién
-  después de un cambio de DNS, probar primero desde otra red antes de tocar
-  la configuración.
-- Variables de entorno cargadas en Vercel (Production y Preview) desde
-  `.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-  `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `ANTHROPIC_API_KEY`,
-  `RESEND_API_KEY`, `RESEND_FROM_EMAIL`.
-- `NEXT_PUBLIC_SITE_URL` = `https://vipfitness.cl` **ya cargada** en Production
-  y Preview (30/07, tarde). Es la que arma el link de los correos de invitación
-  a alumnos nuevos. Falta que un deploy la tome (ver abajo).
-- **El repo ya está en GitHub** (30/07): `alealemenmen-create/vip-fitness`,
-  privado. Antes no existía ningún `.git` — todo el proyecto vivía solo en el
-  disco. GitHub y Vercel **no están conectados**: el sitio solo se actualiza
-  corriendo `npx vercel --prod` a mano, hacer push NO despliega nada.
-- **Desplegar desde un agente NO funciona en este proyecto.** Dos intentos de
-  `npx vercel --prod` lanzados desde Claude Code subieron los 34 MB completos y
-  después fallaron en la etapa de build con `{"status":"error","reason":
-  "deploy_failed","message":"Not authorized"}`. Mientras tanto quedan en estado
-  `UNKNOWN` (ni Ready ni Error), así que el CLI no delata el problema hasta que
-  termina. Curioso: `vercel whoami`, `vercel env add` y `vercel ls` sí funcionan
-  con esa misma sesión — o sea el CLI está autenticado, falla solo el build.
-  Los deploys corridos por Alejandro en su propia PowerShell sí funcionan.
-  Igual pasó con `git push` (necesita el login interactivo del navegador).
-  **Conclusión: si hay que desplegar o pushear, pedírselo a Alejandro.**
-- El primer deploy (`vercel` sin `--prod`) Vercel lo asigna automáticamente a
-  producción la primera vez, sin importar el flag. Deploys posteriores sí
-  respetan `--prod` vs preview normal.
-- El cron semanal (`vercel.json`, `/api/cron/reconocimientos`) viaja con el
-  deploy, sigue en el horario de siempre — no se tocó.
-- Para volver a desplegar en cualquier momento: `npx vercel --prod` desde la
-  raíz del proyecto (ya está vinculado, no hace falta reconfigurar nada).
+# 1. LO PRIMERO AL VOLVER
 
-## Rendimiento: la región de Vercel era el problema más grande (30/07, tarde)
+Hay trabajo **terminado y commiteado pero SIN aplicar**. `vipfitness.cl` sigue
+sirviendo código viejo. Este es el orden correcto; saltarse pasos rompe cosas.
+
+### Paso 1 — Región de las funciones (el arreglo de rendimiento más grande)
+
+En el panel de Vercel: **Project Settings → Functions → Function Region → São
+Paulo (`gru1`)**.
+
+NO ponerlo en `vercel.json`: el campo `regions` está restringido a
+Pro/Enterprise y en plan Hobby puede hacer fallar el deploy completo. Ya se
+probó y se descartó por eso.
+
+### Paso 2 — Migraciones, en este orden
+
+Desde el SQL editor del panel de Supabase (así las corre Alejandro), todas
+idempotentes:
+
+1. `supabase/migrations/0026_biblioteca_ejercicios.sql`
+2. `supabase/seeds/ejercicios_base.sql` — 103 ejercicios
+3. `supabase/migrations/0027_documentos_asignaciones.sql`
+
+**0027 es aditiva a propósito**: no borra `documentos.alumno_id`, solo lo vuelve
+opcional. Por eso el orden seguro es *migración primero, código después* — entre
+una cosa y la otra la app sigue funcionando.
+
+### Paso 3 — Desplegar
+
+```
+npx vercel --prod
+```
+
+**Tiene que correrlo Alejandro en su PowerShell.** Desde Claude Code no funciona
+(ver sección 2).
+
+### Paso 4 — Probar en el celular lo que no se pudo verificar
+
+- **Persistencia**: empezar una sesión, cargar peso y reps, tocar "Listo" en una
+  serie, minimizar la app o cambiar de aplicación, volver. Los datos tienen que
+  estar. Repetir con modo avión para probar el respaldo local.
+- **Guía en un solo PDF**: subir una guía real con rutina + dieta y ver si la IA
+  extrae bien la rutina.
+- **Navegación entre pestañas**: comparar con cómo se sentía antes.
+
+---
+
+# 2. Producción
+
+- Vercel, proyecto `alealemenmen-creates-projects/vip-fitness-center`.
+- Dominio **https://vipfitness.cl** (comprado en NIC).
+- DNS por **Cloudflare**, no por Vercel: registro `A vipfitness.cl →
+  76.76.21.21` con el proxy **desactivado** (nube gris, "DNS only"). Si alguien
+  activa el proxy naranja, el sitio deja de funcionar.
+- Repo en GitHub: `alealemenmen-create/vip-fitness`, privado. **GitHub y Vercel
+  NO están conectados**: hacer push no despliega nada.
+- Variables cargadas (Production y Preview): `NEXT_PUBLIC_SUPABASE_URL`,
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`,
+  `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`,
+  `NEXT_PUBLIC_SITE_URL`.
+- Cron semanal en `vercel.json` (`/api/cron/reconocimientos`), sin tocar.
+
+### Desplegar desde un agente NO funciona
+
+Dos intentos de `npx vercel --prod` desde Claude Code subieron los 34 MB
+completos y fallaron en la etapa de build con:
+
+```json
+{"status":"error","reason":"deploy_failed","message":"Not authorized"}
+```
+
+Mientras tanto quedan en estado `UNKNOWN` (ni Ready ni Error), así que el CLI no
+delata el problema hasta que termina. Lo llamativo: `vercel whoami`,
+`vercel env add` y `vercel ls` **sí** funcionan con esa misma sesión — o sea el
+CLI está autenticado y falla solo el build. Igual pasa con `git push`, que
+necesita el login interactivo del navegador.
+
+**Si hay que desplegar o pushear, pedírselo a Alejandro.**
+
+---
+
+# 3. Rendimiento
+
+## La región de Vercel era el problema más grande
 
 Alejandro notó que `localhost` se sentía **3-4x más rápido que vipfitness.cl**,
-lo cual es al revés de lo esperable (dev compila al vuelo, siempre debería ser
-más lento). Ese fue el experimento que destapó la causa. Medido con TCP ping
-desde Chile:
+lo cual es al revés de lo esperable (dev compila al vuelo). Ese fue el
+experimento que destapó la causa. Medido con TCP ping desde Chile:
 
 | Destino | Latencia |
 |---|---|
@@ -61,113 +101,115 @@ desde Chile:
 | Solo *llegar* a us-east-1 (Virginia) | **128 ms** |
 | Solo *llegar* a sa-east-1 (São Paulo) | 62 ms |
 
-Como 95 ms < 128 ms, **el Supabase del proyecto NO está en EE.UU.** — está en
-Sudamérica. Pero las funciones de Vercel corrían en `iad1` (Virginia), porque
-`vercel.json` no fijaba región y ese es el default. Cada carga de página hacía:
+Como 95 ms < 128 ms, **el Supabase del proyecto NO está en EE.UU.** Pero las
+funciones corrían en `iad1` (Virginia), que es el default cuando `vercel.json`
+no fija región. Cada carga de página hacía:
 
-    celular (Chile) → Virginia → São Paulo → Virginia → celular
+```
+celular (Chile) → Virginia → São Paulo → Virginia → celular
+```
 
 y el tramo Virginia↔São Paulo se paga **una vez por consulta**.
 
-**Arreglo:** poner la región de las funciones en **São Paulo (`gru1`)**, que es
-la más cercana tanto a Supabase como a los alumnos chilenos. Si algún día se
-migra el proyecto de Supabase a otra región, hay que actualizar esto o el
-problema vuelve al revés.
+Nota de método: `nslookup` al host de Supabase NO sirve para saber la región,
+devuelve IPs de Cloudflare (el proxy). La triangulación por latencia contra
+endpoints de región conocida sí.
 
-**Cómo aplicarlo: desde el panel de Vercel, NO desde `vercel.json`.**
-Project Settings → Functions → Function Region → São Paulo, y redesplegar.
-Se probó primero con `"regions": ["gru1"]` en `vercel.json` y se descartó: ese
-campo está restringido a Pro/Enterprise y en plan Hobby puede hacer **fallar el
-deploy completo**. El selector del panel funciona en cualquier plan.
+## Autenticación: se sacaron dos viajes de red por navegación
 
-Nota de método: `nslookup` al host de Supabase NO sirve para saber la región —
-devuelve IPs de Cloudflare (el proxy), no del origen. La triangulación por
-latencia contra endpoints de región conocida sí funciona; el script quedó
-documentado en esta sección, no en el repo.
+El cuello de botella de "cambiar de pestaña" no estaba en las pantallas sino en
+el camino de auth, que corría entero en CADA navegación (~358 ms antes de pedir
+un solo dato útil).
 
-## Optimizaciones de autenticación (30/07, tarde)
-
-El cuello de botella de "cambiar de pestaña" no estaban en las pantallas sino
-en el camino de auth, que corría entero en CADA navegación:
-
-- `getUser()` es una llamada HTTP al servidor de Auth de Supabase (~84 ms
-  medidos). Se llamaba **dos veces** por navegación: una en el middleware
-  (`src/lib/supabase/middleware.ts`) y otra en `requireAlumno()`.
-- Después `perfiles` y `alumno_perfil` iban encadenadas (~190 ms).
-
-Cambios:
-1. **`getUser()` → `getClaims()`** en middleware y en `src/lib/auth.ts`. El
-   proyecto firma los JWT con **ES256 (asimétrica)** — verificado leyendo
+1. **`getUser()` → `getClaims()`** en `src/lib/supabase/middleware.ts` y
+   `src/lib/auth.ts`. `getUser()` es una llamada HTTP al servidor de Auth
+   (~84 ms) y se hacía **dos veces** por navegación. El proyecto firma los JWT
+   con **ES256 (asimétrica)** — verificado leyendo
    `/auth/v1/.well-known/jwks.json` — así que `getClaims()` valida la firma
-   localmente con WebCrypto, sin red. **Verificado en vivo** con
-   `VIP_DEBUG_SQL=1`: el log muestra `AUTH .well-known/jwks.json` una sola vez
-   (27 ms) y después CERO llamadas `AUTH user` por navegación. Es igual de
-   seguro que `getUser()`; lo inseguro sería `getSession()`, que confía en la
-   cookie sin verificar. **Si algún día se migra el proyecto a firma simétrica
-   (HS256), `getClaims()` vuelve a salir a la red y esta optimización se
-   pierde en silencio.**
+   localmente con WebCrypto, sin red.
+   **Verificado en vivo** con `VIP_DEBUG_SQL=1`: el log muestra
+   `AUTH .well-known/jwks.json` una sola vez (27 ms) y después CERO llamadas
+   `AUTH user` por navegación.
+   Es igual de seguro que `getUser()`; lo inseguro sería `getSession()`, que
+   confía en la cookie sin verificar.
+   ⚠️ **Si algún día se migra el proyecto a firma simétrica (HS256),
+   `getClaims()` vuelve a salir a la red y esta optimización se pierde en
+   silencio.**
 2. `perfiles` + `alumno_perfil` en un solo select anidado (~190 → ~95 ms).
 3. Quitadas las consultas redundantes de `perfiles` en `entrenar`, `comer` y
    `progreso`: las tres volvían a pedir el nombre que `requireAlumno()` ya
    devuelve.
-4. `loading.tsx` en las 11 rutas de `/alumno/*` (+ `PantallaCargando.tsx`).
+4. **`loading.tsx` en las 11 rutas de `/alumno/*`** (+ `PantallaCargando.tsx`).
    Sin ese archivo, Next 16 **no prefetchea** rutas dinámicas: cada toque en la
    barra inferior quedaba en blanco esperando al servidor.
 5. **N+1 en el panel del entrenador** (`src/app/admin/alumnos/data.ts`): se
    llamaba `obtenerPlanAlimentacion` una vez por alumno. El log mostró 10
    consultas a `planes_alimentacion` en paralelo que, al estorbarse entre sí,
-   pasaban de ~108 ms a ~273 ms cada una. Reemplazado por una sola consulta
-   que trae `kcal_objetivo` de todos (esta pantalla no usa las comidas del
-   plan). El comentario viejo decía "son pocos y ya está resuelta" — no lo
-   estaba.
+   pasaban de ~108 ms a ~273 ms cada una. Ahora es una sola consulta. El
+   comentario viejo decía "son pocos y ya está resuelta" — no lo estaba.
 
-Herramienta clave para medir: `VIP_DEBUG_SQL=1 npm run dev` deja en el log cada
-viaje a Supabase con su tiempo y la tabla. Es la única forma de ver la cascada
-real en vez de estimarla leyendo el código.
+**Herramienta clave:** `VIP_DEBUG_SQL=1 npm run dev` deja en el log cada viaje a
+Supabase con su tiempo y la tabla. Es la única forma de ver la cascada real en
+vez de estimarla leyendo el código.
 
-## Biblioteca de ejercicios (30/07, tarde) — FALTA CORRER LA MIGRACIÓN
+## Migración de índices ya aplicada
+
+`0025_indices_rendimiento.sql` ya la corrió Alejandro (dos veces, sin efecto
+porque es idempotente).
+
+---
+
+# 4. Biblioteca de ejercicios (migración 0026)
 
 Antes, cada ejercicio de una rutina era texto libre escrito por la IA al leer el
 PDF: no había forma de saber que "Jalón al pecho" y "Jalón amplio" son el mismo
-movimiento, ni de colgarles técnica, errores comunes ni una ilustración.
+movimiento, ni de colgarles técnica o ilustración.
 
-**Pendientes para que esto funcione (en orden):**
-1. Correr `supabase/migrations/0026_biblioteca_ejercicios.sql`.
-2. Correr `supabase/seeds/ejercicios_base.sql` (74 ejercicios, idempotente).
-3. Las rutinas ya publicadas quedan con `ejercicio_id = null` — hay que volver
-   a publicarlas desde el PDF para que se emparejen, o emparejarlas a mano.
+## Arquitectura
 
-**Arquitectura:**
-- Tabla `ejercicios`: biblioteca maestra (slug, aliases, grupo principal y
-  secundarios, categoría, equipo, nivel, técnica, errores, consejos,
-  `ilustracion_slug`, `video_url` para el futuro).
-- `rutina_dia_ejercicios.ejercicio_id` **nullable a propósito**. Alejandro pidió
-  que fuera obligatorio ("nunca más ejercicios escritos a mano"); se hizo
+- Tabla `ejercicios`: slug, aliases, grupo principal y secundarios, categoría,
+  equipo, nivel, técnica, errores comunes, consejos, `ilustracion_slug`,
+  `video_url` (para el futuro).
+- `rutina_dia_ejercicios.ejercicio_id` es **NULLABLE a propósito**. Alejandro
+  pidió que fuera obligatorio ("nunca más ejercicios escritos a mano"); se hizo
   opcional porque con FK obligatoria, el día que la IA lea un nombre que no está
-  en la biblioteca **la rutina entera no se podría publicar**. Así el ejercicio
-  sin reconocer se publica igual con su nombre y se empareja después.
-- `ilustracion_slug` va **separado** de `slug` para que varias variantes
-  compartan dibujo (press banca / Smith / mancuernas → un solo dibujo).
-  **102 ejercicios necesitan solo 70 ilustraciones.**
-- `src/lib/ejercicios/emparejar.ts` cruza el nombre del PDF contra la
-  biblioteca. Sin IA, igual que `alimentos/emparejar.ts`. **Verificado con 31
-  casos reales, 31/31.** Dos reglas se endurecieron por falsos positivos que
-  aparecieron en esa prueba: la contención exige que el nombre más corto sea
-  ≥60% del más largo, y el puntaje por palabras divide por el nombre MÁS LARGO
-  (con el más corto, "Trepar la cuerda" emparejaba con "Salto a la cuerda").
-  Criterio de fondo: mostrar el dibujo de otro ejercicio es peor que no mostrar
-  ninguno.
+  en la biblioteca **la rutina entera no se podría publicar**.
+- `ilustracion_slug` va **separado** de `slug` para que las variantes compartan
+  dibujo (press banca / Smith / mancuernas → un solo dibujo).
+  **103 ejercicios necesitan ~70 ilustraciones.**
 
-**Cómo se calibró la biblioteca (importante para ampliarla):** Alejandro señaló
-que hacía falta la lista de ejercicios que él usa de verdad. No hizo falta que
-la escribiera: **ya estaban en la base**, en `rutina_dia_ejercicios` (154 filas,
-137 nombres distintos de rutinas reales). Se midió la cobertura del emparejador
-contra esos nombres:
+## El emparejador es lo más delicado
 
-| Versión | Cobertura |
+`src/lib/ejercicios/emparejar.ts` cruza el nombre del PDF contra la biblioteca.
+Sin IA, igual que `alimentos/emparejar.ts`.
+
+**Criterio de fondo: mostrar el dibujo de otro ejercicio es PEOR que no mostrar
+ninguno.** Todas las reglas salen de casos reales que fallaron:
+
+| Regla | El caso que la obligó |
+|---|---|
+| Contención exige que el nombre corto sea ≥60% del largo | "Trepar la cuerda" emparejaba con "Salto a la cuerda" |
+| El puntaje divide por el nombre MÁS LARGO | Con el más corto, cualquier ejercicio de una palabra puntúa perfecto |
+| Umbral 0.66 (no 0.67) | 2 de 3 palabras da 0.6666 y quedaba afuera por centésimas |
+| **Desempate por equipo** | "Press banca con mancuernas" daba `press-banca` (barra) |
+
+El **desempate por equipo es la regla más importante**: si el nombre del PDF
+menciona un equipo (mancuerna, barra, polea, smith, máquina…), gana el ejercicio
+cuyo campo `equipo` coincide. Ni el puntaje ni contar palabras sueltas
+resolvían ese caso — las dos candidatas dejaban exactamente una palabra sin
+compartir. Se resolvió con el dato estructurado en vez de más heurísticas de
+texto. **Antes de tocar el emparejador, revisar que ese caso siga funcionando.**
+
+## Cómo se calibró (importante para ampliarla)
+
+Alejandro señaló que hacía falta la lista de ejercicios que él usa de verdad. No
+hizo falta que la escribiera: **ya estaba en la base**, en
+`rutina_dia_ejercicios` (154 filas, 137 nombres distintos de rutinas reales).
+
+| Versión | Cobertura sobre rutinas reales |
 |---|---|
 | Biblioteca genérica inicial (74 ejercicios) | **47%** |
-| + 28 ejercicios sacados de sus rutinas reales | 87% |
+| + 28 ejercicios sacados de sus rutinas | 87% |
 | + variantes del nombre ("A o B", paréntesis, adjetivos) | 94% |
 | + plurales en los adjetivos y alias sueltos | **97%** |
 
@@ -175,211 +217,219 @@ Los 4 que no emparejan ("Abdomen", "Abdomen / vacuum", "Brazos completos",
 "Pulsos") **no son ejercicios**, son encabezados de sección: que queden sin
 emparejar es lo correcto.
 
-**El desempate por equipo es la regla más importante del emparejador.** Salió de
-un caso que Alejandro dio a mano: "Press banca con mancuernas" empataba en
-puntaje con "Press de banca" (barra) y ganaba por orden de lista, así que le
-mostraba al alumno **una barra para un ejercicio con mancuernas**. Ni el puntaje
-ni contar palabras sueltas lo resolvían: las dos dejaban exactamente una palabra
-sin compartir. Se resolvió usando el dato estructurado que ya estaba en la
-tabla: si el nombre del PDF menciona un equipo (mancuerna, barra, polea, smith,
-máquina…), gana el ejercicio cuyo `equipo` coincide. Antes de tocar el
-emparejador, revisar que este caso siga funcionando.
+Después Alejandro pasó su **lista canónica de 35 ejercicios** (cómo los nombra
+él). Quedó en **35/35** tras agregar Farmer Walk y alias para "Abducción" y
+"Bicicleta Spinning".
 
-Para volver a medir después de tocar la biblioteca, el método fue: exportar los
-nombres reales desde `rutina_dia_ejercicios`, parsear la semilla a JSON y correr
-el emparejador con `node --experimental-strip-types` sobre copias con los
-imports reescritos (el proyecto no tiene runner de TS instalado).
+**Método para volver a medir:** exportar los nombres reales desde
+`rutina_dia_ejercicios`, parsear la semilla a JSON, y correr el emparejador con
+`node --experimental-strip-types` sobre copias con los imports reescritos (el
+proyecto no tiene runner de TS instalado).
 
-**Las ilustraciones NO existen todavía.** `src/lib/ejercicios/ilustracion.ts`
-tiene una cadena de respaldo: ilustración → foto de grupo muscular (lo de hoy)
-→ ícono. El set `ILUSTRACIONES_DISPONIBLES` está **vacío**; al agregar un SVG a
-`public/ejercicios/` hay que sumar su nombre a ese set y aparece solo.
+## Las ilustraciones NO existen todavía
 
-Sobre el arte: Claude **no puede dibujarlas** (serían monigotes, no el estilo
-premium pedido). Se recomendó comprar un pack vectorial con licencia (~US$30-80)
-por ser lo único que garantiza consistencia entre 70 piezas. Decisión de
+`src/lib/ejercicios/ilustracion.ts` tiene cadena de respaldo: ilustración → foto
+de grupo muscular (lo de hoy) → ícono. El set `ILUSTRACIONES_DISPONIBLES` está
+**vacío**; al agregar un SVG a `public/ejercicios/` hay que sumar su nombre a ese
+set y aparece solo.
+
+Sobre el arte: **Claude no puede dibujarlas** (serían monigotes, no el estilo
+premium pedido). Se recomendó comprar un pack vectorial con licencia
+(~US$30-80), lo único que garantiza consistencia entre ~70 piezas. Decisión de
 Alejandro: arrancar sin arte y conseguirlo después.
 
-## Sección Documentos centralizada (30/07) — FALTA CORRER LA MIGRACIÓN
+---
+
+# 5. Documentos
+
+## Guía del alumno en un solo PDF
+
+El entrenador arma la guía en un archivo, así que pedirle dos subidas separadas
+era trabajo inventado. Hay un recuadro principal que sube **un** PDF y lo
+registra dos veces en `documentos` (tipo `rutina` y tipo `alimentacion`)
+apuntando al mismo `storage_path`.
+
+La IA hace **una sola llamada y extrae solo la rutina**, por decisión explícita
+de Alejandro: la dieta no se analiza, se adjunta para que el alumno la lea. Se
+agregó el enlace al PDF en la pantalla de Comer. Los dos formularios anteriores
+quedan como respaldo detrás de un enlace.
+
+## Sección Documentos centralizada (migración 0027)
 
 `documentos` mezclaba el ARCHIVO con la ASIGNACIÓN: `alumno_id` era obligatorio,
 así que una fila era "este archivo, para este alumno". De ahí venía tener que
 entrar al perfil de cada alumno, y que el mismo PDF para 10 alumnos fueran 10
-filas. La migración **0027** lo separa:
+filas.
 
-    documentos             = el archivo (uno por archivo real)
-    documento_asignaciones = a qué alumnos está asignado
+```
+documentos             = el archivo (uno por archivo real)
+documento_asignaciones = a qué alumnos está asignado
+```
 
-**Pendiente: correr `supabase/migrations/0027_documentos_asignaciones.sql`.**
-
-Es **aditiva a propósito**: `documentos.alumno_id` no se borra, solo pasa a
-aceptar null, y las asignaciones existentes se copian a la tabla nueva. Así el
-orden seguro es *migración primero, código después*, sin ventana de app rota. La
-columna queda obsoleta; se puede eliminar en una migración futura cuando no
-quede nada leyéndola.
-
-También se agregó el tipo `'otro'` (antes solo `rutina` y `alimentacion`).
-
-**Novedades:**
-- `/admin/documentos` (`DocumentosManager.tsx`): subir un archivo una sola vez,
-  elegir tipo, marcar uno/varios/todos los alumnos y asignar en una acción.
+- **`/admin/documentos`** (`DocumentosManager.tsx`): subir un archivo una vez,
+  elegir tipo, marcar uno/varios/todos los alumnos, asignar en una acción.
   Biblioteca con quién lo tiene, asignar, quitar, reemplazar archivo
   (conservando asignaciones) y eliminar.
-- Se mantiene la subida desde el perfil de cada alumno, intacta.
+- Nueva pestaña **Docs** en `AdminTabs`. La subida desde el perfil de cada
+  alumno sigue intacta.
+- Se agregó el tipo `'otro'`.
 - El alumno lee sus documentos desde las asignaciones, **con respaldo** a la
-  consulta vieja por si el código llega antes que la migración.
-- `obtenerDocumentoDieta` (enlace de dieta en Comer) ahora reusa
-  `obtenerDocumentos` en vez de tener su propia consulta, para que no puedan
-  quedar desincronizadas.
+  consulta vieja por si el código llegara antes que la migración.
+- `obtenerDocumentoDieta` reusa `obtenerDocumentos` en vez de tener su propia
+  consulta, para que no puedan quedar desincronizadas.
 
-**Trampa que costó dos builds:** `src/lib/documentos/data.ts` lleva
-`server-only`, y `DocumentosManager` es un componente cliente. Importar de ahí
-rompe el build con un error poco claro ("Ecmascript file had an error"). Por eso
-los tipos y `ETIQUETA_TIPO` viven en `src/lib/documentos/tipos.ts`, sin
-`server-only`. Mismo patrón que `src/lib/ejercicios/tipos.ts`. Si aparece ese
+⚠️ **Trampa que costó dos builds:** `src/lib/documentos/data.ts` lleva
+`server-only` y `DocumentosManager` es un componente cliente. Importar de ahí
+rompe el build con un error poco claro (*"Ecmascript file had an error"*). Por
+eso los tipos y `ETIQUETA_TIPO` viven en `src/lib/documentos/tipos.ts`, sin
+`server-only`. Mismo patrón que `src/lib/ejercicios/tipos.ts`. **Si aparece ese
 error de build, mirar primero si un componente cliente está importando de un
-módulo `server-only`.
+módulo `server-only`.**
 
-**Lo que todavía NO está hecho de este pedido:** analizar con IA desde la
-pantalla nueva. Hoy el análisis vive en el flujo por alumno
-(`analizarRutinaPdf`). La pieza que falta es publicar la MISMA rutina extraída a
-varios alumnos (una llamada a la IA en vez de N): `confirmarYPublicarRutina` ya
-recibe `alumnoId`, así que alcanza con recorrer la lista de seleccionados desde
-el borrador que ya está en memoria. Decisión tomada con Alejandro: al asignar,
-la rutina activa anterior se reemplaza y pasa a histórico, igual que hoy.
+⚠️ Al compartir un archivo entre varias filas, borrar una no puede eliminar el
+objeto de Storage sin antes revisar que ninguna otra lo use. Está cubierto en
+`eliminarDocumento` y `eliminarDocumentoBiblioteca`.
 
-## Persistencia del entrenamiento (30/07) — pérdida de datos corregida
+---
 
-El bug: al tocar "Listo" en una serie **no se guardaba nada**. El envío al
-servidor (`requestSubmit`) solo se disparaba al completar TODAS las series del
-ejercicio, así que si el alumno minimizaba la app, cambiaba de aplicación o se
-le descartaba la pestaña en el medio, perdía todo lo cargado.
+# 6. Persistencia del entrenamiento — pérdida de datos corregida
 
-Ahora, al tocar "Listo":
-1. Se respalda en `localStorage` (instantáneo, no depende de la red).
-2. Se manda al servidor.
+El bug: al tocar "Listo" en una serie **no se guardaba nada**. El envío
+(`requestSubmit`) solo se disparaba al completar TODAS las series, así que
+minimizar la app o cambiar de aplicación en el medio perdía todo lo cargado.
 
-Y escribir peso o repeticiones también respalda local, enganchado al `onChange`
-del `<form>` (los eventos de los inputs burbujean). Al servidor se manda solo al
+Ahora cada "Listo":
+1. Respalda en `localStorage` (instantáneo, no depende de la red).
+2. Manda al servidor.
+
+Escribir peso o reps también respalda local, enganchado al `onChange` del
+`<form>` (los eventos de los inputs burbujean). Al servidor se manda solo al
 tocar "Listo", para no disparar una petición por tecla.
 
-- `src/lib/entrenamiento/borrador.ts` — respaldo local. **Regla de precedencia:
-  el borrador existe SOLO mientras hay algo sin confirmar y se borra cuando el
-  servidor responde.** Sin eso, un borrador viejo podría restaurarse encima de
-  datos más nuevos. Vence a las 24 h.
+- `src/lib/entrenamiento/borrador.ts` — **regla de precedencia: el borrador
+  existe SOLO mientras hay algo sin confirmar y se borra cuando el servidor
+  responde.** Sin eso, un borrador viejo podría restaurarse encima de datos más
+  nuevos. Vence a las 24 h.
 - `src/lib/entrenamiento/reps.ts` — precarga el campo de repeticiones con el
-  objetivo de la rutina (el techo si es un rango: "10-12" → 12). Devuelve null
-  para "al fallo" o "30 seg", donde inventar un número sería un dato falso.
+  objetivo de la rutina (el techo si es rango: "10-12" → 12). Devuelve null para
+  "al fallo" o "30 seg", donde inventar un número sería un dato falso.
   **Probado con 18 casos, 18/18.**
 - Los duplicados ya estaban cubiertos: `guardarSeries` hace upsert sobre
   `(sesion_ejercicio_id, numero_serie)`.
 
-Detalle de implementación: los campos son **no controlados** (`defaultValue`),
-así que para restaurar un borrador la fila se re-monta cambiando su `key`
+Detalle: los campos son **no controlados** (`defaultValue`), así que para
+restaurar un borrador la fila se re-monta cambiando su `key`
 (`${n}-${borradorLeido}`). Leer `localStorage` durante el render rompería la
 hidratación, por eso se lee en un efecto.
 
-## Bug de performance real que ya se resolvió — ojo si vuelve a pasar
+---
 
-Después de "quitarle el fondo negro" a una foto real (persona/producto), el
-script de turno debe exportar en **WebP** (`sharp(...).webp({quality: 90})`),
-nunca en PNG sin comprimir. Ya pasó una vez: las 7 fotos de grupos
-musculares se procesaron como PNG y quedaron de 700KB a 1.4MB cada una (15x
-el peso del JPG original) — eso hacía sentir toda la app lenta, porque esas
-fotos se cargan en Inicio, Entrenar y cada sesión de ejercicio. Se corrigió
-regenerándolas en WebP (94-168KB, calidad igual) — ver
-`scripts/quitar-fondo-negro.mjs`. Si en el futuro se procesa alguna foto más
-así, replicar ese mismo script (ya deja el patrón correcto) y no usar PNG
-como salida para fotos reales.
+# 7. Decisiones de producto tomadas con Alejandro
 
-## Estado de las fotos de grupo muscular en Entrenar
+- **Retención de 6 meses: NO se implementó, por recomendación.** La base tiene
+  **853 filas en total** y el plan gratis da 500 MB (~0,04% usado). Además
+  borrar historial rompería: las fotos "Primera / Actual" (el corazón de
+  Progreso), los pesos de referencia de `obtenerUltimoRegistro`, y los rangos
+  acumulados del ranking. Si algún día hace falta, la salida es **archivar**, no
+  borrar.
+- Al asignar una rutina a varios alumnos, **la rutina activa anterior se
+  reemplaza** y pasa a histórico (igual que hoy).
+- La dieta **no se analiza con IA**, solo se adjunta.
 
-7 fotos reales, fondo transparente (sin el fondo negro original), en
-`public/grupos-musculares/*.webp` — mapa en
-`src/lib/grupos-musculares/fotos.ts`. Cardio sigue con el dibujo SVG de
-siempre (no hay foto para ese grupo). Los `.jpg` originales (con fondo negro)
-quedaron de respaldo en la misma carpeta, sin usarse en código.
+---
+
+# 8. Lo que NO está hecho
+
+1. **Analizar con IA una vez y publicar a varios alumnos.** Es la pieza que
+   falta de la sección Documentos. `confirmarYPublicarRutina` ya recibe
+   `alumnoId`, así que alcanza con recorrer los seleccionados desde el borrador
+   que ya está en memoria. Ahorra N-1 llamadas a la IA.
+2. **Las ~70 ilustraciones** (ver sección 4).
+3. **Telegram** (tareas 3 y 6 del roadmap): notificaciones de entrenamiento y
+   recordatorios de alimentación. Necesitan bot token, forma de vincular
+   alumno↔chat_id y un disparador programado (Vercel Cron).
+4. **"Seguimiento Semanal / Mi Reporte Semanal"**: solo diagnosticado
+   (arquitectura propuesta: un cron, cálculo por código, lotes de ~10 alumnos,
+   1 llamada a IA por lote). El detalle vivía en handoffs ya borrados.
+5. Probar en producción con datos reales: alta de alumno, correos de Resend y el
+   cron desde el dominio real.
+
+---
+
+# 9. Referencia que sigue vigente
+
+## Fotos de grupo muscular
+
+7 fotos reales con fondo transparente en `public/grupos-musculares/*.webp`, mapa
+en `src/lib/grupos-musculares/fotos.ts`. Cardio sigue con dibujo SVG. Los `.jpg`
+originales quedaron de respaldo sin usarse.
 
 Componentes en `src/components/student/GrupoMuscularIcon.tsx`:
-- `FotoGrupoMuscular` — miniatura cuadrada (Inicio 68px, por-ejercicio 48px).
-- `FotoDiaEntrenamiento` — foto grande de la tarjeta de Entrenar (principal a
-  la derecha, `object-contain` para no cortar el cuerpo en poses anchas, con
-  margen del borde derecho) + miniaturas circulares de grupos secundarios.
+`FotoGrupoMuscular` (miniatura) y `FotoDiaEntrenamiento` (foto grande de
+Entrenar, `object-contain` para no cortar el cuerpo).
 
-## Logo del tema Espejo
+⚠️ **Al procesar fotos reales, exportar en WebP** (`sharp(...).webp({quality:
+90})`), nunca PNG. Ya pasó: 7 fotos como PNG quedaron de 700KB a 1.4MB cada una
+(15x el JPG original) y hacían sentir lenta toda la app. Ver
+`scripts/quitar-fondo-negro.mjs`, que ya deja el patrón correcto.
 
-Los tres temas (Espejo/VIP/Lady) comparten el mismo archivo de logo
-(`public/logo-vip-full.png`, wordmark "VIP FITNESS CENTER" gris/naranjo con
-el rayo). Espejo lo muestra a color completo sobre placa negra sólida; VIP y
-Lady lo tiñen de negro plano vía CSS (`filter: brightness(0)`) sobre su
-propia placa de color. Todo en `src/components/Logo.tsx` +
-`src/app/globals.css`. Tamaños de logo: compacto 44px, header 36px, grande de
-Inicio 70px (el header de `/alumno/*` siempre usa `compact`, así que en la
-práctica ese tamaño "grande" no se ve ahí — es preexistente, no tocar sin que
-lo pidan).
+## Logo
 
-## Resplandor de las medallas del ranking (Inicio)
+Los tres temas (Espejo/VIP/Lady) comparten `public/logo-vip-full.png`. Espejo lo
+muestra a color sobre placa negra; VIP y Lady lo tiñen de negro plano vía CSS
+(`filter: brightness(0)`). En `src/components/Logo.tsx` + `globals.css`. Tamaños:
+compacto 44px, header 36px, grande 70px (el header de `/alumno/*` siempre usa
+`compact`).
 
-En la tarjeta "RANKING VIP" de Inicio (`RankedVipCard.tsx`), cada medalla
-(`EmblemaRango`) tiene un resplandor de su propio color que "respira"
-(`filter: drop-shadow()` animado, sigue el contorno real del hexágono de la
-medalla — NO es un `box-shadow` sobre un círculo, esa versión anterior dejaba
-un disco/círculo visible detrás en las esquinas transparentes y Alejandro lo
-pidió sacar explícitamente). Si hay que tocar este efecto de nuevo: el
-`filter: drop-shadow` vive en `.emblema-rango-movimiento` (`globals.css`) +
-las variables `--brillo-suave`/`--brillo-fuerte` que calcula el componente.
-Lección para la próxima vez que pida sacar un "círculo" o brillo raro:
-aislar y escalar el elemento 10-15x en el navegador (clonar el nodo a un
-`div` a pantalla completa con `transform: scale()`) antes de asumir qué capa
-de CSS es la culpable — ahorra una vuelta de ida y vuelta.
+## Resplandor de las medallas (Inicio)
 
-## Íconos de la app (Windows / Android / iPhone)
+En `RankedVipCard.tsx`, cada medalla tiene un resplandor de su color que
+"respira": `filter: drop-shadow()` animado en `.emblema-rango-movimiento`
+(`globals.css`) + variables `--brillo-suave` / `--brillo-fuerte`.
+**NO es un `box-shadow`** — esa versión dejaba un disco visible en las esquinas
+transparentes y Alejandro pidió sacarlo explícitamente.
 
-Ícono cuadrado con el glifo "V⚡P" recortado del logo, sobre placa negra,
-generado con `scripts/generar-iconos-app.mjs` (usa `sharp` + `png-to-ico`,
-instalado con `--no-save` — si hay que volver a correr el script, reinstalar
-con `npm install --no-save png-to-ico`). Conectado vía convenciones de Next
-App Router: `src/app/icon.png`, `src/app/apple-icon.png`,
-`src/app/favicon.ico` (multi-res 16/32/48), `src/app/manifest.ts` (íconos
-192/512/maskable en `public/icons/`).
+Lección: para depurar un brillo o "círculo" raro, clonar el nodo a un `div` a
+pantalla completa con `transform: scale()` 10-15x antes de asumir qué capa de
+CSS es la culpable.
 
-## Ajustes menores de Inicio
+## Íconos de la app
 
-- Tarjetas "COMIDAS DE HOY", "SESIONES DEL MES" y "ALIMENTACIÓN DE HOY" con
-  más alto (padding vertical) que antes.
-- Se eliminó la firma "by Alejandro Mendoza" (componente `Firma`) de Inicio.
-  Quedó un espacio en blanco al final a propósito — Alejandro dijo que lo
-  iba a resolver él mismo, no tocar sin que lo pida de nuevo.
+Glifo "V⚡P" sobre placa negra, generado con `scripts/generar-iconos-app.mjs`
+(`sharp` + `png-to-ico`, instalado con `--no-save`; reinstalar con
+`npm install --no-save png-to-ico` si hay que correrlo). Conectado por
+convenciones de Next: `src/app/icon.png`, `apple-icon.png`, `favicon.ico`,
+`manifest.ts`.
 
-## Pendientes para la próxima sesión
+## Detalles de Inicio
 
-1. **`NEXT_PUBLIC_SITE_URL` en Vercel** (ver arriba) — es lo único que quedó
-   sin terminar del deploy.
-2. Confirmar que Alejandro ya puede entrar normal a `vipfitness.cl` desde su
-   celular/PC (el DNS debería haber propagado del todo a esta altura).
-3. Probar el flujo real en producción con datos reales: login de un alumno,
-   creación de alumno nuevo, que el cron y los correos (Resend) funcionen
-   desde el dominio real.
-4. El proyecto grande de "Seguimiento Semanal / Mi Reporte Semanal" sigue
-   solo diagnosticado (37 puntos, arquitectura propuesta: un cron, cálculo
-   por código, lotes de ~10 alumnos, 1 llamada a IA por lote), no
-   implementado. El detalle completo del diagnóstico vivía en handoffs
-   anteriores ya borrados — si hace falta retomarlo y no está en el
-   historial de chat disponible, hay que rehacer el diagnóstico o
-   preguntarle a Alejandro por el resumen.
-5. Alejandro mencionó una vez "necesito dos o tres cosas" y solo llegó a
-   pedir el logo y los íconos de la app de esa lista — puede que le queden
-   una o dos cosas más sin decir. Preguntarle si falta algo.
+Se eliminó la firma "by Alejandro Mendoza". Quedó un espacio en blanco al final
+**a propósito** — Alejandro dijo que lo resolvería él, no tocar sin que lo pida.
 
-## Verificaciones de esta sesión
+## Entorno de desarrollo
 
-- `npx tsc --noEmit` y `npx eslint` limpios en cada cambio de código.
-- `npm run build` (producción) corrido varias veces: 25 rutas, cero errores.
-- Todo lo visual se verificó contra el servidor de desarrollo real
-  (incluyendo el truco de clonar y escalar 15x un elemento en la consola del
-  navegador para inspeccionar de cerca el resplandor de las medallas).
-- El deploy a Vercel y el dominio se verificaron con `curl --resolve`
-  apuntando directo a la IP de Vercel, sin depender del DNS local.
-- El fix de performance (PNG→WebP) se verificó revisando el peso real de los
-  archivos en disco y confirmando en las Network requests del navegador que
-  Next Image sirve el `.webp` optimizado (no el archivo completo).
+- `.claude/launch.json` apunta al puerto 3001. El 3000 puede estar ocupado por
+  otra herramienta del usuario — no tocarlo.
+- Para probar desde el celular en la misma WiFi: `http://<ip-lan>:3001`.
+  `next.config.ts` tiene `allowedDevOrigins: ["192.168.1.*"]`; si cambia el
+  rango de la red, actualizarlo.
+- Para levantar un server sin pisar el de otra sesión:
+  `VIP_DIST_DIR=.next-loquesea npm run dev -- -p 3005`.
+  ⚠️ Esto ensucia el `include` de `tsconfig.json` — revisarlo antes de commitear.
+
+---
+
+# 10. Cómo se verificó todo esto
+
+- `npx tsc --noEmit` y `npx eslint` limpios en cada cambio.
+- `npm run build` (producción) corrido en cada feature: 25+ rutas, cero errores.
+- **Emparejador de ejercicios**: 31 casos de regresión + 137 nombres reales +
+  la lista canónica de 35. Todo re-corrido después de cada cambio de reglas.
+- **Parser de repeticiones**: 18 casos.
+- **Latencia**: medida con TCP ping y con consultas REST reales, no estimada.
+- **`getClaims()`**: verificado en vivo con `VIP_DEBUG_SQL=1` sobre una sesión
+  real, contando las llamadas al servidor de Auth antes y después.
+
+**Lo que NO se pudo verificar** (requiere celular real o sesión de alumno):
+persistencia al minimizar la app, calidad de la extracción de la guía en un solo
+PDF, y la sección Documentos funcionando de punta a punta.
