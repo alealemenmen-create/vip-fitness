@@ -6,10 +6,30 @@ hacer**, no por orden cronológico.
 
 ---
 
+# 0. ESTADO AL CIERRE (30/07, noche)
+
+**Deploy lanzado y en construcción** por Alejandro desde su PowerShell, después
+de resolver el token vencido con `vercel login`:
+
+```
+https://vip-fitness-center-9e0tq9iez-alealemenmen-creates-projects.vercel.app
+```
+
+**Verificar que haya terminado bien** — `npx vercel ls` tiene que mostrarlo en
+`● Ready`, y `npx vercel alias ls` que `vipfitness.cl` apunte a ÉL y no al
+deployment viejo (`7in2wbezs`).
+
+⚠️ **No se sabe si los pasos 1 y 2 de abajo se hicieron antes de este deploy.**
+Si las migraciones NO se corrieron, la app no se rompe (todo tiene respaldo),
+pero la biblioteca de ejercicios y la sección Documentos no van a funcionar.
+Confirmarlo con Alejandro antes de dar nada por terminado.
+
+---
+
 # 1. LO PRIMERO AL VOLVER
 
-Hay trabajo **terminado y commiteado pero SIN aplicar**. `vipfitness.cl` sigue
-sirviendo código viejo. Este es el orden correcto; saltarse pasos rompe cosas.
+Hay trabajo **terminado y commiteado**. Este es el orden correcto; saltarse
+pasos rompe cosas.
 
 ### Paso 1 — Región de las funciones (el arreglo de rendimiento más grande)
 
@@ -36,11 +56,12 @@ una cosa y la otra la app sigue funcionando.
 ### Paso 3 — Desplegar
 
 ```
+npx vercel login     # solo si da "The specified token is not valid"
 npx vercel --prod
 ```
 
-**Tiene que correrlo Alejandro en su PowerShell.** Desde Claude Code no funciona
-(ver sección 2).
+**Tiene que correrlo Alejandro en su PowerShell** (el login abre el navegador).
+Ver sección 2 para el caso "Not authorized".
 
 ### Paso 4 — Probar en el celular lo que no se pudo verificar
 
@@ -68,22 +89,35 @@ npx vercel --prod
   `NEXT_PUBLIC_SITE_URL`.
 - Cron semanal en `vercel.json` (`/api/cron/reconocimientos`), sin tocar.
 
-### Desplegar desde un agente NO funciona
+### Si el deploy falla con "Not authorized": el token venció
 
-Dos intentos de `npx vercel --prod` desde Claude Code subieron los 34 MB
-completos y fallaron en la etapa de build con:
+Pasó el 30/07. Dos intentos de `npx vercel --prod` desde Claude Code subieron los
+34 MB completos y fallaron en la etapa de build con:
 
 ```json
 {"status":"error","reason":"deploy_failed","message":"Not authorized"}
 ```
 
-Mientras tanto quedan en estado `UNKNOWN` (ni Ready ni Error), así que el CLI no
-delata el problema hasta que termina. Lo llamativo: `vercel whoami`,
-`vercel env add` y `vercel ls` **sí** funcionan con esa misma sesión — o sea el
-CLI está autenticado y falla solo el build. Igual pasa con `git push`, que
-necesita el login interactivo del navegador.
+Mientras tanto quedaban en estado `UNKNOWN` (ni Ready ni Error), así que el CLI
+no delataba el problema hasta terminar.
 
-**Si hay que desplegar o pushear, pedírselo a Alejandro.**
+**Diagnóstico inicial equivocado:** se concluyó que era algo del entorno del
+agente, porque `vercel whoami`, `vercel env add` y `vercel ls` **sí** funcionaban.
+Falso. Cuando Alejandro corrió el mismo comando en su PowerShell obtuvo:
+
+```
+Error: The specified token is not valid. Use `vercel login` to generate a new token.
+```
+
+El token estaba vencido para todos; esos otros comandos leen de otra caché y por
+eso engañaban. **Solución: `npx vercel login` y volver a desplegar.**
+
+Lección: que unos comandos del CLI funcionen no prueba que la sesión sea válida.
+Ante un "Not authorized" en el build, probar `vercel login` antes de buscar
+causas exóticas.
+
+`git push` sí necesita el login interactivo del navegador, y eso sí tiene que
+hacerlo Alejandro.
 
 ---
 
