@@ -8,69 +8,35 @@ hacer**, no por orden cronológico.
 
 # 0. ESTADO AL CIERRE (30/07, noche)
 
-**Deploy lanzado y en construcción** por Alejandro desde su PowerShell, después
-de resolver el token vencido con `vercel login`:
+**TODO DESPLEGADO Y VERIFICADO.** No queda nada pendiente de subir.
 
-```
-https://vip-fitness-center-9e0tq9iez-alealemenmen-creates-projects.vercel.app
-```
+- Deployment `2drdw17yo`, **`● Ready`**, build de **1 minuto**.
+- `vipfitness.cl` apunta a él (verificado con `npx vercel alias ls`).
+- `/admin/documentos` responde **307** en producción; antes daba 404. Esa es la
+  prueba de que el código nuevo está sirviendo.
+- **Región `gru1` (São Paulo)** configurada por Alejandro en el panel.
+- **Migraciones 0026, semilla y 0027 aplicadas** por Alejandro en Supabase.
 
-**Verificar que haya terminado bien** — `npx vercel ls` tiene que mostrarlo en
-`● Ready`, y `npx vercel alias ls` que `vipfitness.cl` apunte a ÉL y no al
-deployment viejo (`7in2wbezs`).
-
-⚠️ **No se sabe si los pasos 1 y 2 de abajo se hicieron antes de este deploy.**
-Si las migraciones NO se corrieron, la app no se rompe (todo tiene respaldo),
-pero la biblioteca de ejercicios y la sección Documentos no van a funcionar.
-Confirmarlo con Alejandro antes de dar nada por terminado.
+Alejandro confirmó que la app se siente notoriamente más rápida.
 
 ---
 
 # 1. LO PRIMERO AL VOLVER
 
-Hay trabajo **terminado y commiteado**. Este es el orden correcto; saltarse
-pasos rompe cosas.
+No hay pasos de despliegue pendientes. Lo que queda es **probar en producción**,
+directo en `vipfitness.cl` desde el celular (ya no hace falta servidor local):
 
-### Paso 1 — Región de las funciones (el arreglo de rendimiento más grande)
-
-En el panel de Vercel: **Project Settings → Functions → Function Region → São
-Paulo (`gru1`)**.
-
-NO ponerlo en `vercel.json`: el campo `regions` está restringido a
-Pro/Enterprise y en plan Hobby puede hacer fallar el deploy completo. Ya se
-probó y se descartó por eso.
-
-### Paso 2 — Migraciones, en este orden
-
-Desde el SQL editor del panel de Supabase (así las corre Alejandro), todas
-idempotentes:
-
-1. `supabase/migrations/0026_biblioteca_ejercicios.sql`
-2. `supabase/seeds/ejercicios_base.sql` — 103 ejercicios
-3. `supabase/migrations/0027_documentos_asignaciones.sql`
-
-**0027 es aditiva a propósito**: no borra `documentos.alumno_id`, solo lo vuelve
-opcional. Por eso el orden seguro es *migración primero, código después* — entre
-una cosa y la otra la app sigue funcionando.
-
-### Paso 3 — Desplegar
-
-```
-npx vercel login     # solo si da "The specified token is not valid"
-npx vercel --prod
-```
-
-**Tiene que correrlo Alejandro en su PowerShell** (el login abre el navegador).
-Ver sección 2 para el caso "Not authorized".
-
-### Paso 4 — Probar en el celular lo que no se pudo verificar
-
-- **Persistencia**: empezar una sesión, cargar peso y reps, tocar "Listo" en una
+- **Persistencia** (lo más importante — es el bug que hacía perder
+  entrenamientos): empezar una sesión, cargar peso y reps, tocar "Listo" en una
   serie, minimizar la app o cambiar de aplicación, volver. Los datos tienen que
   estar. Repetir con modo avión para probar el respaldo local.
 - **Guía en un solo PDF**: subir una guía real con rutina + dieta y ver si la IA
   extrae bien la rutina.
-- **Navegación entre pestañas**: comparar con cómo se sentía antes.
+- **Sección Documentos** de punta a punta: subir un archivo, asignarlo a varios
+  alumnos, quitar, reemplazar.
+
+Y hay un pendiente de diseño nuevo, ver sección 8: **a Alejandro no le gusta
+cómo se ve la transición al cambiar de pestaña.**
 
 ---
 
@@ -89,35 +55,53 @@ Ver sección 2 para el caso "Not authorized".
   `NEXT_PUBLIC_SITE_URL`.
 - Cron semanal en `vercel.json` (`/api/cron/reconocimientos`), sin tocar.
 
-### Si el deploy falla con "Not authorized": el token venció
+### ⚠️ Si un deploy queda en `UNKNOWN` con build de 0 ms: mirá el correo de git
 
-Pasó el 30/07. Dos intentos de `npx vercel --prod` desde Claude Code subieron los
-34 MB completos y fallaron en la etapa de build con:
+**Esto costó tres horas el 30/07. Leelo antes de diagnosticar nada.**
 
-```json
-{"status":"error","reason":"deploy_failed","message":"Not authorized"}
-```
+Siete deploys seguidos quedaron así: estado `UNKNOWN` (ni `Ready` ni `Error`),
+`Builds: . [0ms]`, `vercel inspect --logs` **vacío**, y el CLI colgado en
+`Building…` para siempre.
 
-Mientras tanto quedaban en estado `UNKNOWN` (ni Ready ni Error), así que el CLI
-no delataba el problema hasta terminar.
-
-**Diagnóstico inicial equivocado:** se concluyó que era algo del entorno del
-agente, porque `vercel whoami`, `vercel env add` y `vercel ls` **sí** funcionaban.
-Falso. Cuando Alejandro corrió el mismo comando en su PowerShell obtuvo:
+**La causa:** Vercel bloqueaba el deploy **antes de compilar** porque el correo
+del autor del commit no correspondía a ninguna cuenta con acceso al proyecto.
+git tenía `alealemenmne@gmail.com` — la `n` y la `e` cambiadas de lugar. El
+nombre también estaba mal (`alealemenmen-crear` en vez de `-create`).
 
 ```
-Error: The specified token is not valid. Use `vercel login` to generate a new token.
+git config user.email "alealemenmen@gmail.com"
+git config user.name  "alealemenmen-create"
 ```
 
-El token estaba vencido para todos; esos otros comandos leen de otra caché y por
-eso engañaban. **Solución: `npx vercel login` y volver a desplegar.**
+Después hay que **dejar un commit nuevo con el autor corregido**: Vercel mira el
+autor del commit de HEAD, así que cambiar la config sola no alcanza.
 
-Lección: que unos comandos del CLI funcionen no prueba que la sesión sea válida.
-Ante un "Not authorized" en el build, probar `vercel login` antes de buscar
-causas exóticas.
+**Por qué se tardó tanto en verlo:** el mensaje que lo explica ("el despliegue se
+bloqueó porque el correo de confirmación no coincidía con una cuenta de GitHub")
+**solo aparece en el panel web de Vercel**. El CLI no lo muestra nunca. Y como
+`vercel whoami`, `ls` y `env add` funcionaban con normalidad, todo parecía sano.
 
-`git push` sí necesita el login interactivo del navegador, y eso sí tiene que
-hacerlo Alejandro.
+**Regla:** ante un build de 0 ms, correr `git log -1 --pretty=format:'%ae'`
+antes que cualquier otra cosa. Y si el CLI no da logs, **pedirle a Alejandro que
+abra la URL de `Inspect` en su navegador** en vez de seguir a ciegas — es el
+único lugar donde está el error real. Los diagnósticos de "token vencido" y el
+error de CSS que aparecieron en el camino eran síntomas o daños colaterales, no
+la causa.
+
+### `.vercelignore` no se toca
+
+Sin él la subida pasa de 34 MB a **486 MB** en cuanto existe una carpeta
+`.next-*` (las que crea `VIP_DIST_DIR`, ver sección 9), y el build muere con
+*"Parsing CSS source code failed"* apuntando a una línea de `globals.css` **que
+no existe** (el archivo tiene 664 líneas y el error decía 1557).
+
+Es Tailwind v4: como el tarball que sube Vercel **no lleva la carpeta `.git`**,
+Tailwind deja de respetar `.gitignore`, escanea los compilados y genera una clase
+con basura binaria que rompe el parseo. Localmente no pasa nunca, porque ahí sí
+hay repo git.
+
+`git push` necesita login interactivo del navegador, y eso sí tiene que hacerlo
+Alejandro.
 
 ---
 
@@ -374,6 +358,21 @@ hidratación, por eso se lee en un efecto.
 
 # 8. Lo que NO está hecho
 
+### Pendiente de diseño, pedido por Alejandro el 30/07
+
+0. **La transición al cambiar de pestaña no le gusta cómo se ve.** La app ya se
+   siente rápida (lo confirmó), pero el esqueleto de carga le molesta
+   visualmente. Hoy `PantallaCargando.tsx` pinta bloques grises genéricos
+   (`animate-pulse`, `bg-surface-2`): un título de `h-7 w-40` y N bloques de
+   `h-28`, iguales para las 8 pantallas. No coinciden con la forma real del
+   contenido de cada una, así que al aparecer el contenido hay un salto.
+   **Falta preguntarle qué le molesta exactamente** (que aparezcan bloques
+   grises, el parpadeo, o el salto al llegar el contenido) antes de rediseñar.
+   Ojo: borrar los `loading.tsx` NO es la solución — sin ellos Next 16 deja de
+   prefetchear y se vuelve al problema de la pantalla en blanco (sección 3).
+
+### Funcionalidad
+
 1. **Analizar con IA una vez y publicar a varios alumnos.** Es la pieza que
    falta de la sección Documentos. `confirmarYPublicarRutina` ya recibe
    `alumnoId`, así que alcanza con recorrer los seleccionados desde el borrador
@@ -386,7 +385,9 @@ hidratación, por eso se lee en un efecto.
    (arquitectura propuesta: un cron, cálculo por código, lotes de ~10 alumnos,
    1 llamada a IA por lote). El detalle vivía en handoffs ya borrados.
 5. Probar en producción con datos reales: alta de alumno, correos de Resend y el
-   cron desde el dominio real.
+   cron semanal desde el dominio real.
+6. Las pruebas de la sección 1 (persistencia, guía en un PDF, Documentos de punta
+   a punta). Ya se pueden hacer directo en `vipfitness.cl`.
 
 ---
 
