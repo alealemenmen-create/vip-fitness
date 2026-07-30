@@ -141,13 +141,22 @@ export function ArchivosManager({
     if (!storagePath) return;
     setAnalizando(true);
     setErrorAnalisis(null);
-    const resultado = await analizarRutinaPdf(storagePath);
-    setAnalizando(false);
-    if (!resultado.datos) {
-      setErrorAnalisis(resultado.error);
-      return;
+    // Sin el try/finally, un fallo del servidor dejaba el botón en "Leyendo
+    // PDF…" para siempre y sin mensaje. Cualquier error tiene que verse.
+    try {
+      const resultado = await analizarRutinaPdf(storagePath);
+      if (!resultado.datos) {
+        setErrorAnalisis(resultado.error);
+        return;
+      }
+      setDraft(resultado.datos);
+    } catch (e) {
+      setErrorAnalisis(
+        `No se pudo leer el PDF: ${e instanceof Error ? e.message : "error inesperado"}.`
+      );
+    } finally {
+      setAnalizando(false);
     }
-    setDraft(resultado.datos);
   };
 
   return (

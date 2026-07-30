@@ -247,24 +247,39 @@ export function RutinaDraftEditor({
   const publicar = async () => {
     setPublicando(true);
     setError(null);
-    const resultado = await publicarRutinaAVariosAlumnos(alumnoIds, draft);
-    setPublicando(false);
 
-    if (resultado.error) {
-      setError(resultado.error);
-      return;
+    // El try/finally NO es decorativo. Antes, si la acción del servidor lanzaba
+    // (error de red, función cortada por tiempo, fallo del servidor), la promesa
+    // se rechazaba y el `setPublicando(false)` de abajo nunca se ejecutaba: el
+    // botón quedaba en "Publicando…" para siempre, sin mostrar nada. El
+    // entrenador no tenía forma de saber que había fallado, ni yo de saber por
+    // qué. Cualquier fallo tiene que terminar en un mensaje en pantalla.
+    try {
+      const resultado = await publicarRutinaAVariosAlumnos(alumnoIds, draft);
+
+      if (resultado.error) {
+        setError(resultado.error);
+        return;
+      }
+
+      // Puede haber salido bien para unos y mal para otros: se muestra el
+      // resultado real en vez de un "listo" que oculte a los que quedaron fuera.
+      setPublicados(resultado.publicados);
+      setFallidos(resultado.fallidos.map((f) => ({ nombre: f.nombre, error: f.error })));
+
+      if (resultado.publicados === 0) {
+        setError("No fue posible publicar la rutina a ningún alumno.");
+        return;
+      }
+      setPublicado(true);
+    } catch (e) {
+      setError(
+        `No se pudo publicar: ${e instanceof Error ? e.message : "error inesperado"}. ` +
+          "La rutina sigue aquí, puedes intentar de nuevo."
+      );
+    } finally {
+      setPublicando(false);
     }
-
-    // Puede haber salido bien para unos y mal para otros: se muestra el
-    // resultado real en vez de un "listo" que oculte a los que quedaron fuera.
-    setPublicados(resultado.publicados);
-    setFallidos(resultado.fallidos.map((f) => ({ nombre: f.nombre, error: f.error })));
-
-    if (resultado.publicados === 0) {
-      setError("No fue posible publicar la rutina a ningún alumno.");
-      return;
-    }
-    setPublicado(true);
   };
 
   if (publicado) {
