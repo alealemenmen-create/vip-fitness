@@ -662,3 +662,31 @@ input[type="number"] {
 :root[data-theme="light"] textarea {
   box-shadow: inset 0 1px 1px rgba(30, 35, 45, 0.025);
 }
+
+/* Esqueleto de carga de las pantallas de alumno (PantallaCargando).
+   Medido en producción: cambiar de pestaña tarda ~300 ms, y el toque responde
+   en 3-6 ms. O sea que los bloques grises alcanzaban a verse ~300 ms sin
+   aportar nada, y Alejandro pidió no verlos.
+   Con este retardo el esqueleto no se dibuja durante los primeros 320 ms: en el
+   caso normal NUNCA llega a aparecer y el cambio se percibe instantáneo. Solo
+   se muestra, con un fundido suave, cuando la red va lenta de verdad — que es
+   justo cuando hace falta avisar que algo está pasando.
+   No se puede resolver borrando los loading.tsx: sin ellos Next 16 deja de
+   prefetchear la ruta y se vuelve a la pantalla en blanco esperando al
+   servidor. */
+@keyframes aparecer-esqueleto {
+  to {
+    opacity: 1;
+  }
+}
+
+.esqueleto-carga {
+  opacity: 0;
+  animation: aparecer-esqueleto 220ms ease-out 320ms forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto-carga {
+    animation-duration: 1ms;
+  }
+}
