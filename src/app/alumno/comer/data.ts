@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { ultimosNDiasISO } from "@/lib/date";
+import { obtenerDocumentos } from "@/app/alumno/documentos/data";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -81,25 +82,15 @@ export async function obtenerDocumentoDieta(
   supabase: SupabaseServerClient,
   alumnoId: string
 ): Promise<DocumentoDieta> {
-  const { data } = await supabase
-    .from("documentos")
-    .select("nombre_archivo, storage_path")
-    .eq("alumno_id", alumnoId)
-    .eq("tipo", "alimentacion")
-    .eq("activo", true)
-    .order("fecha_carga", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Se reusa la lectura de la pestaña Documentos, que ya resuelve las
+  // asignaciones de la migración 0027 y su respaldo al esquema viejo. Evita
+  // tener dos consultas distintas que puedan quedar desincronizadas.
+  const documentos = await obtenerDocumentos(supabase, alumnoId);
+  const dieta = documentos.find((d) => d.tipo === "alimentacion" && d.url);
 
-  if (!data) return null;
+  if (!dieta?.url) return null;
 
-  const { data: firmada } = await supabase.storage
-    .from("documentos")
-    .createSignedUrl(data.storage_path, 60 * 60);
-
-  if (!firmada?.signedUrl) return null;
-
-  return { nombreArchivo: data.nombre_archivo, url: firmada.signedUrl };
+  return { nombreArchivo: dieta.nombreArchivo, url: dieta.url };
 }
 
 export async function obtenerCalendarioMes(

@@ -200,6 +200,54 @@ premium pedido). Se recomendó comprar un pack vectorial con licencia (~US$30-80
 por ser lo único que garantiza consistencia entre 70 piezas. Decisión de
 Alejandro: arrancar sin arte y conseguirlo después.
 
+## Sección Documentos centralizada (30/07) — FALTA CORRER LA MIGRACIÓN
+
+`documentos` mezclaba el ARCHIVO con la ASIGNACIÓN: `alumno_id` era obligatorio,
+así que una fila era "este archivo, para este alumno". De ahí venía tener que
+entrar al perfil de cada alumno, y que el mismo PDF para 10 alumnos fueran 10
+filas. La migración **0027** lo separa:
+
+    documentos             = el archivo (uno por archivo real)
+    documento_asignaciones = a qué alumnos está asignado
+
+**Pendiente: correr `supabase/migrations/0027_documentos_asignaciones.sql`.**
+
+Es **aditiva a propósito**: `documentos.alumno_id` no se borra, solo pasa a
+aceptar null, y las asignaciones existentes se copian a la tabla nueva. Así el
+orden seguro es *migración primero, código después*, sin ventana de app rota. La
+columna queda obsoleta; se puede eliminar en una migración futura cuando no
+quede nada leyéndola.
+
+También se agregó el tipo `'otro'` (antes solo `rutina` y `alimentacion`).
+
+**Novedades:**
+- `/admin/documentos` (`DocumentosManager.tsx`): subir un archivo una sola vez,
+  elegir tipo, marcar uno/varios/todos los alumnos y asignar en una acción.
+  Biblioteca con quién lo tiene, asignar, quitar, reemplazar archivo
+  (conservando asignaciones) y eliminar.
+- Se mantiene la subida desde el perfil de cada alumno, intacta.
+- El alumno lee sus documentos desde las asignaciones, **con respaldo** a la
+  consulta vieja por si el código llega antes que la migración.
+- `obtenerDocumentoDieta` (enlace de dieta en Comer) ahora reusa
+  `obtenerDocumentos` en vez de tener su propia consulta, para que no puedan
+  quedar desincronizadas.
+
+**Trampa que costó dos builds:** `src/lib/documentos/data.ts` lleva
+`server-only`, y `DocumentosManager` es un componente cliente. Importar de ahí
+rompe el build con un error poco claro ("Ecmascript file had an error"). Por eso
+los tipos y `ETIQUETA_TIPO` viven en `src/lib/documentos/tipos.ts`, sin
+`server-only`. Mismo patrón que `src/lib/ejercicios/tipos.ts`. Si aparece ese
+error de build, mirar primero si un componente cliente está importando de un
+módulo `server-only`.
+
+**Lo que todavía NO está hecho de este pedido:** analizar con IA desde la
+pantalla nueva. Hoy el análisis vive en el flujo por alumno
+(`analizarRutinaPdf`). La pieza que falta es publicar la MISMA rutina extraída a
+varios alumnos (una llamada a la IA en vez de N): `confirmarYPublicarRutina` ya
+recibe `alumnoId`, así que alcanza con recorrer la lista de seleccionados desde
+el borrador que ya está en memoria. Decisión tomada con Alejandro: al asignar,
+la rutina activa anterior se reemplaza y pasa a histórico, igual que hoy.
+
 ## Bug de performance real que ya se resolvió — ojo si vuelve a pasar
 
 Después de "quitarle el fondo negro" a una foto real (persona/producto), el

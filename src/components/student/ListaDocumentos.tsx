@@ -6,9 +6,12 @@ import type { Documento } from "@/app/alumno/documentos/data";
 const TIPO_LABEL: Record<Documento["tipo"], string> = {
   rutina: "Rutina de entrenamiento",
   alimentacion: "Plan de alimentación",
+  // 0027: para lo que el entrenador sube y no es ninguna de las dos cosas
+  // (una pauta de estiramientos, una autorización médica, etc.).
+  otro: "Otros documentos",
 };
 
-const ORDEN_TIPOS: Documento["tipo"][] = ["rutina", "alimentacion"];
+const ORDEN_TIPOS: Documento["tipo"][] = ["rutina", "alimentacion", "otro"];
 
 export function ListaDocumentos({ documentos }: { documentos: Documento[] }) {
   if (documentos.length === 0) {

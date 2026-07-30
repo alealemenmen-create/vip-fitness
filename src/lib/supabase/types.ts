@@ -5,7 +5,8 @@
 
 export type Rol = "alumno" | "entrenador" | "admin";
 export type EstadoSesion = "en_progreso" | "completada" | "finalizada_incompleta" | "abandonada";
-export type TipoDocumento = "rutina" | "alimentacion";
+// "otro" viene de 0027: documentos que no son ni rutina ni plan de comidas.
+export type TipoDocumento = "rutina" | "alimentacion" | "otro";
 export type CategoriaFoto = "frontal" | "lateral" | "espalda" | "otra";
 export type TorneoMetrica = "peso_baja" | "peso_sube" | "asistencia" | "manual";
 export type TorneoParticipanteEstado = "pendiente" | "aceptado" | "rechazado";
@@ -705,7 +706,10 @@ export interface Database {
       documentos: {
         Row: {
           id: string;
-          alumno_id: string;
+          /** 0027: obsoleta. El archivo ya no pertenece a un alumno — quién lo
+           * tiene asignado vive en `documento_asignaciones`. Se conserva solo
+           * para que el código viejo no se rompa durante la transición. */
+          alumno_id: string | null;
           tipo: TipoDocumento;
           nombre_archivo: string;
           storage_path: string;
@@ -716,7 +720,7 @@ export interface Database {
           activo: boolean;
         };
         Insert: {
-          alumno_id: string;
+          alumno_id?: string | null;
           tipo: TipoDocumento;
           nombre_archivo: string;
           storage_path: string;
@@ -725,7 +729,31 @@ export interface Database {
           version?: number;
           activo?: boolean;
         };
-        Update: { activo?: boolean; version?: number };
+        Update: {
+          activo?: boolean;
+          version?: number;
+          nombre_archivo?: string;
+          storage_path?: string;
+          tipo?: TipoDocumento;
+        };
+        Relationships: [];
+      };
+      // 0027_documentos_asignaciones.sql
+      documento_asignaciones: {
+        Row: {
+          documento_id: string;
+          alumno_id: string;
+          fecha_asignacion: string;
+          asignado_por: string | null;
+          created_at: string;
+        };
+        Insert: {
+          documento_id: string;
+          alumno_id: string;
+          fecha_asignacion?: string;
+          asignado_por?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["documento_asignaciones"]["Insert"]>;
         Relationships: [];
       };
       seguimientos_diarios: {

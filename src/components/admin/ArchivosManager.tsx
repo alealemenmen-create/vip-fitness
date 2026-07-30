@@ -31,8 +31,10 @@ const initialAlimentacionState: SubirDocumentoState = {
 
 type Documento = {
   id: string;
-  alumno_id: string;
-  tipo: "rutina" | "alimentacion";
+  /** Null desde la migración 0027 para los archivos de la biblioteca: la
+   * asignación pasó a `documento_asignaciones`. */
+  alumno_id: string | null;
+  tipo: "rutina" | "alimentacion" | "otro";
   nombre_archivo: string;
   fecha_carga: string;
 };
