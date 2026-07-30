@@ -1,5 +1,5 @@
 import { normalizar } from "@/lib/alimentos/emparejar";
-import type { Ejercicio } from "./tipos";
+import type { Ejercicio, EquipoEjercicio } from "./tipos";
 
 /**
  * Cruza el nombre suelto que la IA sacó del PDF contra la biblioteca de
@@ -26,6 +26,32 @@ function tokens(texto: string): string[] {
     .split(" ")
     .map((t) => (t.length > 3 && t.endsWith("s") ? t.slice(0, -1) : t))
     .filter((t) => t.length > 1 && !PALABRAS_VACIAS.has(t));
+}
+
+/**
+ * Equipo que el propio nombre del PDF menciona. Es la señal más fuerte para
+ * elegir entre variantes del mismo movimiento, y sale de un dato estructurado
+ * (`ejercicios.equipo`) en vez de adivinarse del texto.
+ *
+ * El caso que lo hizo necesario: "Press banca con mancuernas" empataba en
+ * puntaje con "Press de banca" (barra) y ganaba por orden de lista, así que le
+ * mostraba al alumno una barra para un ejercicio con mancuernas.
+ */
+const EQUIPO_EN_TEXTO: [RegExp, EquipoEjercicio][] = [
+  [/\bmancuerna/, "mancuerna"],
+  [/\b(smith|multipower)\b/, "smith"],
+  [/\b(polea|cable)/, "polea"],
+  [/\bkettlebell/, "kettlebell"],
+  [/\bbanda/, "banda"],
+  [/\bbarra\b/, "barra"],
+  [/\bmaquina/, "maquina"],
+];
+
+function equipoMencionado(textoNormalizado: string): EquipoEjercicio | null {
+  for (const [patron, equipo] of EQUIPO_EN_TEXTO) {
+    if (patron.test(textoNormalizado)) return equipo;
+  }
+  return null;
 }
 
 export type ConfianzaEjercicio = "exacta" | "alta" | "media";
@@ -122,13 +148,23 @@ function emparejarExacto(
   const tokensObjetivo = tokens(nombrePdf);
   if (tokensObjetivo.length === 0) return null;
 
-  let mejor: { ejercicio: Ejercicio; puntaje: number } | null = null;
+  const equipoPedido = equipoMencionado(objetivo);
+  let mejor:
+    | { ejercicio: Ejercicio; puntaje: number; sobrantes: number; equipoOk: boolean }
+    | null = null;
   for (const ejercicio of biblioteca) {
     for (const nombre of nombresDe(ejercicio)) {
       const tokensNombre = tokens(nombre);
       if (tokensNombre.length === 0) continue;
       const comunes = tokensObjetivo.filter((t) => tokensNombre.includes(t)).length;
       if (comunes === 0) continue;
+      // Palabras que quedan sin compartir de los dos lados. Sirve para
+      // desempatar: "press banca con mancuernas" empataba en puntaje entre
+      // "press banca plano" (sobra banca/plano) y "press mancuernas" (solo
+      // sobra banca), y ganaba el primero de la lista por puro orden — o sea
+      // le mostraba al alumno una barra cuando el ejercicio era con
+      // mancuernas. Gana el que deja menos palabras sueltas.
+      const sobrantes = tokensObjetivo.length + tokensNombre.length - 2 * comunes;
       // Se divide por el nombre MÁS LARGO, no por el más corto (que es lo que
       // hace la versión de alimentos). Con el más corto, cualquier ejercicio
       // de una sola palabra puntúa perfecto contra cualquier frase que la
@@ -136,7 +172,17 @@ function emparejarExacto(
       // cuerda). Dividir por el más largo obliga a que las palabras que sobran
       // también cuenten.
       const puntaje = comunes / Math.max(tokensObjetivo.length, tokensNombre.length);
-      if (!mejor || puntaje > mejor.puntaje) mejor = { ejercicio, puntaje };
+      const equipoOk = equipoPedido !== null && ejercicio.equipo === equipoPedido;
+
+      // Desempate en dos escalones: primero manda el equipo que nombra el PDF
+      // (barra contra mancuernas es OTRO ejercicio, no un matiz), y recién
+      // después cuántas palabras quedan sueltas.
+      const gana =
+        !mejor ||
+        puntaje > mejor.puntaje ||
+        (puntaje === mejor.puntaje &&
+          (equipoOk !== mejor.equipoOk ? equipoOk : sobrantes < mejor.sobrantes));
+      if (gana) mejor = { ejercicio, puntaje, sobrantes, equipoOk };
     }
   }
 

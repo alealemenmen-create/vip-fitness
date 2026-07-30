@@ -175,6 +175,16 @@ Los 4 que no emparejan ("Abdomen", "Abdomen / vacuum", "Brazos completos",
 "Pulsos") **no son ejercicios**, son encabezados de sección: que queden sin
 emparejar es lo correcto.
 
+**El desempate por equipo es la regla más importante del emparejador.** Salió de
+un caso que Alejandro dio a mano: "Press banca con mancuernas" empataba en
+puntaje con "Press de banca" (barra) y ganaba por orden de lista, así que le
+mostraba al alumno **una barra para un ejercicio con mancuernas**. Ni el puntaje
+ni contar palabras sueltas lo resolvían: las dos dejaban exactamente una palabra
+sin compartir. Se resolvió usando el dato estructurado que ya estaba en la
+tabla: si el nombre del PDF menciona un equipo (mancuerna, barra, polea, smith,
+máquina…), gana el ejercicio cuyo `equipo` coincide. Antes de tocar el
+emparejador, revisar que este caso siga funcionando.
+
 Para volver a medir después de tocar la biblioteca, el método fue: exportar los
 nombres reales desde `rutina_dia_ejercicios`, parsear la semilla a JSON y correr
 el emparejador con `node --experimental-strip-types` sobre copias con los
