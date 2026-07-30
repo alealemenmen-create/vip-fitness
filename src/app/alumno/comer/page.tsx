@@ -1,12 +1,17 @@
 import Link from "next/link";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { MensajeMotivacional } from "@/components/student/MensajeMotivacional";
 import { fraseDelDia } from "@/lib/frasesMotivacionales";
 import { hoyISO } from "@/lib/date";
-import { obtenerCalendarioMes, obtenerPlanAlimentacion, type EstadoDia } from "./data";
+import {
+  obtenerCalendarioMes,
+  obtenerPlanAlimentacion,
+  obtenerDocumentoDieta,
+  type EstadoDia,
+} from "./data";
 import { obtenerResumenAlimentacionHoy } from "@/app/alumno/inicio/data";
 import { MetaCaloricaDetalle } from "@/components/student/MetaCalorica";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
@@ -44,10 +49,11 @@ export default async function ComerPage({
   const { alumnoId, nombre, soloLectura } = await requireAlumno();
   const supabase = await createClient();
 
-  const [estados, plan, resumenHoy] = await Promise.all([
+  const [estados, plan, resumenHoy, documentoDieta] = await Promise.all([
     obtenerCalendarioMes(supabase, alumnoId, anioMes),
     obtenerPlanAlimentacion(supabase, alumnoId),
     obtenerResumenAlimentacionHoy(supabase, alumnoId),
+    obtenerDocumentoDieta(supabase, alumnoId),
   ]);
   // El nombre ya viene de requireAlumno(); no hace falta volver a `perfiles`.
   const frase = fraseDelDia("comer", nombreAlumnoPublicado(nombre).split(" ")[0] ?? "");
@@ -72,6 +78,26 @@ export default async function ComerPage({
           <p className="text-caption mb-3 text-text-tertiary">TU META DE HOY</p>
           <MetaCaloricaDetalle plan={plan} kcalConsumidas={resumenHoy.kcal} />
         </Card>
+      )}
+
+      {/* El PDF que subió el entrenador, a mano en la misma pantalla donde el
+          alumno registra lo que come. */}
+      {documentoDieta && (
+        <a
+          href={documentoDieta.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="radius-control flex items-center gap-3 border border-border bg-surface px-4 py-3"
+        >
+          <FileText size={20} className="shrink-0 text-vip" />
+          <div className="min-w-0 flex-1">
+            <p className="text-secondary font-semibold text-text">Tu plan de alimentación</p>
+            <p className="text-caption truncate text-text-tertiary">
+              {documentoDieta.nombreArchivo}
+            </p>
+          </div>
+          <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
+        </a>
       )}
 
       <Card className="border border-border p-4 shadow-[0_18px_45px_-36px_rgba(0,0,0,0.8)]">

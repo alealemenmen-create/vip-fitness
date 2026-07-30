@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import {
   subirRutinaPdf,
+  subirGuiaCompleta,
   analizarRutinaPdf,
   subirDocumentoAlimentacion,
   analizarAlimentacionPdf,
@@ -100,6 +101,11 @@ export function ArchivosManager({
   const [errorAnalisis, setErrorAnalisis] = useState<string | null>(null);
   const [draft, setDraft] = useState<RutinaExtraida | null>(null);
 
+  // Guía completa: un solo PDF con rutina y dieta juntas.
+  const [guiaState, guiaAction] = useActionState(subirGuiaCompleta, initialUploadState);
+  const [guiaNombre, setGuiaNombre] = useState<string | null>(null);
+  const [mostrarSeparado, setMostrarSeparado] = useState(false);
+
   const [alimentacionState, alimentacionAction] = useActionState(
     subirDocumentoAlimentacion,
     initialAlimentacionState
@@ -127,11 +133,13 @@ export function ArchivosManager({
     setAnalisisPlan(resultado);
   };
 
-  const analizar = async () => {
-    if (!uploadState.storagePath) return;
+  /** Lee la rutina del PDF con IA. Sirve igual para la guía completa y para el
+   * PDF de rutina suelto: en los dos casos se extrae SOLO la rutina. */
+  const analizar = async (storagePath: string | null) => {
+    if (!storagePath) return;
     setAnalizando(true);
     setErrorAnalisis(null);
-    const resultado = await analizarRutinaPdf(uploadState.storagePath);
+    const resultado = await analizarRutinaPdf(storagePath);
     setAnalizando(false);
     if (!resultado.datos) {
       setErrorAnalisis(resultado.error);
@@ -140,6 +148,153 @@ export function ArchivosManager({
     setDraft(resultado.datos);
   };
 
+  return (
+    <div className="space-y-4">
+      {/* Camino principal: la guía tal como la arma el entrenador, con la
+          rutina y la dieta en un mismo PDF. */}
+      <Card>
+        <p className="text-caption mb-1 text-text-tertiary">GUÍA DEL ALUMNO (UN SOLO PDF)</p>
+        <p className="text-caption mb-3 text-text-secondary">
+          Sube el PDF completo, con la rutina y la dieta juntas. Queda disponible para el alumno en
+          Entrenar y en Comer. La IA lee solo la rutina para armar la lista de ejercicios; la dieta
+          se adjunta tal cual, sin analizar.
+        </p>
+
+        {guiaState.storagePath ? (
+          <div className="radius-control flex items-center gap-3 border border-border p-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-2">
+              <FileText size={20} className="text-vip" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-body truncate text-text">{guiaNombre ?? "Guía subida"}</p>
+              <p className="text-caption text-success">Ya visible para el alumno</p>
+            </div>
+          </div>
+        ) : (
+          <form action={guiaAction} className="space-y-3">
+            <input type="hidden" name="alumno_id" value={alumnoId} />
+            <label
+              htmlFor="pdf-guia"
+              className="radius-card flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border py-8"
+            >
+              <FolderUp size={22} className="text-text-secondary" />
+              <span className="text-secondary text-center text-text-tertiary">
+                Elige el PDF de la guía
+              </span>
+              <input
+                id="pdf-guia"
+                name="archivo"
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => setGuiaNombre(e.target.files?.[0]?.name ?? null)}
+              />
+            </label>
+            {guiaNombre && <p className="text-secondary text-center text-text">{guiaNombre}</p>}
+            {guiaState.error && <p className="text-caption text-error">{guiaState.error}</p>}
+            <BotonSubir />
+          </form>
+        )}
+
+        {guiaState.storagePath && !draft && (
+          <Button
+            variant="outline"
+            onClick={() => analizar(guiaState.storagePath)}
+            disabled={analizando}
+            className="mt-3"
+          >
+            <Wand2 size={16} />
+            {analizando ? "Leyendo PDF…" : "Analizar la rutina con IA"}
+          </Button>
+        )}
+
+        {errorAnalisis && <p className="text-caption mt-2 text-error">{errorAnalisis}</p>}
+      </Card>
+
+      {draft && (
+        <RutinaDraftEditor alumnoId={alumnoId} draftInicial={draft} onDescartar={() => setDraft(null)} />
+      )}
+
+      {/* Los dos formularios de siempre quedan como respaldo, para PDFs que
+          traen solo una de las dos cosas o si la IA no logra leer la guía. */}
+      {!mostrarSeparado ? (
+        <button
+          type="button"
+          onClick={() => setMostrarSeparado(true)}
+          className="text-caption w-full py-2 text-center text-text-tertiary underline"
+        >
+          Subir rutina y alimentación por separado
+        </button>
+      ) : (
+        <SubidaPorSeparado
+          alumnoId={alumnoId}
+          documentosRutina={documentosRutina}
+          documentosAlimentacion={documentosAlimentacion}
+          uploadState={uploadState}
+          uploadAction={uploadAction}
+          archivoNombre={archivoNombre}
+          setArchivoNombre={setArchivoNombre}
+          analizando={analizando}
+          onAnalizarRutina={() => analizar(uploadState.storagePath)}
+          alimentacionState={alimentacionState}
+          enviarAlimentacion={enviarAlimentacion}
+          archivoAlimentacionNombre={archivoAlimentacionNombre}
+          setArchivoAlimentacionNombre={setArchivoAlimentacionNombre}
+          analizandoPlan={analizandoPlan}
+          analizarPlan={analizarPlan}
+          errorPlan={errorPlan}
+        />
+      )}
+
+      {analisisPlan?.plan && (
+        <PlanAlimentacionEditor
+          alumnoId={alumnoId}
+          documentoId={alimentacionState.documentoId}
+          analisis={analisisPlan}
+          onDescartar={() => setAnalisisPlan(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Los dos formularios originales (rutina y alimentación por separado), tal
+ * como estaban antes de la guía unificada. Se conservan como respaldo. */
+function SubidaPorSeparado({
+  alumnoId,
+  documentosRutina,
+  documentosAlimentacion,
+  uploadState,
+  uploadAction,
+  archivoNombre,
+  setArchivoNombre,
+  analizando,
+  onAnalizarRutina,
+  alimentacionState,
+  enviarAlimentacion,
+  archivoAlimentacionNombre,
+  setArchivoAlimentacionNombre,
+  analizandoPlan,
+  analizarPlan,
+  errorPlan,
+}: {
+  alumnoId: string;
+  documentosRutina: Documento[];
+  documentosAlimentacion: Documento[];
+  uploadState: SubirPdfState;
+  uploadAction: (formData: FormData) => void;
+  archivoNombre: string | null;
+  setArchivoNombre: (n: string | null) => void;
+  analizando: boolean;
+  onAnalizarRutina: () => void;
+  alimentacionState: SubirDocumentoState;
+  enviarAlimentacion: (formData: FormData) => void;
+  archivoAlimentacionNombre: string | null;
+  setArchivoAlimentacionNombre: (n: string | null) => void;
+  analizandoPlan: boolean;
+  analizarPlan: () => void;
+  errorPlan: string | null;
+}) {
   return (
     <div className="space-y-4">
       <Card>
@@ -178,26 +333,18 @@ export function ArchivosManager({
           </form>
         )}
 
-        {uploadState.storagePath && !draft && (
-          <Button
-            variant="outline"
-            onClick={analizar}
-            disabled={analizando}
-            className="mt-3"
-          >
+        {uploadState.storagePath && (
+          <Button variant="outline" onClick={onAnalizarRutina} disabled={analizando} className="mt-3">
             <Wand2 size={16} />
             {analizando ? "Leyendo PDF…" : "Analizar PDF con IA y generar lista de ejercicios"}
           </Button>
         )}
 
-        {errorAnalisis && <p className="text-caption mt-2 text-error">{errorAnalisis}</p>}
+        {/* El error del análisis y el editor de la rutina los muestra el
+            componente padre, que es el dueño de ese estado. */}
 
         <ListaDocumentosExistentes documentos={documentosRutina} />
       </Card>
-
-      {draft && (
-        <RutinaDraftEditor alumnoId={alumnoId} draftInicial={draft} onDescartar={() => setDraft(null)} />
-      )}
 
       <Card>
         <p className="text-caption mb-3 text-text-tertiary">PLAN DE ALIMENTACIÓN (PDF)</p>
@@ -230,7 +377,7 @@ export function ArchivosManager({
           <BotonSubir />
         </form>
 
-        {alimentacionState.storagePath && !analisisPlan && (
+        {alimentacionState.storagePath && (
           <Button variant="outline" onClick={analizarPlan} disabled={analizandoPlan} className="mt-3">
             <Wand2 size={16} />
             {analizandoPlan ? "Leyendo PDF…" : "Analizar PDF con IA y extraer la meta calórica"}
@@ -241,15 +388,6 @@ export function ArchivosManager({
 
         <ListaDocumentosExistentes documentos={documentosAlimentacion} />
       </Card>
-
-      {analisisPlan?.plan && (
-        <PlanAlimentacionEditor
-          alumnoId={alumnoId}
-          documentoId={alimentacionState.documentoId}
-          analisis={analisisPlan}
-          onDescartar={() => setAnalisisPlan(null)}
-        />
-      )}
     </div>
   );
 }

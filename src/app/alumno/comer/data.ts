@@ -69,6 +69,39 @@ export async function obtenerPlanAlimentacion(
   };
 }
 
+export type DocumentoDieta = { nombreArchivo: string; url: string } | null;
+
+/**
+ * El PDF de alimentación vigente del alumno, para poder abrirlo desde Comer
+ * sin tener que ir a Documentos. Es el mismo archivo que sube el entrenador:
+ * cuando la guía viene completa (rutina + dieta en un PDF), `subirGuiaCompleta`
+ * la registra también con tipo 'alimentacion', así que acá aparece igual.
+ */
+export async function obtenerDocumentoDieta(
+  supabase: SupabaseServerClient,
+  alumnoId: string
+): Promise<DocumentoDieta> {
+  const { data } = await supabase
+    .from("documentos")
+    .select("nombre_archivo, storage_path")
+    .eq("alumno_id", alumnoId)
+    .eq("tipo", "alimentacion")
+    .eq("activo", true)
+    .order("fecha_carga", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  const { data: firmada } = await supabase.storage
+    .from("documentos")
+    .createSignedUrl(data.storage_path, 60 * 60);
+
+  if (!firmada?.signedUrl) return null;
+
+  return { nombreArchivo: data.nombre_archivo, url: firmada.signedUrl };
+}
+
 export async function obtenerCalendarioMes(
   supabase: SupabaseServerClient,
   alumnoId: string,

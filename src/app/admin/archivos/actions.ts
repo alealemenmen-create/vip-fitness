@@ -70,6 +70,86 @@ export async function subirRutinaPdf(
   return { error: null, storagePath };
 }
 
+/**
+ * Sube UN solo PDF que trae la rutina y la dieta juntas — el formato con el que
+ * el entrenador realmente arma las guías, en vez de partirlo en dos archivos.
+ *
+ * El archivo se guarda una vez en Storage y se registra DOS veces en
+ * `documentos`, con tipo 'rutina' y con tipo 'alimentacion', apuntando las dos
+ * filas al mismo `storage_path`. Así el alumno lo encuentra tanto buscando su
+ * rutina como buscando su dieta, sin duplicar el archivo ni tocar el esquema
+ * (`documentos.tipo` solo acepta esos dos valores; ver migración 0001).
+ *
+ * Ojo: por eso `eliminarDocumento` NO puede borrar el objeto de Storage sin
+ * antes revisar que ninguna otra fila lo esté usando.
+ *
+ * La IA después lee este mismo PDF pero **solo extrae la rutina**
+ * (`analizarRutinaPdf`): la dieta no se analiza, queda como documento para que
+ * el alumno la lea. Es una sola llamada a la IA por guía.
+ */
+export async function subirGuiaCompleta(
+  _prevState: SubirPdfState,
+  formData: FormData
+): Promise<SubirPdfState> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+
+  const alumnoId = String(formData.get("alumno_id") || "");
+  const file = formData.get("archivo") as File | null;
+
+  if (!alumnoId) return { error: "Selecciona un alumno.", storagePath: null };
+  if (!file || file.size === 0) return { error: "Selecciona un archivo PDF.", storagePath: null };
+  if (file.type !== "application/pdf") {
+    return { error: "Solo se aceptan archivos PDF.", storagePath: null };
+  }
+  if (file.size > TAMANO_MAXIMO_PDF) {
+    return { error: "El archivo supera el tamaño máximo permitido (15 MB).", storagePath: null };
+  }
+
+  const storagePath = `${alumnoId}/guia-${Date.now()}.pdf`;
+  const bytes = await file.arrayBuffer();
+
+  const { error: errorSubida } = await supabase.storage
+    .from("documentos")
+    .upload(storagePath, bytes, { contentType: "application/pdf" });
+
+  if (errorSubida) {
+    return {
+      error: "No fue posible subir el archivo. Revisa tu conexión e intenta nuevamente.",
+      storagePath: null,
+    };
+  }
+
+  const filaBase = {
+    alumno_id: alumnoId,
+    nombre_archivo: file.name,
+    storage_path: storagePath,
+    entrenador_id: sesion.userId,
+  };
+
+  const { error: errorDocumento } = await supabase
+    .from("documentos")
+    .insert([
+      { ...filaBase, tipo: "rutina" },
+      { ...filaBase, tipo: "alimentacion" },
+    ]);
+
+  if (errorDocumento) {
+    // Sin fila en `documentos` el archivo quedaría huérfano en Storage, sin
+    // forma de verlo ni de borrarlo desde la app.
+    await supabase.storage.from("documentos").remove([storagePath]);
+    return {
+      error: "El archivo se subió, pero no fue posible registrarlo. Intenta nuevamente.",
+      storagePath: null,
+    };
+  }
+
+  revalidatePath(`/admin/alumnos/${alumnoId}`);
+  revalidatePath("/alumno/documentos");
+  revalidatePath("/alumno/comer");
+  return { error: null, storagePath };
+}
+
 export type SubirDocumentoState = {
   error: string | null;
   ok: boolean;
@@ -346,16 +426,30 @@ export async function eliminarDocumento(documentoId: string): Promise<{ error: s
 
   if (!documento) return { error: null };
 
-  await supabase.storage.from("documentos").remove([documento.storage_path]);
-
+  // Primero la fila, después el archivo. Al revés (como estaba antes), si el
+  // DELETE fallaba quedaba una fila apuntando a un archivo que ya no existe.
   const { error } = await supabase.from("documentos").delete().eq("id", documentoId);
 
   if (error) {
     return { error: "No fue posible eliminar el documento. Intenta nuevamente." };
   }
 
+  // Una guía completa se registra dos veces (rutina y alimentación) sobre el
+  // MISMO archivo — ver subirGuiaCompleta. Borrar el objeto de Storage acá sin
+  // mirar dejaría a la otra mitad apuntando a la nada, así que el archivo solo
+  // se elimina cuando ya no queda ninguna fila usándolo.
+  const { count } = await supabase
+    .from("documentos")
+    .select("id", { count: "exact", head: true })
+    .eq("storage_path", documento.storage_path);
+
+  if ((count ?? 0) === 0) {
+    await supabase.storage.from("documentos").remove([documento.storage_path]);
+  }
+
   revalidatePath(`/admin/alumnos/${documento.alumno_id}`);
   revalidatePath("/alumno/documentos");
+  revalidatePath("/alumno/comer");
   return { error: null };
 }
 
