@@ -3,7 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import { FolderUp, FileText, Trash2, Users, Check } from "lucide-react";
+import { FolderUp, FileText, Trash2, Users, Check, Wand2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Pill } from "@/components/ui/Pill";
@@ -16,18 +16,23 @@ import {
   type SubirYAsignarState,
   type AccionState,
 } from "@/app/admin/documentos/actions";
+import { analizarRutinaPdf } from "@/app/admin/archivos/actions";
+import { RutinaDraftEditor } from "@/components/admin/RutinaDraftEditor";
 import {
   ETIQUETA_TIPO,
   type DocumentoBiblioteca,
   type AlumnoParaAsignar,
 } from "@/lib/documentos/tipos";
 import type { TipoDocumento } from "@/lib/supabase/types";
+import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 
 const estadoInicial: SubirYAsignarState = {
   error: null,
   storagePath: null,
   documentoId: null,
   asignados: 0,
+  tipo: null,
+  alumnoIds: [],
 };
 
 const estadoAccion: AccionState = { error: null, ok: false };
@@ -133,6 +138,26 @@ export function DocumentosManager({
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const [archivoNombre, setArchivoNombre] = useState<string | null>(null);
 
+  // Análisis con IA del PDF recién subido. Se hace UNA vez y el resultado se
+  // publica a todos los alumnos a los que se asignó el archivo, en vez de
+  // repetir subida y análisis alumno por alumno.
+  const [analizando, setAnalizando] = useState(false);
+  const [errorAnalisis, setErrorAnalisis] = useState<string | null>(null);
+  const [draft, setDraft] = useState<RutinaExtraida | null>(null);
+
+  const analizar = async () => {
+    if (!subida.storagePath) return;
+    setAnalizando(true);
+    setErrorAnalisis(null);
+    const resultado = await analizarRutinaPdf(subida.storagePath);
+    setAnalizando(false);
+    if (!resultado.datos) {
+      setErrorAnalisis(resultado.error);
+      return;
+    }
+    setDraft(resultado.datos);
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -200,7 +225,42 @@ export function DocumentosManager({
 
           <BotonSubir cantidad={seleccionados.size} />
         </form>
+
+        {/* Analizar la rutina con IA: solo si lo subido ES una rutina y quedó
+            asignada a alguien. Sin alumnos no hay a quién publicársela. */}
+        {subida.tipo === "rutina" && subida.storagePath && !draft && (
+          <div className="mt-4 border-t border-border pt-4">
+            {subida.alumnoIds.length === 0 ? (
+              <p className="text-caption text-text-secondary">
+                El PDF quedó en la biblioteca. Para generar la rutina con IA, vuelve a subirlo
+                marcando a los alumnos, o asígnalo desde la biblioteca y créala desde su perfil.
+              </p>
+            ) : (
+              <>
+                <p className="text-caption mb-2 text-text-secondary">
+                  La IA lee el PDF una sola vez y la rutina se publica a los{" "}
+                  {subida.alumnoIds.length}{" "}
+                  {subida.alumnoIds.length === 1 ? "alumno" : "alumnos"} que asignaste. Podrás
+                  revisarla antes de confirmar.
+                </p>
+                <Button variant="outline" onClick={analizar} disabled={analizando}>
+                  <Wand2 size={16} />
+                  {analizando ? "Leyendo PDF…" : "Analizar la rutina con IA"}
+                </Button>
+              </>
+            )}
+            {errorAnalisis && <p className="text-caption mt-2 text-error">{errorAnalisis}</p>}
+          </div>
+        )}
       </Card>
+
+      {draft && (
+        <RutinaDraftEditor
+          alumnoIds={subida.alumnoIds}
+          draftInicial={draft}
+          onDescartar={() => setDraft(null)}
+        />
+      )}
 
       <div>
         <p className="text-caption mb-2 text-text-tertiary">

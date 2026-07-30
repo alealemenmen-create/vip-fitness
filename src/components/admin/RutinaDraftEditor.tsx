@@ -5,7 +5,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
-import { confirmarYPublicarRutina } from "@/app/admin/archivos/actions";
+import { publicarRutinaAVariosAlumnos } from "@/app/admin/archivos/actions";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 
 type Ejercicio = RutinaExtraida["dias"][number]["ejercicios"][number];
@@ -135,12 +135,17 @@ function EjercicioForm({
   );
 }
 
+/** Editor de la rutina que extrajo la IA, antes de publicarla.
+ *
+ * Recibe una LISTA de alumnos, no uno solo: desde la sección Documentos el
+ * mismo PDF se analiza una vez y se publica a todos los que se marcaron. Desde
+ * el perfil de un alumno se le pasa una lista de uno. */
 export function RutinaDraftEditor({
-  alumnoId,
+  alumnoIds,
   draftInicial,
   onDescartar,
 }: {
-  alumnoId: string;
+  alumnoIds: string[];
   draftInicial: RutinaExtraida;
   onDescartar: () => void;
 }) {
@@ -148,6 +153,8 @@ export function RutinaDraftEditor({
   const [publicando, setPublicando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publicado, setPublicado] = useState(false);
+  const [fallidos, setFallidos] = useState<{ nombre: string; error: string }[]>([]);
+  const [publicados, setPublicados] = useState(0);
 
   const actualizarDia = (diaIdx: number, cambios: Partial<Dia>) => {
     setDraft((d) => ({
@@ -218,10 +225,21 @@ export function RutinaDraftEditor({
   const publicar = async () => {
     setPublicando(true);
     setError(null);
-    const resultado = await confirmarYPublicarRutina(alumnoId, draft);
+    const resultado = await publicarRutinaAVariosAlumnos(alumnoIds, draft);
     setPublicando(false);
-    if (!resultado.ok) {
+
+    if (resultado.error) {
       setError(resultado.error);
+      return;
+    }
+
+    // Puede haber salido bien para unos y mal para otros: se muestra el
+    // resultado real en vez de un "listo" que oculte a los que quedaron fuera.
+    setPublicados(resultado.publicados);
+    setFallidos(resultado.fallidos.map((f) => ({ nombre: f.nombre, error: f.error })));
+
+    if (resultado.publicados === 0) {
+      setError("No fue posible publicar la rutina a ningún alumno.");
       return;
     }
     setPublicado(true);
@@ -230,7 +248,24 @@ export function RutinaDraftEditor({
   if (publicado) {
     return (
       <Card>
-        <p className="text-body text-text">Rutina publicada. Ya está disponible en Entrenar para el alumno.</p>
+        <p className="text-body text-text">
+          {publicados === 1
+            ? "Rutina publicada. Ya está disponible en Entrenar para el alumno."
+            : `Rutina publicada para ${publicados} alumnos. Ya está disponible en Entrenar.`}
+        </p>
+        {fallidos.length > 0 && (
+          <div className="mt-3 border-t border-border pt-3">
+            <p className="text-caption mb-1 text-error">
+              No se pudo publicar a {fallidos.length}{" "}
+              {fallidos.length === 1 ? "alumno" : "alumnos"}:
+            </p>
+            {fallidos.map((f) => (
+              <p key={f.nombre} className="text-caption text-text-secondary">
+                {f.nombre} — {f.error}
+              </p>
+            ))}
+          </div>
+        )}
       </Card>
     );
   }

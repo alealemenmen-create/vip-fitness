@@ -21,6 +21,13 @@ export type SubirYAsignarState = {
   storagePath: string | null;
   documentoId: string | null;
   asignados: number;
+  /** Tipo del archivo RECIÉN subido. Va en el estado y no se lee del selector
+   * de la pantalla porque ese selector puede cambiarse después de subir, y
+   * entonces se ofrecería analizar una rutina sobre un PDF de dieta. */
+  tipo: TipoDocumento | null;
+  /** A quiénes se asignó, para poder publicarles la rutina sin volver a
+   * preguntar. */
+  alumnoIds: string[];
 };
 
 const vacio: SubirYAsignarState = {
@@ -28,6 +35,8 @@ const vacio: SubirYAsignarState = {
   storagePath: null,
   documentoId: null,
   asignados: 0,
+  tipo: null,
+  alumnoIds: [],
 };
 
 /**
@@ -122,6 +131,8 @@ export async function subirYAsignarDocumento(
     storagePath,
     documentoId: documento.id,
     asignados: alumnoIds.length,
+    tipo,
+    alumnoIds,
   };
 }
 

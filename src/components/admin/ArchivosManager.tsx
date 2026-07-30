@@ -214,7 +214,11 @@ export function ArchivosManager({
       </Card>
 
       {draft && (
-        <RutinaDraftEditor alumnoId={alumnoId} draftInicial={draft} onDescartar={() => setDraft(null)} />
+        <RutinaDraftEditor
+          alumnoIds={[alumnoId]}
+          draftInicial={draft}
+          onDescartar={() => setDraft(null)}
+        />
       )}
 
       {/* Los dos formularios de siempre quedan como respaldo, para PDFs que

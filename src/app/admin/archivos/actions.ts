@@ -457,6 +457,64 @@ export async function eliminarDocumento(documentoId: string): Promise<{ error: s
 
 export type PublicarRutinaState = { error: string | null; ok: boolean };
 
+export type PublicarAVariosState = {
+  /** Error que impidió publicar a TODOS (validación previa). Si es null, mirar
+   * `fallidos`: puede haber salido bien para unos y mal para otros. */
+  error: string | null;
+  publicados: number;
+  fallidos: { alumnoId: string; nombre: string; error: string }[];
+};
+
+/**
+ * Publica la MISMA rutina a varios alumnos, analizada una sola vez.
+ *
+ * Antes, para diez alumnos había que subir el PDF diez veces y gastar diez
+ * llamadas a la IA. Desde la sección Documentos el archivo se sube una vez, se
+ * analiza una vez, y esta acción reparte el resultado ya revisado.
+ *
+ * Va alumno por alumno a propósito, en vez de en paralelo: cada publicación
+ * son varios INSERT encadenados, y lanzarlas todas juntas solo lograría que se
+ * estorben entre sí (ver la nota del N+1 en el HANDOFF). Si uno falla, los
+ * demás siguen: se informa cuáles quedaron afuera para poder reintentar solo
+ * esos, en vez de dejar la operación entera a medias sin saber dónde.
+ */
+export async function publicarRutinaAVariosAlumnos(
+  alumnoIds: string[],
+  datos: RutinaExtraida
+): Promise<PublicarAVariosState> {
+  await requireRol(["entrenador", "admin"]);
+
+  if (alumnoIds.length === 0) {
+    return { error: "Elige al menos un alumno para asignarle la rutina.", publicados: 0, fallidos: [] };
+  }
+
+  const supabase = await createClient();
+  const { data: perfiles } = await supabase
+    .from("perfiles")
+    .select("id, nombre")
+    .in("id", alumnoIds);
+
+  const nombrePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
+
+  let publicados = 0;
+  const fallidos: PublicarAVariosState["fallidos"] = [];
+
+  for (const alumnoId of alumnoIds) {
+    const resultado = await confirmarYPublicarRutina(alumnoId, datos);
+    if (resultado.ok) {
+      publicados++;
+    } else {
+      fallidos.push({
+        alumnoId,
+        nombre: nombrePorId.get(alumnoId) ?? "Alumno",
+        error: resultado.error ?? "No fue posible publicar la rutina.",
+      });
+    }
+  }
+
+  return { error: null, publicados, fallidos };
+}
+
 export async function confirmarYPublicarRutina(
   alumnoId: string,
   datos: RutinaExtraida
