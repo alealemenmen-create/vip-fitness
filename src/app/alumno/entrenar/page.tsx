@@ -23,7 +23,7 @@ export default async function EntrenarPage({
 }: {
   searchParams: Promise<{ pagina?: string }>;
 }) {
-  const { alumnoId: userId, soloLectura } = await requireAlumno();
+  const { alumnoId: userId, nombre, soloLectura } = await requireAlumno();
   const supabase = await createClient();
 
   // Ninguna de estas dos depende de la rutina: se piden ya mismo, en paralelo
@@ -34,12 +34,11 @@ export default async function EntrenarPage({
     : obtenerSesionEnProgreso(supabase, userId);
   const balanceSesionesPromise = obtenerBalanceSesionesMes(supabase, userId);
 
-  const [rutina, { data: perfil }] = await Promise.all([
-    obtenerRutinaActiva(userId),
-    supabase.from("perfiles").select("nombre").eq("id", userId).single(),
-  ]);
+  const rutina = await obtenerRutinaActiva(userId);
 
-  const primerNombre = perfil?.nombre ? nombreAlumnoPublicado(perfil.nombre).split(" ")[0] : "";
+  // El nombre sale de requireAlumno(), que ya lo trajo: preguntarle otra vez a
+  // `perfiles` era un viaje de ~95ms por la misma fila que ya estaba en mano.
+  const primerNombre = nombreAlumnoPublicado(nombre).split(" ")[0] ?? "";
   const frase = fraseDelDia("entrenar", primerNombre);
 
   if (!rutina) {

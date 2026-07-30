@@ -23,11 +23,18 @@ sigue vigente.
   `.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
   `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `ANTHROPIC_API_KEY`,
   `RESEND_API_KEY`, `RESEND_FROM_EMAIL`.
-- **Pendiente, todavía sin hacer**: cargar `NEXT_PUBLIC_SITE_URL` en Vercel
-  apuntando a `https://vipfitness.cl` (production) — hoy no está seteada ahí,
-  y esa variable arma el link de los correos de invitación a alumnos nuevos.
-  Hacerlo con `vercel env add NEXT_PUBLIC_SITE_URL production` (y `preview`)
-  y volver a desplegar.
+- `NEXT_PUBLIC_SITE_URL` = `https://vipfitness.cl` **ya cargada** en Production
+  y Preview (30/07, tarde). Es la que arma el link de los correos de invitación
+  a alumnos nuevos. Falta que un deploy la tome (ver abajo).
+- **El repo ya está en GitHub** (30/07): `alealemenmen-create/vip-fitness`,
+  privado. Antes no existía ningún `.git` — todo el proyecto vivía solo en el
+  disco. GitHub y Vercel **no están conectados**: el sitio solo se actualiza
+  corriendo `npx vercel --prod` a mano, hacer push NO despliega nada.
+- **Ojo con desplegar desde un agente**: dos intentos de `npx vercel --prod`
+  lanzados desde Claude Code quedaron colgados en estado `UNKNOWN` (ni Ready ni
+  Error) y nunca reemplazaron el alias de producción. Lo mismo pasó con
+  `git push`, que necesitó el login interactivo. Ambos funcionan bien corridos
+  por Alejandro en su propia PowerShell — si hay que desplegar, pedírselo a él.
 - El primer deploy (`vercel` sin `--prod`) Vercel lo asigna automáticamente a
   producción la primera vez, sin importar el flag. Deploys posteriores sí
   respetan `--prod` vs preview normal.
@@ -35,6 +42,77 @@ sigue vigente.
   deploy, sigue en el horario de siempre — no se tocó.
 - Para volver a desplegar en cualquier momento: `npx vercel --prod` desde la
   raíz del proyecto (ya está vinculado, no hace falta reconfigurar nada).
+
+## Rendimiento: la región de Vercel era el problema más grande (30/07, tarde)
+
+Alejandro notó que `localhost` se sentía **3-4x más rápido que vipfitness.cl**,
+lo cual es al revés de lo esperable (dev compila al vuelo, siempre debería ser
+más lento). Ese fue el experimento que destapó la causa. Medido con TCP ping
+desde Chile:
+
+| Destino | Latencia |
+|---|---|
+| Consulta REST real al Supabase del proyecto | **95 ms** |
+| Solo *llegar* a us-east-1 (Virginia) | **128 ms** |
+| Solo *llegar* a sa-east-1 (São Paulo) | 62 ms |
+
+Como 95 ms < 128 ms, **el Supabase del proyecto NO está en EE.UU.** — está en
+Sudamérica. Pero las funciones de Vercel corrían en `iad1` (Virginia), porque
+`vercel.json` no fijaba región y ese es el default. Cada carga de página hacía:
+
+    celular (Chile) → Virginia → São Paulo → Virginia → celular
+
+y el tramo Virginia↔São Paulo se paga **una vez por consulta**.
+
+**Arreglo:** `"regions": ["gru1"]` en `vercel.json` (São Paulo). Deja las
+funciones en la misma región que Supabase y más cerca de los alumnos chilenos.
+Si algún día se migra el proyecto de Supabase a otra región, hay que actualizar
+esto o el problema vuelve al revés.
+
+Nota de método: `nslookup` al host de Supabase NO sirve para saber la región —
+devuelve IPs de Cloudflare (el proxy), no del origen. La triangulación por
+latencia contra endpoints de región conocida sí funciona; el script quedó
+documentado en esta sección, no en el repo.
+
+## Optimizaciones de autenticación (30/07, tarde)
+
+El cuello de botella de "cambiar de pestaña" no estaban en las pantallas sino
+en el camino de auth, que corría entero en CADA navegación:
+
+- `getUser()` es una llamada HTTP al servidor de Auth de Supabase (~84 ms
+  medidos). Se llamaba **dos veces** por navegación: una en el middleware
+  (`src/lib/supabase/middleware.ts`) y otra en `requireAlumno()`.
+- Después `perfiles` y `alumno_perfil` iban encadenadas (~190 ms).
+
+Cambios:
+1. **`getUser()` → `getClaims()`** en middleware y en `src/lib/auth.ts`. El
+   proyecto firma los JWT con **ES256 (asimétrica)** — verificado leyendo
+   `/auth/v1/.well-known/jwks.json` — así que `getClaims()` valida la firma
+   localmente con WebCrypto, sin red. **Verificado en vivo** con
+   `VIP_DEBUG_SQL=1`: el log muestra `AUTH .well-known/jwks.json` una sola vez
+   (27 ms) y después CERO llamadas `AUTH user` por navegación. Es igual de
+   seguro que `getUser()`; lo inseguro sería `getSession()`, que confía en la
+   cookie sin verificar. **Si algún día se migra el proyecto a firma simétrica
+   (HS256), `getClaims()` vuelve a salir a la red y esta optimización se
+   pierde en silencio.**
+2. `perfiles` + `alumno_perfil` en un solo select anidado (~190 → ~95 ms).
+3. Quitadas las consultas redundantes de `perfiles` en `entrenar`, `comer` y
+   `progreso`: las tres volvían a pedir el nombre que `requireAlumno()` ya
+   devuelve.
+4. `loading.tsx` en las 11 rutas de `/alumno/*` (+ `PantallaCargando.tsx`).
+   Sin ese archivo, Next 16 **no prefetchea** rutas dinámicas: cada toque en la
+   barra inferior quedaba en blanco esperando al servidor.
+5. **N+1 en el panel del entrenador** (`src/app/admin/alumnos/data.ts`): se
+   llamaba `obtenerPlanAlimentacion` una vez por alumno. El log mostró 10
+   consultas a `planes_alimentacion` en paralelo que, al estorbarse entre sí,
+   pasaban de ~108 ms a ~273 ms cada una. Reemplazado por una sola consulta
+   que trae `kcal_objetivo` de todos (esta pantalla no usa las comidas del
+   plan). El comentario viejo decía "son pocos y ya está resuelta" — no lo
+   estaba.
+
+Herramienta clave para medir: `VIP_DEBUG_SQL=1 npm run dev` deja en el log cada
+viaje a Supabase con su tiempo y la tabla. Es la única forma de ver la cascada
+real en vez de estimarla leyendo el código.
 
 ## Bug de performance real que ya se resolvió — ojo si vuelve a pasar
 

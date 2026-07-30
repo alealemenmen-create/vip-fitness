@@ -8,18 +8,15 @@ import { obtenerHistorialPeso, obtenerFotosProgreso } from "./data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 
 export default async function ProgresoPage() {
-  const { alumnoId, soloLectura } = await requireAlumno();
+  const { alumnoId, nombre, soloLectura } = await requireAlumno();
   const supabase = await createClient();
 
-  const [historial, fotos, { data: perfil }] = await Promise.all([
+  const [historial, fotos] = await Promise.all([
     obtenerHistorialPeso(supabase, alumnoId),
     obtenerFotosProgreso(supabase, alumnoId),
-    supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
   ]);
-  const frase = fraseDelDia(
-    "progreso",
-    perfil?.nombre ? nombreAlumnoPublicado(perfil.nombre).split(" ")[0] : ""
-  );
+  // El nombre ya viene de requireAlumno(); no hace falta volver a `perfiles`.
+  const frase = fraseDelDia("progreso", nombreAlumnoPublicado(nombre).split(" ")[0] ?? "");
 
   return (
     <div className="space-y-6 pb-8">

@@ -41,19 +41,16 @@ export default async function ComerPage({
   const hoy = hoyISO();
   const anioMes = mes || hoy.slice(0, 7);
 
-  const { alumnoId, soloLectura } = await requireAlumno();
+  const { alumnoId, nombre, soloLectura } = await requireAlumno();
   const supabase = await createClient();
 
-  const [estados, { data: perfil }, plan, resumenHoy] = await Promise.all([
+  const [estados, plan, resumenHoy] = await Promise.all([
     obtenerCalendarioMes(supabase, alumnoId, anioMes),
-    supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     obtenerPlanAlimentacion(supabase, alumnoId),
     obtenerResumenAlimentacionHoy(supabase, alumnoId),
   ]);
-  const frase = fraseDelDia(
-    "comer",
-    perfil?.nombre ? nombreAlumnoPublicado(perfil.nombre).split(" ")[0] : ""
-  );
+  // El nombre ya viene de requireAlumno(); no hace falta volver a `perfiles`.
+  const frase = fraseDelDia("comer", nombreAlumnoPublicado(nombre).split(" ")[0] ?? "");
 
   const [anio, mesNum] = anioMes.split("-").map(Number);
   const diasEnMes = new Date(anio, mesNum, 0).getDate();

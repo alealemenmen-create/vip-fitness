@@ -21,33 +21,79 @@ export type ContextoAlumno = {
 };
 
 /**
- * Usuario + perfil de la sesión actual, o `null` si no hay sesión válida.
+ * El id del usuario de la sesión actual, o `null` si no hay sesión válida.
  *
- * Va envuelto en `cache()` de React porque es lo más caro que corre en cada
- * request: `auth.getUser()` es una llamada HTTP aparte al servidor de Auth de
- * Supabase, no una consulta a la base. Sin esto se repetía entera cada vez que
- * alguien llamaba a requireAlumno()/requireRol(), y en /alumno/* se llama dos
- * veces por carga (una en el layout y otra en la página). `cache()` memoriza
- * por request, así que la segunda llamada no cuesta nada.
+ * Va con `getClaims()` y NO con `getUser()`: el proyecto firma los JWT con
+ * ES256 (clave asimétrica), así que `getClaims()` verifica la firma localmente
+ * con WebCrypto y no sale a la red. `getUser()` consultaba al servidor de Auth
+ * de Supabase en cada request — ~84ms medidos desde Chile — y eso se pagaba en
+ * cada navegación entre pestañas. Es igual de seguro: verifica la firma
+ * criptográficamente (no es `getSession()`, que confía en la cookie a ciegas).
+ *
+ * `cache()` lo memoriza por request para que el layout y la página no repitan
+ * la verificación.
+ */
+const obtenerUserId = cache(async (): Promise<string | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  // `sub` es el id del usuario, el mismo que devolvía user.id.
+  return data?.claims?.sub ?? null;
+});
+
+/**
+ * Usuario + perfil de la sesión actual, o `null` si no hay sesión válida.
+ * Cacheado por request: el layout y la página lo piden por separado.
  */
 const obtenerSesion = cache(async (): Promise<SesionActual | null> => {
+  const userId = await obtenerUserId();
+  if (!userId) return null;
+
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
   const { data: perfil } = await supabase
     .from("perfiles")
     .select("nombre, rol")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
 
   if (!perfil) return null;
 
-  return { userId: user.id, nombre: perfil.nombre, rol: perfil.rol };
+  return { userId, nombre: perfil.nombre, rol: perfil.rol };
 });
+
+/**
+ * Perfil + si el usuario tiene ficha de alumno, en UNA sola consulta.
+ *
+ * Antes eran dos viajes encadenados (`perfiles` y después `alumno_perfil`,
+ * ~95ms cada uno): el segundo no podía empezar hasta que volviera el primero,
+ * aunque `alumno_perfil.user_id` apunta a `perfiles.id` y PostgREST sabe
+ * traerlos juntos. Se piden anidados y queda un solo round-trip.
+ */
+const obtenerSesionConAlumno = cache(
+  async (): Promise<{ sesion: SesionActual; esAlumno: boolean } | null> => {
+    const userId = await obtenerUserId();
+    if (!userId) return null;
+
+    const supabase = await createClient();
+    const { data: perfil } = await supabase
+      .from("perfiles")
+      .select("nombre, rol, alumno_perfil!alumno_perfil_user_id_fkey(user_id)")
+      .eq("id", userId)
+      .single();
+
+    if (!perfil) return null;
+
+    // PostgREST devuelve la relación como arreglo o como objeto según la
+    // cardinalidad que infiera; `alumno_perfil.user_id` es primary key, así
+    // que puede venir de cualquiera de las dos formas.
+    const ficha = perfil.alumno_perfil as unknown;
+    const esAlumno = Array.isArray(ficha) ? ficha.length > 0 : ficha !== null;
+
+    return {
+      sesion: { userId, nombre: perfil.nombre, rol: perfil.rol },
+      esAlumno,
+    };
+  }
+);
 
 /**
  * Verifica sesión + rol en el servidor (no solo oculta botones en la UI).
@@ -75,11 +121,11 @@ export async function requireRol(rolesPermitidos: Rol[]): Promise<SesionActual> 
  * consulta a `alumno_perfil` en cada carga.
  */
 export const requireAlumno = cache(async (): Promise<ContextoAlumno> => {
-  const sesion = await obtenerSesion();
+  const contexto = await obtenerSesionConAlumno();
 
-  if (!sesion) redirect("/login");
+  if (!contexto) redirect("/login");
 
-  const supabase = await createClient();
+  const { sesion, esAlumno } = contexto;
   const esEntrenador = sesion.rol === "entrenador" || sesion.rol === "admin";
 
   if (esEntrenador) {
@@ -87,6 +133,7 @@ export const requireAlumno = cache(async (): Promise<ContextoAlumno> => {
     const vistaAlumnoId = cookieStore.get(COOKIE_VISTA_ALUMNO)?.value;
 
     if (vistaAlumnoId) {
+      const supabase = await createClient();
       const { data: alumno } = await supabase
         .from("alumno_perfil")
         .select("user_id, perfiles!alumno_perfil_user_id_fkey(nombre)")
@@ -101,13 +148,7 @@ export const requireAlumno = cache(async (): Promise<ContextoAlumno> => {
     }
   }
 
-  const { data: alumnoPerfil } = await supabase
-    .from("alumno_perfil")
-    .select("user_id")
-    .eq("user_id", sesion.userId)
-    .maybeSingle();
-
-  if (!alumnoPerfil) {
+  if (!esAlumno) {
     redirect(esEntrenador ? "/admin/alumnos" : "/login");
   }
 

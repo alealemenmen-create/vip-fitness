@@ -1,7 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { mesActualISO, ultimosNDiasISO, hoyISO } from "@/lib/date";
-import { obtenerPlanAlimentacion } from "@/app/alumno/comer/data";
 import { obtenerConfiguracionSupervision } from "@/lib/configuracion/supervision";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -295,10 +294,31 @@ export async function obtenerReportes(
     if (!ultimaSesionPorAlumno.has(s.alumno_id)) ultimaSesionPorAlumno.set(s.alumno_id, s.fecha);
   }
 
-  // El plan es una consulta por alumno, pero son pocos y ya está resuelta.
-  const planes = await Promise.all(alumnos.map((a) => obtenerPlanAlimentacion(supabase, a.id)));
+  // Meta calórica de todos los alumnos en UNA consulta.
+  //
+  // Antes se llamaba `obtenerPlanAlimentacion` una vez por alumno: con 10
+  // alumnos eran 10 consultas (más otras 10 por las comidas del plan, que acá
+  // no se usan). Medido con VIP_DEBUG_SQL, las 10 en paralelo se estorbaban
+  // entre sí y cada una pasaba de ~108ms a ~273ms — el tramo más lento de
+  // toda la pantalla. Esta versión pide solo la columna que se muestra
+  // (`kcal_objetivo`) para todos de una vez.
+  const { data: filasPlanes } = await supabase
+    .from("planes_alimentacion")
+    .select("alumno_id, kcal_objetivo, created_at")
+    .in("alumno_id", ids)
+    .eq("activo", true)
+    .order("created_at", { ascending: false });
 
-  return alumnos.map((alumno, i) => {
+  // Viene del más nuevo al más viejo: el primero de cada alumno es el vigente,
+  // igual criterio que `obtenerPlanAlimentacion`.
+  const kcalObjetivoPorAlumno = new Map<string, number | null>();
+  for (const fila of filasPlanes ?? []) {
+    if (!kcalObjetivoPorAlumno.has(fila.alumno_id)) {
+      kcalObjetivoPorAlumno.set(fila.alumno_id, fila.kcal_objetivo);
+    }
+  }
+
+  return alumnos.map((alumno) => {
     const indicador = indicadores.get(alumno.id)!;
 
     const listaPesos = pesosPorAlumno.get(alumno.id) ?? [];
@@ -332,7 +352,7 @@ export async function obtenerReportes(
       pesoActual,
       pesoVariacion,
       kcalPromedio,
-      kcalObjetivo: planes[i]?.kcalObjetivo ?? null,
+      kcalObjetivo: kcalObjetivoPorAlumno.get(alumno.id) ?? null,
       energiaPromedio,
       molestias,
       ultimaSesion: ultimaSesionPorAlumno.get(alumno.id) ?? null,
