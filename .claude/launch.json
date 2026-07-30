@@ -3,10 +3,10 @@
   "configurations": [
     {
       "name": "vip-fitness",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "-p", "3001", "-H", "0.0.0.0"],
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", ".claude\\dev-preview.cmd"],
       "port": 3001,
-      "autoPort": false
+      "autoPort": true
     }
   ]
 }

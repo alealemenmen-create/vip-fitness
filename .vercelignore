@@ -1,0 +1,18 @@
+# Qué NO subir al desplegar. Vercel instala dependencias y compila en su lado,
+# así que todo esto es peso muerto en la subida.
+
+# Compilados. Vercel ya ignora .next por defecto, pero NO las carpetas alternas
+# que crea `VIP_DIST_DIR` para levantar un segundo servidor de desarrollo.
+# Sin esta línea la subida pasó de 34 MB a 486 MB.
+.next
+.next-*
+out
+build
+
+node_modules
+.git
+
+# Registros y temporales
+*.log
+deploy.log
+*.tsbuildinfo
