@@ -309,7 +309,7 @@ values
  array['Muy buena para cuádriceps sin cargar la espalda'],
  'hack-squat'),
 
-('abductores', 'Abductores en máquina', array['abductor','apertura de piernas','gluteo medio maquina'],
+('abductores', 'Abductores en máquina', array['abductor','abduccion','abduccion de cadera','apertura de piernas','gluteo medio maquina'],
  'piernas', array[]::text[], 'aislamiento', 'maquina', 'principiante',
  'Aislamiento de glúteo medio.',
  'Sentado, abre las piernas contra la resistencia y vuelve controlado.',
@@ -577,7 +577,7 @@ values
  array['Un poco de inclinación sube la intensidad sin tener que correr'],
  'caminadora'),
 
-('bicicleta', 'Bicicleta estática', array['bici','spinning','ciclismo','bicicleta'],
+('bicicleta', 'Bicicleta estática', array['bici','spinning','ciclismo','bicicleta','bicicleta spinning','bici spinning'],
  'cardio', array['piernas'], 'cardio', 'maquina', 'principiante',
  'Cardio de bajo impacto.',
  'Ajusta el asiento de modo que la rodilla quede casi estirada abajo.',
@@ -753,7 +753,7 @@ values
  array['Es de los pocos abdominales donde puedes aumentar peso de verdad'],
  'crunch-polea'),
 
-('multi-hip', 'Extensión de cadera en máquina', array['multi hip','multi hip extension de cadera','extension de cadera maquina','patada gluteo maquina'],
+('multi-hip', 'Extensión de cadera en máquina', array['multi hip','multi hip extension de cadera','extension de cadera maquina','patada gluteo maquina','patada de gluteo','patada gluteo','patada de cadera'],
  'piernas', array[]::text[], 'aislamiento', 'maquina', 'principiante',
  'Extensión de cadera guiada, para glúteo.',
  'De pie en la máquina, lleva la pierna hacia atrás manteniendo el torso quieto.',
@@ -848,6 +848,14 @@ values
  array['Encoger los hombros al subir'],
  array['Complementa bien al press inclinado'],
  'aperturas-polea'),
+
+('farmer-walk', 'Farmer walk', array['farmer walk','caminata del granjero','paseo del granjero','farmers walk','carry'],
+ 'core', array['brazos','piernas'], 'full_body', 'mancuerna', 'intermedio',
+ 'Caminar cargando peso a los costados.',
+ 'Toma una mancuerna o kettlebell pesada en cada mano y camina erguido, hombros atrás y abdomen firme. Se mide por distancia o por tiempo, no por repeticiones.',
+ array['Encorvar la espalda por el peso','Caminar a pasos muy largos'],
+ array['Trabaja agarre, core y postura todo junto','Si se te escapa de las manos, es la señal de que el agarre llegó al límite'],
+ 'farmer-walk'),
 
 ('sentadilla-libre-trasera', 'Sentadilla libre trasera', array['sentadilla libre','back squat','super squat','sentadilla trasera libre'],
  'piernas', array['core'], 'pierna', 'barra', 'intermedio',
