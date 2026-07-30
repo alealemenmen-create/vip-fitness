@@ -8,6 +8,13 @@ import { Input } from "@/components/ui/Input";
 import { guardarSeries, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
+import { repsObjetivo } from "@/lib/entrenamiento/reps";
+import {
+  guardarBorrador,
+  leerBorrador,
+  limpiarBorrador,
+  type BorradorEjercicio,
+} from "@/lib/entrenamiento/borrador";
 
 /** Lo que expone cada tarjeta de ejercicio al botón general "Guardar
  * progreso" de la sesión (ver SesionEjercicios.tsx). */
@@ -44,8 +51,13 @@ const FilaSerie = forwardRef<
   {
     numero: number;
     inicial: EjercicioSesion["series"][number] | undefined;
+    /** Repeticiones programadas de la rutina, para precargar el campo. */
+    repsObjetivo: number | null;
     descansoSegundos: number | null;
     soloLectura: boolean;
+    /** Se llama apenas cambia algo, para guardar sin esperar a que el alumno
+     * termine todo el ejercicio. */
+    onGuardar: () => void;
     /** Solo el temporizador "activo" de todo el ejercicio corre — arrancar el
      * de otra serie pausa este solo. */
     activo: boolean;
@@ -53,7 +65,17 @@ const FilaSerie = forwardRef<
     onIniciar: (numero: number) => void;
   }
 >(function FilaSerie(
-  { numero, inicial, descansoSegundos, soloLectura, activo, onCicloCompleto, onIniciar },
+  {
+    numero,
+    inicial,
+    repsObjetivo,
+    descansoSegundos,
+    soloLectura,
+    activo,
+    onCicloCompleto,
+    onIniciar,
+    onGuardar,
+  },
   ref
 ) {
   const esPesoCorporal = inicial?.esPesoCorporal ?? false;
@@ -71,6 +93,7 @@ const FilaSerie = forwardRef<
         avisadoRef.current = true;
         onCicloCompleto(numero);
       }
+      onGuardar();
     },
   }));
 
@@ -112,6 +135,7 @@ const FilaSerie = forwardRef<
       // Ya terminó el descanso: permite deshacer un toque accidental.
       setRealizada(false);
       avisadoRef.current = false;
+      onGuardar();
       return;
     }
 
@@ -123,6 +147,10 @@ const FilaSerie = forwardRef<
       avisadoRef.current = true;
       onCicloCompleto(numero);
     }
+
+    // Guardar ACÁ y no al terminar el ejercicio: si el alumno bloquea el
+    // teléfono o cambia de app durante el descanso, la serie ya está a salvo.
+    onGuardar();
   }
 
   return (
@@ -152,7 +180,10 @@ const FilaSerie = forwardRef<
             min="0"
             inputMode="numeric"
             placeholder="RP"
-            defaultValue={inicial?.repsRealizadas ?? ""}
+            // Viene precargado con las repeticiones objetivo de la rutina para
+            // que el alumno solo lo corrija si hizo otra cosa; sigue siendo
+            // editable. Lo ya registrado manda por sobre el objetivo.
+            defaultValue={inicial?.repsRealizadas ?? repsObjetivo ?? ""}
             className="py-1 text-caption"
           />
         </div>
@@ -226,6 +257,78 @@ export const SesionEjercicioCard = forwardRef<
   const filasRef = useRef(new Map<number, FilaSerieHandle>());
 
   const filas = Array.from({ length: ejercicio.seriesProgramadas }, (_, i) => i + 1);
+  const objetivoReps = repsObjetivo(ejercicio.repsProgramadas);
+
+  // Respaldo local: se lee DESPUÉS de montar (localStorage no existe en el
+  // servidor, leerlo durante el render rompería la hidratación).
+  const [borrador, setBorrador] = useState<BorradorEjercicio | null>(null);
+  const [borradorLeido, setBorradorLeido] = useState(false);
+
+  useEffect(() => {
+    setBorrador(leerBorrador(sesionId, ejercicio.sesionEjercicioId));
+    setBorradorLeido(true);
+  }, [sesionId, ejercicio.sesionEjercicioId]);
+
+  /**
+   * Copia al teléfono lo que hay ahora en el formulario.
+   *
+   * Va enganchada al `onChange` del <form>, aprovechando que los eventos de los
+   * inputs burbujean: cualquier peso o repetición que se escriba queda
+   * respaldada al instante. Al servidor se manda solo al tocar "Listo", para no
+   * disparar una petición por cada tecla.
+   */
+  const respaldarLocal = () => {
+    const form = formRef.current;
+    if (!form) return;
+    const datos = new FormData(form);
+    guardarBorrador(sesionId, ejercicio.sesionEjercicioId, {
+      series: filas.map((n) => ({
+        numero: n,
+        peso: String(datos.get(`peso_${n}`) ?? ""),
+        reps: String(datos.get(`reps_${n}`) ?? ""),
+        realizada: datos.get(`realizada_${n}`) === "true",
+        esPesoCorporal: datos.get(`peso_corporal_${n}`) === "true",
+      })),
+      nota: String(datos.get("nota_ejercicio") ?? ""),
+    });
+  };
+
+  /**
+   * Guarda ya mismo, sin esperar a que el alumno termine el ejercicio.
+   *
+   * Antes solo se enviaba al completar TODAS las series, así que salir de la
+   * app en el medio perdía todo lo cargado. Primero se deja la copia local
+   * (instantánea, no puede fallar por red) y después se manda al servidor.
+   * Los duplicados no son un problema: `guardarSeries` hace upsert sobre
+   * (sesion_ejercicio_id, numero_serie).
+   */
+  const guardarAhora = () => {
+    respaldarLocal();
+    formRef.current?.requestSubmit();
+  };
+
+  // Cuando el servidor confirma, la copia local ya no hace falta: dejarla
+  // haría que un borrador viejo se restaure encima de datos más nuevos.
+  useEffect(() => {
+    if (!pending && !state.error && borradorLeido) {
+      limpiarBorrador(sesionId, ejercicio.sesionEjercicioId);
+    }
+  }, [pending, state.error, borradorLeido, sesionId, ejercicio.sesionEjercicioId]);
+
+  /** Lo guardado en la base, o el respaldo local si quedó sin sincronizar. */
+  const serieInicial = (numero: number): EjercicioSesion["series"][number] | undefined => {
+    const delBorrador = borrador?.series.find((s) => s.numero === numero);
+    if (delBorrador) {
+      return {
+        numeroSerie: numero,
+        pesoKg: delBorrador.peso ? Number(delBorrador.peso) : null,
+        esPesoCorporal: delBorrador.esPesoCorporal,
+        repsRealizadas: delBorrador.reps ? Number(delBorrador.reps) : null,
+        realizada: delBorrador.realizada,
+      };
+    }
+    return ejercicio.series.find((s) => s.numeroSerie === numero);
+  };
 
   function marcarEjercicioListo() {
     // Fuerza todas las series pendientes como hechas y salta al siguiente
@@ -319,25 +422,36 @@ export const SesionEjercicioCard = forwardRef<
           )}
         </div>
       ) : (
-        <form ref={formRef} action={formAction} className="space-y-1.5">
+        <form
+          ref={formRef}
+          action={formAction}
+          onChange={respaldarLocal}
+          className="space-y-1.5"
+        >
           <input type="hidden" name="sesion_ejercicio_id" value={ejercicio.sesionEjercicioId} />
           <input type="hidden" name="sesion_id" value={sesionId} />
           <input type="hidden" name="cantidad_series" value={ejercicio.seriesProgramadas} />
 
           {filas.map((n) => (
             <FilaSerie
-              key={n}
+              // La clave incluye si ya se leyó el respaldo local: al llegar un
+              // borrador, la fila se vuelve a montar con esos valores. Los
+              // campos son no controlados, así que es la forma de refrescar
+              // sus `defaultValue` sin romper la hidratación.
+              key={`${n}-${borradorLeido}`}
               ref={(handle) => {
                 if (handle) filasRef.current.set(n, handle);
                 else filasRef.current.delete(n);
               }}
               numero={n}
-              inicial={ejercicio.series.find((s) => s.numeroSerie === n)}
+              inicial={serieInicial(n)}
+              repsObjetivo={objetivoReps}
               descansoSegundos={ejercicio.descansoSegundos}
               soloLectura={soloLectura}
               activo={serieActivaNumero === n}
               onIniciar={setSerieActivaNumero}
               onCicloCompleto={alCompletarCicloSerie}
+              onGuardar={guardarAhora}
             />
           ))}
 

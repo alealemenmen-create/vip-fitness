@@ -248,6 +248,37 @@ recibe `alumnoId`, así que alcanza con recorrer la lista de seleccionados desde
 el borrador que ya está en memoria. Decisión tomada con Alejandro: al asignar,
 la rutina activa anterior se reemplaza y pasa a histórico, igual que hoy.
 
+## Persistencia del entrenamiento (30/07) — pérdida de datos corregida
+
+El bug: al tocar "Listo" en una serie **no se guardaba nada**. El envío al
+servidor (`requestSubmit`) solo se disparaba al completar TODAS las series del
+ejercicio, así que si el alumno minimizaba la app, cambiaba de aplicación o se
+le descartaba la pestaña en el medio, perdía todo lo cargado.
+
+Ahora, al tocar "Listo":
+1. Se respalda en `localStorage` (instantáneo, no depende de la red).
+2. Se manda al servidor.
+
+Y escribir peso o repeticiones también respalda local, enganchado al `onChange`
+del `<form>` (los eventos de los inputs burbujean). Al servidor se manda solo al
+tocar "Listo", para no disparar una petición por tecla.
+
+- `src/lib/entrenamiento/borrador.ts` — respaldo local. **Regla de precedencia:
+  el borrador existe SOLO mientras hay algo sin confirmar y se borra cuando el
+  servidor responde.** Sin eso, un borrador viejo podría restaurarse encima de
+  datos más nuevos. Vence a las 24 h.
+- `src/lib/entrenamiento/reps.ts` — precarga el campo de repeticiones con el
+  objetivo de la rutina (el techo si es un rango: "10-12" → 12). Devuelve null
+  para "al fallo" o "30 seg", donde inventar un número sería un dato falso.
+  **Probado con 18 casos, 18/18.**
+- Los duplicados ya estaban cubiertos: `guardarSeries` hace upsert sobre
+  `(sesion_ejercicio_id, numero_serie)`.
+
+Detalle de implementación: los campos son **no controlados** (`defaultValue`),
+así que para restaurar un borrador la fila se re-monta cambiando su `key`
+(`${n}-${borradorLeido}`). Leer `localStorage` durante el render rompería la
+hidratación, por eso se lee en un efecto.
+
 ## Bug de performance real que ya se resolvió — ojo si vuelve a pasar
 
 Después de "quitarle el fondo negro" a una foto real (persona/producto), el
