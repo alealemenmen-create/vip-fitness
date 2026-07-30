@@ -9,6 +9,16 @@ const nextConfig: NextConfig = {
   // Next.js bloquea por defecto cualquier origen que no sea localhost.
   allowedDevOrigins: ["192.168.1.*"],
   experimental: {
+    // Caché de navegación del cliente. Desde Next 15 el valor por defecto de
+    // `dynamic` es 0 s (apagado), así que volver a una pestaña de la barra
+    // inferior pedía la pantalla al servidor de nuevo aunque la hubieras visto
+    // hace un segundo: medido, ~300 ms cada vez.
+    // Con 30 s, moverse entre pestañas dentro de ese lapso no toca la red y es
+    // instantáneo. No hay riesgo de ver datos viejos tras guardar algo: las
+    // Server Actions llaman a `revalidatePath`, que vacía esta caché.
+    staleTimes: {
+      dynamic: 30,
+    },
     serverActions: {
       // Sube fotos de progreso (comprimidas en el navegador) y PDFs de rutina.
       // Sirve de respaldo cuando el navegador no logra comprimir la imagen
