@@ -30,11 +30,16 @@ sigue vigente.
   privado. Antes no existía ningún `.git` — todo el proyecto vivía solo en el
   disco. GitHub y Vercel **no están conectados**: el sitio solo se actualiza
   corriendo `npx vercel --prod` a mano, hacer push NO despliega nada.
-- **Ojo con desplegar desde un agente**: dos intentos de `npx vercel --prod`
-  lanzados desde Claude Code quedaron colgados en estado `UNKNOWN` (ni Ready ni
-  Error) y nunca reemplazaron el alias de producción. Lo mismo pasó con
-  `git push`, que necesitó el login interactivo. Ambos funcionan bien corridos
-  por Alejandro en su propia PowerShell — si hay que desplegar, pedírselo a él.
+- **Desplegar desde un agente NO funciona en este proyecto.** Dos intentos de
+  `npx vercel --prod` lanzados desde Claude Code subieron los 34 MB completos y
+  después fallaron en la etapa de build con `{"status":"error","reason":
+  "deploy_failed","message":"Not authorized"}`. Mientras tanto quedan en estado
+  `UNKNOWN` (ni Ready ni Error), así que el CLI no delata el problema hasta que
+  termina. Curioso: `vercel whoami`, `vercel env add` y `vercel ls` sí funcionan
+  con esa misma sesión — o sea el CLI está autenticado, falla solo el build.
+  Los deploys corridos por Alejandro en su propia PowerShell sí funcionan.
+  Igual pasó con `git push` (necesita el login interactivo del navegador).
+  **Conclusión: si hay que desplegar o pushear, pedírselo a Alejandro.**
 - El primer deploy (`vercel` sin `--prod`) Vercel lo asigna automáticamente a
   producción la primera vez, sin importar el flag. Deploys posteriores sí
   respetan `--prod` vs preview normal.
@@ -64,10 +69,16 @@ Sudamérica. Pero las funciones de Vercel corrían en `iad1` (Virginia), porque
 
 y el tramo Virginia↔São Paulo se paga **una vez por consulta**.
 
-**Arreglo:** `"regions": ["gru1"]` en `vercel.json` (São Paulo). Deja las
-funciones en la misma región que Supabase y más cerca de los alumnos chilenos.
-Si algún día se migra el proyecto de Supabase a otra región, hay que actualizar
-esto o el problema vuelve al revés.
+**Arreglo:** poner la región de las funciones en **São Paulo (`gru1`)**, que es
+la más cercana tanto a Supabase como a los alumnos chilenos. Si algún día se
+migra el proyecto de Supabase a otra región, hay que actualizar esto o el
+problema vuelve al revés.
+
+**Cómo aplicarlo: desde el panel de Vercel, NO desde `vercel.json`.**
+Project Settings → Functions → Function Region → São Paulo, y redesplegar.
+Se probó primero con `"regions": ["gru1"]` en `vercel.json` y se descartó: ese
+campo está restringido a Pro/Enterprise y en plan Hobby puede hacer **fallar el
+deploy completo**. El selector del panel funciona en cualquier plan.
 
 Nota de método: `nslookup` al host de Supabase NO sirve para saber la región —
 devuelve IPs de Cloudflare (el proxy), no del origen. La triangulación por
