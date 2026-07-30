@@ -268,6 +268,9 @@ export type EjercicioSesion = {
   tecnicaInstruccion: string | null;
   observacion: string | null;
   grupoMuscular: GrupoMuscular | null;
+  /** Qué dibujo mostrar. Null si el ejercicio no está emparejado con la
+   * biblioteca o si todavía no corrió la migración 0026. */
+  ilustracionSlug: string | null;
   completado: boolean;
   notaEjercicio: string | null;
   series: SerieRealizada[];
@@ -305,14 +308,52 @@ export async function obtenerSesionCompleta(
 
   if (!sesion) return null;
 
-  const { data: sesionEjercicios } = await supabase
-    .from("sesion_ejercicios")
-    .select(
-      "id, dia_ejercicio_id, completado, nota, rutina_dia_ejercicios(orden, nombre, series_programadas, reps_programadas, descanso_segundos, tecnica_tipo, tecnica_instruccion, observacion, grupo_muscular)"
-    )
-    .eq("sesion_id", sesionId);
+  // La ilustración del ejercicio viaja anidada en esta misma consulta, así que
+  // no cuesta ningún viaje extra a Supabase.
+  //
+  // Se intenta primero con el join a `ejercicios` (migración 0026) y si falla
+  // se repite sin él: el código puede llegar a producción antes que la
+  // migración, y sin este respaldo la pantalla de sesión quedaría rota entera
+  // hasta correrla. Ya pasó con las migraciones 0009, 0010 y 0013.
+  const COLUMNAS_PROGRAMA =
+    "orden, nombre, series_programadas, reps_programadas, descanso_segundos, tecnica_tipo, tecnica_instruccion, observacion, grupo_muscular";
 
-  const lista = sesionEjercicios ?? [];
+  const consultarEjercicios = (columnasPrograma: string) =>
+    supabase
+      .from("sesion_ejercicios")
+      .select(`id, dia_ejercicio_id, completado, nota, rutina_dia_ejercicios(${columnasPrograma})`)
+      .eq("sesion_id", sesionId);
+
+  // El `select` se arma con plantilla, así que el parser de tipos de PostgREST
+  // no puede inferir la forma del resultado — se declara a mano, igual que en
+  // `obtenerCatalogoAlimentos`.
+  type FilaSesionEjercicio = {
+    id: string;
+    dia_ejercicio_id: string;
+    completado: boolean;
+    nota: string | null;
+    rutina_dia_ejercicios: {
+      orden: number;
+      nombre: string;
+      series_programadas: number;
+      reps_programadas: string;
+      descanso_segundos: number | null;
+      tecnica_tipo: string | null;
+      tecnica_instruccion: string | null;
+      observacion: string | null;
+      grupo_muscular: GrupoMuscular | null;
+      // Presente solo si la migración 0026 ya corrió (ver el respaldo arriba).
+      ejercicios?:
+        | { ilustracion_slug: string | null }
+        | { ilustracion_slug: string | null }[]
+        | null;
+    } | null;
+  };
+
+  const intento = await consultarEjercicios(`${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug)`);
+  const resultado = intento.error ? await consultarEjercicios(COLUMNAS_PROGRAMA) : intento;
+
+  const lista = (resultado.data ?? []) as unknown as FilaSesionEjercicio[];
   const sesionEjercicioIds = lista.map((e) => e.id);
 
   const { data: todasLasSeries } = sesionEjercicioIds.length
@@ -337,18 +378,12 @@ export async function obtenerSesionCompleta(
 
   const ejercicios: EjercicioSesion[] = [];
   for (const se of lista) {
-    const prog = se.rutina_dia_ejercicios as unknown as {
-      orden: number;
-      nombre: string;
-      series_programadas: number;
-      reps_programadas: string;
-      descanso_segundos: number | null;
-      tecnica_tipo: string | null;
-      tecnica_instruccion: string | null;
-      observacion: string | null;
-      grupo_muscular: GrupoMuscular | null;
-    } | null;
+    const prog = se.rutina_dia_ejercicios;
     if (!prog) continue;
+
+    // PostgREST devuelve la relación como objeto o como arreglo según la
+    // cardinalidad que infiera; acá siempre es a lo sumo uno.
+    const dellaBiblioteca = Array.isArray(prog.ejercicios) ? prog.ejercicios[0] : prog.ejercicios;
 
     ejercicios.push({
       sesionEjercicioId: se.id,
@@ -362,6 +397,7 @@ export async function obtenerSesionCompleta(
       tecnicaInstruccion: prog.tecnica_instruccion,
       observacion: prog.observacion,
       grupoMuscular: prog.grupo_muscular,
+      ilustracionSlug: dellaBiblioteca?.ilustracion_slug ?? null,
       completado: se.completado,
       notaEjercicio: se.nota,
       series: (seriesPorEjercicio.get(se.id) ?? []).sort((a, b) => a.numeroSerie - b.numeroSerie),

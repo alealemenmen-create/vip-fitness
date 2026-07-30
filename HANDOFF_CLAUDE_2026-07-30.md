@@ -125,6 +125,49 @@ Herramienta clave para medir: `VIP_DEBUG_SQL=1 npm run dev` deja en el log cada
 viaje a Supabase con su tiempo y la tabla. Es la única forma de ver la cascada
 real en vez de estimarla leyendo el código.
 
+## Biblioteca de ejercicios (30/07, tarde) — FALTA CORRER LA MIGRACIÓN
+
+Antes, cada ejercicio de una rutina era texto libre escrito por la IA al leer el
+PDF: no había forma de saber que "Jalón al pecho" y "Jalón amplio" son el mismo
+movimiento, ni de colgarles técnica, errores comunes ni una ilustración.
+
+**Pendientes para que esto funcione (en orden):**
+1. Correr `supabase/migrations/0026_biblioteca_ejercicios.sql`.
+2. Correr `supabase/seeds/ejercicios_base.sql` (74 ejercicios, idempotente).
+3. Las rutinas ya publicadas quedan con `ejercicio_id = null` — hay que volver
+   a publicarlas desde el PDF para que se emparejen, o emparejarlas a mano.
+
+**Arquitectura:**
+- Tabla `ejercicios`: biblioteca maestra (slug, aliases, grupo principal y
+  secundarios, categoría, equipo, nivel, técnica, errores, consejos,
+  `ilustracion_slug`, `video_url` para el futuro).
+- `rutina_dia_ejercicios.ejercicio_id` **nullable a propósito**. Alejandro pidió
+  que fuera obligatorio ("nunca más ejercicios escritos a mano"); se hizo
+  opcional porque con FK obligatoria, el día que la IA lea un nombre que no está
+  en la biblioteca **la rutina entera no se podría publicar**. Así el ejercicio
+  sin reconocer se publica igual con su nombre y se empareja después.
+- `ilustracion_slug` va **separado** de `slug` para que varias variantes
+  compartan dibujo (press banca / Smith / mancuernas → un solo dibujo).
+  **74 ejercicios necesitan solo 59 ilustraciones.**
+- `src/lib/ejercicios/emparejar.ts` cruza el nombre del PDF contra la
+  biblioteca. Sin IA, igual que `alimentos/emparejar.ts`. **Verificado con 31
+  casos reales, 31/31.** Dos reglas se endurecieron por falsos positivos que
+  aparecieron en esa prueba: la contención exige que el nombre más corto sea
+  ≥60% del más largo, y el puntaje por palabras divide por el nombre MÁS LARGO
+  (con el más corto, "Trepar la cuerda" emparejaba con "Salto a la cuerda").
+  Criterio de fondo: mostrar el dibujo de otro ejercicio es peor que no mostrar
+  ninguno.
+
+**Las ilustraciones NO existen todavía.** `src/lib/ejercicios/ilustracion.ts`
+tiene una cadena de respaldo: ilustración → foto de grupo muscular (lo de hoy)
+→ ícono. El set `ILUSTRACIONES_DISPONIBLES` está **vacío**; al agregar un SVG a
+`public/ejercicios/` hay que sumar su nombre a ese set y aparece solo.
+
+Sobre el arte: Claude **no puede dibujarlas** (serían monigotes, no el estilo
+premium pedido). Se recomendó comprar un pack vectorial con licencia (~US$30-80)
+por ser lo único que garantiza consistencia entre 59 piezas. Decisión de
+Alejandro: arrancar sin arte y conseguirlo después.
+
 ## Bug de performance real que ya se resolvió — ojo si vuelve a pasar
 
 Después de "quitarle el fondo negro" a una foto real (persona/producto), el

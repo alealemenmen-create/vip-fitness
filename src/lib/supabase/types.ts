@@ -344,6 +344,9 @@ export interface Database {
             | "core"
             | "cardio"
             | null;
+          // 0026_biblioteca_ejercicios.sql — nullable a propósito: un ejercicio
+          // que la IA no logró emparejar se publica igual, con su `nombre`.
+          ejercicio_id: string | null;
         };
         Insert: {
           dia_id: string;
@@ -364,6 +367,7 @@ export interface Database {
             | "core"
             | "cardio"
             | null;
+          ejercicio_id?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["rutina_dia_ejercicios"]["Insert"]>;
         Relationships: [
@@ -470,6 +474,97 @@ export interface Database {
           realizada?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["series_realizadas"]["Insert"]>;
+        Relationships: [];
+      };
+      // 0026_biblioteca_ejercicios.sql — biblioteca maestra de ejercicios.
+      // `ilustracion_slug` va aparte de `slug` para que varias variantes del
+      // mismo movimiento compartan dibujo (press banca / press en Smith).
+      ejercicios: {
+        Row: {
+          id: string;
+          slug: string;
+          nombre: string;
+          aliases: string[];
+          grupo_muscular:
+            | "pecho"
+            | "espalda"
+            | "piernas"
+            | "hombros"
+            | "brazos"
+            | "core"
+            | "cardio";
+          grupos_secundarios: string[];
+          categoria:
+            | "empuje"
+            | "traccion"
+            | "pierna"
+            | "core"
+            | "cardio"
+            | "aislamiento"
+            | "full_body";
+          equipo:
+            | "barra"
+            | "mancuerna"
+            | "polea"
+            | "maquina"
+            | "smith"
+            | "peso_corporal"
+            | "kettlebell"
+            | "banda"
+            | "banco"
+            | "otro";
+          nivel: "principiante" | "intermedio" | "avanzado";
+          descripcion_corta: string | null;
+          tecnica: string | null;
+          errores_comunes: string[];
+          consejos: string[];
+          ilustracion_slug: string | null;
+          video_url: string | null;
+          activo: boolean;
+          created_at: string;
+        };
+        Insert: {
+          slug: string;
+          nombre: string;
+          aliases?: string[];
+          grupo_muscular:
+            | "pecho"
+            | "espalda"
+            | "piernas"
+            | "hombros"
+            | "brazos"
+            | "core"
+            | "cardio";
+          grupos_secundarios?: string[];
+          categoria:
+            | "empuje"
+            | "traccion"
+            | "pierna"
+            | "core"
+            | "cardio"
+            | "aislamiento"
+            | "full_body";
+          equipo:
+            | "barra"
+            | "mancuerna"
+            | "polea"
+            | "maquina"
+            | "smith"
+            | "peso_corporal"
+            | "kettlebell"
+            | "banda"
+            | "banco"
+            | "otro";
+          nivel?: "principiante" | "intermedio" | "avanzado";
+          descripcion_corta?: string | null;
+          tecnica?: string | null;
+          errores_comunes?: string[];
+          consejos?: string[];
+          ilustracion_slug?: string | null;
+          video_url?: string | null;
+          activo?: boolean;
+        };
+        Update: Partial<Database["public"]["Tables"]["ejercicios"]["Insert"]>;
         Relationships: [];
       };
       alimentos: {

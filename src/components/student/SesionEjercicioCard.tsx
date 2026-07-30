@@ -7,7 +7,7 @@ import { Pill } from "@/components/ui/Pill";
 import { Input } from "@/components/ui/Input";
 import { guardarSeries, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
-import { FotoGrupoMuscular } from "@/components/student/GrupoMuscularIcon";
+import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 
 /** Lo que expone cada tarjeta de ejercicio al botón general "Guardar
  * progreso" de la sesión (ver SesionEjercicios.tsx). */
@@ -263,9 +263,13 @@ export const SesionEjercicioCard = forwardRef<
         {/* El nombre del ejercicio es lo primero que hay que ver desde lejos,
             con el celular apoyado y las manos ocupadas. */}
         <div className="mb-2.5 flex items-start gap-2">
-          {ejercicio.grupoMuscular && (
-            <FotoGrupoMuscular grupo={ejercicio.grupoMuscular} tamano={48} className="mt-1" />
-          )}
+          <IlustracionEjercicio
+            ilustracionSlug={ejercicio.ilustracionSlug}
+            grupoMuscular={ejercicio.grupoMuscular}
+            nombre={ejercicio.nombre}
+            tamano={48}
+            className="mt-1"
+          />
           <div className="min-w-0">
             <p className="text-caption font-semibold tracking-wide text-vip">
               EJERCICIO {ejercicio.orden}

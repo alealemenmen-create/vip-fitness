@@ -6,6 +6,8 @@ import { requireRol } from "@/lib/auth";
 import { extraerRutinaDesdePdf, type RutinaExtraida } from "@/lib/ai/extraerRutina";
 import { extraerPlanAlimentacionDesdePdf } from "@/lib/ai/extraerPlanAlimentacion";
 import { obtenerCatalogoAlimentos } from "@/app/alumno/comer/data";
+import { obtenerBiblioteca } from "@/lib/ejercicios/data";
+import { emparejarEjercicio } from "@/lib/ejercicios/emparejar";
 import {
   resolverPlan,
   calcularAporte,
@@ -478,6 +480,12 @@ export async function confirmarYPublicarRutina(
     }
   }
 
+  // Se resuelve cada nombre del PDF contra la biblioteca para dejar guardado
+  // el `ejercicio_id`. Lo que no empareje se publica igual con su nombre —
+  // ver la nota de la migración 0026: bloquear la rutina entera porque un
+  // ejercicio no está en la biblioteca sería peor que publicarla incompleta.
+  const biblioteca = await obtenerBiblioteca();
+
   const { data: rutinasPrevias } = await supabase
     .from("rutinas")
     .select("id, version")
@@ -523,18 +531,23 @@ export async function confirmarYPublicarRutina(
 
     if (dia.ejercicios.length > 0) {
       const { error: errorEjercicios } = await supabase.from("rutina_dia_ejercicios").insert(
-        dia.ejercicios.map((ej, idx) => ({
-          dia_id: nuevoDia.id,
-          orden: idx + 1,
-          nombre: ej.nombre,
-          series_programadas: ej.series,
-          reps_programadas: ej.reps || "10-12",
-          descanso_segundos: ej.descansoSegundos,
-          tecnica_tipo: ej.tecnicaTipo,
-          tecnica_instruccion: ej.tecnicaInstruccion,
-          observacion: ej.observacion,
-          grupo_muscular: ej.grupoMuscular,
-        }))
+        dia.ejercicios.map((ej, idx) => {
+          const emparejado = emparejarEjercicio(ej.nombre, biblioteca);
+          return {
+            dia_id: nuevoDia.id,
+            orden: idx + 1,
+            nombre: ej.nombre,
+            series_programadas: ej.series,
+            reps_programadas: ej.reps || "10-12",
+            descanso_segundos: ej.descansoSegundos,
+            tecnica_tipo: ej.tecnicaTipo,
+            tecnica_instruccion: ej.tecnicaInstruccion,
+            observacion: ej.observacion,
+            // Si la biblioteca no lo tiene clasificado, vale lo que dijo la IA.
+            grupo_muscular: emparejado?.ejercicio.grupoMuscular ?? ej.grupoMuscular,
+            ejercicio_id: emparejado?.ejercicio.id ?? null,
+          };
+        })
       );
 
       if (errorEjercicios) {
