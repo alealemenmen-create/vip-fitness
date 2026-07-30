@@ -14,7 +14,7 @@ import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
  *   3. Nada — el componente decide qué poner en su lugar.
  *
  * El respaldo existe para que la biblioteca pueda entrar en producción **antes**
- * de tener las 59 ilustraciones dibujadas: cada archivo que se agregue a
+ * de tener las 70 ilustraciones dibujadas: cada archivo que se agregue a
  * `public/ejercicios/` empieza a aparecer solo, sin tocar código ni base.
  */
 

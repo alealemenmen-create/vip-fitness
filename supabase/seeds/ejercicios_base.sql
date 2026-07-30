@@ -5,7 +5,7 @@
 -- reactivar algo que el entrenador desactivó a propósito.
 --
 -- Sobre `ilustracion_slug`: varias filas comparten dibujo deliberadamente.
--- **Los 74 ejercicios de acá necesitan solo 59 ilustraciones.**
+-- **Los 102 ejercicios de acá necesitan solo 70 ilustraciones.**
 --
 -- La regla para compartir: misma postura del cuerpo, cambia solo el implemento
 -- o el agarre (press banca / press en Smith / press con mancuernas; curl con
@@ -285,7 +285,7 @@ values
  array['Sirve si tienes poca movilidad de cadera para el convencional'],
  'peso-muerto'),
 
-('gemelos-pie', 'Elevación de gemelos de pie', array['gemelos','pantorrillas','calf raise','gemelos de pie'],
+('gemelos-pie', 'Elevación de gemelos de pie', array['gemelos','pantorrillas','calf raise','gemelos de pie','pantorrilla de pie','pantorrilla'],
  'piernas', array[]::text[], 'aislamiento', 'maquina', 'principiante',
  'Aislamiento de pantorrilla.',
  'De pie, sube sobre las puntas lo más alto posible y baja hasta estirar el gemelo.',
@@ -520,7 +520,7 @@ values
  array['Trabaja los dos lados el mismo tiempo'],
  'plancha-lateral'),
 
-('crunch', 'Crunch abdominal', array['abdominales','encogimiento abdominal','crunches','abdominal corto'],
+('crunch', 'Crunch abdominal', array['abdominales','encogimiento abdominal','crunches','abdominal corto','crunch en banco','crunch banco'],
  'core', array[]::text[], 'core', 'peso_corporal', 'principiante',
  'Flexión corta de la columna.',
  'Acostado con las rodillas dobladas. Despega solo los omóplatos del suelo, sin tirar del cuello.',
@@ -624,6 +624,238 @@ values
  array['Apoyar todo el peso en los brazos'],
  array['Apoya el pie completo en cada escalón'],
  'escaladora')
+
+,
+
+-- ── AGREGADOS DESDE LAS RUTINAS REALES ───────────────────────────────────
+-- Estos NO salieron de una lista genérica: se sacaron de los 137 nombres
+-- distintos que ya estaban cargados en `rutina_dia_ejercicios` de rutinas
+-- reales del gimnasio. La primera versión de esta semilla solo reconocía el
+-- 47% de lo que el entrenador usa de verdad.
+
+('pec-deck', 'Pec deck', array['contractora','peck deck','maquina de aperturas','pec fly'],
+ 'pecho', array['hombros'], 'aislamiento', 'maquina', 'principiante',
+ 'Aperturas en máquina, con el recorrido guiado.',
+ 'Sentado con la espalda apoyada y los codos a la altura del pecho. Junta los brazos al frente sin encoger los hombros.',
+ array['Subir los hombros hacia las orejas'],
+ array['Muy buena para sentir el pecho sin preocuparse por estabilizar'],
+ 'pec-deck'),
+
+('reverse-pec-deck', 'Reverse pec deck', array['pec deck inverso','contractora inversa','maquina deltoide posterior','peck deck inverso'],
+ 'hombros', array['espalda'], 'aislamiento', 'maquina', 'principiante',
+ 'Deltoides posterior en máquina.',
+ 'Sentado de frente al respaldo. Abre los brazos hacia atrás guiando con los codos.',
+ array['Juntar los omóplatos y convertirlo en remo'],
+ array['La versión guiada de los pájaros, más fácil de sentir'],
+ 'reverse-pec-deck'),
+
+('fondos-inclinados', 'Fondos inclinados', array['fondos inclinado','dips inclinados','fondos pecho inclinado'],
+ 'pecho', array['brazos','hombros'], 'empuje', 'peso_corporal', 'intermedio',
+ 'Fondos con el torso más inclinado, para cargar pecho.',
+ 'Cuanto más inclinas el torso hacia adelante, más trabaja el pecho y menos el tríceps.',
+ array['Enderezarse durante la serie y perder el énfasis'],
+ array['Mantén la inclinación constante en todas las repeticiones'],
+ 'fondos'),
+
+('press-cerrado', 'Press cerrado', array['press cerrado smith','close grip bench','press agarre cerrado','press estrecho'],
+ 'brazos', array['pecho','hombros'], 'empuje', 'barra', 'intermedio',
+ 'Press con agarre estrecho: el empuje que más carga el tríceps.',
+ 'Manos al ancho de los hombros y codos pegados al cuerpo al bajar.',
+ array['Cerrar tanto el agarre que se cargue la muñeca'],
+ array['El mejor ejercicio de tríceps que permite peso alto'],
+ 'press-cerrado'),
+
+('t-bar-row', 'Remo en T', array['t bar row','remo en t con apoyo','remo t','barra t','remo hammer','remo pecho apoyado','remo con pecho apoyado'],
+ 'espalda', array['brazos'], 'traccion', 'maquina', 'intermedio',
+ 'Remo con el pecho apoyado o con barra en T.',
+ 'El apoyo del pecho saca de la ecuación a la espalda baja, así que el dorsal trabaja más aislado.',
+ array['Despegar el pecho del apoyo para tirar más peso'],
+ array['Ideal los días que la espalda baja está cargada del peso muerto'],
+ 'remo-maquina-apoyo'),
+
+('belt-squat', 'Belt squat', array['sentadilla con cinturon','belt squat maquina','sentadilla cinturon'],
+ 'piernas', array[]::text[], 'pierna', 'maquina', 'intermedio',
+ 'Sentadilla con la carga colgada de la cadera, sin comprimir la columna.',
+ 'El peso cuelga de un cinturón, así que la espalda no recibe carga axial. Permite entrenar pierna fuerte con la espalda cansada.',
+ array['Inclinarse demasiado hacia adelante'],
+ array['Excelente alternativa cuando la zona lumbar está sobrecargada'],
+ 'belt-squat'),
+
+('prensa-inclinada', 'Prensa inclinada', array['prensa 45 grados','leg press inclinado','prensa inclinada 45'],
+ 'piernas', array[]::text[], 'pierna', 'maquina', 'principiante',
+ 'La prensa clásica a 45 grados.',
+ 'Espalda y cadera bien apoyadas. Baja hasta donde la cadera no se despegue del respaldo.',
+ array['Bajar tanto que la cadera se levante'],
+ array['La posición de los pies cambia bastante qué músculo trabaja más'],
+ 'prensa'),
+
+('curl-inclinado', 'Curl inclinado', array['curl banco inclinado','incline curl','curl en banco inclinado'],
+ 'brazos', array[]::text[], 'aislamiento', 'mancuerna', 'intermedio',
+ 'Curl sentado en banco inclinado, con el brazo por detrás del cuerpo.',
+ 'La inclinación deja el bíceps estirado desde el inicio, que es donde más trabaja.',
+ array['Balancear el hombro hacia adelante para ayudarse'],
+ array['Se siente mucho más exigente que el curl de pie con el mismo peso'],
+ 'curl-inclinado'),
+
+('pushdown-cuerda', 'Pushdown con cuerda', array['extension cuerda','triceps cuerda','pushdown prono','pushdown supino','extension triceps cuerda','pushdown parciales'],
+ 'brazos', array[]::text[], 'aislamiento', 'polea', 'principiante',
+ 'Extensión de tríceps con cuerda, separando las manos al final.',
+ 'Igual que el pushdown con barra, pero al final abres la cuerda para cerrar más el tríceps.',
+ array['No separar la cuerda al final','Despegar los codos'],
+ array['La apertura del final es la que hace la diferencia'],
+ 'triceps-polea'),
+
+('extension-overhead-cuerda', 'Extensión overhead con cuerda', array['overhead cuerda','triceps overhead polea','extension overhead','overhead unilateral'],
+ 'brazos', array[]::text[], 'aislamiento', 'polea', 'intermedio',
+ 'Tríceps sobre la cabeza en polea, con tensión constante.',
+ 'De espaldas a la polea, brazos arriba. Estira hacia adelante sin mover los codos.',
+ array['Dejar caer los codos'],
+ array['La posición overhead es la que más estira la cabeza larga'],
+ 'triceps-sobre-cabeza'),
+
+('walking-lunges', 'Zancadas caminando', array['walking lunges','zancadas caminando','estocadas caminando','lunges caminando'],
+ 'piernas', array['core'], 'pierna', 'mancuerna', 'intermedio',
+ 'Zancadas avanzando paso a paso.',
+ 'Cada paso es una repetición. Mantén el torso erguido y controla la bajada.',
+ array['Dar pasos muy cortos','Apoyar con la punta del pie'],
+ array['Más exigente en equilibrio que las zancadas en el lugar'],
+ 'zancadas'),
+
+('battle-rope', 'Battle rope', array['cuerdas de batalla','sogas','battle ropes'],
+ 'cardio', array['hombros','core'], 'cardio', 'otro', 'intermedio',
+ 'Ondas con cuerdas pesadas.',
+ 'Semisentadilla, brazos generando ondas continuas. Trabaja por tiempo, no por repeticiones.',
+ array['Quedarse rígido y usar solo los brazos'],
+ array['Intervalos cortos e intensos rinden más que series largas'],
+ 'battle-rope'),
+
+('step', 'Step', array['step aerobico','cajon step','subida step'],
+ 'cardio', array['piernas'], 'cardio', 'otro', 'principiante',
+ 'Subidas y bajadas a un escalón.',
+ 'Apoya el pie completo. Puedes variar el ritmo para subir o bajar la intensidad.',
+ array['Apoyar solo la punta del pie'],
+ array['Buena entrada en calor para el día de pierna'],
+ 'subida-cajon'),
+
+('vacuum', 'Vacuum abdominal', array['vacuum','abdominal vacuum','vacio abdominal'],
+ 'core', array[]::text[], 'core', 'peso_corporal', 'intermedio',
+ 'Trabajo del transverso abdominal, sin movimiento visible.',
+ 'Exhala todo el aire y mete el ombligo hacia adentro y arriba. Aguanta y respira superficial.',
+ array['Contener la respiración por completo'],
+ array['Trabaja la faja profunda, la que aplana la cintura'],
+ 'vacuum'),
+
+('crunch-polea', 'Crunch en polea', array['crunch cable','abdominal en polea','crunch arrodillado','abdominal polea'],
+ 'core', array[]::text[], 'core', 'polea', 'intermedio',
+ 'Crunch de rodillas con la polea alta, permite progresar en carga.',
+ 'De rodillas frente a la polea. Enrolla la columna llevando los codos a los muslos, sin tirar con los brazos.',
+ array['Tirar con los brazos en vez de con el abdomen','Flexionar la cadera'],
+ array['Es de los pocos abdominales donde puedes aumentar peso de verdad'],
+ 'crunch-polea'),
+
+('multi-hip', 'Extensión de cadera en máquina', array['multi hip','multi hip extension de cadera','extension de cadera maquina','patada gluteo maquina'],
+ 'piernas', array[]::text[], 'aislamiento', 'maquina', 'principiante',
+ 'Extensión de cadera guiada, para glúteo.',
+ 'De pie en la máquina, lleva la pierna hacia atrás manteniendo el torso quieto.',
+ array['Arquear la espalda para llegar más atrás'],
+ array['El recorrido es corto: lo que cuenta es apretar el glúteo'],
+ 'multi-hip'),
+
+('jalon-neutro', 'Jalón agarre neutro', array['jalon al pecho agarre neutro','jalon neutro','pull down unilateral','jalon unilateral'],
+ 'espalda', array['brazos'], 'traccion', 'polea', 'principiante',
+ 'Jalón con las palmas enfrentadas.',
+ 'El agarre neutro suele ser el más cómodo para el hombro y permite buen recorrido.',
+ array['Encoger los hombros al tirar'],
+ array['Buena opción si el agarre prono te molesta el hombro'],
+ 'jalon-pecho'),
+
+('remo-bajo-estrecho', 'Remo bajo estrecho', array['remo estrecho','remo bajo','remo agarre estrecho','remo sentado estrecho'],
+ 'espalda', array['brazos'], 'traccion', 'polea', 'principiante',
+ 'Remo en polea baja con agarre cerrado.',
+ 'El agarre estrecho lleva el trabajo a la parte interna de la espalda.',
+ array['Balancear el torso'],
+ array['Aguanta un segundo con los omóplatos juntos'],
+ 'remo-polea'),
+
+('pullover-cable', 'Pullover en cable', array['pull over cable','pullover polea alta','pullover cable'],
+ 'espalda', array['core'], 'aislamiento', 'polea', 'intermedio',
+ 'Pullover con tensión constante en polea.',
+ 'Brazos casi rectos, baja desde arriba hasta los muslos usando el dorsal.',
+ array['Flexionar los codos'],
+ array['Permite sentir el dorsal sin que intervengan los bíceps'],
+ 'pullover'),
+
+('elevaciones-laterales-polea', 'Elevaciones laterales en polea', array['laterales en polea','elevacion lateral en polea unilateral','lateral polea','laterales cable'],
+ 'hombros', array[]::text[], 'aislamiento', 'polea', 'intermedio',
+ 'Laterales con tensión constante, normalmente de a un brazo.',
+ 'Polea baja cruzada por detrás del cuerpo. Sube hasta la altura del hombro.',
+ array['Usar impulso del cuerpo'],
+ array['La polea mantiene tensión abajo, donde la mancuerna la pierde'],
+ 'elevaciones-laterales'),
+
+('pajaros-banco-inclinado', 'Pájaros en banco inclinado', array['pajaros banco inclinado','posteriores en banco','deltoide posterior inclinado'],
+ 'hombros', array['espalda'], 'aislamiento', 'mancuerna', 'intermedio',
+ 'Pájaros con el pecho apoyado en un banco inclinado.',
+ 'El apoyo impide balancearse, así que el deltoides posterior trabaja limpio.',
+ array['Despegar el pecho del banco'],
+ array['La versión más estricta de los pájaros'],
+ 'pajaros'),
+
+('femoral-unilateral', 'Femoral unilateral', array['curl femoral unilateral','femoral una pierna','curl femoral a una pierna'],
+ 'piernas', array[]::text[], 'aislamiento', 'maquina', 'intermedio',
+ 'Curl femoral de a una pierna.',
+ 'Mismo movimiento que el bilateral, pero permite corregir diferencias entre piernas.',
+ array['Compensar con la cadera'],
+ array['Suele revelar que una pierna está bastante más floja que la otra'],
+ 'curl-femoral'),
+
+('extension-unilateral', 'Extensión unilateral de cuádriceps', array['extension unilateral','cuadriceps unilateral','extension una pierna'],
+ 'piernas', array[]::text[], 'aislamiento', 'maquina', 'intermedio',
+ 'Extensión de cuádriceps de a una pierna.',
+ 'Igual que la bilateral pero de a una, para igualar diferencias.',
+ array['Ayudarse con la otra pierna'],
+ array['Aguanta arriba y baja lento'],
+ 'extension-cuadriceps'),
+
+('peso-muerto-parcial', 'Peso muerto parcial', array['rack pull','peso muerto desde rack','peso muerto parcial'],
+ 'espalda', array['piernas'], 'traccion', 'barra', 'avanzado',
+ 'Peso muerto con recorrido corto, desde soportes.',
+ 'La barra arranca a la altura de las rodillas. Permite cargar más que el completo.',
+ array['Redondear la espalda por exceso de peso'],
+ array['Sirve para trabajar la parte alta del recorrido'],
+ 'peso-muerto'),
+
+('press-inclinado-maquina', 'Press inclinado en máquina', array['press inclinado maquina','hammer inclinado','press inclinado multipower','press inclinado hammer'],
+ 'pecho', array['hombros','brazos'], 'empuje', 'maquina', 'principiante',
+ 'Press inclinado guiado.',
+ 'Ajusta el asiento para que las manijas queden a la altura del pecho alto.',
+ array['Asiento mal regulado'],
+ array['Permite llevar el pecho alto al fallo sin riesgo'],
+ 'press-inclinado'),
+
+('cruces-polea-alta', 'Cruces de polea alta a baja', array['cruces alta a baja','cruce poleas alto','fly cable','fly polea alta'],
+ 'pecho', array['hombros'], 'aislamiento', 'polea', 'intermedio',
+ 'Cruces desde arriba: carga la parte baja del pecho.',
+ 'Poleas arriba, cruza las manos por delante a la altura de la cadera.',
+ array['Usar el peso del cuerpo'],
+ array['Cruzar las manos al final suma un poco de recorrido'],
+ 'aperturas-polea'),
+
+('cruces-polea-baja', 'Cruces de polea baja a alta', array['cruce poleas bajo a alto','cruces bajo a alto','fly polea baja','fly inclinado'],
+ 'pecho', array['hombros'], 'aislamiento', 'polea', 'intermedio',
+ 'Cruces desde abajo: carga la parte alta del pecho.',
+ 'Poleas abajo, sube las manos juntándolas a la altura de la cara.',
+ array['Encoger los hombros al subir'],
+ array['Complementa bien al press inclinado'],
+ 'aperturas-polea'),
+
+('sentadilla-libre-trasera', 'Sentadilla libre trasera', array['sentadilla libre','back squat','super squat','sentadilla trasera libre'],
+ 'piernas', array['core'], 'pierna', 'barra', 'intermedio',
+ 'La sentadilla con barra atrás, sin guías.',
+ 'Barra sobre los trapecios. Es la versión que más exige de estabilidad y core.',
+ array['Juntar las rodillas','Levantar los talones'],
+ array['Si te cuesta la profundidad, prueba con calzado de talón elevado'],
+ 'sentadilla')
 
 on conflict (slug) do update set
   nombre = excluded.nombre,

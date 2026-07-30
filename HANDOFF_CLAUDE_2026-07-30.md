@@ -148,7 +148,7 @@ movimiento, ni de colgarles técnica, errores comunes ni una ilustración.
   sin reconocer se publica igual con su nombre y se empareja después.
 - `ilustracion_slug` va **separado** de `slug` para que varias variantes
   compartan dibujo (press banca / Smith / mancuernas → un solo dibujo).
-  **74 ejercicios necesitan solo 59 ilustraciones.**
+  **102 ejercicios necesitan solo 70 ilustraciones.**
 - `src/lib/ejercicios/emparejar.ts` cruza el nombre del PDF contra la
   biblioteca. Sin IA, igual que `alimentos/emparejar.ts`. **Verificado con 31
   casos reales, 31/31.** Dos reglas se endurecieron por falsos positivos que
@@ -158,6 +158,28 @@ movimiento, ni de colgarles técnica, errores comunes ni una ilustración.
   Criterio de fondo: mostrar el dibujo de otro ejercicio es peor que no mostrar
   ninguno.
 
+**Cómo se calibró la biblioteca (importante para ampliarla):** Alejandro señaló
+que hacía falta la lista de ejercicios que él usa de verdad. No hizo falta que
+la escribiera: **ya estaban en la base**, en `rutina_dia_ejercicios` (154 filas,
+137 nombres distintos de rutinas reales). Se midió la cobertura del emparejador
+contra esos nombres:
+
+| Versión | Cobertura |
+|---|---|
+| Biblioteca genérica inicial (74 ejercicios) | **47%** |
+| + 28 ejercicios sacados de sus rutinas reales | 87% |
+| + variantes del nombre ("A o B", paréntesis, adjetivos) | 94% |
+| + plurales en los adjetivos y alias sueltos | **97%** |
+
+Los 4 que no emparejan ("Abdomen", "Abdomen / vacuum", "Brazos completos",
+"Pulsos") **no son ejercicios**, son encabezados de sección: que queden sin
+emparejar es lo correcto.
+
+Para volver a medir después de tocar la biblioteca, el método fue: exportar los
+nombres reales desde `rutina_dia_ejercicios`, parsear la semilla a JSON y correr
+el emparejador con `node --experimental-strip-types` sobre copias con los
+imports reescritos (el proyecto no tiene runner de TS instalado).
+
 **Las ilustraciones NO existen todavía.** `src/lib/ejercicios/ilustracion.ts`
 tiene una cadena de respaldo: ilustración → foto de grupo muscular (lo de hoy)
 → ícono. El set `ILUSTRACIONES_DISPONIBLES` está **vacío**; al agregar un SVG a
@@ -165,7 +187,7 @@ tiene una cadena de respaldo: ilustración → foto de grupo muscular (lo de hoy
 
 Sobre el arte: Claude **no puede dibujarlas** (serían monigotes, no el estilo
 premium pedido). Se recomendó comprar un pack vectorial con licencia (~US$30-80)
-por ser lo único que garantiza consistencia entre 59 piezas. Decisión de
+por ser lo único que garantiza consistencia entre 70 piezas. Decisión de
 Alejandro: arrancar sin arte y conseguirlo después.
 
 ## Bug de performance real que ya se resolvió — ojo si vuelve a pasar
