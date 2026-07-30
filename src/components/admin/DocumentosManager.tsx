@@ -1,62 +1,25 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useFormStatus } from "react-dom";
-import { FolderUp, FileText, Trash2, Users, Check, Wand2 } from "lucide-react";
+import { FileText, Trash2, Users, Check } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Pill } from "@/components/ui/Pill";
 import {
-  subirYAsignarDocumento,
   asignarDocumento,
   quitarAsignacion,
   eliminarDocumentoBiblioteca,
   reemplazarArchivo,
-  type SubirYAsignarState,
   type AccionState,
 } from "@/app/admin/documentos/actions";
-import { analizarRutinaPdf } from "@/app/admin/archivos/actions";
-import { RutinaDraftEditor } from "@/components/admin/RutinaDraftEditor";
 import {
   ETIQUETA_TIPO,
   type DocumentoBiblioteca,
   type AlumnoParaAsignar,
 } from "@/lib/documentos/tipos";
-import type { TipoDocumento } from "@/lib/supabase/types";
-import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
-
-const estadoInicial: SubirYAsignarState = {
-  error: null,
-  storagePath: null,
-  documentoId: null,
-  asignados: 0,
-  tipo: null,
-  alumnoIds: [],
-};
 
 const estadoAccion: AccionState = { error: null, ok: false };
-
-const TIPOS: TipoDocumento[] = ["rutina", "alimentacion", "otro"];
-
-function BotonSubir({ cantidad, analiza }: { cantidad: number; analiza: boolean }) {
-  const { pending } = useFormStatus();
-
-  const etiqueta = () => {
-    if (pending) return "Subiendo…";
-    if (cantidad === 0) return "Subir a la biblioteca";
-    // Con una rutina, subir y analizar son un solo paso para quien lo usa:
-    // tener dos botones seguidos hacía pensar que algo había fallado.
-    if (analiza) return "Subir y analizar la rutina con IA";
-    return `Subir y asignar a ${cantidad} ${cantidad === 1 ? "alumno" : "alumnos"}`;
-  };
-
-  return (
-    <Button type="submit" loading={pending}>
-      {etiqueta()}
-    </Button>
-  );
-}
 
 /** Casillas de alumnos con atajo para marcar o desmarcar a todos. */
 function SelectorAlumnos({
@@ -139,160 +102,18 @@ export function DocumentosManager({
   alumnos: AlumnoParaAsignar[];
 }) {
   const router = useRouter();
-  const [subida, accionSubir] = useActionState(subirYAsignarDocumento, estadoInicial);
-  const [tipo, setTipo] = useState<TipoDocumento>("rutina");
-  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
-  const [archivoNombre, setArchivoNombre] = useState<string | null>(null);
-
-  // Análisis con IA del PDF recién subido. Se hace UNA vez y el resultado se
-  // publica a todos los alumnos a los que se asignó el archivo, en vez de
-  // repetir subida y análisis alumno por alumno.
-  const [analizando, setAnalizando] = useState(false);
-  const [errorAnalisis, setErrorAnalisis] = useState<string | null>(null);
-  const [draft, setDraft] = useState<RutinaExtraida | null>(null);
-
-  const analizar = async () => {
-    if (!subida.storagePath) return;
-    setAnalizando(true);
-    setErrorAnalisis(null);
-    const resultado = await analizarRutinaPdf(subida.storagePath);
-    setAnalizando(false);
-    if (!resultado.datos) {
-      setErrorAnalisis(resultado.error);
-      return;
-    }
-    setDraft(resultado.datos);
-  };
-
-  // Subir y analizar son un solo paso: apenas la subida termina, el análisis
-  // arranca solo. La ruta ya analizada se recuerda para no repetirlo si el
-  // componente se vuelve a renderizar por otro motivo.
-  const rutaAnalizada = useRef<string | null>(null);
-  useEffect(() => {
-    const listo =
-      subida.tipo === "rutina" &&
-      subida.storagePath &&
-      subida.alumnoIds.length > 0 &&
-      rutaAnalizada.current !== subida.storagePath;
-
-    if (listo) {
-      rutaAnalizada.current = subida.storagePath;
-      analizar();
-    }
-    // `analizar` se recrea en cada render; lo que decide es la ruta subida.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subida.storagePath, subida.tipo, subida.alumnoIds.length]);
 
   return (
     <div className="space-y-4">
-      <Card>
-        <p className="text-caption mb-3 text-text-tertiary">SUBIR Y ASIGNAR</p>
-
-        <form action={accionSubir} className="space-y-4">
-          <div>
-            <p className="text-caption mb-1.5 text-text-secondary">¿Qué tipo de documento es?</p>
-            <div className="flex gap-2">
-              {TIPOS.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTipo(t)}
-                  className={`radius-control flex-1 border px-3 py-2 text-secondary ${
-                    tipo === t
-                      ? "border-vip bg-surface-2 font-semibold text-text"
-                      : "border-border text-text-secondary"
-                  }`}
-                >
-                  {ETIQUETA_TIPO[t]}
-                </button>
-              ))}
-            </div>
-            <input type="hidden" name="tipo" value={tipo} />
-          </div>
-
-          <label
-            htmlFor="pdf-biblioteca"
-            className="radius-card flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border py-8"
-          >
-            <FolderUp size={22} className="text-text-secondary" />
-            <span className="text-secondary text-center text-text-tertiary">
-              Elige el archivo PDF
-            </span>
-            <input
-              id="pdf-biblioteca"
-              name="archivo"
-              type="file"
-              accept="application/pdf"
-              className="hidden"
-              onChange={(e) => setArchivoNombre(e.target.files?.[0]?.name ?? null)}
-            />
-          </label>
-          {archivoNombre && (
-            <p className="text-secondary text-center text-text">{archivoNombre}</p>
-          )}
-
-          <SelectorAlumnos
-            alumnos={alumnos}
-            seleccionados={seleccionados}
-            onCambiar={setSeleccionados}
-            nombreCampo="alumno_ids"
-          />
-
-          {subida.error && <p className="text-caption text-error">{subida.error}</p>}
-          {!subida.error && subida.documentoId && (
-            <p className="text-caption text-success">
-              Documento guardado
-              {subida.asignados > 0
-                ? ` y asignado a ${subida.asignados} ${subida.asignados === 1 ? "alumno" : "alumnos"}.`
-                : ". Queda en la biblioteca para asignarlo cuando quieras."}
-            </p>
-          )}
-
-          <BotonSubir cantidad={seleccionados.size} analiza={tipo === "rutina"} />
-        </form>
-
-        {subida.tipo === "rutina" && subida.storagePath && !draft && (
-          <div className="mt-4 border-t border-border pt-4">
-            {subida.alumnoIds.length === 0 ? (
-              <p className="text-caption text-text-secondary">
-                El PDF quedó en la biblioteca. Para generar la rutina con IA, vuelve a subirlo
-                marcando a los alumnos, o asígnalo desde la biblioteca y créala desde su perfil.
-              </p>
-            ) : analizando ? (
-              <p className="text-caption flex items-center gap-2 text-text-secondary">
-                <Wand2 size={14} className="text-vip" />
-                Leyendo la rutina del PDF…
-              </p>
-            ) : (
-              // Solo si el análisis automático falló: reintentar sin volver a subir.
-              errorAnalisis && (
-                <Button variant="outline" onClick={analizar}>
-                  <Wand2 size={16} />
-                  Reintentar el análisis
-                </Button>
-              )
-            )}
-            {errorAnalisis && <p className="text-caption mt-2 text-error">{errorAnalisis}</p>}
-          </div>
-        )}
-      </Card>
-
-      {draft && (
-        <RutinaDraftEditor
-          alumnoIds={subida.alumnoIds}
-          draftInicial={draft}
-          onDescartar={() => setDraft(null)}
-        />
-      )}
-
       <div>
         <p className="text-caption mb-2 text-text-tertiary">
-          BIBLIOTECA · {documentos.length} {documentos.length === 1 ? "documento" : "documentos"}
+          {documentos.length} {documentos.length === 1 ? "DOCUMENTO" : "DOCUMENTOS"}
         </p>
         {documentos.length === 0 ? (
           <Card>
             <p className="text-body text-text-secondary">
-              Todavía no has subido ningún documento.
+              Todavía no hay documentos. Los archivos que subas desde el perfil de un alumno
+              aparecen aquí, y desde aquí puedes reenviarlos a quien quieras.
             </p>
           </Card>
         ) : (

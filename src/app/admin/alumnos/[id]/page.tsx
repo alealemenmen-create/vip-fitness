@@ -12,6 +12,12 @@ import { CredencialesAlumno } from "@/components/admin/CredencialesAlumno";
 import { DatosPersonalesSoloLectura } from "@/components/admin/DatosPersonalesSoloLectura";
 import { NotasManager } from "@/components/admin/NotasManager";
 import { ArchivosManager } from "@/components/admin/ArchivosManager";
+
+/** Desde aquí se analiza un PDF con IA y se publica la rutina, y las dos cosas
+ * tardan más que el límite por defecto de Vercel (10 s): el análisis ronda los
+ * 5 s y puede subir con un PDF grande. Sin esto, la función se corta a mitad y
+ * el botón queda "Publicando…" para siempre. */
+export const maxDuration = 60;
 import { PesoCorporalSoloLectura } from "@/components/admin/PesoCorporalSoloLectura";
 import { FotosSoloLectura } from "@/components/admin/FotosSoloLectura";
 import { HistorialEntrenamiento } from "@/components/admin/HistorialEntrenamiento";

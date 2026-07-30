@@ -20,8 +20,9 @@ export default async function DocumentosPage() {
       <div>
         <h1 className="text-h2 text-text">Documentos</h1>
         <p className="text-caption mt-1 text-text-secondary">
-          Sube un archivo una sola vez y asígnalo a los alumnos que quieras. Desde aquí puedes
-          reasignarlo, reemplazarlo o eliminarlo sin entrar a cada perfil.
+          Todos los archivos que has subido, en un solo lugar. Desde aquí puedes enviarle el mismo
+          documento a otros alumnos, quitárselo, reemplazar el archivo o eliminarlo, sin entrar a
+          cada perfil. Para subir uno nuevo, entra al perfil del alumno.
         </p>
       </div>
 
