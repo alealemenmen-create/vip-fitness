@@ -12,7 +12,6 @@ import {
   analizarRutinaPdf,
   analizarAlimentacionPdf,
   eliminarDocumento,
-  estadoVariosVacio,
   type SubirAVariosState,
   type AnalizarPlanState,
 } from "@/app/admin/archivos/actions";
@@ -21,6 +20,18 @@ import { PlanAlimentacionEditor } from "@/components/admin/PlanAlimentacionEdito
 import { SelectorAlumnos } from "@/components/admin/SelectorAlumnos";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { AlumnoParaAsignar } from "@/lib/documentos/tipos";
+
+/** El estado inicial vive acá, NO en el archivo de acciones: ese lleva
+ * "use server" y solo puede exportar funciones asíncronas. Un objeto exportado
+ * desde allí llega como `undefined` al cliente y revienta al renderizar, sin
+ * que tsc ni el build lo detecten. */
+const estadoVariosVacio: SubirAVariosState = {
+  error: null,
+  storagePath: null,
+  documentoId: null,
+  alumnoIds: [],
+  fallidos: [],
+};
 
 type Documento = {
   id: string;

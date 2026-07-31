@@ -465,7 +465,11 @@ export type SubirAVariosState = {
   fallidos: { nombre: string; error: string }[];
 };
 
-export const estadoVariosVacio: SubirAVariosState = {
+/** ⚠️ NO exportar: este archivo lleva "use server" y desde ahí solo se pueden
+ * exportar funciones asíncronas. Un objeto exportado desde acá le llega al
+ * cliente como `undefined` y revienta en tiempo de ejecución, sin que tsc ni
+ * el build lo detecten. El estado inicial del cliente vive en el componente. */
+const estadoVariosVacio: SubirAVariosState = {
   error: null,
   storagePath: null,
   documentoId: null,
