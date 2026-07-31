@@ -113,17 +113,31 @@ function Contenido({
     setCantidad(conMedida ? "1" : String(alimento.porcionBase));
   };
 
-  const sumarALista = () => {
-    if (!seleccionado) return;
-    // Siempre se guarda en la unidad base del alimento: la medida casera es
-    // solo la forma de ingresarlo.
+  /**
+   * El alimento que está en pantalla con su cantidad, listo para entrar en la
+   * comida. `null` si no hay ninguno elegido o la cantidad no sirve.
+   *
+   * Siempre en la unidad base del alimento: la medida casera (cucharadas,
+   * unidades) es solo la forma de ingresarlo.
+   */
+  const pendiente: AlimentoElegido | null = (() => {
+    if (!seleccionado) return null;
     const cantidadBase =
       usarMedida && seleccionado.medidaGramos
         ? Number(cantidad) * seleccionado.medidaGramos
         : Number(cantidad);
-    if (!Number.isFinite(cantidadBase) || cantidadBase <= 0) return;
+    if (!Number.isFinite(cantidadBase) || cantidadBase <= 0) return null;
+    return { alimento: seleccionado, cantidadBase };
+  })();
 
-    setElegidos((prev) => [...prev, { alimento: seleccionado, cantidadBase }]);
+  /** Lo que se guardaría si se confirmara ahora: la lista más lo que esté a
+   * medio cargar. Así un alimento suelto no obliga a pasar por "Sumar a la
+   * comida" antes de confirmar. */
+  const aGuardar = pendiente ? [...elegidos, pendiente] : elegidos;
+
+  const sumarALista = () => {
+    if (!pendiente) return;
+    setElegidos((prev) => [...prev, pendiente]);
     setSeleccionado(null);
     setBusqueda("");
     setResultados([]);
@@ -281,8 +295,11 @@ function Contenido({
             </div>
           )}
 
+          {/* Atajo para cargar VARIOS alimentos en la misma comida: suma este y
+              deja el buscador listo para el siguiente. Para uno solo no hace
+              falta pasar por acá — Confirmar ya lo toma. */}
           <Button variant="secondary" size="sm" className="w-full" onClick={sumarALista}>
-            <Plus size={15} /> Sumar a la comida
+            <Plus size={15} /> Sumar y buscar otro
           </Button>
         </div>
       )}
@@ -322,8 +339,8 @@ function Contenido({
         <Button
           size="sm"
           className="w-auto px-5"
-          disabled={elegidos.length === 0}
-          onClick={() => onConfirmar(elegidos)}
+          disabled={aGuardar.length === 0}
+          onClick={() => onConfirmar(aGuardar)}
         >
           Confirmar
         </Button>
@@ -333,6 +350,40 @@ function Contenido({
 }
 
 /** Fondo, panel y animación de entrada, comunes a las dos vistas del panel. */
+/**
+ * Alto y posición de lo que se ve DE VERDAD en pantalla.
+ *
+ * `position: fixed` se ancla al viewport de layout, que en el celular NO se
+ * achica cuando sube el teclado. Por eso el panel quedaba abajo del teclado:
+ * seguía pegado al borde inferior de una pantalla que ya no estaba a la vista,
+ * y había que arrastrarlo para sacarlo de atrás.
+ *
+ * `visualViewport` sí refleja el área visible. Con su alto y su desplazamiento,
+ * el panel se apoya sobre el teclado en vez de quedar detrás.
+ */
+function useAreaVisible() {
+  const [area, setArea] = useState<{ alto: number; desde: number } | null>(null);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    // Navegador sin la API (o server): se cae al comportamiento de antes.
+    if (!vv) return;
+
+    const medir = () => setArea({ alto: vv.height, desde: vv.offsetTop });
+    medir();
+    vv.addEventListener("resize", medir);
+    // `scroll` también: en iOS el área visible se corre hacia arriba cuando el
+    // teclado empuja la página, y solo cambia el offset, no el alto.
+    vv.addEventListener("scroll", medir);
+    return () => {
+      vv.removeEventListener("resize", medir);
+      vv.removeEventListener("scroll", medir);
+    };
+  }, []);
+
+  return area;
+}
+
 function Marco({
   titulo,
   onCerrar,
@@ -342,8 +393,13 @@ function Marco({
   onCerrar: () => void;
   children: React.ReactNode;
 }) {
+  const area = useAreaVisible();
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    <div
+      className="fixed inset-x-0 z-50 flex flex-col justify-end"
+      style={area ? { top: area.desde, height: area.alto } : { top: 0, bottom: 0 }}
+    >
       <button
         type="button"
         aria-label="Cerrar"
@@ -354,7 +410,10 @@ function Marco({
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
-        className="franja-segura-inferior relative mx-auto max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-[24px] border-t border-border bg-surface p-4 animate-[subir-hoja_220ms_cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none"
+        // `max-h-[85%]` y no `85vh`: el porcentaje es del área visible que ya
+        // calculó el contenedor. Con `vh` el panel podía medir más que la
+        // pantalla disponible y volvía a esconderse bajo el teclado.
+        className="franja-segura-inferior relative mx-auto max-h-[85%] w-full max-w-md overflow-y-auto rounded-t-[24px] border-t border-border bg-surface p-4 animate-[subir-hoja_220ms_cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none"
       >
         <div className="mb-3 flex items-center justify-between gap-3">
           <p className="text-card-title min-w-0 truncate text-text">{titulo}</p>

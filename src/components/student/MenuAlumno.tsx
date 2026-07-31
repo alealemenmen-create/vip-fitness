@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Menu, X, UserCog, FileText, Sun, Moon, LogOut, Newspaper, Sparkles } from "lucide-react";
+import { Menu, X, UserCog, FileText, Sun, Moon, LogOut, Sparkles } from "lucide-react";
 import { logout } from "@/app/actions";
 import { guardarTemaBoton } from "@/app/alumno/perfil/actions";
 
@@ -14,30 +14,16 @@ const TEMAS_BOTON: { valor: TemaBoton; texto: string; muestra: string }[] = [
   { valor: "femenino", texto: "Lady", muestra: "linear-gradient(135deg, #ff8ac0, #b388ff)" },
 ];
 
-/** Menú lateral de las tres rayitas (arriba a la derecha). Concentra lo que
+/**
+ * Menú lateral de las tres rayitas (arriba a la derecha). Concentra lo que
  * antes andaba suelto por la pantalla: perfil, documentos, tema y cerrar
- * sesión. */
-/** Globito rojo con el número de novedades, estilo WhatsApp. A partir de 100
- * muestra "99+" para no deformar el círculo. */
-function Globito({ cantidad, className }: { cantidad: number; className: string }) {
-  return (
-    <span
-      aria-label={`${cantidad} novedades sin ver`}
-      className={`flex min-w-[16px] items-center justify-center rounded-full bg-error px-1 text-[10px] font-bold leading-none text-white tabular-nums ${className}`}
-      style={{ height: 16 }}
-    >
-      {cantidad > 99 ? "99+" : cantidad}
-    </span>
-  );
-}
-
-export function MenuAlumno({
-  nombre,
-  noticiasSinVer = 0,
-}: {
-  nombre: string;
-  noticiasSinVer?: number;
-}) {
+ * sesión.
+ *
+ * Las noticias salieron de acá: viven en la campanita del encabezado
+ * (`CampanaNoticias`), que las muestra en todas las pantallas y con su
+ * contador a la vista, en vez de escondidas detrás de dos toques.
+ */
+export function MenuAlumno({ nombre }: { nombre: string }) {
   const [abierto, setAbierto] = useState(false);
   const [claro, setClaro] = useState(false);
   const [temaBoton, setTemaBoton] = useState<TemaBoton>("espejo");
@@ -105,9 +91,6 @@ export function MenuAlumno({
         className="relative flex h-10 w-10 shrink-0 items-center justify-center text-white"
       >
         <Menu size={28} strokeWidth={2.75} />
-        {noticiasSinVer > 0 && (
-          <Globito cantidad={noticiasSinVer} className="absolute -right-0.5 -top-0.5 border border-black" />
-        )}
       </button>
 
       {abierto &&
@@ -143,16 +126,9 @@ export function MenuAlumno({
                   onNavegar={() => setAbierto(false)}
                 />
                 <ItemMenu
-                  href="/alumno/noticias"
-                  icon={<Newspaper size={20} />}
-                  texto="Noticias VIP"
-                  sinVer={noticiasSinVer}
-                  onNavegar={() => setAbierto(false)}
-                />
-                <ItemMenu
                   href="/alumno/documentos"
                   icon={<FileText size={20} />}
-                  texto="Mis documentos"
+                  texto="Mis planes"
                   onNavegar={() => setAbierto(false)}
                 />
                 <button
@@ -214,13 +190,11 @@ function ItemMenu({
   href,
   icon,
   texto,
-  sinVer = 0,
   onNavegar,
 }: {
   href: string;
   icon: React.ReactNode;
   texto: string;
-  sinVer?: number;
   onNavegar: () => void;
 }) {
   return (
@@ -231,7 +205,6 @@ function ItemMenu({
     >
       <span className="text-vip">{icon}</span>
       {texto}
-      {sinVer > 0 && <Globito cantidad={sinVer} className="ml-auto" />}
     </Link>
   );
 }

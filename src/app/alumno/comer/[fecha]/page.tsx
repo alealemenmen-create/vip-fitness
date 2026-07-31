@@ -1,11 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { PantallaComer, type GuiaPlan } from "@/components/student/PantallaComer";
-import {
-  obtenerRegistrosRango,
-  obtenerPlanAlimentacion,
-  obtenerDocumentoDieta,
-} from "../data";
+import { obtenerRegistrosRango, obtenerPlanAlimentacion } from "../data";
 import { hoyISO, horaActualISO, sumarDiasISO } from "@/lib/date";
 
 /**
@@ -36,10 +32,11 @@ export default async function ComerDiaPage({ params }: { params: Promise<{ fecha
     hasta: sumarDiasISO(fecha, DIAS_A_CADA_LADO),
   };
 
-  const [registros, plan, documentoDieta] = await Promise.all([
+  // El PDF de la dieta ya no se pide acá: se accede desde "Mis planes", en el
+  // menú, así que esta pantalla se ahorra esa consulta en cada carga.
+  const [registros, plan] = await Promise.all([
     obtenerRegistrosRango(supabase, alumnoId, rango.desde, rango.hasta),
     obtenerPlanAlimentacion(supabase, alumnoId),
-    obtenerDocumentoDieta(supabase, alumnoId),
   ]);
 
   // Las comidas del plan que traen hora se muestran como guía en su franja.
@@ -58,7 +55,6 @@ export default async function ComerDiaPage({ params }: { params: Promise<{ fecha
       soloLectura={soloLectura}
       hoy={hoyISO()}
       horaActual={horaActualISO()}
-      documentoDieta={documentoDieta}
     />
   );
 }

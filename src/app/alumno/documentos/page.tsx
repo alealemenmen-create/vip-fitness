@@ -11,7 +11,10 @@ export default async function DocumentosPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <h1 className="text-h2 text-text">Documentos</h1>
+      {/* "Mis planes" y no "Documentos": para el alumno esto es donde están la
+          rutina y la dieta que le dejó el entrenador. Mismo nombre que en el
+          menú, para que no parezcan dos pantallas distintas. */}
+      <h1 className="text-h2 text-text">Mis planes</h1>
       <ListaDocumentos documentos={documentos} />
     </div>
   );

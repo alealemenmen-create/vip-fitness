@@ -16,6 +16,7 @@ import { hoyISO } from "@/lib/date";
 import { obtenerCelebracionTorneoHoy } from "@/lib/torneos/data";
 import { BottomNav } from "@/components/student/BottomNav";
 import { MenuAlumno } from "@/components/student/MenuAlumno";
+import { CampanaNoticias } from "@/components/student/CampanaNoticias";
 import { AplicarTemaBotonGuardado } from "@/components/student/AplicarTemaBotonGuardado";
 import { AnuncioImportanteFlotante } from "@/components/student/AnuncioImportanteFlotante";
 import { CelebracionTorneo } from "@/components/student/CelebracionTorneo";
@@ -87,15 +88,16 @@ export default async function AlumnoLayout({ children }: { children: React.React
 
       <div className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-1">
         {/* El menú vive DENTRO de la placa dorada: una sola pieza de ancho
-            completo, sin el botón morado que la interrumpía. */}
+            completo, sin el botón morado que la interrumpía. La campanita va
+            al lado, para que las novedades se vean desde cualquier pantalla. */}
         <Logo
           compact
           className="mb-3"
           corner={
-            <MenuAlumno
-              nombre={nombreAlumnoPublicado(contexto.nombre)}
-              noticiasSinVer={noticiasSinVer}
-            />
+            <div className="flex items-center gap-2">
+              <CampanaNoticias sinVer={noticiasSinVer} />
+              <MenuAlumno nombre={nombreAlumnoPublicado(contexto.nombre)} />
+            </div>
           }
         />
         {children}

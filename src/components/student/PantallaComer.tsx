@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, ChevronRight, Search, Trash2, X, FileText } from "lucide-react";
+import { Plus, ChevronRight, Search, Trash2, X } from "lucide-react";
 import { TarjetaMacros } from "@/components/student/TarjetaMacros";
 import {
   HojaAgregarComida,
@@ -22,7 +22,6 @@ import type {
   PlanAlimentacion,
   Totales,
 } from "@/app/alumno/comer/tipos";
-import { formatFechaMedia } from "@/lib/date";
 
 /** Desde el borde de abajo de la pantalla hasta donde puede llegar la lista:
  * el buscador fijo arranca a 100 px del borde y mide 48, más su `pb-2` (8).
@@ -170,7 +169,6 @@ export function PantallaComer({
   soloLectura,
   hoy,
   horaActual,
-  documentoDieta,
 }: {
   fechaInicial: string;
   /** Toda la ventana de días ya cargada: cambiar de día no pide nada más. */
@@ -183,8 +181,6 @@ export function PantallaComer({
   hoy: string;
   /** Hora de Chile calculada en el servidor — ver `horaActualISO`. */
   horaActual: number;
-  /** El PDF del entrenador, a mano en la misma pantalla donde se registra. */
-  documentoDieta: { nombreArchivo: string; url: string } | null;
 }) {
   const router = useRouter();
   const [fecha, setFecha] = useState(fechaInicial);
@@ -428,28 +424,9 @@ export function PantallaComer({
 
   return (
     <div className="space-y-4">
-      {/* El título de la pantalla lo pone el encabezado ("Nutrición", al lado
-          del cuadrito de la marca). Acá queda la fecha, y a su derecha —bajo el
-          menú de las tres rayitas— el acceso al plan, en chico. */}
-      <div className="flex items-center gap-3">
-        <p className="text-secondary min-w-0 flex-1 text-text-tertiary">
-          {formatFechaMedia(fecha)}
-        </p>
-
-        {documentoDieta && (
-          <a
-            href={documentoDieta.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Tu plan de alimentación: ${documentoDieta.nombreArchivo}`}
-            className="radius-control flex shrink-0 items-center gap-1.5 border border-border bg-surface px-2.5 py-1 text-text-tertiary"
-          >
-            <FileText size={13} className="shrink-0 text-vip" />
-            <span className="text-caption">Mi plan</span>
-          </a>
-        )}
-      </div>
-
+      {/* Sin fila de fecha: el día elegido ya se ve resaltado en la tira, y el
+          acceso al plan se fue a "Mis planes" (el menú de las tres rayitas),
+          que es donde vive ahora todo lo que manda el entrenador. */}
       <TiraDias
         seleccionada={fecha}
         onSeleccionar={elegirDia}
