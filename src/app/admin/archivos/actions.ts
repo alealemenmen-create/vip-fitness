@@ -455,6 +455,86 @@ export async function eliminarDocumento(documentoId: string): Promise<{ error: s
   return { error: null };
 }
 
+export type SubirGuiaVariosState = SubirPdfState & {
+  /** Alumnos a los que quedó subida, para publicarles después la rutina que
+   * la IA extraiga de este mismo PDF. */
+  alumnoIds: string[];
+  fallidos: { nombre: string; error: string }[];
+};
+
+/**
+ * Sube la MISMA guía a varios alumnos.
+ *
+ * Reutiliza `subirGuiaCompleta` tal cual, llamándola una vez por alumno con su
+ * propio FormData. No se toca esa función ni se copia su lógica: es la que
+ * funciona bien y cada alumno termina con el archivo en su carpeta y sus filas
+ * en `documentos`, exactamente igual que si se hubiera subido de a uno. Así el
+ * PDF aparece en Documentos de cada alumno sin ningún caso nuevo que pueda
+ * fallar en la pantalla del alumno.
+ *
+ * Devuelve el `storagePath` del primero para poder analizar la rutina con IA
+ * una sola vez y publicarla a todos.
+ */
+export async function subirGuiaAVariosAlumnos(
+  _prevState: SubirGuiaVariosState,
+  formData: FormData
+): Promise<SubirGuiaVariosState> {
+  await requireRol(["entrenador", "admin"]);
+
+  const alumnoIds = formData.getAll("alumno_ids").map(String).filter(Boolean);
+  const file = formData.get("archivo") as File | null;
+
+  const vacio: SubirGuiaVariosState = {
+    error: null,
+    storagePath: null,
+    alumnoIds: [],
+    fallidos: [],
+  };
+
+  if (!alumnoIds.length) {
+    return { ...vacio, error: "Selecciona al menos un alumno." };
+  }
+  if (!file || file.size === 0) {
+    return { ...vacio, error: "Selecciona un archivo PDF." };
+  }
+
+  const supabase = await createClient();
+  const { data: perfiles } = await supabase
+    .from("perfiles")
+    .select("id, nombre")
+    .in("id", alumnoIds);
+  const nombrePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
+
+  const logrados: string[] = [];
+  const fallidos: SubirGuiaVariosState["fallidos"] = [];
+  let primerPath: string | null = null;
+
+  for (const alumnoId of alumnoIds) {
+    const fd = new FormData();
+    fd.set("alumno_id", alumnoId);
+    fd.set("archivo", file);
+
+    const r = await subirGuiaCompleta({ error: null, storagePath: null }, fd);
+
+    if (r.storagePath) {
+      logrados.push(alumnoId);
+      primerPath ??= r.storagePath;
+    } else {
+      fallidos.push({
+        nombre: nombrePorId.get(alumnoId) ?? "Alumno",
+        error: r.error ?? "No fue posible subir el archivo.",
+      });
+    }
+  }
+
+  return {
+    error: logrados.length === 0 ? "No fue posible subir el archivo a ningún alumno." : null,
+    storagePath: primerPath,
+    alumnoIds: logrados,
+    fallidos,
+  };
+}
+
 export type PublicarRutinaState = { error: string | null; ok: boolean };
 
 export type PublicarAVariosState = {

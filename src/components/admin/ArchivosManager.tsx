@@ -8,20 +8,29 @@ import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import {
   subirRutinaPdf,
-  subirGuiaCompleta,
+  subirGuiaAVariosAlumnos,
   analizarRutinaPdf,
   subirDocumentoAlimentacion,
   analizarAlimentacionPdf,
   eliminarDocumento,
   type SubirPdfState,
+  type SubirGuiaVariosState,
   type SubirDocumentoState,
   type AnalizarPlanState,
 } from "@/app/admin/archivos/actions";
 import { RutinaDraftEditor } from "@/components/admin/RutinaDraftEditor";
 import { PlanAlimentacionEditor } from "@/components/admin/PlanAlimentacionEditor";
+import { SelectorAlumnos } from "@/components/admin/SelectorAlumnos";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
+import type { AlumnoParaAsignar } from "@/lib/documentos/tipos";
 
 const initialUploadState: SubirPdfState = { error: null, storagePath: null };
+const initialGuiaState: SubirGuiaVariosState = {
+  error: null,
+  storagePath: null,
+  alumnoIds: [],
+  fallidos: [],
+};
 const initialAlimentacionState: SubirDocumentoState = {
   error: null,
   ok: false,
@@ -90,9 +99,11 @@ function BotonSubir() {
 export function ArchivosManager({
   alumnoId,
   documentos,
+  alumnos,
 }: {
   alumnoId: string;
   documentos: Documento[];
+  alumnos: AlumnoParaAsignar[];
 }) {
   const documentosRutina = documentos.filter((d) => d.tipo === "rutina");
   const documentosAlimentacion = documentos.filter((d) => d.tipo === "alimentacion");
@@ -103,9 +114,12 @@ export function ArchivosManager({
   const [errorAnalisis, setErrorAnalisis] = useState<string | null>(null);
   const [draft, setDraft] = useState<RutinaExtraida | null>(null);
 
-  // Guía completa: un solo PDF con rutina y dieta juntas.
-  const [guiaState, guiaAction] = useActionState(subirGuiaCompleta, initialUploadState);
+  // Guía completa: un solo PDF con rutina y dieta juntas, que puede ir a este
+  // alumno y a todos los que se marquen. Arranca con el alumno de la ficha ya
+  // seleccionado, que es el caso normal.
+  const [guiaState, guiaAction] = useActionState(subirGuiaAVariosAlumnos, initialGuiaState);
   const [guiaNombre, setGuiaNombre] = useState<string | null>(null);
+  const [destinatarios, setDestinatarios] = useState<Set<string>>(new Set([alumnoId]));
   const [mostrarSeparado, setMostrarSeparado] = useState(false);
 
   const [alimentacionState, alimentacionAction] = useActionState(
@@ -178,12 +192,19 @@ export function ArchivosManager({
             </div>
             <div className="min-w-0">
               <p className="text-body truncate text-text">{guiaNombre ?? "Guía subida"}</p>
-              <p className="text-caption text-success">Ya visible para el alumno</p>
+              <p className="text-caption text-success">
+                Ya visible en Documentos de {guiaState.alumnoIds.length}{" "}
+                {guiaState.alumnoIds.length === 1 ? "alumno" : "alumnos"}
+              </p>
+              {guiaState.fallidos.map((f) => (
+                <p key={f.nombre} className="text-caption text-error">
+                  {f.nombre} — {f.error}
+                </p>
+              ))}
             </div>
           </div>
         ) : (
           <form action={guiaAction} className="space-y-3">
-            <input type="hidden" name="alumno_id" value={alumnoId} />
             <label
               htmlFor="pdf-guia"
               className="radius-card flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border py-8"
@@ -202,6 +223,20 @@ export function ArchivosManager({
               />
             </label>
             {guiaNombre && <p className="text-secondary text-center text-text">{guiaNombre}</p>}
+
+            {/* El mismo PDF puede ir a varios alumnos de una vez. Se sube por
+                separado a cada uno, con la misma lógica de siempre, así el
+                archivo aparece en Documentos de cada alumno igual que antes. */}
+            <div className="border-t border-border pt-3">
+              <p className="text-caption mb-1.5 text-text-secondary">¿A quiénes se la subo?</p>
+              <SelectorAlumnos
+                alumnos={alumnos}
+                seleccionados={destinatarios}
+                onCambiar={setDestinatarios}
+                nombreCampo="alumno_ids"
+              />
+            </div>
+
             {guiaState.error && <p className="text-caption text-error">{guiaState.error}</p>}
             <BotonSubir />
           </form>
@@ -224,7 +259,10 @@ export function ArchivosManager({
 
       {draft && (
         <RutinaDraftEditor
-          alumnoIds={[alumnoId]}
+          // La rutina se publica a los mismos a los que se subió la guía. Si
+          // el borrador vino del formulario de respaldo (rutina suelta), va
+          // solo a este alumno.
+          alumnoIds={guiaState.alumnoIds.length > 0 ? guiaState.alumnoIds : [alumnoId]}
           draftInicial={draft}
           onDescartar={() => setDraft(null)}
         />

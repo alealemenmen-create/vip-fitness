@@ -12,6 +12,7 @@ import { CredencialesAlumno } from "@/components/admin/CredencialesAlumno";
 import { DatosPersonalesSoloLectura } from "@/components/admin/DatosPersonalesSoloLectura";
 import { NotasManager } from "@/components/admin/NotasManager";
 import { ArchivosManager } from "@/components/admin/ArchivosManager";
+import { obtenerAlumnosParaAsignar } from "@/lib/documentos/data";
 
 /** Desde aquí se analiza un PDF con IA y se publica la rutina, y las dos cosas
  * tardan más que el límite por defecto de Vercel (10 s): el análisis ronda los
@@ -53,6 +54,7 @@ export default async function AlumnoDetallePage({
     resumenComidas,
     seguimientos,
     datosPersonales,
+    todosLosAlumnos,
   ] = await Promise.all([
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     supabase
@@ -80,6 +82,8 @@ export default async function AlumnoDetallePage({
     obtenerResumenComidas(supabase, alumnoId),
     obtenerHistorialSeguimientos(supabase, alumnoId),
     obtenerDatosPersonales(supabase, alumnoId),
+    // Para poder subir la misma guía a varios alumnos sin salir de esta ficha.
+    obtenerAlumnosParaAsignar(supabase),
   ]);
 
   // Marca como vistas las notas que generó la IA para este alumno, ahora que
@@ -162,7 +166,11 @@ export default async function AlumnoDetallePage({
       <SeguimientoDiarioSoloLectura seguimientos={seguimientos} />
 
       <p className="text-caption pt-2 text-text-tertiary">RUTINA Y ALIMENTACIÓN</p>
-      <ArchivosManager alumnoId={alumnoId} documentos={documentos ?? []} />
+      <ArchivosManager
+        alumnoId={alumnoId}
+        documentos={documentos ?? []}
+        alumnos={todosLosAlumnos}
+      />
 
       <Card>
         <p className="text-caption mb-3 text-text-tertiary">ZONA DE RIESGO</p>
