@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, FolderOpen, Salad, Trophy, Megaphone, Settings } from "lucide-react";
+import { Users, Salad, Trophy, Megaphone, Settings } from "lucide-react";
 
 // Seis pestañas es el máximo que entra cómodo en un celular angosto; si hace
 // falta agregar otra, conviene mover alguna al menú en vez de apretarlas más.
+//
+// "Docs" (/admin/documentos) se sacó por pedido de Alejandro. La pantalla sigue
+// existiendo y se puede volver a enganchar agregando su entrada acá.
 const TABS = [
   { href: "/admin/alumnos", label: "Alumnos", icon: Users },
-  { href: "/admin/documentos", label: "Docs", icon: FolderOpen },
   { href: "/admin/alimentos", label: "Alimentos", icon: Salad },
   { href: "/admin/torneos", label: "Torneos", icon: Trophy },
   { href: "/admin/noticias", label: "Noticias", icon: Megaphone },
