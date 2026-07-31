@@ -67,7 +67,8 @@ export type ExtraccionPlanResultado =
  * varas distintas.
  */
 export async function extraerPlanAlimentacionDesdePdf(
-  pdfBase64: string
+  pdfBase64: string,
+  mediaType: 'application/pdf' | 'text/plain' = 'application/pdf'
 ): Promise<ExtraccionPlanResultado> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -77,6 +78,27 @@ export async function extraerPlanAlimentacionDesdePdf(
   const client = new Anthropic({ apiKey });
 
   try {
+    // Un .txt NO puede ir como base64: la API solo acepta ese formato para
+    // PDF. El texto plano va con source.type 'text' y el contenido decodificado.
+    const documento =
+      mediaType === 'text/plain'
+        ? ({
+            type: 'document' as const,
+            source: {
+              type: 'text' as const,
+              media_type: 'text/plain' as const,
+              data: Buffer.from(pdfBase64, 'base64').toString('utf8'),
+            },
+          })
+        : ({
+            type: 'document' as const,
+            source: {
+              type: 'base64' as const,
+              media_type: 'application/pdf' as const,
+              data: pdfBase64,
+            },
+          });
+
     const response = await client.messages.parse({
       model: "claude-sonnet-5",
       max_tokens: 4096,
@@ -86,10 +108,7 @@ export async function extraerPlanAlimentacionDesdePdf(
         {
           role: "user",
           content: [
-            {
-              type: "document",
-              source: { type: "base64", media_type: "application/pdf", data: pdfBase64 },
-            },
+            documento,
             { type: "text", text: PROMPT },
           ],
         },

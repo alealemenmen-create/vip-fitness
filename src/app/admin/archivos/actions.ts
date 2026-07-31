@@ -17,6 +17,28 @@ import {
 
 const TAMANO_MAXIMO_PDF = 15 * 1024 * 1024; // 15 MB
 
+/** Tipos aceptados al subir rutina o alimentación. El .txt sirve cuando el
+ * entrenador arma la rutina escribiéndola en vez de exportar un PDF. */
+const TIPOS_ACEPTADOS: Record<string, { extension: string; contentType: string }> = {
+  "application/pdf": { extension: "pdf", contentType: "application/pdf" },
+  "text/plain": { extension: "txt", contentType: "text/plain" },
+};
+
+/** El navegador a veces manda el tipo vacío; ahí decide la extensión. */
+function tipoDelArchivo(file: File) {
+  if (TIPOS_ACEPTADOS[file.type]) return TIPOS_ACEPTADOS[file.type];
+  if (file.name.toLowerCase().endsWith(".txt")) return TIPOS_ACEPTADOS["text/plain"];
+  if (file.name.toLowerCase().endsWith(".pdf")) return TIPOS_ACEPTADOS["application/pdf"];
+  return null;
+}
+
+const ERROR_TIPO = "Solo se aceptan archivos PDF o TXT.";
+
+/** Qué tipo guardó una ruta, para poder mandárselo bien a la IA. */
+function tipoDeLaRuta(storagePath: string): "application/pdf" | "text/plain" {
+  return storagePath.toLowerCase().endsWith(".txt") ? "text/plain" : "application/pdf";
+}
+
 export type SubirPdfState = { error: string | null; storagePath: string | null };
 
 export async function subirRutinaPdf(
@@ -31,19 +53,18 @@ export async function subirRutinaPdf(
 
   if (!alumnoId) return { error: "Selecciona un alumno.", storagePath: null };
   if (!file || file.size === 0) return { error: "Selecciona un archivo PDF.", storagePath: null };
-  if (file.type !== "application/pdf") {
-    return { error: "Solo se aceptan archivos PDF.", storagePath: null };
-  }
+  const tipo = tipoDelArchivo(file);
+  if (!tipo) return { error: ERROR_TIPO, storagePath: null };
   if (file.size > TAMANO_MAXIMO_PDF) {
     return { error: "El archivo supera el tamaño máximo permitido (15 MB).", storagePath: null };
   }
 
-  const storagePath = `${alumnoId}/rutina-${Date.now()}.pdf`;
+  const storagePath = `${alumnoId}/rutina-${Date.now()}.${tipo.extension}`;
   const bytes = await file.arrayBuffer();
 
   const { error: errorSubida } = await supabase.storage
     .from("documentos")
-    .upload(storagePath, bytes, { contentType: "application/pdf" });
+    .upload(storagePath, bytes, { contentType: tipo.contentType });
 
   if (errorSubida) {
     return {
@@ -101,19 +122,18 @@ export async function subirGuiaCompleta(
 
   if (!alumnoId) return { error: "Selecciona un alumno.", storagePath: null };
   if (!file || file.size === 0) return { error: "Selecciona un archivo PDF.", storagePath: null };
-  if (file.type !== "application/pdf") {
-    return { error: "Solo se aceptan archivos PDF.", storagePath: null };
-  }
+  const tipo = tipoDelArchivo(file);
+  if (!tipo) return { error: ERROR_TIPO, storagePath: null };
   if (file.size > TAMANO_MAXIMO_PDF) {
     return { error: "El archivo supera el tamaño máximo permitido (15 MB).", storagePath: null };
   }
 
-  const storagePath = `${alumnoId}/guia-${Date.now()}.pdf`;
+  const storagePath = `${alumnoId}/guia-${Date.now()}.${tipo.extension}`;
   const bytes = await file.arrayBuffer();
 
   const { error: errorSubida } = await supabase.storage
     .from("documentos")
-    .upload(storagePath, bytes, { contentType: "application/pdf" });
+    .upload(storagePath, bytes, { contentType: tipo.contentType });
 
   if (errorSubida) {
     return {
@@ -180,17 +200,18 @@ export async function subirDocumentoAlimentacion(
 
   if (!alumnoId) return fallo("Selecciona un alumno.");
   if (!file || file.size === 0) return fallo("Selecciona un archivo PDF.");
-  if (file.type !== "application/pdf") return fallo("Solo se aceptan archivos PDF.");
+  const tipo = tipoDelArchivo(file);
+  if (!tipo) return fallo(ERROR_TIPO);
   if (file.size > TAMANO_MAXIMO_PDF) {
     return fallo("El archivo supera el tamaño máximo permitido (15 MB).");
   }
 
-  const storagePath = `${alumnoId}/alimentacion-${Date.now()}.pdf`;
+  const storagePath = `${alumnoId}/alimentacion-${Date.now()}.${tipo.extension}`;
   const bytes = await file.arrayBuffer();
 
   const { error: errorSubida } = await supabase.storage
     .from("documentos")
-    .upload(storagePath, bytes, { contentType: "application/pdf" });
+    .upload(storagePath, bytes, { contentType: tipo.contentType });
 
   if (errorSubida) {
     return fallo("No fue posible subir el archivo. Revisa tu conexión e intenta nuevamente.");
@@ -247,7 +268,7 @@ export async function analizarAlimentacionPdf(storagePath: string): Promise<Anal
   }
 
   const base64 = Buffer.from(await archivo.arrayBuffer()).toString("base64");
-  const resultado = await extraerPlanAlimentacionDesdePdf(base64);
+  const resultado = await extraerPlanAlimentacionDesdePdf(base64, tipoDeLaRuta(storagePath));
 
   if (!resultado.ok) return { error: resultado.error, ...vacio };
 
@@ -407,7 +428,7 @@ export async function analizarRutinaPdf(storagePath: string): Promise<AnalizarPd
   const bytes = Buffer.from(await archivo.arrayBuffer());
   const base64 = bytes.toString("base64");
 
-  const resultado = await extraerRutinaDesdePdf(base64);
+  const resultado = await extraerRutinaDesdePdf(base64, tipoDeLaRuta(storagePath));
 
   if (!resultado.ok) {
     return { error: resultado.error, datos: null };

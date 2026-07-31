@@ -229,13 +229,13 @@ export function ArchivosManager({
             >
               <FolderUp size={22} className="text-text-secondary" />
               <span className="text-secondary text-center text-text-tertiary">
-                Elige el PDF de la rutina
+                Elige el archivo de la rutina (PDF o TXT)
               </span>
               <input
                 id="pdf-rutina"
                 name="archivo"
                 type="file"
-                accept="application/pdf"
+                accept="application/pdf,text/plain,.pdf,.txt"
                 className="hidden"
                 onChange={(e) => setNombreRutina(e.target.files?.[0]?.name ?? null)}
               />
@@ -298,13 +298,13 @@ export function ArchivosManager({
             >
               <FolderUp size={22} className="text-text-secondary" />
               <span className="text-secondary text-center text-text-tertiary">
-                Elige el PDF de alimentación
+                Elige el archivo de alimentación (PDF o TXT)
               </span>
               <input
                 id="pdf-alimentacion"
                 name="archivo"
                 type="file"
-                accept="application/pdf"
+                accept="application/pdf,text/plain,.pdf,.txt"
                 className="hidden"
                 onChange={(e) => setNombreAlimentacion(e.target.files?.[0]?.name ?? null)}
               />

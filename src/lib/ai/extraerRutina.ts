@@ -79,7 +79,12 @@ export type ExtraccionResultado =
   | { ok: true; datos: RutinaExtraida }
   | { ok: false; error: string };
 
-export async function extraerRutinaDesdePdf(pdfBase64: string): Promise<ExtraccionResultado> {
+export async function extraerRutinaDesdePdf(
+  pdfBase64: string,
+  /** Un .txt se manda como documento de texto plano; mandarlo como PDF hace
+   * que la API lo rechace. */
+  mediaType: "application/pdf" | "text/plain" = "application/pdf"
+): Promise<ExtraccionResultado> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return { ok: false, error: "Falta configurar la clave de IA en el servidor." };
@@ -88,6 +93,27 @@ export async function extraerRutinaDesdePdf(pdfBase64: string): Promise<Extracci
   const client = new Anthropic({ apiKey });
 
   try {
+    // Un .txt NO puede ir como base64: la API solo acepta ese formato para
+    // PDF. El texto plano va con source.type 'text' y el contenido ya decodificado.
+    const documento =
+      mediaType === 'text/plain'
+        ? ({
+            type: 'document' as const,
+            source: {
+              type: 'text' as const,
+              media_type: 'text/plain' as const,
+              data: Buffer.from(pdfBase64, 'base64').toString('utf8'),
+            },
+          })
+        : ({
+            type: 'document' as const,
+            source: {
+              type: 'base64' as const,
+              media_type: 'application/pdf' as const,
+              data: pdfBase64,
+            },
+          });
+
     const response = await client.messages.parse({
       model: "claude-sonnet-5",
       max_tokens: 8192,
@@ -97,7 +123,7 @@ export async function extraerRutinaDesdePdf(pdfBase64: string): Promise<Extracci
         {
           role: "user",
           content: [
-            { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
+            documento,
             { type: "text", text: PROMPT },
           ],
         },
