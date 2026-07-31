@@ -7,15 +7,13 @@ import { FolderUp, Wand2, FileText, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import {
-  subirRutinaPdf,
-  subirGuiaAVariosAlumnos,
+  subirRutinaAVariosAlumnos,
+  subirAlimentacionAVariosAlumnos,
   analizarRutinaPdf,
-  subirDocumentoAlimentacion,
   analizarAlimentacionPdf,
   eliminarDocumento,
-  type SubirPdfState,
-  type SubirGuiaVariosState,
-  type SubirDocumentoState,
+  estadoVariosVacio,
+  type SubirAVariosState,
   type AnalizarPlanState,
 } from "@/app/admin/archivos/actions";
 import { RutinaDraftEditor } from "@/components/admin/RutinaDraftEditor";
@@ -23,20 +21,6 @@ import { PlanAlimentacionEditor } from "@/components/admin/PlanAlimentacionEdito
 import { SelectorAlumnos } from "@/components/admin/SelectorAlumnos";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { AlumnoParaAsignar } from "@/lib/documentos/tipos";
-
-const initialUploadState: SubirPdfState = { error: null, storagePath: null };
-const initialGuiaState: SubirGuiaVariosState = {
-  error: null,
-  storagePath: null,
-  alumnoIds: [],
-  fallidos: [],
-};
-const initialAlimentacionState: SubirDocumentoState = {
-  error: null,
-  ok: false,
-  storagePath: null,
-  documentoId: null,
-};
 
 type Documento = {
   id: string;
@@ -87,15 +71,52 @@ function ListaDocumentosExistentes({ documentos }: { documentos: Documento[] }) 
   );
 }
 
-function BotonSubir() {
+function BotonSubir({ cantidad }: { cantidad: number }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" loading={pending}>
-      {pending ? "Subiendo…" : "Subir PDF"}
+    <Button type="submit" loading={pending} disabled={cantidad === 0}>
+      {pending
+        ? "Subiendo…"
+        : cantidad === 0
+          ? "Elige abajo a quiénes"
+          : `Subir a ${cantidad} ${cantidad === 1 ? "alumno" : "alumnos"}`}
     </Button>
   );
 }
 
+/** Resultado de una subida: a cuántos llegó y a quiénes no. */
+function ResumenSubida({ estado }: { estado: SubirAVariosState }) {
+  if (estado.error) return <p className="text-caption text-error">{estado.error}</p>;
+  if (estado.alumnoIds.length === 0) return null;
+
+  return (
+    <div>
+      <p className="text-caption text-success">
+        Subido a {estado.alumnoIds.length}{" "}
+        {estado.alumnoIds.length === 1 ? "alumno" : "alumnos"}.
+      </p>
+      {estado.fallidos.map((f) => (
+        <p key={f.nombre} className="text-caption text-error">
+          {f.nombre} — {f.error}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Subida de archivos desde la ficha del alumno.
+ *
+ * Dos formularios independientes — rutina y alimentación — y un único selector
+ * de alumnos abajo, compartido por los dos. Cada PDF se analiza por separado:
+ * el de rutina arma la lista de ejercicios, el de alimentación saca la meta
+ * calórica. La guía unificada (un solo PDF con las dos cosas) se quitó por
+ * pedido de Alejandro: con hojas densas la IA lee peor la rutina, y ese camino
+ * no analizaba la dieta, así que la meta calórica se perdía.
+ *
+ * El selector vive FUERA de los formularios, así que sus valores no viajan
+ * solos: cada envío los agrega al FormData antes de llamar a la acción.
+ */
 export function ArchivosManager({
   alumnoId,
   documentos,
@@ -107,262 +128,90 @@ export function ArchivosManager({
 }) {
   const documentosRutina = documentos.filter((d) => d.tipo === "rutina");
   const documentosAlimentacion = documentos.filter((d) => d.tipo === "alimentacion");
-  const [uploadState, uploadAction] = useActionState(subirRutinaPdf, initialUploadState);
-  const [archivoNombre, setArchivoNombre] = useState<string | null>(null);
 
-  const [analizando, setAnalizando] = useState(false);
-  const [errorAnalisis, setErrorAnalisis] = useState<string | null>(null);
+  // El alumno de la ficha viene marcado, que es el caso normal.
+  const [destinatarios, setDestinatarios] = useState<Set<string>>(new Set([alumnoId]));
+
+  const [rutina, accionRutina] = useActionState(subirRutinaAVariosAlumnos, estadoVariosVacio);
+  const [nombreRutina, setNombreRutina] = useState<string | null>(null);
+  const [analizandoRutina, setAnalizandoRutina] = useState(false);
+  const [errorRutina, setErrorRutina] = useState<string | null>(null);
   const [draft, setDraft] = useState<RutinaExtraida | null>(null);
 
-  // Guía completa: un solo PDF con rutina y dieta juntas, que puede ir a este
-  // alumno y a todos los que se marquen. Arranca con el alumno de la ficha ya
-  // seleccionado, que es el caso normal.
-  const [guiaState, guiaAction] = useActionState(subirGuiaAVariosAlumnos, initialGuiaState);
-  const [guiaNombre, setGuiaNombre] = useState<string | null>(null);
-  const [destinatarios, setDestinatarios] = useState<Set<string>>(new Set([alumnoId]));
-  const [mostrarSeparado, setMostrarSeparado] = useState(false);
-
-  const [alimentacionState, alimentacionAction] = useActionState(
-    subirDocumentoAlimentacion,
-    initialAlimentacionState
+  const [alimentacion, accionAlimentacion] = useActionState(
+    subirAlimentacionAVariosAlumnos,
+    estadoVariosVacio
   );
-  const [archivoAlimentacionNombre, setArchivoAlimentacionNombre] = useState<string | null>(null);
+  const [nombreAlimentacion, setNombreAlimentacion] = useState<string | null>(null);
   const [analizandoPlan, setAnalizandoPlan] = useState(false);
   const [errorPlan, setErrorPlan] = useState<string | null>(null);
   const [analisisPlan, setAnalisisPlan] = useState<AnalizarPlanState | null>(null);
 
-  const enviarAlimentacion = (formData: FormData) => {
-    alimentacionAction(formData);
-    setArchivoAlimentacionNombre(null);
-  };
+  /** Mete los alumnos elegidos en el formulario antes de enviarlo. */
+  const conDestinatarios =
+    (accion: (fd: FormData) => void) =>
+    (formData: FormData) => {
+      for (const id of destinatarios) formData.append("alumno_ids", id);
+      accion(formData);
+    };
 
-  const analizarPlan = async () => {
-    if (!alimentacionState.storagePath) return;
-    setAnalizandoPlan(true);
-    setErrorPlan(null);
-    const resultado = await analizarAlimentacionPdf(alimentacionState.storagePath);
-    setAnalizandoPlan(false);
-    if (!resultado.plan) {
-      setErrorPlan(resultado.error);
-      return;
-    }
-    setAnalisisPlan(resultado);
-  };
-
-  /** Lee la rutina del PDF con IA. Sirve igual para la guía completa y para el
-   * PDF de rutina suelto: en los dos casos se extrae SOLO la rutina. */
-  const analizar = async (storagePath: string | null) => {
-    if (!storagePath) return;
-    setAnalizando(true);
-    setErrorAnalisis(null);
-    // Sin el try/finally, un fallo del servidor dejaba el botón en "Leyendo
-    // PDF…" para siempre y sin mensaje. Cualquier error tiene que verse.
+  const analizarRutina = async () => {
+    if (!rutina.storagePath) return;
+    setAnalizandoRutina(true);
+    setErrorRutina(null);
+    // Sin el try/finally, un fallo del servidor dejaba el botón girando para
+    // siempre y sin mensaje.
     try {
-      const resultado = await analizarRutinaPdf(storagePath);
+      const resultado = await analizarRutinaPdf(rutina.storagePath);
       if (!resultado.datos) {
-        setErrorAnalisis(resultado.error);
+        setErrorRutina(resultado.error);
         return;
       }
       setDraft(resultado.datos);
     } catch (e) {
-      setErrorAnalisis(
+      setErrorRutina(
         `No se pudo leer el PDF: ${e instanceof Error ? e.message : "error inesperado"}.`
       );
     } finally {
-      setAnalizando(false);
+      setAnalizandoRutina(false);
+    }
+  };
+
+  const analizarPlan = async () => {
+    if (!alimentacion.storagePath) return;
+    setAnalizandoPlan(true);
+    setErrorPlan(null);
+    try {
+      const resultado = await analizarAlimentacionPdf(alimentacion.storagePath);
+      if (!resultado.plan) {
+        setErrorPlan(resultado.error);
+        return;
+      }
+      setAnalisisPlan(resultado);
+    } catch (e) {
+      setErrorPlan(
+        `No se pudo leer el PDF: ${e instanceof Error ? e.message : "error inesperado"}.`
+      );
+    } finally {
+      setAnalizandoPlan(false);
     }
   };
 
   return (
     <div className="space-y-4">
-      {/* Camino principal: la guía tal como la arma el entrenador, con la
-          rutina y la dieta en un mismo PDF. */}
-      <Card>
-        <p className="text-caption mb-1 text-text-tertiary">GUÍA DEL ALUMNO (UN SOLO PDF)</p>
-        <p className="text-caption mb-3 text-text-secondary">
-          Sube el PDF completo, con la rutina y la dieta juntas. Queda disponible para el alumno en
-          Entrenar y en Comer. La IA lee solo la rutina para armar la lista de ejercicios; la dieta
-          se adjunta tal cual, sin analizar.
-        </p>
-
-        {guiaState.storagePath ? (
-          <div className="radius-control flex items-center gap-3 border border-border p-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-2">
-              <FileText size={20} className="text-vip" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-body truncate text-text">{guiaNombre ?? "Guía subida"}</p>
-              <p className="text-caption text-success">
-                Ya visible en Documentos de {guiaState.alumnoIds.length}{" "}
-                {guiaState.alumnoIds.length === 1 ? "alumno" : "alumnos"}
-              </p>
-              {guiaState.fallidos.map((f) => (
-                <p key={f.nombre} className="text-caption text-error">
-                  {f.nombre} — {f.error}
-                </p>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <form action={guiaAction} className="space-y-3">
-            <label
-              htmlFor="pdf-guia"
-              className="radius-card flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border py-8"
-            >
-              <FolderUp size={22} className="text-text-secondary" />
-              <span className="text-secondary text-center text-text-tertiary">
-                Elige el PDF de la guía
-              </span>
-              <input
-                id="pdf-guia"
-                name="archivo"
-                type="file"
-                accept="application/pdf"
-                className="hidden"
-                onChange={(e) => setGuiaNombre(e.target.files?.[0]?.name ?? null)}
-              />
-            </label>
-            {guiaNombre && <p className="text-secondary text-center text-text">{guiaNombre}</p>}
-
-            {/* El mismo PDF puede ir a varios alumnos de una vez. Se sube por
-                separado a cada uno, con la misma lógica de siempre, así el
-                archivo aparece en Documentos de cada alumno igual que antes. */}
-            <div className="border-t border-border pt-3">
-              <p className="text-caption mb-1.5 text-text-secondary">¿A quiénes se la subo?</p>
-              <SelectorAlumnos
-                alumnos={alumnos}
-                seleccionados={destinatarios}
-                onCambiar={setDestinatarios}
-                nombreCampo="alumno_ids"
-              />
-            </div>
-
-            {guiaState.error && <p className="text-caption text-error">{guiaState.error}</p>}
-            <BotonSubir />
-          </form>
-        )}
-
-        {guiaState.storagePath && !draft && (
-          <Button
-            variant="outline"
-            onClick={() => analizar(guiaState.storagePath)}
-            disabled={analizando}
-            className="mt-3"
-          >
-            <Wand2 size={16} />
-            {analizando ? "Leyendo PDF…" : "Analizar la rutina con IA"}
-          </Button>
-        )}
-
-        {errorAnalisis && <p className="text-caption mt-2 text-error">{errorAnalisis}</p>}
-      </Card>
-
-      {draft && (
-        <RutinaDraftEditor
-          // La rutina se publica a los mismos a los que se subió la guía. Si
-          // el borrador vino del formulario de respaldo (rutina suelta), va
-          // solo a este alumno.
-          alumnoIds={guiaState.alumnoIds.length > 0 ? guiaState.alumnoIds : [alumnoId]}
-          draftInicial={draft}
-          onDescartar={() => setDraft(null)}
-        />
-      )}
-
-      {/* Los dos formularios de siempre quedan como respaldo, para PDFs que
-          traen solo una de las dos cosas o si la IA no logra leer la guía. */}
-      {!mostrarSeparado ? (
-        <button
-          type="button"
-          onClick={() => setMostrarSeparado(true)}
-          className="text-caption w-full py-2 text-center text-text-tertiary underline"
-        >
-          Subir rutina y alimentación por separado
-        </button>
-      ) : (
-        <SubidaPorSeparado
-          alumnoId={alumnoId}
-          documentosRutina={documentosRutina}
-          documentosAlimentacion={documentosAlimentacion}
-          uploadState={uploadState}
-          uploadAction={uploadAction}
-          archivoNombre={archivoNombre}
-          setArchivoNombre={setArchivoNombre}
-          analizando={analizando}
-          onAnalizarRutina={() => analizar(uploadState.storagePath)}
-          alimentacionState={alimentacionState}
-          enviarAlimentacion={enviarAlimentacion}
-          archivoAlimentacionNombre={archivoAlimentacionNombre}
-          setArchivoAlimentacionNombre={setArchivoAlimentacionNombre}
-          analizandoPlan={analizandoPlan}
-          analizarPlan={analizarPlan}
-          errorPlan={errorPlan}
-        />
-      )}
-
-      {analisisPlan?.plan && (
-        <PlanAlimentacionEditor
-          alumnoId={alumnoId}
-          documentoId={alimentacionState.documentoId}
-          analisis={analisisPlan}
-          onDescartar={() => setAnalisisPlan(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-/** Los dos formularios originales (rutina y alimentación por separado), tal
- * como estaban antes de la guía unificada. Se conservan como respaldo. */
-function SubidaPorSeparado({
-  alumnoId,
-  documentosRutina,
-  documentosAlimentacion,
-  uploadState,
-  uploadAction,
-  archivoNombre,
-  setArchivoNombre,
-  analizando,
-  onAnalizarRutina,
-  alimentacionState,
-  enviarAlimentacion,
-  archivoAlimentacionNombre,
-  setArchivoAlimentacionNombre,
-  analizandoPlan,
-  analizarPlan,
-  errorPlan,
-}: {
-  alumnoId: string;
-  documentosRutina: Documento[];
-  documentosAlimentacion: Documento[];
-  uploadState: SubirPdfState;
-  uploadAction: (formData: FormData) => void;
-  archivoNombre: string | null;
-  setArchivoNombre: (n: string | null) => void;
-  analizando: boolean;
-  onAnalizarRutina: () => void;
-  alimentacionState: SubirDocumentoState;
-  enviarAlimentacion: (formData: FormData) => void;
-  archivoAlimentacionNombre: string | null;
-  setArchivoAlimentacionNombre: (n: string | null) => void;
-  analizandoPlan: boolean;
-  analizarPlan: () => void;
-  errorPlan: string | null;
-}) {
-  return (
-    <div className="space-y-4">
+      {/* 1. RUTINA */}
       <Card>
         <p className="text-caption mb-3 text-text-tertiary">RUTINA DE ENTRENAMIENTO (PDF)</p>
 
-        {uploadState.storagePath ? (
+        {rutina.storagePath ? (
           <div className="radius-control flex items-center gap-3 border border-border p-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-2">
               <FileText size={20} className="text-vip" />
             </div>
-            <p className="text-body truncate text-text">{archivoNombre ?? "Archivo subido"}</p>
+            <p className="text-body truncate text-text">{nombreRutina ?? "Archivo subido"}</p>
           </div>
         ) : (
-          <form action={uploadAction} className="space-y-3">
-            <input type="hidden" name="alumno_id" value={alumnoId} />
+          <form action={conDestinatarios(accionRutina)} className="space-y-3">
             <label
               htmlFor="pdf-rutina"
               className="radius-card flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border py-8"
@@ -377,69 +226,125 @@ function SubidaPorSeparado({
                 type="file"
                 accept="application/pdf"
                 className="hidden"
-                onChange={(e) => setArchivoNombre(e.target.files?.[0]?.name ?? null)}
+                onChange={(e) => setNombreRutina(e.target.files?.[0]?.name ?? null)}
               />
             </label>
-            {archivoNombre && <p className="text-secondary text-center text-text">{archivoNombre}</p>}
-            {uploadState.error && <p className="text-caption text-error">{uploadState.error}</p>}
-            <BotonSubir />
+            {nombreRutina && <p className="text-secondary text-center text-text">{nombreRutina}</p>}
+            <ResumenSubida estado={rutina} />
+            <BotonSubir cantidad={destinatarios.size} />
           </form>
         )}
 
-        {uploadState.storagePath && (
-          <Button variant="outline" onClick={onAnalizarRutina} disabled={analizando} className="mt-3">
-            <Wand2 size={16} />
-            {analizando ? "Leyendo PDF…" : "Analizar PDF con IA y generar lista de ejercicios"}
-          </Button>
+        {rutina.storagePath && (
+          <>
+            <ResumenSubida estado={rutina} />
+            {!draft && (
+              <Button
+                variant="outline"
+                onClick={analizarRutina}
+                disabled={analizandoRutina}
+                className="mt-3"
+              >
+                <Wand2 size={16} />
+                {analizandoRutina ? "Leyendo PDF…" : "Analizar la rutina con IA"}
+              </Button>
+            )}
+          </>
         )}
 
-        {/* El error del análisis y el editor de la rutina los muestra el
-            componente padre, que es el dueño de ese estado. */}
+        {errorRutina && <p className="text-caption mt-2 text-error">{errorRutina}</p>}
 
         <ListaDocumentosExistentes documentos={documentosRutina} />
       </Card>
 
+      {draft && (
+        <RutinaDraftEditor
+          // Se publica a los mismos a los que se subió el PDF.
+          alumnoIds={rutina.alumnoIds.length > 0 ? rutina.alumnoIds : [alumnoId]}
+          draftInicial={draft}
+          onDescartar={() => setDraft(null)}
+        />
+      )}
+
+      {/* 2. ALIMENTACIÓN */}
       <Card>
         <p className="text-caption mb-3 text-text-tertiary">PLAN DE ALIMENTACIÓN (PDF)</p>
-        <form action={enviarAlimentacion} className="space-y-3">
-          <input type="hidden" name="alumno_id" value={alumnoId} />
-          <label
-            htmlFor="pdf-alimentacion"
-            className="radius-card flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border py-8"
-          >
-            <FolderUp size={22} className="text-text-secondary" />
-            <span className="text-secondary text-center text-text-tertiary">
-              Elige el PDF de alimentación
-            </span>
-            <input
-              id="pdf-alimentacion"
-              name="archivo"
-              type="file"
-              accept="application/pdf"
-              className="hidden"
-              onChange={(e) => setArchivoAlimentacionNombre(e.target.files?.[0]?.name ?? null)}
-            />
-          </label>
-          {archivoAlimentacionNombre && (
-            <p className="text-secondary text-center text-text">{archivoAlimentacionNombre}</p>
-          )}
-          {alimentacionState.error && <p className="text-caption text-error">{alimentacionState.error}</p>}
-          {alimentacionState.ok && !alimentacionState.error && (
-            <p className="text-caption text-success">PDF subido correctamente.</p>
-          )}
-          <BotonSubir />
-        </form>
 
-        {alimentacionState.storagePath && (
-          <Button variant="outline" onClick={analizarPlan} disabled={analizandoPlan} className="mt-3">
-            <Wand2 size={16} />
-            {analizandoPlan ? "Leyendo PDF…" : "Analizar PDF con IA y extraer la meta calórica"}
-          </Button>
+        {alimentacion.storagePath ? (
+          <div className="radius-control flex items-center gap-3 border border-border p-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-2">
+              <FileText size={20} className="text-vip" />
+            </div>
+            <p className="text-body truncate text-text">
+              {nombreAlimentacion ?? "Archivo subido"}
+            </p>
+          </div>
+        ) : (
+          <form action={conDestinatarios(accionAlimentacion)} className="space-y-3">
+            <label
+              htmlFor="pdf-alimentacion"
+              className="radius-card flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border py-8"
+            >
+              <FolderUp size={22} className="text-text-secondary" />
+              <span className="text-secondary text-center text-text-tertiary">
+                Elige el PDF de alimentación
+              </span>
+              <input
+                id="pdf-alimentacion"
+                name="archivo"
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => setNombreAlimentacion(e.target.files?.[0]?.name ?? null)}
+              />
+            </label>
+            {nombreAlimentacion && (
+              <p className="text-secondary text-center text-text">{nombreAlimentacion}</p>
+            )}
+            <ResumenSubida estado={alimentacion} />
+            <BotonSubir cantidad={destinatarios.size} />
+          </form>
+        )}
+
+        {alimentacion.storagePath && (
+          <>
+            <ResumenSubida estado={alimentacion} />
+            {!analisisPlan && (
+              <Button
+                variant="outline"
+                onClick={analizarPlan}
+                disabled={analizandoPlan}
+                className="mt-3"
+              >
+                <Wand2 size={16} />
+                {analizandoPlan ? "Leyendo PDF…" : "Analizar con IA y extraer la meta calórica"}
+              </Button>
+            )}
+          </>
         )}
 
         {errorPlan && <p className="text-caption mt-2 text-error">{errorPlan}</p>}
 
         <ListaDocumentosExistentes documentos={documentosAlimentacion} />
+      </Card>
+
+      {analisisPlan?.plan && (
+        <PlanAlimentacionEditor
+          alumnoId={alumnoId}
+          documentoId={alimentacion.documentoId}
+          analisis={analisisPlan}
+          onDescartar={() => setAnalisisPlan(null)}
+        />
+      )}
+
+      {/* 3. A QUIÉNES */}
+      <Card>
+        <p className="text-caption mb-3 text-text-tertiary">¿A QUIÉNES LES SUBO ESTO?</p>
+        <SelectorAlumnos
+          alumnos={alumnos}
+          seleccionados={destinatarios}
+          onCambiar={setDestinatarios}
+        />
       </Card>
     </div>
   );

@@ -455,6 +455,127 @@ export async function eliminarDocumento(documentoId: string): Promise<{ error: s
   return { error: null };
 }
 
+export type SubirAVariosState = {
+  error: string | null;
+  /** Ruta del primero, para analizarlo con IA una sola vez. */
+  storagePath: string | null;
+  /** Id del documento del primero (lo necesita el editor del plan). */
+  documentoId: string | null;
+  alumnoIds: string[];
+  fallidos: { nombre: string; error: string }[];
+};
+
+export const estadoVariosVacio: SubirAVariosState = {
+  error: null,
+  storagePath: null,
+  documentoId: null,
+  alumnoIds: [],
+  fallidos: [],
+};
+
+/** Nombres de los alumnos elegidos, para poder decir cuál falló. */
+async function nombresDe(alumnoIds: string[]): Promise<Map<string, string>> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("perfiles").select("id, nombre").in("id", alumnoIds);
+  return new Map((data ?? []).map((p) => [p.id, p.nombre]));
+}
+
+/**
+ * Reparte una subida a varios alumnos llamando, una vez por alumno, a la acción
+ * que ya funciona para uno solo. No se copia ni se reescribe esa lógica: cada
+ * alumno queda exactamente igual que si se le hubiera subido de a uno, así el
+ * archivo aparece en sus Documentos sin ningún caso nuevo.
+ *
+ * En paralelo, porque subir es esperar a la red: en serie, cuatro alumnos
+ * tardaban cuatro veces lo de uno.
+ */
+async function repartir<T extends { error: string | null; storagePath: string | null }>(
+  alumnoIds: string[],
+  file: File,
+  subirParaUno: (alumnoId: string, fd: FormData) => Promise<T>,
+  documentoIdDe: (r: T) => string | null = () => null
+): Promise<SubirAVariosState> {
+  const nombres = await nombresDe(alumnoIds);
+
+  const resultados = await Promise.all(
+    alumnoIds.map(async (alumnoId) => {
+      const fd = new FormData();
+      fd.set("alumno_id", alumnoId);
+      fd.set("archivo", file);
+      return { alumnoId, r: await subirParaUno(alumnoId, fd) };
+    })
+  );
+
+  const logrados: string[] = [];
+  const fallidos: SubirAVariosState["fallidos"] = [];
+  let primerPath: string | null = null;
+  let primerDocumento: string | null = null;
+
+  for (const { alumnoId, r } of resultados) {
+    if (r.storagePath) {
+      logrados.push(alumnoId);
+      primerPath ??= r.storagePath;
+      primerDocumento ??= documentoIdDe(r);
+    } else {
+      fallidos.push({
+        nombre: nombres.get(alumnoId) ?? "Alumno",
+        error: r.error ?? "No fue posible subir el archivo.",
+      });
+    }
+  }
+
+  return {
+    error: logrados.length === 0 ? "No fue posible subir el archivo a ningún alumno." : null,
+    storagePath: primerPath,
+    documentoId: primerDocumento,
+    alumnoIds: logrados,
+    fallidos,
+  };
+}
+
+function validarSubida(formData: FormData): { alumnoIds: string[]; file: File } | string {
+  const alumnoIds = formData.getAll("alumno_ids").map(String).filter(Boolean);
+  const file = formData.get("archivo") as File | null;
+  if (!alumnoIds.length) return "Elige abajo a qué alumnos les subes este archivo.";
+  if (!file || file.size === 0) return "Selecciona un archivo PDF.";
+  return { alumnoIds, file };
+}
+
+/** La rutina en PDF, para todos los alumnos elegidos. */
+export async function subirRutinaAVariosAlumnos(
+  _prevState: SubirAVariosState,
+  formData: FormData
+): Promise<SubirAVariosState> {
+  await requireRol(["entrenador", "admin"]);
+  const v = validarSubida(formData);
+  if (typeof v === "string") return { ...estadoVariosVacio, error: v };
+
+  return repartir(v.alumnoIds, v.file, (_id, fd) =>
+    subirRutinaPdf({ error: null, storagePath: null }, fd)
+  );
+}
+
+/** El plan de alimentación en PDF, para todos los alumnos elegidos. */
+export async function subirAlimentacionAVariosAlumnos(
+  _prevState: SubirAVariosState,
+  formData: FormData
+): Promise<SubirAVariosState> {
+  await requireRol(["entrenador", "admin"]);
+  const v = validarSubida(formData);
+  if (typeof v === "string") return { ...estadoVariosVacio, error: v };
+
+  return repartir(
+    v.alumnoIds,
+    v.file,
+    (_id, fd) =>
+      subirDocumentoAlimentacion(
+        { error: null, ok: false, storagePath: null, documentoId: null },
+        fd
+      ),
+    (r) => r.documentoId
+  );
+}
+
 export type SubirGuiaVariosState = SubirPdfState & {
   /** Alumnos a los que quedó subida, para publicarles después la rutina que
    * la IA extraiga de este mismo PDF. */
