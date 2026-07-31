@@ -505,17 +505,25 @@ export async function subirGuiaAVariosAlumnos(
     .in("id", alumnoIds);
   const nombrePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
 
+  // En paralelo, no una tras otra. Subir es esperar a la red, no calcular: en
+  // serie, cuatro alumnos tardaban cuatro veces lo de uno y parecía que la IA
+  // se había vuelto lenta, cuando la IA ni siquiera había arrancado.
+  // (Publicar la rutina sí va en serie, porque ahí son varios INSERT
+  // encadenados que se estorban entre sí — ver publicarRutinaAVariosAlumnos.)
+  const resultados = await Promise.all(
+    alumnoIds.map(async (alumnoId) => {
+      const fd = new FormData();
+      fd.set("alumno_id", alumnoId);
+      fd.set("archivo", file);
+      return { alumnoId, r: await subirGuiaCompleta({ error: null, storagePath: null }, fd) };
+    })
+  );
+
   const logrados: string[] = [];
   const fallidos: SubirGuiaVariosState["fallidos"] = [];
   let primerPath: string | null = null;
 
-  for (const alumnoId of alumnoIds) {
-    const fd = new FormData();
-    fd.set("alumno_id", alumnoId);
-    fd.set("archivo", file);
-
-    const r = await subirGuiaCompleta({ error: null, storagePath: null }, fd);
-
+  for (const { alumnoId, r } of resultados) {
     if (r.storagePath) {
       logrados.push(alumnoId);
       primerPath ??= r.storagePath;
