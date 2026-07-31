@@ -28,6 +28,18 @@
   /* Amarillo de "vas a medias" (51-69%) en los círculos de Tu Semana. */
   --color-warning: #f5b301;
 
+  /*
+    Macros de Alimentación. NO son colores fijos: cada uno se tiñe con el
+    acento del tema activo (--color-vip), así la misma pantalla se siente VIP,
+    Lady o Espejo sin tocar una línea de TSX. Los anclajes están lo bastante
+    separados en tono como para distinguirse aun teñidos.
+    Las calorías van directo con el acento: son el dato principal.
+  */
+  --macro-cal: var(--color-vip);
+  --macro-prot: color-mix(in srgb, var(--color-vip) 22%, var(--color-acento-fuerte));
+  --macro-grasa: color-mix(in srgb, var(--color-vip) 30%, #38bdf8);
+  --macro-carb: color-mix(in srgb, var(--color-vip) 22%, var(--color-success));
+
   --radius-card: 24px;
   --radius-control: 18px;
 }
@@ -130,6 +142,19 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 .text-caption {
   font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+/*
+  El escalón más chico de la escala. Existe por la línea de tiempo de Nutrición:
+  24 franjas horarias que pueden tener varias comidas cada una, donde el alto de
+  cada fila decide cuántas horas se ven de una. Con `caption` en todo, una hora
+  con tres comidas empujaba el resto fuera de pantalla.
+  Es el piso: nada más chico que esto, que ya está en el límite de lo legible en
+  un celular.
+*/
+.text-micro {
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.3;
 }
@@ -687,6 +712,102 @@ input[type="number"] {
 
 @media (prefers-reduced-motion: reduce) {
   .esqueleto-carga {
+    animation-duration: 1ms;
+  }
+}
+
+/* ── Alimentación: tira de días y línea de tiempo ──────────────────────────
+   La tira de fechas se arrastra con el dedo, así que la barra de scroll
+   sobra: ocupa alto y en móvil no se usa. `overscroll-behavior-x: contain`
+   evita que arrastrar la tira dispare el "volver atrás" del navegador, y
+   `touch-action: pan-x` deja que un gesto principalmente vertical siga
+   scrolleando la página en vez de quedar atrapado en la tira. */
+.tira-dias {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.tira-dias::-webkit-scrollbar {
+  display: none;
+}
+.tira-dias > * {
+  scroll-snap-align: center;
+}
+
+/* Línea punteada que une las horas. Va de fondo y no como borde para poder
+   recortarla en la primera y la última fila sin romper la alineación. */
+.linea-horas {
+  background-image: linear-gradient(
+    to bottom,
+    var(--color-border) 0 4px,
+    transparent 4px 8px
+  );
+  background-size: 1px 8px;
+  background-repeat: repeat-y;
+}
+
+/* La barra fija de búsqueda se apoya sobre la navegación inferior; en iPhone
+   hay que sumarle el área segura o queda debajo del indicador de inicio. */
+.franja-segura-inferior {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Entrada del panel inferior de Alimentación: sube y aparece a la vez, corto
+   (220 ms) para que se sienta inmediato y no como una animación de más. */
+@keyframes subir-hoja {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes aparecer-hoja {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Alta de una comida en la línea de tiempo: aparece corrida hacia abajo para
+   que se note de dónde salió, sin mover el resto de la pantalla. */
+@keyframes entrar-comida {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.comida-entrando {
+  animation: entrar-comida 200ms ease-out;
+}
+
+/* Relevo de los consejos de entrenamiento (ver ConsejoEntrenamiento.tsx): el
+   texto nuevo entra suave en vez de reemplazar al anterior de golpe, que
+   distraía en medio de una serie. */
+@keyframes aparecer-consejo {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comida-entrando {
     animation-duration: 1ms;
   }
 }

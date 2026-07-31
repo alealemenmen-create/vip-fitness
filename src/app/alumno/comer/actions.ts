@@ -2,8 +2,10 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { TAG_RANKING } from "@/lib/ranking/data";
-import { buscarAlimentos, type AlimentoCatalogo } from "./data";
+import { buscarAlimentos } from "./data";
+import { etiquetaDeHora, type AlimentoCatalogo } from "./tipos";
 
 async function obtenerORegistroDiario(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -92,6 +94,133 @@ export async function agregarAlimentoAComida(
     return { error: null };
   } catch {
     return { error: "No fue posible guardar. Revisa tu conexión e intenta nuevamente." };
+  }
+}
+
+/** Agrega un alimento a la franja horaria elegida en la línea de tiempo. */
+export async function agregarAlimentoAHora(
+  fecha: string,
+  hora: number,
+  alimentoId: string,
+  cantidad: number,
+  unidad: string
+): Promise<ComerActionState> {
+  if (!Number.isInteger(hora) || hora < 0 || hora > 23) {
+    return { error: "Hora inválida." };
+  }
+  return agregarAlimentoAComida(fecha, etiquetaDeHora(hora), alimentoId, cantidad, unidad);
+}
+
+/** Borra una comida entera (y sus alimentos, por la cascada de la FK). */
+export async function eliminarComida(comidaId: string, fecha: string): Promise<ComerActionState> {
+  try {
+    const supabase = await createClient();
+    await usuarioActual(supabase);
+    // RLS ya limita el borrado a las comidas del propio alumno.
+    const { error } = await supabase.from("comidas_registradas").delete().eq("id", comidaId);
+    if (error) return { error: "No fue posible eliminar la comida." };
+
+    updateTag(TAG_RANKING);
+    revalidatePath(`/alumno/comer/${fecha}`);
+    revalidatePath("/alumno/inicio");
+    return { error: null };
+  } catch {
+    return { error: "No fue posible eliminar. Revisa tu conexión e intenta nuevamente." };
+  }
+}
+
+export type AlimentoPersonalizado = {
+  nombre: string;
+  porcionBase: number;
+  unidad: string;
+  kcal: number;
+  prot: number;
+  carb: number;
+  grasa: number;
+};
+
+/**
+ * Crea un alimento que no está en el catálogo del gimnasio.
+ *
+ * Va con cliente admin a propósito: la política `alimentos_write` (migración
+ * 0001) solo deja escribir a entrenador/admin, y no se toca — el permiso se
+ * concede acá, en el servidor, después de verificar la sesión y validar los
+ * números.
+ *
+ * Nace PENDIENTE (`aprobado = false`, migración 0030): el alumno lo usa al
+ * instante porque la política de lectura deja ver lo propio, pero no aparece
+ * en el buscador de los demás hasta que el entrenador lo acepte desde
+ * /admin/alimentos.
+ */
+export async function crearAlimentoPersonalizado(
+  datos: AlimentoPersonalizado
+): Promise<{ error: string | null; alimento: AlimentoCatalogo | null }> {
+  const fallo = (error: string) => ({ error, alimento: null });
+  try {
+    const supabase = await createClient();
+    const alumnoId = await usuarioActual(supabase);
+
+    const nombre = datos.nombre.trim();
+    if (nombre.length < 2) return fallo("Ponle un nombre al alimento.");
+    if (nombre.length > 80) return fallo("El nombre es demasiado largo.");
+
+    const numeros = [datos.porcionBase, datos.kcal, datos.prot, datos.carb, datos.grasa];
+    if (numeros.some((n) => !Number.isFinite(n) || n < 0)) {
+      return fallo("Revisa los valores: no pueden ser negativos.");
+    }
+    if (datos.porcionBase <= 0) return fallo("La porción debe ser mayor que cero.");
+
+    const unidad = datos.unidad.trim() || "g";
+
+    // Se avisa antes de chocar contra el índice único, que devolvería un
+    // "no fue posible" sin explicar por qué. `ilike` sin comodines compara el
+    // nombre completo sin distinguir mayúsculas.
+    const { data: repetido } = await supabase
+      .from("alimentos")
+      .select("nombre")
+      .ilike("nombre", nombre.replace(/[%_]/g, (c) => `\\${c}`))
+      .limit(1)
+      .maybeSingle();
+
+    if (repetido) return fallo(`Ya existe "${repetido.nombre}": búscalo en el buscador.`);
+
+    const { data, error } = await createAdminClient()
+      .from("alimentos")
+      .insert({
+        nombre,
+        categoria: "Personalizado",
+        porcion_base: datos.porcionBase,
+        unidad,
+        kcal: datos.kcal,
+        prot: datos.prot,
+        carb: datos.carb,
+        grasa: datos.grasa,
+        creado_por: alumnoId,
+        aprobado: false,
+      })
+      .select("id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa")
+      .single();
+
+    if (error || !data) return fallo("No fue posible crear el alimento.");
+
+    return {
+      error: null,
+      alimento: {
+        id: data.id,
+        nombre: data.nombre,
+        categoria: data.categoria,
+        porcionBase: data.porcion_base,
+        unidad: data.unidad,
+        kcal: data.kcal,
+        prot: data.prot,
+        carb: data.carb,
+        grasa: data.grasa,
+        medidaNombre: null,
+        medidaGramos: null,
+      },
+    };
+  } catch {
+    return fallo("No fue posible guardar. Revisa tu conexión e intenta nuevamente.");
   }
 }
 

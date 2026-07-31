@@ -8,7 +8,7 @@ import {
   type AnalizarPlanState,
 } from "@/app/admin/archivos/actions";
 import { buscarAlimentosAction } from "@/app/alumno/comer/actions";
-import type { AlimentoCatalogo } from "@/app/alumno/comer/data";
+import type { AlimentoCatalogo } from "@/app/alumno/comer/tipos";
 import type { PlanResuelto, AlimentoResuelto } from "@/lib/alimentos/emparejar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";

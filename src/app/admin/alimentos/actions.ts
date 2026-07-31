@@ -59,3 +59,28 @@ export async function alternarActivoAlimento(alimentoId: string, activo: boolean
   await supabase.from("alimentos").update({ activo }).eq("id", alimentoId);
   revalidatePath("/admin/alimentos");
 }
+
+/** Acepta un alimento creado por un alumno: pasa a verse en todo el gimnasio.
+ * Deja de ser "Personalizado" solo si el entrenador le pone otra categoría
+ * después, desde el formulario de siempre. */
+export async function aprobarAlimento(alimentoId: string): Promise<void> {
+  await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+  await supabase.from("alimentos").update({ aprobado: true }).eq("id", alimentoId);
+  revalidatePath("/admin/alimentos");
+}
+
+/**
+ * Rechaza un alimento creado por un alumno.
+ *
+ * NO se borra: si el alumno ya comió con él, `alimentos_consumidos` lo apunta
+ * por FK y borrarlo tumbaría ese registro (o fallaría). Se desactiva, que es
+ * como se sacan alimentos del catálogo en toda la app: desaparece del buscador
+ * pero el historial del alumno sigue sumando sus calorías.
+ */
+export async function rechazarAlimento(alimentoId: string): Promise<void> {
+  await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+  await supabase.from("alimentos").update({ activo: false }).eq("id", alimentoId);
+  revalidatePath("/admin/alimentos");
+}

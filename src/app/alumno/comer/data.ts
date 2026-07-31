@@ -2,38 +2,28 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { ultimosNDiasISO } from "@/lib/date";
 import { obtenerDocumentos } from "@/app/alumno/documentos/data";
+import {
+  horaDeComida,
+  horasVacias,
+  sumarAlimentos,
+  sumarTotales,
+  LIMITE_BUSQUEDA_ALIMENTOS,
+  type AlimentoCatalogo,
+  type AlimentoEnComida,
+  type DocumentoDieta,
+  type EstadoDia,
+  type HoraDia,
+  type PlanAlimentacion,
+  type ResumenDiaComidas,
+} from "./tipos";
+
+// Los tipos y las funciones puras viven en ./tipos, que NO lleva `server-only`,
+// para que los componentes cliente puedan importarlos sin arrastrar este módulo
+// (y con él el cliente de Supabase) al bundle del navegador.
+export * from "./tipos";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
-export const COMIDAS_SLOTS = [
-  "Comida 1",
-  "Comida 2",
-  "Comida 3",
-  "Comida 4",
-  "Comida 5",
-  "Comida 6",
-  "Comida adicional",
-] as const;
-
-export type EstadoDia = "vacio" | "parcial" | "completo";
-
-export type ComidaPlan = {
-  nombre: string;
-  hora: string | null;
-  kcal: number | null;
-  descripcion: string | null;
-};
-
-export type PlanAlimentacion = {
-  kcalObjetivo: number | null;
-  protObjetivo: number | null;
-  carbObjetivo: number | null;
-  grasaObjetivo: number | null;
-  comidas: ComidaPlan[];
-} | null;
-
-/** La meta calórica activa del alumno, extraída del PDF de alimentación por
- * el entrenador (Tarea 5). Null si todavía no le publicaron ninguna. */
 export async function obtenerPlanAlimentacion(
   supabase: SupabaseServerClient,
   alumnoId: string
@@ -70,14 +60,6 @@ export async function obtenerPlanAlimentacion(
   };
 }
 
-export type DocumentoDieta = { nombreArchivo: string; url: string } | null;
-
-/**
- * El PDF de alimentación vigente del alumno, para poder abrirlo desde Comer
- * sin tener que ir a Documentos. Es el mismo archivo que sube el entrenador:
- * cuando la guía viene completa (rutina + dieta en un PDF), `subirGuiaCompleta`
- * la registra también con tipo 'alimentacion', así que acá aparece igual.
- */
 export async function obtenerDocumentoDieta(
   supabase: SupabaseServerClient,
   alumnoId: string
@@ -92,61 +74,6 @@ export async function obtenerDocumentoDieta(
 
   return { nombreArchivo: dieta.nombreArchivo, url: dieta.url };
 }
-
-export async function obtenerCalendarioMes(
-  supabase: SupabaseServerClient,
-  alumnoId: string,
-  anioMes: string // "YYYY-MM"
-): Promise<Record<string, EstadoDia>> {
-  const inicio = `${anioMes}-01`;
-  const [anio, mes] = anioMes.split("-").map(Number);
-  const ultimoDia = new Date(anio, mes, 0).getDate();
-  const fin = `${anioMes}-${String(ultimoDia).padStart(2, "0")}`;
-
-  // Antes eran 3 consultas encadenadas (registros -> comidas -> alimentos):
-  // un round-trip a Supabase de ~95ms cada una. El anidado las junta en una
-  // sola ida y vuelta.
-  const { data: registros } = await supabase
-    .from("registros_diarios")
-    .select("id, fecha, comidas_registradas(id, omitida, alimentos_consumidos(comida_id))")
-    .eq("alumno_id", alumnoId)
-    .gte("fecha", inicio)
-    .lte("fecha", fin);
-
-  const resultado: Record<string, EstadoDia> = {};
-  for (const r of registros ?? []) {
-    const comidas =
-      (r.comidas_registradas as unknown as
-        | { id: string; omitida: boolean; alimentos_consumidos: { comida_id: string }[] | null }[]
-        | null) ?? [];
-    const conteo = comidas.filter(
-      (c) => c.omitida || (c.alimentos_consumidos && c.alimentos_consumidos.length > 0)
-    ).length;
-    resultado[r.fecha] = conteo === 0 ? "vacio" : conteo < 3 ? "parcial" : "completo";
-  }
-  return resultado;
-}
-
-export type AlimentoCatalogo = {
-  id: string;
-  nombre: string;
-  categoria: string | null;
-  porcionBase: number;
-  unidad: string;
-  kcal: number;
-  prot: number;
-  carb: number;
-  grasa: number;
-  /** Medida práctica del alimento ("cucharada", "unidad", "vaso (200 ml)"),
-   * null si se mide directamente en su unidad base. */
-  medidaNombre: string | null;
-  /** Cuántas unidades base equivale 1 medida casera (1 cucharada = 14 g). */
-  medidaGramos: number | null;
-};
-
-/** Pocos resultados a la vista: en el celular entran sin scroll interno y se
- * eligen de un toque. */
-export const LIMITE_BUSQUEDA_ALIMENTOS = 7;
 
 const COLUMNAS_ALIMENTO =
   "id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos";
@@ -271,76 +198,29 @@ export async function obtenerCatalogoAlimentos(
   return filas.map(aCatalogo);
 }
 
-export type AlimentoEnComida = {
-  id: string;
-  alimentoId: string;
-  nombre: string;
-  cantidad: number;
-  unidad: string;
-  kcal: number;
-  prot: number;
-  carb: number;
-  grasa: number;
-};
-
-export type ComidaDia = {
-  tipoComida: string;
-  comidaId: string | null;
-  omitida: boolean;
-  observacion: string | null;
-  alimentos: AlimentoEnComida[];
-  totales: { kcal: number; prot: number; carb: number; grasa: number };
-};
-
-export type RegistroDia = {
-  comidas: ComidaDia[];
-  totalesDia: { kcal: number; prot: number; carb: number; grasa: number };
-};
-
-export async function obtenerRegistroDia(
+export async function obtenerRegistrosRango(
   supabase: SupabaseServerClient,
   alumnoId: string,
-  fecha: string
-): Promise<RegistroDia> {
-  const vacio = (tipo: string): ComidaDia => ({
-    tipoComida: tipo,
-    comidaId: null,
-    omitida: false,
-    observacion: null,
-    alimentos: [],
-    totales: { kcal: 0, prot: 0, carb: 0, grasa: 0 },
-  });
-
-  const { data: registro } = await supabase
+  desde: string,
+  hasta: string
+): Promise<Record<string, HoraDia[]>> {
+  const { data: registros } = await supabase
     .from("registros_diarios")
-    .select("id")
+    .select(
+      "fecha, comidas_registradas(id, tipo_comida, omitida, observacion, " +
+        "alimentos_consumidos(id, alimento_id, cantidad, unidad, " +
+        "alimentos(nombre, kcal, prot, carb, grasa, porcion_base)))"
+    )
     .eq("alumno_id", alumnoId)
-    .eq("fecha", fecha)
-    .maybeSingle();
+    .gte("fecha", desde)
+    .lte("fecha", hasta);
 
-  if (!registro) {
-    return {
-      comidas: COMIDAS_SLOTS.map((s) => vacio(s)),
-      totalesDia: { kcal: 0, prot: 0, carb: 0, grasa: 0 },
-    };
-  }
-
-  const { data: comidasDb } = await supabase
-    .from("comidas_registradas")
-    .select("id, tipo_comida, omitida, observacion")
-    .eq("registro_diario_id", registro.id);
-
-  const comidaIds = (comidasDb ?? []).map((c) => c.id);
-  const { data: consumidos } = comidaIds.length
-    ? await supabase
-        .from("alimentos_consumidos")
-        .select("id, comida_id, alimento_id, cantidad, unidad, alimentos(nombre, kcal, prot, carb, grasa, porcion_base)")
-        .in("comida_id", comidaIds)
-    : { data: [] };
-
-  const alimentosPorComida = new Map<string, AlimentoEnComida[]>();
-  for (const c of consumidos ?? []) {
-    const a = c.alimentos as unknown as {
+  type FilaAlimentoConsumido = {
+    id: string;
+    alimento_id: string;
+    cantidad: number;
+    unidad: string;
+    alimentos: {
       nombre: string;
       kcal: number;
       prot: number;
@@ -348,66 +228,60 @@ export async function obtenerRegistroDia(
       grasa: number;
       porcion_base: number;
     } | null;
-    if (!a) continue;
-    const factor = c.cantidad / a.porcion_base;
-    const arr = alimentosPorComida.get(c.comida_id) ?? [];
-    arr.push({
-      id: c.id,
-      alimentoId: c.alimento_id,
-      nombre: a.nombre,
-      cantidad: c.cantidad,
-      unidad: c.unidad,
-      kcal: a.kcal * factor,
-      prot: a.prot * factor,
-      carb: a.carb * factor,
-      grasa: a.grasa * factor,
-    });
-    alimentosPorComida.set(c.comida_id, arr);
+  };
+  type FilaComida = {
+    id: string;
+    tipo_comida: string;
+    omitida: boolean;
+    observacion: string | null;
+    alimentos_consumidos: FilaAlimentoConsumido[] | null;
+  };
+  type FilaRegistro = { fecha: string; comidas_registradas: FilaComida[] | null };
+
+  const porFecha: Record<string, HoraDia[]> = {};
+
+  for (const registro of (registros ?? []) as unknown as FilaRegistro[]) {
+    const horas = horasVacias();
+
+    for (const c of registro.comidas_registradas ?? []) {
+      const alimentos: AlimentoEnComida[] = [];
+      for (const consumido of c.alimentos_consumidos ?? []) {
+        const a = consumido.alimentos;
+        if (!a) continue;
+        const factor = consumido.cantidad / a.porcion_base;
+        alimentos.push({
+          id: consumido.id,
+          alimentoId: consumido.alimento_id,
+          nombre: a.nombre,
+          cantidad: consumido.cantidad,
+          unidad: consumido.unidad,
+          kcal: a.kcal * factor,
+          prot: a.prot * factor,
+          carb: a.carb * factor,
+          grasa: a.grasa * factor,
+        });
+      }
+
+      // Una comida sin alimentos y sin omitir es una fila fantasma (la crean
+      // `marcarComidaOmitida` y la observación): no se muestra como comida.
+      if (alimentos.length === 0 && !c.omitida && !c.observacion) continue;
+
+      horas[horaDeComida(c.tipo_comida)].comidas.push({
+        tipoComida: c.tipo_comida,
+        comidaId: c.id,
+        omitida: c.omitida,
+        observacion: c.observacion,
+        alimentos,
+        totales: sumarAlimentos(alimentos),
+      });
+    }
+
+    for (const h of horas) h.totales = sumarTotales(h.comidas);
+    porFecha[registro.fecha] = horas;
   }
 
-  const comidaPorTipo = new Map((comidasDb ?? []).map((c) => [c.tipo_comida, c]));
-
-  const comidas: ComidaDia[] = COMIDAS_SLOTS.map((tipo) => {
-    const c = comidaPorTipo.get(tipo);
-    if (!c) return vacio(tipo);
-    const alimentos = alimentosPorComida.get(c.id) ?? [];
-    const totales = alimentos.reduce(
-      (acc, a) => ({
-        kcal: acc.kcal + a.kcal,
-        prot: acc.prot + a.prot,
-        carb: acc.carb + a.carb,
-        grasa: acc.grasa + a.grasa,
-      }),
-      { kcal: 0, prot: 0, carb: 0, grasa: 0 }
-    );
-    return {
-      tipoComida: tipo,
-      comidaId: c.id,
-      omitida: c.omitida,
-      observacion: c.observacion,
-      alimentos,
-      totales,
-    };
-  });
-
-  const totalesDia = comidas.reduce(
-    (acc, c) => ({
-      kcal: acc.kcal + c.totales.kcal,
-      prot: acc.prot + c.totales.prot,
-      carb: acc.carb + c.totales.carb,
-      grasa: acc.grasa + c.totales.grasa,
-    }),
-    { kcal: 0, prot: 0, carb: 0, grasa: 0 }
-  );
-
-  return { comidas, totalesDia };
+  return porFecha;
 }
-
-export type ResumenDiaComidas = {
-  fecha: string;
-  estado: EstadoDia;
-  kcal: number;
-};
 
 /** Resumen de los últimos `dias` días (incluye los sin registro) para que el
  * entrenador vea kcal consumidas y detecte huecos, sin repetir el detalle

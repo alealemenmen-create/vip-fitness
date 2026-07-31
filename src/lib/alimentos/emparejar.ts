@@ -1,4 +1,4 @@
-import type { AlimentoCatalogo } from "@/app/alumno/comer/data";
+import type { AlimentoCatalogo } from "@/app/alumno/comer/tipos";
 import type { AlimentoPdf, PlanAlimentacionExtraido } from "@/lib/ai/extraerPlanAlimentacion";
 
 /** Minúsculas, sin tildes, sin puntuación y sin plurales simples — para poder

@@ -18,6 +18,34 @@ import { nombreAlumnoPublicado } from "@/lib/nombre";
 
 const NUMEROS_POR_PAGINA = 7;
 
+/** Los dos accesos chicos de arriba, alineados a la derecha para que caigan
+ * bajo el menú de las tres rayitas. El título de la pantalla ("Entrenamiento
+ * VIP") lo pone el encabezado — ver `RUTAS_COMPACTAS` en Logo.tsx.
+ *
+ * "Entrenamiento en curso" era una barra de ancho completo y pasó a esta
+ * píldora, del mismo tamaño que Historial: se distingue por el color de acento
+ * y el puntito, no por ocupar espacio. */
+const PILDORA = "text-micro rounded-full bg-surface-2 px-2.5 py-1 font-medium";
+
+function AccesosEntrenar({ sesionEnProgresoId }: { sesionEnProgresoId: string | null }) {
+  return (
+    <div className="flex justify-end gap-2">
+      {sesionEnProgresoId && (
+        <Link
+          href={`/alumno/entrenar/sesion/${sesionEnProgresoId}`}
+          className={`${PILDORA} flex items-center gap-1.5 text-vip`}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-vip" />
+          Entrenamiento en curso
+        </Link>
+      )}
+      <Link href="/alumno/entrenar/historial" className={`${PILDORA} text-text-secondary`}>
+        Historial
+      </Link>
+    </div>
+  );
+}
+
 export default async function EntrenarPage({
   searchParams,
 }: {
@@ -46,8 +74,7 @@ export default async function EntrenarPage({
     // promesas colgadas.
     await Promise.all([sesionEnProgresoPromise, balanceSesionesPromise]);
     return (
-      <div className="space-y-6 pb-8">
-        <h1 className="text-h2 text-text">Entrenamiento <span className="text-vip">VIP</span></h1>
+      <div className="space-y-4 pb-8">
         <MensajeMotivacional frase={frase} />
         <Card>
           <p className="text-body text-text-secondary">
@@ -70,8 +97,7 @@ export default async function EntrenarPage({
   if (diasRutina.length === 0) {
     await Promise.all([sesionEnProgresoPromise, balanceSesionesPromise]);
     return (
-      <div className="space-y-6 pb-8">
-        <h1 className="text-h2 text-text">Entrenamiento <span className="text-vip">VIP</span></h1>
+      <div className="space-y-4 pb-8">
         <MensajeMotivacional frase={frase} />
         <Card>
           <p className="text-body text-text-secondary">Esta rutina todavía no tiene días cargados.</p>
@@ -98,31 +124,12 @@ export default async function EntrenarPage({
     (numeros.some((n) => n.numero === proximoNumero) ? proximoNumero : numeros[0].numero);
 
   return (
-    <div className="space-y-6 pb-8">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-h2 text-text">Entrenamiento <span className="text-vip">VIP</span></h1>
-        <Link
-          href="/alumno/entrenar/historial"
-          className="text-caption shrink-0 rounded-full bg-surface-2 px-3 py-1.5 font-medium text-text-secondary"
-        >
-          Historial
-        </Link>
-      </div>
+    <div className="space-y-4 pb-8">
+      <AccesosEntrenar sesionEnProgresoId={sesionEnProgresoId} />
 
-      <MensajeMotivacional frase={frase} />
-
-      {sesionEnProgresoId && (
-        <Link
-          href={`/alumno/entrenar/sesion/${sesionEnProgresoId}`}
-          className="radius-control flex items-center justify-between border border-border bg-surface px-4 py-3 text-secondary font-semibold text-text"
-        >
-          <span>Entrenamiento en curso</span>
-          <span className="text-vip">Continuar</span>
-        </Link>
-      )}
-
-      <BalanceSesionesMes balance={balanceSesiones} />
-
+      {/* El calendario y la tarjeta de "Iniciar entrenamiento" van ANTES del
+          balance del mes: es lo que el alumno viene a hacer, y con el balance
+          en medio quedaba abajo del pliegue. El balance es de consulta. */}
       <CalendarioEntrenamiento
         numeros={numeros}
         pagina={pagina}
@@ -131,6 +138,8 @@ export default async function EntrenarPage({
         rutinaId={rutina.id}
         soloLectura={soloLectura}
       />
+
+      <BalanceSesionesMes balance={balanceSesiones} />
     </div>
   );
 }

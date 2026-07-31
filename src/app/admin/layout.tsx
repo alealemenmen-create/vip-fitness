@@ -19,6 +19,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .eq("user_id", sesion.userId)
     .maybeSingle();
 
+  // Alimentos que crearon los alumnos y todavía nadie miró: pintan el punto
+  // rojo en la pestaña Alimentos. Va con `head` para traer solo el número, sin
+  // las filas. Si la migración 0030 no está corrida, la consulta falla, `count`
+  // queda en null y simplemente no hay punto.
+  const { count: alimentosPendientes } = await supabase
+    .from("alimentos")
+    .select("id", { count: "exact", head: true })
+    .eq("aprobado", false)
+    .eq("activo", true);
+
   return (
     <div className="flex min-h-screen flex-col bg-bg">
       <div className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-8">
@@ -54,7 +64,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <LogoutButton className="text-caption mt-8 block w-full py-2 text-center text-text-tertiary" />
       </div>
       <div className="sticky bottom-0 mx-auto w-full max-w-md">
-        <AdminTabs />
+        <AdminTabs alimentosPendientes={alimentosPendientes ?? 0} />
       </div>
     </div>
   );

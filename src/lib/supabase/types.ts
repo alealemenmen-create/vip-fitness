@@ -584,6 +584,9 @@ export interface Database {
           // 0013_medidas_caseras.sql
           medida_nombre: string | null;
           medida_gramos: number | null;
+          // 0030_alimentos_aprobacion.sql
+          creado_por: string | null;
+          aprobado: boolean;
         };
         Insert: {
           nombre: string;
@@ -597,6 +600,8 @@ export interface Database {
           activo?: boolean;
           medida_nombre?: string | null;
           medida_gramos?: number | null;
+          creado_por?: string | null;
+          aprobado?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["alimentos"]["Insert"]>;
         Relationships: [];

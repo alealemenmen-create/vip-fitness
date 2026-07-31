@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/Card";
 import { SesionEjercicios } from "@/components/student/SesionEjercicios";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { VolverAEntrenar } from "@/components/student/VolverAEntrenar";
+import { ConsejoEntrenamiento } from "@/components/student/ConsejoEntrenamiento";
+import { consejoInicial } from "@/lib/frasesMotivacionales";
 import { obtenerSesionCompleta } from "../../data";
 import { reabrirSesion } from "../../actions";
 
@@ -40,8 +42,13 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
   const estadoInfo = ESTADO_LABEL[sesion.estado];
   const esDescanso = sesion.diaTipo === "descanso";
 
+  // El consejo va fijo abajo, así que solo se muestra mientras se está
+  // entrenando de verdad: en un día de descanso no hay nada que ejecutar, y
+  // revisando una sesión ya cerrada solo taparía contenido.
+  const mostrarConsejo = !esDescanso && !sesionSoloLectura;
+
   return (
-    <div className="space-y-4 pb-8">
+    <div className={`space-y-4 ${mostrarConsejo ? "pb-16" : "pb-8"}`}>
       <VolverAEntrenar
         titulo={`${sesion.numeroCalendario ? `#${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
       />
@@ -98,6 +105,8 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
           </button>
         </form>
       )}
+
+      {mostrarConsejo && <ConsejoEntrenamiento inicial={consejoInicial()} />}
     </div>
   );
 }

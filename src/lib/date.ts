@@ -83,6 +83,52 @@ export function semanaActualISO(): { fecha: string; letra: string; esHoy: boolea
   });
 }
 
+/** "30 de julio, 2026" — subtítulo del encabezado de Alimentación. El día de
+ * la semana no se repite ahí porque ya lo muestra la tira de fechas. */
+export function formatFechaMedia(fechaISO: string): string {
+  return formatInTimeZone(`${fechaISO}T12:00:00`, ZONA_HORARIA_VIP, "d 'de' MMMM, yyyy", {
+    locale: es,
+  });
+}
+
+/** Hora del día (0-23) en Chile. Se calcula en el servidor y se pasa como
+ * prop: si el cliente usara su propio reloj, un alumno fuera de Chile
+ * renderizaría otra hora que el servidor y React marcaría desajuste de
+ * hidratación. */
+export function horaActualISO(): number {
+  return Number(formatInTimeZone(new Date(), ZONA_HORARIA_VIP, "H"));
+}
+
+/** Suma (o resta) días a una fecha YYYY-MM-DD, en horario de Chile. */
+export function sumarDiasISO(fechaISO: string, delta: number): string {
+  const base = toZonedTime(`${fechaISO}T12:00:00`, ZONA_HORARIA_VIP);
+  base.setDate(base.getDate() + delta);
+  return formatInTimeZone(base, ZONA_HORARIA_VIP, "yyyy-MM-dd");
+}
+
+export type DiaTira = { fecha: string; letra: string; dia: number; esHoy: boolean };
+
+/** Ventana de días alrededor de `centroISO`, para una tira que se arrastra de
+ * verdad en vez de un bloque fijo de 7 con flechas. Se piden varias semanas a
+ * cada lado para que el arrastre nunca choque con un borde vacío. */
+export function diasVentanaISO(centroISO: string, antes = 21, despues = 21): DiaTira[] {
+  const centro = toZonedTime(`${centroISO}T12:00:00`, ZONA_HORARIA_VIP);
+  const hoyStr = hoyISO();
+  const letras = ["D", "L", "M", "X", "J", "V", "S"]; // getDay(): 0 = domingo
+
+  return Array.from({ length: antes + despues + 1 }, (_, i) => {
+    const fecha = new Date(centro);
+    fecha.setDate(fecha.getDate() - antes + i);
+    const iso = formatInTimeZone(fecha, ZONA_HORARIA_VIP, "yyyy-MM-dd");
+    return {
+      fecha: iso,
+      letra: letras[fecha.getDay()],
+      dia: Number(iso.slice(-2)),
+      esHoy: iso === hoyStr,
+    };
+  });
+}
+
 /** Lunes de la semana que contiene una fecha dada (Chile), YYYY-MM-DD. */
 function lunesDe(fecha: Date): string {
   const desplazamientoALunes = (fecha.getDay() + 6) % 7;

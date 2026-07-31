@@ -1,53 +1,64 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
-import { Card } from "@/components/ui/Card";
-import { StatGrid, StatTile } from "@/components/ui/StatGrid";
-import { ComidaCard } from "@/components/student/ComidaCard";
-import { obtenerRegistroDia } from "../data";
-import { formatFechaLarga } from "@/lib/date";
+import { PantallaComer, type GuiaPlan } from "@/components/student/PantallaComer";
+import {
+  obtenerRegistrosRango,
+  obtenerPlanAlimentacion,
+  obtenerDocumentoDieta,
+} from "../data";
+import { hoyISO, horaActualISO, sumarDiasISO } from "@/lib/date";
 
-function round(n: number) {
-  return Math.round(n * 10) / 10;
-}
+/**
+ * Cuántos días se traen a cada lado del elegido.
+ *
+ * Con la tira mostrando 7 días (3 + elegido + 3), 10 alcanza para moverse una
+ * semana entera en cualquier dirección sin volver a pedirle nada al servidor,
+ * y para que todos los puntitos visibles tengan su estado. Recién al salir de
+ * ese rango se carga una ventana nueva.
+ */
+const DIAS_A_CADA_LADO = 10;
 
+/**
+ * Alimentación: encabezado, tira de días, tarjeta de macros, línea de tiempo
+ * por horas y buscador fijo, todo en una sola pantalla.
+ *
+ * La fecha vive en la URL, así que volver atrás o compartir el enlace mantiene
+ * el día; `/alumno/comer` sin fecha redirige a hoy. Dentro de la ventana
+ * precargada, cambiar de día NO navega: es puro estado del cliente.
+ */
 export default async function ComerDiaPage({ params }: { params: Promise<{ fecha: string }> }) {
   const { fecha } = await params;
   const { alumnoId, soloLectura } = await requireAlumno();
   const supabase = await createClient();
 
-  // El catálogo ya no se manda al cliente: son miles de alimentos y la
-  // búsqueda se hace en el servidor mientras el alumno escribe.
-  const { comidas, totalesDia } = await obtenerRegistroDia(supabase, alumnoId, fecha);
+  const rango = {
+    desde: sumarDiasISO(fecha, -DIAS_A_CADA_LADO),
+    hasta: sumarDiasISO(fecha, DIAS_A_CADA_LADO),
+  };
 
-  const fechaLegible = formatFechaLarga(new Date(`${fecha}T12:00:00`));
+  const [registros, plan, documentoDieta] = await Promise.all([
+    obtenerRegistrosRango(supabase, alumnoId, rango.desde, rango.hasta),
+    obtenerPlanAlimentacion(supabase, alumnoId),
+    obtenerDocumentoDieta(supabase, alumnoId),
+  ]);
+
+  // Las comidas del plan que traen hora se muestran como guía en su franja.
+  const guias: GuiaPlan[] = (plan?.comidas ?? [])
+    .filter((c) => c.hora)
+    .map((c) => ({ hora: Number(c.hora!.slice(0, 2)), nombre: c.nombre, kcal: c.kcal }))
+    .filter((g) => Number.isInteger(g.hora) && g.hora >= 0 && g.hora <= 23);
 
   return (
-    <div className="space-y-4 pb-8">
-      <Link href="/alumno/comer" className="flex items-center gap-2">
-        <ArrowLeft size={20} className="text-text-secondary" />
-        <h1 className="text-h3 text-text">{fechaLegible}</h1>
-      </Link>
-
-      <Card className="efecto-3d panel-vip-espejo panel-vip-espejo-borde">
-        <p className="text-caption mb-3 text-text-tertiary">TOTAL DEL DÍA</p>
-        <StatGrid>
-          <StatTile value={round(totalesDia.kcal)} label="KCAL" accent />
-          <StatTile value={`${round(totalesDia.prot)}g`} label="PROT" />
-          <StatTile value={`${round(totalesDia.carb)}g`} label="CARB" />
-          <StatTile value={`${round(totalesDia.grasa)}g`} label="GRASA" />
-        </StatGrid>
-      </Card>
-
-      {comidas.map((comida) => (
-        <ComidaCard
-          key={comida.tipoComida}
-          fecha={fecha}
-          comida={comida}
-          soloLectura={soloLectura}
-        />
-      ))}
-    </div>
+    <PantallaComer
+      fechaInicial={fecha}
+      registrosServidor={registros}
+      rango={rango}
+      plan={plan}
+      guias={guias}
+      soloLectura={soloLectura}
+      hoy={hoyISO()}
+      horaActual={horaActualISO()}
+      documentoDieta={documentoDieta}
+    />
   );
 }

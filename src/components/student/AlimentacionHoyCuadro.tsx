@@ -1,4 +1,4 @@
-import type { PlanAlimentacion } from "@/app/alumno/comer/data";
+import type { PlanAlimentacion } from "@/app/alumno/comer/tipos";
 
 /** Mismo criterio de color que MetaCaloricaResumen: verde en rango (90-110%),
  * ámbar si falta, rojo si se pasó. */

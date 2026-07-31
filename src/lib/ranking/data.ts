@@ -196,7 +196,14 @@ async function calcularDesglosePorAlumno(
   for (const alumno of alumnos) {
     const comidasPorDia = comidasDelPlan.get(alumno.id) ?? COMIDAS_SIN_PLAN;
     const porFecha = comidasPorAlumnoFecha.get(alumno.id) ?? new Map<string, number>();
-    const comidasRegistradas = [...porFecha.values()].reduce((a, b) => a + b, 0);
+    // Tope por día: desde que Comer registra por hora, el alumno puede anotar
+    // hasta 24 comidas diarias. Cada comida vale puntosPorDia/comidasPorDia,
+    // así que sin este tope registrar de más pagaría más que un día perfecto.
+    // El tope va acá y no en calcularPuntosSemana para no tocar la fórmula.
+    const comidasRegistradas = [...porFecha.values()].reduce(
+      (a, b) => a + Math.min(b, comidasPorDia),
+      0
+    );
     const diasCompletos = [...porFecha.values()].filter((n) => n >= comidasPorDia).length;
     const diasConAlgo = porFecha.size;
 

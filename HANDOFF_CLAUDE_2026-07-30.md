@@ -6,37 +6,52 @@ hacer**, no por orden cronológico.
 
 ---
 
-# 0. ESTADO AL CIERRE (30/07, noche)
+# 0. ESTADO AL CIERRE (31/07, madrugada)
 
-**TODO DESPLEGADO Y VERIFICADO.** No queda nada pendiente de subir.
+**Producción está sana pero ATRASADA.** El despliegue funciona (deployment
+`2drdw17yo` quedó `● Ready` en 1 minuto), la región `gru1` está puesta y las
+migraciones 0026 a 0029 están aplicadas.
 
-- Deployment `2drdw17yo`, **`● Ready`**, build de **1 minuto**.
-- `vipfitness.cl` apunta a él (verificado con `npx vercel alias ls`).
-- `/admin/documentos` responde **307** en producción; antes daba 404. Esa es la
-  prueba de que el código nuevo está sirviendo.
-- **Región `gru1` (São Paulo)** configurada por Alejandro en el panel.
-- **Migraciones 0026, semilla y 0027 aplicadas** por Alejandro en Supabase.
+⚠️ **Hay ~8 commits sin desplegar.** Todo lo de la segunda mitad de la sesión
+—incluido el arreglo del botón que quedaba en "Publicando…" para siempre—
+existe solo en el repo local:
 
-Alejandro confirmó que la app se siente notoriamente más rápida.
+```
+npx vercel --prod --yes
+```
+
+## Cuentas de prueba creadas (BORRAR cuando no se usen)
+
+En la base **de producción**, todas con contraseña `admin123`:
+
+```
+alumno.prueba@vipfitness.cl        alumno.prueba3@vipfitness.cl
+alumno.prueba2@vipfitness.cl       alumno.prueba4@vipfitness.cl
+entrenador.prueba@vipfitness.cl    (rol entrenador)
+```
 
 ---
 
 # 1. LO PRIMERO AL VOLVER
 
-No hay pasos de despliegue pendientes. Lo que queda es **probar en producción**,
-directo en `vipfitness.cl` desde el celular (ya no hace falta servidor local):
+1. **Desplegar** (comando de arriba).
+2. **Probar la persistencia del entrenamiento en el celular** — sigue sin
+   verificarse nunca, y es el bug que hacía perder los datos del alumno:
+   cargar peso y reps, tocar "Listo", minimizar la app, volver. Repetir en
+   modo avión.
+3. **Subir un `.txt` de rutina y analizarlo.** Se agregó soporte para TXT y no
+   se probó con un archivo real.
 
-- **Persistencia** (lo más importante — es el bug que hacía perder
-  entrenamientos): empezar una sesión, cargar peso y reps, tocar "Listo" en una
-  serie, minimizar la app o cambiar de aplicación, volver. Los datos tienen que
-  estar. Repetir con modo avión para probar el respaldo local.
-- **Guía en un solo PDF**: subir una guía real con rutina + dieta y ver si la IA
-  extrae bien la rutina.
-- **Sección Documentos** de punta a punta: subir un archivo, asignarlo a varios
-  alumnos, quitar, reemplazar.
+## ⚠️ Sobre verificar
 
-Y hay un pendiente de diseño nuevo, ver sección 8: **a Alejandro no le gusta
-cómo se ve la transición al cambiar de pestaña.**
+Dos veces en esta sesión se entregó código "verificado" que se rompía al
+usarlo. **`tsc` + `eslint` + `npm run build` en verde NO alcanzan** — ninguno
+de los tres detecta un error de renderizado ni una Server Action que falla.
+
+Lo que sí sirve: **pedirle a Alejandro que inicie sesión una vez en el panel
+del navegador integrado** (`http://<ip>:3001`). Desde ahí se puede manejar la
+app y probar las pantallas de verdad. Claude no puede escribir contraseñas,
+así que ese login tiene que hacerlo él.
 
 ---
 

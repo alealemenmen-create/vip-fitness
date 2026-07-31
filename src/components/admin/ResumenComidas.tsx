@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/Card";
-import type { ResumenDiaComidas, EstadoDia } from "@/app/alumno/comer/data";
+import type { ResumenDiaComidas, EstadoDia } from "@/app/alumno/comer/tipos";
 
 const COLOR_ESTADO: Record<EstadoDia, string> = {
   vacio: "var(--color-text-tertiary)",

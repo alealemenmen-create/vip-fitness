@@ -22,7 +22,10 @@ export default async function HistorialPage() {
     <div className="space-y-4 pb-8">
       <Link href="/alumno/entrenar" className="flex items-center gap-2">
         <ArrowLeft size={20} className="text-text-secondary" />
-        <h1 className="text-h3 text-text">Historial de entrenamiento</h1>
+        {/* No es <h1>: el título de la pantalla ahora lo pone el encabezado
+            ("Entrenamiento VIP"), y dos h1 en la misma página confunden a los
+            lectores de pantalla. Esto funciona como migaja de vuelta. */}
+        <span className="text-h3 text-text">Historial de entrenamiento</span>
       </Link>
 
       {sesiones.length === 0 && (

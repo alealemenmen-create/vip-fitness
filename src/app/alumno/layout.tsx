@@ -17,7 +17,6 @@ import { obtenerCelebracionTorneoHoy } from "@/lib/torneos/data";
 import { BottomNav } from "@/components/student/BottomNav";
 import { MenuAlumno } from "@/components/student/MenuAlumno";
 import { AplicarTemaBotonGuardado } from "@/components/student/AplicarTemaBotonGuardado";
-import { SesionActivaFlotante } from "@/components/student/SesionActivaFlotante";
 import { AnuncioImportanteFlotante } from "@/components/student/AnuncioImportanteFlotante";
 import { CelebracionTorneo } from "@/components/student/CelebracionTorneo";
 import { CumpleanosFlotante } from "@/components/student/CumpleanosFlotante";
@@ -102,7 +101,7 @@ export default async function AlumnoLayout({ children }: { children: React.React
         {children}
       </div>
       <div className="sticky bottom-0 mx-auto w-full max-w-md">
-        <BottomNav />
+        <BottomNav sesionEnProgresoId={sesionEnProgresoId} />
         {contexto.rolSesion !== "alumno" && !contexto.soloLectura && (
           <Link
             href="/admin/alumnos"
@@ -113,7 +112,10 @@ export default async function AlumnoLayout({ children }: { children: React.React
         )}
       </div>
 
-      {sesionEnProgresoId && <SesionActivaFlotante sesionId={sesionEnProgresoId} />}
+      {/* La burbuja flotante "Volver a rutina" se sacó: la pestaña Entrenar ya
+          lleva a la sesión en curso (ver BottomNav), así que era un segundo
+          botón para lo mismo — y encima quedaba justo encima del buscador fijo
+          de Nutrición, que es una de las pantallas donde aparecía. */}
       {anuncioImportante && <AnuncioImportanteFlotante anuncio={anuncioImportante} />}
       {celebracionTorneo && <CelebracionTorneo celebracion={celebracionTorneo} />}
       <CumpleanosFlotante cumpleaneros={cumpleaneros} />
