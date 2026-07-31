@@ -13,11 +13,17 @@ const TIPO_LABEL: Record<Documento["tipo"], string> = {
 
 const ORDEN_TIPOS: Documento["tipo"][] = ["rutina", "alimentacion", "otro"];
 
-export function ListaDocumentos({ documentos }: { documentos: Documento[] }) {
+export function ListaDocumentos({
+  documentos,
+  mensajeVacio = "Tu entrenador todavía no ha subido documentos.",
+}: {
+  documentos: Documento[];
+  mensajeVacio?: string;
+}) {
   if (documentos.length === 0) {
     return (
       <Card>
-        <p className="text-body text-text-secondary">Tu entrenador todavía no ha subido documentos.</p>
+        <p className="text-body text-text-secondary">{mensajeVacio}</p>
       </Card>
     );
   }

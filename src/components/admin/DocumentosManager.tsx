@@ -41,8 +41,8 @@ export function DocumentosManager({
         {documentos.length === 0 ? (
           <Card>
             <p className="text-body text-text-secondary">
-              Todavía no hay documentos. Los archivos que subas desde el perfil de un alumno
-              aparecen aquí, y desde aquí puedes reenviarlos a quien quieras.
+              Todavía no hay documentos. Los archivos que subas arriba aparecen aquí, y desde
+              aquí puedes reenviarlos a quien quieras.
             </p>
           </Card>
         ) : (

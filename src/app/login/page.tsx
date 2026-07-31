@@ -4,7 +4,6 @@ import { useActionState, useState } from "react";
 import { login, recuperarPassword, type LoginState, type RecuperarState } from "./actions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Firma } from "@/components/Firma";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -108,7 +107,6 @@ export default function LoginPage() {
           </>
         )}
       </div>
-      <Firma className="fixed bottom-3 right-4" />
     </div>
   );
 }

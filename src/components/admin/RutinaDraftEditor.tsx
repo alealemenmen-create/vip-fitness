@@ -330,7 +330,7 @@ export function RutinaDraftEditor({
               value={dia.nombre}
               onChange={(e) => actualizarDia(diaIdx, { nombre: e.target.value })}
               placeholder="Nombre del día"
-              className="flex-1 py-2"
+              className="min-w-0 flex-1 py-2"
             />
             <IconButton
               ariaLabel="Mover arriba"

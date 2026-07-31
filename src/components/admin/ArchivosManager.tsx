@@ -127,13 +127,17 @@ function ResumenSubida({ estado }: { estado: SubirAVariosState }) {
  *
  * El selector vive FUERA de los formularios, así que sus valores no viajan
  * solos: cada envío los agrega al FormData antes de llamar a la acción.
+ *
+ * `alumnoId` es opcional: cuando este cuadro vive en la ficha de un alumno,
+ * ese alumno viene preseleccionado. En la biblioteca de Documentos (no hay
+ * "un" alumno) arranca sin nadie marcado y el entrenador elige a mano.
  */
 export function ArchivosManager({
   alumnoId,
   documentos,
   alumnos,
 }: {
-  alumnoId: string;
+  alumnoId?: string;
   documentos: Documento[];
   alumnos: AlumnoParaAsignar[];
 }) {
@@ -141,7 +145,9 @@ export function ArchivosManager({
   const documentosAlimentacion = documentos.filter((d) => d.tipo === "alimentacion");
 
   // El alumno de la ficha viene marcado, que es el caso normal.
-  const [destinatarios, setDestinatarios] = useState<Set<string>>(new Set([alumnoId]));
+  const [destinatarios, setDestinatarios] = useState<Set<string>>(
+    new Set(alumnoId ? [alumnoId] : [])
+  );
 
   const [rutina, accionRutina] = useActionState(subirRutinaAVariosAlumnos, estadoVariosVacio);
   const [nombreRutina, setNombreRutina] = useState<string | null>(null);
@@ -210,7 +216,20 @@ export function ArchivosManager({
 
   return (
     <div className="space-y-4">
-      {/* 1. RUTINA */}
+      {/* 1. A QUIÉNES — primero, porque subir un archivo exige tener ya
+          marcado a alguien ("Elige abajo a quiénes" queda deshabilitado si
+          no). Iba al final cuando este cuadro vivía en la ficha de un
+          alumno (venía preseleccionado); acá arranca vacío. */}
+      <Card>
+        <p className="text-caption mb-3 text-text-tertiary">¿A QUIÉNES LES SUBO ESTO?</p>
+        <SelectorAlumnos
+          alumnos={alumnos}
+          seleccionados={destinatarios}
+          onCambiar={setDestinatarios}
+        />
+      </Card>
+
+      {/* 2. RUTINA */}
       <Card>
         <p className="text-caption mb-3 text-text-tertiary">RUTINA DE ENTRENAMIENTO (PDF)</p>
 
@@ -271,13 +290,13 @@ export function ArchivosManager({
       {draft && (
         <RutinaDraftEditor
           // Se publica a los mismos a los que se subió el PDF.
-          alumnoIds={rutina.alumnoIds.length > 0 ? rutina.alumnoIds : [alumnoId]}
+          alumnoIds={rutina.alumnoIds.length > 0 ? rutina.alumnoIds : alumnoId ? [alumnoId] : []}
           draftInicial={draft}
           onDescartar={() => setDraft(null)}
         />
       )}
 
-      {/* 2. ALIMENTACIÓN */}
+      {/* 3. ALIMENTACIÓN */}
       <Card>
         <p className="text-caption mb-3 text-text-tertiary">PLAN DE ALIMENTACIÓN (PDF)</p>
 
@@ -341,22 +360,15 @@ export function ArchivosManager({
 
       {analisisPlan?.plan && (
         <PlanAlimentacionEditor
-          alumnoId={alumnoId}
+          // La meta calórica se guarda para uno solo: el primero a quien se
+          // le subió este plan (sin ficha de alumno de referencia, ya no hay
+          // "el alumno de esta página").
+          alumnoId={alimentacion.alumnoIds[0] ?? alumnoId ?? ""}
           documentoId={alimentacion.documentoId}
           analisis={analisisPlan}
           onDescartar={() => setAnalisisPlan(null)}
         />
       )}
-
-      {/* 3. A QUIÉNES */}
-      <Card>
-        <p className="text-caption mb-3 text-text-tertiary">¿A QUIÉNES LES SUBO ESTO?</p>
-        <SelectorAlumnos
-          alumnos={alumnos}
-          seleccionados={destinatarios}
-          onCambiar={setDestinatarios}
-        />
-      </Card>
     </div>
   );
 }

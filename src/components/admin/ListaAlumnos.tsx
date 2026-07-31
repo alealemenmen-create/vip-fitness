@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Users, LayoutList, ChevronRight, AlertTriangle, Star, Diamond } from "lucide-react";
+import { Users, LayoutList, ChevronRight, AlertTriangle, Star, Diamond, Search } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { TarjetaReporteAlumno } from "./TarjetaReporteAlumno";
 import type { ReporteAlumno } from "@/app/admin/alumnos/data";
@@ -32,6 +32,13 @@ export function ListaAlumnos({
   sesionUserId: string;
 }) {
   const [vista, setVista] = useState<"compacta" | "detallada">("compacta");
+  const [busqueda, setBusqueda] = useState("");
+
+  const filtrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return reportes;
+    return reportes.filter((r) => r.nombre.toLowerCase().includes(q));
+  }, [reportes, busqueda]);
 
   if (reportes.length === 0) {
     return (
@@ -43,6 +50,20 @@ export function ListaAlumnos({
 
   return (
     <div className="space-y-3">
+      <div className="relative">
+        <Search
+          size={14}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
+        />
+        <input
+          type="text"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar alumno..."
+          className="radius-control text-secondary w-full border border-border bg-surface py-2 pl-8 pr-3 text-text"
+        />
+      </div>
+
       <div className="radius-control flex gap-1 bg-surface-2 p-1">
         <button
           type="button"
@@ -66,9 +87,13 @@ export function ListaAlumnos({
         </button>
       </div>
 
-      {vista === "compacta" ? (
+      {filtrados.length === 0 ? (
+        <Card>
+          <p className="text-body text-text-secondary">Ningún alumno coincide con la búsqueda.</p>
+        </Card>
+      ) : vista === "compacta" ? (
         <Card className="space-y-1 p-2">
-          {reportes.map((r) => {
+          {filtrados.map((r) => {
             const { Icon, color } = CONFIG[r.estado];
             return (
               <Link
@@ -97,7 +122,7 @@ export function ListaAlumnos({
         </Card>
       ) : (
         <div className="space-y-4">
-          {reportes.map((reporte) => (
+          {filtrados.map((reporte) => (
             <TarjetaReporteAlumno
               key={reporte.alumnoId}
               reporte={reporte}

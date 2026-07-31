@@ -73,23 +73,37 @@ export async function subirRutinaPdf(
     };
   }
 
-  const { error: errorDocumento } = await supabase.from("documentos").insert({
-    alumno_id: alumnoId,
-    tipo: "rutina",
-    nombre_archivo: file.name,
-    storage_path: storagePath,
-    entrenador_id: sesion.userId,
-  });
+  const { data: documento, error: errorDocumento } = await supabase
+    .from("documentos")
+    .insert({
+      alumno_id: alumnoId,
+      tipo: "rutina",
+      nombre_archivo: file.name,
+      storage_path: storagePath,
+      entrenador_id: sesion.userId,
+    })
+    .select("id")
+    .single();
 
-  if (errorDocumento) {
+  if (errorDocumento || !documento) {
     return {
       error: "El archivo se subió, pero no fue posible registrarlo. Contacta soporte.",
       storagePath: null,
     };
   }
 
+  // La política RLS `documentos_select` (migración 0027) solo deja ver el
+  // documento al alumno si hay una fila acá — sin esto, el archivo quedaba
+  // subido pero invisible tanto en /alumno/documentos como en la biblioteca.
+  await supabase.from("documento_asignaciones").insert({
+    documento_id: documento.id,
+    alumno_id: alumnoId,
+    asignado_por: sesion.userId,
+  });
+
   revalidatePath(`/admin/alumnos/${alumnoId}`);
   revalidatePath("/alumno/documentos");
+  revalidatePath("/admin/documentos");
   return { error: null, storagePath };
 }
 
@@ -149,14 +163,15 @@ export async function subirGuiaCompleta(
     entrenador_id: sesion.userId,
   };
 
-  const { error: errorDocumento } = await supabase
+  const { data: documentosCreados, error: errorDocumento } = await supabase
     .from("documentos")
     .insert([
       { ...filaBase, tipo: "rutina" },
       { ...filaBase, tipo: "alimentacion" },
-    ]);
+    ])
+    .select("id");
 
-  if (errorDocumento) {
+  if (errorDocumento || !documentosCreados) {
     // Sin fila en `documentos` el archivo quedaría huérfano en Storage, sin
     // forma de verlo ni de borrarlo desde la app.
     await supabase.storage.from("documentos").remove([storagePath]);
@@ -166,9 +181,20 @@ export async function subirGuiaCompleta(
     };
   }
 
+  // Igual que en subirRutinaPdf: sin esto la política RLS `documentos_select`
+  // nunca deja ver el documento al alumno.
+  await supabase.from("documento_asignaciones").insert(
+    documentosCreados.map((d) => ({
+      documento_id: d.id,
+      alumno_id: alumnoId,
+      asignado_por: sesion.userId,
+    }))
+  );
+
   revalidatePath(`/admin/alumnos/${alumnoId}`);
   revalidatePath("/alumno/documentos");
   revalidatePath("/alumno/comer");
+  revalidatePath("/admin/documentos");
   return { error: null, storagePath };
 }
 
@@ -233,8 +259,15 @@ export async function subirDocumentoAlimentacion(
     return fallo("El archivo se subió, pero no fue posible registrarlo. Contacta soporte.");
   }
 
+  await supabase.from("documento_asignaciones").insert({
+    documento_id: documento.id,
+    alumno_id: alumnoId,
+    asignado_por: sesion.userId,
+  });
+
   revalidatePath(`/admin/alumnos/${alumnoId}`);
   revalidatePath("/alumno/documentos");
+  revalidatePath("/admin/documentos");
   return { error: null, ok: true, storagePath, documentoId: documento.id };
 }
 

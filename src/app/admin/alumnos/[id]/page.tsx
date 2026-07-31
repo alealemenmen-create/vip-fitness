@@ -11,14 +11,6 @@ import { PerfilAlumnoForm } from "@/components/admin/PerfilAlumnoForm";
 import { CredencialesAlumno } from "@/components/admin/CredencialesAlumno";
 import { DatosPersonalesSoloLectura } from "@/components/admin/DatosPersonalesSoloLectura";
 import { NotasManager } from "@/components/admin/NotasManager";
-import { ArchivosManager } from "@/components/admin/ArchivosManager";
-import { obtenerAlumnosParaAsignar } from "@/lib/documentos/data";
-
-/** Desde aquí se analiza un PDF con IA y se publica la rutina, y las dos cosas
- * tardan más que el límite por defecto de Vercel (10 s): el análisis ronda los
- * 5 s y puede subir con un PDF grande. Sin esto, la función se corta a mitad y
- * el botón queda "Publicando…" para siempre. */
-export const maxDuration = 60;
 import { PesoCorporalSoloLectura } from "@/components/admin/PesoCorporalSoloLectura";
 import { FotosSoloLectura } from "@/components/admin/FotosSoloLectura";
 import { HistorialEntrenamiento } from "@/components/admin/HistorialEntrenamiento";
@@ -29,6 +21,8 @@ import { obtenerRutinaActiva, obtenerHistorialSesiones } from "@/app/alumno/entr
 import { obtenerResumenComidas } from "@/app/alumno/comer/data";
 import { obtenerHistorialSeguimientos } from "@/app/alumno/inicio/data";
 import { obtenerDatosPersonales } from "@/app/alumno/perfil/data";
+import { obtenerDocumentos } from "@/app/alumno/documentos/data";
+import { ListaDocumentos } from "@/components/student/ListaDocumentos";
 import { obtenerIndicadores } from "@/app/admin/alumnos/data";
 import { DetalleEstadoAlumno } from "@/components/admin/IndicadorEstadoAlumno";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
@@ -46,7 +40,6 @@ export default async function AlumnoDetallePage({
     { data: perfil },
     { data: alumnoPerfil },
     { data: notas },
-    { data: documentos },
     historialPeso,
     fotos,
     rutinaActiva,
@@ -54,7 +47,7 @@ export default async function AlumnoDetallePage({
     resumenComidas,
     seguimientos,
     datosPersonales,
-    todosLosAlumnos,
+    documentos,
   ] = await Promise.all([
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     supabase
@@ -69,12 +62,6 @@ export default async function AlumnoDetallePage({
       )
       .eq("alumno_id", alumnoId)
       .order("created_at", { ascending: false }),
-    supabase
-      .from("documentos")
-      .select("id, alumno_id, tipo, nombre_archivo, fecha_carga")
-      .eq("alumno_id", alumnoId)
-      .eq("activo", true)
-      .order("fecha_carga", { ascending: false }),
     obtenerHistorialPeso(supabase, alumnoId),
     obtenerFotosProgreso(supabase, alumnoId),
     obtenerRutinaActiva(alumnoId),
@@ -82,8 +69,7 @@ export default async function AlumnoDetallePage({
     obtenerResumenComidas(supabase, alumnoId),
     obtenerHistorialSeguimientos(supabase, alumnoId),
     obtenerDatosPersonales(supabase, alumnoId),
-    // Para poder subir la misma guía a varios alumnos sin salir de esta ficha.
-    obtenerAlumnosParaAsignar(supabase),
+    obtenerDocumentos(supabase, alumnoId),
   ]);
 
   // Marca como vistas las notas que generó la IA para este alumno, ahora que
@@ -165,11 +151,15 @@ export default async function AlumnoDetallePage({
       <ResumenComidas resumen={resumenComidas} />
       <SeguimientoDiarioSoloLectura seguimientos={seguimientos} />
 
-      <p className="text-caption pt-2 text-text-tertiary">RUTINA Y ALIMENTACIÓN</p>
-      <ArchivosManager
-        alumnoId={alumnoId}
-        documentos={documentos ?? []}
-        alumnos={todosLosAlumnos}
+      <div className="flex items-center justify-between pt-2">
+        <p className="text-caption text-text-tertiary">SUS DOCUMENTOS</p>
+        <Link href="/admin/documentos" className="text-caption font-medium text-vip underline">
+          Subir o gestionar
+        </Link>
+      </div>
+      <ListaDocumentos
+        documentos={documentos}
+        mensajeVacio="Todavía no le subiste documentos a este alumno."
       />
 
       <Card>

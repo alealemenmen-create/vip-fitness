@@ -3,7 +3,6 @@ import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { crearMiPerfilAlumno } from "@/app/admin/alumnos/actions";
 import { LogoutButton } from "@/components/LogoutButton";
-import { Firma } from "@/components/Firma";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AdminTabs } from "@/components/admin/AdminTabs";
@@ -57,7 +56,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="sticky bottom-0 mx-auto w-full max-w-md">
         <AdminTabs />
       </div>
-      <Firma className="fixed bottom-3 right-4" />
     </div>
   );
 }

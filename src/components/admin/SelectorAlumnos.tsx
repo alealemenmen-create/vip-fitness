@@ -1,9 +1,11 @@
 "use client";
 
-import { Users, Check } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Users, Check, Search } from "lucide-react";
 import type { AlumnoParaAsignar } from "@/lib/documentos/tipos";
 
-/** Casillas de alumnos con atajo para marcar o desmarcar a todos.
+/** Casillas de alumnos con atajo para marcar o desmarcar a todos, orden
+ * alfabético y buscador por nombre.
  *
  * Vivía dentro de DocumentosManager; se sacó a su propio archivo para poder
  * usarlo también al subir la guía desde el perfil de un alumno. El componente
@@ -19,6 +21,19 @@ export function SelectorAlumnos({
   onCambiar: (ids: Set<string>) => void;
   nombreCampo?: string;
 }) {
+  const [busqueda, setBusqueda] = useState("");
+
+  const ordenados = useMemo(
+    () => [...alumnos].sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+    [alumnos],
+  );
+
+  const filtrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return ordenados;
+    return ordenados.filter((a) => a.nombre.toLowerCase().includes(q));
+  }, [ordenados, busqueda]);
+
   const todos = seleccionados.size === alumnos.length && alumnos.length > 0;
 
   const alternar = (id: string) => {
@@ -44,8 +59,25 @@ export function SelectorAlumnos({
         </button>
       </div>
 
+      <div className="relative mb-2">
+        <Search
+          size={14}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
+        />
+        <input
+          type="text"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar alumno..."
+          className="radius-control text-secondary w-full border border-border bg-surface py-2 pl-8 pr-3 text-text"
+        />
+      </div>
+
       <div className="max-h-56 space-y-1 overflow-y-auto">
-        {alumnos.map((a) => {
+        {filtrados.length === 0 && (
+          <p className="text-caption px-3 py-2 text-text-tertiary">Sin resultados.</p>
+        )}
+        {filtrados.map((a) => {
           const marcado = seleccionados.has(a.id);
           return (
             <label
