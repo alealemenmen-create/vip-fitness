@@ -25,23 +25,28 @@ export type Ilustracion = {
   origen: OrigenIlustracion;
 };
 
-/** Los `ilustracion_slug` que ya tienen archivo dibujado en public/ejercicios.
+/** Los `ilustracion_slug` que ya tienen archivo en public/ejercicios, con su
+ * extensión.
  *
  * Se lleva a mano a propósito: en el servidor no se puede preguntar por la
  * existencia de un archivo sin tocar disco en cada render, y en el navegador
- * un <img> roto ya habría hecho parpadear el hueco. Al agregar un SVG nuevo,
- * sumar su nombre acá. */
-const ILUSTRACIONES_DISPONIBLES = new Set<string>([
-  // Vacío por ahora: todavía no hay ilustraciones dibujadas, así que todo cae
-  // a la foto de grupo muscular. Ver HANDOFF — falta comprar o encargar el set.
+ * un <img> roto ya habría hecho parpadear el hueco.
+ *
+ * La extensión es parte del dato porque van a convivir varios orígenes: las
+ * fotos tomadas en el gimnasio VIP van en .webp (o .jpg) y un set dibujado
+ * vendría en .svg o .png con fondo transparente. */
+const ILUSTRACIONES_DISPONIBLES = new Map<string, "webp" | "jpg" | "png" | "svg">([
+  // Vacío por ahora: todavía no hay imágenes por ejercicio, así que todo cae a
+  // la foto de grupo muscular.
 ]);
 
 export function resolverIlustracion(
   ilustracionSlug: string | null | undefined,
   grupoMuscular: GrupoMuscular | null | undefined
 ): Ilustracion {
-  if (ilustracionSlug && ILUSTRACIONES_DISPONIBLES.has(ilustracionSlug)) {
-    return { src: `/ejercicios/${ilustracionSlug}.svg`, origen: "ilustracion" };
+  const ext = ilustracionSlug ? ILUSTRACIONES_DISPONIBLES.get(ilustracionSlug) : undefined;
+  if (ilustracionSlug && ext) {
+    return { src: `/ejercicios/${ilustracionSlug}.${ext}`, origen: "ilustracion" };
   }
 
   const fotos = grupoMuscular ? FOTOS_GRUPO_MUSCULAR[grupoMuscular] : undefined;
