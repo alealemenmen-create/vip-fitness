@@ -57,7 +57,17 @@ export function TiraDias({
   const hoyALaDerecha = hoy > dias[dias.length - 1].fecha;
 
   return (
-    <div className="flex items-center gap-1">
+    /*
+      El `pt-1` no es separación decorativa: le hace lugar al `scale-105` del
+      día elegido.
+
+      La tira arranca pegada al borde de abajo de la cabecera del alumno (ver
+      alumno/layout.tsx), que es opaca y va en z-30 mientras que esto no lleva
+      z-index. Al agrandarse un 5%, el recuadro ámbar crece desde el centro y
+      su borde superior se mete ~1,35 px por debajo de esa cabecera, que lo
+      tapa: se veía como si el borde estuviera cortado justo arriba.
+    */
+    <div className="flex items-center gap-1 pt-1">
       <button
         type="button"
         aria-label={hoyALaIzquierda ? "Día anterior (hoy es hacia acá)" : "Día anterior"}

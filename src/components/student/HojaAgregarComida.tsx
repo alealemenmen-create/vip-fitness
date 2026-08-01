@@ -29,6 +29,39 @@ function etiquetaHora(hora: number): string {
  * convierte a `position: fixed` en relativo y el panel aparecería recortado
  * dentro de la tarjeta en vez de cubrir la pantalla.
  */
+/** Cuánto vive el escudo. Android emite el click fantasma dentro de los ~300 ms
+ * del toque; 350 da margen sin que se note la espera. */
+const MS_ESCUDO = 350;
+
+/**
+ * Traga el click que Android emite DESPUÉS de que el panel ya se cerró.
+ *
+ * Los botones del panel actúan en `pointerdown` (ver el comentario de
+ * "Confirmar"), así que para cuando el dedo se levanta el panel ya no está.
+ * El click sintético cae entonces sobre lo que haya quedado abajo — y abajo a
+ * la derecha, justo donde está "Confirmar", vive la pestaña Ranked de la barra
+ * de navegación. Al agregar la comida, la app se iba sola a Ranked.
+ *
+ * El escudo es una capa transparente que ocupa la pantalla por un instante y
+ * no hace nada: el click fantasma le pega a ella y muere ahí.
+ */
+function useEscudoAntiFantasma(hora: number | null) {
+  const [activo, setActivo] = useState(false);
+  const previa = useRef(hora);
+
+  useEffect(() => {
+    const seCerro = previa.current !== null && hora === null;
+    previa.current = hora;
+    if (!seCerro) return;
+
+    setActivo(true);
+    const id = setTimeout(() => setActivo(false), MS_ESCUDO);
+    return () => clearTimeout(id);
+  }, [hora]);
+
+  return activo;
+}
+
 export function HojaAgregarComida({
   hora,
   onCerrar,
@@ -38,10 +71,19 @@ export function HojaAgregarComida({
   onCerrar: () => void;
   onConfirmar: (elegidos: AlimentoElegido[]) => void;
 }) {
+  const escudo = useEscudoAntiFantasma(hora);
+
   // Sin estado de "montado": el panel solo existe cuando el alumno tocó una
   // hora, así que en el render del servidor `hora` siempre es null y nunca se
   // llega a tocar `document`.
-  if (hora === null || typeof document === "undefined") return null;
+  if (typeof document === "undefined") return null;
+  if (hora === null) {
+    // z-50 como el panel: tiene que quedar por encima de la barra de
+    // navegación (z-40), que es justo a quien le llegaba el click de más.
+    return escudo
+      ? createPortal(<div aria-hidden className="fixed inset-0 z-50" />, document.body)
+      : null;
+  }
 
   return createPortal(
     <Contenido hora={hora} onCerrar={onCerrar} onConfirmar={onConfirmar} />,
@@ -135,14 +177,44 @@ function Contenido({
    * comida" antes de confirmar. */
   const aGuardar = pendiente ? [...elegidos, pendiente] : elegidos;
 
+  /**
+   * Corre la acción una sola vez aunque lleguen `pointerdown` y `click`.
+   *
+   * Los botones de abajo escuchan los dos eventos a propósito (el `click` solo
+   * puede perderse en Android, pero es el que usa el teclado y los lectores de
+   * pantalla). Sin este candado, en un navegador donde llegan ambos la comida
+   * se agregaría dos veces.
+   */
+  const ultimaAccion = useRef(0);
+  const unaSolaVez = (accion: () => void) => {
+    const ahora = Date.now();
+    if (ahora - ultimaAccion.current < 600) return;
+    ultimaAccion.current = ahora;
+    accion();
+  };
+
+  /** Pedido de volver el cursor al buscador, pendiente de que exista. */
+  const volverAlBuscador = useRef(false);
+
   const sumarALista = () => {
     if (!pendiente) return;
     setElegidos((prev) => [...prev, pendiente]);
     setSeleccionado(null);
     setBusqueda("");
     setResultados([]);
-    campo.current?.focus();
+    // El foco NO se puede pedir acá: mientras hay un alimento elegido el
+    // buscador no está montado, así que `campo.current` es null y la llamada
+    // no hacía nada. El teclado se cerraba y había que tocar el campo de nuevo
+    // para cargar el segundo alimento. Se pide para después de que React
+    // vuelva a montarlo (ver el efecto de abajo).
+    volverAlBuscador.current = true;
   };
+
+  useEffect(() => {
+    if (seleccionado || !volverAlBuscador.current) return;
+    volverAlBuscador.current = false;
+    campo.current?.focus();
+  }, [seleccionado]);
 
   if (creando) {
     return (
@@ -158,8 +230,52 @@ function Contenido({
     );
   }
 
+  /* La fila que no puede irse de pantalla: se le pasa al Marco como `pie` en
+     vez de ir con el resto del contenido. Ver el comentario en Marco. */
+  const acciones = (
+    <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+      <button
+        type="button"
+        onClick={() => setCreando(true)}
+        className="text-caption font-medium text-vip underline"
+      >
+        Crear alimento personalizado
+      </button>
+      {/*
+        En Android el `click` de este botón se perdía y la comida no se
+        agregaba nunca. El campo de cantidad es numérico: al tocarlo se abre el
+        teclado, y al tocar "Confirmar" el campo pierde el foco, el teclado se
+        cierra y `visualViewport` cambia de alto. Ese cambio mueve el panel
+        entero (ver `useAreaVisible`) ENTRE el pointerdown y el pointerup, así
+        que el navegador ya no considera que ambos ocurrieron sobre el mismo
+        elemento y nunca emite el `click`. Desde afuera se ve como que el
+        alimento elegido "desaparece".
+        Actuar en `pointerdown` con `preventDefault` evita el blur, y con eso
+        el teclado no se cierra ni nada se mueve. Es el mismo arreglo que ya
+        estaba en la lista de resultados por la misma causa.
+      */}
+      <Button
+        size="sm"
+        className="w-auto px-5"
+        disabled={aGuardar.length === 0}
+        onPointerDown={(e) => {
+          if (aGuardar.length === 0) return;
+          e.preventDefault();
+          unaSolaVez(() => onConfirmar(aGuardar));
+        }}
+        onClick={() => unaSolaVez(() => onConfirmar(aGuardar))}
+      >
+        Confirmar
+      </Button>
+    </div>
+  );
+
   return (
-    <Marco onCerrar={onCerrar} titulo={`Agregar a las ${etiquetaHora(hora)}`}>
+    <Marco
+      onCerrar={onCerrar}
+      titulo={`Agregar a las ${etiquetaHora(hora)}`}
+      pie={acciones}
+    >
       {!seleccionado && (
         <div className="radius-control flex items-center gap-2 border border-border bg-surface-2 px-3 py-2.5">
           <Search size={16} className="shrink-0 text-text-secondary" />
@@ -298,7 +414,18 @@ function Contenido({
           {/* Atajo para cargar VARIOS alimentos en la misma comida: suma este y
               deja el buscador listo para el siguiente. Para uno solo no hace
               falta pasar por acá — Confirmar ya lo toma. */}
-          <Button variant="secondary" size="sm" className="w-full" onClick={sumarALista}>
+          {/* onPointerDown + preventDefault, igual que en la lista de
+              resultados: ver el comentario largo en el botón "Confirmar". */}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="w-full"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              unaSolaVez(sumarALista);
+            }}
+            onClick={() => unaSolaVez(sumarALista)}
+          >
             <Plus size={15} /> Sumar y buscar otro
           </Button>
         </div>
@@ -328,23 +455,6 @@ function Contenido({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
-        <button
-          type="button"
-          onClick={() => setCreando(true)}
-          className="text-caption font-medium text-vip underline"
-        >
-          Crear alimento personalizado
-        </button>
-        <Button
-          size="sm"
-          className="w-auto px-5"
-          disabled={aGuardar.length === 0}
-          onClick={() => onConfirmar(aGuardar)}
-        >
-          Confirmar
-        </Button>
-      </div>
     </Marco>
   );
 }
@@ -361,15 +471,44 @@ function Contenido({
  * `visualViewport` sí refleja el área visible. Con su alto y su desplazamiento,
  * el panel se apoya sobre el teclado en vez de quedar detrás.
  */
+type AreaVisible = { alto: number; desde: number };
+
+/**
+ * Los valores se redondean a propósito. `visualViewport` los entrega con
+ * decimales y en Android cambian de a fracciones de píxel durante toda la
+ * subida del teclado: sin redondear, cada uno de esos avisos era un render
+ * más y el panel entero temblaba mientras se acomodaba.
+ */
+function leerArea(): AreaVisible | null {
+  // Sin `window` (render del servidor) o sin la API: se cae al comportamiento
+  // de antes, que es el panel pegado al borde de abajo de la pantalla.
+  if (typeof window === "undefined" || !window.visualViewport) return null;
+  const vv = window.visualViewport;
+  return { alto: Math.round(vv.height), desde: Math.round(vv.offsetTop) };
+}
+
 function useAreaVisible() {
-  const [area, setArea] = useState<{ alto: number; desde: number } | null>(null);
+  // Se mide en el primer render y no en el efecto: midiendo después, el panel
+  // se pintaba una vez del alto de la pantalla completa y recién ahí se
+  // acomodaba. Ese primer salto era el que se veía como un rectángulo negro
+  // que se agrandaba justo al abrir el buscador.
+  const [area, setArea] = useState<AreaVisible | null>(leerArea);
 
   useEffect(() => {
     const vv = window.visualViewport;
-    // Navegador sin la API (o server): se cae al comportamiento de antes.
     if (!vv) return;
 
-    const medir = () => setArea({ alto: vv.height, desde: vv.offsetTop });
+    const medir = () => {
+      const nueva = leerArea();
+      if (!nueva) return;
+      // Devolver el objeto anterior cuando nada cambió corta el render: si no,
+      // cada aviso repetido del teclado vuelve a pintar el panel.
+      setArea((previa) =>
+        previa && previa.alto === nueva.alto && previa.desde === nueva.desde
+          ? previa
+          : nueva
+      );
+    };
     medir();
     vv.addEventListener("resize", medir);
     // `scroll` también: en iOS el área visible se corre hacia arriba cuando el
@@ -387,35 +526,74 @@ function useAreaVisible() {
 function Marco({
   titulo,
   onCerrar,
+  pie,
   children,
 }: {
   titulo: string;
   onCerrar: () => void;
+  /**
+   * Fila de acciones. Va SEPARADA del contenido a propósito: es lo único que
+   * no puede irse de pantalla nunca.
+   *
+   * Antes el panel era una sola caja con scroll, así que "Confirmar" y "Sumar
+   * y buscar otro" se desplazaban junto con la lista de resultados. Con el
+   * teclado abierto y una búsqueda con varios resultados, quedaban por debajo
+   * del borde y no había forma de llegar a ellos: desde afuera se veía como
+   * que la opción de agregar otro alimento directamente no existía.
+   */
+  pie?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const area = useAreaVisible();
+
+  /**
+   * Si el toque EMPEZÓ sobre el fondo negro. Solo entonces cerrar es lo que el
+   * alumno pidió.
+   *
+   * Sin esto el panel se cerraba solo al tocar "Sumar y buscar otro": al sumar,
+   * el formulario de cantidad desaparece y el panel se encoge de golpe, así que
+   * para cuando el dedo se levanta, bajo ese mismo punto de la pantalla ya no
+   * está el botón sino el fondo. Android emite el `click` contra lo que haya
+   * ahí EN ESE MOMENTO, y ese click caía en el fondo y cerraba todo. Desde
+   * afuera se veía como que la comida se perdía y había que empezar de nuevo.
+   */
+  const inicioEnFondo = useRef(false);
 
   return (
     <div
       className="fixed inset-x-0 z-50 flex flex-col justify-end"
       style={area ? { top: area.desde, height: area.alto } : { top: 0, bottom: 0 }}
+      // En captura, o sea ANTES que el handler del fondo: así un toque que
+      // arranca dentro del panel deja la marca en false y el fondo la respeta.
+      onPointerDownCapture={() => {
+        inicioEnFondo.current = false;
+      }}
     >
       <button
         type="button"
         aria-label="Cerrar"
-        onClick={onCerrar}
+        onPointerDown={() => {
+          inicioEnFondo.current = true;
+        }}
+        onClick={() => {
+          if (inicioEnFondo.current) onCerrar();
+          inicioEnFondo.current = false;
+        }}
         className="absolute inset-0 bg-black/60 animate-[aparecer-hoja_200ms_ease-out]"
       />
+      {/*
+        Columna de tres piezas: encabezado y pie de alto fijo, y en el medio lo
+        único que scrollea. El `max-h-[85%]` es del área visible que ya calculó
+        el contenedor de arriba, no `85vh`: con `vh` el panel podía medir más
+        que la pantalla disponible y volvía a esconderse bajo el teclado.
+      */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
-        // `max-h-[85%]` y no `85vh`: el porcentaje es del área visible que ya
-        // calculó el contenedor. Con `vh` el panel podía medir más que la
-        // pantalla disponible y volvía a esconderse bajo el teclado.
-        className="franja-segura-inferior relative mx-auto max-h-[85%] w-full max-w-md overflow-y-auto rounded-t-[24px] border-t border-border bg-surface p-4 animate-[subir-hoja_220ms_cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none"
+        className="franja-segura-inferior relative mx-auto flex max-h-[85%] w-full max-w-md flex-col overflow-hidden rounded-t-[24px] border-t border-border bg-surface animate-[subir-hoja_220ms_cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none"
       >
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-4">
           <p className="text-card-title min-w-0 truncate text-text">{titulo}</p>
           <button
             type="button"
@@ -426,7 +604,13 @@ function Marco({
             <X size={17} />
           </button>
         </div>
-        <div className="space-y-3">{children}</div>
+        {/* `min-h-0` no es decorativo: sin él un hijo flex se niega a achicarse
+            por debajo de su contenido y la lista larga vuelve a empujar el pie
+            fuera del panel en vez de scrollear. */}
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-1">
+          {children}
+        </div>
+        {pie && <div className="shrink-0 px-4 pb-4 pt-3">{pie}</div>}
       </div>
     </div>
   );

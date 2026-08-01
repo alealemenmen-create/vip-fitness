@@ -20,6 +20,26 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  /*
+    Qué pasa cuando sube el teclado. Es la diferencia de fondo entre iPhone y
+    Android, y la causa de que Nutrición se viera bien en uno y roto en el otro:
+
+    - iOS achica solo el viewport VISUAL. El de layout queda del alto de la
+      pantalla completa, así que `position: fixed` no se mueve y el teclado
+      simplemente tapa lo de abajo.
+    - Android achica además el de LAYOUT. Todo lo `fixed` salta hacia arriba,
+      `window.innerHeight` cambia y se dispara `resize`.
+
+    El panel de agregar comida está posicionado a mano con `visualViewport`
+    (ver `useAreaVisible` en HojaAgregarComida): da por hecho que lo `fixed`
+    NO se mueve. En Android ese supuesto no valía y las dos correcciones se
+    sumaban — el panel y su fondo negro cambiaban de alto varias veces
+    mientras el teclado subía, que es el temblor que se veía.
+
+    `resizes-visual` le pide a Android el mismo comportamiento que iOS, así hay
+    una sola forma de la que ocuparse en vez de dos.
+  */
+  interactiveWidget: "resizes-visual",
 };
 
 // Aplica el tema y el tamaño de texto guardados ANTES del primer paint (evita
