@@ -61,6 +61,23 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
         )}
       </div>
 
+      {/* Barra de avance del día. Las pastillas de arriba ya dicen "2 de 7",
+          pero hay que leerlas; la barra se entiende de una mirada, con el
+          celular apoyado y a medio ejercicio. */}
+      {!esDescanso && total > 0 && (
+        <div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+            <div
+              className="h-full rounded-full bg-vip transition-[width] duration-500 ease-out"
+              style={{ width: `${Math.round((completados / total) * 100)}%` }}
+            />
+          </div>
+          <p className="text-caption mt-1 text-text-tertiary">
+            {Math.round((completados / total) * 100)}% completado
+          </p>
+        </div>
+      )}
+
       {esDescanso ? (
         <Card>
           <p className="text-caption mb-1 text-text-tertiary">DÍA DE DESCANSO</p>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Menu, X, UserCog, FileText, Sun, Moon, LogOut, Sparkles } from "lucide-react";
+import { Settings, X, UserCog, FileText, Sun, Moon, LogOut, Sparkles, Type } from "lucide-react";
 import { logout } from "@/app/actions";
 import { guardarTemaBoton } from "@/app/alumno/perfil/actions";
 
@@ -14,10 +14,21 @@ const TEMAS_BOTON: { valor: TemaBoton; texto: string; muestra: string }[] = [
   { valor: "femenino", texto: "Lady", muestra: "linear-gradient(135deg, #ff8ac0, #b388ff)" },
 ];
 
+/*
+  Tamaño de texto (ver globals.css). Escalones chicos a propósito: más de 1.3
+  empieza a romper las tarjetas y la barra de abajo en celulares angostos.
+*/
+type Escala = 1 | 1.15 | 1.3;
+const ESCALAS: { valor: Escala; texto: string; muestra: number }[] = [
+  { valor: 1, texto: "Normal", muestra: 14 },
+  { valor: 1.15, texto: "Grande", muestra: 17 },
+  { valor: 1.3, texto: "Más grande", muestra: 20 },
+];
+
 /**
- * Menú lateral de las tres rayitas (arriba a la derecha). Concentra lo que
- * antes andaba suelto por la pantalla: perfil, documentos, tema y cerrar
- * sesión.
+ * Menú lateral del engranaje (arriba a la derecha, junto a la campanita).
+ * Concentra lo que antes andaba suelto por la pantalla: perfil, documentos,
+ * tamaño de texto, tema y cerrar sesión.
  *
  * Las noticias salieron de acá: viven en la campanita del encabezado
  * (`CampanaNoticias`), que las muestra en todas las pantallas y con su
@@ -27,6 +38,7 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
   const [abierto, setAbierto] = useState(false);
   const [claro, setClaro] = useState(false);
   const [temaBoton, setTemaBoton] = useState<TemaBoton>("espejo");
+  const [escala, setEscala] = useState<Escala>(1);
   const [montado, setMontado] = useState(false);
 
   // El botón vive dentro de un contenedor con transform (esquina del logo),
@@ -45,7 +57,17 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
     setClaro(document.documentElement.getAttribute("data-theme") === "light");
     const tb = document.documentElement.getAttribute("data-tema-boton");
     setTemaBoton(tb === "vip" || tb === "femenino" ? tb : "espejo");
+    const e = parseFloat(
+      document.documentElement.style.getPropertyValue("--escala-texto") || "1"
+    );
+    setEscala(e === 1.15 || e === 1.3 ? e : 1);
     setAbierto(true);
+  };
+
+  const elegirEscala = (valor: Escala) => {
+    setEscala(valor);
+    document.documentElement.style.setProperty("--escala-texto", String(valor));
+    localStorage.setItem("vip-escala-texto", String(valor));
   };
 
   const elegirTemaBoton = (tema: TemaBoton) => {
@@ -83,14 +105,16 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
 
   return (
     <>
-      {/* Va dentro de la placa dorada del logo: sin fondo propio, rayitas
-          blancas sobre el ámbar. */}
+      {/* Engranaje, no las tres rayitas: dice "configuración", que es lo que
+          hay adentro. Copia exacta de la pastilla de CampanaNoticias (mismo
+          alto, borde y fondo) para que las dos se lean como un par al lado del
+          logo, en vez de un ícono suelto sobre el ámbar. */}
       <button
         onClick={abrir}
-        aria-label="Abrir menú"
-        className="relative flex h-10 w-10 shrink-0 items-center justify-center text-white"
+        aria-label="Configuración"
+        className="radius-control relative flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-surface text-text-secondary active:scale-95"
       >
-        <Menu size={28} strokeWidth={2.75} />
+        <Settings size={18} />
       </button>
 
       {abierto &&
@@ -103,7 +127,9 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
               className="absolute inset-0 bg-black/70"
             />
 
-            <aside className="relative flex h-full w-72 max-w-[80%] flex-col bg-surface p-5">
+            {/* overflow-y-auto: con el texto en "Más grande" y una pantalla
+                baja, el panel ya no entra completo de una. */}
+            <aside className="relative flex h-full w-72 max-w-[80%] flex-col overflow-y-auto bg-surface p-5">
               <div className="mb-6 flex items-start justify-between gap-2">
                 <div>
                   <p className="text-caption text-text-tertiary">SESIÓN DE</p>
@@ -139,6 +165,35 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
                   {claro ? "Tema oscuro" : "Tema claro"}
                 </button>
               </nav>
+
+              <div className="mt-5 border-t border-border pt-4">
+                <p className="text-caption mb-2 flex items-center gap-2 text-text-tertiary">
+                  <Type size={16} className="text-vip" /> TAMAÑO DE TEXTO
+                </p>
+                <div className="flex gap-2">
+                  {ESCALAS.map((e) => (
+                    <button
+                      key={e.valor}
+                      onClick={() => elegirEscala(e.valor)}
+                      className="radius-control flex flex-1 flex-col items-center justify-end gap-1 py-2.5 transition-colors duration-200 ease-in-out"
+                      style={{
+                        background: "var(--color-surface-2)",
+                        border:
+                          escala === e.valor
+                            ? "2px solid var(--color-vip)"
+                            : "2px solid transparent",
+                        color:
+                          escala === e.valor ? "var(--color-text)" : "var(--color-text-secondary)",
+                      }}
+                    >
+                      {/* La "A" de muestra va en px fijos: enseña el tamaño en
+                          vez de crecer junto con el resto del menú. */}
+                      <span style={{ fontSize: e.muestra, fontWeight: 700, lineHeight: 1 }}>A</span>
+                      <span style={{ fontSize: 12, fontWeight: 500 }}>{e.texto}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div className="mt-5 border-t border-border pt-4">
                 <p className="text-caption mb-2 flex items-center gap-2 text-text-tertiary">

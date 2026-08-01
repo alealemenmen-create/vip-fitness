@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { mesActualISO } from "@/lib/date";
+import { resolverTempo, type Tempo } from "@/lib/ejercicios/tempo";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -271,6 +272,9 @@ export type EjercicioSesion = {
   /** Qué dibujo mostrar. Null si el ejercicio no está emparejado con la
    * biblioteca o si todavía no corrió la migración 0026. */
   ilustracionSlug: string | null;
+  /** Cuánto dura cada fase de la repetición. Null cuando ni la rutina lo trae
+   * escrito ni la biblioteca lo tiene calculado todavía. */
+  tempo: Tempo | null;
   completado: boolean;
   notaEjercicio: string | null;
   series: SerieRealizada[];
@@ -327,6 +331,12 @@ export async function obtenerSesionCompleta(
   // El `select` se arma con plantilla, así que el parser de tipos de PostgREST
   // no puede inferir la forma del resultado — se declara a mano, igual que en
   // `obtenerCatalogoAlimentos`.
+  type FilaBiblioteca = {
+    ilustracion_slug: string | null;
+    tempo?: string | null;
+    tempo_nota?: string | null;
+  };
+
   type FilaSesionEjercicio = {
     id: string;
     dia_ejercicio_id: string;
@@ -342,16 +352,25 @@ export async function obtenerSesionCompleta(
       tecnica_instruccion: string | null;
       observacion: string | null;
       grupo_muscular: GrupoMuscular | null;
-      // Presente solo si la migración 0026 ya corrió (ver el respaldo arriba).
-      ejercicios?:
-        | { ilustracion_slug: string | null }
-        | { ilustracion_slug: string | null }[]
-        | null;
+      // Presente solo si la migración 0026 ya corrió (ver el respaldo arriba);
+      // los campos de tempo, solo si además corrió la 0031.
+      ejercicios?: FilaBiblioteca | FilaBiblioteca[] | null;
     } | null;
   };
 
-  const intento = await consultarEjercicios(`${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug)`);
-  const resultado = intento.error ? await consultarEjercicios(COLUMNAS_PROGRAMA) : intento;
+  // Tres intentos encadenados, del select más completo al más pobre: con
+  // tempo (migración 0031), sin tempo pero con biblioteca (0026), y pelado.
+  // Cada migración que todavía no haya corrido se degrada sola en vez de
+  // dejar al alumno sin pantalla de entrenamiento.
+  const intento = await consultarEjercicios(
+    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, tempo, tempo_nota)`
+  );
+  const conBiblioteca = intento.error
+    ? await consultarEjercicios(`${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug)`)
+    : intento;
+  const resultado = conBiblioteca.error
+    ? await consultarEjercicios(COLUMNAS_PROGRAMA)
+    : conBiblioteca;
 
   const lista = (resultado.data ?? []) as unknown as FilaSesionEjercicio[];
   const sesionEjercicioIds = lista.map((e) => e.id);
@@ -398,6 +417,13 @@ export async function obtenerSesionCompleta(
       observacion: prog.observacion,
       grupoMuscular: prog.grupo_muscular,
       ilustracionSlug: dellaBiblioteca?.ilustracion_slug ?? null,
+      // Lo que el entrenador escribió en la rutina gana sobre lo que dedujo la
+      // IA para la biblioteca. Ver src/lib/ejercicios/tempo.ts.
+      tempo: resolverTempo(
+        [prog.observacion, prog.tecnica_instruccion],
+        dellaBiblioteca?.tempo,
+        dellaBiblioteca?.tempo_nota
+      ),
       completado: se.completado,
       notaEjercicio: se.nota,
       series: (seriesPorEjercicio.get(se.id) ?? []).sort((a, b) => a.numeroSerie - b.numeroSerie),

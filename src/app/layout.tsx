@@ -22,14 +22,17 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-// Aplica el tema guardado ANTES del primer paint (evita el flash del tema
-// incorrecto al cargar). Corre inline porque next/font ya bloquea el body.
+// Aplica el tema y el tamaño de texto guardados ANTES del primer paint (evita
+// el flash del tema o de la letra chica al cargar). Corre inline porque
+// next/font ya bloquea el body.
 const THEME_INIT_SCRIPT = `
   try {
     var t = localStorage.getItem("vip-theme");
     if (t === "light") document.documentElement.setAttribute("data-theme", "light");
     var b = localStorage.getItem("vip-tema-boton");
     if (b === "vip" || b === "femenino") document.documentElement.setAttribute("data-tema-boton", b);
+    var esc = parseFloat(localStorage.getItem("vip-escala-texto"));
+    if (esc >= 1 && esc <= 1.3) document.documentElement.style.setProperty("--escala-texto", String(esc));
   } catch (e) {}
 `;
 

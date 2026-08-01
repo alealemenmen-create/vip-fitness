@@ -1,13 +1,25 @@
 "use client";
 
 import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { Check, ChevronDown, Play, Hourglass } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Play,
+  Hourglass,
+  Layers,
+  Repeat,
+  Timer,
+  Gauge,
+  ImageIcon,
+} from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Input } from "@/components/ui/Input";
 import { guardarSeries, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
+import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
+import { explicarTempo } from "@/lib/ejercicios/tempo";
 import { repsObjetivo } from "@/lib/entrenamiento/reps";
 import {
   guardarBorrador,
@@ -35,6 +47,62 @@ function formatUltimo(u: EjercicioSesion["ultimoRegistro"]) {
   const pesoTxto = u.esPesoCorporal ? "Peso corporal" : u.pesoKg != null ? `${u.pesoKg} kg` : "—";
   const repsTxto = u.reps != null ? `${u.reps} reps` : "";
   return `${pesoTxto}${repsTxto ? ` × ${repsTxto}` : ""}`;
+}
+
+/**
+ * El hueco donde va a ir la foto de referencia del ejercicio, tomada en el
+ * gimnasio VIP.
+ *
+ * Se deja a la vista y en gris, vacío, a propósito: el diseño se aprobó con
+ * esa foto y el espacio tiene que estar reservado desde ahora, para que al
+ * llegar las fotos entren sin mover nada de lo que ya está alrededor.
+ *
+ * Cuando existan, esto pasa a ser un <IlustracionEjercicio> apuntando a la
+ * foto real (ver src/lib/ejercicios/ilustracion.ts, que ya resuelve la ruta
+ * por ejercicio y acepta .webp/.jpg).
+ */
+function HuecoFotoReferencia({ nombre }: { nombre: string }) {
+  return (
+    <div
+      className="radius-control flex shrink-0 items-center justify-center border border-dashed border-border bg-surface-2 text-text-tertiary"
+      style={{ width: 64, height: 64 }}
+      // Para un lector de pantalla esto es decoración vacía, no una imagen que
+      // falta: no aporta nada leerlo en voz alta.
+      aria-hidden="true"
+      title={`Foto de referencia de ${nombre} (pendiente)`}
+    >
+      <ImageIcon size={18} />
+    </div>
+  );
+}
+
+/** Una de las tres celdas de la fila de datos del ejercicio. */
+function Dato({
+  icono,
+  valor,
+  etiqueta,
+  compacto = false,
+}: {
+  icono: React.ReactNode;
+  valor: string;
+  etiqueta: string;
+  /** Para valores largos como el tempo ("3-1-2-0"), que en la cuarta columna
+   * de un celular angosto se partían en dos líneas y descuadraban la fila. */
+  compacto?: boolean;
+}) {
+  return (
+    // El borde izquierdo va en todas menos la primera: separa las celdas sin
+    // meter un elemento extra entre medio.
+    <div className="flex flex-1 flex-col items-center gap-0.5 px-1 py-2 [&+&]:border-l [&+&]:border-border">
+      <span className="text-vip">{icono}</span>
+      <span
+        className={`${compacto ? "text-secondary" : "text-card-title"} whitespace-nowrap leading-none text-text`}
+      >
+        {valor}
+      </span>
+      <span className="text-micro text-text-tertiary">{etiqueta}</span>
+    </div>
+  );
 }
 
 /** Avisa sin sonido (el usuario pidió que la app nunca suene en el gimnasio). */
@@ -244,6 +312,9 @@ export const SesionEjercicioCard = forwardRef<
   }
 >(function SesionEjercicioCard({ ejercicio, sesionId, soloLectura, activo = false }, ref) {
   const [state, formAction, pending] = useActionState(guardarSeries, initialState);
+  // Abierto de entrada el que está en curso y los ya terminados (para poder
+  // revisar lo que se levantó); en modo lectura, todos.
+  const [expandido, setExpandido] = useState(activo || soloLectura || ejercicio.completado);
   const ultimoTexto = formatUltimo(ejercicio.ultimoRegistro);
   const cardRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -346,6 +417,13 @@ export const SesionEjercicioCard = forwardRef<
     }
   }, [activo, soloLectura]);
 
+  // Al terminar un ejercicio, el siguiente pasa a ser el activo tras revalidar:
+  // se abre solo, sin que el alumno tenga que tocar nada con las manos ocupadas.
+  // Solo abre — nunca cierra lo que el alumno abrió a mano.
+  useEffect(() => {
+    if (activo) setExpandido(true);
+  }, [activo]);
+
   function alCompletarCicloSerie(numero: number) {
     completadasRef.current.add(numero);
     if (!enviadoRef.current && completadasRef.current.size === ejercicio.seriesProgramadas) {
@@ -373,24 +451,89 @@ export const SesionEjercicioCard = forwardRef<
             tamano={48}
             className="mt-1"
           />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-caption font-semibold tracking-wide text-vip">
               EJERCICIO {ejercicio.orden}
+              {ejercicio.grupoMuscular
+                ? ` · ${ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular].toUpperCase()}`
+                : ""}
             </p>
             <p className="text-card-title leading-tight text-text">{ejercicio.nombre}</p>
-            <p className="text-caption mt-0.5 text-text-tertiary">
-              {ejercicio.seriesProgramadas} series × {ejercicio.repsProgramadas}
-              {ejercicio.descansoSegundos ? ` · descanso ${ejercicio.descansoSegundos}s` : ""}
-            </p>
+            {ejercicio.tecnicaTipo && (
+              <p className="text-caption mt-0.5 text-text-tertiary">{ejercicio.tecnicaTipo}</p>
+            )}
           </div>
+          <HuecoFotoReferencia nombre={ejercicio.nombre} />
         </div>
 
-      {ejercicio.tecnicaTipo && (
-        <div className="radius-control mb-2 bg-surface-2 p-2.5">
-          <Pill tone="error">{ejercicio.tecnicaTipo}</Pill>
-          {ejercicio.tecnicaInstruccion && (
-            <p className="text-secondary mt-1 text-text-secondary">{ejercicio.tecnicaInstruccion}</p>
+        {/* Plegado: el ejercicio que no toca todavía se resume en una línea.
+            Con siete ejercicios abiertos a la vez había que scrollear a ciegas
+            para encontrar en cuál iba uno; así la sesión entera se ve de una y
+            el que está en curso es el único abierto. */}
+        {!expandido ? (
+          <button
+            type="button"
+            onClick={() => setExpandido(true)}
+            aria-expanded={false}
+            className="w-full text-left"
+          >
+            <p className="text-caption text-text-tertiary">
+              {ejercicio.seriesProgramadas} series · {ejercicio.repsProgramadas} reps
+              {ejercicio.descansoSegundos ? ` · descanso ${ejercicio.descansoSegundos}s` : ""}
+            </p>
+            <span className="text-caption mt-1.5 flex items-center gap-1 text-vip">
+              Ver detalles del ejercicio <ChevronDown size={14} />
+            </span>
+          </button>
+        ) : (
+          <>
+        {/* Los tres números que se consultan de reojo entre serie y serie.
+            Antes iban en una línea de texto corrida bajo el nombre, donde
+            había que leerla entera para sacar uno solo. */}
+        <div className="radius-control mb-2.5 flex items-stretch bg-surface-2">
+          <Dato
+            icono={<Layers size={15} />}
+            valor={String(ejercicio.seriesProgramadas)}
+            etiqueta="Series"
+          />
+          <Dato
+            icono={<Repeat size={15} />}
+            valor={ejercicio.repsProgramadas}
+            etiqueta="Repeticiones"
+          />
+          <Dato
+            icono={<Timer size={15} />}
+            valor={ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s` : "—"}
+            etiqueta="Descanso"
+          />
+          {/* El tempo es la cuarta columna solo cuando se sabe: mostrarlo
+              vacío ocuparía un cuarto del ancho para decir "—". */}
+          {ejercicio.tempo && (
+            <Dato
+              icono={<Gauge size={15} />}
+              valor={ejercicio.tempo.valor}
+              etiqueta="Tempo"
+              compacto
+            />
           )}
+        </div>
+
+        {/* La nota del tempo va aparte y en texto corrido: los cuatro números
+            no le dicen nada a quien no conoce la notación, y esta es la línea
+            que convierte el dato en algo que el alumno puede ejecutar. */}
+        {ejercicio.tempo && (
+          <p className="text-caption mb-2.5 text-text-tertiary">
+            {explicarTempo(ejercicio.tempo.valor)}
+            {ejercicio.tempo.nota ? ` · ${ejercicio.tempo.nota}` : ""}
+          </p>
+        )}
+
+      {/* El tipo de técnica ya va bajo el nombre; acá queda solo cuando trae
+          instrucción, que es lo que hay que leer entero. */}
+      {ejercicio.tecnicaInstruccion && (
+        <div className="radius-control mb-2 bg-surface-2 p-2.5">
+          <Pill tone="error">{ejercicio.tecnicaTipo ?? "Técnica"}</Pill>
+          <p className="text-secondary mt-1 text-text-secondary">{ejercicio.tecnicaInstruccion}</p>
         </div>
       )}
 
@@ -482,6 +625,8 @@ export const SesionEjercicioCard = forwardRef<
           </p>
         </form>
       )}
+          </>
+        )}
       </Card>
       {mostrandoSiguiente && (
         <div

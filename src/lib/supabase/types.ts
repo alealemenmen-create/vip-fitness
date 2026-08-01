@@ -521,6 +521,11 @@ export interface Database {
           consejos: string[];
           ilustracion_slug: string | null;
           video_url: string | null;
+          // 0031_tempo_ejercicios.sql — el tempo es del movimiento, no de la
+          // rutina: se calcula una vez por ejercicio y lo reutilizan todas.
+          tempo: string | null;
+          tempo_nota: string | null;
+          tempo_origen: "ia" | "entrenador" | null;
           activo: boolean;
           created_at: string;
         };
@@ -563,6 +568,9 @@ export interface Database {
           consejos?: string[];
           ilustracion_slug?: string | null;
           video_url?: string | null;
+          tempo?: string | null;
+          tempo_nota?: string | null;
+          tempo_origen?: "ia" | "entrenador" | null;
           activo?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["ejercicios"]["Insert"]>;

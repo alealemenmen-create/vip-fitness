@@ -8,6 +8,7 @@ import { extraerPlanAlimentacionDesdePdf } from "@/lib/ai/extraerPlanAlimentacio
 import { obtenerCatalogoAlimentos } from "@/app/alumno/comer/data";
 import { obtenerBiblioteca } from "@/lib/ejercicios/data";
 import { emparejarEjercicio } from "@/lib/ejercicios/emparejar";
+import { rellenarTemposFaltantes } from "@/lib/ejercicios/rellenarTempos";
 import {
   resolverPlan,
   calcularAporte,
@@ -919,6 +920,17 @@ async function publicarUnaRutina(
         rutinasPrevias.map((r) => r.id)
       );
   }
+
+  // El tempo de los ejercicios nuevos se deduce acá y no al mostrar la
+  // tarjeta: es una propiedad del movimiento, no de la rutina, así que se
+  // calcula una vez y lo reutilizan todos los alumnos. Se espera a propósito
+  // (no es fire-and-forget) para que la rutina no quede a medio completar si
+  // la función serverless se apaga apenas responde. Falla en silencio.
+  await rellenarTemposFaltantes(
+    filasEjercicios
+      .map((f) => f.ejercicio_id)
+      .filter((id): id is string => id !== null)
+  );
 
   revalidatePath(`/admin/alumnos/${alumnoId}`);
   return { error: null, ok: true };
