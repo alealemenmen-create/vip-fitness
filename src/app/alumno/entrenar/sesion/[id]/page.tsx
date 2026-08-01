@@ -48,7 +48,10 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
   const mostrarConsejo = !esDescanso && !sesionSoloLectura;
 
   return (
-    <div className={`space-y-4 ${mostrarConsejo ? "pb-16" : "pb-8"}`}>
+    // space-y-3 y no 4: con siete ejercicios, cada 4 px entre tarjetas son
+    // 28 px de scroll. Lo que se busca es que el ejercicio en curso y la
+    // cabecera del siguiente entren juntos en una pantalla.
+    <div className="space-y-3 pb-8">
       <VolverAEntrenar
         titulo={`${sesion.numeroCalendario ? `#${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
       />

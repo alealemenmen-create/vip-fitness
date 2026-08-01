@@ -32,27 +32,24 @@ export function ConsejoEntrenamiento({ inicial }: { inicial: number }) {
   }, []);
 
   return (
-    // A 100 px del borde queda despegado de los íconos, igual que el buscador
-    // de Nutrición. Tarjeta oscura con el rayo ámbar en vez del banner ámbar
-    // sólido que había antes: a esta altura de la pantalla el bloque de color
-    // competía con el botón de acción y con la barra de abajo. El acento queda
-    // en el ícono y en el título, que es lo que hace falta para que se lea como
-    // un consejo y no como una alerta.
-    <div className="pointer-events-none fixed inset-x-0 bottom-[100px] z-30 mx-auto w-full max-w-md px-4">
-      <div className="radius-control flex items-start gap-2 border border-border bg-surface px-3 py-2 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.9)]">
-        <Zap size={14} className="mt-0.5 shrink-0 text-vip" fill="currentColor" />
-        <div className="min-w-0">
-          <p className="text-micro font-semibold tracking-wide text-vip">TIP DEL DÍA</p>
-          {/* El `key` es lo que reinicia la animación en cada cambio: sin él,
-              React reusa el mismo nodo y el texto se reemplaza de golpe. */}
-          <p
-            key={indice}
-            aria-live="off"
-            className="text-caption animate-[aparecer-consejo_500ms_ease-out] text-text-secondary motion-reduce:animate-none"
-          >
-            {CONSEJOS_ENTRENAMIENTO[indice]}
-          </p>
-        </div>
+    // Va en el flujo, al final de la lista, y NO flotando sobre la pantalla:
+    // fijo abajo tapaba permanentemente unos 60 px de la tarjeta del ejercicio
+    // en curso, que es justo lo que hacía que no entraran de una el ejercicio
+    // activo y la cabecera del siguiente. Es un consejo, no una alerta: puede
+    // esperar a que el alumno llegue al final.
+    <div className="radius-control flex items-start gap-2 border border-border bg-surface px-3 py-2">
+      <Zap size={14} className="mt-0.5 shrink-0 text-vip" fill="currentColor" />
+      <div className="min-w-0">
+        <p className="text-micro font-semibold tracking-wide text-vip">TIP DEL DÍA</p>
+        {/* El `key` es lo que reinicia la animación en cada cambio: sin él,
+            React reusa el mismo nodo y el texto se reemplaza de golpe. */}
+        <p
+          key={indice}
+          aria-live="off"
+          className="text-caption animate-[aparecer-consejo_500ms_ease-out] text-text-secondary motion-reduce:animate-none"
+        >
+          {CONSEJOS_ENTRENAMIENTO[indice]}
+        </p>
       </div>
     </div>
   );

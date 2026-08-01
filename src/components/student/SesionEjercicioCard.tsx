@@ -65,7 +65,7 @@ function HuecoFotoReferencia({ nombre }: { nombre: string }) {
   return (
     <div
       className="radius-control flex shrink-0 items-center justify-center border border-dashed border-border bg-surface-2 text-text-tertiary"
-      style={{ width: 64, height: 64 }}
+      style={{ width: 52, height: 52 }}
       // Para un lector de pantalla esto es decoración vacía, no una imagen que
       // falta: no aporta nada leerlo en voz alta.
       aria-hidden="true"
@@ -93,7 +93,7 @@ function Dato({
   return (
     // El borde izquierdo va en todas menos la primera: separa las celdas sin
     // meter un elemento extra entre medio.
-    <div className="flex flex-1 flex-col items-center gap-0.5 px-1 py-2 [&+&]:border-l [&+&]:border-border">
+    <div className="flex flex-1 flex-col items-center gap-0.5 px-1 py-1.5 [&+&]:border-l [&+&]:border-border">
       <span className="text-vip">{icono}</span>
       <span
         className={`${compacto ? "text-secondary" : "text-card-title"} whitespace-nowrap leading-none text-text`}
@@ -222,7 +222,10 @@ const FilaSerie = forwardRef<
   }
 
   return (
-    <div className="radius-control border border-border bg-surface-2 p-2">
+    // p-1.5 y no p-2: con tres series, la tarjeta del ejercicio en curso y la
+    // cabecera del siguiente tienen que entrar juntas en una pantalla de
+    // celular — que es como se usa esto, apoyado en el banco.
+    <div className="radius-control border border-border bg-surface-2 p-1.5">
       <input type="hidden" name={`peso_corporal_${numero}`} value={esPesoCorporal ? "true" : "false"} />
       <input type="hidden" name={`realizada_${numero}`} value={realizada ? "true" : "false"} />
 
@@ -440,16 +443,16 @@ export const SesionEjercicioCard = forwardRef<
 
   return (
     <div ref={cardRef}>
-      <Card className={`p-3.5 ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}>
+      <Card className={`p-3 ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}>
         {/* El nombre del ejercicio es lo primero que hay que ver desde lejos,
             con el celular apoyado y las manos ocupadas. */}
-        <div className="mb-2.5 flex items-start gap-2">
+        <div className="mb-2 flex items-start gap-2">
           <IlustracionEjercicio
             ilustracionSlug={ejercicio.ilustracionSlug}
             grupoMuscular={ejercicio.grupoMuscular}
             nombre={ejercicio.nombre}
-            tamano={48}
-            className="mt-1"
+            tamano={44}
+            className="mt-0.5"
           />
           <div className="min-w-0 flex-1">
             <p className="text-caption font-semibold tracking-wide text-vip">
@@ -490,7 +493,7 @@ export const SesionEjercicioCard = forwardRef<
         {/* Los tres números que se consultan de reojo entre serie y serie.
             Antes iban en una línea de texto corrida bajo el nombre, donde
             había que leerla entera para sacar uno solo. */}
-        <div className="radius-control mb-2.5 flex items-stretch bg-surface-2">
+        <div className="radius-control mb-2 flex items-stretch bg-surface-2">
           <Dato
             icono={<Layers size={15} />}
             valor={String(ejercicio.seriesProgramadas)}
@@ -521,8 +524,11 @@ export const SesionEjercicioCard = forwardRef<
         {/* La nota del tempo va aparte y en texto corrido: los cuatro números
             no le dicen nada a quien no conoce la notación, y esta es la línea
             que convierte el dato en algo que el alumno puede ejecutar. */}
-        {ejercicio.tempo && (
-          <p className="text-caption mb-2.5 text-text-tertiary">
+        {/* Solo cuando el tempo lo dedujo la app. Si vino escrito en la rutina,
+            la explicación ya está en la observación del entrenador dos líneas
+            más abajo, y repetirla costaba una línea entera de pantalla. */}
+        {ejercicio.tempo && ejercicio.tempo.origen === "biblioteca" && (
+          <p className="text-micro mb-2 text-text-tertiary">
             {explicarTempo(ejercicio.tempo.valor)}
             {ejercicio.tempo.nota ? ` · ${ejercicio.tempo.nota}` : ""}
           </p>
@@ -537,8 +543,10 @@ export const SesionEjercicioCard = forwardRef<
         </div>
       )}
 
+      {/* La observación va en el escalón chico: es contexto que se lee una vez
+          al empezar el ejercicio, no un dato que se consulte entre series. */}
       {ejercicio.observacion && (
-        <p className="text-secondary mb-2 text-text-secondary">Observación: {ejercicio.observacion}</p>
+        <p className="text-caption mb-2 text-text-secondary">{ejercicio.observacion}</p>
       )}
 
       {ultimoTexto && (
@@ -602,9 +610,9 @@ export const SesionEjercicioCard = forwardRef<
             <button
               type="button"
               onClick={marcarEjercicioListo}
-              className="radius-control flex h-11 w-full items-center justify-center gap-2 border border-border bg-surface-2 text-secondary font-semibold text-text"
+              className="radius-control flex h-9 w-full items-center justify-center gap-2 border border-vip/40 bg-transparent text-caption font-semibold text-vip"
             >
-              <Check size={16} strokeWidth={3} /> Finalizado
+              <Check size={14} strokeWidth={3} /> Marcar ejercicio como completado
             </button>
           )}
 
@@ -613,16 +621,18 @@ export const SesionEjercicioCard = forwardRef<
             type="text"
             placeholder="Nota de este ejercicio (opcional)"
             defaultValue={ejercicio.notaEjercicio ?? ""}
-            className="mt-1 py-2 text-caption"
+            className="mt-1 py-1.5 text-caption"
           />
           {state.error && <p className="text-caption text-error">{state.error}</p>}
-          <p className="text-caption text-center text-text-tertiary">
-            {pending
-              ? "Guardando…"
-              : ejercicio.completado
-                ? "Ejercicio finalizado ✓"
-                : "Marca cada serie al terminarla. El descanso se inicia y el progreso se guarda automáticamente."}
-          </p>
+          {/* El instructivo largo ("marca cada serie al terminarla…") se sacó:
+              ocupaba tres líneas debajo de CADA ejercicio para explicar algo
+              que se entiende al primer toque, y era lo que empujaba fuera de
+              pantalla la cabecera del ejercicio siguiente. */}
+          {(pending || ejercicio.completado) && (
+            <p className="text-micro text-center text-text-tertiary">
+              {pending ? "Guardando…" : "Ejercicio finalizado ✓"}
+            </p>
+          )}
         </form>
       )}
           </>
