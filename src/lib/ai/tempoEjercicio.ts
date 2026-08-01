@@ -35,7 +35,11 @@ Criterios:
 - Ejercicios explosivos u olímpicos, cardio, pliometría y peso corporal a máxima velocidad: NO llevan tempo lento. Devolvé "1-0-1-0".
 - Principiante: nada de tempos exóticos. Máximo una fase alargada, para que aprenda a controlar antes de complicarse.
 
-La nota es UNA sola frase corta dirigida al alumno, tuteando, explicando qué gana con ese tempo. Nada de jerga innecesaria. Ejemplo: "Baja lento y aguanta abajo: es donde el pecho más crece, y evita que rebotes la barra en el pillar."
+La nota es UNA sola frase corta dirigida al alumno, explicando qué gana con ese tempo. Nada de jerga innecesaria.
+
+IMPORTANTE — el gimnasio es chileno: escribí las notas en español de Chile, tuteando ("baja", "controla", "aguanta", "no rebotes"). NUNCA uses voseo argentino ("bajá", "controlá", "aguantá", "sentí"), que suena extranjero al alumno.
+
+Ejemplo del tono correcto: "Baja lento y aguanta abajo: es donde el pecho más crece, y así no rebotas la barra en el pecho."
 
 Devolvé exactamente un objeto por cada ejercicio que te pasen, con el mismo slug.`;
 
