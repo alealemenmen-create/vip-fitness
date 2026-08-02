@@ -139,3 +139,38 @@ export function deducirMedidaCasera(
 
   return null;
 }
+
+/** Unidades en las que los gramos de la tabla de arriba significan lo mismo
+ * que la unidad base del alimento. Los mililitros entran porque las reglas de
+ * bebidas ya están escritas en esa escala (1 taza = 240). */
+const UNIDADES_COMPATIBLES = new Set(["g", "gr", "gramo", "gramos", "ml", "cc", "mililitro", "mililitros"]);
+
+/**
+ * La medida casera de un alimento del catálogo: la que tiene guardada, y si no
+ * tiene, la que se deduce del nombre.
+ *
+ * El filtro por unidad NO es opcional. `deducirMedidaCasera` responde en
+ * gramos, mientras que `medida_gramos` significa "cuántas unidades de
+ * `porcion_base` es una medida". Coinciden solo cuando el alimento se mide en
+ * gramos (o mililitros). Sin ese filtro, un alimento cargado como "1 unidad"
+ * —un huevo con los valores de UN huevo— recibía la regla "unidad = 50 g" y
+ * la app calculaba 50 porciones: 3500 kcal en vez de 70, y ese número entraba
+ * al registro del día.
+ *
+ * Vive acá y no en cada consulta para que las dos rutas que arman un
+ * `AlimentoCatalogo` (la búsqueda en `data.ts` y las Server Actions) no puedan
+ * volver a divergir.
+ */
+export function medidaDeAlimento(a: {
+  nombre: string;
+  categoria: string | null;
+  unidad: string;
+  medidaNombre?: string | null;
+  medidaGramos?: number | null;
+}): MedidaCasera | null {
+  if (a.medidaNombre && a.medidaGramos) {
+    return { nombre: a.medidaNombre, gramos: a.medidaGramos };
+  }
+  if (!UNIDADES_COMPATIBLES.has(a.unidad.trim().toLowerCase())) return null;
+  return deducirMedidaCasera(a.nombre, a.categoria);
+}

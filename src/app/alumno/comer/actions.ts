@@ -13,7 +13,7 @@ import {
   type ResultadoOFF,
   type ResultadoProductoOFF,
 } from "@/lib/alimentos/openFoodFacts";
-import { deducirMedidaCasera } from "@/lib/alimentos/medidaCasera";
+import { deducirMedidaCasera, medidaDeAlimento } from "@/lib/alimentos/medidaCasera";
 
 /**
  * El buscador por texto de Open Food Facts (`cgi/search.pl`) no manda
@@ -203,7 +203,13 @@ function filaACatalogo(a: {
   // Mismo respaldo que `aCatalogo` en data.ts: si la fila no tiene medida
   // casera guardada, se deduce del nombre para no dejar al alumno pesando
   // todo en gramos.
-  const medida = a.medida_nombre && a.medida_gramos ? null : deducirMedidaCasera(a.nombre, a.categoria);
+  const medida = medidaDeAlimento({
+    nombre: a.nombre,
+    categoria: a.categoria,
+    unidad: a.unidad,
+    medidaNombre: a.medida_nombre,
+    medidaGramos: a.medida_gramos,
+  });
   return {
     id: a.id,
     nombre: a.nombre,
@@ -214,8 +220,8 @@ function filaACatalogo(a: {
     prot: a.prot,
     carb: a.carb,
     grasa: a.grasa,
-    medidaNombre: a.medida_nombre ?? medida?.nombre ?? null,
-    medidaGramos: a.medida_gramos ?? medida?.gramos ?? null,
+    medidaNombre: medida?.nombre ?? null,
+    medidaGramos: medida?.gramos ?? null,
     fibra: a.fibra ?? null,
     azucares: a.azucares ?? null,
     sodio: a.sodio ?? null,
@@ -287,15 +293,25 @@ export async function importarAlimentoOFF(
       .maybeSingle();
     if (existente) return { error: null, alimento: filaACatalogo(existente) };
 
-    // Mismo aviso previo que en crearAlimentoPersonalizado: sin esto, un
-    // choque contra el índice único de nombre se ve como un error genérico.
+    /**
+     * Ya hay un alimento con ese nombre: se REUSA en vez de fallar.
+     *
+     * Antes esto devolvía "Ya existe X: búscalo en el buscador", y era un
+     * callejón sin salida: el producto aparecía en la lista de Open Food Facts
+     * justamente porque el homónimo local no había salido entre los resultados
+     * (quedó fuera del tope de 7, o está inactivo). El socio tocaba el
+     * producto, leía "búscalo en el buscador", buscaba, y no encontraba nada.
+     *
+     * Devolver la fila existente es además lo correcto: el alimento que el
+     * socio quiere registrar ya está en el catálogo.
+     */
     const { data: repetido } = await supabase
       .from("alimentos")
-      .select("nombre")
+      .select(COLUMNAS_ALIMENTO)
       .ilike("nombre", nombre.replace(/[%_]/g, (c) => `\\${c}`))
       .limit(1)
       .maybeSingle();
-    if (repetido) return fallo(`Ya existe "${repetido.nombre}": búscalo en el buscador.`);
+    if (repetido) return { error: null, alimento: filaACatalogo(repetido) };
 
     const { data, error } = await createAdminClient()
       .from("alimentos")
@@ -478,6 +494,13 @@ export async function actualizarCantidadAlimento(
   cantidad: number,
   fecha: string
 ): Promise<ComerActionState> {
+  // Faltaba el chequeo de solo-lectura que sí tienen las demás escrituras: un
+  // entrenador mirando la cuenta de un alumno podía editar cantidades desde
+  // esa vista. RLS lo frenaba igual, pero devolvía un error genérico en vez
+  // de explicar por qué.
+  const quien = await alumnoDelDiario();
+  if (!quien.ok) return { error: quien.error };
+
   if (!Number.isFinite(cantidad) || cantidad <= 0) {
     return { error: "Ingresa una cantidad válida." };
   }

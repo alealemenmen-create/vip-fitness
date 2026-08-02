@@ -78,18 +78,26 @@ export function EscanerCodigoBarras({
     setCargandoProducto(true);
     setErrorProducto(null);
     setNoEncontrado(false);
-    const resultado = await buscarPorCodigoOFFAction(c);
-    setCargandoProducto(false);
-    if (!resultado.ok) {
-      setErrorProducto(resultado.error);
+    try {
+      const resultado = await buscarPorCodigoOFFAction(c);
+      if (!resultado.ok) {
+        setErrorProducto(resultado.error);
+        setNoEncontrado(true);
+        return;
+      }
+      if (!resultado.producto) {
+        setNoEncontrado(true);
+        return;
+      }
+      setProducto(resultado.producto);
+    } catch {
+      // Sin esto quedaba "Buscando el código…" para siempre, y como la cámara
+      // ya se apagó al detectar, la pantalla quedaba vacía y sin salida.
+      setErrorProducto("No se pudo consultar el código. Revisa tu conexión.");
       setNoEncontrado(true);
-      return;
+    } finally {
+      setCargandoProducto(false);
     }
-    if (!resultado.producto) {
-      setNoEncontrado(true);
-      return;
-    }
-    setProducto(resultado.producto);
   };
 
   useEffect(() => {
@@ -204,38 +212,53 @@ export function EscanerCodigoBarras({
     if (!producto) return;
     setImportando(true);
     setErrorImportar(null);
-    const resultado = await importarAlimentoOFF({
-      offId: producto.offId,
-      nombre: producto.nombre,
-      marca: producto.marca,
-      kcal: producto.kcal,
-      prot: producto.prot,
-      carb: producto.carb,
-      grasa: producto.grasa,
-      fibra: producto.fibra,
-      azucares: producto.azucares,
-      sodio: producto.sodio,
-      medidaNombre: producto.medidaNombre,
-      medidaGramos: producto.medidaGramos,
-      imagenUrl: producto.imagenUrl,
-    });
-    setImportando(false);
-    if (!resultado.alimento) {
-      setErrorImportar(resultado.error ?? "No fue posible agregar este producto.");
-      return;
+    try {
+      const resultado = await importarAlimentoOFF({
+        offId: producto.offId,
+        nombre: producto.nombre,
+        marca: producto.marca,
+        kcal: producto.kcal,
+        prot: producto.prot,
+        carb: producto.carb,
+        grasa: producto.grasa,
+        fibra: producto.fibra,
+        azucares: producto.azucares,
+        sodio: producto.sodio,
+        medidaNombre: producto.medidaNombre,
+        medidaGramos: producto.medidaGramos,
+        imagenUrl: producto.imagenUrl,
+      });
+      if (!resultado.alimento) {
+        setErrorImportar(resultado.error ?? "No fue posible agregar este producto.");
+        return;
+      }
+      onEncontrado(resultado.alimento);
+    } catch {
+      setErrorImportar("No se pudo agregar. Revisa tu conexión e intenta nuevamente.");
+    } finally {
+      setImportando(false);
     }
-    onEncontrado(resultado.alimento);
   };
 
   return (
     <div className="space-y-3">
       {(estadoCamara === "iniciando" || estadoCamara === "activa") && !codigo && (
-        <div className="relative overflow-hidden rounded-xl bg-black">
-          <video ref={videoRef} muted playsInline aria-label="Vista de la cámara" className="aspect-[4/3] w-full object-cover" />
-          <p className="text-caption absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1 text-center text-white">
-            {estadoCamara === "iniciando" ? "Abriendo la cámara…" : "Apunta al código de barras"}
-          </p>
-        </div>
+        <>
+          <div className="relative overflow-hidden rounded-xl bg-black">
+            <video ref={videoRef} muted playsInline aria-label="Vista de la cámara" className="aspect-[4/3] w-full object-cover" />
+            <p className="text-caption absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1 text-center text-white">
+              {estadoCamara === "iniciando" ? "Abriendo la cámara…" : "Apunta al código de barras"}
+            </p>
+          </div>
+          {/* La salida tiene que estar SIEMPRE, no solo cuando la cámara falla.
+              Si el envase no trae código, o el socio se arrepiente, o el
+              diálogo de permisos quedó sin contestar (y la cámara nunca sale
+              de "iniciando"), lo único que quedaba era la X del panel — que
+              cierra todo y le borra los alimentos que ya llevaba sumados. */}
+          <Button variant="secondary" size="sm" onClick={onVolverATexto} className="w-full">
+            Volver al buscador
+          </Button>
+        </>
       )}
 
       {estadoCamara === "denegada" && (

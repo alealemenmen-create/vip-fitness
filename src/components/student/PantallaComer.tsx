@@ -324,12 +324,11 @@ export function PantallaComer({
 
     setHoraAbierta(null);
     setError(null);
-    const previo = registros;
     const enFecha = fecha;
 
     const temporal = `temp-${Date.now()}`;
     const alimentos = elegidos.map((e, i) => {
-      const factor = e.cantidadBase / e.alimento.porcionBase;
+      const factor = e.alimento.porcionBase > 0 ? e.cantidadBase / e.alimento.porcionBase : 0;
       return {
         id: `${temporal}-${i}`,
         alimentoId: e.alimento.id,
@@ -374,20 +373,50 @@ export function PantallaComer({
       enFecha,
     );
 
+    /**
+     * Los alimentos se guardan de a uno, así que un fallo a mitad de camino
+     * deja algunos YA guardados en el servidor.
+     *
+     * Antes, ante el primer error se revertía la pantalla entera al estado
+     * previo. El socio veía "no se guardó nada", volvía a cargar los mismos
+     * alimentos, y los que sí habían entrado quedaban duplicados en la base
+     * con las calorías del día infladas.
+     *
+     * Ahora se avisa cuántos quedaron fuera y se refresca contra el servidor,
+     * que es la única fuente confiable de qué entró y qué no.
+     */
+    let guardados = 0;
+    let fallo: string | null = null;
     for (const e of elegidos) {
-      const res = await agregarAlimentoAHora(
-        enFecha,
-        hora,
-        e.alimento.id,
-        e.cantidadBase,
-        e.alimento.unidad,
-      );
-      if (res.error) {
-        setRegistros(previo);
-        setError(res.error);
-        return;
+      try {
+        const res = await agregarAlimentoAHora(
+          enFecha,
+          hora,
+          e.alimento.id,
+          e.cantidadBase,
+          e.alimento.unidad,
+        );
+        if (res.error) {
+          fallo = res.error;
+          break;
+        }
+        guardados += 1;
+      } catch {
+        fallo = "No se pudo guardar. Revisa tu conexión.";
+        break;
       }
     }
+
+    if (fallo) {
+      const faltaron = elegidos.length - guardados;
+      setError(
+        guardados === 0
+          ? fallo
+          : `${fallo} Se guardaron ${guardados} de ${elegidos.length}; falta${faltaron === 1 ? "" : "n"} ${faltaron}.`,
+      );
+    }
+    // Siempre, con o sin error: el estado optimista ya no es confiable en
+    // cuanto una escritura falla a mitad de la lista.
     router.refresh();
   };
 
@@ -661,11 +690,20 @@ export function PantallaComer({
                                         onBlur={(e) => {
                                           const v = Number(e.target.value);
                                           if (v !== a.cantidad && v > 0) {
-                                            actualizarCantidadAlimento(
-                                              a.id,
-                                              v,
-                                              fecha,
-                                            ).then(() => router.refresh());
+                                            // El resultado NO se puede ignorar: si el
+                                            // servidor rechaza (o el entrenador está en
+                                            // modo lectura), el refresh traía el valor
+                                            // viejo y el número volvía solo, sin aviso.
+                                            // El socio creía haber cambiado 150 g a 200 g.
+                                            actualizarCantidadAlimento(a.id, v, fecha)
+                                              .then((res) => {
+                                                if (res?.error) setError(res.error);
+                                                router.refresh();
+                                              })
+                                              .catch(() => {
+                                                setError("No se pudo actualizar la cantidad. Revisa tu conexión.");
+                                                router.refresh();
+                                              });
                                           }
                                         }}
                                         className="radius-control w-14 shrink-0 border border-border bg-surface px-1.5 py-0.5 text-micro text-text outline-none focus:border-vip disabled:opacity-70"

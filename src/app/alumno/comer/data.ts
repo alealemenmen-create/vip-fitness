@@ -2,7 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { ultimosNDiasISO } from "@/lib/date";
 import { obtenerDocumentos } from "@/app/alumno/documentos/data";
-import { deducirMedidaCasera } from "@/lib/alimentos/medidaCasera";
+import { medidaDeAlimento } from "@/lib/alimentos/medidaCasera";
 import {
   horaDeComida,
   horasVacias,
@@ -104,11 +104,17 @@ type FilaAlimento = {
 
 function aCatalogo(a: FilaAlimento): AlimentoCatalogo {
   // Alimentos viejos del catálogo (de antes de la migración 0013, o que se
-  // sembraron sin medida) no tienen medida_nombre/medida_gramos guardados.
-  // Se deduce del nombre al vuelo para que el alumno igual pueda elegir
+  // sembraron sin medida) no tienen medida_nombre/medida_gramos guardados. Se
+  // deduce del nombre al vuelo para que el alumno igual pueda elegir
   // "cucharada"/"vaso"/"unidad" en vez de quedar forzado a pesar todo en
   // gramos — no se reescribe la fila, solo se completa lo que falta al mostrarla.
-  const medida = a.medida_nombre && a.medida_gramos ? null : deducirMedidaCasera(a.nombre, a.categoria);
+  const medida = medidaDeAlimento({
+    nombre: a.nombre,
+    categoria: a.categoria,
+    unidad: a.unidad,
+    medidaNombre: a.medida_nombre,
+    medidaGramos: a.medida_gramos,
+  });
   return {
     id: a.id,
     nombre: a.nombre,
@@ -119,8 +125,8 @@ function aCatalogo(a: FilaAlimento): AlimentoCatalogo {
     prot: a.prot,
     carb: a.carb,
     grasa: a.grasa,
-    medidaNombre: a.medida_nombre ?? medida?.nombre ?? null,
-    medidaGramos: a.medida_gramos ?? medida?.gramos ?? null,
+    medidaNombre: medida?.nombre ?? null,
+    medidaGramos: medida?.gramos ?? null,
     fibra: a.fibra ?? null,
     azucares: a.azucares ?? null,
     sodio: a.sodio ?? null,
@@ -262,7 +268,7 @@ export async function obtenerRegistrosRango(
       for (const consumido of c.alimentos_consumidos ?? []) {
         const a = consumido.alimentos;
         if (!a) continue;
-        const factor = consumido.cantidad / a.porcion_base;
+        const factor = a.porcion_base > 0 ? consumido.cantidad / a.porcion_base : 0;
         alimentos.push({
           id: consumido.id,
           alimentoId: consumido.alimento_id,
@@ -337,7 +343,9 @@ export async function obtenerResumenComidas(
       if (c.omitida) continue;
       for (const a of c.alimentos_consumidos ?? []) {
         if (!a.alimentos) continue;
-        kcal += (a.cantidad / a.alimentos.porcion_base) * a.alimentos.kcal;
+        if (a.alimentos.porcion_base > 0) {
+          kcal += (a.cantidad / a.alimentos.porcion_base) * a.alimentos.kcal;
+        }
       }
     }
     porFecha.set(r.fecha, { kcal, atendidas: comidas.length });

@@ -16,14 +16,29 @@ import type { ProductoOFF } from "@/lib/alimentos/openFoodFacts";
 import { normalizar } from "@/lib/alimentos/emparejar";
 import { EscanerCodigoBarras } from "./EscanerCodigoBarras";
 
-/** Un producto de OFF que ya aparece en el catálogo local (mismo nombre, o
- * uno contiene al otro) no aporta nada nuevo: se prefiere el propio. */
+/**
+ * Un producto de OFF que ya aparece en el catálogo local no aporta nada nuevo:
+ * se prefiere el propio.
+ *
+ * La comparación por inclusión pide un largo mínimo. Sin él, un alimento local
+ * de nombre corto se comportaba como comodín contra todo el catálogo de OFF:
+ * tener "Sal" en la base hacía desaparecer "Salsa de tomate", "Salame",
+ * "Salchicha" y "Salvado de avena" de los resultados, sin ninguna explicación
+ * en pantalla. Lo mismo con "Te", "Pan" o "Ajo".
+ */
+const LARGO_MINIMO_INCLUSION = 5;
+
 function esDuplicadoDeLocal(producto: ProductoOFF, locales: AlimentoCatalogo[]): boolean {
   const objetivo = normalizar(producto.nombre);
+  if (!objetivo) return false;
   const conMarca = producto.marca ? normalizar(`${producto.marca} ${producto.nombre}`) : objetivo;
   return locales.some((l) => {
     const n = normalizar(l.nombre);
-    return n === objetivo || n === conMarca || n.includes(objetivo) || objetivo.includes(n);
+    if (!n) return false;
+    if (n === objetivo || n === conMarca) return true;
+    const corto = Math.min(n.length, objetivo.length);
+    if (corto < LARGO_MINIMO_INCLUSION) return false;
+    return n.includes(objetivo) || objetivo.includes(n);
   });
 }
 
@@ -52,28 +67,42 @@ const MS_ESCUDO = 350;
 /**
  * Traga el click que Android emite DESPUÉS de que el panel ya se cerró.
  *
- * Los botones del panel actúan en `pointerdown` (ver el comentario de
- * "Confirmar"), así que para cuando el dedo se levanta el panel ya no está.
- * El click sintético cae entonces sobre lo que haya quedado abajo — y abajo a
- * la derecha, justo donde está "Confirmar", vive la pestaña Ranked de la barra
- * de navegación. Al agregar la comida, la app se iba sola a Ranked.
+ * "Confirmar" actúa en `pointerdown` (ver su comentario), así que para cuando
+ * el dedo se levanta el panel ya no está. El click sintético cae entonces
+ * sobre lo que haya quedado abajo — y abajo a la derecha, justo donde está
+ * "Confirmar", vive la pestaña Ranked de la barra de navegación. Al agregar la
+ * comida, la app se iba sola a Ranked.
  *
  * El escudo es una capa transparente que ocupa la pantalla por un instante y
  * no hace nada: el click fantasma le pega a ella y muere ahí.
+ *
+ * Solo se arma cuando el cierre vino de "Confirmar" (`armado`). Antes se
+ * armaba en CUALQUIER cierre, y en los demás —la X, el fondo, Escape— la
+ * acción ya había corrido en el `click`, o sea que no quedaba ningún click
+ * pendiente que tragar: el escudo solo tapaba la pantalla 350 ms de más, y
+ * quien cerraba el panel y tocaba enseguida el "+" de otra hora perdía ese
+ * toque.
  */
-function useEscudoAntiFantasma(hora: number | null) {
+function useEscudoAntiFantasma(hora: number | null, armado: React.RefObject<boolean>) {
   const [activo, setActivo] = useState(false);
   const previa = useRef(hora);
 
   useEffect(() => {
     const seCerro = previa.current !== null && hora === null;
     previa.current = hora;
-    if (!seCerro) return;
+    // `armado` se lee acá, en el efecto, y no en el render: para cuando el
+    // efecto corre, "Confirmar" ya lo dejó en true.
+    if (!seCerro || !armado.current) return;
 
     setActivo(true);
     const id = setTimeout(() => setActivo(false), MS_ESCUDO);
-    return () => clearTimeout(id);
-  }, [hora]);
+    return () => {
+      clearTimeout(id);
+      // Si el panel se reabre antes de que venza el plazo, el timeout se
+      // cancela: sin esto `activo` quedaba en true indefinidamente.
+      setActivo(false);
+    };
+  }, [hora, armado]);
 
   return activo;
 }
@@ -87,7 +116,10 @@ export function HojaAgregarComida({
   onCerrar: () => void;
   onConfirmar: (elegidos: AlimentoElegido[]) => void;
 }) {
-  const escudo = useEscudoAntiFantasma(hora);
+  /** Lo levanta "Confirmar" justo antes de cerrar: es el único cierre que
+   * deja un click sintético en el aire. */
+  const cerroConfirmando = useRef(false);
+  const escudo = useEscudoAntiFantasma(hora, cerroConfirmando);
 
   // Sin estado de "montado": el panel solo existe cuando el alumno tocó una
   // hora, así que en el render del servidor `hora` siempre es null y nunca se
@@ -102,7 +134,17 @@ export function HojaAgregarComida({
   }
 
   return createPortal(
-    <Contenido hora={hora} onCerrar={onCerrar} onConfirmar={onConfirmar} />,
+    <Contenido
+      hora={hora}
+      onCerrar={() => {
+        cerroConfirmando.current = false;
+        onCerrar();
+      }}
+      onConfirmar={(elegidos) => {
+        cerroConfirmando.current = true;
+        onConfirmar(elegidos);
+      }}
+    />,
     document.body
   );
 }
@@ -161,53 +203,68 @@ function Contenido({
 
     let vigente = true;
     const id = setTimeout(async () => {
-      const encontrados = await buscarAlimentosAction(q);
-      if (!vigente) return;
-      setResultados(encontrados);
-      setBuscandoAhora(false);
-
-      if (encontrados.length >= LIMITE_BUSQUEDA_ALIMENTOS) {
-        setOffResultados([]);
-        setOffEstado("inactivo");
-        return;
-      }
-
-      setOffEstado("buscando");
-      setOffError(null);
-      const chile = await buscarEnOFFAction(q, "chile");
-      if (!vigente) return;
-
-      let combinados: ProductoOFF[] = [];
-      let error: string | null = null;
-
-      if (chile.ok) {
-        combinados = chile.productos.filter((p) => !esDuplicadoDeLocal(p, encontrados));
-      } else {
-        error = chile.error;
-      }
-
-      // Se abre a todo el mundo mientras falten resultados para llenar la
-      // lista, no solo cuando Chile no encontró nada: fruta fresca y otros
-      // productos sin marca casi no tienen presencia en el catálogo de OFF
-      // filtrado por Chile, así que "encontró 1" no significa "encontró todo".
-      if (encontrados.length + combinados.length < LIMITE_BUSQUEDA_ALIMENTOS) {
-        const global = await buscarEnOFFAction(q, "global");
+      /**
+       * Todo el cuerpo va dentro del try. Si una Server Action rechaza (señal
+       * caída a mitad de camino, el servidor reiniciándose), sin esto la
+       * ejecución muere antes de apagar las banderas: quedaba "Buscando…"
+       * para siempre, y como el bloque de "crear alimento a mano" pide
+       * `!buscandoAhora` para mostrarse, el socio no tenía NINGUNA salida.
+       */
+      try {
+        const encontrados = await buscarAlimentosAction(q);
         if (!vigente) return;
-        if (global.ok) {
-          const vistos = new Set(combinados.map((p) => p.offId));
-          combinados = [
-            ...combinados,
-            ...global.productos.filter((p) => !vistos.has(p.offId) && !esDuplicadoDeLocal(p, encontrados)),
-          ];
-          error = null;
-        } else if (!error) {
-          error = global.error;
-        }
-      }
+        setResultados(encontrados);
+        setBuscandoAhora(false);
 
-      setOffResultados(combinados.slice(0, LIMITE_BUSQUEDA_ALIMENTOS));
-      setOffError(error);
-      setOffEstado("listo");
+        if (encontrados.length >= LIMITE_BUSQUEDA_ALIMENTOS) {
+          setOffResultados([]);
+          setOffEstado("inactivo");
+          return;
+        }
+
+        setOffEstado("buscando");
+        setOffError(null);
+        const chile = await buscarEnOFFAction(q, "chile");
+        if (!vigente) return;
+
+        let combinados: ProductoOFF[] = [];
+        let error: string | null = null;
+
+        if (chile.ok) {
+          combinados = chile.productos.filter((p) => !esDuplicadoDeLocal(p, encontrados));
+        } else {
+          error = chile.error;
+        }
+
+        // Se abre a todo el mundo mientras falten resultados para llenar la
+        // lista, no solo cuando Chile no encontró nada: fruta fresca y otros
+        // productos sin marca casi no tienen presencia en el catálogo de OFF
+        // filtrado por Chile, así que "encontró 1" no significa "encontró todo".
+        if (encontrados.length + combinados.length < LIMITE_BUSQUEDA_ALIMENTOS) {
+          const global = await buscarEnOFFAction(q, "global");
+          if (!vigente) return;
+          if (global.ok) {
+            const vistos = new Set(combinados.map((p) => p.offId));
+            combinados = [
+              ...combinados,
+              ...global.productos.filter((p) => !vistos.has(p.offId) && !esDuplicadoDeLocal(p, encontrados)),
+            ];
+            error = null;
+          } else if (!error) {
+            error = global.error;
+          }
+        }
+
+        setOffResultados(combinados.slice(0, LIMITE_BUSQUEDA_ALIMENTOS));
+        setOffError(error);
+        setOffEstado("listo");
+      } catch {
+        if (!vigente) return;
+        setBuscandoAhora(false);
+        setOffEstado("listo");
+        setOffResultados([]);
+        setOffError("No se pudo buscar. Revisa tu conexión.");
+      }
     }, 250);
 
     return () => {
@@ -230,27 +287,36 @@ function Contenido({
    * adelante se trata como cualquier otro alimento. */
   const elegirOFF = async (producto: ProductoOFF) => {
     setImportandoOffId(producto.offId);
-    const resultado = await importarAlimentoOFF({
-      offId: producto.offId,
-      nombre: producto.nombre,
-      marca: producto.marca,
-      kcal: producto.kcal,
-      prot: producto.prot,
-      carb: producto.carb,
-      grasa: producto.grasa,
-      fibra: producto.fibra,
-      azucares: producto.azucares,
-      sodio: producto.sodio,
-      medidaNombre: producto.medidaNombre,
-      medidaGramos: producto.medidaGramos,
-      imagenUrl: producto.imagenUrl,
-    });
-    setImportandoOffId(null);
-    if (!resultado.alimento) {
-      setOffError(resultado.error ?? "No fue posible agregar este producto.");
-      return;
+    setOffError(null);
+    try {
+      const resultado = await importarAlimentoOFF({
+        offId: producto.offId,
+        nombre: producto.nombre,
+        marca: producto.marca,
+        kcal: producto.kcal,
+        prot: producto.prot,
+        carb: producto.carb,
+        grasa: producto.grasa,
+        fibra: producto.fibra,
+        azucares: producto.azucares,
+        sodio: producto.sodio,
+        medidaNombre: producto.medidaNombre,
+        medidaGramos: producto.medidaGramos,
+        imagenUrl: producto.imagenUrl,
+      });
+      if (!resultado.alimento) {
+        setOffError(resultado.error ?? "No fue posible agregar este producto.");
+        return;
+      }
+      elegirAlimento(resultado.alimento);
+    } catch {
+      setOffError("No se pudo agregar. Revisa tu conexión e intenta nuevamente.");
+    } finally {
+      // En `finally` y no después del await: si la acción rechaza, sin esto
+      // `importandoOffId` quedaba con valor y TODAS las filas de Open Food
+      // Facts se quedaban deshabilitadas para el resto de la sesión.
+      setImportandoOffId(null);
     }
-    elegirAlimento(resultado.alimento);
   };
 
   /**
@@ -275,7 +341,11 @@ function Contenido({
   const aporte =
     pendiente && seleccionado
       ? (() => {
-          const factor = pendiente.cantidadBase / seleccionado.porcionBase;
+          // Una porción base en 0 vendría de una fila mal sembrada, pero
+          // dividir igual mostraría "Infinity kcal" y volvería NaN el total
+          // del día.
+          const factor =
+            seleccionado.porcionBase > 0 ? pendiente.cantidadBase / seleccionado.porcionBase : 0;
           return {
             kcal: Math.round(seleccionado.kcal * factor),
             prot: Math.round(seleccionado.prot * factor),
@@ -292,18 +362,25 @@ function Contenido({
   const aGuardar = pendiente ? [...elegidos, pendiente] : elegidos;
 
   /**
-   * Corre la acción una sola vez aunque lleguen `pointerdown` y `click`.
+   * Corre la acción una sola vez aunque lleguen `pointerup` y `click`.
    *
    * Los botones de abajo escuchan los dos eventos a propósito (el `click` solo
    * puede perderse en Android, pero es el que usa el teclado y los lectores de
    * pantalla). Sin este candado, en un navegador donde llegan ambos la comida
    * se agregaría dos veces.
+   *
+   * El candado es POR ACCIÓN, no uno global. Con uno solo compartido, tocar un
+   * resultado y enseguida "Confirmar" no hacía nada: la segunda acción caía
+   * dentro de la ventana abierta por la primera, y el socio veía el botón
+   * muerto sin ninguna explicación — justo el síntoma que ya se había
+   * peleado antes por otra causa. Y 200 ms alcanzan: el par pointerup/click
+   * del mismo toque llega con milisegundos de diferencia.
    */
-  const ultimaAccion = useRef(0);
-  const unaSolaVez = (accion: () => void) => {
+  const ultimaAccion = useRef(new Map<string, number>());
+  const unaSolaVez = (clave: string, accion: () => void) => {
     const ahora = Date.now();
-    if (ahora - ultimaAccion.current < 600) return;
-    ultimaAccion.current = ahora;
+    if (ahora - (ultimaAccion.current.get(clave) ?? 0) < 200) return;
+    ultimaAccion.current.set(clave, ahora);
     accion();
   };
 
@@ -348,6 +425,12 @@ function Contenido({
     setSeleccionado(null);
     setBusqueda("");
     setResultados([]);
+    // También los de Open Food Facts: al vaciar la búsqueda el efecto sale por
+    // el return temprano y no los limpia, así que quedaban colgando bajo un
+    // buscador vacío (y sin su encabezado, que exige resultados locales).
+    setOffResultados([]);
+    setOffEstado("inactivo");
+    setOffError(null);
     // El foco NO se puede pedir acá: mientras hay un alimento elegido el
     // buscador no está montado, así que `campo.current` es null y la llamada
     // no hacía nada. El teclado se cerraba y había que tocar el campo de nuevo
@@ -434,9 +517,9 @@ function Contenido({
         onPointerDown={(e) => {
           if (aGuardar.length === 0) return;
           e.preventDefault();
-          unaSolaVez(() => onConfirmar(aGuardar));
+          unaSolaVez("confirmar", () => onConfirmar(aGuardar));
         }}
-        onClick={() => unaSolaVez(() => onConfirmar(aGuardar))}
+        onClick={() => unaSolaVez("confirmar", () => onConfirmar(aGuardar))}
       >
         Confirmar
       </Button>
@@ -548,9 +631,9 @@ function Contenido({
               style={{ touchAction: "pan-y" }}
               onPointerDown={alBajarElDedo}
               onPointerUp={(e) => {
-                if (fueUnToque(e)) unaSolaVez(() => elegirAlimento(r));
+                if (fueUnToque(e)) unaSolaVez(`local:${r.id}`, () => elegirAlimento(r));
               }}
-              onClick={() => unaSolaVez(() => elegirAlimento(r))}
+              onClick={() => unaSolaVez(`local:${r.id}`, () => elegirAlimento(r))}
               className="radius-control flex min-h-[44px] w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2"
             >
               <span className="text-secondary min-w-0 flex-1 truncate text-text">{r.nombre}</span>
@@ -583,9 +666,9 @@ function Contenido({
               style={{ touchAction: "pan-y" }}
               onPointerDown={alBajarElDedo}
               onPointerUp={(e) => {
-                if (fueUnToque(e)) unaSolaVez(() => elegirOFF(p));
+                if (fueUnToque(e)) unaSolaVez(`off:${p.offId}`, () => elegirOFF(p));
               }}
-              onClick={() => unaSolaVez(() => elegirOFF(p))}
+              onClick={() => unaSolaVez(`off:${p.offId}`, () => elegirOFF(p))}
               className="radius-control flex min-h-[44px] w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2 disabled:opacity-60"
             >
               {p.imagenUrl ? (
@@ -707,9 +790,9 @@ function Contenido({
             className="w-full"
             onPointerDown={(e) => {
               e.preventDefault();
-              unaSolaVez(sumarALista);
+              unaSolaVez("sumar", sumarALista);
             }}
-            onClick={() => unaSolaVez(sumarALista)}
+            onClick={() => unaSolaVez("sumar", sumarALista)}
           >
             <Plus size={15} /> Sumar y buscar otro
           </Button>
@@ -948,22 +1031,30 @@ function FormularioAlimento({
   const guardar = async () => {
     setGuardando(true);
     setError(null);
-    const res = await crearAlimentoPersonalizado({
-      nombre,
-      porcionBase: Number(porcion),
-      unidad,
-      kcal: Number(kcal || 0),
-      prot: Number(prot || 0),
-      carb: Number(carb || 0),
-      grasa: Number(grasa || 0),
-      offId: offIdInicial,
-    });
-    setGuardando(false);
-    if (res.error || !res.alimento) {
-      setError(res.error ?? "No fue posible crear el alimento.");
-      return;
+    try {
+      const res = await crearAlimentoPersonalizado({
+        nombre,
+        porcionBase: Number(porcion),
+        unidad,
+        kcal: Number(kcal || 0),
+        prot: Number(prot || 0),
+        carb: Number(carb || 0),
+        grasa: Number(grasa || 0),
+        offId: offIdInicial,
+      });
+      if (res.error || !res.alimento) {
+        setError(res.error ?? "No fue posible crear el alimento.");
+        return;
+      }
+      onCreado(res.alimento);
+    } catch {
+      // Sin esto, una acción que rechaza dejaba el botón en "Guardando…" y
+      // deshabilitado para siempre, sin mensaje: el socio había llenado el
+      // nombre, la porción y los cuatro macros, y perdía todo.
+      setError("No se pudo guardar. Revisa tu conexión e intenta nuevamente.");
+    } finally {
+      setGuardando(false);
     }
-    onCreado(res.alimento);
   };
 
   const campos: [string, string, (v: string) => void, string][] = [
