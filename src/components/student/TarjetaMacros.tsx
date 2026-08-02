@@ -27,7 +27,7 @@ const VUELTA = 2 * Math.PI * RADIO;
  * lo que sea la clase no llega (CSS a medio cargar, caché vieja), el estilo en
  * línea igual está — y en el celular pasó justamente eso.
  */
-const LADO_ANILLO = 88;
+const LADO_ANILLO = 56;
 
 /** Anillo de calorías: el trazo se recorta con `strokeDasharray` y arranca
  * arriba (de ahí el giro de -90°). */
@@ -77,15 +77,15 @@ function AnilloCalorias({
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center leading-tight">
-        <span className="text-card-title font-bold tabular-nums text-text">
+        <span className="text-secondary font-bold tabular-nums text-text">
           {Math.round(kcal)}
         </span>
         {objetivo !== null && (
-          <span className="text-[10px] tabular-nums text-text-tertiary">
+          <span className="text-[9px] tabular-nums text-text-tertiary">
             / {Math.round(objetivo)}
           </span>
         )}
-        <span className="text-[10px] font-medium" style={{ color: "var(--macro-cal)" }}>
+        <span className="text-[9px] font-medium" style={{ color: "var(--macro-cal)" }}>
           kcal
         </span>
       </div>
@@ -154,7 +154,7 @@ export function TarjetaMacros({
     objetivo && objetivo > 0 ? Math.min(1, valor / objetivo) : 0;
 
   return (
-    <div className="radius-card border border-border bg-surface p-3">
+    <div className="radius-card border border-border bg-surface px-3 py-2">
       <p
         className="text-micro text-center font-semibold tracking-wide"
         style={{ color: "var(--macro-cal)" }}
@@ -162,14 +162,14 @@ export function TarjetaMacros({
         TU PROGRESO NUTRICIONAL
       </p>
 
-      <div className="mt-2 flex items-center gap-3">
+      <div className="mt-1.5 flex items-center gap-3">
         <AnilloCalorias
           kcal={kcal}
           objetivo={kcalObjetivo}
           avance={avance(kcal, kcalObjetivo)}
         />
 
-        <div className="min-w-0 flex-1 space-y-2">
+        <div className="min-w-0 flex-1 space-y-1">
           {macros.map((m) => (
             <div key={m.clave} className="min-w-0">
               {/* `gap-2` entre el nombre y el número: sin separación mínima, en
@@ -177,18 +177,18 @@ export function TarjetaMacros({
                   cifra. El nombre se recorta antes que el número, que es el
                   dato que importa. */}
               <div className="flex items-center gap-1.5">
-                <m.Icono size={12} style={{ color: m.color }} className="shrink-0" />
-                <span className="text-micro min-w-0 flex-1 truncate text-text">
+                <m.Icono size={11} style={{ color: m.color }} className="shrink-0" />
+                <span className="min-w-0 flex-1 truncate text-[10px] leading-none text-text">
                   {m.etiqueta}
                 </span>
-                <span className="text-micro ml-1 shrink-0 whitespace-nowrap tabular-nums">
+                <span className="ml-1 shrink-0 whitespace-nowrap text-[10px] leading-none tabular-nums">
                   <span className="font-semibold text-text">{Math.round(m.consumido)}</span>
                   {m.objetivo !== null && (
                     <span className="text-text-tertiary"> / {Math.round(m.objetivo)} g</span>
                   )}
                 </span>
               </div>
-              <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-surface-2">
+              <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-surface-2">
                 <div
                   className="h-full w-full origin-left rounded-full transition-transform duration-300 ease-out motion-reduce:transition-none"
                   style={{

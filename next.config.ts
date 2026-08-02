@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // Permite abrir el servidor de desarrollo desde el celular por IP local
   // (ej. http://192.168.1.87:3000) para probar la app en un dispositivo real.
   // Next.js bloquea por defecto cualquier origen que no sea localhost.
-  allowedDevOrigins: ["192.168.1.*"],
+  allowedDevOrigins: ["localhost", "127.0.0.1", "192.168.1.*"],
   experimental: {
     // Caché de navegación del cliente. Desde Next 15 el valor por defecto de
     // `dynamic` es 0 s (apagado), así que volver a una pestaña de la barra

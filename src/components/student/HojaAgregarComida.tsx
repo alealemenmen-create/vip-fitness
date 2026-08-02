@@ -892,13 +892,13 @@ function useAreaVisible() {
       });
     };
     medir();
+    // El cambio de tamaño cubre la apertura y el cierre del teclado. No se
+    // escucha `scroll`: el navegador también lo dispara mientras el alumno
+    // recorre resultados y mover toda la hoja en mitad del gesto la hacía
+    // saltar o cerrar accidentalmente.
     vv.addEventListener("resize", medir);
-    // `scroll` también: en iOS el área visible se corre hacia arriba cuando el
-    // teclado empuja la página, y solo cambia el offset, no el alto.
-    vv.addEventListener("scroll", medir);
     return () => {
       vv.removeEventListener("resize", medir);
-      vv.removeEventListener("scroll", medir);
     };
   }, []);
 
@@ -961,7 +961,7 @@ function Marco({
           if (inicioEnFondo.current) onCerrar();
           inicioEnFondo.current = false;
         }}
-        className="absolute inset-0 bg-black/60 animate-[aparecer-hoja_200ms_ease-out]"
+        className="absolute inset-0 touch-none bg-black/60 animate-[aparecer-hoja_200ms_ease-out]"
       />
       {/*
         Columna de tres piezas: encabezado y pie de alto fijo, y en el medio lo
@@ -995,7 +995,7 @@ function Marco({
             atrás, y en el celular eso esconde y vuelve a mostrar la barra de
             direcciones. Cada uno de esos cambios reposicionaba el panel, que
             se veía temblando mientras se scrolleaba. */}
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-1">
+        <div className="min-h-0 flex-1 touch-pan-y space-y-3 overflow-y-auto overscroll-contain px-4 pb-1">
           {children}
         </div>
         {pie && <div className="shrink-0 px-4 pb-4 pt-3">{pie}</div>}
