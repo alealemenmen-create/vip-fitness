@@ -105,32 +105,45 @@ function normalizarProducto(p: RawProducto): ProductoOFF | null {
 
 type ResultadoJSON = { ok: true; json: unknown } | { ok: false; error: string };
 
-/** Fetch con timeout de 5 s y un reintento ante 429 — común a la búsqueda por
- * texto y a la consulta directa por código de barras. */
+/** Fetch con timeout de 5 s y un reintento — ante 429 (saturado) o cualquier
+ * otro error, porque en la práctica `cgi/search.pl` (el buscador legado de
+ * OFF) falla seguido de forma pasajera, sin relación con el texto buscado
+ * ("mang" y "pudin" fallaron, "mango" no). Común a la búsqueda por texto y a
+ * la consulta directa por código de barras. */
+// OFF pide identificar a quién consulta su API (User-Agent propio); el
+// navegador no deja mandar este header desde `fetch`, pero acá corre en el
+// servidor, donde sí se puede — y evita que nos traten como tráfico anónimo.
+const USER_AGENT = "VIPFitness/1.0 (gimnasio, app de nutricion; contacto via app)";
+
 async function fetchConReintento(url: string, reintentando = false): Promise<ResultadoJSON> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": USER_AGENT } });
 
-    if (res.status === 429) {
+    if (!res.ok) {
       if (!reintentando) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, res.status === 429 ? 1500 : 500));
         return fetchConReintento(url, true);
       }
+      // Queda en los logs del servidor para poder ver por qué, la próxima vez
+      // que pase — al alumno se le muestra un mensaje simple, no esto.
+      console.error("Open Food Facts respondió mal:", res.status, (await res.text()).slice(0, 300));
       return {
         ok: false,
-        error: "Open Food Facts está saturado ahora mismo. Intenta de nuevo en un momento.",
+        error:
+          res.status === 429
+            ? "Open Food Facts está saturado ahora mismo. Intenta de nuevo en un momento."
+            : "Open Food Facts no respondió correctamente.",
       };
     }
-
-    if (!res.ok) return { ok: false, error: "Open Food Facts no respondió correctamente." };
 
     return { ok: true, json: await res.json() };
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
       return { ok: false, error: "Open Food Facts no respondió a tiempo." };
     }
+    console.error("Open Food Facts fetch error:", err);
     return { ok: false, error: "No se pudo conectar con Open Food Facts." };
   } finally {
     clearTimeout(timeout);
