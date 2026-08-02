@@ -48,7 +48,7 @@ async function presupuestoDisponible(supabase: SupabaseServerClient) {
     .maybeSingle();
 
   if (errorConfig || !config) {
-    return { ok: false as const, mensaje: "Aplica la migración 0036 para activar la IA con control de presupuesto." };
+    return { ok: false as const, mensaje: "Aplica la migración 0037 para activar la IA con control de presupuesto." };
   }
   if (!config.asistente_ia_activo) {
     return { ok: false as const, mensaje: "El Asistente VIP con IA está pausado en la configuración." };

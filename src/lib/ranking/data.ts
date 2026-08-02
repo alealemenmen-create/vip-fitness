@@ -90,7 +90,7 @@ const calcularRankingCacheado = unstable_cache(
       ]);
 
     if (errorPeriodo || errorHistoricos) {
-      throw new Error("No fue posible leer Progreso VIP. Aplica la migracion 0034.");
+      throw new Error("No fue posible leer Progreso VIP. Aplica la migracion 0035.");
     }
 
     const periodoSumado = sumarPorAlumno((delPeriodo ?? []) as FilaMovimiento[]);

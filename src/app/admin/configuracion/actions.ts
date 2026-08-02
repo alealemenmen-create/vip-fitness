@@ -185,7 +185,7 @@ export async function actualizarConfiguracionAsistente(
       updated_at: new Date().toISOString(),
     })
     .eq("id", true);
-  if (error) return { ok: false, mensaje: "No se pudo guardar. Aplica primero la migración 0036." };
+  if (error) return { ok: false, mensaje: "No se pudo guardar. Aplica primero la migración 0037." };
   revalidatePath("/admin/configuracion");
   return { ok: true, mensaje: "Límite del Asistente VIP guardado." };
 }

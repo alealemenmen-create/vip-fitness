@@ -116,7 +116,7 @@ export async function agregarAlimentoAComida(
 
     if (error) return { error: "No fue posible agregar el alimento." };
 
-    // Desde la migración 0036 se conserva la hora real del primer alimento de
+    // Desde la migración 0037 se conserva la hora real del primer alimento de
     // esta comida. Si la comida ya existía, no se sobreescribe la primera hora.
     await supabase
       .from("comidas_registradas")

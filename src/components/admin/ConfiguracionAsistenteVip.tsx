@@ -24,7 +24,7 @@ export function ConfiguracionAsistenteVip({ config }: { config: Config }) {
       </div>
 
       {!config.disponible ? (
-        <p className="text-caption rounded-xl bg-warning/10 p-3 text-warning">Aplica la migración 0036 para activar el control económico.</p>
+        <p className="text-caption rounded-xl bg-warning/10 p-3 text-warning">Aplica la migración 0037 para activar el control económico.</p>
       ) : (
         <>
           <div className="mb-4 rounded-xl bg-surface-2 p-3">
