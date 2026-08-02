@@ -6,7 +6,9 @@ create table if not exists puntos_vip_movimientos (
   alumno_id uuid not null references perfiles(id) on delete cascade,
   clave text not null,
   categoria text not null check (categoria in ('entrenamiento', 'alimentacion', 'progreso', 'constancia', 'ajuste')),
-  puntos integer not null default 0 check (puntos >= 0),
+  -- Puede ser negativo para una penalizacion visible. La aplicacion aplica el
+  -- piso de cero al total del alumno, por lo que nunca se genera deuda.
+  puntos integer not null default 0,
   titulo text not null,
   detalle text,
   fecha date not null default current_date,
@@ -48,8 +50,7 @@ with sesiones as (
   select *,
     case
       when total = 0 then 0
-      else round(40.0 * completados / total)::int
-        + case when completados::numeric / total >= 0.7 then 20 else 0 end
+      else round(300.0 * completados / total)::int
     end as puntos_calculados
   from sesiones
 )
@@ -89,16 +90,15 @@ with planes as (
     c.*,
     p.kcal_objetivo,
     case
-      when c.kcal <= 0 then 0
-      when p.kcal_objetivo is null or p.kcal_objetivo <= 0
-        then least(20, greatest(5, round(c.kcal / 250)::int * 5))
-      when c.kcal / p.kcal_objetivo * 100 < 25 then 5
-      when c.kcal / p.kcal_objetivo * 100 < 50 then 10
-      when c.kcal / p.kcal_objetivo * 100 < 75 then 20
-      when c.kcal / p.kcal_objetivo * 100 < 90 then 30
-      when c.kcal / p.kcal_objetivo * 100 <= 110 then 40
-      when c.kcal / p.kcal_objetivo * 100 <= 125 then 30
-      else 20
+      when p.kcal_objetivo is null or p.kcal_objetivo <= 0 then 0
+      when c.kcal <= 0 then -150
+      else greatest(
+        -100,
+        least(
+          250,
+          round(250 * (1 - abs(c.kcal / p.kcal_objetivo * 100 - 100) / 50))::int
+        )
+      )
     end as puntos_calculados
   from consumo c
   left join planes p on p.alumno_id = c.alumno_id
@@ -126,11 +126,11 @@ insert into puntos_vip_movimientos
   (alumno_id, clave, categoria, puntos, titulo, detalle, fecha, created_at, updated_at)
 select
   alumno_id,
-  'checkin:' || fecha,
+  'ingreso:' || fecha,
   'constancia',
-  10,
-  'Check-in diario',
-  'Seguimiento completado',
+  30,
+  'Primera entrada del dia',
+  'Ingreso diario confirmado',
   fecha,
   fecha::timestamptz,
   fecha::timestamptz
@@ -151,7 +151,7 @@ select
   alumno_id,
   'peso:' || semana,
   'progreso',
-  20,
+  75,
   'Peso semanal registrado',
   'Una recompensa por semana',
   fecha,
@@ -174,7 +174,7 @@ select
   alumno_id,
   'foto:' || semana,
   'progreso',
-  30,
+  100,
   'Foto de progreso',
   'Seguimiento visual de la semana',
   fecha,

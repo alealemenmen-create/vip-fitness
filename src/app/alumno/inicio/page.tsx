@@ -250,9 +250,13 @@ async function MiRango({
           </span>
           <span className="block h-1.5 overflow-hidden rounded-full bg-surface-2">
             <span
-              className="block h-full rounded-full bg-vip transition-[width] duration-500"
+              className="barra-progreso-relleno block h-full rounded-full bg-vip transition-[width] duration-500"
               style={{ width: `${progreso.pct}%` }}
-            />
+            >
+              {[0, 1, 2, 3].map((indice) => (
+                <span key={indice} className="ola-progreso" style={{ animationDelay: `${indice * 0.52}s` }} />
+              ))}
+            </span>
           </span>
         </span>
       )}

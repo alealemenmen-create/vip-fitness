@@ -6,7 +6,12 @@ import { TAG_RANKING } from "@/lib/ranking/data";
 import convertirHeic from "heic-convert";
 import sharp from "sharp";
 import { hoyISO } from "@/lib/date";
-import { registrarFoto, registrarPeso } from "@/lib/ranking/movimientos";
+import {
+  recalcularFotoSemana,
+  recalcularPesoSemana,
+  registrarFoto,
+  registrarPeso,
+} from "@/lib/ranking/movimientos";
 
 export type FormState = { error: string | null; ok: boolean; puntos?: number };
 const okState: FormState = { error: null, ok: true };
@@ -55,7 +60,14 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
 
 export async function eliminarPeso(pesoId: string): Promise<void> {
   const supabase = await createClient();
+  const alumnoId = await usuarioActual(supabase);
+  const { data: peso } = await supabase
+    .from("pesos_corporales")
+    .select("fecha")
+    .eq("id", pesoId)
+    .maybeSingle();
   await supabase.from("pesos_corporales").delete().eq("id", pesoId);
+  if (peso?.fecha) await recalcularPesoSemana(alumnoId, peso.fecha);
   updateTag(TAG_RANKING);
   revalidatePath("/alumno/progreso");
   revalidatePath("/alumno/inicio");
@@ -152,7 +164,16 @@ export async function subirFotoProgreso(
 
 export async function eliminarFotoProgreso(fotoId: string, storagePath: string): Promise<void> {
   const supabase = await createClient();
+  const alumnoId = await usuarioActual(supabase);
+  const { data: foto } = await supabase
+    .from("fotos_progreso")
+    .select("fecha_foto")
+    .eq("id", fotoId)
+    .maybeSingle();
   await supabase.storage.from("fotos-progreso").remove([storagePath]);
   await supabase.from("fotos_progreso").delete().eq("id", fotoId);
+  if (foto?.fecha_foto) await recalcularFotoSemana(alumnoId, foto.fecha_foto);
+  updateTag(TAG_RANKING);
   revalidatePath("/alumno/progreso");
+  revalidatePath("/alumno/inicio");
 }

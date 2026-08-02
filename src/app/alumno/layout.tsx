@@ -24,6 +24,7 @@ import { CumpleanosFlotante } from "@/components/student/CumpleanosFlotante";
 import { Logo } from "@/components/Logo";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { marcarRequest } from "@/lib/supabase/instrumentacion";
+import { registrarIngresoDiario } from "@/lib/ranking/movimientos";
 
 export default async function AlumnoLayout({ children }: { children: React.ReactNode }) {
   marcarRequest("carga de pantalla de alumno");
@@ -40,15 +41,19 @@ export default async function AlumnoLayout({ children }: { children: React.React
   // deduplicada por request.
   const [
     sesionEnProgresoId,
+    ,
     noticiasSinVer,
     anuncioImportante,
     celebracionTorneo,
     cumpleaneros,
     { data: perfilTema, error: errorTema },
   ] = contexto.soloLectura
-    ? ([null, 0, null, null, [] as CumpleaneroHoy[], { data: null, error: null }] as const)
+    ? ([null, 0, 0, null, null, [] as CumpleaneroHoy[], { data: null, error: null }] as const)
     : await Promise.all([
         obtenerSesionEnProgreso(supabase, contexto.alumnoId),
+        // Una sola recompensa por fecha. Si ya se registro hoy, el upsert no
+        // suma nada. El fallo nunca debe impedir que el alumno use la app.
+        registrarIngresoDiario(contexto.alumnoId).catch(() => 0),
         contarNoticiasSinVer(supabase, contexto.alumnoId),
         obtenerAnuncioImportanteSinVer(supabase, contexto.alumnoId),
         obtenerCelebracionTorneoHoy(contexto.alumnoId),

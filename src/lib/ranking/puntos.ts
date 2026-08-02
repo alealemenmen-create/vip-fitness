@@ -1,14 +1,14 @@
 /** Medallas existentes, ahora con metas alcanzables mediante Puntos VIP. */
 export const RANGOS = [
   { nombre: "Bronze", desde: 0, imagen: "/rangos/rank_bronze.png", color: "#c88a4a" },
-  { nombre: "Silver", desde: 600, imagen: "/rangos/rank_silver.png", color: "#c0c4cc" },
-  { nombre: "Gold", desde: 1_500, imagen: "/rangos/rank_gold.png", color: "#ffc247" },
-  { nombre: "Platinum", desde: 3_000, imagen: "/rangos/rank_platinum.png", color: "#8fd4e8" },
-  { nombre: "Diamond", desde: 5_000, imagen: "/rangos/rank_diamond.png", color: "#5fc8ff" },
-  { nombre: "Champion", desde: 8_000, imagen: "/rangos/rank_champion.png", color: "#a78bfa" },
+  { nombre: "Silver", desde: 2_500, imagen: "/rangos/rank_silver.png", color: "#c0c4cc" },
+  { nombre: "Gold", desde: 7_500, imagen: "/rangos/rank_gold.png", color: "#ffc247" },
+  { nombre: "Platinum", desde: 15_000, imagen: "/rangos/rank_platinum.png", color: "#8fd4e8" },
+  { nombre: "Diamond", desde: 30_000, imagen: "/rangos/rank_diamond.png", color: "#5fc8ff" },
+  { nombre: "Champion", desde: 55_000, imagen: "/rangos/rank_champion.png", color: "#a78bfa" },
   {
     nombre: "Olympian VIP",
-    desde: 12_000,
+    desde: 90_000,
     imagen: "/rangos/rank_olympian_vip.png",
     color: "#7ec8ff",
   },

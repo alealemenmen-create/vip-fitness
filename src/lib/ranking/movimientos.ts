@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hoyISO, sumarDiasISO } from "@/lib/date";
 import { calcularPuntosAlimentacion, calcularPuntosEntrenamiento, PUNTOS_VIP } from "./reglas";
 
 type Categoria = "entrenamiento" | "alimentacion" | "progreso" | "constancia" | "ajuste";
@@ -24,12 +25,13 @@ function lunesDe(fechaISO: string): string {
 
 export async function guardarMovimiento(movimiento: Movimiento): Promise<number> {
   const admin = createAdminClient();
+  const puntos = Math.round(movimiento.puntos);
   const { error } = await admin.from("puntos_vip_movimientos").upsert(
     {
       alumno_id: movimiento.alumnoId,
       clave: movimiento.clave,
       categoria: movimiento.categoria,
-      puntos: Math.max(0, Math.round(movimiento.puntos)),
+      puntos,
       titulo: movimiento.titulo,
       detalle: movimiento.detalle ?? null,
       fecha: movimiento.fecha,
@@ -39,7 +41,7 @@ export async function guardarMovimiento(movimiento: Movimiento): Promise<number>
     { onConflict: "alumno_id,clave" }
   );
   if (error) throw new Error(`No fue posible guardar Puntos VIP: ${error.message}`);
-  return Math.max(0, Math.round(movimiento.puntos));
+  return puntos;
 }
 
 export async function registrarEntrenamiento({
@@ -115,30 +117,68 @@ export async function recalcularAlimentacionDia(alumnoId: string, fecha: string)
   }
 
   const objetivo = plan?.kcal_objetivo ?? null;
-  const puntos = calcularPuntosAlimentacion(kcal, objetivo);
+  const diaCerrado = fecha < hoyISO();
+  const puntosCalculados = calcularPuntosAlimentacion(kcal, objetivo, diaCerrado);
+  const puntosGuardados = diaCerrado ? puntosCalculados : 0;
   const porcentaje = objetivo && objetivo > 0 ? Math.round((kcal / objetivo) * 100) : null;
-  return guardarMovimiento({
+  const sinRegistro = diaCerrado && kcal <= 0;
+  await guardarMovimiento({
     alumnoId,
     clave: `alimentacion:${fecha}`,
     categoria: "alimentacion",
-    puntos,
-    titulo: "Progreso de alimentacion",
-    detalle: porcentaje === null ? `${Math.round(kcal)} kcal registradas` : `${porcentaje}% de la meta diaria`,
+    puntos: puntosGuardados,
+    titulo: sinRegistro
+      ? "Dia sin alimentacion registrada"
+      : diaCerrado
+        ? "Alimentacion del dia cerrada"
+        : "Alimentacion en curso",
+    detalle: sinRegistro
+      ? `No registraste alimentos: ${puntosGuardados} puntos`
+      : porcentaje === null
+        ? `${Math.round(kcal)} kcal registradas`
+        : diaCerrado
+          ? `${porcentaje}% de la meta · ${puntosGuardados >= 0 ? "+" : ""}${puntosGuardados} puntos`
+          : `${porcentaje}% de la meta · ${puntosCalculados} puntos provisionales`,
     fecha,
-    metadata: { kcal: Math.round(kcal), objetivo, porcentaje },
+    metadata: {
+      kcal: Math.round(kcal),
+      objetivo,
+      porcentaje,
+      estado: diaCerrado ? "cerrado" : "provisional",
+      puntosProvisionales: diaCerrado ? null : puntosCalculados,
+    },
   });
+  return puntosCalculados;
 }
 
-export async function registrarCheckin(alumnoId: string, fecha: string) {
-  return guardarMovimiento({
-    alumnoId,
-    clave: `checkin:${fecha}`,
-    categoria: "constancia",
-    puntos: PUNTOS_VIP.checkinDiario,
-    titulo: "Check-in diario",
-    detalle: "Seguimiento completado",
-    fecha,
-  });
+/** Premia una sola vez el primer ingreso real del alumno durante el dia. */
+export async function registrarIngresoDiario(alumnoId: string, fecha = hoyISO()): Promise<number> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("puntos_vip_movimientos")
+    .upsert(
+      {
+        alumno_id: alumnoId,
+        clave: `ingreso:${fecha}`,
+        categoria: "constancia",
+        puntos: PUNTOS_VIP.ingresoDiario,
+        titulo: "Primera entrada del dia",
+        detalle: "Ingreso diario confirmado",
+        fecha,
+        metadata: {},
+      },
+      { onConflict: "alumno_id,clave", ignoreDuplicates: true }
+    )
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw new Error(`No fue posible registrar el ingreso diario: ${error.message}`);
+  if (!data) return 0;
+
+  // Al comenzar un nuevo dia se cierra la alimentacion de ayer. Hasta ese
+  // momento la barra era solo una estimacion y no afectaba la competencia.
+  await recalcularAlimentacionDia(alumnoId, sumarDiasISO(fecha, -1));
+  return PUNTOS_VIP.ingresoDiario;
 }
 
 export async function registrarPeso(alumnoId: string, fecha: string) {
@@ -153,6 +193,29 @@ export async function registrarPeso(alumnoId: string, fecha: string) {
   });
 }
 
+export async function recalcularPesoSemana(alumnoId: string, fecha: string) {
+  const admin = createAdminClient();
+  const lunes = lunesDe(fecha);
+  const domingo = sumarDiasISO(lunes, 6);
+  const { data } = await admin
+    .from("pesos_corporales")
+    .select("id")
+    .eq("alumno_id", alumnoId)
+    .gte("fecha", lunes)
+    .lte("fecha", domingo)
+    .limit(1)
+    .maybeSingle();
+  return guardarMovimiento({
+    alumnoId,
+    clave: `peso:${lunes}`,
+    categoria: "progreso",
+    puntos: data ? PUNTOS_VIP.pesoSemanal : 0,
+    titulo: data ? "Peso semanal registrado" : "Peso semanal eliminado",
+    detalle: data ? "Una recompensa por semana" : "Registra un peso para recuperar esta recompensa",
+    fecha,
+  });
+}
+
 export async function registrarFoto(alumnoId: string, fecha: string) {
   return guardarMovimiento({
     alumnoId,
@@ -161,6 +224,29 @@ export async function registrarFoto(alumnoId: string, fecha: string) {
     puntos: PUNTOS_VIP.fotoSemanal,
     titulo: "Foto de progreso",
     detalle: "Seguimiento visual de la semana",
+    fecha,
+  });
+}
+
+export async function recalcularFotoSemana(alumnoId: string, fecha: string) {
+  const admin = createAdminClient();
+  const lunes = lunesDe(fecha);
+  const domingo = sumarDiasISO(lunes, 6);
+  const { data } = await admin
+    .from("fotos_progreso")
+    .select("id")
+    .eq("alumno_id", alumnoId)
+    .gte("fecha_foto", lunes)
+    .lte("fecha_foto", domingo)
+    .limit(1)
+    .maybeSingle();
+  return guardarMovimiento({
+    alumnoId,
+    clave: `foto:${lunes}`,
+    categoria: "progreso",
+    puntos: data ? PUNTOS_VIP.fotoSemanal : 0,
+    titulo: data ? "Foto de progreso" : "Foto de progreso eliminada",
+    detalle: data ? "Seguimiento visual de la semana" : "Sube una foto para recuperar esta recompensa",
     fecha,
   });
 }

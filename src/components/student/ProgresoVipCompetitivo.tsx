@@ -74,7 +74,11 @@ export function ProgresoVipCompetitivo({
                   width: `${progreso.pct}%`,
                   background: `linear-gradient(90deg, ${propia.rango.color}, ${progreso.siguiente.color})`,
                 }}
-              />
+              >
+                {[0, 1, 2, 3].map((indice) => (
+                  <span key={indice} className="ola-progreso" style={{ animationDelay: `${indice * 0.52}s` }} />
+                ))}
+              </div>
             </div>
           </div>
         ) : (
@@ -153,12 +157,15 @@ export function ProgresoVipCompetitivo({
           <Zap size={14} className="text-vip" /> ASÍ SUMAS ESTA SEMANA
         </p>
         <div className="space-y-2">
-          <Regla icono={<Dumbbell size={15} />} titulo="Finaliza tu entrenamiento" puntos="hasta +60" />
-          <Regla icono={<UtensilsCrossed size={15} />} titulo="Acércate a tus calorías objetivo" puntos="hasta +40/día" />
-          <Regla icono={<Flame size={15} />} titulo="Completa tu check-in diario" puntos="+10/día" />
-          <Regla icono={<Target size={15} />} titulo="Registra peso o foto semanal" puntos="hasta +50" />
+          <Regla icono={<Dumbbell size={15} />} titulo="Entrenamiento según % completado" puntos="hasta +300" />
+          <Regla icono={<UtensilsCrossed size={15} />} titulo="Precisión del objetivo de calorías" puntos="−150 a +250" />
+          <Regla icono={<Flame size={15} />} titulo="Primera entrada del día" puntos="+30/día" />
+          <Regla icono={<Target size={15} />} titulo="Peso y foto semanal" puntos="hasta +175" />
         </div>
-        <p className="text-micro mt-3 text-text-tertiary">No hay castigos ni puntos ocultos. Cada acción se premia una sola vez.</p>
+        <p className="radius-control mt-2 bg-surface-2 px-3 py-2 text-[9px] leading-relaxed text-text-tertiary">
+          Nutrición al cerrar: 100% = +250 · 75% o 125% = +125 · 50% o 150% = 0 · sin registros = −150.
+        </p>
+        <p className="text-micro mt-3 text-text-tertiary">La alimentación se confirma al cerrar el día. Las penalizaciones son visibles y el saldo nunca baja de cero.</p>
       </Card>
 
       <Card>
@@ -173,16 +180,20 @@ export function ProgresoVipCompetitivo({
                   <p className="text-caption font-medium text-text">{movimiento.titulo}</p>
                   <p className="text-micro truncate text-text-tertiary">{movimiento.detalle ?? movimiento.fecha}</p>
                 </div>
-                <p className="text-caption font-bold text-vip">+{movimiento.puntos}</p>
+                <p className={`text-caption font-bold ${movimiento.puntos < 0 ? "text-error" : "text-vip"}`}>
+                  {movimiento.puntos > 0 ? "+" : ""}{movimiento.puntos}
+                </p>
               </div>
             ))}
           </div>
         )}
       </Card>
 
-      <Card>
-        <p className="text-caption mb-1 text-text-tertiary">RANGOS VIP</p>
-        <p className="text-caption mb-3 text-text-secondary">Tus puntos totales nunca se reinician.</p>
+      <Card className="!p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-caption text-text-tertiary">RANGOS VIP</p>
+          <p className="text-micro text-text-secondary">El total no se reinicia</p>
+        </div>
         <EscalaRangos rangoActual={propia.rango.nombre} />
       </Card>
     </div>

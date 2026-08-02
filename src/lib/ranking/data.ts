@@ -97,8 +97,10 @@ const calcularRankingCacheado = unstable_cache(
     const historicoSumado = sumarPorAlumno((historicos ?? []) as FilaMovimiento[]);
 
     const filas = alumnos.map((alumno) => {
-      const puntos = periodoSumado.total.get(alumno.id) ?? 0;
-      const puntosAcumulados = historicoSumado.total.get(alumno.id) ?? 0;
+      // Las penalizaciones existen como movimientos auditables, pero nunca
+      // crean deuda: tanto el periodo como el acumulado tienen piso en cero.
+      const puntos = Math.max(0, periodoSumado.total.get(alumno.id) ?? 0);
+      const puntosAcumulados = Math.max(0, historicoSumado.total.get(alumno.id) ?? 0);
       return {
         alumnoId: alumno.id,
         nombre: alumno.nombre,
@@ -150,7 +152,7 @@ export async function obtenerMovimientosAlumno(alumnoId: string, limite = 12): P
     .from("puntos_vip_movimientos")
     .select("id, categoria, puntos, titulo, detalle, fecha")
     .eq("alumno_id", alumnoId)
-    .gt("puntos", 0)
+    .neq("puntos", 0)
     .order("updated_at", { ascending: false })
     .limit(limite);
 
