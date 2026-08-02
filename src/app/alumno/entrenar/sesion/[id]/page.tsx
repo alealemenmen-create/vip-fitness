@@ -10,6 +10,7 @@ import { ConsejoEntrenamiento } from "@/components/student/ConsejoEntrenamiento"
 import { consejoInicial } from "@/lib/frasesMotivacionales";
 import { obtenerSesionCompleta } from "../../data";
 import { reabrirSesion } from "../../actions";
+import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 
 const ESTADO_LABEL: Record<string, { texto: string; tone: "neutral" | "vip" | "success" | "error" }> = {
   en_progreso: { texto: "En progreso", tone: "vip" },
@@ -41,6 +42,7 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
   const total = sesion.ejercicios.length;
   const estadoInfo = ESTADO_LABEL[sesion.estado];
   const esDescanso = sesion.diaTipo === "descanso";
+  const puntosPreparados = calcularPuntosEntrenamiento(completados, total);
 
   // El consejo va fijo abajo, así que solo se muestra mientras se está
   // entrenando de verdad: en un día de descanso no hay nada que ejecutar, y
@@ -96,9 +98,10 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
                 ))}
               </div>
             </div>
-            <p className="text-micro shrink-0 text-text-tertiary">
-              {Math.round((completados / total) * 100)}%
-            </p>
+            <div className="shrink-0 text-right">
+              <p className="text-micro font-semibold text-vip">+{puntosPreparados} pts</p>
+              <p className="text-[8px] leading-none text-text-tertiary">al finalizar</p>
+            </div>
           </div>
         )}
       </div>

@@ -4,6 +4,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, ChevronRight, Search, Trash2, X } from "lucide-react";
 import { TarjetaMacros } from "@/components/student/TarjetaMacros";
+import { BarraPuntosVip } from "@/components/student/BarraPuntosVip";
+import { calcularPuntosAlimentacion, siguienteMetaAlimentacion, PUNTOS_VIP } from "@/lib/ranking/reglas";
 import {
   HojaAgregarComida,
   type AlimentoElegido,
@@ -217,6 +219,8 @@ export function PantallaComer({
   const horas = registros[fecha] ?? horasVacias();
   const esHoy = fecha === hoy;
   const totales = sumar(horas);
+  const puntosAlimentacion = calcularPuntosAlimentacion(totales.kcal, plan?.kcalObjetivo ?? null);
+  const siguienteMeta = siguienteMetaAlimentacion(puntosAlimentacion);
 
   const estados = useMemo(() => {
     const m: Record<string, EstadoDia> = {};
@@ -443,6 +447,13 @@ export function PantallaComer({
         grasaObjetivo={plan?.grasaObjetivo ?? null}
         carb={totales.carb}
         carbObjetivo={plan?.carbObjetivo ?? null}
+      />
+
+      <BarraPuntosVip
+        puntos={puntosAlimentacion}
+        maximo={PUNTOS_VIP.alimentacionMaximo}
+        etiqueta="Puntos de alimentación"
+        ayuda={siguienteMeta?.texto ?? "Meta diaria alcanzada: mantente cerca de tus calorías objetivo"}
       />
 
       {error && (

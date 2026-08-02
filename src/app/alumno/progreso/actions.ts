@@ -5,8 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import convertirHeic from "heic-convert";
 import sharp from "sharp";
+import { hoyISO } from "@/lib/date";
+import { registrarFoto, registrarPeso } from "@/lib/ranking/movimientos";
 
-export type FormState = { error: string | null; ok: boolean };
+export type FormState = { error: string | null; ok: boolean; puntos?: number };
 const okState: FormState = { error: null, ok: true };
 
 function fail(mensaje: string): FormState {
@@ -44,11 +46,11 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
 
   if (error) return fail("No fue posible guardar el peso. Revisa tu conexión e intenta nuevamente.");
 
-  // Registrar el peso de la semana suma puntos en el ranking.
+  const puntos = await registrarPeso(alumnoId, fecha);
   updateTag(TAG_RANKING);
   revalidatePath("/alumno/progreso");
   revalidatePath("/alumno/inicio");
-  return okState;
+  return { ...okState, puntos };
 }
 
 export async function eliminarPeso(pesoId: string): Promise<void> {
@@ -141,8 +143,11 @@ export async function subirFotoProgreso(
 
   if (errorInsert) return fail("La foto se subió, pero no fue posible registrarla.");
 
+  const puntos = await registrarFoto(alumnoId, fechaFoto || hoyISO());
+  updateTag(TAG_RANKING);
   revalidatePath("/alumno/progreso");
-  return okState;
+  revalidatePath("/alumno/inicio");
+  return { ...okState, puntos };
 }
 
 export async function eliminarFotoProgreso(fotoId: string, storagePath: string): Promise<void> {

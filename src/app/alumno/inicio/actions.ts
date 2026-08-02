@@ -6,8 +6,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAlumno } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { hoyISO } from "@/lib/date";
+import { registrarCheckin } from "@/lib/ranking/movimientos";
 
-export type GuardarSeguimientoState = { error: string | null; guardado: boolean };
+export type GuardarSeguimientoState = { error: string | null; guardado: boolean; puntos?: number };
 
 export async function guardarSeguimiento(
   _prevState: GuardarSeguimientoState,
@@ -51,10 +52,10 @@ export async function guardarSeguimiento(
     };
   }
 
-  // El check-in diario suma puntos de "app" en el ranking.
+  const puntos = await registrarCheckin(user.id, hoyISO());
   updateTag(TAG_RANKING);
   revalidatePath("/alumno/inicio");
-  return { error: null, guardado: true };
+  return { error: null, guardado: true, puntos };
 }
 
 /** Aceptar o rechazar una invitación a un torneo. Usa siempre el ID del

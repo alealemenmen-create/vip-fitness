@@ -234,7 +234,7 @@ export async function obtenerNoticias(
     { data: objetivos },
     { data: pesos },
     { data: torneos },
-    { data: semanas },
+    { data: movimientosPuntos },
     { data: reconocimientos },
   ] = await Promise.all([
       supabase.from("perfiles").select("id, nombre").eq("rol", "alumno"),
@@ -258,10 +258,11 @@ export async function obtenerNoticias(
         )
         .or(`created_at.gte.${desdeISO}T00:00:00Z,fecha_fin.gte.${desdeISO}`),
       supabase
-        .from("ranking_semanas")
-        .select("alumno_id, semana_inicio, puntos")
-        .gte("semana_inicio", desdeISO)
-        .order("semana_inicio", { ascending: true }),
+        .from("puntos_vip_movimientos")
+        .select("id, alumno_id, fecha, puntos")
+        .gt("puntos", 0)
+        .order("fecha", { ascending: true })
+        .order("created_at", { ascending: true }),
       supabase
         .from("reconocimientos_semanales")
         .select(
@@ -440,23 +441,24 @@ export async function obtenerNoticias(
 
   // ── 5. Subidas de rango sobre el acumulado semana a semana ──
   const acumulado = new Map<string, number>();
-  for (const semana of semanas ?? []) {
-    const previo = acumulado.get(semana.alumno_id) ?? 0;
-    const nuevo = previo + semana.puntos;
-    acumulado.set(semana.alumno_id, nuevo);
+  for (const movimiento of movimientosPuntos ?? []) {
+    const previo = acumulado.get(movimiento.alumno_id) ?? 0;
+    const nuevo = previo + movimiento.puntos;
+    acumulado.set(movimiento.alumno_id, nuevo);
 
-    const nombre = nombres.get(semana.alumno_id);
+    const nombre = nombres.get(movimiento.alumno_id);
     if (!nombre) continue;
 
     const rangoPrevio = rangoDePuntos(previo);
     const rangoNuevo = rangoDePuntos(nuevo);
     if (rangoPrevio.nombre === rangoNuevo.nombre) continue;
+    if (movimiento.fecha < desdeISO) continue;
 
     noticias.push({
-      id: `rango-${semana.alumno_id}-${semana.semana_inicio}`,
+      id: `rango-${movimiento.id}`,
       tipo: "rango",
-      mes: mesDe(semana.semana_inicio),
-      fecha: semana.semana_inicio,
+      mes: mesDe(movimiento.fecha),
+      fecha: movimiento.fecha,
       titular: `${nombre} alcanzó el rango ${rangoNuevo.nombre}`,
       detalle: `Subió desde ${rangoPrevio.nombre} con ${nuevo.toLocaleString("es-CL")} puntos acumulados.`,
       alumnoNombre: nombre,

@@ -26,6 +26,13 @@ export type DesgloseSemanaJSON = {
   total: number;
   totalCrudo: number;
 };
+export type CategoriaPuntosVIP =
+  | "entrenamiento"
+  | "alimentacion"
+  | "progreso"
+  | "constancia"
+  | "ajuste";
+export type MetadataPuntosVIP = Record<string, unknown>;
 /** Forma de cada fila del snapshot de resultados de un torneo (ver ResultadoTorneo en lib/torneos/puntos.ts). */
 export type ResultadoTorneoJSON = {
   alumnoId: string;
@@ -955,6 +962,42 @@ export interface Database {
             columns: ["plan_id"];
             isOneToOne: false;
             referencedRelation: "planes_alimentacion";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      puntos_vip_movimientos: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          clave: string;
+          categoria: CategoriaPuntosVIP;
+          puntos: number;
+          titulo: string;
+          detalle: string | null;
+          fecha: string;
+          metadata: MetadataPuntosVIP;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          alumno_id: string;
+          clave: string;
+          categoria: CategoriaPuntosVIP;
+          puntos?: number;
+          titulo: string;
+          detalle?: string | null;
+          fecha?: string;
+          metadata?: MetadataPuntosVIP;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["puntos_vip_movimientos"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "puntos_vip_movimientos_alumno_id_fkey";
+            columns: ["alumno_id"];
+            isOneToOne: false;
+            referencedRelation: "perfiles";
             referencedColumns: ["id"];
           },
         ];

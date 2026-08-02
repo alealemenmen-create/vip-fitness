@@ -7,6 +7,7 @@ import { requireAlumno } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { buscarAlimentos } from "./data";
 import { etiquetaDeHora, type AlimentoCatalogo } from "./tipos";
+import { recalcularAlimentacionDia } from "@/lib/ranking/movimientos";
 
 async function obtenerORegistroDiario(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -56,7 +57,7 @@ async function obtenerOComida(
   return nueva.id;
 }
 
-export type ComerActionState = { error: string | null };
+export type ComerActionState = { error: string | null; puntos?: number };
 
 /** Lo que se devuelve cuando el entrenador está mirando la cuenta de un alumno:
  * ahí no se puede escribir, y hay que decirlo en vez de guardar en el lugar
@@ -115,10 +116,11 @@ export async function agregarAlimentoAComida(
 
     if (error) return { error: "No fue posible agregar el alimento." };
 
+    const puntos = await recalcularAlimentacionDia(quien.alumnoId, fecha);
     updateTag(TAG_RANKING);
     revalidatePath(`/alumno/comer/${fecha}`);
     revalidatePath("/alumno/inicio");
-    return { error: null };
+    return { error: null, puntos };
   } catch {
     return { error: "No fue posible guardar. Revisa tu conexión e intenta nuevamente." };
   }
@@ -150,6 +152,7 @@ export async function eliminarComida(comidaId: string, fecha: string): Promise<C
     const { error } = await supabase.from("comidas_registradas").delete().eq("id", comidaId);
     if (error) return { error: "No fue posible eliminar la comida." };
 
+    await recalcularAlimentacionDia(quien.alumnoId, fecha);
     updateTag(TAG_RANKING);
     revalidatePath(`/alumno/comer/${fecha}`);
     revalidatePath("/alumno/inicio");
@@ -260,8 +263,11 @@ export async function crearAlimentoPersonalizado(
 }
 
 export async function quitarAlimentoDeComida(alimentoConsumidoId: string, fecha: string): Promise<void> {
+  const quien = await alumnoDelDiario();
+  if (!quien.ok) return;
   const supabase = await createClient();
   await supabase.from("alimentos_consumidos").delete().eq("id", alimentoConsumidoId);
+  await recalcularAlimentacionDia(quien.alumnoId, fecha);
   updateTag(TAG_RANKING);
   revalidatePath(`/alumno/comer/${fecha}`);
   revalidatePath("/alumno/inicio");
@@ -275,6 +281,8 @@ export async function actualizarCantidadAlimento(
   if (!Number.isFinite(cantidad) || cantidad <= 0) {
     return { error: "Ingresa una cantidad válida." };
   }
+  const quien = await alumnoDelDiario();
+  if (!quien.ok) return { error: quien.error };
   const supabase = await createClient();
   const { error } = await supabase
     .from("alimentos_consumidos")
@@ -283,10 +291,11 @@ export async function actualizarCantidadAlimento(
 
   if (error) return { error: "No fue posible actualizar la cantidad." };
 
+  const puntos = await recalcularAlimentacionDia(quien.alumnoId, fecha);
   updateTag(TAG_RANKING);
   revalidatePath(`/alumno/comer/${fecha}`);
   revalidatePath("/alumno/inicio");
-  return { error: null };
+  return { error: null, puntos };
 }
 
 export async function marcarComidaOmitida(
@@ -301,6 +310,7 @@ export async function marcarComidaOmitida(
   const comidaId = await obtenerOComida(supabase, registroId, tipoComida);
 
   await supabase.from("comidas_registradas").update({ omitida }).eq("id", comidaId);
+  await recalcularAlimentacionDia(quien.alumnoId, fecha);
   updateTag(TAG_RANKING);
   revalidatePath(`/alumno/comer/${fecha}`);
   revalidatePath("/alumno/inicio");

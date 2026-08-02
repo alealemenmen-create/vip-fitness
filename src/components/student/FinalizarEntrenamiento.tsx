@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
 import { finalizarSesion } from "@/app/alumno/entrenar/actions";
+import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 
 export function FinalizarEntrenamiento({
   sesionId,
@@ -20,11 +21,12 @@ export function FinalizarEntrenamiento({
   const [abierto, setAbierto] = useState(false);
   const pendientes = total - completados;
   const pct = total > 0 ? Math.round((completados / total) * 100) : 0;
+  const puntos = calcularPuntosEntrenamiento(completados, total);
 
   if (!abierto) {
     return (
       <Button variant="secondary" onClick={() => setAbierto(true)}>
-        {esDescanso ? "Marcar día como completado" : "Finalizar entrenamiento"}
+        {esDescanso ? "Marcar día como completado" : `Finalizar y sumar +${puntos} pts`}
       </Button>
     );
   }
@@ -50,7 +52,7 @@ export function FinalizarEntrenamiento({
         />
         <div className="flex gap-2">
           <Button type="submit" variant="primary" size="sm" className="flex-1">
-            Confirmar
+            {puntos > 0 ? `Confirmar +${puntos} pts` : "Confirmar"}
           </Button>
           <Button
             type="button"
