@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { ultimosNDiasISO } from "@/lib/date";
 import { obtenerDocumentos } from "@/app/alumno/documentos/data";
+import { deducirMedidaCasera } from "@/lib/alimentos/medidaCasera";
 import {
   horaDeComida,
   horasVacias,
@@ -102,6 +103,12 @@ type FilaAlimento = {
 };
 
 function aCatalogo(a: FilaAlimento): AlimentoCatalogo {
+  // Alimentos viejos del catálogo (de antes de la migración 0013, o que se
+  // sembraron sin medida) no tienen medida_nombre/medida_gramos guardados.
+  // Se deduce del nombre al vuelo para que el alumno igual pueda elegir
+  // "cucharada"/"vaso"/"unidad" en vez de quedar forzado a pesar todo en
+  // gramos — no se reescribe la fila, solo se completa lo que falta al mostrarla.
+  const medida = a.medida_nombre && a.medida_gramos ? null : deducirMedidaCasera(a.nombre, a.categoria);
   return {
     id: a.id,
     nombre: a.nombre,
@@ -112,8 +119,8 @@ function aCatalogo(a: FilaAlimento): AlimentoCatalogo {
     prot: a.prot,
     carb: a.carb,
     grasa: a.grasa,
-    medidaNombre: a.medida_nombre ?? null,
-    medidaGramos: a.medida_gramos ?? null,
+    medidaNombre: a.medida_nombre ?? medida?.nombre ?? null,
+    medidaGramos: a.medida_gramos ?? medida?.gramos ?? null,
     fibra: a.fibra ?? null,
     azucares: a.azucares ?? null,
     sodio: a.sodio ?? null,

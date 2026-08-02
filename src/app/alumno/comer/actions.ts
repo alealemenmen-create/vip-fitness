@@ -200,6 +200,10 @@ function filaACatalogo(a: {
   azucares?: number | null;
   sodio?: number | null;
 }): AlimentoCatalogo {
+  // Mismo respaldo que `aCatalogo` en data.ts: si la fila no tiene medida
+  // casera guardada, se deduce del nombre para no dejar al alumno pesando
+  // todo en gramos.
+  const medida = a.medida_nombre && a.medida_gramos ? null : deducirMedidaCasera(a.nombre, a.categoria);
   return {
     id: a.id,
     nombre: a.nombre,
@@ -210,8 +214,8 @@ function filaACatalogo(a: {
     prot: a.prot,
     carb: a.carb,
     grasa: a.grasa,
-    medidaNombre: a.medida_nombre ?? null,
-    medidaGramos: a.medida_gramos ?? null,
+    medidaNombre: a.medida_nombre ?? medida?.nombre ?? null,
+    medidaGramos: a.medida_gramos ?? medida?.gramos ?? null,
     fibra: a.fibra ?? null,
     azucares: a.azucares ?? null,
     sodio: a.sodio ?? null,
@@ -410,6 +414,11 @@ export async function crearAlimentoPersonalizado(
 
     if (repetido) return fallo(`Ya existe "${repetido.nombre}": búscalo en el buscador.`);
 
+    // Solo tiene sentido si la porción quedó en gramos: medida_gramos siempre
+    // es "cuántos gramos equivale 1 medida", así que mezclarlo con una
+    // porción en otra unidad (ml, unidad, etc.) daría una conversión falsa.
+    const medidaSugerida = unidad.toLowerCase() === "g" ? deducirMedidaCasera(nombre) : null;
+
     const { data, error } = await createAdminClient()
       .from("alimentos")
       .insert({
@@ -424,6 +433,8 @@ export async function crearAlimentoPersonalizado(
         creado_por: alumnoId,
         aprobado: false,
         off_id: offId,
+        medida_nombre: medidaSugerida?.nombre ?? null,
+        medida_gramos: medidaSugerida?.gramos ?? null,
       })
       .select("id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa")
       .single();
@@ -442,8 +453,8 @@ export async function crearAlimentoPersonalizado(
         prot: data.prot,
         carb: data.carb,
         grasa: data.grasa,
-        medidaNombre: null,
-        medidaGramos: null,
+        medidaNombre: medidaSugerida?.nombre ?? null,
+        medidaGramos: medidaSugerida?.gramos ?? null,
         fibra: null,
         azucares: null,
         sodio: null,
