@@ -595,12 +595,12 @@ export interface Database {
           // 0030_alimentos_aprobacion.sql
           creado_por: string | null;
           aprobado: boolean;
-          // 0032_alimentos_open_food_facts.sql
+          // 0038_alimentos_open_food_facts.sql
           origen: "catalogo" | "openfoodfacts" | "personalizado";
           off_id: string | null;
           marca: string | null;
           imagen_url: string | null;
-          // 0033_alimentos_micronutrientes.sql
+          // 0039_alimentos_micronutrientes.sql
           fibra: number | null;
           azucares: number | null;
           sodio: number | null;
