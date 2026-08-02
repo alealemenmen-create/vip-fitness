@@ -13,6 +13,7 @@ import {
   type ResultadoOFF,
   type ResultadoProductoOFF,
 } from "@/lib/alimentos/openFoodFacts";
+import { deducirMedidaCasera } from "@/lib/alimentos/medidaCasera";
 
 /**
  * El buscador por texto de Open Food Facts (`cgi/search.pl`) no manda
@@ -265,6 +266,16 @@ export async function importarAlimentoOFF(
     const nombre = producto.nombre.trim().slice(0, 80);
     if (!nombre) return fallo("Producto sin nombre válido.");
 
+    // No todos los productos de Open Food Facts traen su porción de envase
+    // (serving_size): sin eso, "Aceite vegetal" quedaba medido solo en gramos,
+    // que nadie usa así en la práctica. `deducirMedidaCasera` es la misma
+    // función que ya usa el catálogo curado para saber que el aceite se mide
+    // en cucharadas, la leche en vasos, el huevo en unidades, etc. — se usa acá
+    // de respaldo cuando el producto no trae su propia medida.
+    const medidaRespaldo = producto.medidaNombre ? null : deducirMedidaCasera(nombre);
+    const medidaNombre = producto.medidaNombre ?? medidaRespaldo?.nombre ?? null;
+    const medidaGramos = producto.medidaNombre ? producto.medidaGramos : (medidaRespaldo?.gramos ?? null);
+
     const { data: existente } = await supabase
       .from("alimentos")
       .select(COLUMNAS_ALIMENTO)
@@ -300,8 +311,8 @@ export async function importarAlimentoOFF(
         imagen_url: producto.imagenUrl,
         origen: "openfoodfacts",
         aprobado: true,
-        medida_nombre: producto.medidaNombre,
-        medida_gramos: producto.medidaGramos,
+        medida_nombre: medidaNombre,
+        medida_gramos: medidaGramos,
       })
       .select(COLUMNAS_ALIMENTO)
       .single();
