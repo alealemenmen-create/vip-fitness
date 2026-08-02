@@ -44,6 +44,19 @@ const FILAS_DE_CONTEXTO = 3;
  */
 function useAltoDisponible(ref: React.RefObject<HTMLDivElement | null>) {
   const [alto, setAlto] = useState<number | null>(null);
+  /**
+   * Lo que va DEBAJO de la lista dentro del documento: el `pb-24` del layout,
+   * la barra de navegación y —si un entrenador está mirando como alumno— su
+   * enlace para volver al panel.
+   *
+   * Se calcula UNA sola vez, con la primera medición, y de ahí en más se
+   * reutiliza. No es una optimización: es lo que permite volver a medir. La
+   * cuenta sale de restarle a la altura del documento la posición y el alto
+   * de la lista, así que en cuanto la lista tiene un alto asignado el
+   * resultado depende de sí mismo. Recalculándolo, cada medición devolvía un
+   * número distinto de la anterior y el alto no paraba de moverse.
+   */
+  const debajoRef = useRef<number | null>(null);
 
   useLayoutEffect(() => {
     const medir = () => {
@@ -53,35 +66,48 @@ function useAltoDisponible(ref: React.RefObject<HTMLDivElement | null>) {
       const caja = nodo.getBoundingClientRect();
       const desdeArriba = caja.top + window.scrollY;
 
-      /**
-       * Lo que va DEBAJO de la lista dentro del documento: el `pb-24` del
-       * layout, la barra de navegación y —si un entrenador está mirando como
-       * alumno— su enlace para volver al panel. No depende del alto de la
-       * lista, así que se puede descontar de una.
-       *
-       * Sin esto la página quedaba con 88 px de scroll propio y bastaba
-       * arrastrar un poco para llevarse el encabezado y los macros, que es
-       * justo lo que no se quiere.
-       */
-      const debajo =
-        document.documentElement.scrollHeight - (desdeArriba + caja.height);
+      // Sin esto la página quedaba con 88 px de scroll propio y bastaba
+      // arrastrar un poco para llevarse el encabezado y los macros, que es
+      // justo lo que no se quiere.
+      if (debajoRef.current === null) {
+        debajoRef.current =
+          document.documentElement.scrollHeight - (desdeArriba + caja.height);
+      }
+      const debajo = debajoRef.current;
 
       // El mínimo evita que en una pantalla muy baja (o con el teclado
       // abierto) la lista quede de un alto inservible.
-      setAlto(
-        Math.max(
-          220,
-          Math.min(
-            window.innerHeight - desdeArriba - debajo,
-            window.innerHeight - desdeArriba - ALTO_ZONA_INFERIOR,
-          ),
+      const nuevo = Math.max(
+        220,
+        Math.min(
+          window.innerHeight - desdeArriba - debajo,
+          window.innerHeight - desdeArriba - ALTO_ZONA_INFERIOR,
         ),
       );
+      // Los cambios de menos de 2 px son ruido de redondeo del navegador: si
+      // se aplicaran, cada uno sería un render más.
+      setAlto((previo) => (previo !== null && Math.abs(previo - nuevo) < 2 ? previo : nuevo));
     };
 
     medir();
+
+    /**
+     * Antes se medía una sola vez y nunca más. En el celular eso no alcanza:
+     * la barra de direcciones del navegador se esconde y reaparece, y con
+     * ella cambia el alto de la pantalla. Si la única medición cayó con la
+     * barra visible, la lista quedaba más corta que el espacio real y dejaba
+     * un hueco negro debajo, sin corregirse nunca.
+     *
+     * `visualViewport` es el que avisa ese cambio; `resize` de `window` no
+     * siempre lo hace en Android.
+     */
     window.addEventListener("resize", medir);
-    return () => window.removeEventListener("resize", medir);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", medir);
+    return () => {
+      window.removeEventListener("resize", medir);
+      vv?.removeEventListener("resize", medir);
+    };
   }, [ref]);
 
   return alto;

@@ -541,6 +541,11 @@ function Contenido({
             <button
               key={r.id}
               type="button"
+              // `touch-pan-y`: le dice al navegador que acá solo se arrastra
+              // en vertical, así resuelve enseguida si el gesto es scroll o
+              // toque en vez de esperar a ver si es un zoom o un arrastre
+              // horizontal.
+              style={{ touchAction: "pan-y" }}
               onPointerDown={alBajarElDedo}
               onPointerUp={(e) => {
                 if (fueUnToque(e)) unaSolaVez(() => elegirAlimento(r));
@@ -571,6 +576,11 @@ function Contenido({
               key={p.offId}
               type="button"
               disabled={importandoOffId !== null}
+              // `touch-pan-y`: le dice al navegador que acá solo se arrastra
+              // en vertical, así resuelve enseguida si el gesto es scroll o
+              // toque en vez de esperar a ver si es un zoom o un arrastre
+              // horizontal.
+              style={{ touchAction: "pan-y" }}
               onPointerDown={alBajarElDedo}
               onPointerUp={(e) => {
                 if (fueUnToque(e)) unaSolaVez(() => elegirOFF(p));
