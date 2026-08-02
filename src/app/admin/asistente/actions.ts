@@ -5,27 +5,30 @@ import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { obtenerReportes } from "@/app/admin/alumnos/data";
-import { obtenerRanking } from "@/lib/ranking/data";
-import {
-  generarRespuestaAsistente,
-  type RespuestaAsistenteVip,
-} from "@/lib/ai/asistenteVip";
+import { construirReporteVip } from "@/lib/asistente/reportes";
+import type { ResultadoReporteVip } from "@/lib/asistente/tipos";
 
 export type EstadoAsistente = {
-  respuesta: RespuestaAsistenteVip | null;
+  respuesta: ResultadoReporteVip | null;
   error: string | null;
 };
 
-const SolicitudSchema = z.string().trim().min(3).max(500);
+const SolicitudSchema = z.object({
+  tipo: z.enum(["atencion", "nutricion", "entrenamiento", "progreso"]),
+  busqueda: z.string().trim().max(80),
+});
 
 export async function consultarAsistenteVip(
   _estado: EstadoAsistente,
   formData: FormData
 ): Promise<EstadoAsistente> {
   const sesion = await requireRol(["entrenador", "admin"]);
-  const resultado = SolicitudSchema.safeParse(String(formData.get("solicitud") ?? ""));
+  const resultado = SolicitudSchema.safeParse({
+    tipo: String(formData.get("tipo") ?? "atencion"),
+    busqueda: String(formData.get("busqueda") ?? ""),
+  });
   if (!resultado.success) {
-    return { respuesta: null, error: "Escribe una solicitud breve y concreta." };
+    return { respuesta: null, error: "No fue posible validar los filtros del reporte." };
   }
 
   const supabase = await createClient();
@@ -46,11 +49,9 @@ export async function consultarAsistenteVip(
       objetivo: fila.objetivo,
     }));
 
-  const [reportes, ranking] = await Promise.all([
-    obtenerReportes(supabase, alumnos),
-    obtenerRanking("semana"),
-  ]);
-
-  const respuesta = await generarRespuestaAsistente(resultado.data, reportes, ranking);
-  return { respuesta, error: respuesta.ok ? null : respuesta.resumen };
+  const reportes = await obtenerReportes(supabase, alumnos);
+  return {
+    respuesta: construirReporteVip(resultado.data.tipo, reportes, resultado.data.busqueda),
+    error: null,
+  };
 }
