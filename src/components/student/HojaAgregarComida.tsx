@@ -367,6 +367,9 @@ function Contenido({
       <Marco onCerrar={onCerrar} titulo={`Alimento nuevo · ${etiquetaHora(hora)}`}>
         <FormularioAlimento
           offIdInicial={offIdParaCrear}
+          // Lo que ya escribió en el buscador: no tiene por qué tipearlo dos
+          // veces. Si llegó desde el escáner no hay búsqueda que reusar.
+          nombreInicial={offIdParaCrear ? "" : busqueda.trim()}
           onCancelar={() => {
             setCreando(false);
             setOffIdParaCrear(null);
@@ -501,15 +504,35 @@ function Contenido({
         <p className="text-caption px-1 py-2 text-text-tertiary">Buscando…</p>
       )}
 
+      {/* Cuando no hay resultados NO alcanza con decir "sin resultados": el
+          socio queda sin saber qué hacer y abandona la carga. Acá se le
+          ofrecen las dos salidas que tiene, con el nombre que ya escribió
+          listo para reutilizar. */}
       {!seleccionado &&
         !buscandoAhora &&
         offEstado !== "buscando" &&
         busqueda.trim().length >= 2 &&
         resultados.length === 0 &&
         offResultados.length === 0 && (
-          <p className="text-caption px-1 py-2 text-text-tertiary">
-            Sin resultados para &quot;{busqueda.trim()}&quot;.
-          </p>
+          <div className="radius-control space-y-3 border border-border p-3">
+            <p className="text-secondary text-text">
+              No encontramos &quot;{busqueda.trim()}&quot;.
+            </p>
+            <p className="text-caption text-text-tertiary">
+              Puedes crearlo tú mismo con los datos de la etiqueta: lo usas al instante y queda
+              guardado para la próxima vez.
+            </p>
+            <Button size="sm" className="w-full" onClick={() => setCreando(true)}>
+              <Plus size={15} /> Crear &quot;{busqueda.trim().slice(0, 24)}&quot;
+            </Button>
+            <button
+              type="button"
+              onClick={() => setEscaneando(true)}
+              className="text-caption flex w-full items-center justify-center gap-1.5 text-text-tertiary underline"
+            >
+              <Camera size={14} /> o escanea el código de barras del envase
+            </button>
+          </div>
         )}
 
       {!seleccionado && resultados.length > 0 && (
@@ -891,15 +914,18 @@ function Marco({
 /** Alta de un alimento que no está en el catálogo del gimnasio. */
 function FormularioAlimento({
   offIdInicial = null,
+  nombreInicial = "",
   onCancelar,
   onCreado,
 }: {
   /** Código de barras, cuando se llega acá desde el escáner sin match en OFF. */
   offIdInicial?: string | null;
+  /** Lo que el socio ya escribió en el buscador, para no pedírselo de nuevo. */
+  nombreInicial?: string;
   onCancelar: () => void;
   onCreado: (alimento: AlimentoCatalogo) => void;
 }) {
-  const [nombre, setNombre] = useState("");
+  const [nombre, setNombre] = useState(nombreInicial);
   const [porcion, setPorcion] = useState("100");
   const [unidad, setUnidad] = useState("g");
   const [kcal, setKcal] = useState("");
