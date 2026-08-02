@@ -24,10 +24,13 @@ export function TorneoActivoCard({ torneos, nombrePropio }: { torneos: TorneoPub
 }
 
 function formatCuentaRegresiva(fecha: string, hora: string | null): string {
-  const objetivo = new Date(`${fecha}T${hora ?? "00:00"}:00`);
+  // Postgres puede devolver TIME como HH:MM o HH:MM:SS. Antes siempre se
+  // agregaba ":00", produciendo HH:MM:SS:00 y una fecha inválida (NaN min).
+  const horaNormalizada = hora ? hora.slice(0, 8) : "00:00:00";
+  const objetivo = new Date(`${fecha}T${horaNormalizada}`);
   const ahora = new Date();
   const diffMs = objetivo.getTime() - ahora.getTime();
-  if (diffMs <= 0) return "";
+  if (!Number.isFinite(diffMs) || diffMs <= 0) return "";
 
   const dias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   const horas = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
