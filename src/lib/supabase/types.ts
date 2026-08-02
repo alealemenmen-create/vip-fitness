@@ -595,6 +595,11 @@ export interface Database {
           // 0030_alimentos_aprobacion.sql
           creado_por: string | null;
           aprobado: boolean;
+          // 0032_alimentos_open_food_facts.sql
+          origen: "catalogo" | "openfoodfacts" | "personalizado";
+          off_id: string | null;
+          marca: string | null;
+          imagen_url: string | null;
         };
         Insert: {
           nombre: string;
@@ -610,6 +615,10 @@ export interface Database {
           medida_gramos?: number | null;
           creado_por?: string | null;
           aprobado?: boolean;
+          origen?: "catalogo" | "openfoodfacts" | "personalizado";
+          off_id?: string | null;
+          marca?: string | null;
+          imagen_url?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["alimentos"]["Insert"]>;
         Relationships: [];

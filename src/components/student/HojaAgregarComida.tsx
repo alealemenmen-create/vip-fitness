@@ -2,14 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Search, X, Plus, ChevronLeft } from "lucide-react";
+import { Search, X, Plus, ChevronLeft, Camera, ImageOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
   buscarAlimentosAction,
   crearAlimentoPersonalizado,
+  importarAlimentoOFF,
 } from "@/app/alumno/comer/actions";
-import type { AlimentoCatalogo } from "@/app/alumno/comer/tipos";
+import { LIMITE_BUSQUEDA_ALIMENTOS, type AlimentoCatalogo } from "@/app/alumno/comer/tipos";
+import { buscarEnOFF, type ProductoOFF } from "@/lib/alimentos/openFoodFacts";
+import { normalizar } from "@/lib/alimentos/emparejar";
+import { EscanerCodigoBarras } from "./EscanerCodigoBarras";
+
+/** Un producto de OFF que ya aparece en el catálogo local (mismo nombre, o
+ * uno contiene al otro) no aporta nada nuevo: se prefiere el propio. */
+function esDuplicadoDeLocal(producto: ProductoOFF, locales: AlimentoCatalogo[]): boolean {
+  const objetivo = normalizar(producto.nombre);
+  const conMarca = producto.marca ? normalizar(`${producto.marca} ${producto.nombre}`) : objetivo;
+  return locales.some((l) => {
+    const n = normalizar(l.nombre);
+    return n === objetivo || n === conMarca || n.includes(objetivo) || objetivo.includes(n);
+  });
+}
 
 export type AlimentoElegido = {
   alimento: AlimentoCatalogo;
@@ -103,12 +118,21 @@ function Contenido({
   const [busqueda, setBusqueda] = useState("");
   const [resultados, setResultados] = useState<AlimentoCatalogo[]>([]);
   const [buscandoAhora, setBuscandoAhora] = useState(false);
+  // Open Food Facts entra en juego solo cuando el catálogo propio no alcanza.
+  const [offResultados, setOffResultados] = useState<ProductoOFF[]>([]);
+  const [offEstado, setOffEstado] = useState<"inactivo" | "buscando" | "listo">("inactivo");
+  const [offError, setOffError] = useState<string | null>(null);
+  const [importandoOffId, setImportandoOffId] = useState<string | null>(null);
   const [seleccionado, setSeleccionado] = useState<AlimentoCatalogo | null>(null);
   const [cantidad, setCantidad] = useState("100");
   /** true cuando el alumno mide en cucharadas/unidades en vez de gramos. */
   const [usarMedida, setUsarMedida] = useState(false);
   const [elegidos, setElegidos] = useState<AlimentoElegido[]>([]);
   const [creando, setCreando] = useState(false);
+  const [escaneando, setEscaneando] = useState(false);
+  /** Código de barras que no estaba en OFF: se precarga en el formulario de
+   * alimento personalizado cuando el escáner cede el paso a "Crear alimento". */
+  const [offIdParaCrear, setOffIdParaCrear] = useState<string | null>(null);
   const campo = useRef<HTMLInputElement>(null);
 
   // Escape cierra, y el fondo no debe scrollear detrás del panel abierto.
@@ -127,6 +151,8 @@ function Contenido({
 
   // El catálogo tiene miles de alimentos: se consulta al servidor a medida que
   // el alumno escribe, con una pausa para no disparar una consulta por tecla.
+  // Si el catálogo propio no alcanza, se completa con Open Food Facts
+  // (Chile primero; a todo el mundo solo si Chile tampoco encontró nada).
   useEffect(() => {
     const q = busqueda.trim();
     // Con menos de 2 letras no se consulta; la lista ya la vació el onChange.
@@ -138,6 +164,47 @@ function Contenido({
       if (!vigente) return;
       setResultados(encontrados);
       setBuscandoAhora(false);
+
+      if (encontrados.length >= LIMITE_BUSQUEDA_ALIMENTOS) {
+        setOffResultados([]);
+        setOffEstado("inactivo");
+        return;
+      }
+
+      setOffEstado("buscando");
+      setOffError(null);
+      const chile = await buscarEnOFF(q, "chile");
+      if (!vigente) return;
+
+      let combinados: ProductoOFF[] = [];
+      let error: string | null = null;
+
+      if (chile.ok) {
+        combinados = chile.productos.filter((p) => !esDuplicadoDeLocal(p, encontrados));
+      } else {
+        error = chile.error;
+      }
+
+      // Solo se abre a todo el mundo cuando ni el catálogo propio ni Chile
+      // encontraron nada — Chile filtrado ya alcanza casi siempre.
+      if (encontrados.length === 0 && combinados.length === 0) {
+        const global = await buscarEnOFF(q, "global");
+        if (!vigente) return;
+        if (global.ok) {
+          const vistos = new Set(combinados.map((p) => p.offId));
+          combinados = [
+            ...combinados,
+            ...global.productos.filter((p) => !vistos.has(p.offId) && !esDuplicadoDeLocal(p, encontrados)),
+          ];
+          error = null;
+        } else if (!error) {
+          error = global.error;
+        }
+      }
+
+      setOffResultados(combinados.slice(0, LIMITE_BUSQUEDA_ALIMENTOS));
+      setOffError(error);
+      setOffEstado("listo");
     }, 250);
 
     return () => {
@@ -153,6 +220,31 @@ function Contenido({
     const conMedida = Boolean(alimento.medidaNombre && alimento.medidaGramos);
     setUsarMedida(conMedida);
     setCantidad(conMedida ? "1" : String(alimento.porcionBase));
+  };
+
+  /** El alumno eligió un producto de Open Food Facts: se copia al catálogo
+   * (para no depender de la API para volver a consultarlo) y de ahí en
+   * adelante se trata como cualquier otro alimento. */
+  const elegirOFF = async (producto: ProductoOFF) => {
+    setImportandoOffId(producto.offId);
+    const resultado = await importarAlimentoOFF({
+      offId: producto.offId,
+      nombre: producto.nombre,
+      marca: producto.marca,
+      kcal: producto.kcal,
+      prot: producto.prot,
+      carb: producto.carb,
+      grasa: producto.grasa,
+      medidaNombre: producto.medidaNombre,
+      medidaGramos: producto.medidaGramos,
+      imagenUrl: producto.imagenUrl,
+    });
+    setImportandoOffId(null);
+    if (!resultado.alimento) {
+      setOffError(resultado.error ?? "No fue posible agregar este producto.");
+      return;
+    }
+    elegirAlimento(resultado.alimento);
   };
 
   /**
@@ -220,11 +312,35 @@ function Contenido({
     return (
       <Marco onCerrar={onCerrar} titulo={`Alimento nuevo · ${etiquetaHora(hora)}`}>
         <FormularioAlimento
-          onCancelar={() => setCreando(false)}
+          offIdInicial={offIdParaCrear}
+          onCancelar={() => {
+            setCreando(false);
+            setOffIdParaCrear(null);
+          }}
           onCreado={(alimento) => {
             setCreando(false);
+            setOffIdParaCrear(null);
             elegirAlimento(alimento);
           }}
+        />
+      </Marco>
+    );
+  }
+
+  if (escaneando) {
+    return (
+      <Marco onCerrar={onCerrar} titulo={`Escanear código · ${etiquetaHora(hora)}`}>
+        <EscanerCodigoBarras
+          onEncontrado={(alimento) => {
+            setEscaneando(false);
+            elegirAlimento(alimento);
+          }}
+          onNoEncontrado={(codigo) => {
+            setEscaneando(false);
+            setOffIdParaCrear(codigo);
+            setCreando(true);
+          }}
+          onVolverATexto={() => setEscaneando(false)}
         />
       </Marco>
     );
@@ -291,6 +407,9 @@ function Contenido({
               setBusqueda(valor);
               const corta = valor.trim().length < 2;
               setBuscandoAhora(!corta);
+              setOffResultados([]);
+              setOffEstado("inactivo");
+              setOffError(null);
               if (corta) setResultados([]);
             }}
             placeholder="Buscar alimentos"
@@ -304,12 +423,23 @@ function Contenido({
                 setBusqueda("");
                 setResultados([]);
                 setBuscandoAhora(false);
+                setOffResultados([]);
+                setOffEstado("inactivo");
+                setOffError(null);
               }}
               className="shrink-0 text-text-tertiary"
             >
               <X size={15} />
             </button>
           )}
+          <button
+            type="button"
+            aria-label="Escanear código de barras"
+            onClick={() => setEscaneando(true)}
+            className="shrink-0 text-text-tertiary"
+          >
+            <Camera size={17} />
+          </button>
         </div>
       )}
 
@@ -317,11 +447,16 @@ function Contenido({
         <p className="text-caption px-1 py-2 text-text-tertiary">Buscando…</p>
       )}
 
-      {!seleccionado && !buscandoAhora && busqueda.trim().length >= 2 && resultados.length === 0 && (
-        <p className="text-caption px-1 py-2 text-text-tertiary">
-          Sin resultados para &quot;{busqueda.trim()}&quot;.
-        </p>
-      )}
+      {!seleccionado &&
+        !buscandoAhora &&
+        offEstado !== "buscando" &&
+        busqueda.trim().length >= 2 &&
+        resultados.length === 0 &&
+        offResultados.length === 0 && (
+          <p className="text-caption px-1 py-2 text-text-tertiary">
+            Sin resultados para &quot;{busqueda.trim()}&quot;.
+          </p>
+        )}
 
       {!seleccionado && resultados.length > 0 && (
         <div className="space-y-1">
@@ -349,6 +484,51 @@ function Contenido({
             </button>
           ))}
         </div>
+      )}
+
+      {!seleccionado && offEstado === "buscando" && (
+        <p className="text-caption px-1 py-2 text-text-tertiary">Buscando en Open Food Facts…</p>
+      )}
+
+      {!seleccionado && offResultados.length > 0 && (
+        <div className="space-y-1">
+          {resultados.length > 0 && (
+            <p className="text-caption px-1 pt-1 text-text-tertiary">Open Food Facts</p>
+          )}
+          {offResultados.map((p) => (
+            <button
+              key={p.offId}
+              type="button"
+              disabled={importandoOffId !== null}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                elegirOFF(p);
+              }}
+              onClick={() => elegirOFF(p)}
+              className="radius-control flex min-h-[44px] w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2 disabled:opacity-60"
+            >
+              {p.imagenUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.imagenUrl} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+              ) : (
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface">
+                  <ImageOff size={14} className="text-text-tertiary" />
+                </span>
+              )}
+              <span className="min-w-0 flex-1 truncate text-secondary text-text">
+                {p.nombre}
+                {p.marca && <span className="text-text-tertiary"> · {p.marca}</span>}
+              </span>
+              <span className="text-caption shrink-0 text-text-tertiary">
+                {importandoOffId === p.offId ? "Agregando…" : `${Math.round(p.kcal)} kcal`}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!seleccionado && offError && (
+        <p className="text-caption px-1 py-1 text-text-tertiary">{offError}</p>
       )}
 
       {seleccionado && (
@@ -618,9 +798,12 @@ function Marco({
 
 /** Alta de un alimento que no está en el catálogo del gimnasio. */
 function FormularioAlimento({
+  offIdInicial = null,
   onCancelar,
   onCreado,
 }: {
+  /** Código de barras, cuando se llega acá desde el escáner sin match en OFF. */
+  offIdInicial?: string | null;
   onCancelar: () => void;
   onCreado: (alimento: AlimentoCatalogo) => void;
 }) {
@@ -645,6 +828,7 @@ function FormularioAlimento({
       prot: Number(prot || 0),
       carb: Number(carb || 0),
       grasa: Number(grasa || 0),
+      offId: offIdInicial,
     });
     setGuardando(false);
     if (res.error || !res.alimento) {
@@ -663,6 +847,12 @@ function FormularioAlimento({
 
   return (
     <>
+      {offIdInicial && (
+        <p className="text-caption text-text-tertiary">
+          Código escaneado: {offIdInicial} (no está en Open Food Facts, se guarda igual)
+        </p>
+      )}
+
       <div>
         <label className="text-caption mb-1.5 block text-text-tertiary">NOMBRE</label>
         <Input

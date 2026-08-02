@@ -159,6 +159,137 @@ export async function eliminarComida(comidaId: string, fecha: string): Promise<C
   }
 }
 
+/** Snake_case de una fila de `alimentos` (con medida) al tipo de dominio. */
+function filaACatalogo(a: {
+  id: string;
+  nombre: string;
+  categoria: string | null;
+  porcion_base: number;
+  unidad: string;
+  kcal: number;
+  prot: number;
+  carb: number;
+  grasa: number;
+  medida_nombre?: string | null;
+  medida_gramos?: number | null;
+}): AlimentoCatalogo {
+  return {
+    id: a.id,
+    nombre: a.nombre,
+    categoria: a.categoria,
+    porcionBase: a.porcion_base,
+    unidad: a.unidad,
+    kcal: a.kcal,
+    prot: a.prot,
+    carb: a.carb,
+    grasa: a.grasa,
+    medidaNombre: a.medida_nombre ?? null,
+    medidaGramos: a.medida_gramos ?? null,
+  };
+}
+
+const COLUMNAS_ALIMENTO =
+  "id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos";
+
+export type ProductoOFFInput = {
+  offId: string;
+  nombre: string;
+  marca: string | null;
+  kcal: number;
+  prot: number;
+  carb: number;
+  grasa: number;
+  medidaNombre: string | null;
+  medidaGramos: number | null;
+  imagenUrl: string | null;
+};
+
+/**
+ * El alumno eligió un producto de Open Food Facts: se copia a nuestra base
+ * (para no depender de la API para volver a consultarlo) y de ahí en
+ * adelante se trata como cualquier otro alimento del catálogo.
+ *
+ * A diferencia de `crearAlimentoPersonalizado`, nace `aprobado = true` y con
+ * `creado_por = null`: entra directo al catálogo compartido, porque viene de
+ * una base de datos externa ya curada, no de que un alumno haya tipeado
+ * cualquier cosa. Mismo motivo por el que usa cliente admin: la política
+ * `alimentos_write` solo deja escribir a entrenador/admin.
+ *
+ * Si el producto ya se había importado antes (este alumno u otro), se
+ * reutiliza la fila en vez de duplicarla.
+ */
+export async function importarAlimentoOFF(
+  producto: ProductoOFFInput
+): Promise<{ error: string | null; alimento: AlimentoCatalogo | null }> {
+  const fallo = (error: string) => ({ error, alimento: null });
+
+  // Fuera del try por el redirect de sesión vencida — ver `agregarAlimentoAComida`.
+  const quien = await alumnoDelDiario();
+  if (!quien.ok) return fallo(quien.error);
+
+  try {
+    const supabase = await createClient();
+
+    const nombre = producto.nombre.trim().slice(0, 80);
+    if (!nombre) return fallo("Producto sin nombre válido.");
+
+    const { data: existente } = await supabase
+      .from("alimentos")
+      .select(COLUMNAS_ALIMENTO)
+      .eq("off_id", producto.offId)
+      .maybeSingle();
+    if (existente) return { error: null, alimento: filaACatalogo(existente) };
+
+    // Mismo aviso previo que en crearAlimentoPersonalizado: sin esto, un
+    // choque contra el índice único de nombre se ve como un error genérico.
+    const { data: repetido } = await supabase
+      .from("alimentos")
+      .select("nombre")
+      .ilike("nombre", nombre.replace(/[%_]/g, (c) => `\\${c}`))
+      .limit(1)
+      .maybeSingle();
+    if (repetido) return fallo(`Ya existe "${repetido.nombre}": búscalo en el buscador.`);
+
+    const { data, error } = await createAdminClient()
+      .from("alimentos")
+      .insert({
+        nombre,
+        porcion_base: 100,
+        unidad: "g",
+        kcal: producto.kcal,
+        prot: producto.prot,
+        carb: producto.carb,
+        grasa: producto.grasa,
+        marca: producto.marca,
+        off_id: producto.offId,
+        imagen_url: producto.imagenUrl,
+        origen: "openfoodfacts",
+        aprobado: true,
+        medida_nombre: producto.medidaNombre,
+        medida_gramos: producto.medidaGramos,
+      })
+      .select(COLUMNAS_ALIMENTO)
+      .single();
+
+    if (error || !data) {
+      // Alguien más importó el mismo código justo antes: se reutiliza esa fila.
+      if (error?.code === "23505") {
+        const { data: porOffId } = await supabase
+          .from("alimentos")
+          .select(COLUMNAS_ALIMENTO)
+          .eq("off_id", producto.offId)
+          .maybeSingle();
+        if (porOffId) return { error: null, alimento: filaACatalogo(porOffId) };
+      }
+      return fallo("No fue posible agregar este producto a tu catálogo.");
+    }
+
+    return { error: null, alimento: filaACatalogo(data) };
+  } catch {
+    return fallo("No fue posible guardar. Revisa tu conexión e intenta nuevamente.");
+  }
+}
+
 export type AlimentoPersonalizado = {
   nombre: string;
   porcionBase: number;
@@ -167,6 +298,10 @@ export type AlimentoPersonalizado = {
   prot: number;
   carb: number;
   grasa: number;
+  /** Código de barras, cuando se llega acá desde el escáner y el producto no
+   * estaba en Open Food Facts. Se guarda igual, para que si aparece después
+   * en OFF no quede duplicado. */
+  offId?: string | null;
 };
 
 /**
@@ -206,6 +341,16 @@ export async function crearAlimentoPersonalizado(
     if (datos.porcionBase <= 0) return fallo("La porción debe ser mayor que cero.");
 
     const unidad = datos.unidad.trim() || "g";
+    const offId = datos.offId?.trim() || null;
+
+    if (offId) {
+      const { data: porCodigo } = await supabase
+        .from("alimentos")
+        .select("nombre")
+        .eq("off_id", offId)
+        .maybeSingle();
+      if (porCodigo) return fallo(`Ese código ya está guardado como "${porCodigo.nombre}": búscalo en el buscador.`);
+    }
 
     // Se avisa antes de chocar contra el índice único, que devolvería un
     // "no fue posible" sin explicar por qué. `ilike` sin comodines compara el
@@ -232,6 +377,7 @@ export async function crearAlimentoPersonalizado(
         grasa: datos.grasa,
         creado_por: alumnoId,
         aprobado: false,
+        off_id: offId,
       })
       .select("id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa")
       .single();
