@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRol, COOKIE_VISTA_ALUMNO } from "@/lib/auth";
 import { enviarCorreo, plantillaCredenciales } from "@/lib/email/resend";
 import { cambiarCorreoDeUsuario } from "@/lib/cuenta/correo";
+import { generarPassword } from "@/lib/cuenta/password";
 
 export type FormState = { error: string | null; ok: boolean };
 const okState: FormState = { error: null, ok: true };
@@ -17,13 +18,6 @@ function fail(mensaje: string): FormState {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** Contraseña legible para dictar/escribir a mano — no depende de que el
- * correo llegue (ver crearAlumnoConPassword y restablecerPasswordAlumno). */
-function generarPassword(): string {
-  const bloque = () => Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `Vip${bloque()}${bloque()}`;
-}
 
 export type FormStateCredenciales = FormState & {
   email?: string;

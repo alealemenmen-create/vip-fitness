@@ -4,7 +4,7 @@ import { ListaDocumentos } from "@/components/student/ListaDocumentos";
 import { obtenerDocumentos } from "./data";
 
 export default async function DocumentosPage() {
-  const { alumnoId } = await requireAlumno();
+  const { alumnoId, soloLectura } = await requireAlumno();
   const supabase = await createClient();
 
   const documentos = await obtenerDocumentos(supabase, alumnoId);
@@ -15,7 +15,10 @@ export default async function DocumentosPage() {
           rutina y la dieta que le dejó el entrenador. Mismo nombre que en el
           menú, para que no parezcan dos pantallas distintas. */}
       <h1 className="text-h2 text-text">Mis planes</h1>
-      <ListaDocumentos documentos={documentos} />
+      {/* Si es el entrenador viendo el portal de otro alumno (soloLectura),
+          no se ofrece borrar: la acción del servidor lo rechazaría igual,
+          pero mejor no mostrar un botón que siempre va a fallar. */}
+      <ListaDocumentos documentos={documentos} permitirEliminar={!soloLectura} />
     </div>
   );
 }

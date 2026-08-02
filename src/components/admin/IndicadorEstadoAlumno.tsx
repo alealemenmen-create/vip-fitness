@@ -35,30 +35,30 @@ export function DetalleEstadoAlumno({ indicador }: { indicador: IndicadorAlumno 
   const { Icon, color, etiqueta } = CONFIG[indicador.estado];
 
   return (
-    <div className="radius-card border border-border p-4">
-      <div className="mb-3 flex items-center gap-2" style={{ color }}>
-        <Icon size={20} strokeWidth={2.25} />
-        <p className="text-card-title">{etiqueta}</p>
+    <div className="radius-card border border-border p-2">
+      <div className="mb-1 flex items-center gap-1.5" style={{ color }}>
+        <Icon size={14} strokeWidth={2.25} />
+        <p className="text-caption font-semibold">{etiqueta}</p>
       </div>
 
-      <p className="text-body mb-3 text-text-secondary">{indicador.motivo}</p>
+      <p className="text-caption mb-1 text-text-secondary">{indicador.motivo}</p>
 
-      <div className="grid grid-cols-3 gap-2 border-t border-border pt-3 text-center">
+      <div className="grid grid-cols-3 gap-1 border-t border-border pt-1 text-center">
         <div>
-          <p className="text-h3 text-text">{indicador.pctSesiones}%</p>
-          <p className="text-caption text-text-tertiary">
+          <p className="text-caption font-bold text-text">{indicador.pctSesiones}%</p>
+          <p className="text-[9px] leading-tight text-text-tertiary">
             Sesiones del mes ({indicador.sesionesHechas}/{indicador.sesionesAsignadas})
           </p>
         </div>
         <div className="border-x border-border">
-          <p className="text-h3 text-text">{indicador.diasConComida}/7</p>
-          <p className="text-caption text-text-tertiary">Días con comidas</p>
+          <p className="text-caption font-bold text-text">{indicador.diasConComida}/7</p>
+          <p className="text-[9px] leading-tight text-text-tertiary">Días con comidas</p>
         </div>
         <div>
-          <p className="text-h3 text-text">
+          <p className="text-caption font-bold text-text">
             {indicador.diasSinEntrenar === null ? "—" : indicador.diasSinEntrenar}
           </p>
-          <p className="text-caption text-text-tertiary">Días sin entrenar</p>
+          <p className="text-[9px] leading-tight text-text-tertiary">Días sin entrenar</p>
         </div>
       </div>
     </div>

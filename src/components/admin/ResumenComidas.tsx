@@ -9,12 +9,12 @@ const COLOR_ESTADO: Record<EstadoDia, string> = {
 
 export function ResumenComidas({ resumen }: { resumen: ResumenDiaComidas[] }) {
   return (
-    <Card>
-      <p className="text-caption mb-3 text-text-tertiary">ALIMENTACIÓN · ÚLTIMOS {resumen.length} DÍAS</p>
-      <div className="space-y-2">
+    <Card padding="p-2">
+      <p className="text-[10px] mb-1 text-text-tertiary">ALIMENTACIÓN · ÚLTIMOS {resumen.length} DÍAS</p>
+      <div className="space-y-1">
         {resumen.map((d) => (
           <div key={d.fecha} className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <span
                 className="h-1.5 w-1.5 shrink-0 rounded-full"
                 style={{
@@ -22,9 +22,9 @@ export function ResumenComidas({ resumen }: { resumen: ResumenDiaComidas[] }) {
                   border: d.estado === "vacio" ? "1px solid var(--color-border)" : "none",
                 }}
               />
-              <p className="text-secondary text-text">{d.fecha}</p>
+              <p className="text-caption text-text">{d.fecha}</p>
             </div>
-            <p className="text-secondary text-text-tertiary">
+            <p className="text-caption text-text-tertiary">
               {d.estado === "vacio" ? "Sin registro" : `${d.kcal} kcal`}
             </p>
           </div>

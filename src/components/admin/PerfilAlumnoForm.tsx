@@ -19,11 +19,11 @@ export function PerfilAlumnoForm({
   const [state, formAction, pending] = useActionState(actualizarPerfilAlumno, initialState);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-1.5">
       <input type="hidden" name="alumno_id" value={alumnoId} />
       <div>
-        <label className="text-caption mb-1.5 block text-text-tertiary">OBJETIVO</label>
-        <Select name="objetivo" defaultValue={objetivo ?? ""}>
+        <label className="text-[9px] mb-0.5 block text-text-tertiary">OBJETIVO</label>
+        <Select name="objetivo" defaultValue={objetivo ?? ""} className="!py-1.5 text-caption">
           <option value="">Pendiente de definir</option>
           <option value="Pérdida de grasa">Pérdida de grasa</option>
           <option value="Aumento de masa muscular">Aumento de masa muscular</option>
@@ -32,12 +32,17 @@ export function PerfilAlumnoForm({
         </Select>
       </div>
       <div>
-        <label className="text-caption mb-1.5 block text-text-tertiary">PRÓXIMO CONTROL</label>
-        <Input type="date" name="proximo_control_fecha" defaultValue={proximoControlFecha ?? ""} />
+        <label className="text-[9px] mb-0.5 block text-text-tertiary">PRÓXIMO CONTROL</label>
+        <Input
+          type="date"
+          name="proximo_control_fecha"
+          defaultValue={proximoControlFecha ?? ""}
+          className="!py-1.5 text-caption"
+        />
       </div>
       {state.error && <p className="text-caption text-error">{state.error}</p>}
       {state.ok && <p className="text-caption text-success">Guardado.</p>}
-      <Button type="submit" variant="success" loading={pending}>
+      <Button type="submit" variant="success" loading={pending} size="xs">
         {pending ? "Guardando…" : "Guardar cambios"}
       </Button>
     </form>

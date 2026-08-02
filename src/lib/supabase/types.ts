@@ -4,6 +4,9 @@
 // Por ahora se mantiene a mano para no depender de un proyecto ya creado.
 
 export type Rol = "alumno" | "entrenador" | "admin";
+// 0032: sexo declarado en el registro, editable después desde "Mi perfil".
+export type Sexo = "femenino" | "masculino" | "otro";
+export type EstadoSolicitud = "pendiente" | "aceptada" | "rechazada";
 export type EstadoSesion = "en_progreso" | "completada" | "finalizada_incompleta" | "abandonada";
 // "otro" viene de 0027: documentos que no son ni rutina ni plan de comidas.
 export type TipoDocumento = "rutina" | "alimentacion" | "otro";
@@ -56,6 +59,9 @@ export interface Database {
           noticias_vistas_en: string | null;
           // 0024_tema_boton.sql
           tema_boton: string | null;
+          // 0032_solicitudes_registro.sql
+          telefono: string | null;
+          sexo: Sexo | null;
           created_at: string;
           updated_at: string;
         };
@@ -71,6 +77,8 @@ export interface Database {
           restriccion_alimenticia?: string | null;
           noticias_vistas_en?: string | null;
           tema_boton?: string | null;
+          telefono?: string | null;
+          sexo?: Sexo | null;
         };
         Update: {
           entrenador_id?: string | null;
@@ -82,6 +90,8 @@ export interface Database {
           restriccion_alimenticia?: string | null;
           noticias_vistas_en?: string | null;
           tema_boton?: string | null;
+          telefono?: string | null;
+          sexo?: Sexo | null;
           updated_at?: string;
         };
         Relationships: [
@@ -100,6 +110,67 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ];
+      };
+      // 0032_solicitudes_registro.sql — altas que llegan por el link público.
+      solicitudes_registro: {
+        Row: {
+          id: string;
+          nombre: string;
+          email: string;
+          telefono: string;
+          fecha_nacimiento: string | null;
+          sexo: Sexo | null;
+          estatura_cm: number | null;
+          peso_kg: number | null;
+          objetivo: string | null;
+          condicion_medica: string | null;
+          restriccion_alimenticia: string | null;
+          mensaje: string | null;
+          estado: EstadoSolicitud;
+          revisada_por: string | null;
+          revisada_en: string | null;
+          motivo_rechazo: string | null;
+          alumno_id: string | null;
+          // 0033_registro_pago.sql
+          comprobante_path: string | null;
+          comprobante_subido_en: string | null;
+          pago_verificado: boolean;
+          pago_verificado_por: string | null;
+          pago_verificado_en: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          nombre: string;
+          email: string;
+          telefono: string;
+          fecha_nacimiento?: string | null;
+          sexo?: Sexo | null;
+          estatura_cm?: number | null;
+          peso_kg?: number | null;
+          objetivo?: string | null;
+          condicion_medica?: string | null;
+          restriccion_alimenticia?: string | null;
+          mensaje?: string | null;
+          estado?: EstadoSolicitud;
+        };
+        Update: {
+          // El entrenador puede corregir el contacto de una solicitud
+          // pendiente (un dedazo en el correo la deja inaceptable).
+          email?: string;
+          telefono?: string;
+          estado?: EstadoSolicitud;
+          revisada_por?: string | null;
+          revisada_en?: string | null;
+          motivo_rechazo?: string | null;
+          alumno_id?: string | null;
+          comprobante_path?: string | null;
+          comprobante_subido_en?: string | null;
+          pago_verificado?: boolean;
+          pago_verificado_por?: string | null;
+          pago_verificado_en?: string | null;
+        };
+        Relationships: [];
       };
       notas_entrenador: {
         Row: {
@@ -198,6 +269,18 @@ export interface Database {
           pct_entrenamiento_destacado: number;
           dias_comida_atencion: number;
           dias_comida_destacado: number;
+          // 0033_registro_pago.sql
+          registro_beta_aviso: boolean;
+          pago_registro_activo: boolean;
+          pago_monto: number | null;
+          pago_banco: string | null;
+          pago_tipo_cuenta: string | null;
+          pago_numero_cuenta: string | null;
+          pago_rut: string | null;
+          pago_titular: string | null;
+          pago_correo: string | null;
+          pago_instrucciones: string | null;
+          whatsapp_gimnasio: string | null;
           updated_by: string | null;
           updated_at: string;
         };
@@ -215,6 +298,17 @@ export interface Database {
           pct_entrenamiento_destacado?: number;
           dias_comida_atencion?: number;
           dias_comida_destacado?: number;
+          registro_beta_aviso?: boolean;
+          pago_registro_activo?: boolean;
+          pago_monto?: number | null;
+          pago_banco?: string | null;
+          pago_tipo_cuenta?: string | null;
+          pago_numero_cuenta?: string | null;
+          pago_rut?: string | null;
+          pago_titular?: string | null;
+          pago_correo?: string | null;
+          pago_instrucciones?: string | null;
+          whatsapp_gimnasio?: string | null;
           updated_by?: string | null;
           updated_at?: string;
         };

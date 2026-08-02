@@ -7,9 +7,9 @@ import type { RegistroPeso } from "@/app/alumno/progreso/data";
 export function PesoCorporalSoloLectura({ historial }: { historial: RegistroPeso[] }) {
   if (historial.length === 0) {
     return (
-      <Card>
-        <p className="text-caption mb-2 text-text-tertiary">PESO CORPORAL (KG)</p>
-        <p className="text-body py-4 text-center text-text-secondary">Todavía no hay registros de peso.</p>
+      <Card padding="p-2">
+        <p className="text-[10px] mb-1 text-text-tertiary">PESO CORPORAL (KG)</p>
+        <p className="text-caption py-2 text-center text-text-secondary">Todavía no hay registros de peso.</p>
       </Card>
     );
   }
@@ -18,12 +18,12 @@ export function PesoCorporalSoloLectura({ historial }: { historial: RegistroPeso
   const ultimo = historial[historial.length - 1];
 
   return (
-    <Card>
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-caption text-text-tertiary">PESO CORPORAL (KG)</p>
-        <p className="text-secondary text-vip">{ultimo.pesoKg} kg</p>
+    <Card padding="p-2">
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-[10px] text-text-tertiary">PESO CORPORAL (KG)</p>
+        <p className="text-caption text-vip">{ultimo.pesoKg} kg</p>
       </div>
-      <div className="h-40">
+      <div className="h-24">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={datosGrafica}>
             <CartesianGrid stroke="var(--color-border)" vertical={false} />

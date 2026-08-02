@@ -21,25 +21,41 @@ const TABS = [
  * `alimentosPendientes` son los alimentos que crearon los alumnos y esperan el
  * visto bueno (migración 0030): mientras haya alguno, la pestaña Alimentos
  * lleva un punto rojo. El número no se muestra — el aviso es "hay algo que
- * mirar", el detalle está en la pantalla. */
-export function AdminTabs({ alimentosPendientes = 0 }: { alimentosPendientes?: number }) {
+ * mirar", el detalle está en la pantalla.
+ *
+ * `solicitudesPendientes` hace lo mismo en Alumnos con las inscripciones que
+ * llegan por el link público (migración 0032): la pantalla de solicitudes
+ * cuelga de ahí, no tiene pestaña propia (seis es el máximo, ver arriba). */
+export function AdminTabs({
+  alimentosPendientes = 0,
+  solicitudesPendientes = 0,
+}: {
+  alimentosPendientes?: number;
+  solicitudesPendientes?: number;
+}) {
   const pathname = usePathname();
 
   return (
     <div className="flex items-stretch gap-1 bg-bg px-2 pb-1 pt-4">
       {TABS.map((tab) => {
         const Icon = tab.icon;
-        const active = pathname.startsWith(tab.href);
-        const avisa = tab.href === "/admin/alimentos" && alimentosPendientes > 0;
+        // Solicitudes no tiene pestaña propia: cuelga de Alumnos, así que
+        // mientras se está ahí la pestaña resaltada sigue siendo esa.
+        const active =
+          pathname.startsWith(tab.href) ||
+          (tab.href === "/admin/alumnos" && pathname.startsWith("/admin/solicitudes"));
+        const esperando =
+          tab.href === "/admin/alimentos"
+            ? alimentosPendientes
+            : tab.href === "/admin/alumnos"
+              ? solicitudesPendientes
+              : 0;
+        const avisa = esperando > 0;
         return (
           <Link
             key={tab.href}
             href={tab.href}
-            aria-label={
-              avisa
-                ? `${tab.label} — ${alimentosPendientes} esperando aprobación`
-                : undefined
-            }
+            aria-label={avisa ? `${tab.label} — ${esperando} esperando aprobación` : undefined}
             className={`radius-control flex flex-1 flex-col items-center gap-1 py-2 transition-colors duration-200 ease-in-out ${
               active ? "bg-surface-2 text-vip" : "text-text-tertiary"
             }`}

@@ -23,38 +23,46 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // rojo en la pestaña Alimentos. Va con `head` para traer solo el número, sin
   // las filas. Si la migración 0030 no está corrida, la consulta falla, `count`
   // queda en null y simplemente no hay punto.
-  const { count: alimentosPendientes } = await supabase
-    .from("alimentos")
-    .select("id", { count: "exact", head: true })
-    .eq("aprobado", false)
-    .eq("activo", true);
+  // Igual que los alimentos: solo el número, y si la migración 0032 todavía no
+  // está corrida la consulta falla, queda en null y no se pinta nada.
+  const [{ count: alimentosPendientes }, { count: solicitudesPendientes }] = await Promise.all([
+    supabase
+      .from("alimentos")
+      .select("id", { count: "exact", head: true })
+      .eq("aprobado", false)
+      .eq("activo", true),
+    supabase
+      .from("solicitudes_registro")
+      .select("id", { count: "exact", head: true })
+      .eq("estado", "pendiente"),
+  ]);
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
       <div className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-8">
-        <Logo compact className="mb-5" corner={<ThemeToggle />} />
+        <Logo compact className="mb-3" corner={<ThemeToggle />} />
 
-        <div className="mb-6 flex items-center gap-2">
+        <div className="mb-3 flex items-center gap-2">
           <div>
-            <p className="text-caption text-text-tertiary">PANEL</p>
-            <h1 className="text-h3 text-text">{nombrePublicado(sesion.nombre)}</h1>
+            <p className="text-[10px] text-text-tertiary">PANEL</p>
+            <h1 className="text-caption font-semibold text-text">{nombrePublicado(sesion.nombre)}</h1>
           </div>
         </div>
 
         {miAlumnoPerfil ? (
           <Link
             href="/alumno/inicio"
-            className="radius-control mb-6 flex items-center justify-center gap-2 border border-border py-3 text-secondary font-medium text-vip"
+            className="radius-control mb-3 flex items-center justify-center gap-1.5 border border-border py-1.5 text-caption font-medium text-vip"
           >
-            <Dumbbell size={16} /> Mi entrenamiento
+            <Dumbbell size={12} /> Mi entrenamiento
           </Link>
         ) : (
-          <form action={crearMiPerfilAlumno} className="mb-6">
+          <form action={crearMiPerfilAlumno} className="mb-3">
             <button
               type="submit"
-              className="radius-control flex w-full items-center justify-center gap-2 border border-dashed border-border py-3 text-secondary text-text-tertiary"
+              className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-border py-1.5 text-caption text-text-tertiary"
             >
-              <Dumbbell size={16} /> Activar mi perfil de alumno
+              <Dumbbell size={12} /> Activar mi perfil de alumno
             </button>
           </form>
         )}
@@ -64,7 +72,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <LogoutButton className="text-caption mt-8 block w-full py-2 text-center text-text-tertiary" />
       </div>
       <div className="sticky bottom-0 mx-auto w-full max-w-md">
-        <AdminTabs alimentosPendientes={alimentosPendientes ?? 0} />
+        <AdminTabs
+          alimentosPendientes={alimentosPendientes ?? 0}
+          solicitudesPendientes={solicitudesPendientes ?? 0}
+        />
       </div>
     </div>
   );

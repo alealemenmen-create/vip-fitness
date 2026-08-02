@@ -17,6 +17,12 @@ const VARIANTS = {
 const SIZES = {
   lg: "h-14 w-full px-6 text-body",
   sm: "h-10 w-auto px-4 text-secondary",
+  /** Compactas: mismo trato que `sm`/`lg` pero más bajas. Una talla propia
+   * en vez de pisar `lg`/`sm` desde `className` — dos utilidades `h-*` para
+   * la misma propiedad compiten en el CSS que genera Tailwind y no siempre
+   * gana la que aparece después en el string de clases (ver Card.tsx). */
+  xs: "h-9 w-full px-4 text-caption",
+  xsAuto: "h-9 w-auto px-3 text-caption",
 } as const;
 
 export type ButtonVariant = keyof typeof VARIANTS;

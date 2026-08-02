@@ -93,15 +93,15 @@ export default async function AlumnoDetallePage({
   }
 
   return (
-    <div className="space-y-6">
-      <Link href="/admin/alumnos" className="flex items-center gap-2">
-        <ArrowLeft size={20} className="text-text-secondary" />
-        <h1 className="text-h3 text-text">{nombreAlumnoPublicado(perfil.nombre)}</h1>
+    <div className="space-y-2">
+      <Link href="/admin/alumnos" className="flex items-center gap-1.5">
+        <ArrowLeft size={16} className="text-text-secondary" />
+        <h1 className="text-caption font-semibold text-text">{nombreAlumnoPublicado(perfil.nombre)}</h1>
       </Link>
 
       {indicador && (
-        <Card>
-          <p className="text-caption mb-3 text-text-tertiary">ESTADO DEL ALUMNO</p>
+        <Card padding="p-2">
+          <p className="text-[10px] mb-1 text-text-tertiary">ESTADO DEL ALUMNO</p>
           <DetalleEstadoAlumno indicador={indicador} />
         </Card>
       )}
@@ -110,19 +110,19 @@ export default async function AlumnoDetallePage({
         <input type="hidden" name="alumno_id" value={alumnoId} />
         <button
           type="submit"
-          className="radius-control flex h-14 w-full items-center justify-center gap-2 bg-vip text-body font-medium text-black"
+          className="radius-control flex h-9 w-full items-center justify-center gap-1.5 bg-vip text-caption font-medium text-black"
         >
-          <Eye size={18} /> Ver portal completo
+          <Eye size={13} /> Ver portal completo
         </button>
       </form>
 
-      <Card>
-        <p className="text-caption mb-3 text-text-tertiary">NOMBRE</p>
+      <Card padding="p-2">
+        <p className="text-[10px] mb-1 text-text-tertiary">NOMBRE</p>
         <NombreEditable perfilId={alumnoId} nombre={perfil.nombre} />
       </Card>
 
-      <Card>
-        <p className="text-caption mb-3 text-text-tertiary">PERFIL</p>
+      <Card padding="p-2">
+        <p className="text-[10px] mb-1 text-text-tertiary">PERFIL</p>
         <PerfilAlumnoForm
           alumnoId={alumnoId}
           objetivo={alumnoPerfil?.objetivo ?? null}
@@ -132,28 +132,18 @@ export default async function AlumnoDetallePage({
 
       <DatosPersonalesSoloLectura datos={datosPersonales} />
 
-      <CredencialesAlumno alumnoId={alumnoId} />
-
-      <Card>
-        <p className="text-caption mb-3 text-text-tertiary">CORREO DE ACCESO</p>
-        <CambiarCorreoForm
-          accion={actualizarCorreoPerfil}
-          camposOcultos={{ perfil_id: alumnoId }}
-        />
-      </Card>
-
       <NotasManager alumnoId={alumnoId} notasIniciales={notas ?? []} />
 
-      <p className="text-caption pt-2 text-text-tertiary">ACTIVIDAD DEL ALUMNO</p>
+      <p className="text-[10px] pt-1 text-text-tertiary">ACTIVIDAD DEL ALUMNO</p>
       <PesoCorporalSoloLectura historial={historialPeso} />
       <FotosSoloLectura fotos={fotos} />
       <HistorialEntrenamiento rutinaActivaNombre={rutinaActiva?.nombre ?? null} sesiones={sesiones} />
       <ResumenComidas resumen={resumenComidas} />
       <SeguimientoDiarioSoloLectura seguimientos={seguimientos} />
 
-      <div className="flex items-center justify-between pt-2">
-        <p className="text-caption text-text-tertiary">SUS DOCUMENTOS</p>
-        <Link href="/admin/documentos" className="text-caption font-medium text-vip underline">
+      <div className="flex items-center justify-between pt-1">
+        <p className="text-[10px] text-text-tertiary">SUS DOCUMENTOS</p>
+        <Link href="/admin/documentos" className="text-[10px] font-medium text-vip underline">
           Subir o gestionar
         </Link>
       </div>
@@ -162,8 +152,18 @@ export default async function AlumnoDetallePage({
         mensajeVacio="Todavía no le subiste documentos a este alumno."
       />
 
-      <Card>
-        <p className="text-caption mb-3 text-text-tertiary">ZONA DE RIESGO</p>
+      <CredencialesAlumno alumnoId={alumnoId} />
+
+      <Card padding="p-2">
+        <p className="text-[10px] mb-1 text-text-tertiary">CORREO DE ACCESO</p>
+        <CambiarCorreoForm
+          accion={actualizarCorreoPerfil}
+          camposOcultos={{ perfil_id: alumnoId }}
+        />
+      </Card>
+
+      <Card padding="p-2">
+        <p className="text-[10px] mb-1 text-text-tertiary">ZONA DE RIESGO</p>
         <EliminarPerfilBoton
           accion={eliminarAlumno}
           campoId="alumno_id"
