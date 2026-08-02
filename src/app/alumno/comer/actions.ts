@@ -116,6 +116,14 @@ export async function agregarAlimentoAComida(
 
     if (error) return { error: "No fue posible agregar el alimento." };
 
+    // Desde la migración 0036 se conserva la hora real del primer alimento de
+    // esta comida. Si la comida ya existía, no se sobreescribe la primera hora.
+    await supabase
+      .from("comidas_registradas")
+      .update({ registrado_en: new Date().toISOString(), omitida: false })
+      .eq("id", comidaId)
+      .is("registrado_en", null);
+
     const puntos = await recalcularAlimentacionDia(quien.alumnoId, fecha);
     updateTag(TAG_RANKING);
     revalidatePath(`/alumno/comer/${fecha}`);

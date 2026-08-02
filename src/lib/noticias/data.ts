@@ -41,6 +41,33 @@ export type Anuncio = {
   creadoEn: string;
 };
 
+export type BorradorNoticia = {
+  id: string;
+  titulo: string;
+  mensaje: string;
+  generadoConIA: boolean;
+  creadoEn: string;
+};
+
+export async function obtenerBorradoresNoticias(
+  supabase: SupabaseServerClient
+): Promise<BorradorNoticia[]> {
+  const { data, error } = await supabase
+    .from("borradores_noticias")
+    .select("id, titulo, mensaje, generado_con_ia, created_at")
+    .eq("estado", "pendiente")
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) return [];
+  return (data ?? []).map((fila) => ({
+    id: fila.id,
+    titulo: fila.titulo,
+    mensaje: fila.mensaje,
+    generadoConIA: fila.generado_con_ia,
+    creadoEn: fila.created_at,
+  }));
+}
+
 /** Anuncios que el entrenador escribió a mano (no generados automáticamente),
  * los más nuevos primero. */
 export async function obtenerAnuncios(supabase: SupabaseServerClient): Promise<Anuncio[]> {

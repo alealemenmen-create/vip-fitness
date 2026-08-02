@@ -13,6 +13,8 @@ import {
   Search,
   Sparkles,
   TrendingUp,
+  Send,
+  Megaphone,
 } from "lucide-react";
 import {
   consultarAsistenteVip,
@@ -22,7 +24,7 @@ import type { EstadoReporteVip, TipoReporteVip } from "@/lib/asistente/tipos";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 
-const ESTADO_INICIAL: EstadoAsistente = { respuesta: null, error: null };
+const ESTADO_INICIAL: EstadoAsistente = { respuesta: null, respuestaIA: null, error: null };
 
 const REPORTES: {
   tipo: TipoReporteVip;
@@ -47,6 +49,7 @@ export function AsistenteVipPanel({ totalAlumnos }: { totalAlumnos: number }) {
   const [estado, accion, pendiente] = useActionState(consultarAsistenteVip, ESTADO_INICIAL);
   const [tipo, setTipo] = useState<TipoReporteVip>("atencion");
   const respuesta = estado.respuesta;
+  const respuestaIA = estado.respuestaIA;
 
   return (
     <div className="space-y-4">
@@ -71,6 +74,7 @@ export function AsistenteVipPanel({ totalAlumnos }: { totalAlumnos: number }) {
         </div>
 
         <form action={accion} className="space-y-4 p-4">
+          <input type="hidden" name="modo" value="reporte" />
           <input type="hidden" name="tipo" value={tipo} />
           <div className="grid grid-cols-2 gap-2">
             {REPORTES.map(({ tipo: opcion, titulo, detalle, icono: Icono }) => {
@@ -114,6 +118,42 @@ export function AsistenteVipPanel({ totalAlumnos }: { totalAlumnos: number }) {
         </form>
       </Card>
 
+      <Card className="!p-4">
+        <div className="mb-3 flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-vip/10 text-vip">
+            <Sparkles size={19} />
+          </div>
+          <div>
+            <h2 className="text-card-title text-text">Pregúntale a la IA</h2>
+            <p className="text-caption mt-0.5 text-text-tertiary">
+              La IA elige un reporte seguro; tú decides si quieres usarla.
+            </p>
+          </div>
+        </div>
+        <form action={accion} className="space-y-3">
+          <input type="hidden" name="modo" value="ia" />
+          <input type="hidden" name="tipo" value="atencion" />
+          <input type="hidden" name="busqueda" value="" />
+          <label htmlFor="pregunta-ia" className="sr-only">Pregunta para el Asistente VIP</label>
+          <textarea
+            id="pregunta-ia"
+            name="pregunta"
+            rows={3}
+            minLength={5}
+            maxLength={500}
+            required
+            placeholder="Ej.: ¿Quién necesita atención hoy y por qué?"
+            className="radius-control w-full resize-none border border-border bg-surface-2 px-4 py-3 text-secondary text-text outline-none focus:border-vip"
+          />
+          <Button type="submit" loading={pendiente} variant="secondary">
+            <Send size={17} /> Consultar con IA
+          </Button>
+          <p className="text-micro text-text-tertiary">
+            Los reportes de arriba no consumen IA. Esta acción sí registra su costo.
+          </p>
+        </form>
+      </Card>
+
       {pendiente && (
         <Card className="puntos-vip-entrada !p-4">
           <div className="flex items-center gap-3">
@@ -127,6 +167,37 @@ export function AsistenteVipPanel({ totalAlumnos }: { totalAlumnos: number }) {
       )}
 
       {estado.error && <p className="text-caption rounded-xl bg-error/10 p-3 text-error">{estado.error}</p>}
+
+      {respuestaIA && !pendiente && (
+        <Card className="border border-vip/30 !p-4 puntos-vip-entrada">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-micro font-semibold text-vip">RESPUESTA DEL ASISTENTE</p>
+              <h2 className="text-card-title mt-1 text-text">{respuestaIA.titulo}</h2>
+            </div>
+            <span className="rounded-full bg-vip/10 px-2 py-1 text-micro font-semibold text-vip">IA + DATOS VIP</span>
+          </div>
+          <p className="text-secondary mt-3 text-text-secondary">{respuestaIA.resumen}</p>
+          <p className="text-micro mt-3 border-t border-border pt-3 text-text-tertiary">{respuestaIA.aviso}</p>
+
+          {respuestaIA.borradorNoticia && (
+            <div className="mt-4 rounded-2xl border border-border bg-surface-2 p-3">
+              <div className="flex items-center gap-2 text-vip">
+                <Megaphone size={16} />
+                <p className="text-micro font-bold">BORRADOR GUARDADO</p>
+              </div>
+              <p className="text-secondary mt-2 font-semibold text-text">{respuestaIA.borradorNoticia.titulo}</p>
+              <p className="text-caption mt-1 text-text-secondary">{respuestaIA.borradorNoticia.mensaje}</p>
+              <Link
+                href={`/admin/noticias?ia=1&borrador=${respuestaIA.borradorNoticia.id ?? ""}&titulo=${encodeURIComponent(respuestaIA.borradorNoticia.titulo)}&mensaje=${encodeURIComponent(respuestaIA.borradorNoticia.mensaje)}`}
+                className="text-caption mt-3 inline-flex items-center gap-1 font-semibold text-vip"
+              >
+                Revisar antes de publicar <ArrowRight size={13} />
+              </Link>
+            </div>
+          )}
+        </Card>
+      )}
 
       {respuesta && !pendiente && (
         <div className="space-y-3 puntos-vip-entrada">

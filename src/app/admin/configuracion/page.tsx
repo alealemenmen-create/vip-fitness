@@ -9,13 +9,16 @@ import { CambiarMiPassword } from "@/components/admin/CambiarMiPassword";
 import { CambiarCorreoForm } from "@/components/admin/CambiarCorreoForm";
 import { Card } from "@/components/ui/Card";
 import { cambiarMiCorreo } from "./actions";
+import { obtenerConfiguracionAsistenteVip } from "@/lib/asistente/configuracion";
+import { ConfiguracionAsistenteVip } from "@/components/admin/ConfiguracionAsistenteVip";
 
 export default async function ConfiguracionAdminPage() {
   await requireRol(["entrenador", "admin"]);
-  const [config, supervision, registro] = await Promise.all([
+  const [config, supervision, registro, asistente] = await Promise.all([
     obtenerConfiguracionReconocimientos(),
     obtenerConfiguracionSupervision(),
     obtenerConfiguracionRegistro(),
+    obtenerConfiguracionAsistenteVip(),
   ]);
 
   return (
@@ -34,6 +37,7 @@ export default async function ConfiguracionAdminPage() {
       </Card>
       <ConfiguracionRegistro config={registro} />
       <EstadoSistema />
+      <ConfiguracionAsistenteVip config={asistente} />
       <ConfiguracionReconocimientos config={config} supervision={supervision} />
     </div>
   );

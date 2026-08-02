@@ -291,6 +291,8 @@ export interface Database {
           pago_correo: string | null;
           pago_instrucciones: string | null;
           whatsapp_gimnasio: string | null;
+          asistente_ia_activo: boolean;
+          presupuesto_ia_mensual_usd: number;
           updated_by: string | null;
           updated_at: string;
         };
@@ -319,10 +321,87 @@ export interface Database {
           pago_correo?: string | null;
           pago_instrucciones?: string | null;
           whatsapp_gimnasio?: string | null;
+          asistente_ia_activo?: boolean;
+          presupuesto_ia_mensual_usd?: number;
           updated_by?: string | null;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["configuracion_gimnasio"]["Insert"]>;
+        Relationships: [];
+      };
+      asistente_uso_ia: {
+        Row: {
+          id: string;
+          usuario_id: string;
+          herramienta: "atencion" | "nutricion" | "entrenamiento" | "progreso" | "noticia" | "alumno";
+          modelo: string;
+          tokens_entrada: number;
+          tokens_salida: number;
+          costo_usd: number;
+          created_at: string;
+        };
+        Insert: {
+          usuario_id: string;
+          herramienta: "atencion" | "nutricion" | "entrenamiento" | "progreso" | "noticia" | "alumno";
+          modelo: string;
+          tokens_entrada?: number;
+          tokens_salida?: number;
+          costo_usd?: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["asistente_uso_ia"]["Insert"]>;
+        Relationships: [];
+      };
+      borradores_noticias: {
+        Row: {
+          id: string;
+          titulo: string;
+          mensaje: string;
+          estado: "pendiente" | "publicado" | "descartado";
+          creado_por: string;
+          generado_con_ia: boolean;
+          publicado_en: string | null;
+          created_at: string;
+        };
+        Insert: {
+          titulo: string;
+          mensaje: string;
+          estado?: "pendiente" | "publicado" | "descartado";
+          creado_por: string;
+          generado_con_ia?: boolean;
+          publicado_en?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["borradores_noticias"]["Insert"]>;
+        Relationships: [];
+      };
+      medidas_corporales: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          fecha: string;
+          cintura_cm: number | null;
+          cadera_cm: number | null;
+          pecho_cm: number | null;
+          brazo_cm: number | null;
+          muslo_cm: number | null;
+          observacion: string | null;
+          registrado_por: string | null;
+          created_at: string;
+        };
+        Insert: {
+          alumno_id: string;
+          fecha?: string;
+          cintura_cm?: number | null;
+          cadera_cm?: number | null;
+          pecho_cm?: number | null;
+          brazo_cm?: number | null;
+          muslo_cm?: number | null;
+          observacion?: string | null;
+          registrado_por?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["medidas_corporales"]["Insert"]>;
         Relationships: [];
       };
       reconocimientos_semanales: {
@@ -731,14 +810,16 @@ export interface Database {
           tipo_comida: string;
           omitida: boolean;
           observacion: string | null;
+          registrado_en: string | null;
         };
         Insert: {
           registro_diario_id: string;
           tipo_comida: string;
           omitida?: boolean;
           observacion?: string | null;
+          registrado_en?: string | null;
         };
-        Update: { omitida?: boolean; observacion?: string | null };
+        Update: { omitida?: boolean; observacion?: string | null; registrado_en?: string | null };
         Relationships: [
           {
             foreignKeyName: "comidas_registradas_registro_diario_id_fkey";

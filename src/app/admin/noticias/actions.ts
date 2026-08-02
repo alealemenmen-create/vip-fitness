@@ -13,6 +13,7 @@ export async function crearAnuncio(_prevState: FormState, formData: FormData): P
   const titulo = String(formData.get("titulo") || "").trim();
   const mensaje = String(formData.get("mensaje") || "").trim();
   const importante = formData.get("importante") === "on";
+  const borradorId = String(formData.get("borrador_id") || "").trim();
   if (!titulo) return { error: "Ingresa un título.", ok: false };
   if (!mensaje) return { error: "Ingresa el mensaje del anuncio.", ok: false };
 
@@ -22,9 +23,26 @@ export async function crearAnuncio(_prevState: FormState, formData: FormData): P
     .insert({ titulo, mensaje, importante, creado_por: sesion.userId });
   if (error) return { error: "No fue posible publicar el anuncio.", ok: false };
 
+  if (borradorId) {
+    await supabase
+      .from("borradores_noticias")
+      .update({ estado: "publicado", publicado_en: new Date().toISOString() })
+      .eq("id", borradorId)
+      .eq("estado", "pendiente");
+  }
+
   revalidatePath("/admin/noticias");
   revalidatePath("/alumno/noticias");
   return okState;
+}
+
+export async function descartarBorrador(formData: FormData): Promise<void> {
+  await requireRol(["entrenador", "admin"]);
+  const id = String(formData.get("id") || "");
+  if (!id) return;
+  const supabase = await createClient();
+  await supabase.from("borradores_noticias").update({ estado: "descartado" }).eq("id", id);
+  revalidatePath("/admin/noticias");
 }
 
 export async function eliminarAnuncio(formData: FormData): Promise<void> {

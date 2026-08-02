@@ -28,3 +28,18 @@ export type ResultadoReporteVip = {
   generadoConIA: false;
 };
 
+export type BorradorNoticiaVip = {
+  id: string | null;
+  titulo: string;
+  mensaje: string;
+};
+
+export type RespuestaIaVip = {
+  titulo: string;
+  resumen: string;
+  herramienta: TipoReporteVip | "noticia";
+  usoIA: boolean;
+  costoUsd: number;
+  aviso: string;
+  borradorNoticia: BorradorNoticiaVip | null;
+};

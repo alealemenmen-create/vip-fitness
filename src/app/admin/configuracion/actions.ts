@@ -166,6 +166,30 @@ export async function cambiarMiCorreo(_prevState: FormState, formData: FormData)
   return { error: null, ok: true };
 }
 
+export async function actualizarConfiguracionAsistente(
+  _prev: ConfiguracionState,
+  formData: FormData
+): Promise<ConfiguracionState> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+  const presupuesto = Number(formData.get("presupuesto"));
+  if (!Number.isFinite(presupuesto) || presupuesto < 0 || presupuesto > 1000) {
+    return { ok: false, mensaje: "El presupuesto debe estar entre US$0 y US$1.000." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("configuracion_gimnasio")
+    .update({
+      asistente_ia_activo: formData.get("activo") === "on",
+      presupuesto_ia_mensual_usd: Math.round(presupuesto * 100) / 100,
+      updated_by: sesion.userId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", true);
+  if (error) return { ok: false, mensaje: "No se pudo guardar. Aplica primero la migración 0036." };
+  revalidatePath("/admin/configuracion");
+  return { ok: true, mensaje: "Límite del Asistente VIP guardado." };
+}
+
 export async function generarReconocimientosAhora(
   _prev: ConfiguracionState,
   _formData: FormData

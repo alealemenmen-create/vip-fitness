@@ -1,12 +1,13 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { Megaphone, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Megaphone, Trash2, Pencil } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Input, Textarea } from "@/components/ui/Input";
 import { Button, IconButton } from "@/components/ui/Button";
-import { crearAnuncio, eliminarAnuncio, type FormState } from "@/app/admin/noticias/actions";
-import type { Anuncio } from "@/lib/noticias/data";
+import { crearAnuncio, descartarBorrador, eliminarAnuncio, type FormState } from "@/app/admin/noticias/actions";
+import type { Anuncio, BorradorNoticia } from "@/lib/noticias/data";
 
 const initialState: FormState = { error: null, ok: false };
 
@@ -21,10 +22,12 @@ function formatFecha(iso: string): string {
 
 export function AnunciosManager({
   anuncios,
+  borradores,
   borradorIA,
 }: {
   anuncios: Anuncio[];
-  borradorIA?: { titulo: string; mensaje: string } | null;
+  borradores: BorradorNoticia[];
+  borradorIA?: { id: string; titulo: string; mensaje: string } | null;
 }) {
   const [state, formAction, pending] = useActionState(crearAnuncio, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -46,6 +49,7 @@ export function AnunciosManager({
           </div>
         )}
         <form ref={formRef} action={formAction} className="space-y-3">
+          {borradorIA?.id && <input type="hidden" name="borrador_id" value={borradorIA.id} />}
           <Input name="titulo" type="text" defaultValue={borradorIA?.titulo} placeholder="Título del anuncio" required />
           <Textarea
             name="mensaje"
@@ -64,6 +68,32 @@ export function AnunciosManager({
           </Button>
         </form>
       </Card>
+
+      {borradores.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-caption font-semibold text-text-tertiary">BORRADORES PENDIENTES</p>
+          {borradores.map((borrador) => (
+            <Card key={borrador.id} className="flex items-start justify-between gap-3 !p-3">
+              <div className="min-w-0">
+                <p className="text-secondary truncate font-semibold text-text">{borrador.titulo}</p>
+                <p className="text-caption mt-1 line-clamp-2 text-text-secondary">{borrador.mensaje}</p>
+                {borrador.generadoConIA && <p className="text-micro mt-1 font-semibold text-vip">GENERADO CON IA</p>}
+              </div>
+              <div className="flex shrink-0 gap-1">
+                <Link
+                  href={`/admin/noticias?ia=1&borrador=${borrador.id}&titulo=${encodeURIComponent(borrador.titulo)}&mensaje=${encodeURIComponent(borrador.mensaje)}`}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-vip"
+                  aria-label="Editar borrador"
+                ><Pencil size={15} /></Link>
+                <form action={descartarBorrador}>
+                  <input type="hidden" name="id" value={borrador.id} />
+                  <IconButton ariaLabel="Descartar borrador" type="submit" className="bg-surface-2"><Trash2 size={15} className="text-error" /></IconButton>
+                </form>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {anuncios.length === 0 ? (
         <Card>
