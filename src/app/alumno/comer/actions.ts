@@ -7,6 +7,28 @@ import { requireAlumno } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { buscarAlimentos } from "./data";
 import { etiquetaDeHora, type AlimentoCatalogo } from "./tipos";
+import {
+  buscarEnOFF,
+  buscarPorCodigoOFF,
+  type ResultadoOFF,
+  type ResultadoProductoOFF,
+} from "@/lib/alimentos/openFoodFacts";
+
+/**
+ * El buscador por texto de Open Food Facts (`cgi/search.pl`) no manda
+ * cabeceras CORS para orígenes de terceros, así que llamarlo directo desde el
+ * navegador del alumno fallaba con un error de conexión genérico. Pasa por
+ * acá, servidor a servidor, donde CORS no aplica.
+ */
+export async function buscarEnOFFAction(texto: string, pais: "chile" | "global"): Promise<ResultadoOFF> {
+  return buscarEnOFF(texto, pais);
+}
+
+/** El endpoint de código de barras sí manda CORS y funcionaría directo desde
+ * el navegador, pero se centraliza acá igual, por consistencia. */
+export async function buscarPorCodigoOFFAction(codigo: string): Promise<ResultadoProductoOFF> {
+  return buscarPorCodigoOFF(codigo);
+}
 
 async function obtenerORegistroDiario(
   supabase: Awaited<ReturnType<typeof createClient>>,

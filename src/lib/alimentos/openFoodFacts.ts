@@ -1,9 +1,16 @@
 /**
  * Cliente para Open Food Facts: la fuente de respaldo cuando un alimento no
  * está en el catálogo propio del gimnasio (yogures, galletas, marcas
- * chilenas). Corre en el navegador — la API de OFF permite CORS y así se
- * evita gastar tiempo de función del servidor en algo que no toca la base
- * de datos.
+ * chilenas).
+ *
+ * Corre en el SERVIDOR, llamado desde las Server Actions de
+ * `@/app/alumno/comer/actions` (`buscarEnOFFAction`, `buscarPorCodigoOFFAction`).
+ * El endpoint de búsqueda por texto (`cgi/search.pl`) no manda cabeceras CORS
+ * para orígenes de terceros: llamado directo desde el navegador del alumno,
+ * `fetch` fallaba con un error genérico de conexión (el endpoint de código de
+ * barras, `api/v2/product`, sí las manda, por eso el escáner funcionaba pero
+ * la búsqueda por texto no). Un fetch servidor-a-servidor no tiene esa
+ * restricción — CORS es una regla del navegador, no del servidor.
  */
 
 export type ProductoOFF = {

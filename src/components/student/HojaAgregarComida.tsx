@@ -9,9 +9,10 @@ import {
   buscarAlimentosAction,
   crearAlimentoPersonalizado,
   importarAlimentoOFF,
+  buscarEnOFFAction,
 } from "@/app/alumno/comer/actions";
 import { LIMITE_BUSQUEDA_ALIMENTOS, type AlimentoCatalogo } from "@/app/alumno/comer/tipos";
-import { buscarEnOFF, type ProductoOFF } from "@/lib/alimentos/openFoodFacts";
+import type { ProductoOFF } from "@/lib/alimentos/openFoodFacts";
 import { normalizar } from "@/lib/alimentos/emparejar";
 import { EscanerCodigoBarras } from "./EscanerCodigoBarras";
 
@@ -173,7 +174,7 @@ function Contenido({
 
       setOffEstado("buscando");
       setOffError(null);
-      const chile = await buscarEnOFF(q, "chile");
+      const chile = await buscarEnOFFAction(q, "chile");
       if (!vigente) return;
 
       let combinados: ProductoOFF[] = [];
@@ -188,7 +189,7 @@ function Contenido({
       // Solo se abre a todo el mundo cuando ni el catálogo propio ni Chile
       // encontraron nada — Chile filtrado ya alcanza casi siempre.
       if (encontrados.length === 0 && combinados.length === 0) {
-        const global = await buscarEnOFF(q, "global");
+        const global = await buscarEnOFFAction(q, "global");
         if (!vigente) return;
         if (global.ok) {
           const vistos = new Set(combinados.map((p) => p.offId));

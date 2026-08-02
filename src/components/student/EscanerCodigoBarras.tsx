@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ImageOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { importarAlimentoOFF } from "@/app/alumno/comer/actions";
+import { importarAlimentoOFF, buscarPorCodigoOFFAction } from "@/app/alumno/comer/actions";
 import type { AlimentoCatalogo } from "@/app/alumno/comer/tipos";
-import { buscarPorCodigoOFF, type ProductoOFF } from "@/lib/alimentos/openFoodFacts";
+import type { ProductoOFF } from "@/lib/alimentos/openFoodFacts";
 import { BarcodeFormat, BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
 import { DecodeHintType } from "@zxing/library";
 
@@ -78,7 +78,7 @@ export function EscanerCodigoBarras({
     setCargandoProducto(true);
     setErrorProducto(null);
     setNoEncontrado(false);
-    const resultado = await buscarPorCodigoOFF(c);
+    const resultado = await buscarPorCodigoOFFAction(c);
     setCargandoProducto(false);
     if (!resultado.ok) {
       setErrorProducto(resultado.error);
