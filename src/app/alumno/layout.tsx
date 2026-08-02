@@ -89,20 +89,33 @@ export default async function AlumnoLayout({ children }: { children: React.React
       <div className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-1">
         {/* El menú vive DENTRO de la placa dorada: una sola pieza de ancho
             completo, sin el botón morado que la interrumpía. La campanita va
-            al lado, para que las novedades se vean desde cualquier pantalla. */}
-        <Logo
-          compact
-          className="mb-3"
-          corner={
-            <div className="flex items-center gap-2">
-              <CampanaNoticias sinVer={noticiasSinVer} />
-              <MenuAlumno nombre={nombreAlumnoPublicado(contexto.nombre)} />
-            </div>
-          }
-        />
+            al lado, para que las novedades se vean desde cualquier pantalla.
+
+            Queda clavado arriba en todas las pestañas: la campanita y el
+            engranaje son las dos únicas salidas de la pantalla, y al scrollear
+            una sesión de siete ejercicios había que volver hasta arriba para
+            encontrarlas. El alto de este bloque está en --alto-cabecera-alumno
+            (globals.css), que es lo que usan las cabeceras de cada pestaña para
+            pegarse justo debajo sin taparse. */}
+        <div className="sticky top-0 z-30 -mx-4 bg-bg px-4 pb-2 pt-1">
+          <Logo
+            compact
+            corner={
+              <div className="flex items-center gap-2">
+                <CampanaNoticias sinVer={noticiasSinVer} />
+                <MenuAlumno nombre={nombreAlumnoPublicado(contexto.nombre)} />
+              </div>
+            }
+          />
+        </div>
         {children}
       </div>
-      <div className="sticky bottom-0 mx-auto w-full max-w-md">
+      {/* z-40: por encima de las cabeceras fijas (z-30) y de cualquier tarjeta.
+          Sin un z explícito la barra quedaba a merced del orden del DOM, y en
+          Android las filas de serie encendidas en ámbar —que tienen sombra y
+          contexto de apilado propio— se colaban por encima de los íconos al
+          hacer scroll. */}
+      <div className="sticky bottom-0 z-40 mx-auto w-full max-w-md">
         <BottomNav sesionEnProgresoId={sesionEnProgresoId} />
         {contexto.rolSesion !== "alumno" && !contexto.soloLectura && (
           <Link

@@ -268,6 +268,9 @@ export type EjercicioSesion = {
   tecnicaTipo: string | null;
   tecnicaInstruccion: string | null;
   observacion: string | null;
+  /** Técnica de ejecución de la biblioteca del gimnasio. Se muestra como
+   * sugerencia solo cuando la rutina no pidió una técnica propia. */
+  tecnicaSugerida: string | null;
   grupoMuscular: GrupoMuscular | null;
   /** Qué dibujo mostrar. Null si el ejercicio no está emparejado con la
    * biblioteca o si todavía no corrió la migración 0026. */
@@ -335,6 +338,9 @@ export async function obtenerSesionCompleta(
     ilustracion_slug: string | null;
     tempo?: string | null;
     tempo_nota?: string | null;
+    /** Cómo se ejecuta el ejercicio según la biblioteca del gimnasio. Es la
+     * sugerencia que se muestra cuando la rutina no pide una técnica puntual. */
+    tecnica?: string | null;
   };
 
   type FilaSesionEjercicio = {
@@ -363,7 +369,7 @@ export async function obtenerSesionCompleta(
   // Cada migración que todavía no haya corrido se degrada sola en vez de
   // dejar al alumno sin pantalla de entrenamiento.
   const intento = await consultarEjercicios(
-    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, tempo, tempo_nota)`
+    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, tempo, tempo_nota, tecnica)`
   );
   const conBiblioteca = intento.error
     ? await consultarEjercicios(`${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug)`)
@@ -415,6 +421,7 @@ export async function obtenerSesionCompleta(
       tecnicaTipo: prog.tecnica_tipo,
       tecnicaInstruccion: prog.tecnica_instruccion,
       observacion: prog.observacion,
+      tecnicaSugerida: dellaBiblioteca?.tecnica ?? null,
       grupoMuscular: prog.grupo_muscular,
       ilustracionSlug: dellaBiblioteca?.ilustracion_slug ?? null,
       // Lo que el entrenador escribió en la rutina gana sobre lo que dedujo la

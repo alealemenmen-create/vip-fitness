@@ -122,6 +122,13 @@ input[type="date"]::-webkit-date-and-time-value {
 */
 :root {
   --escala-texto: 1;
+
+  /* Alto del encabezado fijo del alumno (logo + campanita + engranaje, ver
+     src/app/alumno/layout.tsx): marca de 34 px más pt-1 y pb-2. Las cabeceras
+     propias de cada pestaña se pegan a esta altura para quedar justo debajo
+     en vez de por detrás. No depende de --escala-texto: el bloque no tiene
+     texto que crezca, solo el cuadrito de la marca y dos íconos. */
+  --alto-cabecera-alumno: 46px;
 }
 
 /* Escala tipográfica estricta — no usar tamaños fuera de esta lista, y
@@ -504,49 +511,400 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 
 /* Botón compacto de descanso y cuenta regresiva de cada serie. */
-.boton-listo-serie {
+/*
+  Filas de carga de series. El fondo plano gris se veía barato al lado del resto
+  de la pantalla, así que cada pieza está armada con la misma receta: un
+  degradado vertical muy suave, una línea de luz de 1 px arriba (el brillo del
+  borde superior, como si la pieza tuviera canto) y una sombra corta abajo. Es
+  lo que da la sensación de material en vez de rectángulo pintado.
+  Al completarse, la fila se tiñe de ámbar en vez de cambiar de forma: nada se
+  mueve de lugar, solo cambia de temperatura.
+*/
+.fila-serie {
+  position: relative;
+  /* Recorta el barrido de la serie activa, que entra y sale por los costados. */
+  overflow: hidden;
+  border-radius: 14px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.055) 0%,
+    rgba(255, 255, 255, 0.015) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+}
+.fila-serie[data-hecha="true"] {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-vip) 11%, transparent) 0%,
+    rgba(255, 255, 255, 0.015) 100%
+  );
+  border-color: color-mix(in srgb, var(--color-vip) 38%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 14px color-mix(in srgb, var(--color-vip) 14%, transparent);
+}
+/* Tema claro: el degradado de luz blanca sobre fondo blanco no se ve, hay que
+   invertirlo a sombra. */
+:root[data-theme="light"] .fila-serie {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.05) 100%);
+  border-color: var(--color-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/*
+  La serie que toca AHORA. Es la primera sin hacer del ejercicio en curso, y la
+  marca un barrido de luz que cruza de izquierda a derecha cada dos segundos y
+  medio. Cuando termina su descanso, el barrido se corre solo a la serie de
+  abajo; al cerrarse el ejercicio, aparece en la primera serie del siguiente.
+  Es lo único que se mueve en la pantalla: con el celular apoyado en el banco,
+  el ojo va ahí sin buscar.
+*/
+.fila-serie[data-activa="true"] {
+  border-color: color-mix(in srgb, var(--color-vip) 45%, transparent);
+}
+.fila-serie[data-activa="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 35%,
+    color-mix(in srgb, var(--color-vip) 26%, transparent) 50%,
+    transparent 65%
+  );
+  will-change: transform;
+  backface-visibility: hidden;
+  animation: barrido-serie-activa 2.5s ease-in-out infinite;
+}
+@keyframes barrido-serie-activa {
+  0% {
+    transform: translateX(-100%);
+  }
+  /* La pausa al final es a propósito: sin ella el barrido es un estrobo
+     constante y cansa a los cuarenta minutos de entrenamiento. */
+  60%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fila-serie[data-activa="true"]::after {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* El número de serie: disco con canto, no un círculo de contorno. Hecho pasa a
+   ámbar sólido con el número en negro — el contraste más fuerte de la fila. */
+.numero-serie {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: auto;
-  min-width: 76px;
-  /* min-height y no height: con la escala de texto grande el contenido crece
-     y con alto fijo se salía del botón. 32 y no 36: son tres botones apilados
-     en la tarjeta, así que cada 4 px acá valen 12 px de pantalla. */
-  min-height: 32px;
-  gap: 4px;
-  padding: 0 8px;
-  border-radius: 9999px;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
+  border-radius: 9999px;
   font-size: calc(12px * var(--escala-texto));
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  background: rgba(255, 255, 255, 0.07);
+  color: var(--color-vip);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
+  border: 1px solid color-mix(in srgb, var(--color-vip) 45%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  transition: background 0.25s, color 0.25s, border-color 0.25s, box-shadow 0.25s;
+}
+.numero-serie[data-hecha="true"] {
+  color: #000;
+  background: linear-gradient(160deg, var(--color-vip), color-mix(in srgb, var(--color-vip) 62%, #000));
+  border-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 1px 6px color-mix(in srgb, var(--color-vip) 35%, transparent);
+}
+
+/* Los campos van HUNDIDOS (sombra hacia adentro) mientras la fila y el número
+   sobresalen: esa diferencia es la que dice "acá se escribe" sin necesidad de
+   una etiqueta más. */
+.campo-serie {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.campo-serie:focus-within {
+  border-color: color-mix(in srgb, var(--color-vip) 55%, transparent);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.45),
+    0 0 0 2px color-mix(in srgb, var(--color-vip) 18%, transparent);
+}
+:root[data-theme="light"] .campo-serie {
+  background: rgba(0, 0, 0, 0.04);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.campo-serie input {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
   color: var(--color-text);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.1s;
+  font-size: calc(12px * var(--escala-texto));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
-.boton-listo-serie:active {
-  transform: scale(0.94);
+.campo-serie input:disabled {
+  opacity: 0.4;
 }
-/* Descansando: reloj de arena sobre fondo oscuro transparente — sin pulso,
-   el usuario dijo que el pulso "mareaba". */
-.boton-listo-serie[data-descansando="true"] {
-  background: var(--color-surface);
-  color: var(--color-text);
-  border-color: var(--color-text-tertiary);
+/* Las flechitas de <input type=number> apretaban el valor contra la etiqueta y
+   no se usan nunca con el dedo. */
+.campo-serie input::-webkit-outer-spin-button,
+.campo-serie input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
-/* En pausa: el borde queda gris, para que se note que el descanso no está
-   corriendo. */
-.boton-listo-serie[data-descansando="true"][data-pausado="true"] {
-  border-color: var(--color-text-tertiary);
+.campo-serie input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.campo-serie-etiqueta {
+  flex-shrink: 0;
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 500;
   color: var(--color-text-tertiary);
 }
-/* Serie lista: contraste blanco y negro, sin fondo amarillo. */
-.boton-listo-serie[data-realizada="true"]:not([data-descansando="true"]) {
-  background: var(--color-text);
+
+/*
+  Botón de descanso. Está hecho con el MISMO material que los campos de carga y
+  repeticiones de su fila —mismo alto, mismo radio, mismo canto de luz— porque
+  los tres son la misma pieza vista tres veces; antes era una píldora negra
+  pegada al costado y se leía como algo de otra pantalla.
+  Lo que cambia entre estados es el color y lo que pasa adentro, nunca la forma:
+  el botón no se mueve de lugar ni cambia de tamaño mientras corre el descanso.
+*/
+.boton-descanso {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  flex-shrink: 0;
+  /* min-height y no height: con la escala de texto grande el contenido crece y
+     con alto fijo se salía del botón. */
+  min-height: 34px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: background 0.25s, color 0.25s, border-color 0.25s, box-shadow 0.25s,
+    transform 0.1s;
+}
+.boton-descanso:active {
+  transform: scale(0.96);
+}
+:root[data-theme="light"] .boton-descanso {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.07));
+  border-color: var(--color-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* El contenido va por encima de la barra que se vacía. */
+.boton-descanso-contenido {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1.1;
+}
+.boton-descanso-segundos {
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+}
+
+/* Pendiente: insinuado en ámbar, no negro. Es el único botón de la fila que hay
+   que tocar, y tiene que pedirlo sin gritar. */
+.boton-descanso[data-estado="pendiente"] {
+  color: var(--color-vip);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-vip) 16%, transparent),
+    color-mix(in srgb, var(--color-vip) 6%, transparent)
+  );
+  border-color: color-mix(in srgb, var(--color-vip) 40%, transparent);
+}
+.boton-descanso[data-estado="pendiente"] .boton-descanso-segundos {
+  color: color-mix(in srgb, var(--color-vip) 70%, var(--color-text-tertiary));
+}
+
+/* Corriendo: el número grande al frente y la barra vaciándose por detrás. */
+.boton-descanso[data-estado="corriendo"] {
+  border-color: color-mix(in srgb, var(--color-vip) 55%, transparent);
+}
+.boton-descanso-cuenta {
+  font-size: calc(14px * var(--escala-texto));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+/*
+  La barra que se vacía. Va anclada a la IZQUIERDA y se acorta con los segundos:
+  se lee como algo que se consume, no como una carga que avanza.
+  La transición de 1s lineal empalma con el tick del contador, así baja parejo
+  en vez de a saltos de un segundo.
+*/
+.boton-descanso-relleno {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent),
+    color-mix(in srgb, var(--color-vip) 22%, transparent)
+  );
+  transition: width 1s linear;
+}
+
+/* En pausa: todo se apaga a gris. Lo que se ve es que ACÁ no está corriendo el
+   tiempo, porque arrancó el descanso de otra serie. */
+.boton-descanso[data-estado="pausado"] {
+  color: var(--color-text-tertiary);
+  border-color: var(--color-text-tertiary);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+}
+
+/* Avisando: terminó el descanso. Ámbar lleno y las tres flechas cayendo hacia
+   lo que sigue, que es lo único que hay que hacer en ese momento. */
+.boton-descanso[data-estado="avisando"] {
+  color: #000;
+  background: linear-gradient(
+    160deg,
+    var(--color-vip),
+    color-mix(in srgb, var(--color-vip) 66%, #000)
+  );
+  border-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 0 16px color-mix(in srgb, var(--color-vip) 45%, transparent);
+}
+.flechas-seguir {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+.flechas-seguir svg {
+  opacity: 0.25;
+  animation: flecha-seguir 0.9s ease-in-out infinite;
+}
+@keyframes flecha-seguir {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(-1px);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(2px);
+  }
+}
+
+/* Hecha: contraste blanco y negro, sin fondo ámbar — el ámbar ya lo tienen el
+   disco del número y la fila entera. */
+.boton-descanso[data-estado="hecha"] {
   color: var(--color-bg);
+  background: var(--color-text);
   border-color: var(--color-text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flechas-seguir svg {
+    animation: none;
+    opacity: 1;
+  }
+  .boton-descanso-relleno {
+    transition: none;
+  }
+}
+
+/*
+  Barra de avance de la sesión: tres olas de luz corriendo sobre el relleno
+  ámbar. Son tres elementos con el mismo recorrido y la animación desfasada un
+  tercio del ciclo cada una, y no un degradado repetido: el ancho del relleno
+  cambia con el porcentaje, y con un patrón repetido la cantidad de olas a la
+  vista cambiaba con él. Así siempre son tres, esté al 10% o al 90%.
+*/
+.barra-progreso-relleno {
+  position: relative;
+  overflow: hidden;
+  /* Fuerza una capa propia. Sin esto, en Chrome de Android la barra se pintaba
+     una vez y se quedaba "pegada": el navegador no repintaba el interior de un
+     elemento cuyo `width` estaba en transición dentro de una cabecera fija. */
+  transform: translateZ(0);
+}
+.ola-progreso {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* Anima transform y nada más, y avisa antes: es lo que mantiene la ola en el
+     compositor y no en el hilo principal, que es donde se trababa en el celular. */
+  will-change: transform;
+  backface-visibility: hidden;
+  /* Ancho relativo al relleno: en una barra corta la ola se angosta con ella y
+     sigue leyéndose como un destello y no como un bloque blanco. */
+  width: 32%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.15) 35%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(255, 255, 255, 0.15) 65%,
+    transparent 100%
+  );
+  animation: ola-progreso-correr 2.1s linear infinite;
+}
+@keyframes ola-progreso-correr {
+  /* -100% a 412% de su PROPIO ancho (32% del relleno) = de -32% a 132% del
+     relleno: entra por la izquierda y sale entera por la derecha. */
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(412%);
+  }
+}
+/* El usuario ya dijo una vez que el pulso del botón de descanso "mareaba": si
+   el sistema pide menos movimiento, la barra se queda quieta y llena. */
+@media (prefers-reduced-motion: reduce) {
+  .ola-progreso {
+    display: none;
+  }
 }
 
 .indicador-siguiente-ejercicio {

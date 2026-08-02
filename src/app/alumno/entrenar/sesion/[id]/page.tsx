@@ -52,34 +52,56 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
     // 28 px de scroll. Lo que se busca es que el ejercicio en curso y la
     // cabecera del siguiente entren juntos en una pantalla.
     <div className="space-y-3 pb-8">
-      <VolverAEntrenar
-        titulo={`${sesion.numeroCalendario ? `#${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
-      />
-      <div className="flex items-center gap-2">
-        <Pill tone={estadoInfo.tone}>{estadoInfo.texto}</Pill>
-        {!esDescanso && (
-          <Pill tone="neutral">
-            {completados} de {total} ejercicios
-          </Pill>
+      {/* Título, estado y avance quedan clavados arriba y los ejercicios pasan
+          por debajo al hacer scroll (igual que la cabecera de Nutrición): con
+          siete ejercicios, a mitad de sesión ya no se veía en qué día se está
+          ni cuánto falta sin volver hasta arriba.
+          El `-mx-4 px-4` es para que el fondo tape de borde a borde — el padding
+          lateral lo pone el layout, y sin esto se veían las tarjetas colándose
+          por los costados. */}
+      <div className="sticky top-[var(--alto-cabecera-alumno)] z-20 -mx-4 space-y-2 bg-bg px-4 pb-2 pt-1">
+        <VolverAEntrenar
+          titulo={`${sesion.numeroCalendario ? `SESIÓN ${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
+        />
+        <div className="flex items-center gap-2">
+          <Pill tone={estadoInfo.tone}>{estadoInfo.texto}</Pill>
+          {!esDescanso && (
+            <Pill tone="neutral">
+              {completados} de {total} ejercicios
+            </Pill>
+          )}
+        </div>
+
+        {/* Barra de avance del día. Las pastillas de arriba ya dicen "2 de 7",
+            pero hay que leerlas; la barra se entiende de una mirada, con el
+            celular apoyado y a medio ejercicio. El porcentaje va sobre la barra
+            misma para no gastar un renglón entero de cabecera fija. */}
+        {!esDescanso && total > 0 && (
+          <div className="flex items-center gap-2">
+            {/* h-3 y no h-1.5: es el único indicador de avance de toda la
+                sesión y a 6 px la ola de luz apenas se veía. */}
+            <div className="h-3 flex-1 overflow-hidden rounded-full bg-surface-2">
+              <div
+                className="barra-progreso-relleno h-full rounded-full bg-vip transition-[width] duration-500 ease-out"
+                style={{ width: `${Math.round((completados / total) * 100)}%` }}
+              >
+                {/* Tres olas, cada una arrancando un tercio de ciclo después
+                    que la anterior (ver .ola-progreso en globals.css). */}
+                {[0, 1, 2].map((indice) => (
+                  <span
+                    key={indice}
+                    className="ola-progreso"
+                    style={{ animationDelay: `${indice * 0.7}s` }}
+                  />
+                ))}
+              </div>
+            </div>
+            <p className="text-micro shrink-0 text-text-tertiary">
+              {Math.round((completados / total) * 100)}%
+            </p>
+          </div>
         )}
       </div>
-
-      {/* Barra de avance del día. Las pastillas de arriba ya dicen "2 de 7",
-          pero hay que leerlas; la barra se entiende de una mirada, con el
-          celular apoyado y a medio ejercicio. */}
-      {!esDescanso && total > 0 && (
-        <div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
-            <div
-              className="h-full rounded-full bg-vip transition-[width] duration-500 ease-out"
-              style={{ width: `${Math.round((completados / total) * 100)}%` }}
-            />
-          </div>
-          <p className="text-caption mt-1 text-text-tertiary">
-            {Math.round((completados / total) * 100)}% completado
-          </p>
-        </div>
-      )}
 
       {esDescanso ? (
         <Card>

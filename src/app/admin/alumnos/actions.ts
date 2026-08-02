@@ -350,8 +350,16 @@ export async function entrarComoAlumno(formData: FormData): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_VISTA_ALUMNO, alumnoId, {
     httpOnly: true,
-    maxAge: 60 * 60 * 2,
+    maxAge: 60 * 60 * 8,
     path: "/",
+    // `sameSite` y `secure` explícitos: sin declararlos, el navegador aplica su
+    // propio criterio y no todos coinciden. Chrome de Android es el más
+    // estricto con las cookies sin atributos y era el único que la descartaba,
+    // por eso el problema no se veía en iPhone. Al perderse la cookie,
+    // `requireAlumno` deja de reconocer la vista de alumno y manda al panel del
+    // entrenador — el "me tira a mi perfil de alumnos" de mitad de sesión.
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
   });
 
   redirect("/alumno/inicio");

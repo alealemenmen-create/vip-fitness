@@ -31,6 +31,7 @@ export function Button({
   type = "button",
   className = "",
   onClick,
+  onPointerDown,
 }: {
   children: React.ReactNode;
   variant?: ButtonVariant;
@@ -40,11 +41,16 @@ export function Button({
   type?: "button" | "submit";
   className?: string;
   onClick?: () => void;
+  /** Para botones que se tocan con el teclado del celular abierto: ahí el
+   * `click` puede perderse (ver HojaAgregarComida). Con esto la acción se
+   * dispara al apoyar el dedo, antes de que el teclado se cierre y mueva todo. */
+  onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
       type={type}
       onClick={onClick}
+      onPointerDown={onPointerDown}
       disabled={disabled || loading}
       className={`radius-control flex items-center justify-center gap-2 font-medium transition-all duration-200 ease-in-out active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100 ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
     >

@@ -3,6 +3,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAlumno } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { buscarAlimentos } from "./data";
 import { etiquetaDeHora, type AlimentoCatalogo } from "./tipos";
@@ -57,12 +58,32 @@ async function obtenerOComida(
 
 export type ComerActionState = { error: string | null };
 
-async function usuarioActual(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Sesión expirada.");
-  return user.id;
+/** Lo que se devuelve cuando el entrenador está mirando la cuenta de un alumno:
+ * ahí no se puede escribir, y hay que decirlo en vez de guardar en el lugar
+ * equivocado. */
+const ERROR_SOLO_LECTURA =
+  "Estás viendo la cuenta de un alumno en modo lectura. Sal de esa vista para cargar comidas.";
+
+/**
+ * De quién es el diario que se está por tocar.
+ *
+ * Antes esto era `auth.getUser().id` a secas, y ahí estaba el problema: cuando
+ * un entrenador entra en "ver como alumno", el usuario autenticado sigue siendo
+ * EL ENTRENADOR. Así que agregar un alimento desde esa vista lo guardaba en el
+ * diario del propio entrenador, no en el del alumno que se veía en pantalla.
+ * En el celular se veía como que a veces cargaba y a veces no: la lista
+ * optimista mostraba el alimento, y al refrescar la pantalla volvía a leer el
+ * diario DEL ALUMNO, donde nunca se había escrito nada, y desaparecía.
+ *
+ * `requireAlumno()` es la única fuente de verdad sobre de quién es la pantalla,
+ * y además dice si la vista es de solo lectura.
+ */
+async function alumnoDelDiario(): Promise<
+  { ok: true; alumnoId: string } | { ok: false; error: string }
+> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return { ok: false, error: ERROR_SOLO_LECTURA };
+  return { ok: true, alumnoId };
 }
 
 export async function agregarAlimentoAComida(
@@ -72,14 +93,20 @@ export async function agregarAlimentoAComida(
   cantidad: number,
   unidad: string
 ): Promise<ComerActionState> {
+  // Fuera del try a propósito: si la sesión venció, `requireAlumno` dispara un
+  // redirect, y en Next eso viaja como excepción. Atraparlo acá lo convertiría
+  // en un "no fue posible guardar" y el alumno quedaría trabado en una pantalla
+  // muerta en vez de ir al login.
+  const quien = await alumnoDelDiario();
+  if (!quien.ok) return { error: quien.error };
+
   try {
     const supabase = await createClient();
-    const alumnoId = await usuarioActual(supabase);
     if (!Number.isFinite(cantidad) || cantidad <= 0) {
       return { error: "Ingresa una cantidad válida." };
     }
 
-    const registroId = await obtenerORegistroDiario(supabase, alumnoId, fecha);
+    const registroId = await obtenerORegistroDiario(supabase, quien.alumnoId, fecha);
     const comidaId = await obtenerOComida(supabase, registroId, tipoComida);
 
     const { error } = await supabase
@@ -113,9 +140,12 @@ export async function agregarAlimentoAHora(
 
 /** Borra una comida entera (y sus alimentos, por la cascada de la FK). */
 export async function eliminarComida(comidaId: string, fecha: string): Promise<ComerActionState> {
+  // Fuera del try por el redirect de sesión vencida — ver `agregarAlimentoAComida`.
+  const quien = await alumnoDelDiario();
+  if (!quien.ok) return { error: quien.error };
+
   try {
     const supabase = await createClient();
-    await usuarioActual(supabase);
     // RLS ya limita el borrado a las comidas del propio alumno.
     const { error } = await supabase.from("comidas_registradas").delete().eq("id", comidaId);
     if (error) return { error: "No fue posible eliminar la comida." };
@@ -156,9 +186,14 @@ export async function crearAlimentoPersonalizado(
   datos: AlimentoPersonalizado
 ): Promise<{ error: string | null; alimento: AlimentoCatalogo | null }> {
   const fallo = (error: string) => ({ error, alimento: null });
+
+  // Fuera del try por el redirect de sesión vencida — ver `agregarAlimentoAComida`.
+  const quien = await alumnoDelDiario();
+  if (!quien.ok) return fallo(quien.error);
+  const alumnoId = quien.alumnoId;
+
   try {
     const supabase = await createClient();
-    const alumnoId = await usuarioActual(supabase);
 
     const nombre = datos.nombre.trim();
     if (nombre.length < 2) return fallo("Ponle un nombre al alimento.");
@@ -260,8 +295,9 @@ export async function marcarComidaOmitida(
   omitida: boolean
 ): Promise<void> {
   const supabase = await createClient();
-  const alumnoId = await usuarioActual(supabase);
-  const registroId = await obtenerORegistroDiario(supabase, alumnoId, fecha);
+  const quien = await alumnoDelDiario();
+  if (!quien.ok) return;
+  const registroId = await obtenerORegistroDiario(supabase, quien.alumnoId, fecha);
   const comidaId = await obtenerOComida(supabase, registroId, tipoComida);
 
   await supabase.from("comidas_registradas").update({ omitida }).eq("id", comidaId);
@@ -276,8 +312,9 @@ export async function actualizarObservacionComida(
   observacion: string
 ): Promise<void> {
   const supabase = await createClient();
-  const alumnoId = await usuarioActual(supabase);
-  const registroId = await obtenerORegistroDiario(supabase, alumnoId, fecha);
+  const quien = await alumnoDelDiario();
+  if (!quien.ok) return;
+  const registroId = await obtenerORegistroDiario(supabase, quien.alumnoId, fecha);
   const comidaId = await obtenerOComida(supabase, registroId, tipoComida);
 
   await supabase
@@ -292,6 +329,9 @@ export async function actualizarObservacionComida(
  * teléfono. */
 export async function buscarAlimentosAction(texto: string): Promise<AlimentoCatalogo[]> {
   const supabase = await createClient();
-  await usuarioActual(supabase);
+  // Buscar sí se permite en la vista de solo lectura: el entrenador puede
+  // querer mirar el catálogo mientras revisa la cuenta de un alumno. Lo que no
+  // se permite es escribir, y eso lo cortan las acciones de arriba.
+  await requireAlumno();
   return buscarAlimentos(supabase, texto);
 }

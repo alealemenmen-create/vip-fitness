@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es-CL">
+  <head>
+    <meta charset="utf-8" />
+    <!-- A propósito SIN interactiveWidget ni maximum-scale: esta página tiene que
+         mostrar el comportamiento CRUDO del teléfono, no el que le pide la app. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Diagnóstico · VIP Fitness</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        background: #000; color: #fff; font-family: system-ui, sans-serif;
+        padding: 16px; padding-bottom: 40px; font-size: 14px; line-height: 1.4;
+      }
+      h1 { font-size: 18px; color: #ffa100; margin-bottom: 4px; }
+      p.sub { color: #6f7682; font-size: 12px; margin-bottom: 16px; }
+      h2 { font-size: 13px; color: #ffa100; margin: 18px 0 6px; text-transform: uppercase; letter-spacing: .04em; }
+      table { width: 100%; border-collapse: collapse; }
+      td { padding: 5px 0; border-bottom: 1px solid #262930; vertical-align: top; }
+      td.k { color: #a1a7b3; width: 47%; padding-right: 8px; }
+      td.v { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-word; }
+      .ok { color: #22c55e; } .mal { color: #ff4d4f; } .aviso { color: #f5b301; }
+      input, button {
+        font-size: 16px; width: 100%; padding: 12px; border-radius: 12px;
+        border: 1px solid #262930; background: #1a1c20; color: #fff; margin-top: 8px;
+      }
+      button { background: #ffa100; color: #000; font-weight: 700; border: 0; }
+      #log { font-family: ui-monospace, monospace; font-size: 11px; color: #a1a7b3;
+             max-height: 190px; overflow-y: auto; margin-top: 8px; white-space: pre; }
+      #estado { color: #22c55e; font-size: 13px; margin-top: 8px; }
+      /* Oculto hasta que se toca el botón: es la red de seguridad para cuando
+         no hay portapapeles, no algo que haya que leer de entrada. */
+      /* Ancho completo y con corte de línea: el `white-space: pre` del registro
+         de arriba acá obligaría a arrastrar de lado para leerlo en el celular. */
+      #informe { display: none; width: 100%; padding: 12px; border-radius: 12px;
+                 border: 1px solid #262930; background: #1a1c20; color: #fff;
+                 font-family: ui-monospace, monospace; font-size: 11px;
+                 margin-top: 8px; white-space: pre-wrap; word-break: break-word; }
+      /* Testigo del inflado de texto: 16 px exactos, sin nada que lo altere. */
+      #regla { font-size: 16px; line-height: 1; position: absolute; visibility: hidden; }
+    </style>
+  </head>
+  <body>
+    <h1>Diagnóstico VIP Fitness</h1>
+    <p class="sub">Abrí esta página en el MISMO navegador donde usás la app y mandale la captura a tu entrenador.</p>
+    <span id="regla">Hg</span>
+
+    <h2>Lo que más importa</h2>
+    <table id="clave"></table>
+
+    <h2>Pantalla</h2>
+    <table id="pantalla"></table>
+
+    <h2>Prueba del teclado</h2>
+    <p class="sub" style="margin:6px 0">Tocá el campo, escribí algo y mirá el registro. Después cerrá el teclado.</p>
+    <input id="campo" placeholder="Tocá acá para abrir el teclado" />
+    <div id="log">(sin eventos todavía)</div>
+
+    <button id="copiar">Copiar todo el informe</button>
+    <p id="estado"></p>
+    <textarea id="informe" readonly rows="12"></textarea>
+
+    <script>
+      var $ = function (id) { return document.getElementById(id); };
+
+      function fila(tabla, clave, valor, clase) {
+        var tr = tabla.insertRow();
+        tr.insertCell().outerHTML = '<td class="k">' + clave + "</td>";
+        tr.insertCell().outerHTML = '<td class="v ' + (clase || "") + '">' + valor + "</td>";
+      }
+
+      function leerLocal(k) {
+        try { var v = localStorage.getItem(k); return v === null ? "(no configurado)" : v; }
+        catch (e) { return "(sin acceso)"; }
+      }
+
+      /* Inflado de texto: se declaran 16 px y se mide lo que el navegador pinta
+         DE VERDAD. Android Chrome agranda la letra por dos vías (el ajuste
+         "Tamaño de texto" del navegador y el del sistema) y ninguna se ve en
+         getComputedStyle en todas las versiones, por eso se mide la caja. */
+      var altoReal = $("regla").getBoundingClientRect().height;
+      var inflado = altoReal / 16;
+      var fsCalculado = getComputedStyle($("regla")).fontSize;
+
+      var escalaApp = leerLocal("vip-escala-texto");
+
+      var t = $("clave");
+      fila(t, "Escala de texto DE LA APP<br><span style='color:#6f7682;font-size:11px'>(engranaje &rsaquo; tamaño de texto)</span>",
+        escalaApp,
+        escalaApp !== "(no configurado)" && parseFloat(escalaApp) > 1 ? "mal" : "ok");
+      fila(t, "Inflado de letra del navegador",
+        inflado.toFixed(2) + "&times;" + (inflado > 1.02 ? " (agranda)" : " (normal)"),
+        inflado > 1.02 ? "mal" : "ok");
+      fila(t, "16px declarados se pintan como", altoReal.toFixed(1) + " px");
+      fila(t, "font-size calculado", fsCalculado);
+      fila(t, "Tema guardado", leerLocal("vip-theme"));
+      fila(t, "Tema de botón", leerLocal("vip-tema-boton"));
+
+      var p = $("pantalla");
+      fila(p, "Navegador", navigator.userAgent);
+      fila(p, "Pixel ratio", String(window.devicePixelRatio));
+      fila(p, "screen", screen.width + " &times; " + screen.height);
+      fila(p, "window.inner", window.innerWidth + " &times; " + window.innerHeight);
+      fila(p, "documentElement.client",
+        document.documentElement.clientWidth + " &times; " + document.documentElement.clientHeight);
+      var vv = window.visualViewport;
+      fila(p, "visualViewport", vv ? Math.round(vv.width) + " &times; " + Math.round(vv.height) : "(no existe)",
+        vv ? "" : "mal");
+      fila(p, "visualViewport.scale", vv ? String(vv.scale) : "—");
+      var pruebaSafe = document.createElement("div");
+      pruebaSafe.style.paddingBottom = "env(safe-area-inset-bottom, 0px)";
+      document.body.appendChild(pruebaSafe);
+      fila(p, "safe-area-inset-bottom", getComputedStyle(pruebaSafe).paddingBottom);
+      pruebaSafe.remove();
+      fila(p, "Movimiento reducido",
+        String(matchMedia("(prefers-reduced-motion: reduce)").matches));
+
+      /* El registro del teclado responde LA pregunta de fondo: ¿este teléfono
+         achica el viewport de layout (window.innerHeight cambia y salta
+         `resize`) o solo el visual, como iOS? De eso depende si todo lo
+         `fixed` se mueve solo al abrir el teclado. */
+      var alturaInicial = window.innerHeight;
+      var lineas = [];
+      function anotar(evento) {
+        var innerCambio = window.innerHeight !== alturaInicial;
+        lineas.push(
+          evento.padEnd(9) +
+            " inner=" + window.innerHeight +
+            (innerCambio ? "*" : " ") +
+            " vv=" + (vv ? Math.round(vv.height) : "—") +
+            " top=" + (vv ? Math.round(vv.offsetTop) : "—")
+        );
+        if (lineas.length > 60) lineas.shift();
+        $("log").textContent = lineas.join("\n");
+        $("log").scrollTop = $("log").scrollHeight;
+      }
+      window.addEventListener("resize", function () { anotar("resize"); });
+      if (vv) {
+        vv.addEventListener("resize", function () { anotar("vv-size"); });
+        vv.addEventListener("scroll", function () { anotar("vv-scroll"); });
+      }
+      $("campo").addEventListener("focus", function () { anotar("foco"); });
+      $("campo").addEventListener("blur", function () { anotar("sin-foco"); });
+
+      /*
+        Copiar al portapapeles NO se puede dar por hecho: `navigator.clipboard`
+        solo existe en HTTPS o en localhost, y los alumnos entran por la IP de
+        la red local en HTTP común, donde ni siquiera está definido.
+        Por eso el informe SIEMPRE termina en un cuadro de texto seleccionado:
+        aunque no haya portapapeles, alcanza con mantener apretado y "Copiar",
+        o mandar una captura de ese cuadro.
+      */
+      $("copiar").addEventListener("click", function () {
+        var texto = $("informe").value =
+          document.body.innerText + "\n\nREGISTRO:\n" + lineas.join("\n");
+        var caja = $("informe");
+        caja.style.display = "block";
+        caja.focus();
+        caja.setSelectionRange(0, texto.length);
+
+        var aviso = function (t) { $("estado").textContent = t; };
+
+        // execCommand está obsoleto pero es el único que anda sin HTTPS.
+        try {
+          if (document.execCommand("copy")) {
+            aviso("Copiado ✓ — pegalo en WhatsApp.");
+            return;
+          }
+        } catch (e) {}
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(texto).then(
+            function () { aviso("Copiado ✓ — pegalo en WhatsApp."); },
+            function () { aviso("Mantené apretado el texto de abajo y elegí Copiar."); }
+          );
+          return;
+        }
+
+        aviso("Mantené apretado el texto de abajo y elegí Copiar.");
+      });
+    </script>
+  </body>
+</html>
