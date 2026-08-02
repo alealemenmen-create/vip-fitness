@@ -19,7 +19,13 @@ function formatFecha(iso: string): string {
   });
 }
 
-export function AnunciosManager({ anuncios }: { anuncios: Anuncio[] }) {
+export function AnunciosManager({
+  anuncios,
+  borradorIA,
+}: {
+  anuncios: Anuncio[];
+  borradorIA?: { titulo: string; mensaje: string } | null;
+}) {
   const [state, formAction, pending] = useActionState(crearAnuncio, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -33,11 +39,18 @@ export function AnunciosManager({ anuncios }: { anuncios: Anuncio[] }) {
         <p className="text-card-title mb-3 flex items-center gap-2 text-text">
           <Megaphone size={18} className="text-vip" /> Publicar anuncio
         </p>
+        {borradorIA && (
+          <div className="mb-3 rounded-xl border border-vip/30 bg-vip/10 p-3">
+            <p className="text-caption font-semibold text-vip">BORRADOR DEL ASISTENTE VIP</p>
+            <p className="text-caption mt-1 text-text-secondary">Revísalo antes de publicarlo para todos los alumnos.</p>
+          </div>
+        )}
         <form ref={formRef} action={formAction} className="space-y-3">
-          <Input name="titulo" type="text" placeholder="Título del anuncio" required />
+          <Input name="titulo" type="text" defaultValue={borradorIA?.titulo} placeholder="Título del anuncio" required />
           <Textarea
             name="mensaje"
             rows={3}
+            defaultValue={borradorIA?.mensaje}
             placeholder="Novedades del gimnasio (horarios, mantención, eventos…)"
             required
           />

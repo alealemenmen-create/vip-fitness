@@ -6,7 +6,7 @@ import { LogoutButton } from "@/components/LogoutButton";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AdminTabs } from "@/components/admin/AdminTabs";
-import { Dumbbell } from "lucide-react";
+import { Bot, Dumbbell } from "lucide-react";
 import { nombrePublicado } from "@/lib/nombre";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -49,23 +49,31 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
 
-        {miAlumnoPerfil ? (
+        <div className="mb-6 grid grid-cols-2 gap-2">
           <Link
-            href="/alumno/inicio"
-            className="radius-control mb-3 flex items-center justify-center gap-1.5 border border-border py-1.5 text-caption font-medium text-vip"
+            href="/admin/asistente"
+            className="btn-accion radius-control flex items-center justify-center gap-2 px-3 py-3 text-secondary font-semibold"
           >
-            <Dumbbell size={12} /> Mi entrenamiento
+            <Bot size={17} /> Asistente VIP
           </Link>
-        ) : (
-          <form action={crearMiPerfilAlumno} className="mb-3">
-            <button
-              type="submit"
-              className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-border py-1.5 text-caption text-text-tertiary"
+          {miAlumnoPerfil ? (
+            <Link
+              href="/alumno/inicio"
+              className="radius-control flex items-center justify-center gap-2 border border-border px-3 py-3 text-secondary font-medium text-vip"
             >
-              <Dumbbell size={12} /> Activar mi perfil de alumno
-            </button>
-          </form>
-        )}
+              <Dumbbell size={16} /> Mi entrenamiento
+            </Link>
+          ) : (
+            <form action={crearMiPerfilAlumno}>
+              <button
+                type="submit"
+                className="radius-control flex h-full w-full items-center justify-center gap-2 border border-dashed border-border px-2 py-3 text-caption text-text-tertiary"
+              >
+                <Dumbbell size={16} /> Activar alumno
+              </button>
+            </form>
+          )}
+        </div>
 
         {children}
 

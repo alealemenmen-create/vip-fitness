@@ -13,10 +13,12 @@ function ListaLado({
   titulo,
   name,
   alumnos,
+  seleccionado,
 }: {
   titulo: string;
   name: string;
   alumnos: { id: string; nombre: string }[];
+  seleccionado?: string;
 }) {
   return (
     <div>
@@ -27,7 +29,7 @@ function ListaLado({
         ) : (
           alumnos.map((a) => (
             <label key={a.id} className="flex items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-caption text-text">
-              <input type="checkbox" name={name} value={a.id} className="h-3.5 w-3.5 shrink-0" />
+              <input type="checkbox" name={name} value={a.id} defaultChecked={a.id === seleccionado} className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{a.nombre}</span>
             </label>
           ))
@@ -37,10 +39,29 @@ function ListaLado({
   );
 }
 
-export function CrearTorneoForm({ alumnos }: { alumnos: { id: string; nombre: string }[] }) {
-  const [abierto, setAbierto] = useState(false);
-  const [modalidad, setModalidad] = useState("duelo");
-  const [metrica, setMetrica] = useState("asistencia");
+export type BorradorRetoIA = {
+  nombre: string;
+  descripcion: string;
+  regla: string;
+  modalidad: string;
+  metrica: string;
+  puntos: number;
+  ladoA: string;
+  ladoB: string;
+  fechaInicio: string;
+  fechaFin: string;
+};
+
+export function CrearTorneoForm({
+  alumnos,
+  borradorIA,
+}: {
+  alumnos: { id: string; nombre: string }[];
+  borradorIA?: BorradorRetoIA | null;
+}) {
+  const [abierto, setAbierto] = useState(Boolean(borradorIA));
+  const [modalidad, setModalidad] = useState(borradorIA?.modalidad ?? "duelo");
+  const [metrica, setMetrica] = useState(borradorIA?.metrica ?? "asistencia");
   const [state, formAction, pending] = useActionState(crearTorneo, initialState);
 
   return (
@@ -51,6 +72,14 @@ export function CrearTorneoForm({ alumnos }: { alumnos: { id: string; nombre: st
 
       {abierto && (
         <Card>
+          {borradorIA && !state.ok && (
+            <div className="mb-4 rounded-xl border border-vip/30 bg-vip/10 p-3">
+              <p className="text-caption font-semibold text-vip">BORRADOR DEL ASISTENTE VIP</p>
+              <p className="text-caption mt-1 text-text-secondary">
+                Revisa participantes, fechas, regla y premio. La IA no puede publicarlo por ti.
+              </p>
+            </div>
+          )}
           {state.ok ? (
             <div className="space-y-2 text-center">
               <p className="text-body text-text">
@@ -81,12 +110,12 @@ export function CrearTorneoForm({ alumnos }: { alumnos: { id: string; nombre: st
               </div>
               <div>
                 <label className="text-caption mb-1.5 block text-text-tertiary">NOMBRE DE LA COMPETENCIA</label>
-                <Input name="nombre" required placeholder="Ej: Reto de sentadillas de agosto" />
+                <Input name="nombre" required defaultValue={borradorIA?.nombre} placeholder="Ej: Reto de sentadillas de agosto" />
               </div>
 
               <div>
                 <label className="text-caption mb-1.5 block text-text-tertiary">DESCRIPCIÓN (opcional)</label>
-                <Textarea name="descripcion" rows={2} placeholder="Reglas, premio, contexto…" />
+                <Textarea name="descripcion" rows={2} defaultValue={borradorIA?.descripcion} placeholder="Reglas, premio, contexto…" />
               </div>
 
               <div>
@@ -95,6 +124,7 @@ export function CrearTorneoForm({ alumnos }: { alumnos: { id: string; nombre: st
                   name="regla_publica"
                   rows={3}
                   required
+                  defaultValue={borradorIA?.regla}
                   placeholder="Ej: Gana quien complete el mayor porcentaje de su rutina entre el lunes y el domingo."
                 />
                 <p className="text-caption mt-1 text-text-tertiary">
@@ -133,7 +163,7 @@ export function CrearTorneoForm({ alumnos }: { alumnos: { id: string; nombre: st
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-caption mb-1.5 block text-text-tertiary">DESDE</label>
-                  <Input name="fecha_inicio" type="date" required />
+                  <Input name="fecha_inicio" type="date" defaultValue={borradorIA?.fechaInicio} required />
                 </div>
                 <div>
                   <label className="text-caption mb-1.5 block text-text-tertiary">HORA (opcional)</label>
@@ -143,7 +173,7 @@ export function CrearTorneoForm({ alumnos }: { alumnos: { id: string; nombre: st
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-caption mb-1.5 block text-text-tertiary">HASTA</label>
-                  <Input name="fecha_fin" type="date" required />
+                  <Input name="fecha_fin" type="date" defaultValue={borradorIA?.fechaFin} required />
                 </div>
                 <div>
                   <label className="text-caption mb-1.5 block text-text-tertiary">HORA (opcional)</label>
@@ -159,7 +189,7 @@ export function CrearTorneoForm({ alumnos }: { alumnos: { id: string; nombre: st
                   type="number"
                   min={modalidad === "duelo" ? 300 : modalidad === "reto_coach" ? 500 : 1000}
                   max={modalidad === "duelo" ? 1000 : modalidad === "reto_coach" ? 3000 : 5000}
-                  defaultValue={modalidad === "duelo" ? 500 : modalidad === "reto_coach" ? 1000 : 2500}
+                  defaultValue={borradorIA?.puntos ?? (modalidad === "duelo" ? 500 : modalidad === "reto_coach" ? 1000 : 2500)}
                   required
                 />
                 <p className="text-caption mt-1 text-text-tertiary">
@@ -176,8 +206,8 @@ export function CrearTorneoForm({ alumnos }: { alumnos: { id: string; nombre: st
                   competir de verdad.{modalidad === "duelo" ? " Elige exactamente una persona en cada lado." : ""}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  <ListaLado titulo="LADO A" name="lado_a" alumnos={alumnos} />
-                  <ListaLado titulo="CONTRINCANTE" name="lado_b" alumnos={alumnos} />
+                  <ListaLado titulo="LADO A" name="lado_a" alumnos={alumnos} seleccionado={borradorIA?.ladoA} />
+                  <ListaLado titulo="CONTRINCANTE" name="lado_b" alumnos={alumnos} seleccionado={borradorIA?.ladoB} />
                 </div>
               </div>
 
