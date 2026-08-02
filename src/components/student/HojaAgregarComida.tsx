@@ -307,6 +307,38 @@ function Contenido({
     accion();
   };
 
+  /**
+   * Toque vs. scroll en la lista de resultados.
+   *
+   * Antes cada fila elegía el alimento en `onPointerDown` (para que un solo
+   * toque bastara incluso con el teclado abierto — ver el comentario que
+   * tenían "Confirmar" y "Sumar y buscar otro"). Con la lista más larga
+   * ahora (Open Food Facts se suma abajo del catálogo local) eso rompía el
+   * scroll: `preventDefault` en el toque inicial le impedía al navegador
+   * reconocer que el dedo se estaba arrastrando para bajar, y cualquier
+   * intento de scroll que arrancara sobre una fila elegía esa fila al
+   * instante.
+   *
+   * Acá se mide la distancia entre dónde bajó el dedo y dónde se levantó:
+   * si se movió más que `UMBRAL_SCROLL_PX`, fue un scroll y no se elige
+   * nada. `onPointerUp` no bloquea el scroll (ya terminó para cuando este
+   * evento llega), así que el arrastre funciona normal, y sigue
+   * disparándose con un solo toque porque no depende del `click` sintético
+   * que a veces se pierde.
+   */
+  const UMBRAL_SCROLL_PX = 10;
+  const inicioToque = useRef<{ x: number; y: number } | null>(null);
+  const alBajarElDedo = (e: React.PointerEvent) => {
+    inicioToque.current = { x: e.clientX, y: e.clientY };
+  };
+  /** false si el dedo se movió más que el umbral entre bajar y levantar: fue un scroll, no un toque. */
+  const fueUnToque = (e: React.PointerEvent) => {
+    const inicio = inicioToque.current;
+    inicioToque.current = null;
+    if (!inicio) return false;
+    return Math.hypot(e.clientX - inicio.x, e.clientY - inicio.y) <= UMBRAL_SCROLL_PX;
+  };
+
   /** Pedido de volver el cursor al buscador, pendiente de que exista. */
   const volverAlBuscador = useRef(false);
 
@@ -486,17 +518,11 @@ function Contenido({
             <button
               key={r.id}
               type="button"
-              /**
-               * Va en onPointerDown y no solo en onClick: en el celular el
-               * campo tiene el foco con el teclado abierto, y el primer toque
-               * solo lo cerraba — el clic se perdía y el alimento no se
-               * seleccionaba nunca. preventDefault evita ese blur.
-               */
-              onPointerDown={(e) => {
-                e.preventDefault();
-                elegirAlimento(r);
+              onPointerDown={alBajarElDedo}
+              onPointerUp={(e) => {
+                if (fueUnToque(e)) unaSolaVez(() => elegirAlimento(r));
               }}
-              onClick={() => elegirAlimento(r)}
+              onClick={() => unaSolaVez(() => elegirAlimento(r))}
               className="radius-control flex min-h-[44px] w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2"
             >
               <span className="text-secondary min-w-0 flex-1 truncate text-text">{r.nombre}</span>
@@ -522,11 +548,11 @@ function Contenido({
               key={p.offId}
               type="button"
               disabled={importandoOffId !== null}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                elegirOFF(p);
+              onPointerDown={alBajarElDedo}
+              onPointerUp={(e) => {
+                if (fueUnToque(e)) unaSolaVez(() => elegirOFF(p));
               }}
-              onClick={() => elegirOFF(p)}
+              onClick={() => unaSolaVez(() => elegirOFF(p))}
               className="radius-control flex min-h-[44px] w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2 disabled:opacity-60"
             >
               {p.imagenUrl ? (
