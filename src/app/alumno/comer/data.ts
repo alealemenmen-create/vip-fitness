@@ -76,10 +76,11 @@ export async function obtenerDocumentoDieta(
 }
 
 const COLUMNAS_ALIMENTO =
-  "id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos";
+  "id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos, fibra, azucares, sodio";
 
-// Sin las columnas de la migración 0013, por si todavía no se corrió en la
-// base (ya pasó con 0009 y 0010: el código iba adelantado al esquema).
+// Sin las columnas de la migración 0013 (medida) y 0033 (micronutrientes),
+// por si todavía no se corrieron en la base (ya pasó con 0009 y 0010: el
+// código iba adelantado al esquema).
 const COLUMNAS_ALIMENTO_BASICAS =
   "id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa";
 
@@ -95,6 +96,9 @@ type FilaAlimento = {
   grasa: number;
   medida_nombre?: string | null;
   medida_gramos?: number | null;
+  fibra?: number | null;
+  azucares?: number | null;
+  sodio?: number | null;
 };
 
 function aCatalogo(a: FilaAlimento): AlimentoCatalogo {
@@ -110,6 +114,9 @@ function aCatalogo(a: FilaAlimento): AlimentoCatalogo {
     grasa: a.grasa,
     medidaNombre: a.medida_nombre ?? null,
     medidaGramos: a.medida_gramos ?? null,
+    fibra: a.fibra ?? null,
+    azucares: a.azucares ?? null,
+    sodio: a.sodio ?? null,
   };
 }
 

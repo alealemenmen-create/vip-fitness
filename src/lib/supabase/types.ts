@@ -600,6 +600,10 @@ export interface Database {
           off_id: string | null;
           marca: string | null;
           imagen_url: string | null;
+          // 0033_alimentos_micronutrientes.sql
+          fibra: number | null;
+          azucares: number | null;
+          sodio: number | null;
         };
         Insert: {
           nombre: string;
@@ -619,6 +623,9 @@ export interface Database {
           off_id?: string | null;
           marca?: string | null;
           imagen_url?: string | null;
+          fibra?: number | null;
+          azucares?: number | null;
+          sodio?: number | null;
         };
         Update: Partial<Database["public"]["Tables"]["alimentos"]["Insert"]>;
         Relationships: [];

@@ -181,7 +181,8 @@ export async function eliminarComida(comidaId: string, fecha: string): Promise<C
   }
 }
 
-/** Snake_case de una fila de `alimentos` (con medida) al tipo de dominio. */
+/** Snake_case de una fila de `alimentos` (con medida y micronutrientes) al
+ * tipo de dominio. */
 function filaACatalogo(a: {
   id: string;
   nombre: string;
@@ -194,6 +195,9 @@ function filaACatalogo(a: {
   grasa: number;
   medida_nombre?: string | null;
   medida_gramos?: number | null;
+  fibra?: number | null;
+  azucares?: number | null;
+  sodio?: number | null;
 }): AlimentoCatalogo {
   return {
     id: a.id,
@@ -207,11 +211,14 @@ function filaACatalogo(a: {
     grasa: a.grasa,
     medidaNombre: a.medida_nombre ?? null,
     medidaGramos: a.medida_gramos ?? null,
+    fibra: a.fibra ?? null,
+    azucares: a.azucares ?? null,
+    sodio: a.sodio ?? null,
   };
 }
 
 const COLUMNAS_ALIMENTO =
-  "id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos";
+  "id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos, fibra, azucares, sodio";
 
 export type ProductoOFFInput = {
   offId: string;
@@ -221,6 +228,9 @@ export type ProductoOFFInput = {
   prot: number;
   carb: number;
   grasa: number;
+  fibra: number | null;
+  azucares: number | null;
+  sodio: number | null;
   medidaNombre: string | null;
   medidaGramos: number | null;
   imagenUrl: string | null;
@@ -282,6 +292,9 @@ export async function importarAlimentoOFF(
         prot: producto.prot,
         carb: producto.carb,
         grasa: producto.grasa,
+        fibra: producto.fibra,
+        azucares: producto.azucares,
+        sodio: producto.sodio,
         marca: producto.marca,
         off_id: producto.offId,
         imagen_url: producto.imagenUrl,
@@ -420,6 +433,9 @@ export async function crearAlimentoPersonalizado(
         grasa: data.grasa,
         medidaNombre: null,
         medidaGramos: null,
+        fibra: null,
+        azucares: null,
+        sodio: null,
       },
     };
   } catch {

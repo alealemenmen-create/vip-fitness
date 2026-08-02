@@ -93,6 +93,11 @@ export type AlimentoCatalogo = {
   medidaNombre: string | null;
   /** Cuántas unidades base equivale 1 medida casera (1 cucharada = 14 g). */
   medidaGramos: number | null;
+  /** Solo lo traen los alimentos importados de Open Food Facts: el catálogo
+   * curado y los personalizados no lo piden. */
+  fibra: number | null;
+  azucares: number | null;
+  sodio: number | null;
 };
 
 /** Pocos resultados a la vista: en el celular entran sin scroll interno y se

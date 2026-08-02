@@ -212,6 +212,9 @@ export function EscanerCodigoBarras({
       prot: producto.prot,
       carb: producto.carb,
       grasa: producto.grasa,
+      fibra: producto.fibra,
+      azucares: producto.azucares,
+      sodio: producto.sodio,
       medidaNombre: producto.medidaNombre,
       medidaGramos: producto.medidaGramos,
       imagenUrl: producto.imagenUrl,
@@ -277,9 +280,32 @@ export function EscanerCodigoBarras({
                 {producto.nombre}
                 {producto.marca && <span className="text-text-tertiary"> · {producto.marca}</span>}
               </p>
-              <p className="text-caption text-text-tertiary">{Math.round(producto.kcal)} kcal / 100 g</p>
+              <p className="text-caption text-text-tertiary">por 100 g</p>
             </div>
           </div>
+
+          <div className="grid grid-cols-4 gap-2 text-center">
+            <div>
+              <p className="text-secondary text-text">{Math.round(producto.kcal)}</p>
+              <p className="text-caption text-text-tertiary">kcal</p>
+            </div>
+            <div>
+              <p className="text-secondary text-text">{Math.round(producto.prot)} g</p>
+              <p className="text-caption text-text-tertiary">Prot</p>
+            </div>
+            <div>
+              <p className="text-secondary text-text">{Math.round(producto.carb)} g</p>
+              <p className="text-caption text-text-tertiary">Carb</p>
+            </div>
+            <div>
+              <p className="text-secondary text-text">{Math.round(producto.grasa)} g</p>
+              <p className="text-caption text-text-tertiary">Grasa</p>
+            </div>
+          </div>
+          {producto.azucares !== null && (
+            <p className="text-caption text-text-tertiary">Azúcares: {Math.round(producto.azucares)} g / 100 g</p>
+          )}
+
           {errorImportar && <p className="text-caption text-error">{errorImportar}</p>}
           <div className="flex gap-2">
             <Button size="sm" className="flex-1" loading={importando} onClick={usarProducto}>

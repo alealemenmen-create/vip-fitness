@@ -186,9 +186,11 @@ function Contenido({
         error = chile.error;
       }
 
-      // Solo se abre a todo el mundo cuando ni el catálogo propio ni Chile
-      // encontraron nada — Chile filtrado ya alcanza casi siempre.
-      if (encontrados.length === 0 && combinados.length === 0) {
+      // Se abre a todo el mundo mientras falten resultados para llenar la
+      // lista, no solo cuando Chile no encontró nada: fruta fresca y otros
+      // productos sin marca casi no tienen presencia en el catálogo de OFF
+      // filtrado por Chile, así que "encontró 1" no significa "encontró todo".
+      if (encontrados.length + combinados.length < LIMITE_BUSQUEDA_ALIMENTOS) {
         const global = await buscarEnOFFAction(q, "global");
         if (!vigente) return;
         if (global.ok) {
@@ -236,6 +238,9 @@ function Contenido({
       prot: producto.prot,
       carb: producto.carb,
       grasa: producto.grasa,
+      fibra: producto.fibra,
+      azucares: producto.azucares,
+      sodio: producto.sodio,
       medidaNombre: producto.medidaNombre,
       medidaGramos: producto.medidaGramos,
       imagenUrl: producto.imagenUrl,
@@ -264,6 +269,22 @@ function Contenido({
     if (!Number.isFinite(cantidadBase) || cantidadBase <= 0) return null;
     return { alimento: seleccionado, cantidadBase };
   })();
+
+  /** Calorías y macros de la cantidad que se está por cargar, no de los
+   * 100 g/porción base — el alumno necesita ver lo que realmente va a comer. */
+  const aporte =
+    pendiente && seleccionado
+      ? (() => {
+          const factor = pendiente.cantidadBase / seleccionado.porcionBase;
+          return {
+            kcal: Math.round(seleccionado.kcal * factor),
+            prot: Math.round(seleccionado.prot * factor),
+            carb: Math.round(seleccionado.carb * factor),
+            grasa: Math.round(seleccionado.grasa * factor),
+            azucares: seleccionado.azucares !== null ? Math.round(seleccionado.azucares * factor) : null,
+          };
+        })()
+      : null;
 
   /** Lo que se guardaría si se confirmara ahora: la lista más lo que esté a
    * medio cargar. Así un alimento suelto no obliga a pasar por "Sumar a la
@@ -590,6 +611,30 @@ function Contenido({
                 </span>
               )}
             </div>
+          )}
+
+          {aporte && (
+            <div className="radius-control grid grid-cols-4 gap-2 bg-surface-2 p-2 text-center">
+              <div>
+                <p className="text-secondary text-text">{aporte.kcal}</p>
+                <p className="text-caption text-text-tertiary">kcal</p>
+              </div>
+              <div>
+                <p className="text-secondary text-text">{aporte.prot} g</p>
+                <p className="text-caption text-text-tertiary">Prot</p>
+              </div>
+              <div>
+                <p className="text-secondary text-text">{aporte.carb} g</p>
+                <p className="text-caption text-text-tertiary">Carb</p>
+              </div>
+              <div>
+                <p className="text-secondary text-text">{aporte.grasa} g</p>
+                <p className="text-caption text-text-tertiary">Grasa</p>
+              </div>
+            </div>
+          )}
+          {aporte?.azucares !== null && aporte && (
+            <p className="text-caption text-text-tertiary">Azúcares: {aporte.azucares} g</p>
           )}
 
           {/* Atajo para cargar VARIOS alimentos en la misma comida: suma este y

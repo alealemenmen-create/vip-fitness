@@ -344,6 +344,9 @@ export async function recalcularAlimento(
     grasa: data.grasa,
     medidaNombre: null,
     medidaGramos: null,
+    fibra: null,
+    azucares: null,
+    sodio: null,
   };
 
   return {
