@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Dumbbell, Flame, Target, Trophy, UtensilsCrossed, Zap } from "lucide-react";
+import { Dumbbell, Flame, Swords, Target, Trophy, UtensilsCrossed, Zap } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { BadgeRango } from "@/components/student/BadgeRango";
 import { EscalaRangos } from "@/components/student/EscalaRangos";
@@ -161,6 +161,7 @@ export function ProgresoVipCompetitivo({
           <Regla icono={<UtensilsCrossed size={15} />} titulo="Precisión del objetivo de calorías" puntos="−150 a +250" />
           <Regla icono={<Flame size={15} />} titulo="Primera entrada del día" puntos="+30/día" />
           <Regla icono={<Target size={15} />} titulo="Peso y foto semanal" puntos="hasta +175" />
+          <Regla icono={<Swords size={15} />} titulo="Premios oficiales de Arena VIP" puntos="según evento" />
         </div>
         <p className="radius-control mt-2 bg-surface-2 px-3 py-2 text-[9px] leading-relaxed text-text-tertiary">
           Nutrición al cerrar: 100% = +250 · 75% o 125% = +125 · 50% o 150% = 0 · sin registros = −150.

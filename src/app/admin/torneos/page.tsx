@@ -30,13 +30,16 @@ export default async function TorneosPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-h2 text-text">Torneos</h1>
+      <div>
+        <h1 className="text-h2 text-text">Arena <span className="text-vip">VIP</span></h1>
+        <p className="text-caption mt-1 text-text-secondary">Competencias oficiales, reglas públicas y premios aportados por VIP Fitness.</p>
+      </div>
 
       <CrearTorneoForm alumnos={alumnos} />
 
       {activos.length === 0 && cerrados.length === 0 ? (
         <Card>
-          <p className="text-body text-text-secondary">Todavía no creaste ningún torneo.</p>
+          <p className="text-body text-text-secondary">Todavía no publicaste ninguna competencia.</p>
         </Card>
       ) : (
         <>

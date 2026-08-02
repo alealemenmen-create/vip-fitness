@@ -10,7 +10,7 @@ const TABS = [
   { href: "/admin/alumnos", label: "Alumnos", icon: Users },
   { href: "/admin/documentos", label: "Docs", icon: FileText },
   { href: "/admin/alimentos", label: "Alimentos", icon: Salad },
-  { href: "/admin/torneos", label: "Torneos", icon: Trophy },
+  { href: "/admin/torneos", label: "Arena", icon: Trophy },
   { href: "/admin/noticias", label: "Noticias", icon: Megaphone },
   { href: "/admin/configuracion", label: "Config.", icon: Settings },
 ];

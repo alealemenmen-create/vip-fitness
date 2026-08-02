@@ -68,13 +68,21 @@ export async function responderInvitacionTorneo(formData: FormData): Promise<voi
   if (!torneoId || (decision !== "aceptado" && decision !== "rechazado")) return;
 
   const admin = createAdminClient();
+  const { data: torneo } = await admin
+    .from("torneos")
+    .select("cerrado, fecha_inicio")
+    .eq("id", torneoId)
+    .maybeSingle();
+  if (!torneo || torneo.cerrado || hoyISO() >= torneo.fecha_inicio) return;
   await admin
     .from("torneo_participantes")
     .update({ estado: decision })
     .eq("torneo_id", torneoId)
-    .eq("alumno_id", alumnoId);
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "pendiente");
 
   revalidatePath("/alumno/inicio");
+  revalidatePath("/alumno/ranked");
   revalidatePath("/alumno/ranked");
   revalidatePath("/admin/torneos");
 }

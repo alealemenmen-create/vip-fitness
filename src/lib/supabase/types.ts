@@ -11,7 +11,8 @@ export type EstadoSesion = "en_progreso" | "completada" | "finalizada_incompleta
 // "otro" viene de 0027: documentos que no son ni rutina ni plan de comidas.
 export type TipoDocumento = "rutina" | "alimentacion" | "otro";
 export type CategoriaFoto = "frontal" | "lateral" | "espalda" | "otra";
-export type TorneoMetrica = "peso_baja" | "peso_sube" | "asistencia" | "manual";
+export type TorneoMetrica = "peso_baja" | "peso_sube" | "asistencia" | "progreso_vip" | "manual";
+export type TorneoModalidad = "duelo" | "reto_coach" | "copa_constancia";
 export type TorneoParticipanteEstado = "pendiente" | "aceptado" | "rechazado";
 export type CategoriaReconocimiento =
   | "entrenamiento"
@@ -31,6 +32,7 @@ export type CategoriaPuntosVIP =
   | "alimentacion"
   | "progreso"
   | "constancia"
+  | "competencia"
   | "ajuste";
 export type MetadataPuntosVIP = Record<string, unknown>;
 /** Forma de cada fila del snapshot de resultados de un torneo (ver ResultadoTorneo en lib/torneos/puntos.ts). */
@@ -40,6 +42,7 @@ export type ResultadoTorneoJSON = {
   valor: number;
   puesto: number;
   puntosDelta: number;
+  valido?: boolean;
 };
 
 export interface Database {
@@ -1034,6 +1037,8 @@ export interface Database {
           nombre: string;
           descripcion: string | null;
           metrica: TorneoMetrica;
+          modalidad: TorneoModalidad;
+          regla_publica: string | null;
           menor_es_mejor: boolean;
           unidad_manual: string | null;
           fecha_inicio: string;
@@ -1051,6 +1056,8 @@ export interface Database {
           nombre: string;
           descripcion?: string | null;
           metrica: TorneoMetrica;
+          modalidad?: TorneoModalidad;
+          regla_publica?: string | null;
           menor_es_mejor?: boolean;
           unidad_manual?: string | null;
           fecha_inicio: string;

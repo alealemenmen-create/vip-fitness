@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISO, sumarDiasISO } from "@/lib/date";
 import { calcularPuntosAlimentacion, calcularPuntosEntrenamiento, PUNTOS_VIP } from "./reglas";
 
-type Categoria = "entrenamiento" | "alimentacion" | "progreso" | "constancia" | "ajuste";
+type Categoria = "entrenamiento" | "alimentacion" | "progreso" | "constancia" | "competencia" | "ajuste";
 
 type Movimiento = {
   alumnoId: string;

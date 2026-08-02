@@ -11,7 +11,7 @@ export type PeriodoRanking = "semana" | "mes" | "anio";
 
 export type MovimientoPuntos = {
   id: string;
-  categoria: "entrenamiento" | "alimentacion" | "progreso" | "constancia" | "ajuste";
+  categoria: "entrenamiento" | "alimentacion" | "progreso" | "constancia" | "competencia" | "ajuste";
   puntos: number;
   titulo: string;
   detalle: string | null;

@@ -406,7 +406,7 @@ export async function obtenerNoticias(
       fecha: fechaCreacion,
       titular: `Nuevo torneo: ${torneo.nombre}`,
       detalle:
-        `${torneo.puntos_en_juego.toLocaleString("es-CL")} puntos en juego · ` +
+        `Bolsa VIP de ${torneo.puntos_en_juego.toLocaleString("es-CL")} puntos · ` +
         `${torneo.fecha_inicio} al ${torneo.fecha_fin}` +
         (torneo.descripcion ? ` · ${torneo.descripcion}` : ""),
       alumnoNombre: "VIP Fitness",
