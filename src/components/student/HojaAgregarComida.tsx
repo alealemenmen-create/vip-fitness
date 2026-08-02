@@ -739,6 +739,17 @@ function leerArea(): AreaVisible | null {
   return { alto: Math.round(vv.height), desde: Math.round(vv.offsetTop) };
 }
 
+/**
+ * Cuánto tiene que cambiar el área para que valga la pena mover el panel.
+ *
+ * Abrir o cerrar el teclado mueve cientos de píxeles, así que este umbral no
+ * lo estorba. Lo que sí corta es el temblor al scrollear la lista: en el
+ * celular el rebote del scroll y la barra de direcciones que se esconde y
+ * reaparece avisan cambios de pocos píxeles, muchas veces por segundo, y cada
+ * uno reposicionaba el panel entero.
+ */
+const UMBRAL_AREA_PX = 24;
+
 function useAreaVisible() {
   // Se mide en el primer render y no en el efecto: midiendo después, el panel
   // se pintaba una vez del alto de la pantalla completa y recién ahí se
@@ -753,13 +764,16 @@ function useAreaVisible() {
     const medir = () => {
       const nueva = leerArea();
       if (!nueva) return;
-      // Devolver el objeto anterior cuando nada cambió corta el render: si no,
-      // cada aviso repetido del teclado vuelve a pintar el panel.
-      setArea((previa) =>
-        previa && previa.alto === nueva.alto && previa.desde === nueva.desde
-          ? previa
-          : nueva
-      );
+      // Devolver el objeto anterior cuando el cambio es menor al umbral corta
+      // el render: si no, cada aviso del teclado —o del scroll— vuelve a
+      // pintar el panel.
+      setArea((previa) => {
+        if (!previa) return nueva;
+        const quieto =
+          Math.abs(previa.alto - nueva.alto) < UMBRAL_AREA_PX &&
+          Math.abs(previa.desde - nueva.desde) < UMBRAL_AREA_PX;
+        return quieto ? previa : nueva;
+      });
     };
     medir();
     vv.addEventListener("resize", medir);
@@ -858,8 +872,14 @@ function Marco({
         </div>
         {/* `min-h-0` no es decorativo: sin él un hijo flex se niega a achicarse
             por debajo de su contenido y la lista larga vuelve a empujar el pie
-            fuera del panel en vez de scrollear. */}
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-1">
+            fuera del panel en vez de scrollear.
+
+            `overscroll-contain` frena el scroll acá dentro: sin él, al llegar
+            al final de la lista el gesto seguía de largo hacia la página de
+            atrás, y en el celular eso esconde y vuelve a mostrar la barra de
+            direcciones. Cada uno de esos cambios reposicionaba el panel, que
+            se veía temblando mientras se scrolleaba. */}
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-1">
           {children}
         </div>
         {pie && <div className="shrink-0 px-4 pb-4 pt-3">{pie}</div>}
