@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { cambiarCorreoDeUsuario } from "@/lib/cuenta/correo";
+import { SEXOS } from "@/lib/solicitudes/campos";
+import type { Sexo } from "@/lib/supabase/types";
 
 export type FormState = { error: string | null; ok: boolean };
 const okState: FormState = { error: null, ok: true };
@@ -37,11 +39,19 @@ export async function guardarDatosPersonales(
   const estaturaCm = String(formData.get("estatura_cm") || "");
   const condicionMedica = String(formData.get("condicion_medica") || "").trim();
   const restriccionAlimenticia = String(formData.get("restriccion_alimenticia") || "").trim();
+  const telefono = String(formData.get("telefono") || "").trim();
+  const sexo = String(formData.get("sexo") || "").trim();
 
   if (!nombre) return fail("Ingresa tu nombre.");
   if (estaturaCm && (Number(estaturaCm) <= 0 || Number(estaturaCm) > 260)) {
     return fail("Ingresa una estatura válida en centímetros.");
   }
+  if (telefono && !/^[\d\s+()-]{8,20}$/.test(telefono)) {
+    return fail("Ingresa un teléfono válido.");
+  }
+  // Lista cerrada, igual que en el registro público: el check de la base
+  // rechazaría cualquier otro valor con un error mucho menos claro.
+  if (sexo && !SEXOS.some((s) => s.valor === sexo)) return fail("Elige una opción válida.");
 
   const { error: errorPerfil } = await supabase
     .from("perfiles")
@@ -60,6 +70,8 @@ export async function guardarDatosPersonales(
       estatura_cm: estaturaCm ? Number(estaturaCm) : null,
       condicion_medica: condicionMedica || null,
       restriccion_alimenticia: restriccionAlimenticia || null,
+      telefono: telefono || null,
+      sexo: (sexo || null) as Sexo | null,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", alumnoId);

@@ -5,7 +5,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRol } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { calcularResultadoTorneo } from "@/lib/torneos/puntos";
-import type { TorneoMetrica } from "@/lib/supabase/types";
+import { calcularValoresCompetencia } from "@/lib/torneos/metricas";
+import { hoyISO } from "@/lib/date";
+import type { TorneoMetrica, TorneoModalidad } from "@/lib/supabase/types";
 
 export type FormState = { error: string | null; ok: boolean };
 const okState: FormState = { error: null, ok: true };
@@ -14,13 +16,16 @@ function fail(mensaje: string): FormState {
   return { error: mensaje, ok: false };
 }
 
-const METRICAS: TorneoMetrica[] = ["peso_baja", "peso_sube", "asistencia", "manual"];
+const METRICAS: TorneoMetrica[] = ["peso_baja", "peso_sube", "asistencia", "progreso_vip", "manual"];
+const MODALIDADES: TorneoModalidad[] = ["duelo", "reto_coach", "copa_constancia"];
 
 export async function crearTorneo(_prevState: FormState, formData: FormData): Promise<FormState> {
   await requireRol(["entrenador", "admin"]);
 
   const nombre = String(formData.get("nombre") || "").trim();
   const descripcion = String(formData.get("descripcion") || "").trim();
+  const modalidad = String(formData.get("modalidad") || "") as TorneoModalidad;
+  const reglaPublica = String(formData.get("regla_publica") || "").trim();
   const metrica = String(formData.get("metrica") || "") as TorneoMetrica;
   const menorEsMejor = formData.get("menor_es_mejor") === "on";
   const unidadManual = String(formData.get("unidad_manual") || "").trim();
@@ -37,13 +42,48 @@ export async function crearTorneo(_prevState: FormState, formData: FormData): Pr
   ];
 
   if (!nombre) return fail("Ingresa un nombre para el torneo.");
+  if (!MODALIDADES.includes(modalidad)) return fail("Elige una modalidad válida.");
   if (!METRICAS.includes(metrica)) return fail("Elige una métrica válida.");
+  if (reglaPublica.length < 12) return fail("Explica con claridad cómo se gana esta competencia.");
   if (!fechaInicio || !fechaFin) return fail("Completa las fechas del torneo.");
   if (fechaFin < fechaInicio) return fail("La fecha de fin no puede ser antes que la de inicio.");
+  if (fechaInicio <= hoyISO()) return fail("Publica la competencia al menos un día antes de que comience.");
   if (!Number.isFinite(puntosEnJuego) || puntosEnJuego <= 0) {
     return fail("Los puntos en juego deben ser un número mayor a 0.");
   }
   if (alumnoIds.length < 2) return fail("Elige al menos 2 alumnos para que compitan.");
+  if (modalidad === "duelo" && alumnoIds.length !== 2) {
+    return fail("Un Duelo VIP debe tener exactamente 2 participantes.");
+  }
+  if (modalidad === "copa_constancia" && metrica !== "progreso_vip") {
+    return fail("La Copa de Constancia se calcula con los Puntos VIP obtenidos durante el periodo.");
+  }
+
+  const diasDuracion =
+    Math.floor(
+      (new Date(`${fechaFin}T12:00:00Z`).getTime() -
+        new Date(`${fechaInicio}T12:00:00Z`).getTime()) /
+        86_400_000
+    ) + 1;
+  const maximoDias = modalidad === "duelo" ? 7 : 31;
+  if (diasDuracion > maximoDias) {
+    return fail(
+      modalidad === "duelo"
+        ? "Un Duelo VIP puede durar como máximo 7 días."
+        : "La competencia puede durar como máximo 31 días."
+    );
+  }
+  const rangoPremio =
+    modalidad === "duelo"
+      ? [300, 1_000]
+      : modalidad === "reto_coach"
+        ? [500, 3_000]
+        : [1_000, 5_000];
+  if (puntosEnJuego < rangoPremio[0] || puntosEnJuego > rangoPremio[1]) {
+    return fail(
+      `Para esta modalidad la bolsa debe estar entre ${rangoPremio[0]} y ${rangoPremio[1]} puntos.`
+    );
+  }
 
   const admin = createAdminClient();
   const sesion = await requireRol(["entrenador", "admin"]);
@@ -53,6 +93,8 @@ export async function crearTorneo(_prevState: FormState, formData: FormData): Pr
     .insert({
       nombre,
       descripcion: descripcion || null,
+      modalidad,
+      regla_publica: reglaPublica,
       metrica,
       menor_es_mejor: menorEsMejor,
       unidad_manual: metrica === "manual" ? unidadManual || null : null,
@@ -99,78 +141,27 @@ export async function cargarResultadoManual(
   if (!Number.isFinite(valor)) return fail("Ingresa un número válido.");
 
   const admin = createAdminClient();
-  const { error } = await admin
+  const { data: torneo } = await admin
+    .from("torneos")
+    .select("cerrado, metrica")
+    .eq("id", torneoId)
+    .maybeSingle();
+  if (!torneo || torneo.cerrado || torneo.metrica !== "manual") {
+    return fail("Esta competencia no admite resultados manuales.");
+  }
+  const { data: actualizado, error } = await admin
     .from("torneo_participantes")
     .update({ resultado_manual: valor })
     .eq("torneo_id", torneoId)
-    .eq("alumno_id", alumnoId);
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "aceptado")
+    .select("alumno_id")
+    .maybeSingle();
 
-  if (error) return fail("No se pudo guardar el resultado. Intenta nuevamente.");
+  if (error || !actualizado) return fail("No se pudo guardar el resultado. Verifica que el alumno haya aceptado.");
 
   revalidatePath("/admin/torneos");
   return okState;
-}
-
-/** Calcula el "valor" de cada participante según la métrica del torneo. Las
- * automáticas leen de datos que ya existen; la manual usa lo que cargó el
- * entrenador (ver cargarResultadoManual). */
-async function calcularValores(
-  admin: ReturnType<typeof createAdminClient>,
-  metrica: TorneoMetrica,
-  fechaInicio: string,
-  fechaFin: string,
-  participantes: { alumnoId: string; resultadoManual: number | null }[]
-): Promise<Map<string, number>> {
-  const ids = participantes.map((p) => p.alumnoId);
-  const valores = new Map<string, number>();
-
-  if (metrica === "manual") {
-    for (const p of participantes) valores.set(p.alumnoId, p.resultadoManual ?? 0);
-    return valores;
-  }
-
-  if (metrica === "asistencia") {
-    for (const id of ids) valores.set(id, 0);
-    const { data: sesiones } = await admin
-      .from("sesiones_entrenamiento")
-      .select("alumno_id, rutina_dias(tipo)")
-      .in("alumno_id", ids)
-      .in("estado", ["completada", "finalizada_incompleta"])
-      .gte("fecha", fechaInicio)
-      .lte("fecha", fechaFin);
-
-    for (const s of sesiones ?? []) {
-      const dia = s.rutina_dias as unknown as { tipo: string } | null;
-      if (dia?.tipo !== "entrenamiento") continue;
-      valores.set(s.alumno_id, (valores.get(s.alumno_id) ?? 0) + 1);
-    }
-    return valores;
-  }
-
-  // peso_baja / peso_sube: diferencia entre el primer y el último registro
-  // de peso corporal del alumno dentro del rango de fechas del torneo.
-  const { data: pesos } = await admin
-    .from("pesos_corporales")
-    .select("alumno_id, peso_kg, fecha")
-    .in("alumno_id", ids)
-    .gte("fecha", fechaInicio)
-    .lte("fecha", fechaFin)
-    .order("fecha", { ascending: true });
-
-  const porAlumno = new Map<string, { primero: number; ultimo: number }>();
-  for (const p of pesos ?? []) {
-    const actual = porAlumno.get(p.alumno_id);
-    if (!actual) porAlumno.set(p.alumno_id, { primero: p.peso_kg, ultimo: p.peso_kg });
-    else actual.ultimo = p.peso_kg;
-  }
-  for (const id of ids) {
-    const registro = porAlumno.get(id);
-    const diferencia = registro ? registro.ultimo - registro.primero : 0;
-    // "peso_baja": ganar significa haber bajado más — se invierte el signo
-    // para que un valor más alto siga siendo "mejor" en calcularResultadoTorneo.
-    valores.set(id, metrica === "peso_baja" ? -diferencia : diferencia);
-  }
-  return valores;
 }
 
 export async function cerrarTorneo(_prevState: FormState, formData: FormData): Promise<FormState> {
@@ -183,6 +174,9 @@ export async function cerrarTorneo(_prevState: FormState, formData: FormData): P
   const { data: torneo } = await admin.from("torneos").select("*").eq("id", torneoId).single();
   if (!torneo) return fail("Torneo no encontrado.");
   if (torneo.cerrado) return fail("Este torneo ya está cerrado.");
+  if (hoyISO() < torneo.fecha_fin) {
+    return fail("La competencia todavía está en curso. Solo puede cerrarse desde su fecha final.");
+  }
 
   const { data: todosParticipantes } = await admin
     .from("torneo_participantes")
@@ -209,7 +203,7 @@ export async function cerrarTorneo(_prevState: FormState, formData: FormData): P
     );
   const nombres = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
 
-  const valores = await calcularValores(
+  const valores = await calcularValoresCompetencia(
     admin,
     torneo.metrica,
     torneo.fecha_inicio,
@@ -217,12 +211,20 @@ export async function cerrarTorneo(_prevState: FormState, formData: FormData): P
     participantes.map((p) => ({ alumnoId: p.alumno_id, resultadoManual: p.resultado_manual }))
   );
 
+  if (![...valores.values()].some((medicion) => medicion.valido)) {
+    return fail("Todavía no existe ningún resultado verificable para cerrar esta competencia.");
+  }
+
   const resultados = calcularResultadoTorneo(
-    participantes.map((p) => ({
-      alumnoId: p.alumno_id,
-      nombre: nombres.get(p.alumno_id) ?? "Alumno",
-      valor: valores.get(p.alumno_id) ?? 0,
-    })),
+    participantes.map((p) => {
+      const medicion = valores.get(p.alumno_id) ?? { valor: 0, valido: false };
+      return {
+        alumnoId: p.alumno_id,
+        nombre: nombres.get(p.alumno_id) ?? "Alumno",
+        valor: medicion.valor,
+        valido: medicion.valido,
+      };
+    }),
     torneo.puntos_en_juego,
     torneo.menor_es_mejor
   );
@@ -232,12 +234,48 @@ export async function cerrarTorneo(_prevState: FormState, formData: FormData): P
     .insert({ torneo_id: torneoId, resultados });
   if (errorResultados) return fail("No se pudo guardar el resultado. Intenta nuevamente.");
 
-  await admin
+  const fechaCierre = hoyISO();
+  const claveMovimiento = `arena:${torneoId}`;
+  const { error: errorPremios } = await admin.from("puntos_vip_movimientos").upsert(
+    resultados.map((resultado) => ({
+      alumno_id: resultado.alumnoId,
+      clave: claveMovimiento,
+      categoria: "competencia" as const,
+      puntos: resultado.puntosDelta,
+      titulo: `Arena VIP · ${torneo.nombre}`,
+      detalle: resultado.valido
+        ? `Puesto #${resultado.puesto} · +${resultado.puntosDelta} puntos de la bolsa VIP`
+        : "Sin resultado verificable · 0 puntos",
+      fecha: fechaCierre,
+      metadata: {
+        torneoId,
+        modalidad: torneo.modalidad,
+        puesto: resultado.puesto,
+        valor: resultado.valor,
+        valido: resultado.valido,
+      },
+      updated_at: new Date().toISOString(),
+    })),
+    { onConflict: "alumno_id,clave" }
+  );
+  if (errorPremios) {
+    await admin.from("torneo_resultados").delete().eq("torneo_id", torneoId);
+    return fail("No se pudo registrar la bolsa de premios. El torneo sigue abierto.");
+  }
+
+  const { error: errorCierre } = await admin
     .from("torneos")
     .update({ cerrado: true, cerrado_en: new Date().toISOString() })
     .eq("id", torneoId);
+  if (errorCierre) {
+    await Promise.all([
+      admin.from("puntos_vip_movimientos").delete().eq("clave", claveMovimiento),
+      admin.from("torneo_resultados").delete().eq("torneo_id", torneoId),
+    ]);
+    return fail("No se pudo cerrar la competencia. No se repartieron puntos.");
+  }
 
-  // Cerrar un torneo reparte puntos: entra en el acumulado del ranking.
+  // El premio entra como movimiento auditable en semana, mes, año y acumulado.
   updateTag(TAG_RANKING);
   revalidatePath("/admin/torneos");
   revalidatePath("/alumno/ranked");

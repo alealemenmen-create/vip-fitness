@@ -20,19 +20,19 @@ export function CambiarCorreoForm({
   const [state, formAction, pending] = useActionState(accion, initialState);
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form action={formAction} className="space-y-1.5">
       {camposOcultos &&
         Object.entries(camposOcultos).map(([nombre, valor]) => (
           <input key={nombre} type="hidden" name={nombre} value={valor} />
         ))}
       <div>
-        <label className="text-caption mb-1.5 block text-text-tertiary">CORREO NUEVO</label>
-        <Input type="email" name="correo" required autoComplete="email" />
+        <label className="text-[9px] mb-0.5 block text-text-tertiary">CORREO NUEVO</label>
+        <Input type="email" name="correo" required autoComplete="email" className="!py-1.5 text-caption" />
       </div>
       {state.error && <p className="text-caption text-error">{state.error}</p>}
       {state.ok && <p className="text-caption text-success">Correo actualizado.</p>}
-      <Button type="submit" variant="secondary" loading={pending}>
-        <Mail size={16} /> {etiqueta}
+      <Button type="submit" variant="secondary" loading={pending} size="xs">
+        <Mail size={13} /> {etiqueta}
       </Button>
     </form>
   );

@@ -19,38 +19,38 @@ export function CredencialesAlumno({ alumnoId }: { alumnoId: string }) {
   const [mostrado, setMostrado] = useState(true);
 
   return (
-    <Card>
-      <p className="text-caption mb-3 text-text-tertiary">ACCESO A LA CUENTA</p>
+    <Card padding="p-2">
+      <p className="text-[10px] mb-1 text-text-tertiary">ACCESO A LA CUENTA</p>
 
       {state.ok && state.password && mostrado ? (
-        <div className="space-y-3 text-center">
+        <div className="space-y-2 text-center">
           {state.correoEnviado ? (
-            <p className="text-body text-text">
+            <p className="text-caption text-text">
               Listo. Le mandamos la nueva contraseña a <strong>{state.email}</strong>.
             </p>
           ) : (
             <>
-              <p className="text-body text-text">
+              <p className="text-caption text-text">
                 Contraseña cambiada, pero no se pudo enviar el correo (falta configurar el
                 servicio de correo). Pasásela al alumno por WhatsApp o en persona:
               </p>
               <CredencialesVisibles email={state.email!} password={state.password} />
             </>
           )}
-          <button onClick={() => setMostrado(false)} className="text-secondary font-medium text-vip">
+          <button onClick={() => setMostrado(false)} className="text-caption font-medium text-vip">
             Cerrar
           </button>
         </div>
       ) : (
-        <form action={formAction} className="space-y-2">
+        <form action={formAction} className="space-y-1.5">
           <input type="hidden" name="alumno_id" value={alumnoId} />
-          <p className="text-secondary text-text-secondary">
+          <p className="text-caption text-text-secondary">
             Si el alumno no puede entrar (nunca le llegó el correo de invitación, o perdió la
             contraseña), generá una nueva acá — se la mandamos por correo automáticamente.
           </p>
           {state.error && <p className="text-caption text-error">{state.error}</p>}
-          <Button type="submit" variant="secondary" loading={pending}>
-            <KeyRound size={16} /> Generar nueva contraseña
+          <Button type="submit" variant="secondary" loading={pending} size="xs">
+            <KeyRound size={13} /> Generar nueva contraseña
           </Button>
         </form>
       )}

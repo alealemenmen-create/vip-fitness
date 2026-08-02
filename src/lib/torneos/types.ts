@@ -2,16 +2,23 @@
 // ("use client", ej. TorneoAdminCard) — separados de data.ts porque ese
 // archivo es server-only (usa la service_role key) y no se puede importar
 // desde el bundle del navegador.
-import type { TorneoMetrica, TorneoParticipanteEstado } from "@/lib/supabase/types";
+import type { TorneoMetrica, TorneoModalidad, TorneoParticipanteEstado } from "@/lib/supabase/types";
 import type { ResultadoTorneo } from "./puntos";
 
-export type { TorneoMetrica, TorneoParticipanteEstado };
+export type { TorneoMetrica, TorneoModalidad, TorneoParticipanteEstado };
 
 export const NOMBRE_METRICA: Record<TorneoMetrica, string> = {
   peso_baja: "Mayor bajada de peso",
   peso_sube: "Mayor subida de peso",
   asistencia: "Más asistencia al gimnasio",
-  manual: "A criterio del entrenador",
+  progreso_vip: "Más Puntos VIP durante el periodo",
+  manual: "Resultado validado por el entrenador",
+};
+
+export const NOMBRE_MODALIDAD: Record<TorneoModalidad, string> = {
+  duelo: "Duelo VIP",
+  reto_coach: "Reto del Coach",
+  copa_constancia: "Copa de Constancia",
 };
 
 export type TorneoAdmin = {
@@ -19,6 +26,8 @@ export type TorneoAdmin = {
   nombre: string;
   descripcion: string | null;
   metrica: TorneoMetrica;
+  modalidad: TorneoModalidad;
+  reglaPublica: string | null;
   menorEsMejor: boolean;
   unidadManual: string | null;
   fechaInicio: string;
@@ -34,7 +43,13 @@ export type TorneoAdmin = {
   resultados: ResultadoTorneo[] | null;
 };
 
-export type ParticipanteConEstado = { alumnoId: string; nombre: string; estado: TorneoParticipanteEstado };
+export type ParticipanteConEstado = {
+  alumnoId: string;
+  nombre: string;
+  estado: TorneoParticipanteEstado;
+  valorActual: number | null;
+  resultadoValido: boolean;
+};
 
 /** Un torneo abierto tal como lo ve un alumno: TODOS los alumnos ven todos
  * los torneos abiertos como noticia pública ("Fulano vs Mengano compiten
@@ -46,6 +61,10 @@ export type TorneoPublico = {
   nombre: string;
   descripcion: string | null;
   metrica: TorneoMetrica;
+  modalidad: TorneoModalidad;
+  reglaPublica: string | null;
+  menorEsMejor: boolean;
+  unidadManual: string | null;
   fechaInicio: string;
   horaInicio: string | null;
   fechaFin: string;
@@ -59,6 +78,7 @@ export type ResultadoHistorico = {
   torneoId: string;
   nombre: string;
   metrica: TorneoMetrica;
+  modalidad: TorneoModalidad;
   fechaFin: string;
   cerradoEn: string;
   resultados: ResultadoTorneo[];

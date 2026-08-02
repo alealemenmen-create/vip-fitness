@@ -15,8 +15,8 @@ export function CrearAlumnoForm() {
 
   return (
     <div className="space-y-3">
-      <Button onClick={() => setAbierto((v) => !v)}>
-        <UserPlus size={18} /> {abierto ? "Cancelar" : "Agregar alumno nuevo"}
+      <Button onClick={() => setAbierto((v) => !v)} size="xs">
+        <UserPlus size={13} /> {abierto ? "Cancelar" : "Agregar alumno nuevo"}
       </Button>
 
       {abierto && (

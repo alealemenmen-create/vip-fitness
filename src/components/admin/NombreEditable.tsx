@@ -20,26 +20,26 @@ export function NombreEditable({ perfilId, nombre }: { perfilId: string; nombre:
 
   if (!editando) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="text-body text-text">{nombre}</span>
-        <IconButton ariaLabel="Editar nombre" onClick={() => setEditando(true)}>
-          <Pencil size={15} />
+      <div className="flex items-center gap-1.5">
+        <span className="text-caption text-text">{nombre}</span>
+        <IconButton ariaLabel="Editar nombre" onClick={() => setEditando(true)} className="!h-6 !w-6">
+          <Pencil size={12} />
         </IconButton>
       </div>
     );
   }
 
   return (
-    <form action={formAction} className="flex items-center gap-2">
+    <form action={formAction} className="flex items-center gap-1.5">
       <input type="hidden" name="perfil_id" value={perfilId} />
-      <Input name="nombre" defaultValue={nombre} className="h-10 py-2" autoFocus />
-      <Button type="submit" size="sm" variant="success" loading={pending}>
+      <Input name="nombre" defaultValue={nombre} className="!py-1 text-caption" autoFocus />
+      <Button type="submit" size="xsAuto" variant="success" loading={pending}>
         Guardar
       </Button>
       <button
         type="button"
         onClick={() => setEditando(false)}
-        className="text-secondary text-text-tertiary"
+        className="text-caption text-text-tertiary"
       >
         Cancelar
       </button>

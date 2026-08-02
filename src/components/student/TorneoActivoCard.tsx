@@ -1,7 +1,8 @@
 "use client";
 
 import { Swords, Check, X, Clock } from "lucide-react";
-import { NOMBRE_METRICA, type TorneoPublico } from "@/lib/torneos/types";
+import { NOMBRE_METRICA, NOMBRE_MODALIDAD, type TorneoPublico } from "@/lib/torneos/types";
+import { descripcionRepartoPremio } from "@/lib/torneos/puntos";
 import { responderInvitacionTorneo } from "@/app/alumno/inicio/actions";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 
@@ -23,10 +24,13 @@ export function TorneoActivoCard({ torneos, nombrePropio }: { torneos: TorneoPub
 }
 
 function formatCuentaRegresiva(fecha: string, hora: string | null): string {
-  const objetivo = new Date(`${fecha}T${hora ?? "00:00"}:00`);
+  // Postgres puede devolver TIME como HH:MM o HH:MM:SS. Antes siempre se
+  // agregaba ":00", produciendo HH:MM:SS:00 y una fecha inválida (NaN min).
+  const horaNormalizada = hora ? hora.slice(0, 8) : "00:00:00";
+  const objetivo = new Date(`${fecha}T${horaNormalizada}`);
   const ahora = new Date();
   const diffMs = objetivo.getTime() - ahora.getTime();
-  if (diffMs <= 0) return "";
+  if (!Number.isFinite(diffMs) || diffMs <= 0) return "";
 
   const dias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   const horas = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
@@ -37,12 +41,41 @@ function formatCuentaRegresiva(fecha: string, hora: string | null): string {
   return `${minutos} min`;
 }
 
+function formatoValor(metrica: TorneoPublico["metrica"], valor: number, unidadManual: string | null): string {
+  if (metrica === "progreso_vip") return `${Math.round(valor).toLocaleString("es-CL")} pts`;
+  if (metrica === "asistencia") return `${Math.round(valor)} sesión${Math.round(valor) === 1 ? "" : "es"}`;
+  if (metrica === "peso_baja" || metrica === "peso_sube") return `${valor.toFixed(1)} kg`;
+  return `${valor.toLocaleString("es-CL", { maximumFractionDigits: 2 })}${unidadManual ? ` ${unidadManual}` : ""}`;
+}
+
 function TorneoCard({ torneo: t, nombrePropio }: { torneo: TorneoPublico; nombrePropio: string }) {
   const rivales = t.participantes
     .filter((p) => p.nombre !== nombrePropio)
     .map((p) => nombreAlumnoPublicado(p.nombre));
   const faltaEmpezar = formatCuentaRegresiva(t.fechaInicio, t.horaInicio);
   const faltaTerminar = formatCuentaRegresiva(t.fechaFin, t.horaFin);
+  const marcador = t.participantes
+    .filter((participante) => participante.estado === "aceptado")
+    .sort((a, b) => {
+      if (a.resultadoValido !== b.resultadoValido) return a.resultadoValido ? -1 : 1;
+      const valorA = a.valorActual ?? 0;
+      const valorB = b.valorActual ?? 0;
+      return t.menorEsMejor ? valorA - valorB : valorB - valorA;
+    });
+  const marcadorConPuesto = marcador.map((participante, indice) => {
+    if (!participante.resultadoValido) return { ...participante, puesto: null };
+    const anterior = indice > 0 ? marcador[indice - 1] : null;
+    const empatado =
+      anterior?.resultadoValido && anterior.valorActual === participante.valorActual;
+    return {
+      ...participante,
+      puesto: empatado
+        ? marcador
+            .slice(0, indice)
+            .findLastIndex((candidato) => candidato.valorActual !== participante.valorActual) + 2
+        : indice + 1,
+    };
+  });
 
   return (
     <div className="panel-vip-espejo radius-card px-4 py-3.5">
@@ -52,11 +85,24 @@ function TorneoCard({ torneo: t, nombrePropio }: { torneo: TorneoPublico; nombre
           <p className="text-body font-bold text-text">{t.nombre}</p>
         </div>
         <p className="text-caption shrink-0 whitespace-nowrap font-semibold text-vip">
-          {t.puntosEnJuego.toLocaleString("es-CL")} pts en juego
+          Bolsa {t.puntosEnJuego.toLocaleString("es-CL")} pts
         </p>
       </div>
 
+      <p className="text-micro mt-1 font-bold uppercase tracking-wide text-vip">
+        {NOMBRE_MODALIDAD[t.modalidad]}
+      </p>
       <p className="text-caption mt-1 text-text-secondary">{NOMBRE_METRICA[t.metrica]}</p>
+      {t.descripcion && <p className="text-caption mt-1 text-text-secondary">{t.descripcion}</p>}
+      {t.reglaPublica && (
+        <div className="radius-control mt-2 border border-vip/25 bg-vip/5 px-3 py-2">
+          <p className="text-micro font-semibold uppercase tracking-wide text-vip">Cómo se gana</p>
+          <p className="text-caption mt-0.5 text-text">{t.reglaPublica}</p>
+        </div>
+      )}
+      <p className="text-[9px] mt-2 leading-relaxed text-text-tertiary">
+        {descripcionRepartoPremio(t.modalidad === "duelo" ? 2 : 3)} Nadie pierde puntos acumulados.
+      </p>
 
       {t.participantes.length > 0 && (
         <p className="text-caption mt-1.5 text-text-secondary">
@@ -69,12 +115,30 @@ function TorneoCard({ torneo: t, nombrePropio }: { torneo: TorneoPublico; nombre
         </p>
       )}
 
+      {marcador.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {marcadorConPuesto.map((participante) => (
+            <div key={participante.alumnoId} className="radius-control flex items-center gap-2 bg-surface-2 px-3 py-2">
+              <span className="text-micro w-4 font-bold text-vip">{participante.puesto ? `#${participante.puesto}` : "—"}</span>
+              <span className="text-caption min-w-0 flex-1 truncate font-semibold text-text">
+                {nombreAlumnoPublicado(participante.nombre)}
+              </span>
+              <span className={`text-caption font-bold ${participante.resultadoValido ? "text-vip" : "text-text-tertiary"}`}>
+                {participante.resultadoValido && participante.valorActual !== null
+                  ? formatoValor(t.metrica, participante.valorActual, t.unidadManual)
+                  : "Sin marca"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <p className="text-caption mt-1 flex items-center gap-1 font-semibold text-text">
         <Clock size={12} />
         {faltaEmpezar ? `Empieza en ${faltaEmpezar}` : faltaTerminar ? `Quedan ${faltaTerminar}` : "En curso"}
       </p>
 
-      {t.miEstado === "pendiente" && (
+      {t.miEstado === "pendiente" && faltaEmpezar && (
         <div className="mt-3 flex gap-2">
           <form action={responderInvitacionTorneo} className="flex-1">
             <input type="hidden" name="torneo_id" value={t.id} />
@@ -97,6 +161,10 @@ function TorneoCard({ torneo: t, nombrePropio }: { torneo: TorneoPublico; nombre
             </button>
           </form>
         </div>
+      )}
+
+      {t.miEstado === "pendiente" && !faltaEmpezar && (
+        <p className="text-caption mt-2 text-text-tertiary">La invitación venció al comenzar la competencia.</p>
       )}
 
       {t.miEstado === "aceptado" && (

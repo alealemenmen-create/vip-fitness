@@ -13,6 +13,7 @@ import { BalanceSesionesMes } from "@/components/student/BalanceSesionesMes";
 import { AlimentacionHoyCuadro } from "@/components/student/AlimentacionHoyCuadro";
 import { RankedVipCard } from "@/components/student/RankedVipCard";
 import { BadgeRango } from "@/components/student/BadgeRango";
+import { progresoAlSiguiente } from "@/lib/ranking/puntos";
 import { TorneoActivoCard } from "@/components/student/TorneoActivoCard";
 import { obtenerRankingSemanal, type FilaRanking } from "@/lib/ranking/data";
 import { obtenerTorneosPublicos } from "@/lib/torneos/data";
@@ -227,17 +228,38 @@ async function MiRango({
   const ranking = await rankingPromesa;
   const propia = ranking.find((fila) => fila.alumnoId === alumnoId);
   if (!propia) return <div className="mt-4 h-7" />;
+  const progreso = progresoAlSiguiente(propia.puntosAcumulados);
 
   return (
-    <Link href="/alumno/ranked" className="mt-4 flex min-w-0 items-center gap-2">
-      <BadgeRango rango={propia.rango} size={28} brillo={false} eager />
-      <span className="min-w-0 truncate text-[13px] font-medium leading-none text-text-secondary">
-        {propia.rango.nombre}
+    <Link href="/alumno/ranked" className="mt-4 block min-w-0">
+      <span className="flex min-w-0 items-center gap-2">
+        <BadgeRango rango={propia.rango} size={28} brillo={false} eager />
+        <span className="min-w-0 truncate text-[13px] font-medium leading-none text-text-secondary">
+          {propia.rango.nombre}
+        </span>
+        <span className="ml-auto shrink-0 text-[16px] font-bold leading-none tabular-nums text-vip">
+          {propia.puntosAcumulados.toLocaleString("es-CL")}
+          <span className="ml-0.5 text-[10px] font-normal text-text-tertiary">pts</span>
+        </span>
       </span>
-      <span className="ml-auto shrink-0 text-[16px] font-bold leading-none tabular-nums text-vip">
-        {propia.puntosAcumulados.toLocaleString("es-CL")}
-        <span className="ml-0.5 text-[10px] font-normal text-text-tertiary">pts</span>
-      </span>
+      {progreso && (
+        <span className="mt-2 block">
+          <span className="mb-1 flex items-center justify-between gap-1 text-[8px] leading-none text-text-tertiary">
+            <span>Próximo: {progreso.siguiente.nombre}</span>
+            <span>{progreso.pct}%</span>
+          </span>
+          <span className="block h-1.5 overflow-hidden rounded-full bg-surface-2">
+            <span
+              className="barra-progreso-relleno block h-full rounded-full bg-vip transition-[width] duration-500"
+              style={{ width: `${progreso.pct}%` }}
+            >
+              {[0, 1, 2, 3].map((indice) => (
+                <span key={indice} className="ola-progreso" style={{ animationDelay: `${indice * 0.52}s` }} />
+              ))}
+            </span>
+          </span>
+        </span>
+      )}
     </Link>
   );
 }

@@ -1,42 +1,37 @@
-import { NOMBRE_METRICA, type ResultadoHistorico } from "@/lib/torneos/types";
+import { NOMBRE_METRICA, NOMBRE_MODALIDAD, type ResultadoHistorico } from "@/lib/torneos/types";
 import { formatFechaCorta } from "@/lib/date";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 
-/** Noticias de torneos ya cerrados: quién ganó, quién perdió y cuántos
- * puntos se transfirieron. Pública, la ve cualquier alumno. */
+/** Historial público de resultados y premios patrocinados por VIP Fitness. */
 export function HistorialTorneos({ historial }: { historial: ResultadoHistorico[] }) {
   if (historial.length === 0) {
     return (
       <p className="text-caption text-text-tertiary">
-        Todavía no se cerró ningún torneo. Cuando termine uno, el resultado va a aparecer acá.
+        Todavía no finalizó ninguna competencia. Los resultados aparecerán aquí.
       </p>
     );
   }
 
   return (
     <div className="space-y-3">
-      {historial.map((t) => {
-        const ordenados = [...t.resultados].sort((a, b) => a.puesto - b.puesto);
+      {historial.map((torneo) => {
+        const ordenados = [...torneo.resultados].sort((a, b) => a.puesto - b.puesto);
         const ganador = ordenados[0];
-        const resto = ordenados.slice(1);
-
+        if (!ganador) return null;
         return (
-          <div key={t.torneoId} className="radius-card bg-surface-2 p-3">
-            <p className="text-secondary font-semibold text-text">{t.nombre}</p>
+          <div key={torneo.torneoId} className="radius-card bg-surface-2 p-3">
+            <p className="text-secondary font-semibold text-text">{torneo.nombre}</p>
             <p className="text-caption mb-2 text-text-tertiary">
-              {NOMBRE_METRICA[t.metrica]} · {formatFechaCorta(t.fechaFin)}
+              {NOMBRE_MODALIDAD[torneo.modalidad]} · {NOMBRE_METRICA[torneo.metrica]} · {formatFechaCorta(torneo.fechaFin)}
             </p>
-
             <p className="text-secondary text-text">
-              🏆 <span className="font-semibold">{nombreAlumnoPublicado(ganador.nombre)}</span> ganó{" "}
-              <span className="font-semibold text-success">
-                +{ganador.puntosDelta.toLocaleString("es-CL")}
-              </span>
+              🏆 <span className="font-semibold">{nombreAlumnoPublicado(ganador.nombre)}</span>{" "}
+              recibió <span className="font-semibold text-success">+{ganador.puntosDelta.toLocaleString("es-CL")}</span>
             </p>
-            {resto.map((r) => (
-              <p key={r.alumnoId} className="text-caption text-text-tertiary">
-                {nombreAlumnoPublicado(r.nombre)}: {r.puntosDelta >= 0 ? "+" : ""}
-                {r.puntosDelta.toLocaleString("es-CL")}
+            {ordenados.slice(1).map((resultado) => (
+              <p key={resultado.alumnoId} className="text-caption text-text-tertiary">
+                {nombreAlumnoPublicado(resultado.nombre)}: +{resultado.puntosDelta.toLocaleString("es-CL")}
+                {resultado.valido === false ? " · sin resultado verificable" : ""}
               </p>
             ))}
           </div>

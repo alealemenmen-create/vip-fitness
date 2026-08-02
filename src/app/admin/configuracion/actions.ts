@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TAG_CONFIG_SUPERVISION } from "@/lib/configuracion/supervision";
+import { TAG_CONFIG_REGISTRO } from "@/lib/configuracion/registro";
 import { generarReconocimientosSemanales } from "@/lib/ai/reconocimientosSemanales";
 import { generarMotivacionPeso } from "@/lib/ai/motivacionPeso";
 import { generarNotasSemanalesAutomaticas } from "@/lib/ai/notasSemanales";
@@ -88,6 +89,73 @@ export async function actualizarConfiguracionReconocimientos(
   return { ok: true, mensaje: "Configuración guardada." };
 }
 
+/** Texto opcional del formulario: se guarda como null cuando viene vacío, así
+ * la pantalla de pago sabe que ese dato simplemente no hay que mostrarlo. */
+const textoOpcional = (valor: FormDataEntryValue | null): string | null =>
+  String(valor ?? "").trim() || null;
+
+/**
+ * Guarda la configuración del link público de inscripción.
+ *
+ * Los datos bancarios se guardan estén o no encendidos: el interruptor
+ * `pago_activo` solo decide si se le muestran a quien se inscribe. Así se
+ * puede dejar todo cargado durante la beta y encender el cobro el día que
+ * corresponda, sin llenar formularios a última hora.
+ */
+export async function actualizarConfiguracionRegistro(
+  _prev: ConfiguracionState,
+  formData: FormData
+): Promise<ConfiguracionState> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+
+  const montoTexto = String(formData.get("pago_monto") ?? "").trim();
+  const monto = montoTexto ? Number(montoTexto) : null;
+  if (monto !== null && (!Number.isInteger(monto) || monto < 0)) {
+    return { ok: false, mensaje: "El valor de la inscripción tiene que ser un número entero." };
+  }
+
+  // wa.me solo acepta dígitos con código de país; se limpia acá para que el
+  // botón de WhatsApp no dependa de cómo se haya escrito el número.
+  const whatsapp = String(formData.get("whatsapp") ?? "").replace(/\D/g, "") || null;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("configuracion_gimnasio").upsert(
+    {
+      id: true,
+      registro_beta_aviso: formData.get("beta") === "on",
+      pago_registro_activo: formData.get("pago_activo") === "on",
+      pago_monto: monto,
+      pago_banco: textoOpcional(formData.get("pago_banco")),
+      pago_tipo_cuenta: textoOpcional(formData.get("pago_tipo_cuenta")),
+      pago_numero_cuenta: textoOpcional(formData.get("pago_numero_cuenta")),
+      pago_rut: textoOpcional(formData.get("pago_rut")),
+      pago_titular: textoOpcional(formData.get("pago_titular")),
+      pago_correo: textoOpcional(formData.get("pago_correo")),
+      pago_instrucciones: textoOpcional(formData.get("pago_instrucciones")),
+      whatsapp_gimnasio: whatsapp,
+      updated_by: sesion.userId,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "id" }
+  );
+
+  if (error) {
+    console.error("[configuracion] guardar registro falló:", error);
+    return {
+      ok: false,
+      mensaje: "No se pudo guardar. Primero aplica la migración 0033 en Supabase.",
+    };
+  }
+
+  // La configuración del registro va cacheada por etiqueta: sin esto, la
+  // pantalla pública seguiría mostrando lo anterior.
+  updateTag(TAG_CONFIG_REGISTRO);
+  revalidatePath("/admin/configuracion");
+  revalidatePath("/registro");
+  revalidatePath("/login");
+  return { ok: true, mensaje: "Configuración guardada." };
+}
+
 export async function cambiarMiCorreo(_prevState: FormState, formData: FormData): Promise<FormState> {
   const sesion = await requireRol(["entrenador", "admin"]);
   const nuevoCorreo = String(formData.get("correo") || "");
@@ -96,6 +164,30 @@ export async function cambiarMiCorreo(_prevState: FormState, formData: FormData)
   if (mensajeError) return { error: mensajeError, ok: false };
 
   return { error: null, ok: true };
+}
+
+export async function actualizarConfiguracionAsistente(
+  _prev: ConfiguracionState,
+  formData: FormData
+): Promise<ConfiguracionState> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+  const presupuesto = Number(formData.get("presupuesto"));
+  if (!Number.isFinite(presupuesto) || presupuesto < 0 || presupuesto > 1000) {
+    return { ok: false, mensaje: "El presupuesto debe estar entre US$0 y US$1.000." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("configuracion_gimnasio")
+    .update({
+      asistente_ia_activo: formData.get("activo") === "on",
+      presupuesto_ia_mensual_usd: Math.round(presupuesto * 100) / 100,
+      updated_by: sesion.userId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", true);
+  if (error) return { ok: false, mensaje: "No se pudo guardar. Aplica primero la migración 0037." };
+  revalidatePath("/admin/configuracion");
+  return { ok: true, mensaje: "Límite del Asistente VIP guardado." };
 }
 
 export async function generarReconocimientosAhora(

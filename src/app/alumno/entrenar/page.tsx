@@ -15,6 +15,7 @@ import {
   obtenerSesionEnProgreso,
 } from "./data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
+import { PuntosVipGanados } from "@/components/student/PuntosVipGanados";
 
 const NUMEROS_POR_PAGINA = 7;
 
@@ -49,7 +50,7 @@ function AccesosEntrenar({ sesionEnProgresoId }: { sesionEnProgresoId: string | 
 export default async function EntrenarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pagina?: string }>;
+  searchParams: Promise<{ pagina?: string; puntos?: string }>;
 }) {
   const { alumnoId: userId, nombre, soloLectura } = await requireAlumno();
   const supabase = await createClient();
@@ -106,7 +107,8 @@ export default async function EntrenarPage({
     );
   }
 
-  const { pagina: paginaParam } = await searchParams;
+  const { pagina: paginaParam, puntos: puntosParam } = await searchParams;
+  const puntosGanados = Math.max(0, Number(puntosParam) || 0);
   const pagina = paginaParam
     ? Math.max(1, Number(paginaParam) || 1)
     : Math.max(1, Math.ceil(proximoNumero / NUMEROS_POR_PAGINA));
@@ -125,6 +127,7 @@ export default async function EntrenarPage({
 
   return (
     <div className="space-y-4 pb-8">
+      <PuntosVipGanados key={puntosParam ?? "0"} puntos={puntosGanados} detalle="Entrenamiento guardado en tu progreso" />
       <AccesosEntrenar sesionEnProgresoId={sesionEnProgresoId} />
 
       {/* El calendario y la tarjeta de "Iniciar entrenamiento" van ANTES del

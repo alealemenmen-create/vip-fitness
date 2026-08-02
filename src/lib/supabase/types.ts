@@ -4,11 +4,15 @@
 // Por ahora se mantiene a mano para no depender de un proyecto ya creado.
 
 export type Rol = "alumno" | "entrenador" | "admin";
+// 0032: sexo declarado en el registro, editable después desde "Mi perfil".
+export type Sexo = "femenino" | "masculino" | "otro";
+export type EstadoSolicitud = "pendiente" | "aceptada" | "rechazada";
 export type EstadoSesion = "en_progreso" | "completada" | "finalizada_incompleta" | "abandonada";
 // "otro" viene de 0027: documentos que no son ni rutina ni plan de comidas.
 export type TipoDocumento = "rutina" | "alimentacion" | "otro";
 export type CategoriaFoto = "frontal" | "lateral" | "espalda" | "otra";
-export type TorneoMetrica = "peso_baja" | "peso_sube" | "asistencia" | "manual";
+export type TorneoMetrica = "peso_baja" | "peso_sube" | "asistencia" | "progreso_vip" | "manual";
+export type TorneoModalidad = "duelo" | "reto_coach" | "copa_constancia";
 export type TorneoParticipanteEstado = "pendiente" | "aceptado" | "rechazado";
 export type CategoriaReconocimiento =
   | "entrenamiento"
@@ -23,6 +27,14 @@ export type DesgloseSemanaJSON = {
   total: number;
   totalCrudo: number;
 };
+export type CategoriaPuntosVIP =
+  | "entrenamiento"
+  | "alimentacion"
+  | "progreso"
+  | "constancia"
+  | "competencia"
+  | "ajuste";
+export type MetadataPuntosVIP = Record<string, unknown>;
 /** Forma de cada fila del snapshot de resultados de un torneo (ver ResultadoTorneo en lib/torneos/puntos.ts). */
 export type ResultadoTorneoJSON = {
   alumnoId: string;
@@ -30,6 +42,7 @@ export type ResultadoTorneoJSON = {
   valor: number;
   puesto: number;
   puntosDelta: number;
+  valido?: boolean;
 };
 
 export interface Database {
@@ -56,6 +69,9 @@ export interface Database {
           noticias_vistas_en: string | null;
           // 0024_tema_boton.sql
           tema_boton: string | null;
+          // 0032_solicitudes_registro.sql
+          telefono: string | null;
+          sexo: Sexo | null;
           created_at: string;
           updated_at: string;
         };
@@ -71,6 +87,8 @@ export interface Database {
           restriccion_alimenticia?: string | null;
           noticias_vistas_en?: string | null;
           tema_boton?: string | null;
+          telefono?: string | null;
+          sexo?: Sexo | null;
         };
         Update: {
           entrenador_id?: string | null;
@@ -82,6 +100,8 @@ export interface Database {
           restriccion_alimenticia?: string | null;
           noticias_vistas_en?: string | null;
           tema_boton?: string | null;
+          telefono?: string | null;
+          sexo?: Sexo | null;
           updated_at?: string;
         };
         Relationships: [
@@ -100,6 +120,67 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ];
+      };
+      // 0032_solicitudes_registro.sql — altas que llegan por el link público.
+      solicitudes_registro: {
+        Row: {
+          id: string;
+          nombre: string;
+          email: string;
+          telefono: string;
+          fecha_nacimiento: string | null;
+          sexo: Sexo | null;
+          estatura_cm: number | null;
+          peso_kg: number | null;
+          objetivo: string | null;
+          condicion_medica: string | null;
+          restriccion_alimenticia: string | null;
+          mensaje: string | null;
+          estado: EstadoSolicitud;
+          revisada_por: string | null;
+          revisada_en: string | null;
+          motivo_rechazo: string | null;
+          alumno_id: string | null;
+          // 0033_registro_pago.sql
+          comprobante_path: string | null;
+          comprobante_subido_en: string | null;
+          pago_verificado: boolean;
+          pago_verificado_por: string | null;
+          pago_verificado_en: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          nombre: string;
+          email: string;
+          telefono: string;
+          fecha_nacimiento?: string | null;
+          sexo?: Sexo | null;
+          estatura_cm?: number | null;
+          peso_kg?: number | null;
+          objetivo?: string | null;
+          condicion_medica?: string | null;
+          restriccion_alimenticia?: string | null;
+          mensaje?: string | null;
+          estado?: EstadoSolicitud;
+        };
+        Update: {
+          // El entrenador puede corregir el contacto de una solicitud
+          // pendiente (un dedazo en el correo la deja inaceptable).
+          email?: string;
+          telefono?: string;
+          estado?: EstadoSolicitud;
+          revisada_por?: string | null;
+          revisada_en?: string | null;
+          motivo_rechazo?: string | null;
+          alumno_id?: string | null;
+          comprobante_path?: string | null;
+          comprobante_subido_en?: string | null;
+          pago_verificado?: boolean;
+          pago_verificado_por?: string | null;
+          pago_verificado_en?: string | null;
+        };
+        Relationships: [];
       };
       notas_entrenador: {
         Row: {
@@ -198,6 +279,20 @@ export interface Database {
           pct_entrenamiento_destacado: number;
           dias_comida_atencion: number;
           dias_comida_destacado: number;
+          // 0033_registro_pago.sql
+          registro_beta_aviso: boolean;
+          pago_registro_activo: boolean;
+          pago_monto: number | null;
+          pago_banco: string | null;
+          pago_tipo_cuenta: string | null;
+          pago_numero_cuenta: string | null;
+          pago_rut: string | null;
+          pago_titular: string | null;
+          pago_correo: string | null;
+          pago_instrucciones: string | null;
+          whatsapp_gimnasio: string | null;
+          asistente_ia_activo: boolean;
+          presupuesto_ia_mensual_usd: number;
           updated_by: string | null;
           updated_at: string;
         };
@@ -215,10 +310,98 @@ export interface Database {
           pct_entrenamiento_destacado?: number;
           dias_comida_atencion?: number;
           dias_comida_destacado?: number;
+          registro_beta_aviso?: boolean;
+          pago_registro_activo?: boolean;
+          pago_monto?: number | null;
+          pago_banco?: string | null;
+          pago_tipo_cuenta?: string | null;
+          pago_numero_cuenta?: string | null;
+          pago_rut?: string | null;
+          pago_titular?: string | null;
+          pago_correo?: string | null;
+          pago_instrucciones?: string | null;
+          whatsapp_gimnasio?: string | null;
+          asistente_ia_activo?: boolean;
+          presupuesto_ia_mensual_usd?: number;
           updated_by?: string | null;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["configuracion_gimnasio"]["Insert"]>;
+        Relationships: [];
+      };
+      asistente_uso_ia: {
+        Row: {
+          id: string;
+          usuario_id: string;
+          herramienta: "atencion" | "nutricion" | "entrenamiento" | "progreso" | "noticia" | "alumno";
+          modelo: string;
+          tokens_entrada: number;
+          tokens_salida: number;
+          costo_usd: number;
+          created_at: string;
+        };
+        Insert: {
+          usuario_id: string;
+          herramienta: "atencion" | "nutricion" | "entrenamiento" | "progreso" | "noticia" | "alumno";
+          modelo: string;
+          tokens_entrada?: number;
+          tokens_salida?: number;
+          costo_usd?: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["asistente_uso_ia"]["Insert"]>;
+        Relationships: [];
+      };
+      borradores_noticias: {
+        Row: {
+          id: string;
+          titulo: string;
+          mensaje: string;
+          estado: "pendiente" | "publicado" | "descartado";
+          creado_por: string;
+          generado_con_ia: boolean;
+          publicado_en: string | null;
+          created_at: string;
+        };
+        Insert: {
+          titulo: string;
+          mensaje: string;
+          estado?: "pendiente" | "publicado" | "descartado";
+          creado_por: string;
+          generado_con_ia?: boolean;
+          publicado_en?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["borradores_noticias"]["Insert"]>;
+        Relationships: [];
+      };
+      medidas_corporales: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          fecha: string;
+          cintura_cm: number | null;
+          cadera_cm: number | null;
+          pecho_cm: number | null;
+          brazo_cm: number | null;
+          muslo_cm: number | null;
+          observacion: string | null;
+          registrado_por: string | null;
+          created_at: string;
+        };
+        Insert: {
+          alumno_id: string;
+          fecha?: string;
+          cintura_cm?: number | null;
+          cadera_cm?: number | null;
+          pecho_cm?: number | null;
+          brazo_cm?: number | null;
+          muslo_cm?: number | null;
+          observacion?: string | null;
+          registrado_por?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["medidas_corporales"]["Insert"]>;
         Relationships: [];
       };
       reconocimientos_semanales: {
@@ -643,14 +826,16 @@ export interface Database {
           tipo_comida: string;
           omitida: boolean;
           observacion: string | null;
+          registrado_en: string | null;
         };
         Insert: {
           registro_diario_id: string;
           tipo_comida: string;
           omitida?: boolean;
           observacion?: string | null;
+          registrado_en?: string | null;
         };
-        Update: { omitida?: boolean; observacion?: string | null };
+        Update: { omitida?: boolean; observacion?: string | null; registrado_en?: string | null };
         Relationships: [
           {
             foreignKeyName: "comidas_registradas_registro_diario_id_fkey";
@@ -881,6 +1066,42 @@ export interface Database {
           },
         ];
       };
+      puntos_vip_movimientos: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          clave: string;
+          categoria: CategoriaPuntosVIP;
+          puntos: number;
+          titulo: string;
+          detalle: string | null;
+          fecha: string;
+          metadata: MetadataPuntosVIP;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          alumno_id: string;
+          clave: string;
+          categoria: CategoriaPuntosVIP;
+          puntos?: number;
+          titulo: string;
+          detalle?: string | null;
+          fecha?: string;
+          metadata?: MetadataPuntosVIP;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["puntos_vip_movimientos"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "puntos_vip_movimientos_alumno_id_fkey";
+            columns: ["alumno_id"];
+            isOneToOne: false;
+            referencedRelation: "perfiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       ranking_semanas: {
         Row: {
           id: string;
@@ -913,6 +1134,8 @@ export interface Database {
           nombre: string;
           descripcion: string | null;
           metrica: TorneoMetrica;
+          modalidad: TorneoModalidad;
+          regla_publica: string | null;
           menor_es_mejor: boolean;
           unidad_manual: string | null;
           fecha_inicio: string;
@@ -930,6 +1153,8 @@ export interface Database {
           nombre: string;
           descripcion?: string | null;
           metrica: TorneoMetrica;
+          modalidad?: TorneoModalidad;
+          regla_publica?: string | null;
           menor_es_mejor?: boolean;
           unidad_manual?: string | null;
           fecha_inicio: string;

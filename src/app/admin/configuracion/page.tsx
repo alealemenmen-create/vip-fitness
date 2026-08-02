@@ -1,18 +1,24 @@
 import { requireRol } from "@/lib/auth";
 import { obtenerConfiguracionReconocimientos } from "@/lib/ai/reconocimientosSemanales";
 import { obtenerConfiguracionSupervision } from "@/lib/configuracion/supervision";
+import { obtenerConfiguracionRegistro } from "@/lib/configuracion/registro";
+import { ConfiguracionRegistro } from "@/components/admin/ConfiguracionRegistro";
 import { ConfiguracionReconocimientos } from "@/components/admin/ConfiguracionReconocimientos";
 import { EstadoSistema } from "@/components/admin/EstadoSistema";
 import { CambiarMiPassword } from "@/components/admin/CambiarMiPassword";
 import { CambiarCorreoForm } from "@/components/admin/CambiarCorreoForm";
 import { Card } from "@/components/ui/Card";
 import { cambiarMiCorreo } from "./actions";
+import { obtenerConfiguracionAsistenteVip } from "@/lib/asistente/configuracion";
+import { ConfiguracionAsistenteVip } from "@/components/admin/ConfiguracionAsistenteVip";
 
 export default async function ConfiguracionAdminPage() {
   await requireRol(["entrenador", "admin"]);
-  const [config, supervision] = await Promise.all([
+  const [config, supervision, registro, asistente] = await Promise.all([
     obtenerConfiguracionReconocimientos(),
     obtenerConfiguracionSupervision(),
+    obtenerConfiguracionRegistro(),
+    obtenerConfiguracionAsistenteVip(),
   ]);
 
   return (
@@ -29,7 +35,9 @@ export default async function ConfiguracionAdminPage() {
         <p className="text-caption text-text-tertiary">MI CORREO</p>
         <CambiarCorreoForm accion={cambiarMiCorreo} />
       </Card>
+      <ConfiguracionRegistro config={registro} />
       <EstadoSistema />
+      <ConfiguracionAsistenteVip config={asistente} />
       <ConfiguracionReconocimientos config={config} supervision={supervision} />
     </div>
   );

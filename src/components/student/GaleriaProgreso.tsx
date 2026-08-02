@@ -100,6 +100,9 @@ function EspacioVacio({ id, etiqueta }: { id: string; etiqueta: string }) {
           className="radius-control w-full border border-border bg-surface-2 px-2 py-2 text-caption text-text outline-none focus:border-vip"
         />
         {state.error && <p className="text-caption text-error">{state.error}</p>}
+        {state.ok && state.puntos && (
+          <p className="text-caption text-center font-semibold text-vip">+{state.puntos} Puntos VIP</p>
+        )}
         <BotonSubir deshabilitado={comprimiendo || !archivoListo} />
       </form>
     </div>

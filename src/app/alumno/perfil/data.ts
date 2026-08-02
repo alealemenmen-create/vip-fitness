@@ -9,6 +9,10 @@ export type DatosPersonales = {
   estaturaCm: number | null;
   condicionMedica: string | null;
   restriccionAlimenticia: string | null;
+  // 0032: los completa el formulario público de inscripción y el alumno los
+  // puede corregir después desde acá.
+  telefono: string | null;
+  sexo: string | null;
 };
 
 export async function obtenerDatosPersonales(
@@ -19,7 +23,9 @@ export async function obtenerDatosPersonales(
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     supabase
       .from("alumno_perfil")
-      .select("fecha_nacimiento, estatura_cm, condicion_medica, restriccion_alimenticia")
+      .select(
+        "fecha_nacimiento, estatura_cm, condicion_medica, restriccion_alimenticia, telefono, sexo"
+      )
       .eq("user_id", alumnoId)
       .maybeSingle(),
   ]);
@@ -30,5 +36,7 @@ export async function obtenerDatosPersonales(
     estaturaCm: alumnoPerfil?.estatura_cm ?? null,
     condicionMedica: alumnoPerfil?.condicion_medica ?? null,
     restriccionAlimenticia: alumnoPerfil?.restriccion_alimenticia ?? null,
+    telefono: alumnoPerfil?.telefono ?? null,
+    sexo: alumnoPerfil?.sexo ?? null,
   };
 }

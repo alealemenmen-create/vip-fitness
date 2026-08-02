@@ -4,9 +4,10 @@ import { formatInTimeZone } from "date-fns-tz";
 import { ZONA_HORARIA_VIP, hoyISO } from "@/lib/date";
 import type { TorneoAdmin, TorneoPublico, ResultadoHistorico } from "./types";
 import type { ResultadoTorneo } from "./puntos";
+import { calcularValoresCompetencia } from "./metricas";
 
 export type { TorneoMetrica, TorneoAdmin, TorneoPublico, ResultadoHistorico } from "./types";
-export { NOMBRE_METRICA } from "./types";
+export { NOMBRE_METRICA, NOMBRE_MODALIDAD } from "./types";
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 export type CelebracionTorneo = {
@@ -92,6 +93,8 @@ export async function obtenerTorneosAdmin(): Promise<TorneoAdmin[]> {
     nombre: t.nombre,
     descripcion: t.descripcion,
     metrica: t.metrica,
+    modalidad: t.modalidad,
+    reglaPublica: t.regla_publica,
     menorEsMejor: t.menor_es_mejor,
     unidadManual: t.unidad_manual,
     fechaInicio: t.fecha_inicio,
@@ -129,7 +132,7 @@ export async function obtenerTorneosPublicos(alumnoId: string): Promise<TorneoPu
 
   const { data: todosParticipantes } = await admin
     .from("torneo_participantes")
-    .select("torneo_id, alumno_id, estado")
+    .select("torneo_id, alumno_id, estado, resultado_manual")
     .in(
       "torneo_id",
       torneos.map((t) => t.id)
@@ -140,10 +143,42 @@ export async function obtenerTorneosPublicos(alumnoId: string): Promise<TorneoPu
     [...new Set((todosParticipantes ?? []).map((p) => p.alumno_id))]
   );
 
+  const marcadores = new Map<string, Awaited<ReturnType<typeof calcularValoresCompetencia>>>();
+  await Promise.all(
+    torneos.map(async (torneo) => {
+      const aceptados = (todosParticipantes ?? [])
+        .filter((participante) => participante.torneo_id === torneo.id && participante.estado === "aceptado")
+        .map((participante) => ({
+          alumnoId: participante.alumno_id,
+          resultadoManual: participante.resultado_manual,
+        }));
+      marcadores.set(
+        torneo.id,
+        await calcularValoresCompetencia(
+          admin,
+          torneo.metrica,
+          torneo.fecha_inicio,
+          torneo.fecha_fin,
+          aceptados
+        )
+      );
+    })
+  );
+
   return torneos.map((t) => {
+    const marcador = marcadores.get(t.id) ?? new Map();
     const participantes = (todosParticipantes ?? [])
       .filter((p) => p.torneo_id === t.id)
-      .map((p) => ({ alumnoId: p.alumno_id, nombre: nombres.get(p.alumno_id) ?? "Alumno", estado: p.estado }));
+      .map((p) => {
+        const medicion = marcador.get(p.alumno_id);
+        return {
+          alumnoId: p.alumno_id,
+          nombre: nombres.get(p.alumno_id) ?? "Alumno",
+          estado: p.estado,
+          valorActual: medicion?.valor ?? null,
+          resultadoValido: medicion?.valido ?? false,
+        };
+      });
     const propia = participantes.find((p) => p.alumnoId === alumnoId);
 
     return {
@@ -151,6 +186,10 @@ export async function obtenerTorneosPublicos(alumnoId: string): Promise<TorneoPu
       nombre: t.nombre,
       descripcion: t.descripcion,
       metrica: t.metrica,
+      modalidad: t.modalidad,
+      reglaPublica: t.regla_publica,
+      menorEsMejor: t.menor_es_mejor,
+      unidadManual: t.unidad_manual,
       fechaInicio: t.fecha_inicio,
       horaInicio: t.hora_inicio,
       fechaFin: t.fecha_fin,
@@ -168,7 +207,7 @@ export async function obtenerHistorialTorneos(): Promise<ResultadoHistorico[]> {
   const admin = createAdminClient();
   const { data: torneos } = await admin
     .from("torneos")
-    .select("id, nombre, metrica, fecha_fin")
+    .select("id, nombre, metrica, modalidad, fecha_fin")
     .eq("cerrado", true)
     .order("cerrado_en", { ascending: false })
     .limit(20);
@@ -193,30 +232,11 @@ export async function obtenerHistorialTorneos(): Promise<ResultadoHistorico[]> {
       torneoId: t.id,
       nombre: t.nombre,
       metrica: t.metrica,
+      modalidad: t.modalidad,
       fechaFin: t.fecha_fin,
       cerradoEn: r.cerrada_en,
       resultados: r.resultados,
     });
   }
   return historial;
-}
-
-/** Suma de puntos ganados/perdidos en torneos ya cerrados, por alumno — se
- * integra al acumulado del ranking semanal (ver src/lib/ranking/data.ts). */
-export async function obtenerDeltasTorneosCerrados(
-  admin: AdminClient,
-  ids: string[]
-): Promise<Map<string, number>> {
-  if (ids.length === 0) return new Map();
-  const { data } = await admin.from("torneo_resultados").select("resultados");
-
-  const mapa = new Map<string, number>();
-  const idsSet = new Set(ids);
-  for (const fila of data ?? []) {
-    for (const r of fila.resultados) {
-      if (!idsSet.has(r.alumnoId)) continue;
-      mapa.set(r.alumnoId, (mapa.get(r.alumnoId) ?? 0) + r.puntosDelta);
-    }
-  }
-  return mapa;
 }

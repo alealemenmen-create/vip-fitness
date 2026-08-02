@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Settings, X, UserCog, FileText, Sun, Moon, LogOut, Sparkles, Type } from "lucide-react";
+import { Settings, X, UserCog, FileText, Sun, Moon, LogOut, Sparkles, Type, Bot } from "lucide-react";
 import { logout } from "@/app/actions";
 import { guardarTemaBoton } from "@/app/alumno/perfil/actions";
 
@@ -155,6 +155,12 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
                   href="/alumno/documentos"
                   icon={<FileText size={20} />}
                   texto="Mis planes"
+                  onNavegar={() => setAbierto(false)}
+                />
+                <ItemMenu
+                  href="/alumno/asistente"
+                  icon={<Bot size={20} />}
+                  texto="Asistente VIP"
                   onNavegar={() => setAbierto(false)}
                 />
                 <button

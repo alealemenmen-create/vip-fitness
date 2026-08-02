@@ -2,21 +2,16 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Users, LayoutList, ChevronRight, AlertTriangle, Star, Diamond, Search } from "lucide-react";
+import { Users, LayoutList, AlertTriangle, Star, Diamond, Search } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { TarjetaReporteAlumno } from "./TarjetaReporteAlumno";
 import type { ReporteAlumno } from "@/app/admin/alumnos/data";
 
 const CONFIG = {
   atencion: { Icon: AlertTriangle, color: "var(--color-error)" },
-  normal: { Icon: Diamond, color: "var(--color-text-secondary)" },
+  normal: { Icon: Diamond, color: "var(--color-text-tertiary)" },
   destacado: { Icon: Star, color: "var(--color-vip)" },
 } as const;
-
-function iniciales(nombre: string): string {
-  const partes = nombre.trim().split(/\s+/);
-  return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase();
-}
 
 /**
  * Lista de alumnos con dos vistas: la "detallada" (tarjetas grandes con todo
@@ -52,38 +47,38 @@ export function ListaAlumnos({
     <div className="space-y-3">
       <div className="relative">
         <Search
-          size={14}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
+          size={12}
+          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary"
         />
         <input
           type="text"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           placeholder="Buscar alumno..."
-          className="radius-control text-secondary w-full border border-border bg-surface py-2 pl-8 pr-3 text-text"
+          className="radius-control text-caption w-full border border-border bg-surface py-1.5 pl-7 pr-3 text-text"
         />
       </div>
 
-      <div className="radius-control flex gap-1 bg-surface-2 p-1">
+      <div className="radius-control flex gap-1 bg-surface-2 p-0.5">
         <button
           type="button"
           onClick={() => setVista("compacta")}
           aria-label="Vista compacta"
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-secondary font-medium transition-colors duration-200 ${
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-caption font-medium transition-colors duration-200 ${
             vista === "compacta" ? "bg-vip text-black" : "text-text-secondary"
           }`}
         >
-          <Users size={16} /> Compacta
+          <Users size={12} /> Compacta
         </button>
         <button
           type="button"
           onClick={() => setVista("detallada")}
           aria-label="Vista detallada"
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-secondary font-medium transition-colors duration-200 ${
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-caption font-medium transition-colors duration-200 ${
             vista === "detallada" ? "bg-vip text-black" : "text-text-secondary"
           }`}
         >
-          <LayoutList size={16} /> Detallada
+          <LayoutList size={12} /> Detallada
         </button>
       </div>
 
@@ -92,30 +87,33 @@ export function ListaAlumnos({
           <p className="text-body text-text-secondary">Ningún alumno coincide con la búsqueda.</p>
         </Card>
       ) : vista === "compacta" ? (
-        <Card className="space-y-1 p-2">
+        <Card padding="p-0" className="divide-y divide-border overflow-hidden">
+          <div className="grid grid-cols-[1fr_28px] items-stretch bg-surface-2">
+            <span className="px-2.5 py-1 text-[10px] font-semibold tracking-wide text-text-tertiary">
+              ALUMNO
+            </span>
+            <span className="border-l border-border" />
+          </div>
           {filtrados.map((r) => {
             const { Icon, color } = CONFIG[r.estado];
             return (
               <Link
                 key={r.alumnoId}
                 href={`/admin/alumnos/${r.alumnoId}`}
-                className="flex items-center gap-3 rounded-xl px-2 py-2.5"
+                className="grid grid-cols-[1fr_28px] items-stretch active:bg-surface-2"
               >
-                <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-caption font-bold text-text"
-                >
-                  {iniciales(r.nombre)}
-                </span>
-                <p className="min-w-0 flex-1 truncate text-secondary font-medium text-text">
+                <span className="truncate px-2.5 py-1.5 text-caption text-text">
                   {r.nombre}
                   {r.alumnoId === sesionUserId && (
-                    <span className="font-normal text-text-tertiary"> (Tú)</span>
+                    <span className="text-text-tertiary"> (Tú)</span>
                   )}
-                </p>
-                <span style={{ color }} className="shrink-0">
-                  <Icon size={16} strokeWidth={2.25} />
                 </span>
-                <ChevronRight size={16} className="shrink-0 text-text-tertiary" />
+                <span
+                  style={{ color }}
+                  className="flex items-center justify-center border-l border-border"
+                >
+                  <Icon size={12} strokeWidth={2.5} />
+                </span>
               </Link>
             );
           })}

@@ -7,6 +7,7 @@ import { InvitarEntrenadorForm } from "@/components/admin/InvitarEntrenadorForm"
 import { ListaAlumnos } from "@/components/admin/ListaAlumnos";
 import { ListaEntrenadores } from "@/components/admin/ListaEntrenadores";
 import { AvisosNotasIA } from "@/components/admin/AvisosNotasIA";
+import { AvisoSolicitudes } from "@/components/admin/AvisoSolicitudes";
 import { obtenerReportes, obtenerAvisosNotasIA, type EstadoAlumno } from "./data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 
@@ -38,15 +39,20 @@ export default async function AlumnosPage() {
 
   // La lista de entrenadores no depende de los reportes: iba suelta después
   // del Promise.all y sumaba una espera de red entera a cada carga del panel.
-  const [reportes, avisosNotasIA, { data: entrenadoresData }] = await Promise.all([
-    obtenerReportes(supabase, alumnos),
-    obtenerAvisosNotasIA(supabase),
-    supabase
-      .from("perfiles")
-      .select("id, nombre")
-      .eq("rol", "entrenador")
-      .order("nombre", { ascending: true }),
-  ]);
+  const [reportes, avisosNotasIA, { data: entrenadoresData }, { count: solicitudesPendientes }] =
+    await Promise.all([
+      obtenerReportes(supabase, alumnos),
+      obtenerAvisosNotasIA(supabase),
+      supabase
+        .from("perfiles")
+        .select("id, nombre")
+        .eq("rol", "entrenador")
+        .order("nombre", { ascending: true }),
+      supabase
+        .from("solicitudes_registro")
+        .select("id", { count: "exact", head: true })
+        .eq("estado", "pendiente"),
+    ]);
   const entrenadores = entrenadoresData ?? [];
 
   // Los que necesitan atención primero: es lo que el entrenador tiene que ver
@@ -58,26 +64,26 @@ export default async function AlumnosPage() {
   const destacados = reportes.filter((r) => r.estado === "destacado").length;
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-h2 text-text">Alumnos</h1>
+    <div className="space-y-2">
+      <h1 className="text-caption font-semibold text-text">Alumnos</h1>
 
       {reportes.length > 0 && (
-        <Card className="p-4">
-          <div className="grid grid-cols-3 gap-2 text-center">
+        <Card padding="p-1" className="leading-none">
+          <div className="grid grid-cols-3 gap-1 text-center">
             <Resumen
-              icono={<Users size={16} />}
+              icono={<Users size={11} />}
               valor={reportes.length}
               etiqueta="en total"
               color="var(--color-text)"
             />
             <Resumen
-              icono={<AlertTriangle size={16} />}
+              icono={<AlertTriangle size={11} />}
               valor={aRevisar}
               etiqueta="para revisar"
               color={aRevisar > 0 ? "var(--color-error)" : "var(--color-text-tertiary)"}
             />
             <Resumen
-              icono={<Star size={16} />}
+              icono={<Star size={11} />}
               valor={destacados}
               etiqueta="para felicitar"
               color={destacados > 0 ? "var(--color-vip)" : "var(--color-text-tertiary)"}
@@ -85,6 +91,8 @@ export default async function AlumnosPage() {
           </div>
         </Card>
       )}
+
+      <AvisoSolicitudes pendientes={solicitudesPendientes ?? 0} />
 
       <CrearAlumnoForm />
 
@@ -112,12 +120,12 @@ function Resumen({
   color: string;
 }) {
   return (
-    <div>
-      <div className="flex items-center justify-center gap-1.5" style={{ color }}>
+    <div className="leading-none">
+      <div className="flex items-center justify-center gap-1" style={{ color }}>
         {icono}
-        <span className="text-h3">{valor}</span>
+        <span className="text-caption font-bold">{valor}</span>
       </div>
-      <p className="text-caption mt-0.5 text-text-tertiary">{etiqueta}</p>
+      <p className="mt-0.5 text-[9px] leading-none text-text-tertiary">{etiqueta}</p>
     </div>
   );
 }

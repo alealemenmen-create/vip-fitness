@@ -42,35 +42,47 @@ function NotaForm({
   const hoy = new Date().toISOString().slice(0, 10);
 
   return (
-    <Card>
-      <form action={formAction} className="space-y-3">
+    <Card padding="p-2">
+      <form action={formAction} className="space-y-1.5">
         <input type="hidden" name="alumno_id" value={alumnoId} />
         {nota && <input type="hidden" name="nota_id" value={nota.id} />}
 
         <Textarea
           name="texto"
           required
-          rows={3}
+          rows={2}
           placeholder="Escribe la nota para el alumno…"
           defaultValue={nota?.texto ?? ""}
+          className="!py-1.5 text-caption"
         />
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="text-caption mb-1.5 block text-text-tertiary">DESDE</label>
-            <Input type="date" name="fecha_inicio" required defaultValue={nota?.fecha_inicio ?? hoy} />
+            <label className="text-[9px] mb-0.5 block text-text-tertiary">DESDE</label>
+            <Input
+              type="date"
+              name="fecha_inicio"
+              required
+              defaultValue={nota?.fecha_inicio ?? hoy}
+              className="!py-1.5 text-caption"
+            />
           </div>
           <div>
-            <label className="text-caption mb-1.5 block text-text-tertiary">HASTA (opcional)</label>
-            <Input type="date" name="fecha_fin" defaultValue={nota?.fecha_fin ?? ""} />
+            <label className="text-[9px] mb-0.5 block text-text-tertiary">HASTA (opcional)</label>
+            <Input
+              type="date"
+              name="fecha_fin"
+              defaultValue={nota?.fecha_fin ?? ""}
+              className="!py-1.5 text-caption"
+            />
           </div>
         </div>
 
-        <label className="text-secondary flex items-center gap-2 text-text-secondary">
+        <label className="text-caption flex items-center gap-1.5 text-text-secondary">
           <input type="checkbox" name="importante" value="true" defaultChecked={nota?.importante ?? false} />
           Marcar como importante
         </label>
-        <label className="text-secondary flex items-center gap-2 text-text-secondary">
+        <label className="text-caption flex items-center gap-1.5 text-text-secondary">
           <input
             type="checkbox"
             name="marcar_nueva"
@@ -83,10 +95,10 @@ function NotaForm({
         {state.error && <p className="text-caption text-error">{state.error}</p>}
 
         <div className="flex gap-2 pt-1">
-          <Button type="submit" variant="success" size="sm" loading={pending} className="flex-1">
+          <Button type="submit" variant="success" size="xsAuto" loading={pending} className="flex-1">
             {pending ? "Guardando…" : "Guardar nota"}
           </Button>
-          <Button type="button" variant="secondary" size="sm" className="flex-1" onClick={onCancelar}>
+          <Button type="button" variant="secondary" size="xsAuto" className="flex-1" onClick={onCancelar}>
             Cancelar
           </Button>
         </div>
@@ -105,25 +117,25 @@ function TarjetaNota({
   onEditar: () => void;
 }) {
   return (
-    <Card className="space-y-2">
+    <Card padding="p-2" className="space-y-1">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-body text-text">{nota.texto}</p>
+        <p className="text-caption text-text">{nota.texto}</p>
         {nota.importante && <Pill tone="error">Importante</Pill>}
       </div>
-      <p className="text-caption text-text-tertiary">
+      <p className="text-[9px] text-text-tertiary">
         {nota.fecha_inicio}
         {nota.fecha_fin ? ` → ${nota.fecha_fin}` : " → sin fecha final"}
         {nota.leida_en ? " · Leída" : " · No leída aún"}
       </p>
       <div className="flex gap-3">
-        <button onClick={onEditar} className="text-secondary flex items-center gap-1 text-vip">
-          <Pencil size={14} /> Editar
+        <button onClick={onEditar} className="text-caption flex items-center gap-1 text-vip">
+          <Pencil size={11} /> Editar
         </button>
         <form action={eliminarNota}>
           <input type="hidden" name="nota_id" value={nota.id} />
           <input type="hidden" name="alumno_id" value={alumnoId} />
-          <button className="text-secondary flex items-center gap-1 text-error">
-            <Trash2 size={14} /> Eliminar
+          <button className="text-caption flex items-center gap-1 text-error">
+            <Trash2 size={11} /> Eliminar
           </button>
         </form>
       </div>
@@ -138,15 +150,15 @@ export function NotasManager({ alumnoId, notasIniciales }: { alumnoId: string; n
   const notasIA = notasIniciales.filter((n) => n.generado_con_ia);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <p className="text-caption text-text-tertiary">NOTAS DEL ENTRENADOR</p>
+        <p className="text-[10px] text-text-tertiary">NOTAS DEL ENTRENADOR</p>
         {!editando && (
           <button
             onClick={() => setEditando("nueva")}
-            className="text-secondary flex items-center gap-1 font-medium text-vip"
+            className="text-caption flex items-center gap-1 font-medium text-vip"
           >
-            <Plus size={16} /> Nueva nota
+            <Plus size={13} /> Nueva nota
           </button>
         )}
       </div>
@@ -161,7 +173,7 @@ export function NotasManager({ alumnoId, notasIniciales }: { alumnoId: string; n
       )}
 
       {notasManuales.length === 0 && !editando && (
-        <p className="text-secondary text-text-tertiary">Este alumno todavía no tiene notas.</p>
+        <p className="text-caption text-text-tertiary">Este alumno todavía no tiene notas.</p>
       )}
 
       {!editando &&
@@ -170,9 +182,9 @@ export function NotasManager({ alumnoId, notasIniciales }: { alumnoId: string; n
         ))}
 
       {notasIA.length > 0 && (
-        <div className="space-y-3 pt-2">
-          <p className="flex items-center gap-1.5 text-caption text-text-tertiary">
-            <Sparkles size={13} className="text-vip" /> MENSAJES DE MOTIVACIÓN (IA)
+        <div className="space-y-1.5 pt-1">
+          <p className="flex items-center gap-1.5 text-[10px] text-text-tertiary">
+            <Sparkles size={11} className="text-vip" /> MENSAJES DE MOTIVACIÓN (IA)
           </p>
           {notasIA.map((n) => (
             <TarjetaNota key={n.id} nota={n} alumnoId={alumnoId} onEditar={() => setEditando(n)} />

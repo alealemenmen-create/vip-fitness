@@ -1,12 +1,22 @@
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerTorneosAdmin } from "@/lib/torneos/data";
-import { CrearTorneoForm } from "@/components/admin/CrearTorneoForm";
+import { CrearTorneoForm, type BorradorRetoIA } from "@/components/admin/CrearTorneoForm";
 import { TorneoAdminCard } from "@/components/admin/TorneoAdminCard";
 import { Card } from "@/components/ui/Card";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 
-export default async function TorneosPage() {
+function sumarDias(fecha: Date, dias: number): string {
+  const copia = new Date(fecha);
+  copia.setDate(copia.getDate() + dias);
+  return copia.toISOString().slice(0, 10);
+}
+
+export default async function TorneosPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
 
@@ -27,16 +37,42 @@ export default async function TorneosPage() {
   const torneos = await obtenerTorneosAdmin();
   const activos = torneos.filter((t) => !t.cerrado);
   const cerrados = torneos.filter((t) => t.cerrado);
+  const query = await searchParams;
+  const valor = (clave: string) => {
+    const actual = query[clave];
+    return typeof actual === "string" ? actual : "";
+  };
+  const idsValidos = new Set(alumnos.map((alumno) => alumno.id));
+  const desdeIA = valor("ia") === "1";
+  const hoy = new Date();
+  const borradorIA: BorradorRetoIA | null =
+    desdeIA && idsValidos.has(valor("ladoA")) && idsValidos.has(valor("ladoB"))
+      ? {
+          nombre: valor("nombre").slice(0, 80),
+          descripcion: valor("descripcion").slice(0, 500),
+          regla: valor("regla").slice(0, 600),
+          modalidad: valor("modalidad") === "duelo" ? "duelo" : "duelo",
+          metrica: valor("metrica") === "progreso_vip" ? "progreso_vip" : "progreso_vip",
+          puntos: Math.max(300, Math.min(1000, Number(valor("puntos")) || 500)),
+          ladoA: valor("ladoA"),
+          ladoB: valor("ladoB"),
+          fechaInicio: sumarDias(hoy, 1),
+          fechaFin: sumarDias(hoy, 4),
+        }
+      : null;
 
   return (
     <div className="space-y-4">
-      <h1 className="text-h2 text-text">Torneos</h1>
+      <div>
+        <h1 className="text-h2 text-text">Arena <span className="text-vip">VIP</span></h1>
+        <p className="text-caption mt-1 text-text-secondary">Competencias oficiales, reglas públicas y premios aportados por VIP Fitness.</p>
+      </div>
 
-      <CrearTorneoForm alumnos={alumnos} />
+      <CrearTorneoForm alumnos={alumnos} borradorIA={borradorIA} />
 
       {activos.length === 0 && cerrados.length === 0 ? (
         <Card>
-          <p className="text-body text-text-secondary">Todavía no creaste ningún torneo.</p>
+          <p className="text-body text-text-secondary">Todavía no publicaste ninguna competencia.</p>
         </Card>
       ) : (
         <>

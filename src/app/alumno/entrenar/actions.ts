@@ -4,6 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { TAG_RANKING } from "@/lib/ranking/data";
+import { requireAlumno } from "@/lib/auth";
+import {
+  abandonarEntrenamiento,
+  desactivarEntrenamiento,
+  registrarEntrenamiento,
+} from "@/lib/ranking/movimientos";
 
 export async function iniciarSesion(formData: FormData): Promise<void> {
   const diaId = String(formData.get("dia_id") || "");
@@ -136,12 +142,20 @@ export async function guardarSeries(
 export async function finalizarSesion(formData: FormData): Promise<void> {
   const sesionId = String(formData.get("sesion_id") || "");
   const comentario = String(formData.get("comentario") || "").trim();
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) redirect("/alumno/entrenar");
 
   const supabase = await createClient();
-  const { data: ejercicios } = await supabase
-    .from("sesion_ejercicios")
-    .select("completado")
-    .eq("sesion_id", sesionId);
+  const [{ data: sesion }, { data: ejercicios }] = await Promise.all([
+    supabase
+      .from("sesiones_entrenamiento")
+      .select("id, fecha")
+      .eq("id", sesionId)
+      .eq("alumno_id", alumnoId)
+      .maybeSingle(),
+    supabase.from("sesion_ejercicios").select("completado").eq("sesion_id", sesionId),
+  ]);
+  if (!sesion) redirect("/alumno/entrenar");
 
   const total = ejercicios?.length ?? 0;
   const completados = ejercicios?.filter((e) => e.completado).length ?? 0;
@@ -153,27 +167,80 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
     .update({ estado, hora_fin: new Date().toISOString(), comentario: comentario || null })
     .eq("id", sesionId);
 
+  const puntos = await registrarEntrenamiento({
+    alumnoId,
+    sesionId,
+    fecha: sesion.fecha,
+    completados,
+    total,
+  });
+
   // Finalizar una sesión cambia los puntos de asistencia: el ranking cacheado
   // tiene que rehacerse ahora, no cuando venza solo.
   updateTag(TAG_RANKING);
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
-  redirect("/alumno/entrenar");
+  redirect(`/alumno/entrenar?puntos=${puntos}`);
 }
 
 export async function reabrirSesion(formData: FormData): Promise<void> {
   const sesionId = String(formData.get("sesion_id") || "");
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return;
 
   const supabase = await createClient();
+  const { data: sesion } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("fecha")
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .maybeSingle();
+  if (!sesion) return;
   await supabase
     .from("sesiones_entrenamiento")
     .update({ estado: "en_progreso", hora_fin: null })
     .eq("id", sesionId);
 
+  await desactivarEntrenamiento(alumnoId, sesionId, sesion.fecha);
+
   // Reabrir devuelve el cupo de la sesión, así que también mueve los puntos.
   updateTag(TAG_RANKING);
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
+  revalidatePath("/alumno/inicio");
+  revalidatePath("/alumno/entrenar");
+}
+
+/**
+ * Abandona una sesión ya cerrada (completada o finalizada incompleta): le
+ * quita los puntos que había sumado y queda marcada como "abandonada".
+ *
+ * A diferencia de `reabrirSesion`, esto no vuelve a quedar editable — la fila
+ * NO se borra, queda en el historial con su estado nuevo (a diferencia de un
+ * borrado, sigue habiendo registro de que se empezó). Vive acá y se llama
+ * desde el Historial, no desde la ficha de la sesión: es una acción sobre
+ * algo ya cerrado, no algo que se hace mientras se está entrenando.
+ */
+export async function abandonarSesion(formData: FormData): Promise<void> {
+  const sesionId = String(formData.get("sesion_id") || "");
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return;
+
+  const supabase = await createClient();
+  const { data: sesion } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("fecha")
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .maybeSingle();
+  if (!sesion) return;
+
+  await supabase.from("sesiones_entrenamiento").update({ estado: "abandonada" }).eq("id", sesionId);
+  await abandonarEntrenamiento(alumnoId, sesionId, sesion.fecha);
+
+  updateTag(TAG_RANKING);
+  revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
+  revalidatePath("/alumno/entrenar/historial");
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
 }

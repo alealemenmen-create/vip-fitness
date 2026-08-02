@@ -83,6 +83,7 @@ export function SeguimientoDiario({ seguimientoHoy }: { seguimientoHoy: Seguimie
             {state.guardado ? (
               <div className="py-8 text-center">
                 <p className="text-body text-text">Seguimiento guardado correctamente.</p>
+                {state.puntos && <p className="text-h3 mt-2 text-vip">+{state.puntos} Puntos VIP</p>}
                 <button
                   onClick={() => setAbierto(false)}
                   className="text-secondary mt-4 font-semibold text-vip"

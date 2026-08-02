@@ -27,24 +27,24 @@ export function EliminarPerfilBoton({
 
   if (!confirmando) {
     return (
-      <Button variant="destructive" size="sm" onClick={() => setConfirmando(true)}>
-        <Trash2 size={15} /> {etiqueta}
+      <Button variant="destructive" size="xsAuto" onClick={() => setConfirmando(true)}>
+        <Trash2 size={12} /> {etiqueta}
       </Button>
     );
   }
 
   return (
-    <div className="radius-control space-y-3 border border-error/40 bg-error/5 p-4">
-      <p className="text-body text-text">{advertencia}</p>
+    <div className="radius-control space-y-1.5 border border-error/40 bg-error/5 p-2">
+      <p className="text-caption text-text">{advertencia}</p>
       {state.error && <p className="text-caption text-error">{state.error}</p>}
       <div className="flex gap-2">
         <form action={formAction}>
           <input type="hidden" name={campoId} value={valorId} />
-          <Button type="submit" variant="destructive" size="sm" loading={pending}>
+          <Button type="submit" variant="destructive" size="xsAuto" loading={pending}>
             Sí, eliminar definitivamente
           </Button>
         </form>
-        <Button variant="ghost" size="sm" onClick={() => setConfirmando(false)}>
+        <Button variant="ghost" size="xsAuto" onClick={() => setConfirmando(false)}>
           Cancelar
         </Button>
       </div>

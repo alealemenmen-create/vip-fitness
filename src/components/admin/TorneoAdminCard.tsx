@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { Trophy, Lock } from "lucide-react";
 import { cargarResultadoManual, cerrarTorneo, type FormState } from "@/app/admin/torneos/actions";
-import { NOMBRE_METRICA, type TorneoAdmin } from "@/lib/torneos/types";
+import { NOMBRE_METRICA, NOMBRE_MODALIDAD, type TorneoAdmin } from "@/lib/torneos/types";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -28,6 +28,7 @@ export function TorneoAdminCard({ torneo }: { torneo: TorneoAdmin }) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-card-title text-text">{torneo.nombre}</p>
+          <p className="text-caption font-semibold text-vip">{NOMBRE_MODALIDAD[torneo.modalidad]}</p>
           <p className="text-caption text-text-tertiary">{NOMBRE_METRICA[torneo.metrica]}</p>
         </div>
         <p className="text-caption shrink-0 text-text-tertiary">
@@ -36,9 +37,15 @@ export function TorneoAdminCard({ torneo }: { torneo: TorneoAdmin }) {
       </div>
 
       {torneo.descripcion && <p className="text-secondary text-text-secondary">{torneo.descripcion}</p>}
+      {torneo.reglaPublica && (
+        <div className="radius-control bg-surface-2 px-3 py-2">
+          <p className="text-micro font-semibold text-vip">REGLA PUBLICADA</p>
+          <p className="text-caption mt-0.5 text-text-secondary">{torneo.reglaPublica}</p>
+        </div>
+      )}
 
       <p className="text-caption text-text-tertiary">
-        {torneo.puntosEnJuego.toLocaleString("es-CL")} puntos en juego · {aceptados.length}/
+        Bolsa VIP: {torneo.puntosEnJuego.toLocaleString("es-CL")} puntos · {aceptados.length}/
         {torneo.participantes.length} aceptaron
       </p>
 
@@ -51,14 +58,14 @@ export function TorneoAdminCard({ torneo }: { torneo: TorneoAdmin }) {
                 <p className="text-secondary text-text">
                   {r.puesto === 1 && "👑 "}
                   {nombreAlumnoPublicado(r.nombre)}
-                  <span className="text-caption text-text-tertiary"> · {r.valor}</span>
+                  <span className="text-caption text-text-tertiary">
+                    {r.valido === false
+                      ? " · sin resultado"
+                      : ` · ${r.valor}${torneo.unidadManual ? ` ${torneo.unidadManual}` : ""}`}
+                  </span>
                 </p>
-                <p
-                  className="text-secondary shrink-0 font-semibold"
-                  style={{ color: r.puntosDelta >= 0 ? "var(--color-success)" : "var(--color-error)" }}
-                >
-                  {r.puntosDelta >= 0 ? "+" : ""}
-                  {r.puntosDelta.toLocaleString("es-CL")}
+                <p className="text-secondary shrink-0 font-semibold text-success">
+                  +{r.puntosDelta.toLocaleString("es-CL")}
                 </p>
               </div>
             ))}
@@ -128,8 +135,8 @@ function CerrarTorneoBoton({ torneoId, listo }: { torneoId: string; listo: boole
   return (
     <form action={formAction} className="pt-1">
       <input type="hidden" name="torneo_id" value={torneoId} />
-      <Button type="submit" variant="destructive" size="sm" disabled={!listo} loading={pending}>
-        <Trophy size={16} /> Cerrar torneo y repartir puntos
+      <Button type="submit" variant="success" size="sm" disabled={!listo} loading={pending}>
+        <Trophy size={16} /> Cerrar competencia y repartir la bolsa
       </Button>
       {!listo && (
         <p className="text-caption mt-1.5 flex items-center gap-1 text-text-tertiary">
