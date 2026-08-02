@@ -79,10 +79,10 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
             celular apoyado y a medio ejercicio. El porcentaje va sobre la barra
             misma para no gastar un renglón entero de cabecera fija. */}
         {!esDescanso && total > 0 && (
-          <div className="flex items-center gap-2">
+          <div className="space-y-1">
             {/* h-3 y no h-1.5: es el único indicador de avance de toda la
                 sesión y a 6 px la ola de luz apenas se veía. */}
-            <div className="h-3 flex-1 overflow-hidden rounded-full bg-surface-2">
+            <div className="h-3 overflow-hidden rounded-full bg-surface-2">
               <div
                 className="barra-progreso-relleno h-full rounded-full bg-vip transition-[width] duration-500 ease-out"
                 style={{ width: `${Math.round((completados / total) * 100)}%` }}
@@ -98,10 +98,13 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
                 ))}
               </div>
             </div>
-            <div className="shrink-0 text-right">
-              <p className="text-micro font-semibold text-vip">+{puntosPreparados} pts</p>
-              <p className="text-[8px] leading-none text-text-tertiary">al finalizar</p>
-            </div>
+            {/* Los puntos van EN SU PROPIA línea, debajo de la barra — antes
+                estaban a su derecha, en la misma fila, y a un ancho de celular
+                angosto el número se montaba encima de la barra en vez de quedar
+                al lado. */}
+            <p className="text-right text-[10px] leading-none text-text-tertiary">
+              <span className="font-semibold text-vip">+{puntosPreparados} pts</span> al finalizar
+            </p>
           </div>
         )}
       </div>
@@ -146,7 +149,7 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
             type="submit"
             className="radius-control flex h-12 w-full items-center justify-center gap-2 border border-vip text-body font-medium text-vip"
           >
-            <RotateCcw size={18} /> Reiniciar / reabrir entrenamiento
+            <RotateCcw size={18} /> Reiniciar
           </button>
         </form>
       )}

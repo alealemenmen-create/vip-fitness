@@ -17,7 +17,6 @@ import { guardarSeries, type GuardarSeriesState } from "@/app/alumno/entrenar/ac
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
-import { explicarTempo } from "@/lib/ejercicios/tempo";
 import { repsObjetivo } from "@/lib/entrenamiento/reps";
 import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
 import {
@@ -644,8 +643,13 @@ export const SesionEjercicioCard = forwardRef<
                 className="shrink-0"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-micro truncate font-semibold tracking-wide text-vip">
-                  EJERCICIO {ejercicio.orden}
+                {/* Sin "EJERCICIO" ni truncate: ese prefijo era lo que hacía
+                    que el grupo muscular ("PIERNAS", "ESPALDA") se cortara en
+                    la columna angosta que deja la foto de referencia al lado.
+                    Con el número solo, el texto entero entra o como mucho
+                    pasa a una segunda línea — nunca queda escondido. */}
+                <p className="text-micro font-semibold leading-tight tracking-wide text-vip">
+                  {ejercicio.orden}
                   {ejercicio.grupoMuscular
                     ? ` · ${ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular].toUpperCase()}`
                     : ""}
@@ -706,25 +710,15 @@ export const SesionEjercicioCard = forwardRef<
           </button>
         ) : (
           <>
-        {/* Tempo: el valor y su traducción en la misma línea, a todo el ancho.
-            Los cuatro números solos no le dicen nada a quien no conoce la
-            notación, y esta es la línea que los convierte en algo ejecutable.
-            La explicación se agrega solo si el tempo lo dedujo la app: cuando
-            vino escrito en la rutina, ya está contada en la observación del
-            entrenador dos líneas más abajo. */}
+        {/* Solo el valor del tempo, sin la traducción larga ("3s bajando · 1s
+            abajo · 1s subiendo · Baja en tres, aguanta...") — ocupaba varias
+            líneas debajo de CADA ejercicio y era lo que empujaba fuera de
+            pantalla al siguiente. Quien conoce la notación no la necesita, y
+            quien no, tiene la técnica de abajo para saber cómo ejecutarlo. */}
         {ejercicio.tempo && (
-          <p className="text-micro mb-2 flex items-start gap-1 leading-snug text-text-tertiary">
-            <Gauge size={12} className="mt-px shrink-0 text-vip" />
-            <span className="min-w-0">
-              <span className="font-semibold text-text-secondary">
-                Tempo {ejercicio.tempo.valor}
-              </span>
-              {ejercicio.tempo.origen === "biblioteca"
-                ? ` · ${explicarTempo(ejercicio.tempo.valor)}${
-                    ejercicio.tempo.nota ? ` · ${ejercicio.tempo.nota}` : ""
-                  }`
-                : ""}
-            </span>
+          <p className="text-micro mb-2 flex items-center gap-1 text-text-tertiary">
+            <Gauge size={12} className="shrink-0 text-vip" />
+            <span className="font-semibold text-text-secondary">Tempo {ejercicio.tempo.valor}</span>
           </p>
         )}
 

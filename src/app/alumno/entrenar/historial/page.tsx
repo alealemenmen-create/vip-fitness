@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
+import { AbandonarSesionBoton } from "@/components/student/AbandonarSesionBoton";
 import { obtenerHistorialSesiones } from "../data";
 
 const ESTADO_LABEL: Record<string, { texto: string; tone: "success" | "error" | "neutral" }> = {
@@ -37,23 +38,26 @@ export default async function HistorialPage() {
       {sesiones.map((s) => {
         const estado = ESTADO_LABEL[s.estado];
         return (
-          <Link key={s.id} href={`/alumno/entrenar/sesion/${s.id}`}>
-            <Card className="flex items-center justify-between">
-              <div>
-                <p className="text-body text-text">
-                  {s.numeroCalendario ? `#${s.numeroCalendario} · ` : ""}
-                  {s.diaNombre}
-                </p>
-                <p className="text-caption text-text-tertiary">
-                  {s.fecha} · {s.total === 0 ? "Descanso" : `${s.completados}/${s.total} ejercicios`}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Pill tone={estado.tone}>{estado.texto}</Pill>
+          <Card key={s.id} className="flex items-center justify-between gap-2">
+            <Link href={`/alumno/entrenar/sesion/${s.id}`} className="min-w-0 flex-1">
+              <p className="text-body text-text">
+                {s.numeroCalendario ? `#${s.numeroCalendario} · ` : ""}
+                {s.diaNombre}
+              </p>
+              <p className="text-caption text-text-tertiary">
+                {s.fecha} · {s.total === 0 ? "Descanso" : `${s.completados}/${s.total} ejercicios`}
+              </p>
+            </Link>
+            <div className="flex shrink-0 items-center gap-1">
+              <Pill tone={estado.tone}>{estado.texto}</Pill>
+              {/* Abandonar es para sesiones cerradas que todavía no lo están:
+                  una ya "abandonada" no tiene nada más que hacerle acá. */}
+              {s.estado !== "abandonada" && <AbandonarSesionBoton sesionId={s.id} />}
+              <Link href={`/alumno/entrenar/sesion/${s.id}`}>
                 <ChevronRight size={18} className="text-text-tertiary" />
-              </div>
-            </Card>
-          </Link>
+              </Link>
+            </div>
+          </Card>
         );
       })}
     </div>

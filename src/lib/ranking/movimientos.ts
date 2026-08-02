@@ -83,6 +83,23 @@ export async function desactivarEntrenamiento(alumnoId: string, sesionId: string
   });
 }
 
+/** Abandonar una sesión ya cerrada le quita los puntos que había ganado,
+ * igual que reabrirla — la diferencia es que acá no vuelve a quedar "en
+ * progreso", queda cerrada y marcada como abandonada (se ve en el
+ * historial, no desaparece). */
+export async function abandonarEntrenamiento(alumnoId: string, sesionId: string, fecha: string) {
+  return guardarMovimiento({
+    alumnoId,
+    clave: `entrenamiento:${sesionId}`,
+    categoria: "entrenamiento",
+    puntos: 0,
+    titulo: "Entrenamiento abandonado",
+    detalle: "Sesión abandonada, no cuenta para el ranking.",
+    fecha,
+    metadata: { sesionId },
+  });
+}
+
 export async function recalcularAlimentacionDia(alumnoId: string, fecha: string): Promise<number> {
   const admin = createAdminClient();
   const [{ data: plan }, { data: registro }] = await Promise.all([

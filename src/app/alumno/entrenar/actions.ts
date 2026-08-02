@@ -5,7 +5,11 @@ import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { requireAlumno } from "@/lib/auth";
-import { desactivarEntrenamiento, registrarEntrenamiento } from "@/lib/ranking/movimientos";
+import {
+  abandonarEntrenamiento,
+  desactivarEntrenamiento,
+  registrarEntrenamiento,
+} from "@/lib/ranking/movimientos";
 
 export async function iniciarSesion(formData: FormData): Promise<void> {
   const diaId = String(formData.get("dia_id") || "");
@@ -203,6 +207,40 @@ export async function reabrirSesion(formData: FormData): Promise<void> {
   // Reabrir devuelve el cupo de la sesión, así que también mueve los puntos.
   updateTag(TAG_RANKING);
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
+  revalidatePath("/alumno/inicio");
+  revalidatePath("/alumno/entrenar");
+}
+
+/**
+ * Abandona una sesión ya cerrada (completada o finalizada incompleta): le
+ * quita los puntos que había sumado y queda marcada como "abandonada".
+ *
+ * A diferencia de `reabrirSesion`, esto no vuelve a quedar editable — la fila
+ * NO se borra, queda en el historial con su estado nuevo (a diferencia de un
+ * borrado, sigue habiendo registro de que se empezó). Vive acá y se llama
+ * desde el Historial, no desde la ficha de la sesión: es una acción sobre
+ * algo ya cerrado, no algo que se hace mientras se está entrenando.
+ */
+export async function abandonarSesion(formData: FormData): Promise<void> {
+  const sesionId = String(formData.get("sesion_id") || "");
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return;
+
+  const supabase = await createClient();
+  const { data: sesion } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("fecha")
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .maybeSingle();
+  if (!sesion) return;
+
+  await supabase.from("sesiones_entrenamiento").update({ estado: "abandonada" }).eq("id", sesionId);
+  await abandonarEntrenamiento(alumnoId, sesionId, sesion.fecha);
+
+  updateTag(TAG_RANKING);
+  revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
+  revalidatePath("/alumno/entrenar/historial");
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
 }
