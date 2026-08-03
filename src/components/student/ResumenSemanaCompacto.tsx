@@ -58,43 +58,45 @@ export function ResumenSemanaCompacto({
   const fotos = diaHoy.grupo ? FOTOS_GRUPO_MUSCULAR[diaHoy.grupo] : undefined;
 
   return (
-    <div className="space-y-3">
-      {/* El modelo entero, centrado y grande — mismo tratamiento que la
-          tarjeta del día en Entrenar (object-contain, sin recortar), pero acá
-          de cuerpo entero y centrado en vez de ir a un costado: es el único
-          elemento de esta tarjeta compacta, así que puede ser el protagonista
-          en vez de competir con el título por espacio. Ya no va en el círculo
-          negro (FotoGrupoMuscular) — a este tamaño el círculo recortaba al
-          modelo por los costados en vez de mostrarlo completo. */}
-      {!descanso && diaHoy.grupo && (
-        <div className="relative mx-auto h-48 w-full">
-          {fotos ? (
-            <Image
-              src={fotos[0]}
-              alt={ETIQUETAS_GRUPO_MUSCULAR[diaHoy.grupo]}
-              fill
-              sizes="400px"
-              className="object-contain"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <GrupoMuscularIcon grupo={diaHoy.grupo} alto={128} />
-            </div>
-          )}
+    <div className="space-y-1.5">
+      {/* Vuelta al layout anterior: texto a la izquierda, modelo a la
+          derecha — la versión centrada y grande (mx-auto, h-48) se probó y no
+          convenció. Sigue sin el círculo negro (FotoGrupoMuscular): acá va el
+          recorte crudo, flotando directo sobre la tarjeta oscura, con
+          object-contain para no recortar al modelo por los costados.
+          `-ml-3` lo corre un poco hacia la izquierda, más cerca del texto:
+          con `justify-between` y dos elementos, mover el margen IZQUIERDO
+          del segundo achica el hueco entre ambos y lo arrastra hacia el
+          texto — un margen derecho negativo haría lo contrario, lo empujaría
+          más hacia afuera. */}
+      <div className="flex items-start justify-between gap-1">
+        <div className="min-w-0">
+          <p className="text-caption text-text-tertiary">
+            {nombreDia} · Día {numeroDia}
+          </p>
+          <h2 className="text-h3 mt-0.5 truncate text-text">{titulo}</h2>
+          <p className="text-secondary text-text-secondary">
+            {descanso ? "Día de recuperación" : `${diaHoy.completados} / ${diaHoy.total} ejercicios`}
+          </p>
         </div>
-      )}
-
-      <div className="min-w-0 text-center">
-        <p className="text-caption text-text-tertiary">
-          {nombreDia} · Día {numeroDia}
-        </p>
-        <h2 className="text-h3 mt-0.5 truncate text-text">{titulo}</h2>
-        <p className="text-secondary text-text-secondary">
-          {descanso ? "Día de recuperación" : `${diaHoy.completados} / ${diaHoy.total} ejercicios`}
-        </p>
+        {!descanso && diaHoy.grupo && (
+          fotos ? (
+            <div className="relative -ml-2 h-24 w-20 shrink-0">
+              <Image
+                src={fotos[0]}
+                alt={ETIQUETAS_GRUPO_MUSCULAR[diaHoy.grupo]}
+                fill
+                sizes="80px"
+                className="object-contain"
+              />
+            </div>
+          ) : (
+            <GrupoMuscularIcon grupo={diaHoy.grupo} alto={80} />
+          )
+        )}
       </div>
 
-      <div className="border-t border-border pt-3">
+      <div className="border-t border-border pt-1.5">
         <PuntosSemana dias={constancia.dias} />
       </div>
 

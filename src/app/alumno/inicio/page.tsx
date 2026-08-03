@@ -350,8 +350,10 @@ function TarjetaEntrenamientoHoy({
   // para que la foto del modelo se vea sobre el mismo negro con el que fue
   // tomada — ver el porqué en globals.css.
   return (
-    <Card className="tarjeta-modelo-oscura p-5">
-      <p className="text-caption mb-3 text-text-tertiary">TU ENTRENAMIENTO</p>
+    // Padding vertical más chico que el horizontal (py-3.5 en vez de p-5):
+    // achica la tarjeta ~30% de alto sin apretar los costados.
+    <Card className="tarjeta-modelo-oscura px-5 py-2.5">
+      <p className="text-caption mb-1.5 text-text-tertiary">TU ENTRENAMIENTO</p>
 
       <ResumenSemanaCompacto
         diaHoy={diaHoy}
@@ -360,7 +362,7 @@ function TarjetaEntrenamientoHoy({
         constancia={constancia}
       />
 
-      <div className="mt-4">
+      <div className="mt-2">
         <Link
           href={
             estado.tipo === "sin_dia_elegido"
@@ -378,7 +380,7 @@ function TarjetaEntrenamientoHoy({
         </Link>
       </div>
 
-      <details className="mt-4 border-t border-border pt-3">
+      <details className="mt-2 border-t border-border pt-1.5">
         <summary className="text-caption cursor-pointer text-text-tertiary">
           Ver constancia histórica · General {resumenDias.pctGeneral}%
         </summary>
