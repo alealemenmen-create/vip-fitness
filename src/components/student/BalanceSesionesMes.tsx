@@ -33,7 +33,14 @@ export function BalanceSesionesMes({ balance }: { balance: BalanceSesionesMesTip
   const colorNumero = restante < 0 ? "text-error" : "text-vip";
 
   return (
-    <Card className="!py-6 relative overflow-hidden">
+    <Card
+      className="!py-6 relative overflow-hidden border"
+      style={{
+        background:
+          "linear-gradient(135deg, color-mix(in srgb, var(--color-acento) 16%, var(--color-surface)) 0%, var(--color-surface) 65%)",
+        borderColor: "color-mix(in srgb, var(--color-acento) 35%, var(--color-border))",
+      }}
+    >
       <RielesDecorativos />
       <div className="relative flex items-center gap-4">
         <div
@@ -43,7 +50,7 @@ export function BalanceSesionesMes({ balance }: { balance: BalanceSesionesMesTip
             boxShadow: "0 0 14px color-mix(in srgb, var(--color-acento) 45%, transparent)",
           }}
         >
-          <Calendar size={22} className="text-acento-fuerte" />
+          <Calendar size={22} className="text-vip" />
         </div>
         <div>
           <p className="text-caption text-text-tertiary">SESIONES DEL MES</p>
@@ -51,7 +58,13 @@ export function BalanceSesionesMes({ balance }: { balance: BalanceSesionesMesTip
             {consumidas} <span className="text-text-tertiary">de {asignadas}</span>
           </p>
           <p className="text-secondary text-text-secondary">
-            {restante >= 0 ? `Quedan ${restante}` : `${Math.abs(restante)} de más este mes`}
+            {restante >= 0 ? (
+              <>
+                Quedan <span className="text-acento-fuerte font-semibold">{restante}</span> sesiones
+              </>
+            ) : (
+              `${Math.abs(restante)} de más este mes`
+            )}
           </p>
         </div>
       </div>

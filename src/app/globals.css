@@ -360,6 +360,7 @@ input[type="date"]::-webkit-date-and-time-value {
   background: var(--btn-bg);
   color: var(--btn-color);
   border: 1px solid var(--btn-border);
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--color-vip) 40%, transparent);
 }
 .btn-accion::after {
   content: "";
