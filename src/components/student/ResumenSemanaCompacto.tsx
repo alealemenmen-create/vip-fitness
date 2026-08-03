@@ -69,29 +69,29 @@ export function ResumenSemanaCompacto({
           del segundo achica el hueco entre ambos y lo arrastra hacia el
           texto — un margen derecho negativo haría lo contrario, lo empujaría
           más hacia afuera. */}
-      <div className="flex items-start justify-between gap-1">
+      <div className="flex items-end justify-between gap-1">
         <div className="min-w-0">
-          <p className="text-caption text-text-tertiary">
+          <p className="text-secondary text-text-tertiary">
             {nombreDia} · Día {numeroDia}
           </p>
-          <h2 className="text-h3 mt-0.5 truncate text-text">{titulo}</h2>
-          <p className="text-secondary text-text-secondary">
+          <h2 className="text-h2 mt-0.5 truncate text-text">{titulo}</h2>
+          <p className="text-body text-text-secondary">
             {descanso ? "Día de recuperación" : `${diaHoy.completados} / ${diaHoy.total} ejercicios`}
           </p>
         </div>
         {!descanso && diaHoy.grupo && (
           fotos ? (
-            <div className="relative -ml-2 h-24 w-20 shrink-0">
+            <div className="relative -ml-4 h-28 w-24 shrink-0">
               <Image
                 src={fotos[0]}
                 alt={ETIQUETAS_GRUPO_MUSCULAR[diaHoy.grupo]}
                 fill
-                sizes="80px"
+                sizes="96px"
                 className="object-contain"
               />
             </div>
           ) : (
-            <GrupoMuscularIcon grupo={diaHoy.grupo} alto={80} />
+            <GrupoMuscularIcon grupo={diaHoy.grupo} alto={96} />
           )
         )}
       </div>

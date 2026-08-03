@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Settings, X, UserCog, FileText, Sun, Moon, LogOut, Sparkles, Type, Bot } from "lucide-react";
+import { Settings, X, UserCog, FileText, Sun, Moon, LogOut, Sparkles, Type, Bot, History, ShieldCheck } from "lucide-react";
 import { logout } from "@/app/actions";
 import { guardarTemaBoton } from "@/app/alumno/perfil/actions";
 
@@ -161,6 +161,18 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
                   href="/alumno/asistente"
                   icon={<Bot size={20} />}
                   texto="Asistente VIP"
+                  onNavegar={() => setAbierto(false)}
+                />
+                <ItemMenu
+                  href="/alumno/historial"
+                  icon={<History size={20} />}
+                  texto="Mi Historial"
+                  onNavegar={() => setAbierto(false)}
+                />
+                <ItemMenu
+                  href="/alumno/politica-privacidad"
+                  icon={<ShieldCheck size={20} />}
+                  texto="Política de uso y privacidad"
                   onNavegar={() => setAbierto(false)}
                 />
                 <button

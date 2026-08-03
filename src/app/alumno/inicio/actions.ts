@@ -4,8 +4,8 @@ import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAlumno } from "@/lib/auth";
-import { TAG_RANKING } from "@/lib/ranking/data";
-import { hoyISO } from "@/lib/date";
+import { TAG_RANKING, obtenerMovimientosAlumnoEnRango, type MovimientoResumen } from "@/lib/ranking/data";
+import { hoyISO, semanaActualISO } from "@/lib/date";
 
 export type GuardarSeguimientoState = { error: string | null; guardado: boolean; puntos?: number };
 
@@ -85,4 +85,23 @@ export async function responderInvitacionTorneo(formData: FormData): Promise<voi
   revalidatePath("/alumno/ranked");
   revalidatePath("/alumno/ranked");
   revalidatePath("/admin/torneos");
+}
+
+export type DesglosePuntos = { movimientos: MovimientoResumen[]; rango: "dia" | "semana" };
+
+/** Para el Ranking VIP de Inicio: al tocar a un alumno (no necesariamente el
+ * de la sesión), trae en qué ganó/perdió puntos hoy — si hoy no tiene
+ * movimientos, cae a la semana en curso. Solo requiere una sesión de alumno
+ * activa (no que sea el propio alumno): ver la decisión de privacidad en el
+ * plan — categoría y puntos son públicos entre compañeros, el detalle de
+ * alimentación no (por eso `obtenerMovimientosAlumnoEnRango` no lo trae). */
+export async function obtenerDesglosePuntosAlumno(alumnoId: string): Promise<DesglosePuntos> {
+  await requireAlumno();
+  const hoy = hoyISO();
+  const deHoy = await obtenerMovimientosAlumnoEnRango(alumnoId, hoy, hoy);
+  if (deHoy.length > 0) return { movimientos: deHoy, rango: "dia" };
+
+  const lunes = semanaActualISO()[0].fecha;
+  const deSemana = await obtenerMovimientosAlumnoEnRango(alumnoId, lunes, hoy);
+  return { movimientos: deSemana, rango: "semana" };
 }

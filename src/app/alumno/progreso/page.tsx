@@ -29,7 +29,6 @@ export default async function ProgresoPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <h1 className="text-h2 text-text">Tu progreso</h1>
       <MensajeMotivacional frase={frase} />
       <BarraPuntosVip
         puntos={puntosSeguimiento}

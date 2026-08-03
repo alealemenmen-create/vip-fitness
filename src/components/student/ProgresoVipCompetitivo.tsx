@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/Card";
 import { BadgeRango } from "@/components/student/BadgeRango";
 import { EscalaRangos } from "@/components/student/EscalaRangos";
 import type { FilaRanking, MovimientoPuntos, PeriodoRanking } from "@/lib/ranking/data";
-import { progresoAlSiguiente } from "@/lib/ranking/puntos";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 
 const PERIODOS: { id: PeriodoRanking; nombre: string; ayuda: string }[] = [
@@ -34,7 +33,6 @@ export function ProgresoVipCompetitivo({
   const [periodo, setPeriodo] = useState<PeriodoRanking>("semana");
   const filas = rankings[periodo];
   const propia = filas.find((fila) => fila.alumnoId === alumnoId);
-  const progreso = propia ? progresoAlSiguiente(propia.puntosAcumulados) : null;
 
   const rival = propia && propia.posicion > 1 ? filas[propia.posicion - 2] ?? null : null;
 
@@ -47,45 +45,6 @@ export function ProgresoVipCompetitivo({
 
   return (
     <div className="space-y-5">
-      <Card className="efecto-3d overflow-hidden">
-        <div className="flex items-center gap-4">
-          <BadgeRango rango={propia.rango} size={104} destacado eager />
-          <div className="min-w-0 flex-1">
-            <p className="text-micro uppercase tracking-[0.18em] text-text-tertiary">Tu rango actual</p>
-            <p className="text-h2" style={{ color: propia.rango.color }}>{propia.rango.nombre}</p>
-            <p className="text-secondary text-text-secondary">
-              {propia.puntosAcumulados.toLocaleString("es-CL")} Puntos VIP totales
-            </p>
-          </div>
-        </div>
-
-        {progreso ? (
-          <div className="mt-4">
-            <div className="mb-1.5 flex items-center justify-between gap-3">
-              <p className="text-caption text-text-secondary">
-                Próximo rango: <span className="font-semibold" style={{ color: progreso.siguiente.color }}>{progreso.siguiente.nombre}</span>
-              </p>
-              <p className="text-caption font-bold text-vip">faltan {progreso.faltan.toLocaleString("es-CL")}</p>
-            </div>
-            <div className="h-3 overflow-hidden rounded-full bg-surface-2">
-              <div
-                className="barra-progreso-relleno h-full rounded-full transition-[width] duration-700 ease-out"
-                style={{
-                  width: `${progreso.pct}%`,
-                  background: `linear-gradient(90deg, ${propia.rango.color}, ${progreso.siguiente.color})`,
-                }}
-              >
-                {[0, 1, 2, 3].map((indice) => (
-                  <span key={indice} className="ola-progreso" style={{ animationDelay: `${indice * 0.52}s` }} />
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <p className="text-caption mt-3 font-semibold text-vip">Alcanzaste el rango máximo.</p>
-        )}
-      </Card>
-
       <Card>
         <div className="mb-3 flex items-center gap-2">
           <Trophy size={17} className="text-vip" />

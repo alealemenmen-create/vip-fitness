@@ -7,6 +7,7 @@ import { Trophy, Star, ChevronDown } from "lucide-react";
 import type { FilaRanking } from "@/lib/ranking/data";
 import { RANGOS } from "@/lib/ranking/puntos";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
+import { obtenerDesglosePuntosAlumno, type DesglosePuntos } from "@/app/alumno/inicio/actions";
 
 const TOP = 15;
 // Antes 5 — pedido explícito de achicar la tarjeta ~20%, mostrando 4.
@@ -65,10 +66,49 @@ export function RankedVipCard({ filas, alumnoId }: { filas: FilaRanking[]; alumn
   const listaRef = useRef<HTMLDivElement>(null);
   const [alFinal, setAlFinal] = useState(false);
 
+  // Alto del thumb del riel propio: no depende del scroll, sale directo de
+  // cuántas filas hay contra cuántas se ven — se recalcula solo si cambia el
+  // ranking. La posición (`topPct`) sí es dinámica, se actualiza en cada
+  // scroll más abajo.
+  const altoContenido = top15.length * ALTO_FILA + Math.max(0, top15.length - 1) * 4;
+  const alturaRielPct = Math.min(100, Math.max(12, (ALTO_LISTA / altoContenido) * 100));
+  const [rielTopPct, setRielTopPct] = useState(0);
+
+  // Tocar a alguien del ranking expande en qué ganó sus puntos (hoy, o esta
+  // semana si hoy todavía no tiene nada) — tocar de nuevo cierra. Se pide una
+  // sola vez por alumno y se cachea en `datos` mientras la tarjeta esté
+  // montada, así ida y vuelta entre dos personas no vuelve a pedir lo mismo.
+  const [expandido, setExpandido] = useState<string | null>(null);
+  const [cargando, setCargando] = useState<string | null>(null);
+  const [datos, setDatos] = useState<Record<string, DesglosePuntos>>({});
+  const [conError, setConError] = useState<string | null>(null);
+
   function onScroll() {
     const el = listaRef.current;
     if (!el) return;
     setAlFinal(el.scrollTop + el.clientHeight >= el.scrollHeight - 4);
+    const recorrido = el.scrollHeight - el.clientHeight;
+    setRielTopPct(recorrido > 0 ? (el.scrollTop / recorrido) * (100 - alturaRielPct) : 0);
+  }
+
+  async function alternar(idAlumno: string) {
+    if (expandido === idAlumno) {
+      setExpandido(null);
+      return;
+    }
+    setExpandido(idAlumno);
+    if (datos[idAlumno]) return;
+
+    setCargando(idAlumno);
+    setConError(null);
+    try {
+      const resultado = await obtenerDesglosePuntosAlumno(idAlumno);
+      setDatos((prev) => ({ ...prev, [idAlumno]: resultado }));
+    } catch {
+      setConError(idAlumno);
+    } finally {
+      setCargando(null);
+    }
   }
 
   return (
@@ -98,44 +138,90 @@ export function RankedVipCard({ filas, alumnoId }: { filas: FilaRanking[]; alumn
           <div
             ref={listaRef}
             onScroll={onScroll}
-            className="scrollbar-fina space-y-1 overflow-y-auto overscroll-contain scroll-smooth pr-0.5"
+            className="scrollbar-oculta space-y-1 overflow-y-auto overscroll-contain scroll-smooth pr-2"
             style={{ height: ALTO_LISTA }}
           >
             {top15.map((fila) => {
               const esPropia = fila.alumnoId === alumnoId;
+              const abierto = expandido === fila.alumnoId;
+              const desglose = datos[fila.alumnoId];
               return (
-                <div
-                  key={fila.alumnoId}
-                  className={`grid grid-cols-[13px_24px_minmax(0,1fr)] items-center gap-1.5 rounded-xl bg-surface-2 px-1.5 py-2 transition-colors duration-200 ${
-                    esPropia ? "border border-vip/60 bg-surface-2/80" : ""
-                  }`}
-                >
-                  <span
-                    className="text-center text-[10px] font-bold leading-none tabular-nums"
-                    style={{ color: colorPuesto(fila.posicion) }}
+                <div key={fila.alumnoId}>
+                  <button
+                    type="button"
+                    onClick={() => alternar(fila.alumnoId)}
+                    aria-expanded={abierto}
+                    className={`grid w-full grid-cols-[13px_24px_minmax(0,1fr)] items-center gap-1.5 rounded-xl bg-surface-2 px-1.5 py-2 text-left transition-colors duration-200 ${
+                      esPropia ? "border border-vip/60 bg-surface-2/80" : ""
+                    }`}
                   >
-                    {String(fila.posicion).padStart(2, "0")}
-                  </span>
-                  <EmblemaRango rango={fila.rango} />
-                  {/* Nombre y puntos apilados: a media tarjeta no entran los dos
-                      en la misma línea sin cortar casi todos los nombres. */}
-                  <div className="min-w-0">
-                    <p className="truncate text-[10px] font-medium leading-tight text-text">
-                      {nombreAlumnoPublicado(fila.nombre)}
-                      {esPropia && <span className="ml-1 text-[8px] text-vip">TÚ</span>}
-                    </p>
-                    <p
-                      className="mt-0.5 text-[10px] font-bold leading-none tabular-nums"
+                    <span
+                      className="text-center text-[10px] font-bold leading-none tabular-nums"
                       style={{ color: colorPuesto(fila.posicion) }}
                     >
-                      {fila.puntos.toLocaleString("es-CL")}
-                      <span className="ml-0.5 text-[7px] font-normal text-text-tertiary">pts</span>
-                    </p>
-                  </div>
+                      {String(fila.posicion).padStart(2, "0")}
+                    </span>
+                    <EmblemaRango rango={fila.rango} />
+                    {/* Nombre y puntos apilados: a media tarjeta no entran los dos
+                        en la misma línea sin cortar casi todos los nombres. */}
+                    <div className="min-w-0">
+                      <p className="truncate text-[10px] font-medium leading-tight text-text">
+                        {nombreAlumnoPublicado(fila.nombre)}
+                        {esPropia && <span className="ml-1 text-[8px] text-vip">TÚ</span>}
+                      </p>
+                      <p
+                        className="mt-0.5 text-[10px] font-bold leading-none tabular-nums"
+                        style={{ color: colorPuesto(fila.posicion) }}
+                      >
+                        {fila.puntos.toLocaleString("es-CL")}
+                        <span className="ml-0.5 text-[7px] font-normal text-text-tertiary">pts</span>
+                      </p>
+                    </div>
+                  </button>
+
+                  {abierto && (
+                    <div className="mt-1 rounded-xl bg-surface-2/60 px-2 py-1.5">
+                      {cargando === fila.alumnoId ? (
+                        <p className="text-[9px] text-text-tertiary">Cargando…</p>
+                      ) : conError === fila.alumnoId ? (
+                        <p className="text-[9px] text-text-tertiary">No se pudo cargar el detalle.</p>
+                      ) : desglose && desglose.movimientos.length > 0 ? (
+                        <>
+                          <p className="mb-1 text-[8px] uppercase tracking-wide text-text-tertiary">
+                            En qué ganó puntos {desglose.rango === "dia" ? "hoy" : "esta semana"}
+                          </p>
+                          <div className="space-y-1">
+                            {desglose.movimientos.map((m) => (
+                              <div key={m.id} className="flex items-center justify-between gap-2">
+                                <p className="min-w-0 truncate text-[9px] text-text-secondary">{m.titulo}</p>
+                                <p
+                                  className={`shrink-0 text-[9px] font-bold ${m.puntos < 0 ? "text-error" : "text-vip"}`}
+                                >
+                                  {m.puntos > 0 ? "+" : ""}
+                                  {m.puntos}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-[9px] text-text-tertiary">Todavía sin puntos esta semana.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
+
+          {top15.length > VISIBLES && (
+            <div className="riel-scroll-vip" aria-hidden style={{ height: ALTO_LISTA }}>
+              <div
+                className="riel-scroll-vip-relleno"
+                style={{ height: `${alturaRielPct}%`, top: `${rielTopPct}%` }}
+              />
+            </div>
+          )}
 
           {top15.length > VISIBLES && (
             <div

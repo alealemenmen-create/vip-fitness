@@ -71,6 +71,27 @@ export async function iniciarSesion(formData: FormData): Promise<void> {
   redirect(`/alumno/entrenar/sesion/${sesion.id}`);
 }
 
+/** El alumno ya está en la pantalla de la sesión pero la rutina sigue
+ * bloqueada (ver migración 0040): esto la desbloquea y ancla el cronómetro.
+ * `is(...null)` la hace idempotente — un doble tap no corre el reloj de
+ * nuevo. */
+export async function iniciarRutina(formData: FormData): Promise<void> {
+  const sesionId = String(formData.get("sesion_id") || "");
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (!sesionId || soloLectura) return;
+
+  const supabase = await createClient();
+  await supabase
+    .from("sesiones_entrenamiento")
+    .update({ rutina_iniciada_en: new Date().toISOString() })
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "en_progreso")
+    .is("rutina_iniciada_en", null);
+
+  revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
+}
+
 export type GuardarSeriesState = { error: string | null };
 
 export async function guardarSeries(

@@ -91,6 +91,15 @@ export function formatFechaMedia(fechaISO: string): string {
   });
 }
 
+/** "Domingo 2 de agosto" — para listas de historial donde el día de la
+ * semana ayuda a ubicarse más que el año. */
+export function formatFechaDiaSemana(fechaISO: string): string {
+  const texto = formatInTimeZone(`${fechaISO}T12:00:00`, ZONA_HORARIA_VIP, "EEEE d 'de' MMMM", {
+    locale: es,
+  });
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 /** Hora del día (0-23) en Chile. Se calcula en el servidor y se pasa como
  * prop: si el cliente usara su propio reloj, un alumno fuera de Chile
  * renderizaría otra hora que el servidor y React marcaría desajuste de

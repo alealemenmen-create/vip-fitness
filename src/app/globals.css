@@ -544,8 +544,8 @@ input[type="date"]::-webkit-date-and-time-value {
   border-radius: var(--radius-control);
 }
 
-/* Scrollbar delgada y discreta para listas internas (ej. Top 15 de Ranked
-   VIP) — no la oculta del todo, solo la afina para que no distraiga. */
+/* Scrollbar delgada y discreta para listas internas — no la oculta del todo,
+   solo la afina para que no distraiga. */
 .scrollbar-fina {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
@@ -559,6 +559,55 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 .scrollbar-fina::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* Sin barra nativa — usada donde el riel propio (`.riel-scroll-vip` más
+   abajo) la reemplaza por completo, ej. el Top 15 de Ranking VIP en Inicio. */
+.scrollbar-oculta {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-oculta::-webkit-scrollbar {
+  display: none;
+}
+
+/* Riel de scroll propio: un pulso ámbar en vez del gris nativo del
+   navegador, mismo lenguaje de color que la barra de progreso de rango
+   (`.barra-progreso-relleno` más abajo). "Motivadora" acá es a propósito
+   sutil — una animación grande al costado de una lista que ya scrollea con
+   inercia se sentiría más ruidosa que útil. */
+.riel-scroll-vip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 3px;
+  border-radius: 9999px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+.riel-scroll-vip-relleno {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, var(--color-vip), var(--color-acento-fuerte));
+  transition: top 120ms ease-out;
+  animation: riel-scroll-vip-pulso 1.8s ease-in-out infinite;
+}
+@keyframes riel-scroll-vip-pulso {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .riel-scroll-vip-relleno {
+    animation: none;
+  }
 }
 
 /* Destello neutro, lento y casi imperceptible para el ejercicio activo. */
@@ -1270,4 +1319,47 @@ input[type="number"] {
 
 @media (prefers-reduced-motion: reduce) {
   .puntos-vip-entrada { animation: none; }
+}
+
+/* Impresión (ej. Mi Historial): el shell del alumno es `fixed inset-0` con
+   scroll interno (ver el comentario grande en layout.tsx sobre por qué), lo
+   que en pantalla está perfecto pero en una hoja impresa recorta todo lo que
+   no entra en un viewport — hay que devolver el flujo normal del documento
+   solo durante la impresión, además de esconder cabecera/menú/barra inferior
+   y cualquier burbuja flotante, que no tienen nada que hacer en el papel. */
+@media print {
+  .imprimir-oculto {
+    display: none !important;
+  }
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .shell-alumno {
+    position: static !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .pantalla-scroll {
+    overflow: visible !important;
+    height: auto !important;
+    padding-bottom: 0 !important;
+  }
+  /* Fuerza la paleta clara para el papel sin importar el tema activo — con
+     el tema oscuro, `--color-text` es blanco y quedaría invisible sobre una
+     hoja blanca. Mismos valores que `:root[data-theme="light"]` arriba. */
+  :root {
+    --color-bg: #f4f5f7;
+    --color-surface: #ffffff;
+    --color-surface-2: #f0f2f4;
+    --color-border: #e2e5e9;
+    --color-text: #17191c;
+    --color-text-secondary: #5f646c;
+    --color-text-tertiary: #858b94;
+  }
+  body {
+    background: #fff !important;
+    color: #17191c !important;
+  }
 }

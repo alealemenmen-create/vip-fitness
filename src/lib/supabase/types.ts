@@ -576,6 +576,8 @@ export interface Database {
           hora_fin: string | null;
           estado: EstadoSesion;
           comentario: string | null;
+          // 0040_rutina_iniciada.sql
+          rutina_iniciada_en: string | null;
         };
         Insert: {
           alumno_id: string;
@@ -590,6 +592,7 @@ export interface Database {
           hora_fin?: string | null;
           estado?: EstadoSesion;
           comentario?: string | null;
+          rutina_iniciada_en?: string | null;
         };
         Relationships: [
           {

@@ -166,17 +166,30 @@ export function CalendarioEntrenamiento({
               </form>
             )
           ) : (
-            <Link
-              href={`/alumno/entrenar/sesion/${actual.sesionId}`}
-              className={`radius-control flex h-14 w-full items-center justify-center gap-2 text-body font-semibold ${
-                actual.estado === "en_progreso"
-                  ? "btn-accion"
-                  : "border border-border text-text"
-              }`}
-            >
-              {actual.estado === "en_progreso" ? "Continuar entrenamiento" : "Ver registro"}
-              <ChevronRight size={20} />
-            </Link>
+            <div className="space-y-2">
+              <Link
+                href={`/alumno/entrenar/sesion/${actual.sesionId}`}
+                className={`radius-control flex h-14 w-full items-center justify-center gap-2 text-body font-semibold ${
+                  actual.estado === "en_progreso"
+                    ? "btn-accion"
+                    : "border border-border text-text"
+                }`}
+              >
+                {actual.estado === "en_progreso" ? "Continuar entrenamiento" : "Ver registro"}
+                <ChevronRight size={20} />
+              </Link>
+              {/* Solo mientras está en curso: si ya está "Completado" el botón de
+                  arriba ya dice "Ver registro" — repetir acá sería el mismo
+                  destino con otro nombre, sin agregar nada. */}
+              {actual.estado === "en_progreso" && (
+                <Link
+                  href={`/alumno/entrenar/sesion/${actual.sesionId}`}
+                  className="radius-control flex h-11 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text-secondary"
+                >
+                  Ver entrenamiento
+                </Link>
+              )}
+            </div>
           )}
         </div>
       </div>

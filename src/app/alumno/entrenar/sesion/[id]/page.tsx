@@ -1,4 +1,4 @@
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Play } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { Pill } from "@/components/ui/Pill";
@@ -7,9 +7,10 @@ import { SesionEjercicios } from "@/components/student/SesionEjercicios";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { VolverAEntrenar } from "@/components/student/VolverAEntrenar";
 import { ConsejoEntrenamiento } from "@/components/student/ConsejoEntrenamiento";
+import { CronometroSesion } from "@/components/student/CronometroSesion";
 import { consejoInicial } from "@/lib/frasesMotivacionales";
 import { obtenerSesionCompleta } from "../../data";
-import { reabrirSesion } from "../../actions";
+import { reabrirSesion, iniciarRutina } from "../../actions";
 import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 
 const ESTADO_LABEL: Record<string, { texto: string; tone: "neutral" | "vip" | "success" | "error" }> = {
@@ -37,11 +38,15 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const sesionSoloLectura = sesion.estado !== "en_progreso" || vistaSoloLectura;
+  const esDescanso = sesion.diaTipo === "descanso";
+  // Un día de descanso no tiene ejercicios que bloquear ni rutina que
+  // "iniciar" — el bloqueo solo aplica a sesiones de entrenamiento real.
+  const rutinaIniciada = sesion.rutinaIniciadaEn !== null;
+  const bloqueadaPorIniciar = !esDescanso && sesion.estado === "en_progreso" && !rutinaIniciada;
+  const sesionSoloLectura = sesion.estado !== "en_progreso" || vistaSoloLectura || bloqueadaPorIniciar;
   const completados = sesion.ejercicios.filter((e) => e.completado).length;
   const total = sesion.ejercicios.length;
   const estadoInfo = ESTADO_LABEL[sesion.estado];
-  const esDescanso = sesion.diaTipo === "descanso";
   const puntosPreparados = calcularPuntosEntrenamiento(completados, total);
 
   // El consejo va fijo abajo, así que solo se muestra mientras se está
@@ -64,6 +69,23 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
       <div className="sticky top-[var(--alto-cabecera-alumno)] z-20 -mx-4 space-y-2 bg-bg px-4 pb-2 pt-1">
         <VolverAEntrenar
           titulo={`${sesion.numeroCalendario ? `SESIÓN ${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
+          accion={
+            !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura ? (
+              rutinaIniciada ? (
+                <CronometroSesion horaInicio={sesion.rutinaIniciadaEn!} />
+              ) : (
+                <form action={iniciarRutina}>
+                  <input type="hidden" name="sesion_id" value={sesion.id} />
+                  <button
+                    type="submit"
+                    className="btn-accion radius-control flex shrink-0 items-center gap-1.5 px-3 py-2 text-caption font-semibold"
+                  >
+                    <Play size={14} strokeWidth={3} /> Iniciar rutina
+                  </button>
+                </form>
+              )
+            ) : null
+          }
         />
         <div className="flex items-center gap-2">
           <Pill tone={estadoInfo.tone}>{estadoInfo.texto}</Pill>
@@ -108,6 +130,15 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
           </div>
         )}
       </div>
+
+      {bloqueadaPorIniciar && (
+        <Card className="border border-vip/40 bg-vip/5">
+          <p className="text-caption text-text-secondary">
+            Toca <span className="font-semibold text-vip">Iniciar rutina</span> arriba para
+            empezar a marcar tus series y arrancar el cronómetro.
+          </p>
+        </Card>
+      )}
 
       {esDescanso ? (
         <Card>

@@ -8,6 +8,7 @@ import { ListaAlumnos } from "@/components/admin/ListaAlumnos";
 import { ListaEntrenadores } from "@/components/admin/ListaEntrenadores";
 import { AvisosNotasIA } from "@/components/admin/AvisosNotasIA";
 import { AvisoSolicitudes } from "@/components/admin/AvisoSolicitudes";
+import { SugerenciasHoy } from "@/components/admin/SugerenciasHoy";
 import { obtenerReportes, obtenerAvisosNotasIA, type EstadoAlumno } from "./data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { TituloPestana } from "@/components/admin/TituloPestana";
@@ -96,6 +97,8 @@ export default async function AlumnosPage() {
       )}
 
       <AvisoSolicitudes pendientes={solicitudesPendientes ?? 0} />
+
+      <SugerenciasHoy reportes={reportes} />
 
       <CrearAlumnoForm />
 

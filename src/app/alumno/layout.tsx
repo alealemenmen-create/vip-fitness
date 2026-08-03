@@ -85,9 +85,9 @@ export default async function AlumnoLayout({ children }: { children: React.React
        dedo. Eso es lo que hacía que la barra de íconos y la cabecera se
        movieran al deslizar. Sacando el shell del flujo con `fixed` no queda
        documento que arrastrar. */
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-bg">
+    <div className="shell-alumno fixed inset-0 flex flex-col overflow-hidden bg-bg">
       {contexto.soloLectura && (
-        <div className="z-10 flex shrink-0 items-center justify-between gap-2 bg-vip px-4 py-3">
+        <div className="imprimir-oculto z-10 flex shrink-0 items-center justify-between gap-2 bg-vip px-4 py-3">
           <span className="text-caption flex items-center gap-1.5 text-black">
             <Eye size={16} />
             Viendo como {nombreAlumnoPublicado(contexto.nombre)} · modo solo lectura
@@ -119,7 +119,7 @@ export default async function AlumnoLayout({ children }: { children: React.React
             encontrarlas. El alto de este bloque está en --alto-cabecera-alumno
             (globals.css), que es lo que usan las cabeceras de cada pestaña para
             pegarse justo debajo sin taparse. */}
-        <div className="sticky top-0 z-30 -mx-4 bg-bg px-4 pb-2 pt-1">
+        <div className="imprimir-oculto sticky top-0 z-30 -mx-4 bg-bg px-4 pb-2 pt-1">
           <Logo
             compact
             corner={
@@ -137,25 +137,27 @@ export default async function AlumnoLayout({ children }: { children: React.React
           Android las filas de serie encendidas en ámbar —que tienen sombra y
           contexto de apilado propio— se colaban por encima de los íconos al
           hacer scroll. */}
-      <BarraInferiorFija>
-        <BottomNav sesionEnProgresoId={sesionEnProgresoId} />
-        {contexto.rolSesion !== "alumno" && !contexto.soloLectura && (
-          <Link
-            href="/admin/alumnos"
-            className="block w-full bg-bg py-1 text-center text-[11px] text-text-tertiary"
-          >
-            Volver al panel de entrenador
-          </Link>
-        )}
-      </BarraInferiorFija>
+      <div className="imprimir-oculto">
+        <BarraInferiorFija>
+          <BottomNav sesionEnProgresoId={sesionEnProgresoId} />
+          {contexto.rolSesion !== "alumno" && !contexto.soloLectura && (
+            <Link
+              href="/admin/alumnos"
+              className="block w-full bg-bg py-1 text-center text-[11px] text-text-tertiary"
+            >
+              Volver al panel de entrenador
+            </Link>
+          )}
+        </BarraInferiorFija>
 
-      {/* La burbuja flotante "Volver a rutina" se sacó: la pestaña Entrenar ya
-          lleva a la sesión en curso (ver BottomNav), así que era un segundo
-          botón para lo mismo — y encima quedaba justo encima del buscador fijo
-          de Nutrición, que es una de las pantallas donde aparecía. */}
-      {anuncioImportante && <AnuncioImportanteFlotante anuncio={anuncioImportante} />}
-      {celebracionTorneo && <CelebracionTorneo celebracion={celebracionTorneo} />}
-      <CumpleanosFlotante cumpleaneros={cumpleaneros} />
+        {/* La burbuja flotante "Volver a rutina" se sacó: la pestaña Entrenar ya
+            lleva a la sesión en curso (ver BottomNav), así que era un segundo
+            botón para lo mismo — y encima quedaba justo encima del buscador fijo
+            de Nutrición, que es una de las pantallas donde aparecía. */}
+        {anuncioImportante && <AnuncioImportanteFlotante anuncio={anuncioImportante} />}
+        {celebracionTorneo && <CelebracionTorneo celebracion={celebracionTorneo} />}
+        <CumpleanosFlotante cumpleaneros={cumpleaneros} />
+      </div>
       <AplicarTemaBotonGuardado temaGuardado={errorTema ? undefined : perfilTema?.tema_boton} />
     </div>
   );

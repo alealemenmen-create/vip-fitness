@@ -25,7 +25,9 @@ const NUMEROS_POR_PAGINA = 7;
  *
  * "Entrenamiento en curso" era una barra de ancho completo y pasó a esta
  * píldora, del mismo tamaño que Historial: se distingue por el color de acento
- * y el puntito, no por ocupar espacio. */
+ * y el puntito, no por ocupar espacio. El cronómetro de la rutina NO va acá
+ * — vive en la pantalla de la sesión, junto al botón "Iniciar rutina" (ver
+ * sesion/[id]/page.tsx). */
 const PILDORA = "text-micro rounded-full bg-surface-2 px-2.5 py-1 font-medium";
 
 function AccesosEntrenar({ sesionEnProgresoId }: { sesionEnProgresoId: string | null }) {

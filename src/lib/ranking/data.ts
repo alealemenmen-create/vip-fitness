@@ -159,3 +159,36 @@ export async function obtenerMovimientosAlumno(alumnoId: string, limite = 12): P
   if (error) throw new Error("No fue posible leer el historial de Puntos VIP.");
   return (data ?? []) as MovimientoPuntos[];
 }
+
+export type MovimientoResumen = {
+  id: string;
+  categoria: MovimientoPuntos["categoria"];
+  puntos: number;
+  titulo: string;
+  fecha: string;
+};
+
+/** Igual que `obtenerMovimientosAlumno`, pero para CUALQUIER alumno (no solo
+ * el de la sesión) y acotado a un rango de fechas — pensado para el
+ * "¿en qué ganó sus puntos?" del Ranking VIP de Inicio. A propósito NO trae
+ * `detalle` (ahí puede vivir texto libre, ej. qué comió) para no exponer el
+ * detalle de alimentación de un alumno a cualquier otro: solo categoría +
+ * puntos + título del evento. */
+export async function obtenerMovimientosAlumnoEnRango(
+  alumnoId: string,
+  desde: string,
+  hasta: string
+): Promise<MovimientoResumen[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("puntos_vip_movimientos")
+    .select("id, categoria, puntos, titulo, fecha")
+    .eq("alumno_id", alumnoId)
+    .neq("puntos", 0)
+    .gte("fecha", desde)
+    .lte("fecha", hasta)
+    .order("fecha", { ascending: false });
+
+  if (error) throw new Error("No fue posible leer el detalle de Puntos VIP.");
+  return (data ?? []) as MovimientoResumen[];
+}

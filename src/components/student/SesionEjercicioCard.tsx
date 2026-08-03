@@ -22,6 +22,7 @@ import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { repsObjetivo } from "@/lib/entrenamiento/reps";
 import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
+import { guardarDescanso, leerDescanso, limpiarDescanso } from "@/lib/entrenamiento/descanso";
 import {
   guardarBorrador,
   leerBorrador,
@@ -241,6 +242,10 @@ const FilaSerie = forwardRef<
     repsObjetivo: number | null;
     descansoSegundos: number | null;
     soloLectura: boolean;
+    /** Para anclar el descanso a una hora real en localStorage — ver
+     * `lib/entrenamiento/descanso.ts`. */
+    sesionId: string;
+    sesionEjercicioId: string;
     /** Se llama apenas cambia algo, para guardar sin esperar a que el alumno
      * termine todo el ejercicio. */
     onGuardar: () => void;
@@ -263,6 +268,8 @@ const FilaSerie = forwardRef<
     repsObjetivo,
     descansoSegundos,
     soloLectura,
+    sesionId,
+    sesionEjercicioId,
     activo,
     esLaQueToca,
     onCicloCompleto,
@@ -285,6 +292,7 @@ const FilaSerie = forwardRef<
     completarYa: () => {
       // Fuerza la serie como hecha ya mismo, corte el descanso si estaba
       // corriendo — lo usa el botón "Ejercicio listo" para saltar todo.
+      limpiarDescanso(sesionId, sesionEjercicioId, numero);
       setRealizada(true);
       setRestante(null);
       if (!avisadoRef.current) {
@@ -308,6 +316,34 @@ const FilaSerie = forwardRef<
         ? "hecha"
         : "pendiente";
 
+  // Al montar, si quedó un descanso corriendo de antes de cambiar de pestaña
+  // (ver lib/entrenamiento/descanso.ts), se retoma contra la hora real: ni
+  // se reinicia ni queda congelado. Si ya venció mientras el alumno andaba en
+  // otra pantalla, se asienta directo en "hecha" sin repetir la vibración —
+  // volver y que el teléfono vibre solo por abrir la app sería más molesto
+  // que útil.
+  useEffect(() => {
+    if (soloLectura) return;
+    const finEn = leerDescanso(sesionId, sesionEjercicioId, numero);
+    if (finEn === null) return;
+
+    const restanteReal = Math.round((finEn - Date.now()) / 1000);
+    if (restanteReal > 0) {
+      setRestante(restanteReal);
+      onIniciar(numero);
+    } else {
+      limpiarDescanso(sesionId, sesionEjercicioId, numero);
+      setRestante(null);
+      if (!avisadoRef.current) {
+        avisadoRef.current = true;
+        onCicloCompleto(numero);
+      }
+    }
+    // Solo al montar: una vez restaurado, el resto del ciclo de vida de este
+    // descanso lo maneja el efecto de la cuenta regresiva de abajo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Cuenta regresiva controlada por efecto: solo corre si esta serie es la
   // "activa" del ejercicio — al arrancar el descanso de otra serie, esta
   // queda pausada sola (restante se congela donde iba).
@@ -316,6 +352,7 @@ const FilaSerie = forwardRef<
     const id = setInterval(() => {
       setRestante((prev) => {
         if (prev === null || prev <= 1) {
+          limpiarDescanso(sesionId, sesionEjercicioId, numero);
           avisarFinDescanso();
           setAvisandoSiguiente(true);
           if (!avisadoRef.current) {
@@ -363,6 +400,7 @@ const FilaSerie = forwardRef<
       // quiere hacer con un cronómetro que no debería haber arrancado.
       // Antes lo reiniciaba, y un toque accidental no tenía vuelta atrás salvo
       // esperar los 150 segundos completos.
+      limpiarDescanso(sesionId, sesionEjercicioId, numero);
       setRestante(null);
       setRealizada(false);
       setAvisandoSiguiente(false);
@@ -390,6 +428,7 @@ const FilaSerie = forwardRef<
       prepararAviso();
       onIniciar(numero);
       setRestante(descansoSegundos);
+      guardarDescanso(sesionId, sesionEjercicioId, numero, Date.now() + descansoSegundos * 1000);
     } else if (!avisadoRef.current) {
       avisadoRef.current = true;
       onCicloCompleto(numero);
@@ -867,6 +906,8 @@ export const SesionEjercicioCard = forwardRef<
               repsObjetivo={objetivoReps}
               descansoSegundos={ejercicio.descansoSegundos}
               soloLectura={soloLectura}
+              sesionId={sesionId}
+              sesionEjercicioId={ejercicio.sesionEjercicioId}
               activo={serieActivaNumero === n}
               esLaQueToca={serieQueToca === n}
               onIniciar={setSerieActivaNumero}

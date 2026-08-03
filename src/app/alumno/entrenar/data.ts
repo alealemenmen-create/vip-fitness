@@ -291,6 +291,10 @@ export type SesionCompleta = {
   estado: "en_progreso" | "completada" | "finalizada_incompleta" | "abandonada";
   horaInicio: string;
   horaFin: string | null;
+  /** Cuándo se tocó "Iniciar rutina" en esta pantalla — null mientras la
+   * rutina sigue bloqueada. Migración 0040; ver el respaldo en
+   * `obtenerSesionCompleta` si todavía no corrió. */
+  rutinaIniciadaEn: string | null;
   comentario: string | null;
   diaNombre: string;
   diaTipo: "entrenamiento" | "descanso";
@@ -304,14 +308,26 @@ export async function obtenerSesionCompleta(
   alumnoId: string,
   sesionId: string
 ): Promise<SesionCompleta> {
-  const { data: sesion } = await supabase
+  const COLUMNAS_SESION =
+    "id, fecha, numero_calendario, estado, hora_inicio, hora_fin, comentario, dia_id, rutina_dias(nombre, tipo, descripcion), rutinas(nombre)";
+
+  // Igual que con los ejercicios más abajo: si la migración 0040
+  // (rutina_iniciada_en) todavía no corrió en este entorno, se degrada sola
+  // en vez de romper la pantalla de sesión entera.
+  const intentoSesion = await supabase
     .from("sesiones_entrenamiento")
-    .select(
-      "id, fecha, numero_calendario, estado, hora_inicio, hora_fin, comentario, dia_id, rutina_dias(nombre, tipo, descripcion), rutinas(nombre)"
-    )
+    .select(`${COLUMNAS_SESION}, rutina_iniciada_en`)
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .maybeSingle();
+  const { data: sesion } = intentoSesion.error
+    ? await supabase
+        .from("sesiones_entrenamiento")
+        .select(COLUMNAS_SESION)
+        .eq("id", sesionId)
+        .eq("alumno_id", alumnoId)
+        .maybeSingle()
+    : intentoSesion;
 
   if (!sesion) return null;
 
@@ -454,6 +470,7 @@ export async function obtenerSesionCompleta(
     estado: sesion.estado,
     horaInicio: sesion.hora_inicio,
     horaFin: sesion.hora_fin,
+    rutinaIniciadaEn: (sesion as { rutina_iniciada_en?: string | null }).rutina_iniciada_en ?? null,
     comentario: sesion.comentario,
     diaNombre: dia?.nombre ?? "",
     diaTipo: dia?.tipo ?? "entrenamiento",
@@ -472,19 +489,22 @@ export type SesionHistorial = {
   completados: number;
   total: number;
   comentario: string | null;
+  horaInicio: string | null;
+  horaFin: string | null;
 };
 
 export async function obtenerHistorialSesiones(
   supabase: SupabaseServerClient,
-  alumnoId: string
+  alumnoId: string,
+  limite = 30
 ): Promise<SesionHistorial[]> {
   const { data: sesiones } = await supabase
     .from("sesiones_entrenamiento")
-    .select("id, fecha, numero_calendario, estado, comentario, rutina_dias(nombre)")
+    .select("id, fecha, numero_calendario, estado, comentario, hora_inicio, hora_fin, rutina_dias(nombre)")
     .eq("alumno_id", alumnoId)
     .neq("estado", "en_progreso")
     .order("fecha", { ascending: false })
-    .limit(30);
+    .limit(limite);
 
   if (!sesiones || sesiones.length === 0) return [];
 
@@ -514,6 +534,8 @@ export async function obtenerHistorialSesiones(
       completados: c.completados,
       total: c.total,
       comentario: s.comentario,
+      horaInicio: s.hora_inicio,
+      horaFin: s.hora_fin,
     };
   });
 }

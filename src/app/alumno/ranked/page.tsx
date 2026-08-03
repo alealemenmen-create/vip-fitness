@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { requireAlumno } from "@/lib/auth";
 import { obtenerMovimientosAlumno, obtenerRanking } from "@/lib/ranking/data";
 import { ProgresoVipCompetitivo } from "@/components/student/ProgresoVipCompetitivo";
+import { TarjetaRangoActual } from "@/components/student/TarjetaRangoActual";
 import { obtenerHistorialTorneos, obtenerTorneosPublicos } from "@/lib/torneos/data";
 import { TorneoActivoCard } from "@/components/student/TorneoActivoCard";
 import { HistorialTorneos } from "@/components/student/HistorialTorneos";
@@ -12,10 +13,10 @@ export default async function RankedPage() {
   const { alumnoId, nombre } = await requireAlumno();
   return (
     <div className="space-y-5 pb-8">
-      <div>
-        <h1 className="text-h2 text-text">Progreso <span className="text-vip">VIP</span></h1>
-        <p className="text-caption mt-1 text-text-secondary">Suma, sube de rango y compite con tu constancia.</p>
-      </div>
+      <p className="text-caption text-text-secondary">Suma, sube de rango y compite con tu constancia.</p>
+      <Suspense fallback={<div className="h-40 animate-pulse rounded-xl bg-surface-2" />}>
+        <RangoActual alumnoId={alumnoId} />
+      </Suspense>
       <Suspense fallback={<div className="h-32 animate-pulse rounded-xl bg-surface-2" />}>
         <ArenaVip alumnoId={alumnoId} nombre={nombre} />
       </Suspense>
@@ -24,6 +25,16 @@ export default async function RankedPage() {
       </Suspense>
     </div>
   );
+}
+
+async function RangoActual({ alumnoId }: { alumnoId: string }) {
+  // "Tu rango actual" no depende del periodo (semana/mes/año) elegido más
+  // abajo — cualquiera de los tres rankings trae `puntosAcumulados`/`rango`
+  // ya resueltos. `obtenerRanking` está cacheado (`unstable_cache`, tag
+  // "ranking"), así que pedirlo acá y de nuevo en `Contenido` no duplica
+  // trabajo real.
+  const semana = await obtenerRanking("semana");
+  return <TarjetaRangoActual filas={semana} alumnoId={alumnoId} />;
 }
 
 async function ArenaVip({ alumnoId, nombre }: { alumnoId: string; nombre: string }) {
