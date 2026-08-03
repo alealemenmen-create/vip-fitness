@@ -18,11 +18,13 @@ import {
 } from "lucide-react";
 import {
   consultarAsistenteVip,
+  confirmarEliminacionDatos,
   type EstadoAsistente,
 } from "@/app/admin/asistente/actions";
-import type { EstadoReporteVip, TipoReporteVip } from "@/lib/asistente/tipos";
+import { ETIQUETA_CATEGORIA_ELIMINACION, type EstadoReporteVip, type TipoReporteVip } from "@/lib/asistente/tipos";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { EliminarPerfilBoton } from "@/components/admin/EliminarPerfilBoton";
 
 const ESTADO_INICIAL: EstadoAsistente = { respuesta: null, respuestaIA: null, error: null };
 
@@ -204,6 +206,40 @@ export function AsistenteVipPanel({ totalAlumnos }: { totalAlumnos: number }) {
               >
                 Revisar antes de publicar <ArrowRight size={13} />
               </Link>
+            </div>
+          )}
+
+          {respuestaIA.solicitudEliminacion && (
+            <div className="mt-4 rounded-2xl border border-error/40 bg-error/5 p-3">
+              <div className="flex items-center gap-2 text-error">
+                <AlertTriangle size={16} />
+                <p className="text-micro font-bold">SOLICITUD DE BORRADO — SIN CONFIRMAR</p>
+              </div>
+              <p className="text-secondary mt-2 font-semibold text-text">
+                {respuestaIA.solicitudEliminacion.alumnoNombre} ·{" "}
+                {ETIQUETA_CATEGORIA_ELIMINACION[respuestaIA.solicitudEliminacion.categoria]}
+              </p>
+              <ul className="text-caption mt-2 space-y-0.5 text-text-secondary">
+                {respuestaIA.solicitudEliminacion.resumen.map((fila) => (
+                  <li key={fila.tabla}>
+                    {fila.cantidad} {fila.etiqueta}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-micro mt-2 text-text-tertiary">
+                Todavía no se borró nada. La IA solo propone — hace falta confirmar acá abajo.
+              </p>
+              <div className="mt-3">
+                <EliminarPerfilBoton
+                  accion={confirmarEliminacionDatos}
+                  campoId="solicitud_id"
+                  valorId={respuestaIA.solicitudEliminacion.id}
+                  etiqueta="Confirmar borrado"
+                  advertencia={`Vas a borrar para siempre ${respuestaIA.solicitudEliminacion.resumen
+                    .map((fila) => `${fila.cantidad} ${fila.etiqueta}`)
+                    .join(", ")} de ${respuestaIA.solicitudEliminacion.alumnoNombre}. No se puede deshacer.`}
+                />
+              </div>
             </div>
           )}
         </Card>

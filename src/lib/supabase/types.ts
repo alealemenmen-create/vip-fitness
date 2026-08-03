@@ -333,7 +333,7 @@ export interface Database {
         Row: {
           id: string;
           usuario_id: string;
-          herramienta: "atencion" | "nutricion" | "entrenamiento" | "progreso" | "noticia" | "alumno";
+          herramienta: "atencion" | "nutricion" | "entrenamiento" | "progreso" | "noticia" | "alumno" | "eliminar_datos";
           modelo: string;
           tokens_entrada: number;
           tokens_salida: number;
@@ -342,7 +342,7 @@ export interface Database {
         };
         Insert: {
           usuario_id: string;
-          herramienta: "atencion" | "nutricion" | "entrenamiento" | "progreso" | "noticia" | "alumno";
+          herramienta: "atencion" | "nutricion" | "entrenamiento" | "progreso" | "noticia" | "alumno" | "eliminar_datos";
           modelo: string;
           tokens_entrada?: number;
           tokens_salida?: number;
@@ -373,6 +373,36 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["borradores_noticias"]["Insert"]>;
+        Relationships: [];
+      };
+      // 0041_solicitudes_eliminacion_datos.sql — propuesta de borrado del
+      // Asistente VIP: la IA solo llega a "pendiente", nunca borra sola.
+      solicitudes_eliminacion_datos: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          categoria: "entrenamiento" | "comida" | "progreso" | "ranking";
+          resumen: { tabla: string; etiqueta: string; cantidad: number }[];
+          estado: "pendiente" | "confirmado" | "cancelado";
+          creado_por: string;
+          generado_con_ia: boolean;
+          confirmado_por: string | null;
+          confirmado_en: string | null;
+          created_at: string;
+        };
+        Insert: {
+          alumno_id: string;
+          categoria: "entrenamiento" | "comida" | "progreso" | "ranking";
+          resumen: { tabla: string; etiqueta: string; cantidad: number }[];
+          estado?: "pendiente" | "confirmado" | "cancelado";
+          creado_por: string;
+          generado_con_ia?: boolean;
+        };
+        Update: {
+          estado?: "pendiente" | "confirmado" | "cancelado";
+          confirmado_por?: string | null;
+          confirmado_en?: string | null;
+        };
         Relationships: [];
       };
       medidas_corporales: {

@@ -1,11 +1,15 @@
 "use server";
 
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { obtenerReportes } from "@/app/admin/alumnos/data";
+import type { FormState } from "@/app/admin/alumnos/actions";
 import { construirReporteVip } from "@/lib/asistente/reportes";
+import { borrarDatosCategoria } from "@/lib/asistente/eliminacion";
 import type { ResultadoReporteVip } from "@/lib/asistente/tipos";
 import type { RespuestaIaVip } from "@/lib/asistente/tipos";
 import { consultarConHerramientasVip } from "@/lib/ai/asistenteConsultas";
@@ -74,4 +78,59 @@ export async function consultarAsistenteVip(
     respuestaIA: null,
     error: null,
   };
+}
+
+/**
+ * El paso humano que la IA nunca puede dar sola: relee la solicitud
+ * `pendiente` de `solicitudes_eliminacion_datos` (la fuente de verdad es esa
+ * fila, no nada que llegue del cliente) y recién ahí ejecuta el borrado real.
+ * Mismo `FormState` que `eliminarAlumno` para poder reusar
+ * `EliminarPerfilBoton` tal cual — la confirmación en dos pasos que ya usa
+ * la app para su acción más destructiva.
+ */
+export async function confirmarEliminacionDatos(_prevState: FormState, formData: FormData): Promise<FormState> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+  const solicitudId = String(formData.get("solicitud_id") || "");
+  if (!solicitudId) return { error: "Falta la solicitud.", ok: false };
+
+  const admin = createAdminClient();
+  const { data: solicitud } = await admin
+    .from("solicitudes_eliminacion_datos")
+    .select("id, alumno_id, categoria, estado")
+    .eq("id", solicitudId)
+    .maybeSingle();
+
+  if (!solicitud) return { error: "No se encontró la solicitud de borrado.", ok: false };
+  if (solicitud.estado !== "pendiente") {
+    return { error: "Esta solicitud ya fue confirmada o cancelada.", ok: false };
+  }
+
+  await borrarDatosCategoria(admin, solicitud.alumno_id, solicitud.categoria);
+
+  await admin
+    .from("solicitudes_eliminacion_datos")
+    .update({ estado: "confirmado", confirmado_por: sesion.userId, confirmado_en: new Date().toISOString() })
+    .eq("id", solicitudId);
+
+  revalidatePath(`/admin/alumnos/${solicitud.alumno_id}`);
+  revalidatePath("/admin/asistente");
+  return { error: null, ok: true };
+}
+
+/** Descarta la propuesta sin borrar nada — queda igual en la tabla como
+ * auditoría, solo cambia de estado. */
+export async function cancelarEliminacionDatos(_prevState: FormState, formData: FormData): Promise<FormState> {
+  await requireRol(["entrenador", "admin"]);
+  const solicitudId = String(formData.get("solicitud_id") || "");
+  if (!solicitudId) return { error: "Falta la solicitud.", ok: false };
+
+  const admin = createAdminClient();
+  await admin
+    .from("solicitudes_eliminacion_datos")
+    .update({ estado: "cancelado" })
+    .eq("id", solicitudId)
+    .eq("estado", "pendiente");
+
+  revalidatePath("/admin/asistente");
+  return { error: null, ok: true };
 }
