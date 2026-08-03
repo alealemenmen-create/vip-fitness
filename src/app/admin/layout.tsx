@@ -38,8 +38,28 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   ]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg">
-      <div className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-8">
+    /* `fixed inset-0` + el scroll en un hijo (`.pantalla-scroll`, definida en
+       globals.css junto con `html, body { overflow: hidden }`): mismo arreglo
+       que /alumno (ver el comentario ahí). Sin esto el panel de admin quedaba
+       con la página entera trabada — el body ya no scrollea desde ese cambio
+       global, y acá no había ningún contenedor interno que lo reemplazara. */
+    /* `--escala-texto` es la misma variable que ya usa el ajuste de tamaño de
+       letra del alumno (ver globals.css: TODAS las clases text-h1..text-micro
+       están escritas como `calc(Npx * var(--escala-texto))`). Pisarla acá, más
+       específica que la del :root, achica la letra de TODO el panel de admin
+       de una sola vez —sin tocar un componente ni una clase— y las pantallas
+       quedan tan compactas como ya se ven las de /alumno. */
+    <div
+      className="fixed inset-0 flex flex-col overflow-hidden bg-bg"
+      style={{ "--escala-texto": 0.82 } as React.CSSProperties}
+    >
+      {/* Cabecera clavada: vive FUERA de `.pantalla-scroll`, como hermano flex.
+          No es `sticky` a propósito — un sticky queda confinado a su bloque
+          contenedor y basta un padding-top en el scroller para que no llegue
+          al borde y el contenido desfile por la rendija (es el bug que se
+          arregló en /alumno). Siendo hermano no scrollea nunca y el contenido
+          queda recortado por el borde del scroller, sin rendija posible. */}
+      <div className="mx-auto w-full max-w-md shrink-0 bg-bg px-4 pb-3 pt-8">
         <Logo compact className="mb-3" corner={<ThemeToggle />} />
 
         <div className="mb-3 flex items-center gap-2">
@@ -49,7 +69,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
 
-        <div className="mb-6 grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <Link
             href="/admin/asistente"
             className="btn-accion radius-control flex items-center justify-center gap-2 px-3 py-3 text-secondary font-semibold"
@@ -74,12 +94,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </form>
           )}
         </div>
+      </div>
 
+      {/* SIN padding-top: los títulos de cada pestaña se clavan acá con
+          `sticky top-0` (ver TituloPestana) y un padding en este contenedor
+          les impediría llegar al borde. El aire lo pone cada título. */}
+      <div className="pantalla-scroll mx-auto w-full max-w-md px-4 pb-24">
         {children}
 
         <LogoutButton className="text-caption mt-8 block w-full py-2 text-center text-text-tertiary" />
       </div>
-      <div className="sticky bottom-0 mx-auto w-full max-w-md">
+      {/* `fixed` y no `sticky`: en iOS Safari, con el documento scrolleando,
+          lo `fixed`/`sticky` se desengancha y se arrastra mientras dura el
+          gesto (mismo problema que se resolvió en /alumno). Acá el body ya no
+          scrollea (ver arriba), pero mantenerlo `fixed` evita que vuelva a
+          pasar si algo dentro de `.pantalla-scroll` rebota. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-md">
         <AdminTabs
           alimentosPendientes={alimentosPendientes ?? 0}
           solicitudesPendientes={solicitudesPendientes ?? 0}

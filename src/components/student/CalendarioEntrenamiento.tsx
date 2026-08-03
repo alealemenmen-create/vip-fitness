@@ -113,8 +113,9 @@ export function CalendarioEntrenamiento({
 
       <TiraDias numeros={numeros} seleccionado={seleccionado} onSeleccionar={setSeleccionado} />
 
-      {/* Tarjeta principal del día */}
-      <div className="efecto-3d radius-card overflow-hidden bg-surface">
+      {/* Tarjeta principal del día. `tarjeta-modelo-oscura` la mantiene en
+          oscuro también con el tema claro — ver el porqué en globals.css. */}
+      <div className="tarjeta-modelo-oscura efecto-3d radius-card overflow-hidden bg-surface">
         <div className="relative flex min-h-[168px] flex-col justify-end overflow-hidden p-5">
           {descanso ? (
             <div className="pointer-events-none absolute right-4 top-3 opacity-30">

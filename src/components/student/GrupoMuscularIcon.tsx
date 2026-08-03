@@ -130,9 +130,24 @@ export function GrupoMuscularIcon({
 export { ETIQUETAS as ETIQUETAS_GRUPO_MUSCULAR };
 
 /**
- * Foto real de un grupo (miniatura cuadrada, recortada arriba para que se vea
- * la cara/torso). Si el grupo no tiene foto todavía (hoy solo Cardio), cae al
- * dibujo anatómico de siempre — no deja el hueco vacío.
+ * Fondo de las miniaturas de grupo muscular.
+ *
+ * Las fotos son de estudio SOBRE FONDO NEGRO y el recorte que les quitó el
+ * fondo no pudo separar del todo el cuerpo: la barba, el short y las sombras
+ * son casi tan negras como el fondo, y zonas del interior quedaron
+ * transparentes conectadas con el borde (el hueco entre las piernas, por
+ * ejemplo), así que no hay relleno de agujeros que las recupere.
+ *
+ * Sobre negro eso deja de importar: lo transparente vuelve a ser el mismo
+ * negro del estudio y la miniatura se ve igual que la foto original. Por eso
+ * el fondo es negro fijo en los dos temas, y no `bg-surface`.
+ */
+const FONDO_FOTO = "#000000";
+
+/**
+ * Foto real de un grupo, en un círculo negro. Si el grupo no tiene foto
+ * todavía (hoy solo Cardio), cae al dibujo anatómico de siempre — no deja el
+ * hueco vacío.
  */
 export function FotoGrupoMuscular({
   grupo,
@@ -148,13 +163,26 @@ export function FotoGrupoMuscular({
 
   return (
     <div
-      className={`radius-control relative shrink-0 overflow-hidden ${className}`}
-      style={{ width: tamano, height: tamano }}
+      className={`relative shrink-0 overflow-hidden rounded-full ${className}`}
+      style={{ width: tamano, height: tamano, background: FONDO_FOTO }}
     >
-      <Image src={fotos[0]} alt={ETIQUETAS[grupo]} fill className="object-cover object-top" />
+      {/* `object-contain`, no `object-cover`: el modelo entero adentro del
+          círculo, como una foto de estudio con su propio fondo — no un zoom
+          a un pedazo de músculo. Un recorte apretado (cover + posición por
+          grupo, lo que había antes) terminaba mostrando manos y piernas
+          sueltas, sin que se reconociera la figura. */}
+      <Image
+        src={fotos[0]}
+        alt={ETIQUETAS[grupo]}
+        fill
+        sizes={`${tamano}px`}
+        className="object-contain"
+      />
     </div>
   );
 }
+
+export { FONDO_FOTO as FONDO_FOTO_GRUPO };
 
 /**
  * Arreglo de fotos para la tarjeta principal del día en Entrenar: el grupo

@@ -15,6 +15,7 @@ import {
 import { hoyISO } from "@/lib/date";
 import { obtenerCelebracionTorneoHoy } from "@/lib/torneos/data";
 import { BottomNav } from "@/components/student/BottomNav";
+import { BarraInferiorFija } from "@/components/student/BarraInferiorFija";
 import { MenuAlumno } from "@/components/student/MenuAlumno";
 import { CampanaNoticias } from "@/components/student/CampanaNoticias";
 import { AplicarTemaBotonGuardado } from "@/components/student/AplicarTemaBotonGuardado";
@@ -76,9 +77,17 @@ export default async function AlumnoLayout({ children }: { children: React.React
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg">
+    /* `fixed inset-0` y el scroll en un hijo (ver `.pantalla-scroll` en
+       globals.css).
+       En iOS Safari `overflow: hidden` sobre <body> NO alcanza: el documento
+       igual se arrastra y rebota, y mientras dura ese gesto Safari desengancha
+       todo lo `position: fixed` y lo vuelve a su lugar recién al levantar el
+       dedo. Eso es lo que hacía que la barra de íconos y la cabecera se
+       movieran al deslizar. Sacando el shell del flujo con `fixed` no queda
+       documento que arrastrar. */
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-bg">
       {contexto.soloLectura && (
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-vip px-4 py-3">
+        <div className="z-10 flex shrink-0 items-center justify-between gap-2 bg-vip px-4 py-3">
           <span className="text-caption flex items-center gap-1.5 text-black">
             <Eye size={16} />
             Viendo como {nombreAlumnoPublicado(contexto.nombre)} · modo solo lectura
@@ -91,7 +100,15 @@ export default async function AlumnoLayout({ children }: { children: React.React
         </div>
       )}
 
-      <div className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-1">
+      {/* SIN padding-top. Un elemento `sticky` está confinado a su bloque
+          contenedor, que es el content box de este div — o sea, lo que queda
+          DESPUÉS del padding. Con `pt-1` acá, la cabecera de abajo no podía
+          anclarse en el borde real: se quedaba 4px más abajo y por esa
+          ventanita desfilaba el contenido al scrollear (se veía una franja
+          con trozos de tarjetas entre el logo y la hora del teléfono, en
+          Inicio, Progreso, Ranked y la sesión de entrenamiento). El aire
+          sobre el logo lo pone la cabecera con su propio `pt-1`. */}
+      <div className="pantalla-scroll mx-auto w-full max-w-md px-4 pb-24">
         {/* El menú vive DENTRO de la placa dorada: una sola pieza de ancho
             completo, sin el botón morado que la interrumpía. La campanita va
             al lado, para que las novedades se vean desde cualquier pantalla.
@@ -120,7 +137,7 @@ export default async function AlumnoLayout({ children }: { children: React.React
           Android las filas de serie encendidas en ámbar —que tienen sombra y
           contexto de apilado propio— se colaban por encima de los íconos al
           hacer scroll. */}
-      <div className="sticky bottom-0 z-40 mx-auto w-full max-w-md">
+      <BarraInferiorFija>
         <BottomNav sesionEnProgresoId={sesionEnProgresoId} />
         {contexto.rolSesion !== "alumno" && !contexto.soloLectura && (
           <Link
@@ -130,7 +147,7 @@ export default async function AlumnoLayout({ children }: { children: React.React
             Volver al panel de entrenador
           </Link>
         )}
-      </div>
+      </BarraInferiorFija>
 
       {/* La burbuja flotante "Volver a rutina" se sacó: la pestaña Entrenar ya
           lleva a la sesión en curso (ver BottomNav), así que era un segundo

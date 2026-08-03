@@ -10,6 +10,7 @@ import { AvisosNotasIA } from "@/components/admin/AvisosNotasIA";
 import { AvisoSolicitudes } from "@/components/admin/AvisoSolicitudes";
 import { obtenerReportes, obtenerAvisosNotasIA, type EstadoAlumno } from "./data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
+import { TituloPestana } from "@/components/admin/TituloPestana";
 
 export default async function AlumnosPage() {
   const sesion = await requireRol(["entrenador", "admin"]);
@@ -65,7 +66,9 @@ export default async function AlumnosPage() {
 
   return (
     <div className="space-y-2">
-      <h1 className="text-caption font-semibold text-text">Alumnos</h1>
+      <TituloPestana>
+        <h1 className="text-caption font-semibold text-text">Alumnos</h1>
+      </TituloPestana>
 
       {reportes.length > 0 && (
         <Card padding="p-1" className="leading-none">

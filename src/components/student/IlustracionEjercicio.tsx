@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
-import { GrupoMuscularIcon, ETIQUETAS_GRUPO_MUSCULAR } from "./GrupoMuscularIcon";
+import { GrupoMuscularIcon, ETIQUETAS_GRUPO_MUSCULAR, FONDO_FOTO_GRUPO } from "./GrupoMuscularIcon";
 import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
 
 /**
@@ -33,18 +33,23 @@ export function IlustracionEjercicio({
     return <GrupoMuscularIcon grupo={grupoMuscular} alto={tamano} />;
   }
 
-  // La ilustración es un dibujo con fondo transparente: se muestra entera
-  // (`contain`) y sin recorte. La foto de grupo muscular sí se recorta, para
-  // que la miniatura cuadrada no deforme a la persona.
   const esIlustracion = origen === "ilustracion";
 
   return (
     <div
-      className={`radius-control relative shrink-0 overflow-hidden ${
-        esIlustracion ? "bg-surface-2" : ""
+      className={`relative shrink-0 overflow-hidden ${
+        esIlustracion ? "radius-control bg-surface-2" : "rounded-full"
       } ${className}`}
-      style={{ width: tamano, height: tamano }}
+      style={{
+        width: tamano,
+        height: tamano,
+        ...(esIlustracion ? {} : { background: FONDO_FOTO_GRUPO }),
+      }}
     >
+      {/* La foto del modelo también va con `object-contain` — el cuerpo
+          entero dentro del círculo negro, como en la tarjeta del día en
+          Entrenar, no un recorte cerrado a un músculo. Ver el porqué del
+          fondo negro en FONDO_FOTO_GRUPO (GrupoMuscularIcon). */}
       <Image
         src={src}
         alt={
@@ -56,7 +61,7 @@ export function IlustracionEjercicio({
         }
         fill
         sizes={`${tamano}px`}
-        className={esIlustracion ? "object-contain p-1" : "object-cover object-top"}
+        className={`object-contain ${esIlustracion ? "p-1" : ""}`}
       />
     </div>
   );

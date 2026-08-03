@@ -2,6 +2,7 @@ import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerAnuncios, obtenerBorradoresNoticias } from "@/lib/noticias/data";
 import { AnunciosManager } from "@/components/admin/AnunciosManager";
+import { TituloPestana } from "@/components/admin/TituloPestana";
 
 export default async function NoticiasAdminPage({
   searchParams,
@@ -22,7 +23,9 @@ export default async function NoticiasAdminPage({
 
   return (
     <div className="space-y-4">
-      <h1 className="text-h2 text-text">Noticias</h1>
+      <TituloPestana>
+        <h1 className="text-h2 text-text">Noticias</h1>
+      </TituloPestana>
       <p className="text-secondary text-text-secondary">
         Lo que publiques acá aparece para todos los alumnos en su pestaña de Noticias VIP.
       </p>

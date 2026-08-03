@@ -66,7 +66,10 @@ export function ResumenSemanaCompacto({
             {descanso ? "Día de recuperación" : `${diaHoy.completados} / ${diaHoy.total} ejercicios`}
           </p>
         </div>
-        {!descanso && diaHoy.grupo && <FotoGrupoMuscular grupo={diaHoy.grupo} tamano={68} />}
+        {/* Más grande que antes (68): sobre el fondo oscuro de la tarjeta el
+            modelo es lo que da carácter a la pantalla, y a 68 px quedaba
+            perdido al lado del título. */}
+        {!descanso && diaHoy.grupo && <FotoGrupoMuscular grupo={diaHoy.grupo} tamano={96} />}
       </div>
 
       <div className="border-t border-border pt-3">

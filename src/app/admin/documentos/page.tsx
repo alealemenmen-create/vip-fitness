@@ -6,6 +6,7 @@ import {
 } from "@/lib/documentos/data";
 import { DocumentosManager } from "@/components/admin/DocumentosManager";
 import { ArchivosManager } from "@/components/admin/ArchivosManager";
+import { TituloPestana } from "@/components/admin/TituloPestana";
 
 /** Desde aquí se analiza un PDF con IA y se publica la rutina, y las dos cosas
  * tardan más que el límite por defecto de Vercel (10 s): el análisis ronda los
@@ -24,13 +25,9 @@ export default async function DocumentosPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      <div>
-        <h1 className="text-h2 text-text">Documentos</h1>
-        <p className="text-caption mt-1 text-text-secondary">
-          Todos los archivos que has subido, en un solo lugar. Desde aquí puedes enviarle el mismo
-          documento a otros alumnos, quitárselo, reemplazar el archivo o eliminarlo.
-        </p>
-      </div>
+      <TituloPestana>
+        <h1 className="text-h2 text-text">Cargas</h1>
+      </TituloPestana>
 
       <p className="text-caption text-text-tertiary">RUTINA Y ALIMENTACIÓN</p>
       <ArchivosManager documentos={[]} alumnos={alumnos} />

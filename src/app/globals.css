@@ -57,6 +57,33 @@
   --color-text-tertiary: #858b94;
 }
 
+/*
+  Las tarjetas que muestran al modelo van SIEMPRE en oscuro, también con el
+  tema claro: la del día en Entrenar y la de "TU ENTRENAMIENTO" en Inicio.
+
+  No es un capricho estético. Las fotos del modelo son de estudio sobre fondo
+  NEGRO, y el recorte que les quitó el fondo no pudo separar del todo el
+  cuerpo: la barba, el short y las sombras son casi tan negras como el fondo.
+  Peor todavía, las zonas transparentes que quedaron dentro del cuerpo
+  conectan con el borde de la imagen por el hueco entre las piernas, así que
+  no hay relleno de agujeros que las recupere — se probó. Sobre blanco todo
+  eso se ve como manchas; sobre negro lo transparente vuelve a ser el fondo
+  del estudio y la foto se ve igual que la original.
+
+  Se redefinen las variables en vez de pisar clase por clase: todo lo de
+  adentro (`bg-surface`, `text-text`, `border-border`, y el degradado de
+  FotoDiaEntrenamiento, que lee `--color-surface`) se adapta solo. El ámbar y
+  el morado no se tocan: son iguales en los dos temas.
+*/
+.tarjeta-modelo-oscura {
+  --color-surface: #121316;
+  --color-surface-2: #1a1c20;
+  --color-border: #262930;
+  --color-text: #ffffff;
+  --color-text-secondary: #a1a7b3;
+  --color-text-tertiary: #6f7682;
+}
+
 @theme inline {
   --color-bg: var(--color-bg);
   --color-surface: var(--color-surface);
@@ -80,6 +107,47 @@ body {
   color: var(--color-text);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-body), sans-serif;
   transition: background-color 180ms ease, color 180ms ease;
+}
+
+/*
+  El documento NO scrollea: scrollea un contenedor interno (ver
+  `.pantalla-scroll`, que usa el layout de alumno).
+
+  iOS Safari desengancha lo que es `position: fixed` MIENTRAS dura el gesto de
+  scroll del documento y recién lo vuelve a poner en su lugar cuando el dedo se
+  levanta. Con la página entera scrolleando, eso hacía que la barra de íconos y
+  la cabecera se fueran con el contenido —se levantaban al arrastrar y la
+  cabecera llegaba a desaparecer—, y ni `fixed` ni `sticky` lo evitan: el
+  problema es que el que scrollea sea el documento. Encerrando el scroll en un
+  hijo, el viewport queda quieto y no hay nada que desenganchar.
+*/
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/*
+  El único que scrollea. `-webkit-overflow-scrolling: touch` conserva el
+  desplazamiento con inercia, que se pierde al sacar el scroll del documento.
+*/
+.pantalla-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  /* Scrollbar nativo oculto: mismo criterio que `.tira-dias` más abajo. El
+     navegador la dibuja blanca por defecto, y contra el fondo oscuro de toda
+     la app queda como una franja pegada al borde derecho. El scroll táctil
+     (que es como se usa esto, ver el comentario de arriba) sigue andando
+     igual sin la barra visible. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.pantalla-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 /*

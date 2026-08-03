@@ -3,8 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { obtenerTorneosAdmin } from "@/lib/torneos/data";
 import { CrearTorneoForm, type BorradorRetoIA } from "@/components/admin/CrearTorneoForm";
 import { TorneoAdminCard } from "@/components/admin/TorneoAdminCard";
+import { TorneosCerradosGaveta } from "@/components/admin/TorneosCerradosGaveta";
 import { Card } from "@/components/ui/Card";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
+import { TituloPestana } from "@/components/admin/TituloPestana";
 
 function sumarDias(fecha: Date, dias: number): string {
   const copia = new Date(fecha);
@@ -63,10 +65,10 @@ export default async function TorneosPage({
 
   return (
     <div className="space-y-4">
-      <div>
+      <TituloPestana>
         <h1 className="text-h2 text-text">Arena <span className="text-vip">VIP</span></h1>
-        <p className="text-caption mt-1 text-text-secondary">Competencias oficiales, reglas públicas y premios aportados por VIP Fitness.</p>
-      </div>
+      </TituloPestana>
+      <p className="text-caption text-text-secondary">Competencias oficiales, reglas públicas y premios aportados por VIP Fitness.</p>
 
       <CrearTorneoForm alumnos={alumnos} borradorIA={borradorIA} />
 
@@ -84,14 +86,9 @@ export default async function TorneosPage({
               ))}
             </div>
           )}
-          {cerrados.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-caption text-text-tertiary">CERRADOS</p>
-              {cerrados.map((t) => (
-                <TorneoAdminCard key={t.id} torneo={t} />
-              ))}
-            </div>
-          )}
+          {/* Justo debajo de las que están en curso: cuando una prueba se
+              completa y se cierra, se va para acá, plegada. */}
+          <TorneosCerradosGaveta torneos={cerrados} />
         </>
       )}
     </div>

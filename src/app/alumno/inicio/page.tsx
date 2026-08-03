@@ -346,8 +346,11 @@ function TarjetaEntrenamientoHoy({
   const completado = estado.tipo === "completado";
   const diaHoy = resumenDias.dias.find((d) => d.esHoy) ?? resumenDias.dias[0];
 
+  // `tarjeta-modelo-oscura`: se queda en oscuro también con el tema claro,
+  // para que la foto del modelo se vea sobre el mismo negro con el que fue
+  // tomada — ver el porqué en globals.css.
   return (
-    <Card className="p-5">
+    <Card className="tarjeta-modelo-oscura p-5">
       <p className="text-caption mb-3 text-text-tertiary">TU ENTRENAMIENTO</p>
 
       <ResumenSemanaCompacto

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { AlimentosManager, type AlimentoAdmin } from "@/components/admin/AlimentosManager";
 import { AlimentosPendientes, type AlimentoPendiente } from "@/components/admin/AlimentosPendientes";
+import { TituloPestana } from "@/components/admin/TituloPestana";
 
 const COLUMNAS = "id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa, activo";
 
@@ -65,7 +66,9 @@ export default async function AdminAlimentosPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-h2 text-text">Alimentos</h1>
+      <TituloPestana>
+        <h1 className="text-h2 text-text">Alimentos</h1>
+      </TituloPestana>
       {pendientes.length > 0 && <AlimentosPendientes alimentos={pendientes} />}
       <AlimentosManager alimentos={alimentos} />
     </div>
