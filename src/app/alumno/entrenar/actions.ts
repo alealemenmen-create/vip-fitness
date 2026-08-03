@@ -23,14 +23,22 @@ export async function iniciarSesion(formData: FormData): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: enProgreso } = await supabase
+  // Solo bloquea si hay una rutina EMPEZADA DE VERDAD (cronómetro corriendo,
+  // o un día de descanso, que no tiene ese segundo paso) — una sesión creada
+  // por "Ver entrenamiento" en otro día, todavía bloqueada, es solo una vista
+  // previa y no debe impedir entrar a mirar/empezar este otro día.
+  const { data: candidatas } = await supabase
     .from("sesiones_entrenamiento")
-    .select("id")
+    .select("id, rutina_iniciada_en, rutina_dias(tipo)")
     .eq("alumno_id", user.id)
     .eq("estado", "en_progreso")
     .order("hora_inicio", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(20);
+
+  const enProgreso = (candidatas ?? []).find((s) => {
+    const dia = s.rutina_dias as unknown as { tipo: string } | null;
+    return dia?.tipo === "descanso" || s.rutina_iniciada_en !== null;
+  });
 
   if (enProgreso) {
     redirect(`/alumno/entrenar/sesion/${enProgreso.id}`);

@@ -6,23 +6,37 @@ import { resolverTempo, type Tempo } from "@/lib/ejercicios/tempo";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
-/** Si el alumno tiene una sesión en progreso (la empezó y se fue a otra
- * pestaña sin finalizarla), devuelve su id — se usa para reengancharlo ahí
- * en vez de mostrarle el calendario desde cero cada vez que vuelve a
- * Entrenar. */
+/** Si el alumno tiene una sesión en progreso DE VERDAD (la empezó y se fue a
+ * otra pestaña sin finalizarla), devuelve su id — se usa para reengancharlo
+ * ahí en vez de mostrarle el calendario desde cero cada vez que vuelve a
+ * Entrenar.
+ *
+ * "En progreso de verdad" es a propósito más estricto que la columna
+ * `estado`: tocar "Ver entrenamiento" en un día de entrenamiento crea la fila
+ * con `estado = 'en_progreso'` (falta enganchar los ejercicios) pero la
+ * rutina sigue bloqueada hasta tocar "Iniciar rutina" — ver
+ * `bloqueadaPorIniciar` en sesion/[id]/page.tsx. Antes de este filtro, con
+ * solo mirar un día ya aparecía la píldora "Entrenamiento en curso" y la
+ * pestaña Entrenar de la barra inferior te mandaba de vuelta ahí, aunque
+ * nunca se hubiera arrancado nada. Un día de descanso no tiene ese segundo
+ * paso — se registra directo — así que para esos sí cuenta con solo crearse. */
 export async function obtenerSesionEnProgreso(
   supabase: SupabaseServerClient,
   alumnoId: string
 ): Promise<string | null> {
   const { data } = await supabase
     .from("sesiones_entrenamiento")
-    .select("id")
+    .select("id, rutina_iniciada_en, rutina_dias(tipo)")
     .eq("alumno_id", alumnoId)
     .eq("estado", "en_progreso")
     .order("hora_inicio", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return data?.id ?? null;
+    .limit(20);
+
+  const enCurso = (data ?? []).find((s) => {
+    const dia = s.rutina_dias as unknown as { tipo: string } | null;
+    return dia?.tipo === "descanso" || s.rutina_iniciada_en !== null;
+  });
+  return enCurso?.id ?? null;
 }
 
 /**
@@ -156,7 +170,7 @@ export async function obtenerNumerosCalendario(
 
   const { data: sesiones } = await supabase
     .from("sesiones_entrenamiento")
-    .select("id, numero_calendario, estado")
+    .select("id, numero_calendario, estado, rutina_iniciada_en")
     .eq("alumno_id", alumnoId)
     .eq("rutina_id", rutinaId)
     .in("numero_calendario", numeros);
@@ -166,11 +180,19 @@ export async function obtenerNumerosCalendario(
   return numeros.map((n) => {
     const dia = diasRutina[(n - 1) % diasRutina.length];
     const sesion = sesionPorNumero.get(n);
+    // Un día de entrenamiento con fila creada pero la rutina todavía
+    // bloqueada (nunca se tocó "Iniciar rutina") es solo una vista previa —
+    // "Ver entrenamiento" no debe pintar el círculo como si ya estuviera en
+    // curso. Descanso no tiene ese segundo paso: cuenta con solo crearse.
+    const enProgresoDeVerdad =
+      dia.tipo === "descanso" || sesion?.rutina_iniciada_en != null;
     const estado: EstadoNumero = !sesion
       ? "no_iniciado"
-      : sesion.estado === "en_progreso"
-        ? "en_progreso"
-        : "completado";
+      : sesion.estado !== "en_progreso"
+        ? "completado"
+        : enProgresoDeVerdad
+          ? "en_progreso"
+          : "no_iniciado";
     return { numero: n, dia, estado, sesionId: sesion?.id ?? null };
   });
 }
