@@ -152,7 +152,7 @@ export function CalendarioEntrenamiento({
         <div className="border-t border-border p-3">
           {actual.estado === "no_iniciado" ? (
             soloLectura ? null : (
-              <form action={iniciarSesion}>
+              <form action={iniciarSesion} className="space-y-2">
                 <input type="hidden" name="dia_id" value={actual.dia.id} />
                 <input type="hidden" name="rutina_id" value={rutinaId} />
                 <input type="hidden" name="numero_calendario" value={actual.numero} />
@@ -163,6 +163,19 @@ export function CalendarioEntrenamiento({
                   {descanso ? "Registrar día de descanso" : "Iniciar entrenamiento"}
                   <ChevronRight size={20} />
                 </button>
+                {/* Misma acción que el botón de arriba: crea la sesión y lleva a
+                    la pantalla de la rutina — pero ahí queda bloqueada hasta
+                    tocar "Iniciar rutina" (ver sesion/[id]/page.tsx), así que
+                    "ver" antes de comprometerse a entrenar es seguro de verdad,
+                    no un atajo que arranca nada solo. */}
+                {!descanso && (
+                  <button
+                    type="submit"
+                    className="radius-control flex h-11 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text-secondary"
+                  >
+                    Ver entrenamiento
+                  </button>
+                )}
               </form>
             )
           ) : (
