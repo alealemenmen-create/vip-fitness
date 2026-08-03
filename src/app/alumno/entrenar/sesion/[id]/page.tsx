@@ -9,6 +9,7 @@ import { VolverAEntrenar } from "@/components/student/VolverAEntrenar";
 import { ConsejoEntrenamiento } from "@/components/student/ConsejoEntrenamiento";
 import { CronometroSesion } from "@/components/student/CronometroSesion";
 import { consejoInicial } from "@/lib/frasesMotivacionales";
+import { CancelarSesionBoton } from "@/components/student/CancelarSesionBoton";
 import { obtenerSesionCompleta } from "../../data";
 import { reabrirSesion, iniciarRutina } from "../../actions";
 import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
@@ -183,6 +184,10 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
             <RotateCcw size={18} /> Reiniciar
           </button>
         </form>
+      )}
+
+      {!vistaSoloLectura && !esDescanso && sesion.estado === "en_progreso" && completados === 0 && (
+        <CancelarSesionBoton sesionId={sesion.id} />
       )}
 
       {mostrarConsejo && <ConsejoEntrenamiento inicial={consejoInicial()} />}

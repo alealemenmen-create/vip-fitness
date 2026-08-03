@@ -20,7 +20,7 @@ import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
-import { repsObjetivo } from "@/lib/entrenamiento/reps";
+import { repsObjetivo, esEjercicioDeTiempo } from "@/lib/entrenamiento/reps";
 import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
 import { guardarDescanso, leerDescanso, limpiarDescanso } from "@/lib/entrenamiento/descanso";
 import {
@@ -44,10 +44,10 @@ type FilaSerieHandle = {
 
 const initialState: GuardarSeriesState = { error: null };
 
-function formatUltimo(u: EjercicioSesion["ultimoRegistro"]) {
+function formatUltimo(u: EjercicioSesion["ultimoRegistro"], esTiempo: boolean) {
   if (!u) return null;
   const pesoTxto = u.esPesoCorporal ? "Peso corporal" : u.pesoKg != null ? `${u.pesoKg} kg` : "—";
-  const repsTxto = u.reps != null ? `${u.reps} reps` : "";
+  const repsTxto = u.reps != null ? `${u.reps} ${esTiempo ? "seg" : "reps"}` : "";
   return `${pesoTxto}${repsTxto ? ` × ${repsTxto}` : ""}`;
 }
 
@@ -240,6 +240,9 @@ const FilaSerie = forwardRef<
     inicial: EjercicioSesion["series"][number] | undefined;
     /** Repeticiones programadas de la rutina, para precargar el campo. */
     repsObjetivo: number | null;
+    /** Ejercicios por tiempo (plancha, isométricos): mismo campo, pero pide
+     * segundos en vez de repeticiones — ver `esEjercicioDeTiempo`. */
+    esTiempo: boolean;
     descansoSegundos: number | null;
     soloLectura: boolean;
     /** Para anclar el descanso a una hora real en localStorage — ver
@@ -266,6 +269,7 @@ const FilaSerie = forwardRef<
     numero,
     inicial,
     repsObjetivo,
+    esTiempo,
     descansoSegundos,
     soloLectura,
     sesionId,
@@ -341,6 +345,37 @@ const FilaSerie = forwardRef<
     }
     // Solo al montar: una vez restaurado, el resto del ciclo de vida de este
     // descanso lo maneja el efecto de la cuenta regresiva de abajo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // El navegador pausa o enlentece los timers de JS mientras la pestaña está
+  // en background (llamada entrante, cambiar a WhatsApp, apagar pantalla):
+  // el setInterval de abajo puede atrasarse o directamente no tickear. Al
+  // volver a estar visible, se recalcula "restante" contra el fin real
+  // guardado en vez de confiar en cuántas veces alcanzó a tickear el interval.
+  useEffect(() => {
+    if (soloLectura) return;
+    const alVolver = () => {
+      if (document.hidden) return;
+      const finEn = leerDescanso(sesionId, sesionEjercicioId, numero);
+      if (finEn === null) return;
+
+      const restanteReal = Math.round((finEn - Date.now()) / 1000);
+      if (restanteReal > 0) {
+        setRestante(restanteReal);
+      } else {
+        limpiarDescanso(sesionId, sesionEjercicioId, numero);
+        setRestante(null);
+        avisarFinDescanso();
+        setAvisandoSiguiente(true);
+        if (!avisadoRef.current) {
+          avisadoRef.current = true;
+          onCicloCompleto(numero);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", alVolver);
+    return () => document.removeEventListener("visibilitychange", alVolver);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -479,12 +514,16 @@ const FilaSerie = forwardRef<
             type="number"
             min="0"
             inputMode="numeric"
+            placeholder={esTiempo ? "Seg" : undefined}
             // Viene precargado con las repeticiones objetivo de la rutina para
             // que el alumno solo lo corrija si hizo otra cosa; sigue siendo
-            // editable. Lo ya registrado manda por sobre el objetivo.
+            // editable. Lo ya registrado manda por sobre el objetivo. Mismo
+            // campo para ejercicios por tiempo (ver `esEjercicioDeTiempo`):
+            // ahí no hay objetivo numérico que precargar, el alumno carga los
+            // segundos que aguantó.
             defaultValue={inicial?.repsRealizadas ?? repsObjetivo ?? ""}
           />
-          <span className="campo-serie-etiqueta">reps</span>
+          <span className="campo-serie-etiqueta">{esTiempo ? "seg" : "reps"}</span>
         </label>
         {!soloLectura && (
           <button
@@ -578,7 +617,8 @@ export const SesionEjercicioCard = forwardRef<
   // Abierto de entrada el que está en curso y los ya terminados (para poder
   // revisar lo que se levantó); en modo lectura, todos.
   const [expandido, setExpandido] = useState(activo || soloLectura || ejercicio.completado);
-  const ultimoTexto = formatUltimo(ejercicio.ultimoRegistro);
+  const esTiempo = esEjercicioDeTiempo(ejercicio.repsProgramadas);
+  const ultimoTexto = formatUltimo(ejercicio.ultimoRegistro, esTiempo);
   const tecnica = resolverTecnica(ejercicio);
   const cardRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -617,6 +657,13 @@ export const SesionEjercicioCard = forwardRef<
   // servidor, leerlo durante el render rompería la hidratación).
   const [borrador, setBorrador] = useState<BorradorEjercicio | null>(null);
   const [borradorLeido, setBorradorLeido] = useState(false);
+  // Distingue "todavía no se mandó nada" de "se mandó y el servidor ya
+  // contestó": sin esto, el efecto de abajo veía `pending === false` apenas
+  // se montaba (antes de mandar nada) y borraba el respaldo del teléfono al
+  // toque — justo el caso que existe para proteger: si el teléfono descarta
+  // la pestaña por memoria o se corta la conexión ANTES de tocar "Listo" de
+  // nuevo, no quedaba ninguna copia de la que recuperarse.
+  const seEnvioRef = useRef(false);
 
   useEffect(() => {
     setBorrador(leerBorrador(sesionId, ejercicio.sesionEjercicioId));
@@ -658,13 +705,17 @@ export const SesionEjercicioCard = forwardRef<
    */
   const guardarAhora = () => {
     respaldarLocal();
+    seEnvioRef.current = true;
     formRef.current?.requestSubmit();
   };
 
   // Cuando el servidor confirma, la copia local ya no hace falta: dejarla
   // haría que un borrador viejo se restaure encima de datos más nuevos.
+  // `seEnvioRef` es la guarda: sin ella, `pending === false` también es
+  // cierto apenas se monta el componente, ANTES de mandar nada — y borraba el
+  // respaldo recién restaurado sin que el servidor hubiera confirmado nada.
   useEffect(() => {
-    if (!pending && !state.error && borradorLeido) {
+    if (seEnvioRef.current && !pending && !state.error && borradorLeido) {
       limpiarBorrador(sesionId, ejercicio.sesionEjercicioId);
     }
   }, [pending, state.error, borradorLeido, sesionId, ejercicio.sesionEjercicioId]);
@@ -797,9 +848,9 @@ export const SesionEjercicioCard = forwardRef<
                 etiqueta="Series"
               />
               <Dato
-                icono={<Repeat size={13} />}
+                icono={esTiempo ? <Timer size={13} /> : <Repeat size={13} />}
                 valor={ejercicio.repsProgramadas}
-                etiqueta="Reps"
+                etiqueta={esTiempo ? "Tiempo" : "Reps"}
               />
               <Dato
                 icono={<Timer size={13} />}
@@ -871,7 +922,7 @@ export const SesionEjercicioCard = forwardRef<
               </span>
               <span>
                 {s.esPesoCorporal ? "Peso corporal" : s.pesoKg != null ? `${s.pesoKg} kg` : "—"}
-                {s.repsRealizadas != null ? ` × ${s.repsRealizadas} reps` : ""}
+                {s.repsRealizadas != null ? ` × ${s.repsRealizadas} ${esTiempo ? "seg" : "reps"}` : ""}
               </span>
             </div>
           ))}
@@ -904,6 +955,7 @@ export const SesionEjercicioCard = forwardRef<
               numero={n}
               inicial={serieInicial(n)}
               repsObjetivo={objetivoReps}
+              esTiempo={esTiempo}
               descansoSegundos={ejercicio.descansoSegundos}
               soloLectura={soloLectura}
               sesionId={sesionId}

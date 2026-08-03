@@ -2,30 +2,25 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { CircleOff, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { abandonarSesion } from "@/app/alumno/entrenar/actions";
+import { cancelarSesionEnCurso } from "@/app/alumno/entrenar/actions";
 
-/** Botón "Abandonar" de una sesión ya cerrada, en el Historial — con
- * confirmación en ventana emergente. A diferencia de un borrado, la sesión
- * sigue en el historial: solo cambia su estado y deja de sumar puntos. */
-export function AbandonarSesionBoton({ sesionId }: { sesionId: string }) {
+/** Para cuando se tocó "Entrenar" en el día equivocado por error: borra esta
+ * sesión puntual (sin tocar el resto del historial de la rutina) siempre que
+ * todavía no se haya completado ningún ejercicio. */
+export function CancelarSesionBoton({ sesionId }: { sesionId: string }) {
   const [confirmando, setConfirmando] = useState(false);
 
   return (
     <>
       <button
         type="button"
-        aria-label="Abandonar entrenamiento"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setConfirmando(true);
-        }}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-tertiary active:scale-[0.94]"
+        onClick={() => setConfirmando(true)}
+        className="radius-control flex h-12 w-full items-center justify-center gap-2 text-body font-medium text-text-tertiary underline"
       >
-        <CircleOff size={16} />
+        Empecé este día por error
       </button>
 
       {confirmando &&
@@ -36,7 +31,7 @@ export function AbandonarSesionBoton({ sesionId }: { sesionId: string }) {
           >
             <Card padding="p-4" className="w-full max-w-sm space-y-3">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-body font-medium text-text">¿Abandonar este entrenamiento?</p>
+                <p className="text-body font-medium text-text">¿Cancelar este entrenamiento?</p>
                 <button
                   type="button"
                   aria-label="Cerrar"
@@ -47,10 +42,10 @@ export function AbandonarSesionBoton({ sesionId }: { sesionId: string }) {
                 </button>
               </div>
               <p className="text-caption text-text-secondary">
-                Queda marcado como abandonado y le quita los puntos que había sumado. Sigue
-                apareciendo en tu historial.
+                Se borra por completo, como si nunca lo hubieras tocado. No queda en tu historial
+                ni afecta tu ranking.
               </p>
-              <form action={abandonarSesion} className="flex gap-2">
+              <form action={cancelarSesionEnCurso} className="flex gap-2">
                 <input type="hidden" name="sesion_id" value={sesionId} />
                 <Button
                   type="button"
@@ -59,10 +54,10 @@ export function AbandonarSesionBoton({ sesionId }: { sesionId: string }) {
                   className="flex-1"
                   onClick={() => setConfirmando(false)}
                 >
-                  Cancelar
+                  Volver
                 </Button>
                 <Button type="submit" variant="destructive" size="xsAuto" className="flex-1">
-                  Sí, abandonar
+                  Sí, cancelar
                 </Button>
               </form>
             </Card>

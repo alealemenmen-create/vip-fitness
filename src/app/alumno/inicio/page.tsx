@@ -237,9 +237,17 @@ async function MiRango({
         <span className="min-w-0 truncate text-[13px] font-medium leading-none text-text-secondary">
           {propia.rango.nombre}
         </span>
-        <span className="ml-auto shrink-0 text-[16px] font-bold leading-none tabular-nums text-vip">
-          {propia.puntosAcumulados.toLocaleString("es-CL")}
-          <span className="ml-0.5 text-[10px] font-normal text-text-tertiary">pts</span>
+        <span className="ml-auto shrink-0 text-right leading-none">
+          <span className="text-[16px] font-bold tabular-nums text-vip">
+            {propia.puntosAcumulados.toLocaleString("es-CL")}
+          </span>
+          {/* Al lado, en la misma tarjeta, el Ranking VIP muestra la
+              clasificación SEMANAL (ver RankedVipCard) — sin aclarar "total"
+              acá, los dos números parecen no coincidir cuando en realidad son
+              dos métricas distintas a propósito. */}
+          <span className="block text-[8px] font-normal leading-none text-text-tertiary">
+            pts totales
+          </span>
         </span>
       </span>
       {progreso && (

@@ -279,6 +279,45 @@ export async function abandonarSesion(formData: FormData): Promise<void> {
 }
 
 /**
+ * Cancela una sesión en curso que se creó por error (ej. tocar "Iniciar
+ * entrenamiento" en el día que no correspondía): borra la fila entera en vez
+ * de marcarla "abandonada", para que no quede rastro de un toque accidental
+ * ni siga ocupando el cupo de "un día en curso a la vez" de iniciarSesion().
+ *
+ * Solo permitido mientras sigue "en_progreso" y ningún ejercicio se marcó
+ * completado — si el alumno ya cargó series de verdad, no es un error, es
+ * progreso real y debe cerrarse y usar abandonarSesion (desde Historial).
+ */
+export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
+  const sesionId = String(formData.get("sesion_id") || "");
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (!sesionId || soloLectura) redirect("/alumno/entrenar");
+
+  const supabase = await createClient();
+  const { data: sesion } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id, estado")
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .maybeSingle();
+  if (!sesion || sesion.estado !== "en_progreso") redirect("/alumno/entrenar");
+
+  const { count } = await supabase
+    .from("sesion_ejercicios")
+    .select("id", { count: "exact", head: true })
+    .eq("sesion_id", sesionId)
+    .eq("completado", true);
+  if (count && count > 0) redirect(`/alumno/entrenar/sesion/${sesionId}`);
+
+  await supabase.from("sesiones_entrenamiento").delete().eq("id", sesionId).eq("alumno_id", alumnoId);
+
+  revalidatePath("/alumno/entrenar");
+  revalidatePath("/alumno/entrenar/historial");
+  revalidatePath("/alumno/inicio");
+  redirect("/alumno/entrenar");
+}
+
+/**
  * Reinicia una rutina de cero: borra TODAS las sesiones (y en cascada sus
  * ejercicios y series) que el alumno haya registrado bajo esa rutina, para
  * que el calendario de Entrenar vuelva a empezar desde el Día 1.
