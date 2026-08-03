@@ -308,26 +308,13 @@ export async function obtenerNoticias(
 
   const noticias: Noticia[] = [];
 
-  // ── 1. Nuevos integrantes: una bienvenida breve y de baja prioridad ──
-  for (const evento of eventosSistema ?? []) {
-    if (evento.tipo !== "bienvenida" || !evento.alumno_id) continue;
-    const nombre =
-      nombreAlumnoPublicado(
-        (evento.perfiles as unknown as { nombre: string } | null)?.nombre ?? ""
-      ) || nombres.get(evento.alumno_id);
-    if (!nombre) continue;
-    const fecha = evento.created_at.slice(0, 10);
-    noticias.push({
-      id: `bienvenida-${evento.id}`,
-      tipo: "bienvenida",
-      mes: mesDe(fecha),
-      fecha,
-      titular: `Le damos la bienvenida a ${nombre}`,
-      detalle: "Se incorporó a la comunidad VIP Fitness. ¡Acompañemos el comienzo de su proceso!",
-      alumnoNombre: nombre,
-      relevancia: 35,
-    });
-  }
+  // ── 1. Nuevos integrantes ──
+  // Pedido explícito: Noticias queda solo con lo que publica el entrenador,
+  // Arena, progreso destacado y rango destacado — la bienvenida automática de
+  // "nuevo alumno" ya no se muestra acá. La fila en `noticias_sistema` (tipo
+  // 'bienvenida') se sigue escribiendo igual en admin/alumnos/actions.ts y
+  // admin/solicitudes/actions.ts —no se tocó esa parte—, por si se necesita
+  // reactivar esta sección más adelante sin perder el historial.
 
   // ── 1.5. Cumpleaños detectados automáticamente ──
   for (const evento of eventosSistema ?? []) {

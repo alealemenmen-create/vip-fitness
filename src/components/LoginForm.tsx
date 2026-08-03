@@ -6,6 +6,7 @@ import { UserPlus } from "lucide-react";
 import { login, recuperarPassword, type LoginState, type RecuperarState } from "@/app/login/actions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { InputPassword } from "@/components/ui/InputPassword";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -35,7 +36,10 @@ export function LoginForm({ beta }: { beta: boolean }) {
   );
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg px-4">
+    // `h-dvh overflow-y-auto`: ver el comentario en registro/page.tsx — desde
+    // que `html`/`body` dejaron de scrollear globalmente, cualquier página
+    // fuera de /alumno y /admin necesita su propio contenedor con scroll.
+    <div className="flex h-dvh items-center justify-center overflow-y-auto bg-bg px-4 [-webkit-overflow-scrolling:touch]">
       <div className="radius-card w-full max-w-sm bg-surface p-8">
         <div className="mb-3 flex justify-end">
           <ThemeToggle />
@@ -56,10 +60,9 @@ export function LoginForm({ beta }: { beta: boolean }) {
                 <label htmlFor="login-password" className="text-caption mb-1.5 block text-text-tertiary">
                   CONTRASEÑA
                 </label>
-                <Input
+                <InputPassword
                   id="login-password"
                   name="password"
-                  type="password"
                   required
                   autoComplete="current-password"
                 />

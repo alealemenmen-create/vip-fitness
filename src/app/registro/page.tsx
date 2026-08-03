@@ -39,7 +39,12 @@ export default async function RegistroPage() {
     : null;
 
   return (
-    <div className="flex min-h-screen justify-center bg-bg px-4 py-8">
+    // `h-dvh overflow-y-auto` y no `min-h-screen`: desde que `html`/`body`
+    // dejaron de scrollear globalmente (ver globals.css, arreglo del salto de
+    // iOS en /alumno), cualquier página fuera de esos dos layouts necesita su
+    // propio contenedor con scroll — si no, un formulario más largo que la
+    // pantalla queda trabado, sin forma de bajar a ver el resto.
+    <div className="flex h-dvh justify-center overflow-y-auto bg-bg px-4 py-8 [-webkit-overflow-scrolling:touch]">
       <div className="radius-card w-full max-w-sm bg-surface p-6">
         <div className="mb-3 flex justify-end">
           <ThemeToggle />

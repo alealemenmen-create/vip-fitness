@@ -27,7 +27,7 @@ const VUELTA = 2 * Math.PI * RADIO;
  * lo que sea la clase no llega (CSS a medio cargar, caché vieja), el estilo en
  * línea igual está — y en el celular pasó justamente eso.
  */
-const LADO_ANILLO = 56;
+const LADO_ANILLO = 76;
 
 /** Anillo de calorías: el trazo se recorta con `strokeDasharray` y arranca
  * arriba (de ahí el giro de -90°). */
@@ -67,25 +67,32 @@ function AnilloCalorias({
           cy="50"
           r={RADIO}
           fill="none"
-          stroke="var(--macro-cal)"
+          // Un poco más claro que el acento base: sobre el gris oscuro de la
+          // tarjeta el tono plano se sentía apagado. Mezclado con blanco llama
+          // más la atención sin dejar de ser el color del tema.
+          stroke="color-mix(in srgb, var(--macro-cal) 82%, white)"
           strokeWidth={GROSOR}
           strokeLinecap="round"
           strokeDasharray={VUELTA}
           strokeDashoffset={VUELTA * (1 - avance)}
-          className="transition-[stroke-dashoffset] duration-500 ease-out motion-reduce:transition-none"
+          className="drop-shadow-[0_0_6px_var(--macro-cal)] transition-[stroke-dashoffset] duration-500 ease-out motion-reduce:transition-none"
         />
       </svg>
 
-      <div className="absolute inset-0 flex flex-col items-center justify-center leading-tight">
-        <span className="text-secondary font-bold tabular-nums text-text">
+      {/* `leading-none` en las tres líneas y sin interlineado de más: con la
+          altura de línea por defecto el bloque de tres renglones sumaba varios
+          píxeles de aire abajo y el número quedaba ópticamente por debajo del
+          centro del anillo, aunque el contenedor sí estuviera centrado. */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-px">
+        <span className="text-[16px] font-bold leading-none tabular-nums text-text">
           {Math.round(kcal)}
         </span>
         {objetivo !== null && (
-          <span className="text-[9px] tabular-nums text-text-tertiary">
+          <span className="text-[8px] leading-none tabular-nums text-text-tertiary">
             / {Math.round(objetivo)}
           </span>
         )}
-        <span className="text-[9px] font-medium" style={{ color: "var(--macro-cal)" }}>
+        <span className="text-[8px] font-medium leading-none" style={{ color: "var(--macro-cal)" }}>
           kcal
         </span>
       </div>
@@ -154,7 +161,7 @@ export function TarjetaMacros({
     objetivo && objetivo > 0 ? Math.min(1, valor / objetivo) : 0;
 
   return (
-    <div className="radius-card border border-border bg-surface px-3 py-2">
+    <div className="radius-card border border-border bg-surface px-3 py-1">
       <p
         className="text-micro text-center font-semibold tracking-wide"
         style={{ color: "var(--macro-cal)" }}
@@ -162,14 +169,19 @@ export function TarjetaMacros({
         TU PROGRESO NUTRICIONAL
       </p>
 
-      <div className="mt-1.5 flex items-center gap-3">
+      {/* `-mt-2`: el título de arriba empuja esta fila hacia abajo, y con
+          `items-center` a secas el anillo terminaba mucho más cerca del borde
+          de abajo de la tarjeta que del de arriba. El corrimiento negativo
+          compensa ese empuje para que el margen quede parejo — ver la medición
+          en la revisión del cambio. */}
+      <div className="-mt-3 flex items-center gap-3">
         <AnilloCalorias
           kcal={kcal}
           objetivo={kcalObjetivo}
           avance={avance(kcal, kcalObjetivo)}
         />
 
-        <div className="min-w-0 flex-1 space-y-1">
+        <div className="min-w-0 flex-1 space-y-0.5">
           {macros.map((m) => (
             <div key={m.clave} className="min-w-0">
               {/* `gap-2` entre el nombre y el número: sin separación mínima, en

@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import { FolderUp, Wand2, FileText, Trash2 } from "lucide-react";
+import { FolderUp, Wand2, FileText, Trash2, ClipboardPaste } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import {
@@ -82,16 +82,73 @@ function ListaDocumentosExistentes({ documentos }: { documentos: Documento[] }) 
   );
 }
 
-function BotonSubir({ cantidad }: { cantidad: number }) {
+/**
+ * Antes quedaba deshabilitado sin más cuando no había destinatarios elegidos:
+ * un botón amarillo bien visible que no hacía nada. Ahora sigue siendo
+ * `type="button"` siempre —para poder decidir en el click qué hacer— y en vez
+ * de deshabilitar cuando falta elegir a quién, abre el selector de alumnos
+ * ahí mismo con `alIrASeleccion` (ver `selectorAbierto` en ArchivosManager).
+ * `useFormStatus` sigue funcionando igual: lee el estado del `<form>`
+ * ancestro sin importar si el envío lo disparó un submit nativo o
+ * `formRef.current.requestSubmit()`.
+ */
+function BotonSubir({
+  cantidad,
+  formRef,
+  alIrASeleccion,
+}: {
+  cantidad: number;
+  formRef: React.RefObject<HTMLFormElement | null>;
+  alIrASeleccion: () => void;
+}) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" loading={pending} disabled={cantidad === 0}>
+    <Button
+      type="button"
+      loading={pending}
+      onClick={() => {
+        if (cantidad === 0) {
+          alIrASeleccion();
+          return;
+        }
+        formRef.current?.requestSubmit();
+      }}
+    >
       {pending
         ? "Subiendo…"
         : cantidad === 0
-          ? "Elige abajo a quiénes"
+          ? "Elige a quiénes"
           : `Subir a ${cantidad} ${cantidad === 1 ? "alumno" : "alumnos"}`}
     </Button>
+  );
+}
+
+/**
+ * El selector de alumnos, abierto adentro de la sección que lo pidió en vez
+ * de vivir fijo arriba de la pantalla. "Listo" lo cierra sin más — elegir
+ * queda guardado en `destinatarios` igual, que es estado del padre.
+ */
+function PanelSelector({
+  alumnos,
+  destinatarios,
+  onCambiar,
+  onCerrar,
+}: {
+  alumnos: AlumnoParaAsignar[];
+  destinatarios: Set<string>;
+  onCambiar: (s: Set<string>) => void;
+  onCerrar: () => void;
+}) {
+  return (
+    <div className="radius-control mb-3 space-y-3 border border-vip/40 bg-surface-2 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-caption text-text-tertiary">¿A QUIÉNES LE ENVÍO ESTO?</p>
+        <button type="button" onClick={onCerrar} className="text-caption font-medium text-vip">
+          Listo
+        </button>
+      </div>
+      <SelectorAlumnos alumnos={alumnos} seleccionados={destinatarios} onCambiar={onCambiar} />
+    </div>
   );
 }
 
@@ -141,6 +198,7 @@ export function ArchivosManager({
   documentos: Documento[];
   alumnos: AlumnoParaAsignar[];
 }) {
+  const router = useRouter();
   const documentosRutina = documentos.filter((d) => d.tipo === "rutina");
   const documentosAlimentacion = documentos.filter((d) => d.tipo === "alimentacion");
 
@@ -149,13 +207,28 @@ export function ArchivosManager({
     new Set(alumnoId ? [alumnoId] : [])
   );
 
-  const [rutina, accionRutina] = useActionState(subirRutinaAVariosAlumnos, estadoVariosVacio);
+  const [rutina, accionRutina, subiendoRutina] = useActionState(
+    subirRutinaAVariosAlumnos,
+    estadoVariosVacio
+  );
   const [nombreRutina, setNombreRutina] = useState<string | null>(null);
   const [analizandoRutina, setAnalizandoRutina] = useState(false);
   const [errorRutina, setErrorRutina] = useState<string | null>(null);
   const [draft, setDraft] = useState<RutinaExtraida | null>(null);
+  // "archivo": el flujo de siempre (elegir un PDF/TXT del disco). "texto":
+  // pegar la rutina directo, sin tener que armar un archivo antes — se manda
+  // igual que un .txt: mismo análisis de IA, mismo registro en `documentos`.
+  const [modoRutina, setModoRutina] = useState<"archivo" | "texto">("archivo");
+  const [textoRutina, setTextoRutina] = useState("");
+  const formRutinaRef = useRef<HTMLFormElement>(null);
+  // `rutina.storagePath` viene de `useActionState`: no hay forma de "vaciarlo"
+  // a mano, solo de disparar la acción de nuevo. Esta bandera es la que
+  // decide si se sigue mostrando la tarjeta de "archivo subido" — se prende
+  // al terminar de publicar (ver `reiniciarFlujoRutina`) para volver a
+  // mostrar el cuadro de carga, y se apaga apenas arranca una subida nueva.
+  const [reiniciarRutina, setReiniciarRutina] = useState(false);
 
-  const [alimentacion, accionAlimentacion] = useActionState(
+  const [alimentacion, accionAlimentacion, subiendoAlimentacion] = useActionState(
     subirAlimentacionAVariosAlumnos,
     estadoVariosVacio
   );
@@ -163,6 +236,33 @@ export function ArchivosManager({
   const [analizandoPlan, setAnalizandoPlan] = useState(false);
   const [errorPlan, setErrorPlan] = useState<string | null>(null);
   const [analisisPlan, setAnalisisPlan] = useState<AnalizarPlanState | null>(null);
+  const [modoAlimentacion, setModoAlimentacion] = useState<"archivo" | "texto">("archivo");
+  const [textoAlimentacion, setTextoAlimentacion] = useState("");
+  const formAlimentacionRef = useRef<HTMLFormElement>(null);
+  const [reiniciarAlimentacion, setReiniciarAlimentacion] = useState(false);
+
+  /** El selector de alumnos ya no vive fijo arriba de todo: aparece dentro de
+   * la sección (Rutina o Alimentación) donde se lo pidió, al tocar el botón
+   * amarillo sin haber elegido a nadie todavía. Solo uno a la vez — no tiene
+   * sentido abrir los dos juntos, y comparten el mismo `destinatarios`. */
+  const [selectorAbierto, setSelectorAbierto] = useState<"rutina" | "alimentacion" | null>(null);
+
+  /**
+   * El historial de abajo (`DocumentosManager`, en la página) lo llena el
+   * servidor con los `documentos` que le pasa la página — un prop fijo desde
+   * el primer render, no algo que este componente pueda re-pedir solo.
+   * `revalidatePath` en la Server Action marca esa consulta como vieja, pero
+   * "Pegar texto" dispara la acción a mano (`accionRutina(formData)` dentro
+   * de un `startTransition`, no un `<form>` nativo), y ese camino no dispara
+   * el refresco automático que sí trae un submit real. Sin esto, el
+   * documento quedaba subido pero el historial seguía mostrando "Todavía no
+   * hay documentos" hasta que el entrenador recargaba la página a mano. */
+  useEffect(() => {
+    if (rutina.storagePath) router.refresh();
+  }, [rutina.storagePath, router]);
+  useEffect(() => {
+    if (alimentacion.storagePath) router.refresh();
+  }, [alimentacion.storagePath, router]);
 
   /** Mete los alumnos elegidos en el formulario antes de enviarlo. */
   const conDestinatarios =
@@ -171,6 +271,57 @@ export function ArchivosManager({
       for (const id of destinatarios) formData.append("alumno_ids", id);
       accion(formData);
     };
+
+  /**
+   * Pegar texto en vez de elegir un archivo.
+   *
+   * No hay una acción de servidor nueva: se arma un `File` de tipo texto
+   * plano a partir de lo que se pegó y se manda por la MISMA acción que ya
+   * usa el flujo de "elegir archivo" (`subirRutinaAVariosAlumnos` /
+   * `subirAlimentacionAVariosAlumnos`). Es exactamente el mismo camino que
+   * subir un .txt a mano — Storage, el registro en `documentos`, el análisis
+   * con IA — sin duplicar nada de esa lógica ni tener que mantenerla dos
+   * veces.
+   */
+  const usarTextoRutina = () => {
+    if (!textoRutina.trim()) return;
+    if (destinatarios.size === 0) {
+      setSelectorAbierto("rutina");
+      return;
+    }
+    const archivo = new File([textoRutina], `rutina-pegada-${Date.now()}.txt`, {
+      type: "text/plain",
+    });
+    const formData = new FormData();
+    formData.append("archivo", archivo);
+    setNombreRutina("Rutina pegada como texto");
+    setReiniciarRutina(false);
+    // Sin `startTransition`, React avisa que llamar la acción de
+    // `useActionState` a mano (no como `action` de un `<form>`) fuera de una
+    // transición deja `isPending` sin actualizarse — el botón se quedaría sin
+    // mostrar "Subiendo…".
+    startTransition(() => {
+      conDestinatarios(accionRutina)(formData);
+    });
+  };
+
+  const usarTextoAlimentacion = () => {
+    if (!textoAlimentacion.trim()) return;
+    if (destinatarios.size === 0) {
+      setSelectorAbierto("alimentacion");
+      return;
+    }
+    const archivo = new File([textoAlimentacion], `alimentacion-pegada-${Date.now()}.txt`, {
+      type: "text/plain",
+    });
+    const formData = new FormData();
+    formData.append("archivo", archivo);
+    setNombreAlimentacion("Plan pegado como texto");
+    setReiniciarAlimentacion(false);
+    startTransition(() => {
+      conDestinatarios(accionAlimentacion)(formData);
+    });
+  };
 
   const analizarRutina = async () => {
     if (!rutina.storagePath) return;
@@ -194,6 +345,17 @@ export function ArchivosManager({
     }
   };
 
+  /** Se llama al terminar de publicar (con éxito o al descartar el borrador):
+   * vuelve a mostrar el cuadro de carga en vez de dejar la tarjeta de "archivo
+   * subido" pegada en pantalla sin salida. */
+  const reiniciarFlujoRutina = () => {
+    setDraft(null);
+    setNombreRutina(null);
+    setTextoRutina("");
+    setModoRutina("archivo");
+    setReiniciarRutina(true);
+  };
+
   const analizarPlan = async () => {
     if (!alimentacion.storagePath) return;
     setAnalizandoPlan(true);
@@ -214,26 +376,33 @@ export function ArchivosManager({
     }
   };
 
+  const reiniciarFlujoAlimentacion = () => {
+    setAnalisisPlan(null);
+    setNombreAlimentacion(null);
+    setTextoAlimentacion("");
+    setModoAlimentacion("archivo");
+    setReiniciarAlimentacion(true);
+  };
+
   return (
     <div className="space-y-4">
-      {/* 1. A QUIÉNES — primero, porque subir un archivo exige tener ya
-          marcado a alguien ("Elige abajo a quiénes" queda deshabilitado si
-          no). Iba al final cuando este cuadro vivía en la ficha de un
-          alumno (venía preseleccionado); acá arranca vacío. */}
-      <Card>
-        <p className="text-caption mb-3 text-text-tertiary">¿A QUIÉNES LES SUBO ESTO?</p>
-        <SelectorAlumnos
-          alumnos={alumnos}
-          seleccionados={destinatarios}
-          onCambiar={setDestinatarios}
-        />
-      </Card>
-
-      {/* 2. RUTINA */}
+      {/* RUTINA — ya no hay un cuadro fijo de "a quiénes" arriba de todo: el
+          selector aparece adentro de la sección que lo pidió, tocando el
+          botón amarillo sin haber elegido a nadie (ver `selectorAbierto` y
+          `PanelSelector`). */}
       <Card>
         <p className="text-caption mb-3 text-text-tertiary">RUTINA DE ENTRENAMIENTO (PDF)</p>
 
-        {rutina.storagePath ? (
+        {selectorAbierto === "rutina" && (
+          <PanelSelector
+            alumnos={alumnos}
+            destinatarios={destinatarios}
+            onCambiar={setDestinatarios}
+            onCerrar={() => setSelectorAbierto(null)}
+          />
+        )}
+
+        {rutina.storagePath && !reiniciarRutina ? (
           <div className="radius-control flex items-center gap-3 border border-border p-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-2">
               <FileText size={20} className="text-vip" />
@@ -241,31 +410,100 @@ export function ArchivosManager({
             <p className="text-body truncate text-text">{nombreRutina ?? "Archivo subido"}</p>
           </div>
         ) : (
-          <form action={conDestinatarios(accionRutina)} className="space-y-3">
-            <label
-              htmlFor="pdf-rutina"
-              className="radius-card flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border py-8"
-            >
-              <FolderUp size={22} className="text-text-secondary" />
-              <span className="text-secondary text-center text-text-tertiary">
-                Elige el archivo de la rutina (PDF o TXT)
-              </span>
-              <input
-                id="pdf-rutina"
-                name="archivo"
-                type="file"
-                accept="application/pdf,text/plain,.pdf,.txt"
-                className="hidden"
-                onChange={(e) => setNombreRutina(e.target.files?.[0]?.name ?? null)}
-              />
-            </label>
-            {nombreRutina && <p className="text-secondary text-center text-text">{nombreRutina}</p>}
-            <ResumenSubida estado={rutina} />
-            <BotonSubir cantidad={destinatarios.size} />
-          </form>
+          <div className="space-y-3">
+            {/* Elegir modo antes que el destinatario importe: cambia toda la
+                forma de cargar la rutina, así que va arriba de todo. */}
+            <div className="radius-control flex border border-border p-1">
+              <button
+                type="button"
+                onClick={() => setModoRutina("archivo")}
+                className={`text-caption flex-1 rounded-[10px] py-1.5 text-center font-medium transition-colors ${
+                  modoRutina === "archivo" ? "bg-surface-2 text-text" : "text-text-tertiary"
+                }`}
+              >
+                Subir archivo
+              </button>
+              <button
+                type="button"
+                onClick={() => setModoRutina("texto")}
+                className={`text-caption flex-1 rounded-[10px] py-1.5 text-center font-medium transition-colors ${
+                  modoRutina === "texto" ? "bg-surface-2 text-text" : "text-text-tertiary"
+                }`}
+              >
+                Pegar texto
+              </button>
+            </div>
+
+            {modoRutina === "archivo" ? (
+              <form
+                ref={formRutinaRef}
+                action={conDestinatarios(accionRutina)}
+                onSubmit={() => setReiniciarRutina(false)}
+                className="space-y-3"
+              >
+                <label
+                  htmlFor="pdf-rutina"
+                  className="radius-card flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border py-8"
+                >
+                  <FolderUp size={22} className="text-text-secondary" />
+                  <span className="text-secondary text-center text-text-tertiary">
+                    Elige el archivo de la rutina (PDF o TXT)
+                  </span>
+                  <input
+                    id="pdf-rutina"
+                    name="archivo"
+                    type="file"
+                    accept="application/pdf,text/plain,.pdf,.txt"
+                    className="hidden"
+                    onChange={(e) => setNombreRutina(e.target.files?.[0]?.name ?? null)}
+                  />
+                </label>
+                {nombreRutina && (
+                  <p className="text-secondary text-center text-text">{nombreRutina}</p>
+                )}
+                {/* `!reiniciarRutina`: sin esto, el resultado de la subida
+                    ANTERIOR (`rutina` no se puede "vaciar", solo se vuelve a
+                    disparar la acción) quedaba pegado bajo el cuadro recién
+                    reiniciado — parecía que la nueva rutina ya estaba subida
+                    antes incluso de elegir el archivo. */}
+                {!reiniciarRutina && <ResumenSubida estado={rutina} />}
+                <BotonSubir
+                  cantidad={destinatarios.size}
+                  formRef={formRutinaRef}
+                  alIrASeleccion={() => setSelectorAbierto("rutina")}
+                />
+              </form>
+            ) : (
+              <div className="space-y-3">
+                <textarea
+                  value={textoRutina}
+                  onChange={(e) => setTextoRutina(e.target.value)}
+                  placeholder={
+                    "Pega acá la rutina completa: días, ejercicios, series, repeticiones...\n\nEj:\nDía 1 · Pecho y tríceps\n1. Press banca 4x8-10\n2. Aperturas con mancuerna 3x12"
+                  }
+                  rows={10}
+                  className="radius-control w-full resize-y border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text placeholder:text-text-tertiary"
+                />
+                {!reiniciarRutina && <ResumenSubida estado={rutina} />}
+                <Button
+                  type="button"
+                  loading={subiendoRutina}
+                  onClick={usarTextoRutina}
+                  disabled={!textoRutina.trim()}
+                >
+                  <ClipboardPaste size={16} />
+                  {subiendoRutina
+                    ? "Subiendo…"
+                    : destinatarios.size === 0
+                      ? "Elige a quiénes"
+                      : `Usar este texto para ${destinatarios.size} ${destinatarios.size === 1 ? "alumno" : "alumnos"}`}
+                </Button>
+              </div>
+            )}
+          </div>
         )}
 
-        {rutina.storagePath && (
+        {rutina.storagePath && !reiniciarRutina && (
           <>
             <ResumenSubida estado={rutina} />
             {!draft && (
@@ -292,15 +530,27 @@ export function ArchivosManager({
           // Se publica a los mismos a los que se subió el PDF.
           alumnoIds={rutina.alumnoIds.length > 0 ? rutina.alumnoIds : alumnoId ? [alumnoId] : []}
           draftInicial={draft}
-          onDescartar={() => setDraft(null)}
+          // Mismo callback para "Descartar" y para "listo" tras publicar: en
+          // los dos casos el trabajo con ESTA rutina terminó, así que el
+          // cuadro de carga vuelve a aparecer para la siguiente.
+          onDescartar={reiniciarFlujoRutina}
         />
       )}
 
-      {/* 3. ALIMENTACIÓN */}
+      {/* ALIMENTACIÓN */}
       <Card>
         <p className="text-caption mb-3 text-text-tertiary">PLAN DE ALIMENTACIÓN (PDF)</p>
 
-        {alimentacion.storagePath ? (
+        {selectorAbierto === "alimentacion" && (
+          <PanelSelector
+            alumnos={alumnos}
+            destinatarios={destinatarios}
+            onCambiar={setDestinatarios}
+            onCerrar={() => setSelectorAbierto(null)}
+          />
+        )}
+
+        {alimentacion.storagePath && !reiniciarAlimentacion ? (
           <div className="radius-control flex items-center gap-3 border border-border p-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-2">
               <FileText size={20} className="text-vip" />
@@ -310,33 +560,93 @@ export function ArchivosManager({
             </p>
           </div>
         ) : (
-          <form action={conDestinatarios(accionAlimentacion)} className="space-y-3">
-            <label
-              htmlFor="pdf-alimentacion"
-              className="radius-card flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border py-8"
-            >
-              <FolderUp size={22} className="text-text-secondary" />
-              <span className="text-secondary text-center text-text-tertiary">
-                Elige el archivo de alimentación (PDF o TXT)
-              </span>
-              <input
-                id="pdf-alimentacion"
-                name="archivo"
-                type="file"
-                accept="application/pdf,text/plain,.pdf,.txt"
-                className="hidden"
-                onChange={(e) => setNombreAlimentacion(e.target.files?.[0]?.name ?? null)}
-              />
-            </label>
-            {nombreAlimentacion && (
-              <p className="text-secondary text-center text-text">{nombreAlimentacion}</p>
+          <div className="space-y-3">
+            <div className="radius-control flex border border-border p-1">
+              <button
+                type="button"
+                onClick={() => setModoAlimentacion("archivo")}
+                className={`text-caption flex-1 rounded-[10px] py-1.5 text-center font-medium transition-colors ${
+                  modoAlimentacion === "archivo" ? "bg-surface-2 text-text" : "text-text-tertiary"
+                }`}
+              >
+                Subir archivo
+              </button>
+              <button
+                type="button"
+                onClick={() => setModoAlimentacion("texto")}
+                className={`text-caption flex-1 rounded-[10px] py-1.5 text-center font-medium transition-colors ${
+                  modoAlimentacion === "texto" ? "bg-surface-2 text-text" : "text-text-tertiary"
+                }`}
+              >
+                Pegar texto
+              </button>
+            </div>
+
+            {modoAlimentacion === "archivo" ? (
+              <form
+                ref={formAlimentacionRef}
+                action={conDestinatarios(accionAlimentacion)}
+                onSubmit={() => setReiniciarAlimentacion(false)}
+                className="space-y-3"
+              >
+                <label
+                  htmlFor="pdf-alimentacion"
+                  className="radius-card flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border py-8"
+                >
+                  <FolderUp size={22} className="text-text-secondary" />
+                  <span className="text-secondary text-center text-text-tertiary">
+                    Elige el archivo de alimentación (PDF o TXT)
+                  </span>
+                  <input
+                    id="pdf-alimentacion"
+                    name="archivo"
+                    type="file"
+                    accept="application/pdf,text/plain,.pdf,.txt"
+                    className="hidden"
+                    onChange={(e) => setNombreAlimentacion(e.target.files?.[0]?.name ?? null)}
+                  />
+                </label>
+                {nombreAlimentacion && (
+                  <p className="text-secondary text-center text-text">{nombreAlimentacion}</p>
+                )}
+                {!reiniciarAlimentacion && <ResumenSubida estado={alimentacion} />}
+                <BotonSubir
+                  cantidad={destinatarios.size}
+                  formRef={formAlimentacionRef}
+                  alIrASeleccion={() => setSelectorAbierto("alimentacion")}
+                />
+              </form>
+            ) : (
+              <div className="space-y-3">
+                <textarea
+                  value={textoAlimentacion}
+                  onChange={(e) => setTextoAlimentacion(e.target.value)}
+                  placeholder={
+                    "Pega acá el plan completo: comidas, horas, alimentos y cantidades...\n\nEj:\nDesayuno · 8:00 AM\n- 2 huevos + 1 pan integral\n- 1 taza de avena con leche"
+                  }
+                  rows={10}
+                  className="radius-control w-full resize-y border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text placeholder:text-text-tertiary"
+                />
+                {!reiniciarAlimentacion && <ResumenSubida estado={alimentacion} />}
+                <Button
+                  type="button"
+                  loading={subiendoAlimentacion}
+                  onClick={usarTextoAlimentacion}
+                  disabled={!textoAlimentacion.trim()}
+                >
+                  <ClipboardPaste size={16} />
+                  {subiendoAlimentacion
+                    ? "Subiendo…"
+                    : destinatarios.size === 0
+                      ? "Elige a quiénes"
+                      : `Usar este texto para ${destinatarios.size} ${destinatarios.size === 1 ? "alumno" : "alumnos"}`}
+                </Button>
+              </div>
             )}
-            <ResumenSubida estado={alimentacion} />
-            <BotonSubir cantidad={destinatarios.size} />
-          </form>
+          </div>
         )}
 
-        {alimentacion.storagePath && (
+        {alimentacion.storagePath && !reiniciarAlimentacion && (
           <>
             <ResumenSubida estado={alimentacion} />
             {!analisisPlan && (
@@ -366,7 +676,7 @@ export function ArchivosManager({
           alumnoId={alimentacion.alumnoIds[0] ?? alumnoId ?? ""}
           documentoId={alimentacion.documentoId}
           analisis={analisisPlan}
-          onDescartar={() => setAnalisisPlan(null)}
+          onDescartar={reiniciarFlujoAlimentacion}
         />
       )}
     </div>

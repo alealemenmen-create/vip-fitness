@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Check,
   ChevronDown,
@@ -12,10 +13,12 @@ import {
   ImageIcon,
   NotebookPen,
 } from "lucide-react";
+import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { guardarSeries, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
+import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { repsObjetivo } from "@/lib/entrenamiento/reps";
 import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
@@ -48,35 +51,110 @@ function formatUltimo(u: EjercicioSesion["ultimoRegistro"]) {
 }
 
 /**
- * El hueco donde va a ir la foto de referencia del ejercicio, tomada en el
- * gimnasio VIP.
+ * La foto de referencia del ejercicio, tomada en el gimnasio VIP.
  *
- * Se deja a la vista y en gris, vacío, a propósito: el diseño se aprobó con
- * esa foto y el espacio tiene que estar reservado desde ahora, para que al
- * llegar las fotos entren sin mover nada de lo que ya está alrededor.
- *
- * Cuando existan, esto pasa a ser un <IlustracionEjercicio> apuntando a la
- * foto real (ver src/lib/ejercicios/ilustracion.ts, que ya resuelve la ruta
- * por ejercicio y acepta .webp/.jpg).
+ * Deliberadamente NO usa el fallback a la foto de grupo muscular (a
+ * diferencia de <IlustracionEjercicio>): ese fallback vive en el ícono chico
+ * de al lado del nombre. Acá, mientras no exista la foto propia del
+ * ejercicio, se muestra el cuadro vacío en gris — mezclar los dos fallbacks
+ * en el mismo lugar los volvía indistinguibles.
  */
-function HuecoFotoReferencia({ nombre }: { nombre: string }) {
+function CuadroFotoReferencia({
+  ilustracionSlug,
+  nombre,
+}: {
+  ilustracionSlug: string | null;
+  nombre: string;
+}) {
+  const { src, origen } = resolverIlustracion(ilustracionSlug, null);
+  const tamano = { width: 116, minHeight: 96 };
+
+  if (!src || origen !== "ilustracion") {
+    return (
+      <div
+        // `self-stretch`: el borde de ABAJO queda a la misma altura que la línea
+        // inferior del recuadro de series/reps/descanso, porque los dos terminan
+        // donde termina la columna de la izquierda.
+        // Los márgenes negativos son solo arriba y a la derecha: el cuadro se
+        // estira en diagonal hacia esa esquina comiéndose casi todo el padding de
+        // la tarjeta (queda ~4 px de aire para que se siga viendo el margen).
+        className="-mr-2 -mt-2 flex shrink-0 items-center justify-center self-stretch overflow-hidden rounded-[14px] border border-dashed border-border bg-surface-2 text-text-tertiary"
+        style={tamano}
+        // Para un lector de pantalla esto es decoración vacía, no una imagen que
+        // falta: no aporta nada leerlo en voz alta.
+        aria-hidden="true"
+        title={`Foto de referencia de ${nombre} (pendiente)`}
+      >
+        <ImageIcon size={22} />
+      </div>
+    );
+  }
+
+  return <FotoReferenciaAmpliable src={src} nombre={nombre} tamano={tamano} />;
+}
+
+/**
+ * Mientras el recorte automático de cada foto no queda perfecto (algunas
+ * llegan un poco chicas o descentradas dentro del cuadrito), tocarla la
+ * agranda a pantalla completa para que el alumno igual pueda verla bien —
+ * volver a tocar en cualquier parte la cierra. Es el atajo rápido para tener
+ * la app lista ya; el recorte prolijo de cada foto es un trabajo aparte que
+ * se sigue haciendo de a poco desde /admin/ejercicios.
+ */
+function FotoReferenciaAmpliable({
+  src,
+  nombre,
+  tamano,
+}: {
+  src: string;
+  nombre: string;
+  tamano: { width: number; minHeight: number };
+}) {
+  const [ampliada, setAmpliada] = useState(false);
+
   return (
-    <div
-      // `self-stretch`: el borde de ABAJO queda a la misma altura que la línea
-      // inferior del recuadro de series/reps/descanso, porque los dos terminan
-      // donde termina la columna de la izquierda.
-      // Los márgenes negativos son solo arriba y a la derecha: el cuadro se
-      // estira en diagonal hacia esa esquina comiéndose casi todo el padding de
-      // la tarjeta (queda ~4 px de aire para que se siga viendo el margen).
-      className="-mr-2 -mt-2 flex shrink-0 items-center justify-center self-stretch overflow-hidden rounded-[14px] border border-dashed border-border bg-surface-2 text-text-tertiary"
-      style={{ width: 116, minHeight: 96 }}
-      // Para un lector de pantalla esto es decoración vacía, no una imagen que
-      // falta: no aporta nada leerlo en voz alta.
-      aria-hidden="true"
-      title={`Foto de referencia de ${nombre} (pendiente)`}
-    >
-      <ImageIcon size={22} />
-    </div>
+    <>
+      <button
+        type="button"
+        onClick={() => setAmpliada(true)}
+        aria-label={`Ver foto de referencia de ${nombre} en grande`}
+        className="-mr-2 -mt-2 relative flex shrink-0 self-stretch overflow-hidden rounded-[14px] border border-border bg-surface-2"
+        style={tamano}
+      >
+        <Image
+          src={src}
+          alt={`Foto de referencia de ${nombre}`}
+          fill
+          sizes="116px"
+          // object-center y no object-top: a diferencia de la foto de grupo
+          // muscular (que se recorta desde arriba), estas fotos ya vienen
+          // recortadas y centradas en el servidor. Anclarlas arriba cortaba la
+          // mitad de abajo de la persona en cuadros más anchos que altos.
+          className="object-cover object-center"
+        />
+      </button>
+
+      {ampliada &&
+        createPortal(
+          <button
+            type="button"
+            onClick={() => setAmpliada(false)}
+            aria-label="Cerrar vista ampliada"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-6"
+          >
+            <div className="relative aspect-square w-full max-w-md">
+              <Image
+                src={src}
+                alt={`Foto de referencia de ${nombre}`}
+                fill
+                sizes="90vw"
+                className="rounded-xl object-contain"
+              />
+            </div>
+          </button>,
+          document.body
+        )}
+    </>
   );
 }
 
@@ -636,7 +714,10 @@ export const SesionEjercicioCard = forwardRef<
                 el muñeco puede ser grande sin empujar nada. */}
             <div className="flex items-start gap-2">
               <IlustracionEjercicio
-                ilustracionSlug={ejercicio.ilustracionSlug}
+                // Siempre el "modelo" del grupo muscular acá: la foto real del
+                // ejercicio (si existe) va en el cuadro grande de la derecha,
+                // no en este ícono. Por eso ilustracionSlug va fijo en null.
+                ilustracionSlug={null}
                 grupoMuscular={ejercicio.grupoMuscular}
                 nombre={ejercicio.nombre}
                 tamano={48}
@@ -692,7 +773,7 @@ export const SesionEjercicioCard = forwardRef<
                   a la explicación, que es donde se vuelve entendible. */}
             </div>
           </div>
-          <HuecoFotoReferencia nombre={ejercicio.nombre} />
+          <CuadroFotoReferencia ilustracionSlug={ejercicio.ilustracionSlug} nombre={ejercicio.nombre} />
         </div>
 
         {/* Plegado: el ejercicio que no toca todavía muestra solo la cabecera de

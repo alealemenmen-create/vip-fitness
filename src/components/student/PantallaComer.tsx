@@ -25,10 +25,18 @@ import type {
   Totales,
 } from "@/app/alumno/comer/tipos";
 
-/** Desde el borde de abajo de la pantalla hasta donde puede llegar la lista:
- * el buscador fijo arranca a 100 px del borde y mide 48, más su `pb-2` (8).
- * Si se mueve el buscador, se mueve este número. */
-const ALTO_ZONA_INFERIOR = 156;
+/** Lo que ocupa el buscador fijo por encima de la barra de navegación: sus
+ * 48 de alto más su `pb-2` (8). Va apoyado directamente sobre la barra. */
+const ALTO_BUSCADOR_FIJO = 56;
+
+/** Desde el borde de abajo de la pantalla hasta donde puede llegar la lista.
+ * La barra de navegación se mide sola (ver BarraInferiorFija): con un número
+ * escrito a mano, en los teléfonos donde la barra es más alta —área segura del
+ * iPhone, franja de "volver al panel"— la lista se metía por debajo. */
+function altoZonaInferior(): number {
+  const medida = getComputedStyle(document.documentElement).getPropertyValue("--alto-nav-alumno");
+  return (parseFloat(medida) || 110) + ALTO_BUSCADOR_FIJO;
+}
 
 /** Filas que quedan por ARRIBA de la hora actual al abrir el día de hoy. Con
  * un valor fijo, la hora de ahora aparece siempre en el mismo punto de la
@@ -83,7 +91,7 @@ function useAltoDisponible(ref: React.RefObject<HTMLDivElement | null>) {
         220,
         Math.min(
           window.innerHeight - desdeArriba - debajo,
-          window.innerHeight - desdeArriba - ALTO_ZONA_INFERIOR,
+          window.innerHeight - desdeArriba - altoZonaInferior(),
         ),
       );
       // Los cambios de menos de 2 px son ruido de redondeo del navegador: si
@@ -482,7 +490,10 @@ export function PantallaComer({
   };
 
   return (
-    <div className="space-y-4">
+    // `space-y-2.5` y no 4: apretar el aire entre la tira de días, el progreso
+    // y los puntos sube todo el bloque de arriba, y lo que se libera se lo
+    // queda la línea de horas — que es lo que el alumno viene a mirar.
+    <div className="space-y-2.5">
       {/* Sin fila de fecha: el día elegido ya se ve resaltado en la tira, y el
           acceso al plan se fue a "Mis planes" (el menú de las tres rayitas),
           que es donde vive ahora todo lo que manda el entrenador. */}
@@ -756,13 +767,17 @@ export function PantallaComer({
         </div>
       </div>
 
-      {/* Buscador fijo: va sobre la barra de navegación (que mide 74 px) y no se
-          mueve al desplazar la línea de tiempo. Los 26 px extra lo despegan de
-          los íconos, que quedaban casi pegados. Si se cambia esta distancia,
-          hay que mover también `ALTO_ZONA_INFERIOR` o la lista de horas se
-          mete por debajo del buscador. */}
+      {/* Buscador fijo: se apoya sobre la barra de navegación y no se mueve al
+          desplazar la línea de tiempo. La distancia sale del alto REAL de esa
+          barra (`--alto-nav-alumno`, que publica BarraInferiorFija). Antes era
+          un 100 escrito a mano sobre una barra que se suponía de 74 px: mide
+          110, y en iPhone más todavía por el área segura, así que el borde de
+          abajo del buscador quedaba tapado.
+          Se apoya SIN separación: así el fondo negro de la barra arranca justo
+          en la línea de abajo del buscador. Los íconos no quedan invadidos
+          porque la barra ya trae 16 px de aire propio por encima (su `pt-4`). */}
       {!soloLectura && (
-        <div className="fixed inset-x-0 bottom-[100px] z-30 mx-auto w-full max-w-md px-4 pb-2">
+        <div className="fixed inset-x-0 bottom-[var(--alto-nav-alumno,110px)] z-30 mx-auto w-full max-w-md px-4 pb-2">
           <button
             type="button"
             onClick={() => setHoraAbierta(horaActual)}

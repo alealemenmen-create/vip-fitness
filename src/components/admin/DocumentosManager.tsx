@@ -5,24 +5,25 @@ import { useRouter } from "next/navigation";
 import { FileText, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
-import { Pill } from "@/components/ui/Pill";
 import {
   asignarDocumento,
   quitarAsignacion,
   eliminarDocumentoBiblioteca,
   reemplazarArchivo,
+  obtenerUrlDescarga,
   type AccionState,
 } from "@/app/admin/documentos/actions";
-import {
-  ETIQUETA_TIPO,
-  type DocumentoBiblioteca,
-  type AlumnoParaAsignar,
-} from "@/lib/documentos/tipos";
+import type { DocumentoBiblioteca, AlumnoParaAsignar } from "@/lib/documentos/tipos";
 import { SelectorAlumnos } from "@/components/admin/SelectorAlumnos";
 
 const estadoAccion: AccionState = { error: null, ok: false };
 
 
+/**
+ * Historial en dos columnas, rutinas a la izquierda y dietas a la derecha:
+ * separarlas por tipo evita tener que leer la etiqueta de cada fila para
+ * saber qué es qué, que es lo único que distinguía antes a una lista mixta.
+ */
 export function DocumentosManager({
   documentos,
   alumnos,
@@ -31,32 +32,56 @@ export function DocumentosManager({
   alumnos: AlumnoParaAsignar[];
 }) {
   const router = useRouter();
+  const rutinas = documentos.filter((d) => d.tipo === "rutina");
+  const dietas = documentos.filter((d) => d.tipo === "alimentacion");
+
+  if (documentos.length === 0) {
+    return (
+      <div>
+        <p className="text-caption mb-2 text-text-tertiary">HISTORIAL</p>
+        <Card>
+          <p className="text-body text-text-secondary">
+            Todavía no hay documentos. Los archivos que subas arriba aparecen aquí.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-caption mb-2 text-text-tertiary">
-          {documentos.length} {documentos.length === 1 ? "DOCUMENTO" : "DOCUMENTOS"}
-        </p>
-        {documentos.length === 0 ? (
-          <Card>
-            <p className="text-body text-text-secondary">
-              Todavía no hay documentos. Los archivos que subas arriba aparecen aquí, y desde
-              aquí puedes reenviarlos a quien quieras.
-            </p>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {documentos.map((d) => (
+    <div>
+      <p className="text-caption mb-2 text-text-tertiary">HISTORIAL</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <p className="text-caption text-text-tertiary">RUTINAS</p>
+          {rutinas.length === 0 ? (
+            <p className="text-caption text-text-tertiary">Sin rutinas todavía.</p>
+          ) : (
+            rutinas.map((d) => (
               <FilaDocumento
                 key={d.id}
                 documento={d}
                 alumnos={alumnos}
                 onCambio={() => router.refresh()}
               />
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
+        <div className="space-y-2">
+          <p className="text-caption text-text-tertiary">DIETAS</p>
+          {dietas.length === 0 ? (
+            <p className="text-caption text-text-tertiary">Sin dietas todavía.</p>
+          ) : (
+            dietas.map((d) => (
+              <FilaDocumento
+                key={d.id}
+                documento={d}
+                alumnos={alumnos}
+                onCambio={() => router.refresh()}
+              />
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -74,6 +99,7 @@ function FilaDocumento({
   const [abierto, setAbierto] = useState(false);
   const [pendiente, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [descargando, setDescargando] = useState(false);
   const [reemplazo, accionReemplazar] = useActionState(reemplazarArchivo, estadoAccion);
 
   const asignadosIds = new Set(documento.asignaciones.map((a) => a.alumnoId));
@@ -97,27 +123,44 @@ function FilaDocumento({
     correr(() => eliminarDocumentoBiblioteca(documento.id));
   };
 
+  /** El bucket es privado: no hay URL fija para poner en un `href`, hay que
+   * pedir una firmada al tocar el nombre. Se abre en pestaña nueva para no
+   * perder esta pantalla. */
+  const descargar = async () => {
+    setDescargando(true);
+    try {
+      const url = await obtenerUrlDescarga(documento.storagePath);
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+      else setError("No se pudo generar el link de descarga.");
+    } finally {
+      setDescargando(false);
+    }
+  };
+
   return (
-    <Card className="p-3.5">
-      <div className="flex items-start gap-2.5">
-        <FileText size={20} className="mt-0.5 shrink-0 text-vip" />
+    <Card className="p-2.5">
+      <div className="flex items-start gap-2">
+        <FileText size={16} className="mt-0.5 shrink-0 text-vip" />
         <div className="min-w-0 flex-1">
-          <p className="text-secondary truncate font-semibold text-text">
-            {documento.nombreArchivo}
-          </p>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <Pill tone="vip">{ETIQUETA_TIPO[documento.tipo]}</Pill>
-            <span className="text-caption text-text-tertiary">
-              {documento.asignaciones.length === 0
-                ? "Sin asignar"
-                : `${documento.asignaciones.length} ${
-                    documento.asignaciones.length === 1 ? "alumno" : "alumnos"
-                  }`}
-            </span>
-          </div>
+          <button
+            type="button"
+            onClick={descargar}
+            disabled={descargando}
+            aria-label={`Descargar ${documento.nombreArchivo}`}
+            className="text-caption block w-full truncate text-left font-semibold text-text underline decoration-text-tertiary underline-offset-2"
+          >
+            {descargando ? "Abriendo…" : documento.nombreArchivo}
+          </button>
+          <span className="text-micro text-text-tertiary">
+            {documento.asignaciones.length === 0
+              ? "Sin asignar"
+              : `${documento.asignaciones.length} ${
+                  documento.asignaciones.length === 1 ? "alumno" : "alumnos"
+                }`}
+          </span>
         </div>
         <IconButton ariaLabel="Eliminar documento" onClick={eliminar} disabled={pendiente}>
-          <Trash2 size={16} className="text-error" />
+          <Trash2 size={14} className="text-error" />
         </IconButton>
       </div>
 

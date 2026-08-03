@@ -134,17 +134,20 @@ function EjercicioForm({
             placeholder="Técnica especial (ej: Biserie (1/2))"
             className="py-1.5"
           />
-          {ejercicio.tecnicaTipo && (
-            <Textarea
-              value={ejercicio.tecnicaInstruccion ?? ""}
-              onChange={(e) =>
-                onChange({ ...ejercicio, tecnicaInstruccion: e.target.value || null })
-              }
-              placeholder="Instrucción de la técnica"
-              rows={2}
-              className="py-1.5"
-            />
-          )}
+          {/* Antes solo aparecía con "Técnica especial" cargado (biserie,
+              triserie...). La IA ahora también escribe acá una instrucción de
+              ejecución para ejercicios sueltos que no tienen ninguna técnica
+              con nombre — con la condición vieja, esa instrucción quedaba
+              guardada pero invisible en este editor. */}
+          <Textarea
+            value={ejercicio.tecnicaInstruccion ?? ""}
+            onChange={(e) =>
+              onChange({ ...ejercicio, tecnicaInstruccion: e.target.value || null })
+            }
+            placeholder="Instrucción de la técnica"
+            rows={2}
+            className="py-1.5"
+          />
           <Input
             value={ejercicio.observacion ?? ""}
             onChange={(e) => onChange({ ...ejercicio, observacion: e.target.value || null })}
@@ -303,6 +306,13 @@ export function RutinaDraftEditor({
             ))}
           </div>
         )}
+        {/* Antes esta tarjeta no tenía salida: había que recargar la página
+            para cargar la siguiente rutina. `onDescartar` acá hace un reinicio
+            completo (ArchivosManager.reiniciarFlujoRutina), no un simple
+            "cerrar" — vuelve a mostrar el cuadro de carga vacío. */}
+        <Button variant="secondary" onClick={onDescartar} className="mt-4">
+          Cargar otra rutina
+        </Button>
       </Card>
     );
   }

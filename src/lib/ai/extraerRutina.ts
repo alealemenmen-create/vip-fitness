@@ -49,8 +49,28 @@ Extrae la rutina completa: cada día, y dentro de cada día cada ejercicio con s
 Reglas:
 - Si un ejercicio no indica series, usa 3.
 - Si no indica repeticiones, usa "10-12".
-- Si no hay descanso indicado, usa null.
-- Si no hay técnica especial, usa null en tecnicaTipo y tecnicaInstruccion.
+- descansoSegundos SIEMPRE lo decidís vos con esta regla, IGNORANDO por completo cualquier
+  descanso que el PDF indique para el ejercicio — aunque el entrenador haya escrito un
+  número explícito y distinto, no lo uses; el gimnasio quiere el mismo criterio en todas
+  las rutinas, sin excepción caso por caso:
+  - Caso general: entre 60 y 90 segundos (60 para ejercicios de aislamiento o máquina,
+    90 para multiarticulares livianos/medios).
+  - Ejercicio pesado o exigente (multiarticular con carga alta: sentadilla, peso muerto,
+    press banca/militar pesado, dominadas, remo pesado): 120 segundos.
+  - Técnicas sin descanso propio entre ejercicios del grupo (biserie, triserie, giant set):
+    0 en cada fila salvo la última del grupo, que lleva el descanso real después de
+    completar el circuito.
+  - Nunca devuelvas null en descansoSegundos.
+- Si el PDF SÍ indica una técnica especial (biserie, triserie, drop set, rest-pause, tempo,
+  etc.), usala en tecnicaTipo/tecnicaInstruccion como se explica más abajo.
+- Si el PDF NO indica ninguna técnica especial para un ejercicio normal (no combinado con
+  otros), no dejes tecnicaInstruccion en null: escribí vos una instrucción de ejecución
+  corta y concreta —UNA frase, en español de Chile, tuteando ("controla", "baja", "no
+  rebotes"; nunca voseo argentino como "controlá")— sobre el punto técnico que más
+  importa en ESE ejercicio puntual (ej. "Controla el descenso y no dejes que las rodillas
+  se junten" para sentadilla, "Codos pegados al cuerpo, sin balancear la espalda" para
+  remo). tecnicaTipo queda en null en este caso: no es una técnica con nombre, es una
+  instrucción de forma.
 - No inventes ejercicios que no aparezcan en el documento.
 - Respeta el orden y agrupación de días tal como aparece en el PDF.
 - Clasifica cada ejercicio en grupoMuscular según el grupo principal que trabaja, usando

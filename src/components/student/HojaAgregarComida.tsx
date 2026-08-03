@@ -178,19 +178,44 @@ function Contenido({
   const [offIdParaCrear, setOffIdParaCrear] = useState<string | null>(null);
   const campo = useRef<HTMLInputElement>(null);
 
-  // Escape cierra, y el fondo no debe scrollear detrás del panel abierto.
+  // Escape cierra.
   useEffect(() => {
     const alTeclear = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCerrar();
     };
     document.addEventListener("keydown", alTeclear);
-    const overflowPrevio = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", alTeclear);
-      document.body.style.overflow = overflowPrevio;
-    };
+    return () => document.removeEventListener("keydown", alTeclear);
   }, [onCerrar]);
+
+  /**
+   * El fondo no debe scrollear detrás del panel abierto.
+   *
+   * Va SOLO, con dependencias vacías, y separado del listener de Escape:
+   * la pantalla de atrás vuelve a medirse en cada `resize` de
+   * `visualViewport` (ver `PantallaComer`), y con `[onCerrar]` de
+   * dependencia este efecto se desarmaba y se rearmaba en medio del gesto,
+   * desbloqueando el fondo por un instante en cada apertura/cierre de
+   * teclado.
+   *
+   * Alcanza con `overflow: hidden` (sin tocar `position`): `viewport.
+   * interactiveWidget = "resizes-visual"` en layout.tsx ya le pide a Android
+   * el mismo comportamiento que iOS por defecto — el viewport de LAYOUT
+   * nunca se mueve ni se achica con el teclado, solo el visual. Bajo ese
+   * modelo nada `fixed` necesita salir del flujo del documento para quedar
+   * quieto; sacar el body a `position: fixed` es redundante encima de eso y
+   * fuerza un reflow completo de toda la pantalla de atrás en cada apertura
+   * y cierre, que es el salto brusco reportado en el teléfono real.
+   */
+  useEffect(() => {
+    const overflowPrevio = document.body.style.overflow;
+    const overscrollHtmlPrevio = document.documentElement.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overscrollBehavior = "none";
+    return () => {
+      document.body.style.overflow = overflowPrevio;
+      document.documentElement.style.overscrollBehavior = overscrollHtmlPrevio;
+    };
+  }, []);
 
   // El catálogo tiene miles de alimentos: se consulta al servidor a medida que
   // el alumno escribe, con una pausa para no disparar una consulta por tecla.
@@ -376,12 +401,12 @@ function Contenido({
    * peleado antes por otra causa. Y 200 ms alcanzan: el par pointerup/click
    * del mismo toque llega con milisegundos de diferencia.
    */
-  const ultimaAccion = useRef(new Map<string, number>());
+  const accionesEnCurso = useRef(new Set<string>());
   const unaSolaVez = (clave: string, accion: () => void) => {
-    const ahora = Date.now();
-    if (ahora - (ultimaAccion.current.get(clave) ?? 0) < 200) return;
-    ultimaAccion.current.set(clave, ahora);
+    if (accionesEnCurso.current.has(clave)) return;
+    accionesEnCurso.current.add(clave);
     accion();
+    window.setTimeout(() => accionesEnCurso.current.delete(clave), 200);
   };
 
   /**
@@ -405,7 +430,9 @@ function Contenido({
    */
   const UMBRAL_SCROLL_PX = 10;
   const inicioToque = useRef<{ x: number; y: number } | null>(null);
+  const gestoFueScroll = useRef(false);
   const alBajarElDedo = (e: React.PointerEvent) => {
+    gestoFueScroll.current = false;
     inicioToque.current = { x: e.clientX, y: e.clientY };
   };
   /** false si el dedo se movió más que el umbral entre bajar y levantar: fue un scroll, no un toque. */
@@ -413,7 +440,16 @@ function Contenido({
     const inicio = inicioToque.current;
     inicioToque.current = null;
     if (!inicio) return false;
-    return Math.hypot(e.clientX - inicio.x, e.clientY - inicio.y) <= UMBRAL_SCROLL_PX;
+    const esToque = Math.hypot(e.clientX - inicio.x, e.clientY - inicio.y) <= UMBRAL_SCROLL_PX;
+    gestoFueScroll.current = !esToque;
+    return esToque;
+  };
+  const alClickDeFila = (clave: string, accion: () => void) => {
+    if (gestoFueScroll.current) {
+      gestoFueScroll.current = false;
+      return;
+    }
+    unaSolaVez(clave, accion);
   };
 
   /** Pedido de volver el cursor al buscador, pendiente de que exista. */
@@ -633,7 +669,7 @@ function Contenido({
               onPointerUp={(e) => {
                 if (fueUnToque(e)) unaSolaVez(`local:${r.id}`, () => elegirAlimento(r));
               }}
-              onClick={() => unaSolaVez(`local:${r.id}`, () => elegirAlimento(r))}
+              onClick={() => alClickDeFila(`local:${r.id}`, () => elegirAlimento(r))}
               className="radius-control flex min-h-[44px] w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2"
             >
               <span className="text-secondary min-w-0 flex-1 truncate text-text">{r.nombre}</span>
@@ -668,7 +704,7 @@ function Contenido({
               onPointerUp={(e) => {
                 if (fueUnToque(e)) unaSolaVez(`off:${p.offId}`, () => elegirOFF(p));
               }}
-              onClick={() => unaSolaVez(`off:${p.offId}`, () => elegirOFF(p))}
+              onClick={() => alClickDeFila(`off:${p.offId}`, () => elegirOFF(p))}
               className="radius-control flex min-h-[44px] w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2 disabled:opacity-60"
             >
               {p.imagenUrl ? (
@@ -829,80 +865,91 @@ function Contenido({
 
 /** Fondo, panel y animación de entrada, comunes a las dos vistas del panel. */
 /**
- * Alto y posición de lo que se ve DE VERDAD en pantalla.
+ * Cuántos píxeles del alto de la pantalla se está comiendo el teclado.
  *
- * `position: fixed` se ancla al viewport de layout, que en el celular NO se
- * achica cuando sube el teclado. Por eso el panel quedaba abajo del teclado:
- * seguía pegado al borde inferior de una pantalla que ya no estaba a la vista,
- * y había que arrastrarlo para sacarlo de atrás.
+ * El marco del panel NO se mide: cubre siempre la pantalla entera (ver Marco).
+ * Lo único que depende del teclado es cuánto hay que separar el diálogo del
+ * borde de abajo para que no quede tapado.
  *
- * `visualViewport` sí refleja el área visible. Con su alto y su desplazamiento,
- * el panel se apoya sobre el teclado en vez de quedar detrás.
+ * Antes se calculaban `top` y `height` del marco a partir de `visualViewport`.
+ * Con el teclado arriba, iOS avisa cambios de `visualViewport` también al
+ * deslizar —el rebote del scroll cuenta como cambio de área—, y cada aviso
+ * reescribía la geometría del marco entero: el panel se encogía a una franja,
+ * y como el fondo negro vive DENTRO del marco, la pantalla de atrás y los
+ * íconos quedaban a la vista sin atenuar. Midiendo solo el teclado, el peor
+ * caso posible es que el diálogo quede unos píxeles corrido: el marco sigue
+ * tapando todo y no hay nada que pueda saltar.
  */
-type AreaVisible = { alto: number; desde: number };
-
-/**
- * Los valores se redondean a propósito. `visualViewport` los entrega con
- * decimales y en Android cambian de a fracciones de píxel durante toda la
- * subida del teclado: sin redondear, cada uno de esos avisos era un render
- * más y el panel entero temblaba mientras se acomodaba.
- */
-function leerArea(): AreaVisible | null {
-  // Sin `window` (render del servidor) o sin la API: se cae al comportamiento
-  // de antes, que es el panel pegado al borde de abajo de la pantalla.
-  if (typeof window === "undefined" || !window.visualViewport) return null;
+function leerAltoTeclado(): number {
+  if (typeof window === "undefined" || !window.visualViewport) return 0;
   const vv = window.visualViewport;
-  return { alto: Math.round(vv.height), desde: Math.round(vv.offsetTop) };
+  // `innerHeight` es el viewport de LAYOUT, que no se achica con el teclado
+  // (layout.tsx pide `interactiveWidget: "resizes-visual"`). La diferencia
+  // contra el visual es exactamente lo que ocupa el teclado.
+  return Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
 }
 
 /**
- * Cuánto tiene que cambiar el área para que valga la pena mover el panel.
- *
- * Abrir o cerrar el teclado mueve cientos de píxeles, así que este umbral no
- * lo estorba. Lo que sí corta es el temblor al scrollear la lista: en el
- * celular el rebote del scroll y la barra de direcciones que se esconde y
- * reaparece avisan cambios de pocos píxeles, muchas veces por segundo, y cada
- * uno reposicionaba el panel entero.
+ * Menos que esto no es un teclado, es ruido: el rebote del scroll y la barra
+ * de direcciones al esconderse mueven el área visual unas decenas de píxeles.
  */
-const UMBRAL_AREA_PX = 24;
+const MINIMO_TECLADO_PX = 80;
 
-function useAreaVisible() {
-  // Se mide en el primer render y no en el efecto: midiendo después, el panel
-  // se pintaba una vez del alto de la pantalla completa y recién ahí se
-  // acomodaba. Ese primer salto era el que se veía como un rectángulo negro
-  // que se agrandaba justo al abrir el buscador.
-  const [area, setArea] = useState<AreaVisible | null>(leerArea);
+/** Cuánto tiene que cambiar para que valga la pena mover el diálogo. Abrir o
+ * cerrar el teclado mueve cientos de píxeles, así que el umbral no lo estorba;
+ * lo que corta es el temblor mientras se recorre la lista. */
+const UMBRAL_TECLADO_PX = 24;
+
+function useAltoTeclado() {
+  const [alto, setAlto] = useState(0);
 
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
 
+    let dedoAbajo = false;
+    let medicionPendiente = false;
+
     const medir = () => {
-      const nueva = leerArea();
-      if (!nueva) return;
-      // Devolver el objeto anterior cuando el cambio es menor al umbral corta
-      // el render: si no, cada aviso del teclado —o del scroll— vuelve a
-      // pintar el panel.
-      setArea((previa) => {
-        if (!previa) return nueva;
-        const quieto =
-          Math.abs(previa.alto - nueva.alto) < UMBRAL_AREA_PX &&
-          Math.abs(previa.desde - nueva.desde) < UMBRAL_AREA_PX;
-        return quieto ? previa : nueva;
-      });
+      const crudo = leerAltoTeclado();
+      const nuevo = crudo < MINIMO_TECLADO_PX ? 0 : crudo;
+      setAlto((previo) => (Math.abs(previo - nuevo) < UMBRAL_TECLADO_PX ? previo : nuevo));
     };
     medir();
-    // El cambio de tamaño cubre la apertura y el cierre del teclado. No se
-    // escucha `scroll`: el navegador también lo dispara mientras el alumno
-    // recorre resultados y mover toda la hoja en mitad del gesto la hacía
-    // saltar o cerrar accidentalmente.
-    vv.addEventListener("resize", medir);
+
+    // Con el dedo apoyado no se toca nada: mover el diálogo en mitad del
+    // gesto es lo que hacía que un scroll terminara seleccionando otra fila,
+    // o que el toque se perdiera.
+    const medirCuandoEsteQuieto = () => {
+      if (dedoAbajo) {
+        medicionPendiente = true;
+        return;
+      }
+      medir();
+    };
+    const iniciarGesto = () => {
+      dedoAbajo = true;
+    };
+    const terminarGesto = () => {
+      dedoAbajo = false;
+      if (!medicionPendiente) return;
+      medicionPendiente = false;
+      requestAnimationFrame(medir);
+    };
+
+    vv.addEventListener("resize", medirCuandoEsteQuieto);
+    document.addEventListener("pointerdown", iniciarGesto, true);
+    document.addEventListener("pointerup", terminarGesto, true);
+    document.addEventListener("pointercancel", terminarGesto, true);
     return () => {
-      vv.removeEventListener("resize", medir);
+      vv.removeEventListener("resize", medirCuandoEsteQuieto);
+      document.removeEventListener("pointerdown", iniciarGesto, true);
+      document.removeEventListener("pointerup", terminarGesto, true);
+      document.removeEventListener("pointercancel", terminarGesto, true);
     };
   }, []);
 
-  return area;
+  return alto;
 }
 
 function Marco({
@@ -926,7 +973,7 @@ function Marco({
   pie?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const area = useAreaVisible();
+  const altoTeclado = useAltoTeclado();
 
   /**
    * Si el toque EMPEZÓ sobre el fondo negro. Solo entonces cerrar es lo que el
@@ -942,9 +989,14 @@ function Marco({
   const inicioEnFondo = useRef(false);
 
   return (
+    /* `inset-0` fijo, sin medir: el marco cubre SIEMPRE la pantalla completa.
+       El fondo negro es hijo suyo, así que de esta forma no hay manera de que
+       la pantalla de atrás ni los íconos se asomen, pase lo que pase con el
+       teclado. Lo único que se mueve es la separación de abajo, que es lo que
+       levanta el diálogo por encima del teclado. */
     <div
-      className="fixed inset-x-0 z-50 flex flex-col justify-end"
-      style={area ? { top: area.desde, height: area.alto } : { top: 0, bottom: 0 }}
+      className="fixed inset-0 z-50 flex flex-col justify-end overscroll-none"
+      style={{ paddingBottom: altoTeclado }}
       // En captura, o sea ANTES que el handler del fondo: así un toque que
       // arranca dentro del panel deja la marca en false y el fondo la respeta.
       onPointerDownCapture={() => {
@@ -975,7 +1027,12 @@ function Marco({
         aria-label={titulo}
         className="franja-segura-inferior relative mx-auto flex max-h-[85%] w-full max-w-md flex-col overflow-hidden rounded-t-[24px] border-t border-border bg-surface animate-[subir-hoja_220ms_cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none"
       >
-        <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-4">
+        {/* `touch-none`: el encabezado y el pie no scrollean nada, pero sin
+            esto iOS toma el arrastre que empieza sobre ellos y lo aplica al
+            documento de atrás igual —aunque no tenga scroll, rebota—, que es
+            lo que hacía saltar toda la hoja al deslizar desde el título. La
+            lista del medio conserva su `touch-pan-y`. */}
+        <div className="flex shrink-0 touch-none items-center justify-between gap-3 px-4 pb-3 pt-4">
           <p className="text-card-title min-w-0 truncate text-text">{titulo}</p>
           <button
             type="button"
@@ -998,7 +1055,7 @@ function Marco({
         <div className="min-h-0 flex-1 touch-pan-y space-y-3 overflow-y-auto overscroll-contain px-4 pb-1">
           {children}
         </div>
-        {pie && <div className="shrink-0 px-4 pb-4 pt-3">{pie}</div>}
+        {pie && <div className="shrink-0 touch-none px-4 pb-4 pt-3">{pie}</div>}
       </div>
     </div>
   );

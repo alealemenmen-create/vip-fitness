@@ -179,6 +179,16 @@ export function AsistenteVipPanel({ totalAlumnos }: { totalAlumnos: number }) {
           </div>
           <p className="text-secondary mt-3 text-text-secondary">{respuestaIA.resumen}</p>
           <p className="text-micro mt-3 border-t border-border pt-3 text-text-tertiary">{respuestaIA.aviso}</p>
+          {/* `costoUsd` ya lo calculaba `consultarConHerramientasVip` (ver
+              lib/ai/asistenteConsultas.ts) pero se descartaba: no se mostraba
+              en ningún lado. Es dato que ya viaja en la respuesta, no una
+              cuenta nueva — solo faltaba pintarlo. Los mensajes del coach no
+              tienen límite, pero conviene que vea cuánto va dejando cada uno. */}
+          {respuestaIA.usoIA && (
+            <p className="text-caption mt-1 font-medium text-vip">
+              Este mensaje costó US${respuestaIA.costoUsd.toFixed(4)}.
+            </p>
+          )}
 
           {respuestaIA.borradorNoticia && (
             <div className="mt-4 rounded-2xl border border-border bg-surface-2 p-3">

@@ -8,6 +8,23 @@ import { hoyISO } from "@/lib/date";
 import type { ContextoAlumnoVip } from "@/lib/asistente/alumno";
 
 const MODELO = "claude-sonnet-5";
+
+/**
+ * Tope de consultas por alumno por día — aparte del presupuesto mensual
+ * compartido de todo el gimnasio. Sin esto, un solo alumno conversando de
+ * forma fluida (varios mensajes seguidos, cada uno con contexto completo) se
+ * puede comer buena parte del presupuesto del mes él solo, dejando a los
+ * demás sin cupo.
+ *
+ * 20 al día: a ~US$0,01-0,015 el mensaje (750 tokens de salida como máximo),
+ * un alumno a tope de uso cuesta entre US$0,20 y US$0,30 por día — con el
+ * presupuesto por defecto de US$10/mes ($0,33/día repartido entre TODOS),
+ * un solo alumno ya no puede agotarlo solo, y sigue siendo tope generoso
+ * para preguntas reales (nadie hace 20 preguntas distintas al asistente en
+ * un día). Los mensajes del coach (herramienta ≠ "alumno") no entran en esta
+ * cuenta — solo cuentan contra el presupuesto compartido, sin tope propio.
+ */
+const LIMITE_CONSULTAS_ALUMNO_DIA = 20;
 const RespuestaSchema = z.object({
   respuesta: z.string().min(20).max(900),
   avisoSeguridad: z.string().max(250).nullable(),
@@ -38,6 +55,20 @@ export async function responderAlumnoVip(
   const gastado = (usos ?? []).reduce((total, uso) => total + Number(uso.costo_usd), 0);
   if (gastado >= Number(config.presupuesto_ia_mensual_usd)) {
     return { respuesta: null, error: "El asistente alcanzó su límite mensual. Tus recordatorios e historial siguen disponibles." };
+  }
+
+  const inicioHoy = `${hoyISO()}T00:00:00.000Z`;
+  const { count: consultasHoy } = await admin
+    .from("asistente_uso_ia")
+    .select("id", { count: "exact", head: true })
+    .eq("usuario_id", alumnoId)
+    .eq("herramienta", "alumno")
+    .gte("created_at", inicioHoy);
+  if ((consultasHoy ?? 0) >= LIMITE_CONSULTAS_ALUMNO_DIA) {
+    return {
+      respuesta: null,
+      error: `Llegaste a las ${LIMITE_CONSULTAS_ALUMNO_DIA} preguntas de hoy. Mañana tienes de nuevo. Tus recordatorios e historial siguen disponibles.`,
+    };
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;

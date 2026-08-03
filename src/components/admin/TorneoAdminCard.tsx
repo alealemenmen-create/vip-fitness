@@ -1,11 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
-import { Trophy, Lock } from "lucide-react";
-import { cargarResultadoManual, cerrarTorneo, type FormState } from "@/app/admin/torneos/actions";
+import { useActionState, useState } from "react";
+import { Trophy, Lock, Check, Trash2 } from "lucide-react";
+import {
+  cargarResultadoManual,
+  cerrarTorneo,
+  eliminarTorneo,
+  type FormState,
+} from "@/app/admin/torneos/actions";
 import { NOMBRE_METRICA, NOMBRE_MODALIDAD, type TorneoAdmin } from "@/lib/torneos/types";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Button, IconButton } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 
@@ -31,9 +36,12 @@ export function TorneoAdminCard({ torneo }: { torneo: TorneoAdmin }) {
           <p className="text-caption font-semibold text-vip">{NOMBRE_MODALIDAD[torneo.modalidad]}</p>
           <p className="text-caption text-text-tertiary">{NOMBRE_METRICA[torneo.metrica]}</p>
         </div>
-        <p className="text-caption shrink-0 text-text-tertiary">
-          {torneo.fechaInicio} → {torneo.fechaFin}
-        </p>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <p className="text-caption text-text-tertiary">
+            {torneo.fechaInicio} → {torneo.fechaFin}
+          </p>
+          <EliminarTorneoBoton torneoId={torneo.id} nombre={torneo.nombre} />
+        </div>
       </div>
 
       {torneo.descripcion && <p className="text-secondary text-text-secondary">{torneo.descripcion}</p>}
@@ -94,6 +102,27 @@ function FilaParticipante({
 }) {
   const [state, formAction, pending] = useActionState(cargarResultadoManual, initialState);
   const estado = ETIQUETA_ESTADO[participante.estado];
+  const [valor, setValor] = useState(String(participante.resultadoManual ?? ""));
+
+  /**
+   * "Guardar" corría bien —la Server Action devolvía `{ ok: true }` y el
+   * número quedaba guardado— pero no había NINGÚN aviso en pantalla, ni con
+   * un flash de "Guardado" basado en `state.ok`: la action llama
+   * `revalidatePath("/admin/torneos")`, y ese refresco reconstruye la fila
+   * con los datos frescos del servidor apenas la action resuelve, así que
+   * cualquier estado LOCAL (un flag que se prende con la respuesta) se perdía
+   * casi al instante, antes de que se alcanzara a ver.
+   *
+   * En vez de pelear contra eso, la confirmación sale de `participante.
+   * resultadoManual` — el mismo prop que ya se refresca solo con el
+   * `revalidatePath` — comparado contra lo que hay tipeado en el campo. Sin
+   * relojes ni banderas: si coinciden, es justamente porque el valor que se
+   * ve en pantalla es el que quedó guardado en la base.
+   */
+  const guardado =
+    participante.resultadoManual !== null &&
+    valor.trim() !== "" &&
+    Number(valor) === participante.resultadoManual;
 
   const nombreYEstado = (
     <p className="min-w-0 flex-1 truncate text-secondary text-text-secondary">
@@ -117,13 +146,19 @@ function FilaParticipante({
         name="valor"
         type="number"
         step="any"
-        defaultValue={participante.resultadoManual ?? ""}
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
         placeholder="Resultado"
         className="w-28 py-2"
       />
       <Button type="submit" variant="secondary" size="sm" loading={pending}>
         Guardar
       </Button>
+      {guardado && (
+        <span className="flex shrink-0 items-center gap-1 text-caption text-success">
+          <Check size={14} /> Guardado
+        </span>
+      )}
       {state.error && <p className="text-caption text-error">{state.error}</p>}
     </form>
   );
@@ -144,6 +179,33 @@ function CerrarTorneoBoton({ torneoId, listo }: { torneoId: string; listo: boole
         </p>
       )}
       {state.error && <p className="text-caption mt-1.5 text-error">{state.error}</p>}
+    </form>
+  );
+}
+
+/**
+ * Para pruebas de error, no para deshacer una competencia jugada de verdad.
+ * `confirm()` nativo como advertencia: mismo patrón que ya usa
+ * `DocumentosManager` para borrar un archivo — aceptar sigue adelante,
+ * cancelar no manda nada al servidor.
+ */
+function EliminarTorneoBoton({ torneoId, nombre }: { torneoId: string; nombre: string }) {
+  const [state, formAction, pending] = useActionState(eliminarTorneo, initialState);
+
+  return (
+    <form
+      action={formAction}
+      onSubmit={(e) => {
+        if (!confirm(`¿Eliminar "${nombre}"? Esta acción no se puede deshacer.`)) {
+          e.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="torneo_id" value={torneoId} />
+      <IconButton ariaLabel={`Eliminar ${nombre}`} type="submit" disabled={pending}>
+        <Trash2 size={15} className="text-error" />
+      </IconButton>
+      {state.error && <p className="text-caption max-w-[120px] text-right text-error">{state.error}</p>}
     </form>
   );
 }

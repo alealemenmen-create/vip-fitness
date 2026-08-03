@@ -284,3 +284,34 @@ export async function cerrarTorneo(_prevState: FormState, formData: FormData): P
   revalidatePath("/alumno", "layout");
   return okState;
 }
+
+/**
+ * Borra una competencia — pensada para pruebas de error, no para deshacer una
+ * ya jugada de verdad.
+ *
+ * `torneo_participantes` y `torneo_resultados` tienen `on delete cascade`
+ * hacia `torneos` (migración 0015) y se van solos. `puntos_vip_movimientos`
+ * NO tiene esa relación —es un libro de movimientos aparte, sin llave foránea
+ * a torneos— así que si la competencia ya se había cerrado y repartido bolsa,
+ * hay que borrar esos movimientos a mano por su `clave` (`arena:{torneoId}`,
+ * la misma que arma `cerrarTorneo`) o quedarían puntos fantasma sin ninguna
+ * competencia detrás que los explique.
+ */
+export async function eliminarTorneo(_prevState: FormState, formData: FormData): Promise<FormState> {
+  await requireRol(["entrenador", "admin"]);
+
+  const torneoId = String(formData.get("torneo_id") || "");
+  if (!torneoId) return fail("Falta el torneo.");
+
+  const admin = createAdminClient();
+  await admin.from("puntos_vip_movimientos").delete().eq("clave", `arena:${torneoId}`);
+  const { error } = await admin.from("torneos").delete().eq("id", torneoId);
+  if (error) return fail("No se pudo eliminar la competencia. Intenta nuevamente.");
+
+  updateTag(TAG_RANKING);
+  revalidatePath("/admin/torneos");
+  revalidatePath("/alumno/ranked");
+  revalidatePath("/alumno/inicio");
+  revalidatePath("/alumno", "layout");
+  return okState;
+}

@@ -15,6 +15,18 @@ function refrescarVistas(alumnoIds: string[] = []) {
   for (const id of alumnoIds) revalidatePath(`/admin/alumnos/${id}`);
 }
 
+/** Link temporal para ver o descargar un documento de la biblioteca. El bucket
+ * es privado, así que no hay URL fija — se firma al vuelo, recién cuando el
+ * entrenador hace clic, y dura una hora. */
+export async function obtenerUrlDescarga(storagePath: string): Promise<string | null> {
+  await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+  const { data } = await supabase.storage
+    .from("documentos")
+    .createSignedUrl(storagePath, 60 * 60);
+  return data?.signedUrl ?? null;
+}
+
 export type SubirYAsignarState = {
   error: string | null;
   /** Ruta en Storage, para poder analizarlo con IA sin volver a subirlo. */

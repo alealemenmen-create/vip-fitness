@@ -37,7 +37,10 @@ export default function SetPasswordPage() {
   const [state, formAction, pending] = useActionState(fijarContrasena, initialState);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg px-4">
+    // `h-dvh overflow-y-auto`: ver el comentario en registro/page.tsx — desde
+    // que `html`/`body` dejaron de scrollear globalmente, cualquier página
+    // fuera de /alumno y /admin necesita su propio contenedor con scroll.
+    <div className="flex h-dvh items-center justify-center overflow-y-auto bg-bg px-4 [-webkit-overflow-scrolling:touch]">
       <div className="radius-card w-full max-w-sm bg-surface p-8">
         <div className="mb-3 flex justify-end">
           <ThemeToggle />

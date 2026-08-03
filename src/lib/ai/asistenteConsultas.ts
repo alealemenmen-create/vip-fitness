@@ -196,7 +196,10 @@ Resultados anónimos: ${JSON.stringify(anonimos)}`,
         herramienta: intencion.herramienta,
         usoIA: true,
         costoUsd,
-        aviso: `Datos calculados por Portal VIP · IA usada solo para interpretar y redactar · US$${costoUsd.toFixed(4)}`,
+        // El costo NO va acá: iba mezclado en esta misma frase y quedaba
+        // fácil de pasar por alto. Ahora tiene su propia línea abajo
+        // (ver AsistenteVipPanel), separada y visible.
+        aviso: "Datos calculados por Portal VIP · IA usada solo para interpretar y redactar.",
         borradorNoticia: borrador,
       },
     };

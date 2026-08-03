@@ -50,6 +50,47 @@ function nombreMes(anioMes: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
+/** Lunes de la semana calendario que contiene `fechaISO` ("YYYY-MM-DD"),
+ * como clave para agrupar. Todo en UTC a propósito: tratar la fecha como
+ * aritmética de calendario pura, no como un instante con huso horario, es lo
+ * único que evita que un `new Date(...).toISOString()` corra la fecha un día
+ * según dónde corra el servidor. */
+function lunesDeSemanaISO(fechaISO: string): string {
+  const [anio, mes, dia] = fechaISO.split("-").map(Number);
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+  const diasDesdeLunes = (fecha.getUTCDay() + 6) % 7;
+  fecha.setUTCDate(fecha.getUTCDate() - diasDesdeLunes);
+  return fecha.toISOString().slice(0, 10);
+}
+
+/** "Semana del 28 jul al 3 ago" — o "Esta semana" si el lunes calculado es el
+ * de la semana calendario en curso, para que la más reciente se distinga sin
+ * tener que leer las dos fechas. */
+function nombreSemana(lunesISO: string): string {
+  const [anio, mes, dia] = lunesISO.split("-").map(Number);
+  const lunes = new Date(Date.UTC(anio, mes - 1, dia));
+  if (lunesISO === lunesDeSemanaISO(new Date().toISOString().slice(0, 10))) return "Esta semana";
+  const domingo = new Date(lunes);
+  domingo.setUTCDate(domingo.getUTCDate() + 6);
+  const formato = (d: Date) =>
+    d.toLocaleDateString("es-CL", { day: "numeric", month: "short", timeZone: "UTC" });
+  return `Semana del ${formato(lunes)} al ${formato(domingo)}`;
+}
+
+/** Agrupa una lista de noticias (ya de un mismo mes) por semana calendario,
+ * de la más reciente a la más vieja. El orden DENTRO de cada semana no se
+ * toca: viene de `obtenerNoticias`, por relevancia. */
+function agruparPorSemana(noticias: Noticia[]): [string, Noticia[]][] {
+  const porSemana = new Map<string, Noticia[]>();
+  for (const noticia of noticias) {
+    const lunes = lunesDeSemanaISO(noticia.fecha);
+    const lista = porSemana.get(lunes) ?? [];
+    lista.push(noticia);
+    porSemana.set(lunes, lista);
+  }
+  return [...porSemana.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+}
+
 export default async function NoticiasPage() {
   const { alumnoId, soloLectura } = await requireAlumno();
   const supabase = await createClient();
@@ -74,7 +115,7 @@ export default async function NoticiasPage() {
           Noticias <span className="text-vip">VIP</span>
         </h1>
         <p className="text-secondary mt-1 text-text-secondary">
-          Lo más destacado del gimnasio, mes a mes.
+          Lo más destacado del gimnasio, semana a semana.
         </p>
       </div>
 
@@ -105,16 +146,27 @@ export default async function NoticiasPage() {
         )
       ) : (
         <>
-          <Card>
-            <p className="text-caption mb-3 flex items-center gap-1.5 text-text-tertiary">
+          {/* Mes en curso: partido semana a semana, la más reciente arriba —
+              es la parte que el alumno realmente revisa seguido, y una lista
+              plana de todo el mes se volvía larga de recorrer. Los meses ya
+              cerrados no se tocan: siguen colapsados enteros más abajo. */}
+          <div className="space-y-3">
+            <p className="text-caption flex items-center gap-1.5 text-text-tertiary">
               <Newspaper size={14} className="text-vip" /> {nombreMes(mesActual).toUpperCase()}
             </p>
-            <div className="space-y-3">
-              {porMes.get(mesActual)!.map((noticia, i) => (
-                <NoticiaItem key={noticia.id} noticia={noticia} destacada={i === 0} />
-              ))}
-            </div>
-          </Card>
+            {agruparPorSemana(porMes.get(mesActual)!).map(([lunes, noticiasSemana], i) => (
+              <Card key={lunes}>
+                <p className="text-caption mb-3 font-semibold text-text-secondary">
+                  {nombreSemana(lunes).toUpperCase()}
+                </p>
+                <div className="space-y-3">
+                  {noticiasSemana.map((noticia, j) => (
+                    <NoticiaItem key={noticia.id} noticia={noticia} destacada={i === 0 && j === 0} />
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
 
           {anteriores.length > 0 && (
             <div className="space-y-2">
