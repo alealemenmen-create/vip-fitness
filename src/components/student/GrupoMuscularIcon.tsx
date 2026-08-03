@@ -193,8 +193,30 @@ export { FONDO_FOTO as FONDO_FOTO_GRUPO };
  * Si el grupo principal no tiene foto (Cardio), se mantiene el dibujo de
  * siempre — no se inventa nada para no tener imagen.
  */
+/** Rayos de luz diagonales, decorativos, detrás de la foto del día — el
+ * mismo motivo cálido que enmarca al modelo en la referencia. Puramente
+ * ornamental (aria-hidden), no compite con el texto porque vive detrás del
+ * degradado hacia la superficie. */
+function RayosLuz() {
+  return (
+    <svg aria-hidden className="pointer-events-none absolute inset-0 opacity-25" viewBox="0 0 300 168" preserveAspectRatio="none">
+      {Array.from({ length: 5 }, (_, i) => (
+        <line
+          key={i}
+          x1={340 - i * 34}
+          y1={-20}
+          x2={140 - i * 34}
+          y2={190}
+          stroke="var(--color-vip)"
+          strokeWidth={i === 2 ? 3 : 1.4}
+        />
+      ))}
+    </svg>
+  );
+}
+
 export function FotoDiaEntrenamiento({ grupos }: { grupos: GrupoMuscular[] }) {
-  const [principal, ...secundarios] = grupos;
+  const [principal] = grupos;
   const fotosPrincipal = principal ? FOTOS_GRUPO_MUSCULAR[principal] : undefined;
 
   if (!principal || !fotosPrincipal) {
@@ -205,12 +227,12 @@ export function FotoDiaEntrenamiento({ grupos }: { grupos: GrupoMuscular[] }) {
     ) : null;
   }
 
-  const secundariosConFoto = secundarios.filter((g) => FOTOS_GRUPO_MUSCULAR[g]);
   const anchoFoto = 108;
   const anchoTotal = fotosPrincipal.length * anchoFoto;
 
   return (
     <>
+      <RayosLuz />
       <div
         className="pointer-events-none absolute inset-y-0 right-6 flex items-center"
         style={{ width: anchoTotal }}
@@ -230,25 +252,15 @@ export function FotoDiaEntrenamiento({ grupos }: { grupos: GrupoMuscular[] }) {
           background: "linear-gradient(to right, var(--color-surface) 0%, transparent 60%)",
         }}
       />
-      {secundariosConFoto.length > 0 && (
-        <div className="pointer-events-none absolute left-4 top-3 flex gap-1.5">
-          {secundariosConFoto.map((g) => (
-            <div
-              key={g}
-              className="relative h-8 w-8 overflow-hidden rounded-full"
-              style={{ boxShadow: "0 0 0 2px var(--color-surface)" }}
-            >
-              <Image
-                src={FOTOS_GRUPO_MUSCULAR[g]![0]}
-                alt={ETIQUETAS[g]}
-                fill
-                sizes="32px"
-                className="object-cover object-top"
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Insignia del grupo principal, arriba a la izquierda: el mismo dibujo
+          anatómico de siempre (no una foto — a ese tamaño una foto recortada
+          no se reconoce), con resplandor cálido, igual que la referencia. */}
+      <div
+        className="pointer-events-none absolute left-4 top-3"
+        style={{ filter: "drop-shadow(0 0 6px color-mix(in srgb, var(--color-vip) 55%, transparent))" }}
+      >
+        <GrupoMuscularIcon grupo={principal} alto={40} />
+      </div>
     </>
   );
 }

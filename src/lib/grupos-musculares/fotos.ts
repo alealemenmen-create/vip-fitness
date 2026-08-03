@@ -7,10 +7,10 @@ import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
  * foto todavía: sigue mostrando el dibujo de siempre.
  */
 export const FOTOS_GRUPO_MUSCULAR: Partial<Record<GrupoMuscular, string[]>> = {
-  pecho: ["/grupos-musculares/pecho.webp"],
-  espalda: ["/grupos-musculares/espalda.webp"],
-  piernas: ["/grupos-musculares/piernas-frente.webp", "/grupos-musculares/piernas-espalda.webp"],
-  hombros: ["/grupos-musculares/hombros.webp"],
-  brazos: ["/grupos-musculares/brazos.webp"],
-  core: ["/grupos-musculares/core.webp"],
+  pecho: ["/grupos-musculares/pecho-naranja.webp"],
+  espalda: ["/grupos-musculares/espalda-naranja.webp"],
+  piernas: ["/grupos-musculares/piernas-frente-naranja.webp", "/grupos-musculares/piernas-espalda-naranja.webp"],
+  hombros: ["/grupos-musculares/hombros-naranja.webp"],
+  brazos: ["/grupos-musculares/brazos-naranja.webp"],
+  core: ["/grupos-musculares/core-naranja.webp"],
 };
