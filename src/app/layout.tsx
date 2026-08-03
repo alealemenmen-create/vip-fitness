@@ -51,7 +51,14 @@ const THEME_INIT_SCRIPT = `
     var t = localStorage.getItem("vip-theme");
     if (t === "light") document.documentElement.setAttribute("data-theme", "light");
     var b = localStorage.getItem("vip-tema-boton");
-    if (b === "vip" || b === "femenino") document.documentElement.setAttribute("data-tema-boton", b);
+    if (b === "vip" || b === "femenino") {
+      document.documentElement.setAttribute("data-tema-boton", b);
+    } else if (b !== "espejo") {
+      // Nadie eligió tema de botón todavía en este dispositivo: el default
+      // de la app es "VIP" (dorado), no "Espejo".
+      document.documentElement.setAttribute("data-tema-boton", "vip");
+      localStorage.setItem("vip-tema-boton", "vip");
+    }
     var esc = parseFloat(localStorage.getItem("vip-escala-texto"));
     if (esc >= 1 && esc <= 1.3) document.documentElement.style.setProperty("--escala-texto", String(esc));
   } catch (e) {}
