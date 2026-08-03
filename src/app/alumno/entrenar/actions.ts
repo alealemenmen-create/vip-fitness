@@ -273,3 +273,41 @@ export async function abandonarSesion(formData: FormData): Promise<void> {
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
 }
+
+/**
+ * Reinicia una rutina de cero: borra TODAS las sesiones (y en cascada sus
+ * ejercicios y series) que el alumno haya registrado bajo esa rutina, para
+ * que el calendario de Entrenar vuelva a empezar desde el Día 1.
+ *
+ * A propósito NO llama a `abandonarEntrenamiento` ni toca
+ * `puntos_vip_movimientos`: ese es un registro aparte (clave
+ * `entrenamiento:<sesionId>`), sin relación de llave foránea con
+ * `sesiones_entrenamiento`, así que borrar las sesiones no le afecta. Los
+ * Puntos VIP que el alumno ya ganó quedan intactos — el pedido explícito de
+ * "reiniciar sin que afecte el ranking".
+ */
+export async function reiniciarRutina(formData: FormData): Promise<void> {
+  const rutinaId = String(formData.get("rutina_id") || "");
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (!rutinaId || soloLectura) return;
+
+  const supabase = await createClient();
+  const { data: rutina } = await supabase
+    .from("rutinas")
+    .select("id")
+    .eq("id", rutinaId)
+    .eq("alumno_id", alumnoId)
+    .maybeSingle();
+  if (!rutina) return;
+
+  await supabase
+    .from("sesiones_entrenamiento")
+    .delete()
+    .eq("rutina_id", rutinaId)
+    .eq("alumno_id", alumnoId);
+
+  revalidatePath("/alumno/entrenar/historial");
+  revalidatePath("/alumno/entrenar");
+  revalidatePath("/alumno/inicio");
+  redirect("/alumno/entrenar/historial");
+}

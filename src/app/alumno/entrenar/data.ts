@@ -513,20 +513,24 @@ export type SesionHistorial = {
   comentario: string | null;
   horaInicio: string | null;
   horaFin: string | null;
+  rutinaId: string | null;
 };
 
 export async function obtenerHistorialSesiones(
   supabase: SupabaseServerClient,
   alumnoId: string,
-  limite = 30
+  limite = 30,
+  rutinaId?: string
 ): Promise<SesionHistorial[]> {
-  const { data: sesiones } = await supabase
+  let query = supabase
     .from("sesiones_entrenamiento")
-    .select("id, fecha, numero_calendario, estado, comentario, hora_inicio, hora_fin, rutina_dias(nombre)")
+    .select("id, fecha, numero_calendario, estado, comentario, hora_inicio, hora_fin, rutina_id, rutina_dias(nombre)")
     .eq("alumno_id", alumnoId)
     .neq("estado", "en_progreso")
     .order("fecha", { ascending: false })
     .limit(limite);
+  if (rutinaId) query = query.eq("rutina_id", rutinaId);
+  const { data: sesiones } = await query;
 
   if (!sesiones || sesiones.length === 0) return [];
 
@@ -558,8 +562,91 @@ export async function obtenerHistorialSesiones(
       comentario: s.comentario,
       horaInicio: s.hora_inicio,
       horaFin: s.hora_fin,
+      rutinaId: s.rutina_id,
     };
   });
+}
+
+export type RutinaHistorial = {
+  id: string;
+  nombre: string;
+  activa: boolean;
+  primeraFecha: string;
+  ultimaFecha: string;
+  cantidadSesiones: number;
+  puntos: number;
+};
+
+/** Una fila por rutina que el alumno haya entrenado alguna vez (no solo la
+ * activa): cuántas sesiones cerradas tiene, el rango de fechas, y los
+ * Puntos VIP que sumó bajo esa rutina — para el resumen de "reporte de
+ * rutinas" en el Historial. Las rutinas sin ninguna sesión cerrada
+ * (recién asignadas, o solo con vistas previas nunca empezadas) no
+ * aparecen: no hay nada que reportar todavía. */
+export async function obtenerRutinasHistorial(
+  supabase: SupabaseServerClient,
+  alumnoId: string
+): Promise<RutinaHistorial[]> {
+  const [{ data: rutinas }, { data: sesiones }, { data: movimientos }] = await Promise.all([
+    supabase
+      .from("rutinas")
+      .select("id, nombre, activa")
+      .eq("alumno_id", alumnoId),
+    supabase
+      .from("sesiones_entrenamiento")
+      .select("id, rutina_id, fecha")
+      .eq("alumno_id", alumnoId)
+      .neq("estado", "en_progreso"),
+    // Los puntos por rutina se calculan de `puntos_vip_movimientos` (clave
+    // `entrenamiento:<sesionId>`), que es el registro real de lo que cuenta
+    // para el ranking — no una cuenta aparte que se pueda desalinear.
+    supabase
+      .from("puntos_vip_movimientos")
+      .select("clave, puntos")
+      .eq("alumno_id", alumnoId)
+      .eq("categoria", "entrenamiento"),
+  ]);
+
+  if (!rutinas || rutinas.length === 0 || !sesiones || sesiones.length === 0) return [];
+
+  const porRutina = new Map<string, { primera: string; ultima: string; cantidad: number }>();
+  const sesionARutina = new Map<string, string>();
+  for (const s of sesiones) {
+    if (!s.rutina_id) continue;
+    sesionARutina.set(s.id, s.rutina_id);
+    const actual = porRutina.get(s.rutina_id);
+    if (!actual) {
+      porRutina.set(s.rutina_id, { primera: s.fecha, ultima: s.fecha, cantidad: 1 });
+    } else {
+      actual.cantidad += 1;
+      if (s.fecha < actual.primera) actual.primera = s.fecha;
+      if (s.fecha > actual.ultima) actual.ultima = s.fecha;
+    }
+  }
+
+  const puntosPorRutina = new Map<string, number>();
+  for (const m of movimientos ?? []) {
+    const sesionId = m.clave.replace(/^entrenamiento:/, "");
+    const rutinaId = sesionARutina.get(sesionId);
+    if (!rutinaId) continue;
+    puntosPorRutina.set(rutinaId, (puntosPorRutina.get(rutinaId) ?? 0) + m.puntos);
+  }
+
+  return rutinas
+    .filter((r) => porRutina.has(r.id))
+    .map((r) => {
+      const resumen = porRutina.get(r.id)!;
+      return {
+        id: r.id,
+        nombre: r.nombre,
+        activa: r.activa,
+        primeraFecha: resumen.primera,
+        ultimaFecha: resumen.ultima,
+        cantidadSesiones: resumen.cantidad,
+        puntos: puntosPorRutina.get(r.id) ?? 0,
+      };
+    })
+    .sort((a, b) => (a.ultimaFecha < b.ultimaFecha ? 1 : -1));
 }
 
 async function obtenerUltimoRegistro(
