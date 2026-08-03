@@ -1183,33 +1183,22 @@ input[type="number"] {
   box-shadow: inset 0 1px 1px rgba(30, 35, 45, 0.025);
 }
 
-/* Esqueleto de carga de las pantallas de alumno (PantallaCargando).
-   Medido en producción: cambiar de pestaña tarda ~300 ms, y el toque responde
-   en 3-6 ms. O sea que los bloques grises alcanzaban a verse ~300 ms sin
-   aportar nada, y Alejandro pidió no verlos.
-   Con este retardo el esqueleto no se dibuja durante los primeros 320 ms: en el
-   caso normal NUNCA llega a aparecer y el cambio se percibe instantáneo. Solo
-   se muestra, con un fundido suave, cuando la red va lenta de verdad — que es
-   justo cuando hace falta avisar que algo está pasando.
-   No se puede resolver borrando los loading.tsx: sin ellos Next 16 deja de
-   prefetchear la ruta y se vuelve a la pantalla en blanco esperando al
-   servidor. */
-@keyframes aparecer-esqueleto {
-  to {
-    opacity: 1;
-  }
-}
-
-.esqueleto-carga {
-  opacity: 0;
-  animation: aparecer-esqueleto 220ms ease-out 320ms forwards;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .esqueleto-carga {
-    animation-duration: 1ms;
-  }
-}
+/* Los `loading.tsx` de las pantallas de alumno (y su esqueleto,
+   PantallaCargando) se sacaron enteros — no solo el fundido de 320 ms de
+   acá. En Next 16.2.12 + Turbopack, cualquier carga FRÍA (no una navegación
+   de cliente) de una ruta con `loading.tsx` se queda con la pantalla casi en
+   blanco para siempre: el contenido real SÍ llega en el HTML (queda en el
+   DOM dentro de un `<div hidden id="S:...">`) pero el script que lo revela
+   nunca corre. Se confirmó con `document.body.innerText` vacío + el nodo
+   con `display:none` real, en varias rutas (Inicio, Entrenar, la sesión de
+   un entrenamiento), y se probó de punta a punta: sacando el `loading.tsx`
+   de la ruta, la misma carga fría renderiza completo.
+   Esto reemplaza una decisión anterior (ver el commit) que prefería
+   mantenerlos por el prefetch instantáneo entre pestañas — un cambio de
+   pestaña un poco menos instantáneo es preferible a una pantalla rota de
+   verdad en cualquier apertura fría (PWA recién abierta, notificación,
+   pull-to-refresh, iOS reanudando la pestaña). Si una versión más nueva de
+   Next soluciona el bug de raíz, se puede reconsiderar. */
 
 /* ── Alimentación: tira de días y línea de tiempo ──────────────────────────
    La tira de fechas se arrastra con el dedo, así que la barra de scroll
