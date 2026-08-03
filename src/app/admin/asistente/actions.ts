@@ -105,12 +105,23 @@ export async function confirmarEliminacionDatos(_prevState: FormState, formData:
     return { error: "Esta solicitud ya fue confirmada o cancelada.", ok: false };
   }
 
-  await borrarDatosCategoria(admin, solicitud.alumno_id, solicitud.categoria);
-
-  await admin
+  // Se reclama la solicitud ANTES de borrar (update condicionado a que siga
+  // `pendiente`, igual que `cancelarEliminacionDatos`): si dos confirmaciones
+  // llegan casi juntas, la segunda no encuentra fila que actualizar y no
+  // ejecuta `borrarDatosCategoria` una segunda vez.
+  const { data: reclamada } = await admin
     .from("solicitudes_eliminacion_datos")
     .update({ estado: "confirmado", confirmado_por: sesion.userId, confirmado_en: new Date().toISOString() })
-    .eq("id", solicitudId);
+    .eq("id", solicitudId)
+    .eq("estado", "pendiente")
+    .select("id")
+    .maybeSingle();
+
+  if (!reclamada) {
+    return { error: "Esta solicitud ya fue confirmada o cancelada.", ok: false };
+  }
+
+  await borrarDatosCategoria(admin, solicitud.alumno_id, solicitud.categoria);
 
   revalidatePath(`/admin/alumnos/${solicitud.alumno_id}`);
   revalidatePath("/admin/asistente");

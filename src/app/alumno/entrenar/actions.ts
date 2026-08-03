@@ -17,11 +17,15 @@ export async function iniciarSesion(formData: FormData): Promise<void> {
   const numero = Number(formData.get("numero_calendario") || 0);
   if (!diaId || !rutinaId || !numero) redirect("/alumno/entrenar");
 
+  // `requireAlumno()`, no `auth.getUser()` a secas: con el entrenador en
+  // "ver como alumno", el usuario autenticado sigue siendo el entrenador, y
+  // esto crearía la sesión en su propia cuenta en vez de la del alumno que
+  // está mirando (mismo bug ya arreglado en comer/actions.ts). Además, esa
+  // vista es de solo lectura — no debe poder arrancar nada.
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) redirect("/alumno/entrenar");
+
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   // Solo bloquea si hay una rutina EMPEZADA DE VERDAD (cronómetro corriendo,
   // o un día de descanso, que no tiene ese segundo paso) — una sesión creada
@@ -30,7 +34,7 @@ export async function iniciarSesion(formData: FormData): Promise<void> {
   const { data: candidatas } = await supabase
     .from("sesiones_entrenamiento")
     .select("id, rutina_iniciada_en, rutina_dias(tipo)")
-    .eq("alumno_id", user.id)
+    .eq("alumno_id", alumnoId)
     .eq("estado", "en_progreso")
     .order("hora_inicio", { ascending: false })
     .limit(20);
@@ -47,7 +51,7 @@ export async function iniciarSesion(formData: FormData): Promise<void> {
   const { data: existente } = await supabase
     .from("sesiones_entrenamiento")
     .select("id")
-    .eq("alumno_id", user.id)
+    .eq("alumno_id", alumnoId)
     .eq("rutina_id", rutinaId)
     .eq("numero_calendario", numero)
     .maybeSingle();
@@ -58,7 +62,7 @@ export async function iniciarSesion(formData: FormData): Promise<void> {
 
   const { data: sesion, error: errorSesion } = await supabase
     .from("sesiones_entrenamiento")
-    .insert({ alumno_id: user.id, rutina_id: rutinaId, dia_id: diaId, numero_calendario: numero })
+    .insert({ alumno_id: alumnoId, rutina_id: rutinaId, dia_id: diaId, numero_calendario: numero })
     .select("id")
     .single();
 

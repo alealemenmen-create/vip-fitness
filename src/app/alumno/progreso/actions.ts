@@ -2,6 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireAlumno } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import convertirHeic from "heic-convert";
 import sharp from "sharp";
@@ -20,17 +21,31 @@ function fail(mensaje: string): FormState {
   return { error: mensaje, ok: false };
 }
 
-async function usuarioActual(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Sesión expirada.");
-  return user.id;
+/** Lo que se devuelve cuando el entrenador está mirando la cuenta de un
+ * alumno: ahí no se puede escribir.
+ *
+ * Antes esto era `auth.getUser().id` a secas (mismo bug que ya se había
+ * diagnosticado y arreglado en `comer/actions.ts`): con el entrenador en
+ * "ver como alumno", el usuario autenticado sigue siendo el entrenador, así
+ * que el peso/foto se guardaba en su propia cuenta y no en la del alumno que
+ * estaba mirando. `requireAlumno()` es la única fuente de verdad sobre de
+ * quién es la pantalla, y además dice si la vista es de solo lectura. */
+const ERROR_SOLO_LECTURA =
+  "Estás viendo la cuenta de un alumno en modo lectura. Sal de esa vista para registrar progreso.";
+
+async function alumnoDeProgreso(): Promise<
+  { ok: true; alumnoId: string } | { ok: false; error: string }
+> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return { ok: false, error: ERROR_SOLO_LECTURA };
+  return { ok: true, alumnoId };
 }
 
 export async function agregarPeso(_prevState: FormState, formData: FormData): Promise<FormState> {
+  const quien = await alumnoDeProgreso();
+  if (!quien.ok) return fail(quien.error);
+  const alumnoId = quien.alumnoId;
   const supabase = await createClient();
-  const alumnoId = await usuarioActual(supabase);
 
   const pesoKg = Number(formData.get("peso_kg"));
   const fecha = String(formData.get("fecha") || "");
@@ -59,8 +74,9 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
 }
 
 export async function eliminarPeso(pesoId: string): Promise<void> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return;
   const supabase = await createClient();
-  const alumnoId = await usuarioActual(supabase);
   const { data: peso } = await supabase
     .from("pesos_corporales")
     .select("fecha")
@@ -81,8 +97,10 @@ export async function subirFotoProgreso(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
+  const quien = await alumnoDeProgreso();
+  if (!quien.ok) return fail(quien.error);
+  const alumnoId = quien.alumnoId;
   const supabase = await createClient();
-  const alumnoId = await usuarioActual(supabase);
 
   const archivo = formData.get("archivo") as File | null;
   const fechaFoto = String(formData.get("fecha_foto") || "");
@@ -163,8 +181,9 @@ export async function subirFotoProgreso(
 }
 
 export async function eliminarFotoProgreso(fotoId: string, storagePath: string): Promise<void> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return;
   const supabase = await createClient();
-  const alumnoId = await usuarioActual(supabase);
   const { data: foto } = await supabase
     .from("fotos_progreso")
     .select("fecha_foto")

@@ -13,12 +13,19 @@ export async function guardarSeguimiento(
   _prevState: GuardarSeguimientoState,
   formData: FormData
 ): Promise<GuardarSeguimientoState> {
+  // `requireAlumno()`, no `auth.getUser()` a secas: con el entrenador en "ver
+  // como alumno", el usuario autenticado sigue siendo el entrenador, y esto
+  // guardaría el seguimiento en su propia cuenta en vez de la del alumno que
+  // está mirando (mismo bug ya arreglado en comer/actions.ts). Esa vista
+  // además es de solo lectura.
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) {
+    return {
+      error: "Estás viendo la cuenta de un alumno en modo lectura. Sal de esa vista para guardar.",
+      guardado: false,
+    };
+  }
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { error: "Tu sesión expiró. Vuelve a iniciar sesión.", guardado: false };
 
   const entrenoHoy = formData.get("entreno_hoy");
   const cumplioAlimentacion = formData.get("cumplio_alimentacion");
@@ -30,7 +37,7 @@ export async function guardarSeguimiento(
 
   const { error } = await supabase.from("seguimientos_diarios").upsert(
     {
-      alumno_id: user.id,
+      alumno_id: alumnoId,
       fecha: hoyISO(),
       entreno_hoy: entrenoHoy === null ? null : entrenoHoy === "true",
       cumplio_alimentacion: cumplioAlimentacion === null ? null : cumplioAlimentacion === "true",
@@ -82,7 +89,6 @@ export async function responderInvitacionTorneo(formData: FormData): Promise<voi
     .eq("estado", "pendiente");
 
   revalidatePath("/alumno/inicio");
-  revalidatePath("/alumno/ranked");
   revalidatePath("/alumno/ranked");
   revalidatePath("/admin/torneos");
 }
