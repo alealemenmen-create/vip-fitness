@@ -11,7 +11,7 @@ el HANDOFF 1.4.
 
 | | |
 |---|---|
-| Rama de este trabajo (bugs + historial) | `fix/historial-rutinas-completo` — commit `842c676` |
+| Rama de este trabajo (bugs + historial) | `fix/historial-rutinas-completo` — commit `26298a4` |
 | Rama de diseño (Entrenar, aparte) | `raspado/entrenar-diseno-referencia` — commit `22103ce` |
 | `main` | Sin cambios, en `f738037` (== HANDOFF 1.4) |
 | Trabajo pendiente sin commitear | **ninguno** en ninguna de las dos ramas |
@@ -119,6 +119,45 @@ intactos, tal como se pidió explícitamente ("sin que afecte el ranking").
 756 puntos sin cambio después de reiniciar, calendario vuelto a Día 1,
 "Sesiones del mes" en 0 de 24.
 
+### 4. Análisis de toda la app + bug crítico de identidad (commit `26298a4`)
+
+Se lanzó un agente de exploración de solo-lectura sobre Nutrición,
+Progreso, Ranked, el sistema de puntos, el Asistente VIP y el panel de
+admin, buscando bugs de la misma familia que los de arriba. Encontró un
+**bug crítico real**: `agregarPeso`, `eliminarPeso`, `subirFotoProgreso`,
+`eliminarFotoProgreso` (`progreso/actions.ts`), `iniciarSesion`
+(`entrenar/actions.ts`) y `guardarSeguimiento` (`inicio/actions.ts`)
+usaban `auth.getUser().id` en crudo — exactamente el bug que ya se había
+diagnosticado y arreglado en `comer/actions.ts` (ver el comentario ahí
+mismo), sin aplicar acá. Con el entrenador en "ver como alumno", el
+usuario autenticado sigue siendo el entrenador: estas seis acciones podían
+guardar peso, subir fotos, marcar el seguimiento diario o crear una
+sesión de entrenamiento en la cuenta del propio entrenador en vez de la
+del alumno que estaba mirando, sin ningún error visible, y ninguna
+respetaba `soloLectura`.
+
+Se reemplazaron las seis por `requireAlumno()`, mismo patrón ya probado en
+`comer/actions.ts`. De paso se cerró una ventana de doble-confirmación en
+`confirmarEliminacionDatos` (reclama la solicitud con un update
+condicionado a `estado = 'pendiente'` antes de borrar) y se sacó un
+`revalidatePath("/alumno/ranked")` duplicado.
+
+**Verificado en vivo tras el fix**: guardar peso (+75 pts, entrada nueva
+en la lista) e iniciar una sesión de entrenamiento (Sesión 1 · Pecho,
+bloqueada hasta "Iniciar rutina") siguen funcionando igual que antes.
+
+**Hallazgos del agente que quedaron sin tocar** (menores, revisar cuando
+haya tiempo):
+- Un directorio de worktree obsoleto (`.claude/worktrees/vibrant-aryabhata-a3658a/`)
+  tiene una copia vieja de `src/app` con los 12 `loading.tsx` que ya se
+  borraron del repo real — no afecta el build, pero puede confundir una
+  búsqueda futura. No se tocó por las dudas de que sea el directorio de
+  otra sesión activa.
+- `marcarComidaOmitida` y `actualizarObservacionComida`
+  (`comer/actions.ts`) no le devuelven error al alumno si el `update`
+  falla — duda sin confirmar, depende de cómo el componente cliente
+  maneje el estado optimista.
+
 ---
 
 ## RAMA `raspado/entrenar-diseno-referencia` — QUÉ SE HIZO
@@ -147,13 +186,8 @@ esta rama sigue como está, no se tocó más esta sesión.
 
 1. **Decidir sobre las dos ramas**: ¿mergear alguna, las dos, o seguir
    iterando primero? Ninguna tocó `main`.
-2. **Análisis más amplio de la app** (pedido explícito del dueño: "conocé
-   la app entera, qué debemos mejorar") — se lanzó un agente de
-   exploración de solo-lectura sobre Nutrición, Progreso, Ranked, el
-   sistema de puntos, el Asistente VIP y el panel de admin, buscando bugs
-   de la misma naturaleza (botones que hacen algo distinto de lo que
-   dicen, estados marcados antes de tiempo, permisos mal aplicados). Su
-   reporte llega aparte — revisarlo antes de decidir qué más tocar.
+2. El directorio de worktree obsoleto con `loading.tsx` viejos (ver punto 4
+   arriba) — confirmar que no es el de otra sesión activa y borrarlo.
 3. Los pendientes livianos del HANDOFF 1.4 (bug cosmético de
    `EliminarPerfilBoton` tras confirmar un borrado, `cancelarEliminacionDatos`
    sin conectar a ningún botón) siguen sin tocar.
