@@ -445,6 +445,42 @@ export async function guardarPlanAlimentacion(
   return { error: null, ok: true };
 }
 
+export type GuardarMacrosState = { error: string | null; ok: boolean };
+
+export type MacrosParaGuardar = {
+  kcalObjetivo: number | null;
+  protObjetivo: number | null;
+  carbObjetivo: number | null;
+  grasaObjetivo: number | null;
+};
+
+/** Carga directa de macros por alumno, sin pasar por PDF ni IA: mismo destino
+ * final que `guardarPlanAlimentacion` (una fila en `planes_alimentacion` por
+ * alumno, sin comidas), pero el entrenador tipea los 4 números a mano y se
+ * publica para uno o varios alumnos a la vez. */
+export async function guardarMacrosVariosAlumnos(
+  alumnoIds: string[],
+  macros: MacrosParaGuardar
+): Promise<GuardarMacrosState> {
+  await requireRol(["entrenador", "admin"]);
+
+  if (alumnoIds.length === 0) return { error: "Elige al menos un alumno.", ok: false };
+  if (macros.kcalObjetivo === null) return { error: "Falta la meta de calorías.", ok: false };
+
+  for (const alumnoId of alumnoIds) {
+    const resultado = await guardarPlanAlimentacion(
+      alumnoId,
+      { ...macros, comidas: [] },
+      null
+    );
+    if (!resultado.ok) {
+      return { error: resultado.error ?? "No fue posible guardar para uno de los alumnos.", ok: false };
+    }
+  }
+
+  return { error: null, ok: true };
+}
+
 export type AnalizarPdfState = {
   error: string | null;
   datos: RutinaExtraida | null;

@@ -12,6 +12,7 @@ import {
   analizarRutinaPdf,
   analizarAlimentacionPdf,
   eliminarDocumento,
+  guardarMacrosVariosAlumnos,
   type SubirAVariosState,
   type AnalizarPlanState,
 } from "@/app/admin/archivos/actions";
@@ -172,6 +173,37 @@ function ResumenSubida({ estado }: { estado: SubirAVariosState }) {
   );
 }
 
+function CampoMacro({
+  etiqueta,
+  sufijo,
+  valor,
+  onCambiar,
+}: {
+  etiqueta: string;
+  sufijo: string;
+  valor: string;
+  onCambiar: (valor: string) => void;
+}) {
+  return (
+    <label className="radius-control block border border-border bg-surface-2 px-3 py-2">
+      <span className="text-caption text-text-tertiary">{etiqueta}</span>
+      <div className="flex items-baseline gap-1">
+        <input
+          type="number"
+          inputMode="numeric"
+          min="0"
+          step="1"
+          value={valor}
+          onChange={(e) => onCambiar(e.target.value)}
+          placeholder="0"
+          className="text-body w-full min-w-0 bg-transparent text-text outline-none"
+        />
+        <span className="text-caption shrink-0 text-text-tertiary">{sufijo}</span>
+      </div>
+    </label>
+  );
+}
+
 /**
  * Subida de archivos desde la ficha del alumno.
  *
@@ -236,10 +268,24 @@ export function ArchivosManager({
   const [analizandoPlan, setAnalizandoPlan] = useState(false);
   const [errorPlan, setErrorPlan] = useState<string | null>(null);
   const [analisisPlan, setAnalisisPlan] = useState<AnalizarPlanState | null>(null);
-  const [modoAlimentacion, setModoAlimentacion] = useState<"archivo" | "texto">("archivo");
+  // "macros": carga directa de los 4 números, sin PDF ni IA — el camino
+  // por defecto ahora, pedido explícito para no tener que subir un plan
+  // completo solo para dejar la meta calórica. "archivo"/"texto" siguen
+  // disponibles para cuando sí hace falta el detalle de comidas.
+  const [modoAlimentacion, setModoAlimentacion] = useState<"macros" | "archivo" | "texto">(
+    "macros"
+  );
   const [textoAlimentacion, setTextoAlimentacion] = useState("");
   const formAlimentacionRef = useRef<HTMLFormElement>(null);
   const [reiniciarAlimentacion, setReiniciarAlimentacion] = useState(false);
+
+  const [macrosKcal, setMacrosKcal] = useState("");
+  const [macrosProt, setMacrosProt] = useState("");
+  const [macrosCarb, setMacrosCarb] = useState("");
+  const [macrosGrasa, setMacrosGrasa] = useState("");
+  const [guardandoMacros, setGuardandoMacros] = useState(false);
+  const [errorMacros, setErrorMacros] = useState<string | null>(null);
+  const [macrosGuardados, setMacrosGuardados] = useState(false);
 
   /** El selector de alumnos ya no vive fijo arriba de todo: aparece dentro de
    * la sección (Rutina o Alimentación) donde se lo pidió, al tocar el botón
@@ -321,6 +367,37 @@ export function ArchivosManager({
     startTransition(() => {
       conDestinatarios(accionAlimentacion)(formData);
     });
+  };
+
+  /** A diferencia de rutina/alimentación por archivo, esto no pasa por
+   * `useActionState`: son 4 números, no hay upload ni análisis de IA que
+   * requiera ese manejo de estado — una llamada directa alcanza. */
+  const guardarMacros = async () => {
+    if (destinatarios.size === 0) {
+      setSelectorAbierto("alimentacion");
+      return;
+    }
+    const numero = (texto: string) => (texto.trim() === "" ? null : Math.max(0, Number(texto)));
+    setGuardandoMacros(true);
+    setErrorMacros(null);
+    const resultado = await guardarMacrosVariosAlumnos(Array.from(destinatarios), {
+      kcalObjetivo: numero(macrosKcal),
+      protObjetivo: numero(macrosProt),
+      carbObjetivo: numero(macrosCarb),
+      grasaObjetivo: numero(macrosGrasa),
+    });
+    setGuardandoMacros(false);
+    if (!resultado.ok) {
+      setErrorMacros(resultado.error);
+      return;
+    }
+    setMacrosGuardados(true);
+    setMacrosKcal("");
+    setMacrosProt("");
+    setMacrosCarb("");
+    setMacrosGrasa("");
+    router.refresh();
+    window.setTimeout(() => setMacrosGuardados(false), 2500);
   };
 
   const analizarRutina = async () => {
@@ -539,7 +616,7 @@ export function ArchivosManager({
 
       {/* ALIMENTACIÓN */}
       <Card>
-        <p className="text-caption mb-3 text-text-tertiary">PLAN DE ALIMENTACIÓN (PDF)</p>
+        <p className="text-caption mb-3 text-text-tertiary">META NUTRICIONAL</p>
 
         {selectorAbierto === "alimentacion" && (
           <PanelSelector
@@ -550,7 +627,7 @@ export function ArchivosManager({
           />
         )}
 
-        {alimentacion.storagePath && !reiniciarAlimentacion ? (
+        {alimentacion.storagePath && !reiniciarAlimentacion && modoAlimentacion !== "macros" ? (
           <div className="radius-control flex items-center gap-3 border border-border p-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-2">
               <FileText size={20} className="text-vip" />
@@ -562,6 +639,15 @@ export function ArchivosManager({
         ) : (
           <div className="space-y-3">
             <div className="radius-control flex border border-border p-1">
+              <button
+                type="button"
+                onClick={() => setModoAlimentacion("macros")}
+                className={`text-caption flex-1 rounded-[10px] py-1.5 text-center font-medium transition-colors ${
+                  modoAlimentacion === "macros" ? "bg-surface-2 text-text" : "text-text-tertiary"
+                }`}
+              >
+                Macros
+              </button>
               <button
                 type="button"
                 onClick={() => setModoAlimentacion("archivo")}
@@ -582,7 +668,35 @@ export function ArchivosManager({
               </button>
             </div>
 
-            {modoAlimentacion === "archivo" ? (
+            {modoAlimentacion === "macros" ? (
+              <div className="space-y-3">
+                <p className="text-caption text-text-tertiary">
+                  Carga directa, sin PDF: se publica como la meta activa del alumno, igual que el
+                  plan completo.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <CampoMacro etiqueta="Calorías" sufijo="kcal" valor={macrosKcal} onCambiar={setMacrosKcal} />
+                  <CampoMacro etiqueta="Proteína" sufijo="g" valor={macrosProt} onCambiar={setMacrosProt} />
+                  <CampoMacro etiqueta="Carbohidratos" sufijo="g" valor={macrosCarb} onCambiar={setMacrosCarb} />
+                  <CampoMacro etiqueta="Grasas" sufijo="g" valor={macrosGrasa} onCambiar={setMacrosGrasa} />
+                </div>
+                {errorMacros && <p className="text-caption text-error">{errorMacros}</p>}
+                <Button
+                  loading={guardandoMacros}
+                  disabled={!macrosKcal.trim()}
+                  onClick={guardarMacros}
+                  className="w-full"
+                >
+                  {guardandoMacros
+                    ? "Guardando…"
+                    : macrosGuardados
+                      ? "Guardado ✓"
+                      : destinatarios.size === 0
+                        ? "Elige a quiénes"
+                        : `Publicar meta para ${destinatarios.size} ${destinatarios.size === 1 ? "alumno" : "alumnos"}`}
+                </Button>
+              </div>
+            ) : modoAlimentacion === "archivo" ? (
               <form
                 ref={formAlimentacionRef}
                 action={conDestinatarios(accionAlimentacion)}

@@ -10,6 +10,15 @@
  * ejemplo "al fallo"): en ese caso el campo queda vacío, que es más honesto que
  * inventar una cifra.
  */
+/** Mismo patrón que usa `repsObjetivo` para no confundir tiempo con
+ * repeticiones, expuesto aparte: ejercicios como la plancha ("30 seg") se
+ * cargan en el mismo campo pero mostrando "segundos" en vez de "reps". */
+export function esEjercicioDeTiempo(repsProgramadas: string | null | undefined): boolean {
+  if (!repsProgramadas) return false;
+  const texto = repsProgramadas.toLowerCase();
+  return /\b(seg|segundo|min|minuto)/.test(texto) || /\d\s*['"s]\b/.test(texto);
+}
+
 export function repsObjetivo(repsProgramadas: string | null | undefined): number | null {
   if (!repsProgramadas) return null;
 
@@ -17,7 +26,7 @@ export function repsObjetivo(repsProgramadas: string | null | undefined): number
 
   // "30 seg" / "45s" son tiempo, no repeticiones: precargarlo como reps sería
   // un dato falso.
-  if (/\b(seg|segundo|min|minuto)/.test(texto) || /\d\s*['"s]\b/.test(texto)) return null;
+  if (esEjercicioDeTiempo(repsProgramadas)) return null;
 
   const numeros = texto.match(/\d+/g)?.map(Number).filter((n) => n > 0) ?? [];
   if (numeros.length === 0) return null;
