@@ -27,6 +27,7 @@ import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon
 import { repsObjetivo, esEjercicioDeTiempo } from "@/lib/entrenamiento/reps";
 import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
 import { guardarDescanso, leerDescanso, limpiarDescanso } from "@/lib/entrenamiento/descanso";
+import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import {
   guardarBorrador,
   leerBorrador,
@@ -73,15 +74,22 @@ function formatUltimo(u: EjercicioSesion["ultimoRegistro"], esTiempo: boolean) {
  */
 function CuadroFotoReferencia({
   ilustracionSlug,
+  fotoMiniaturaUrl,
+  fotoCompletaUrl,
   nombre,
 }: {
   ilustracionSlug: string | null;
+  /** Fotos subidas desde /admin/ejercicios — mandan sobre la ilustración
+   * estática cuando existen (ver migración 0042). */
+  fotoMiniaturaUrl: string | null;
+  fotoCompletaUrl: string | null;
   nombre: string;
 }) {
-  const { src, origen } = resolverIlustracion(ilustracionSlug, null);
+  const { src: srcEstatico, origen } = resolverIlustracion(ilustracionSlug, null);
+  const src = fotoMiniaturaUrl ?? (origen === "ilustracion" ? srcEstatico : null);
   const tamano = { width: 116, minHeight: 96 };
 
-  if (!src || origen !== "ilustracion") {
+  if (!src) {
     return (
       <div
         // `self-stretch`: el borde de ABAJO queda a la misma altura que la línea
@@ -105,7 +113,7 @@ function CuadroFotoReferencia({
   return (
     <FotoReferenciaAmpliable
       src={src}
-      srcCompleta={resolverFotoCompleta(ilustracionSlug)}
+      srcCompleta={fotoCompletaUrl ?? resolverFotoCompleta(ilustracionSlug)}
       nombre={nombre}
       tamano={tamano}
     />
@@ -278,34 +286,6 @@ function resolverTecnica(
 
   const deBiblioteca = ejercicio.tecnicaSugerida?.trim();
   return deBiblioteca ? { texto: deBiblioteca, sugerida: true } : null;
-}
-
-/**
- * Técnicas que encadenan varios ejercicios seguidos, casi sin descanso entre
- * uno y otro (superserie, biserie, triserie, circuito, giant set...): el
- * entrenador ya las escribe en `tecnica_tipo` como texto libre ("Superserie
- * (1/2)", "Biserie (2/2)", "Circuito metabólico (1/3)"), y los dos o más
- * ejercicios que forman el grupo comparten el mismo nombre de familia.
- *
- * Acá no se cambia el flujo de series (sigue siendo un ejercicio a la vez,
- * en el orden de la rutina) — se resuelve un color por familia para que el
- * alumno VEA de un vistazo qué ejercicios van encadenados entre sí, que es
- * lo que se pidió: visualización, no una reestructuración del ejercicio en
- * curso.
- */
-type GrupoTecnica = { color: string; etiqueta: string };
-
-function resolverGrupoTecnica(tecnicaTipo: string | null | undefined): GrupoTecnica | null {
-  if (!tecnicaTipo) return null;
-  const t = tecnicaTipo.toLowerCase();
-  if (t.includes("superserie")) return { color: "var(--color-tecnica-superserie)", etiqueta: "Superserie" };
-  if (t.includes("biserie") || t.includes("biset"))
-    return { color: "var(--color-tecnica-biserie)", etiqueta: "Biserie" };
-  if (t.includes("triserie")) return { color: "var(--color-tecnica-triserie)", etiqueta: "Triserie" };
-  if (t.includes("giant set")) return { color: "var(--color-tecnica-giant)", etiqueta: "Giant Set" };
-  if (t.includes("circuito") || t.includes("tabata"))
-    return { color: "var(--color-tecnica-circuito)", etiqueta: "Circuito" };
-  return null;
 }
 
 const FilaSerie = forwardRef<
@@ -1095,7 +1075,12 @@ export const SesionEjercicioCard = forwardRef<
               </div>
             </div>
           </div>
-          <CuadroFotoReferencia ilustracionSlug={ejercicio.ilustracionSlug} nombre={ejercicio.nombre} />
+          <CuadroFotoReferencia
+            ilustracionSlug={ejercicio.ilustracionSlug}
+            fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
+            fotoCompletaUrl={ejercicio.fotoCompletaUrl}
+            nombre={ejercicio.nombre}
+          />
         </div>
 
         {/* Los números que se consultan de reojo entre serie y serie, ahora a

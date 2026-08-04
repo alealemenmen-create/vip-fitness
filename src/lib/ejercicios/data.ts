@@ -1,7 +1,7 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { COLUMNAS_EJERCICIO, aEjercicio, type Ejercicio } from "./tipos";
+import { COLUMNAS_EJERCICIO, COLUMNAS_EJERCICIO_SIN_FOTOS, aEjercicio, type Ejercicio } from "./tipos";
 
 export const TAG_BIBLIOTECA_EJERCICIOS = "biblioteca-ejercicios";
 
@@ -30,13 +30,27 @@ export const TAG_BIBLIOTECA_EJERCICIOS = "biblioteca-ejercicios";
 export const obtenerBiblioteca = unstable_cache(
   async (): Promise<Ejercicio[]> => {
     const supabase = createAdminClient();
-    const { data } = await supabase
+
+    // Si la migración 0042 (foto_miniatura_url/foto_completa_url) todavía no
+    // corrió en este entorno, pedir esas columnas hace fallar el select
+    // ENTERO — antes se leía `data ?? []` sin mirar el error, así que la
+    // biblioteca se quedaba vacía en silencio para toda la app. Mismo
+    // respaldo encadenado que ya usa obtenerSesionCompleta para 0026/0031.
+    const conFotos = await supabase
       .from("ejercicios")
       .select(COLUMNAS_EJERCICIO)
       .eq("activo", true)
       .order("nombre");
 
-    return ((data ?? []) as unknown as Parameters<typeof aEjercicio>[0][]).map(aEjercicio);
+    const resultado = conFotos.error
+      ? await supabase
+          .from("ejercicios")
+          .select(COLUMNAS_EJERCICIO_SIN_FOTOS)
+          .eq("activo", true)
+          .order("nombre")
+      : conFotos;
+
+    return ((resultado.data ?? []) as unknown as Parameters<typeof aEjercicio>[0][]).map(aEjercicio);
   },
   ["biblioteca-ejercicios"],
   { revalidate: 3600, tags: [TAG_BIBLIOTECA_EJERCICIOS] }

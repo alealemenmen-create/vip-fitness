@@ -742,6 +742,10 @@ export interface Database {
           tempo: string | null;
           tempo_nota: string | null;
           tempo_origen: "ia" | "entrenador" | null;
+          // 0042_fotos_ejercicios_admin.sql — fotos subidas desde
+          // /admin/ejercicios, mandan sobre `ilustracion_slug` cuando existen.
+          foto_miniatura_url: string | null;
+          foto_completa_url: string | null;
           activo: boolean;
           created_at: string;
         };
@@ -787,6 +791,8 @@ export interface Database {
           tempo?: string | null;
           tempo_nota?: string | null;
           tempo_origen?: "ia" | "entrenador" | null;
+          foto_miniatura_url?: string | null;
+          foto_completa_url?: string | null;
           activo?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["ejercicios"]["Insert"]>;

@@ -297,6 +297,11 @@ export type EjercicioSesion = {
   /** Qué dibujo mostrar. Null si el ejercicio no está emparejado con la
    * biblioteca o si todavía no corrió la migración 0026. */
   ilustracionSlug: string | null;
+  /** Fotos subidas desde /admin/ejercicios — mandan sobre `ilustracionSlug`
+   * cuando existen. Null si el ejercicio no tiene, o si no corrió la
+   * migración 0042 todavía. */
+  fotoMiniaturaUrl: string | null;
+  fotoCompletaUrl: string | null;
   /** Cuánto dura cada fase de la repetición. Null cuando ni la rutina lo trae
    * escrito ni la biblioteca lo tiene calculado todavía. */
   tempo: Tempo | null;
@@ -379,6 +384,8 @@ export async function obtenerSesionCompleta(
     /** Cómo se ejecuta el ejercicio según la biblioteca del gimnasio. Es la
      * sugerencia que se muestra cuando la rutina no pide una técnica puntual. */
     tecnica?: string | null;
+    foto_miniatura_url?: string | null;
+    foto_completa_url?: string | null;
   };
 
   type FilaSesionEjercicio = {
@@ -402,13 +409,16 @@ export async function obtenerSesionCompleta(
     } | null;
   };
 
-  // Tres intentos encadenados, del select más completo al más pobre: con
-  // tempo (migración 0031), sin tempo pero con biblioteca (0026), y pelado.
-  // Cada migración que todavía no haya corrido se degrada sola en vez de
-  // dejar al alumno sin pantalla de entrenamiento.
-  const intento = await consultarEjercicios(
-    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, tempo, tempo_nota, tecnica)`
+  // Cuatro intentos encadenados, del select más completo al más pobre: con
+  // fotos de admin (migración 0042), con tempo (0031), sin tempo pero con
+  // biblioteca (0026), y pelado. Cada migración que todavía no haya corrido
+  // se degrada sola en vez de dejar al alumno sin pantalla de entrenamiento.
+  const intentoConFotos = await consultarEjercicios(
+    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, tempo, tempo_nota, tecnica, foto_miniatura_url, foto_completa_url)`
   );
+  const intento = intentoConFotos.error
+    ? await consultarEjercicios(`${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, tempo, tempo_nota, tecnica)`)
+    : intentoConFotos;
   const conBiblioteca = intento.error
     ? await consultarEjercicios(`${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug)`)
     : intento;
@@ -462,6 +472,8 @@ export async function obtenerSesionCompleta(
       tecnicaSugerida: dellaBiblioteca?.tecnica ?? null,
       grupoMuscular: prog.grupo_muscular,
       ilustracionSlug: dellaBiblioteca?.ilustracion_slug ?? null,
+      fotoMiniaturaUrl: dellaBiblioteca?.foto_miniatura_url ?? null,
+      fotoCompletaUrl: dellaBiblioteca?.foto_completa_url ?? null,
       // Lo que el entrenador escribió en la rutina gana sobre lo que dedujo la
       // IA para la biblioteca. Ver src/lib/ejercicios/tempo.ts.
       tempo: resolverTempo(

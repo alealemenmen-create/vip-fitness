@@ -13,6 +13,8 @@ import { obtenerConfiguracionAsistenteVip } from "@/lib/asistente/configuracion"
 import { ConfiguracionAsistenteVip } from "@/components/admin/ConfiguracionAsistenteVip";
 import { GavetaConfig } from "@/components/admin/GavetaConfig";
 import { TituloPestana } from "@/components/admin/TituloPestana";
+import Link from "next/link";
+import { Images, ChevronRight } from "lucide-react";
 
 export default async function ConfiguracionAdminPage() {
   await requireRol(["entrenador", "admin"]);
@@ -32,6 +34,22 @@ export default async function ConfiguracionAdminPage() {
       <p className="text-secondary text-text-secondary">
         Automatizaciones útiles que siempre quedan bajo control del entrenador.
       </p>
+      <Link href="/admin/ejercicios" className="block">
+        <Card className="flex items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-vip/15 text-vip">
+            <Images size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="text-secondary block font-semibold text-text">
+              Galería de ejercicios
+            </span>
+            <span className="text-caption block text-text-tertiary">
+              Fotos de cada ejercicio — subir, cambiar o agregar nuevas
+            </span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
+        </Card>
+      </Link>
       <GavetaConfig titulo="Mi cuenta" subtitulo="Contraseña y correo">
         <CambiarMiPassword />
         <Card className="space-y-3 p-4">
