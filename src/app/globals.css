@@ -28,6 +28,16 @@
   /* Amarillo de "vas a medias" (51-69%) en los círculos de Tu Semana. */
   --color-warning: #f5b301;
 
+  /* Un color por familia de técnica encadenada (superserie, biserie,
+     triserie, giant set, circuito) — ver `resolverGrupoTecnica` en
+     SesionEjercicioCard.tsx. Fijos en los 3 temas de botón: son una señal de
+     agrupación, no de identidad de marca, así que no cambian con el acento. */
+  --color-tecnica-superserie: #3b82f6;
+  --color-tecnica-biserie: #a855f7;
+  --color-tecnica-triserie: #ec4899;
+  --color-tecnica-giant: #f97316;
+  --color-tecnica-circuito: #14b8a6;
+
   /*
     Macros de Alimentación. NO son colores fijos: cada uno se tiñe con el
     acento del tema activo (--color-vip), así la misma pantalla se siente VIP,
@@ -82,6 +92,17 @@
   --color-text: #ffffff;
   --color-text-secondary: #a1a7b3;
   --color-text-tertiary: #6f7682;
+}
+
+/* Variante para la tarjeta de ejercicio en Entrenar: mismo negro de base,
+   pero con los recuadros internos (fila de Series/Reps/Descanso/Tempo, el
+   cuadro vacío de foto, la nota) más oscuros — se pedía que no se vieran
+   grises al lado de la tarjeta negra — y el texto secundario/terciario más
+   claro, para que contraste mejor sobre tanto negro. */
+.tarjeta-ejercicio-oscura {
+  --color-surface-2: #0c0d10;
+  --color-text-secondary: #c2c8d1;
+  --color-text-tertiary: #8b93a0;
 }
 
 @theme inline {
@@ -620,6 +641,47 @@ input[type="date"]::-webkit-date-and-time-value {
   }
 }
 
+/* Anillo ámbar sutil para el muñeco/foto de grupo muscular en la cabecera del
+   ejercicio — el mismo trazo fino con el que la identidad VIP enmarca fotos
+   de perfil y emblemas, aplicado acá sin agrandar el ícono. */
+.anillo-vip-suave {
+  padding: 2px;
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--color-vip) 55%, transparent),
+    color-mix(in srgb, var(--color-vip) 12%, transparent)
+  );
+}
+
+/* Tarjeta de la técnica del ejercicio: antes un párrafo suelto, ahora un
+   cuadro con su propio fondo y borde para que se lea como una pieza de
+   información aparte, no como continuación del texto de arriba. */
+.tarjeta-tecnica {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border);
+}
+:root[data-theme="light"] .tarjeta-tecnica {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* Píldora de la técnica ("Rest-Pause", "Drop Set", "Tempo") en la cabecera
+   del ejercicio — antes era texto plano gris, ahora un chip que se lee como
+   una etiqueta, igual que en la referencia. */
+.pill-tecnica {
+  padding: 2px 9px;
+  border-radius: 9999px;
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--color-border);
+}
+:root[data-theme="light"] .pill-tecnica {
+  background: rgba(0, 0, 0, 0.04);
+}
+
 /* Destello neutro, lento y casi imperceptible para el ejercicio activo. */
 .panel-ejercicio-activo {
   --destello-ejercicio: rgba(255, 255, 255, 0.12);
@@ -693,41 +755,53 @@ input[type="date"]::-webkit-date-and-time-value {
   el ojo va ahí sin buscar.
 */
 .fila-serie[data-activa="true"] {
-  border-color: color-mix(in srgb, var(--color-vip) 45%, transparent);
-}
-.fila-serie[data-activa="true"]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
+  /* Todo el cuadro se tiñe de ámbar, no solo el borde — mismo recurso que
+     `data-descansando` (un poco más suave, para distinguir "te toca ahora"
+     de "estás descansando"), más un resplandor que respira alrededor de
+     toda la fila. Nada se desplaza — mismo lenguaje que "Iniciar rutina". */
   background: linear-gradient(
-    100deg,
-    transparent 35%,
-    color-mix(in srgb, var(--color-vip) 26%, transparent) 50%,
-    transparent 65%
+    180deg,
+    color-mix(in srgb, var(--color-vip) 13%, transparent) 0%,
+    color-mix(in srgb, var(--color-vip) 4%, transparent) 100%
   );
-  will-change: transform;
-  backface-visibility: hidden;
-  animation: barrido-serie-activa 2.5s ease-in-out infinite;
+  border-color: color-mix(in srgb, var(--color-vip) 45%, transparent);
+  animation: respiracion-fila-activa 2.6s ease-in-out infinite;
 }
-@keyframes barrido-serie-activa {
-  0% {
-    transform: translateX(-100%);
-  }
-  /* La pausa al final es a propósito: sin ella el barrido es un estrobo
-     constante y cansa a los cuarenta minutos de entrenamiento. */
-  60%,
+@keyframes respiracion-fila-activa {
+  0%,
   100% {
-    transform: translateX(100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      0 0 10px color-mix(in srgb, var(--color-vip) 22%, transparent);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      0 0 24px color-mix(in srgb, var(--color-vip) 50%, transparent);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .fila-serie[data-activa="true"]::after {
+  .fila-serie[data-activa="true"] {
     animation: none;
-    opacity: 0.5;
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-vip) 25%, transparent);
   }
 }
+
+/* Descansando: fondo ámbar tibio de punta a punta, como la referencia — no
+   solo el borde marcado, toda la fila se calienta de color mientras corre
+   la cuenta regresiva, para que se distinga de un vistazo de las demás. */
+.fila-serie[data-descansando="true"] {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-vip) 20%, transparent) 0%,
+    color-mix(in srgb, var(--color-vip) 7%, transparent) 100%
+  );
+  border-color: color-mix(in srgb, var(--color-vip) 60%, transparent);
+}
+/* Se pidió sacar el barrido (la franja de luz que cruzaba la fila) — ahora
+   lo que marca "esta serie toca ahora" es solo el resplandor fijo del botón
+   de la derecha (ver `.boton-descanso[data-estado="pendiente"]`), sin nada
+   en movimiento. */
 
 /* El número de serie: disco con canto, no un círculo de contorno. Hecho pasa a
    ámbar sólido con el número en negro — el contraste más fuerte de la fila. */
@@ -757,61 +831,54 @@ input[type="date"]::-webkit-date-and-time-value {
     0 1px 6px color-mix(in srgb, var(--color-vip) 35%, transparent);
 }
 
-/* Los campos van HUNDIDOS (sombra hacia adentro) mientras la fila y el número
-   sobresalen: esa diferencia es la que dice "acá se escribe" sin necesidad de
-   una etiqueta más. */
-.campo-serie {
+/* Campo plano de carga/reps, como la referencia: sin caja ni fondo propio,
+   solo el número grande y la unidad chica al lado — el separador vertical
+   entre los dos campos (.separador-serie) es lo que los distingue, no una
+   caja para cada uno. */
+.campo-serie-plano {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  align-items: baseline;
+  gap: 5px;
   min-width: 0;
-  padding: 6px 10px;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
-  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.campo-serie:focus-within {
-  border-color: color-mix(in srgb, var(--color-vip) 55%, transparent);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.45),
-    0 0 0 2px color-mix(in srgb, var(--color-vip) 18%, transparent);
-}
-:root[data-theme="light"] .campo-serie {
-  background: rgba(0, 0, 0, 0.04);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
-}
-.campo-serie input {
+.campo-serie-plano input {
   width: 100%;
   min-width: 0;
   background: transparent;
   border: 0;
   outline: none;
   color: var(--color-text);
-  font-size: calc(12px * var(--escala-texto));
-  font-weight: 600;
+  font-size: calc(17px * var(--escala-texto));
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.campo-serie input:disabled {
+.campo-serie-plano input::placeholder {
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+}
+.campo-serie-plano input:disabled {
   opacity: 0.4;
 }
-/* Las flechitas de <input type=number> apretaban el valor contra la etiqueta y
-   no se usan nunca con el dedo. */
-.campo-serie input::-webkit-outer-spin-button,
-.campo-serie input::-webkit-inner-spin-button {
+.campo-serie-plano input::-webkit-outer-spin-button,
+.campo-serie-plano input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-.campo-serie input[type="number"] {
+.campo-serie-plano input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
 .campo-serie-etiqueta {
   flex-shrink: 0;
-  font-size: calc(11px * var(--escala-texto));
+  font-size: calc(13px * var(--escala-texto));
   font-weight: 500;
   color: var(--color-text-tertiary);
+}
+.separador-serie {
+  flex-shrink: 0;
+  width: 1px;
+  height: 22px;
+  background: var(--color-border);
 }
 
 /*
@@ -828,7 +895,7 @@ input[type="date"]::-webkit-date-and-time-value {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 96px;
+  width: 104px;
   flex-shrink: 0;
   /* min-height y no height: con la escala de texto grande el contenido crece y
      con alto fijo se salía del botón. */
@@ -839,23 +906,19 @@ input[type="date"]::-webkit-date-and-time-value {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--color-text);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+  /* Plano, sin degradado ni sombra interna — se pidió sacar el efecto 3D/
+     relieve que tenían estos botones. El color y el borde siguen marcando
+     cada estado, solo cambia la forma de "material" a "chip" liso. */
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 1px 3px rgba(0, 0, 0, 0.4);
-  transition: background 0.25s, color 0.25s, border-color 0.25s, box-shadow 0.25s,
-    transform 0.1s;
+  transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.1s;
 }
 .boton-descanso:active {
   transform: scale(0.96);
 }
 :root[data-theme="light"] .boton-descanso {
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.07));
+  background: rgba(0, 0, 0, 0.05);
   border-color: var(--color-border);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 /* El contenido va por encima de la barra que se vacía. */
@@ -873,17 +936,64 @@ input[type="date"]::-webkit-date-and-time-value {
   font-weight: 600;
   color: var(--color-text-tertiary);
 }
+.boton-descanso-etiqueta {
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--color-vip) 75%, var(--color-text-tertiary));
+}
 
 /* Pendiente: insinuado en ámbar, no negro. Es el único botón de la fila que hay
    que tocar, y tiene que pedirlo sin gritar. */
 .boton-descanso[data-estado="pendiente"] {
   color: var(--color-vip);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-vip) 16%, transparent),
-    color-mix(in srgb, var(--color-vip) 6%, transparent)
-  );
-  border-color: color-mix(in srgb, var(--color-vip) 40%, transparent);
+  background: color-mix(in srgb, var(--color-vip) 16%, transparent);
+  border-color: color-mix(in srgb, var(--color-vip) 55%, transparent);
+  /* Resplandor que respira, mismo lenguaje que "Iniciar rutina" en Entrenar
+     (.boton-entrenar-pulso / respiracion-entrenar): sin barrido que cruce el
+     botón, solo el brillo creciendo y bajando en el lugar — es la señal de
+     "esta serie toca ahora, tocá acá". */
+  animation: respiracion-entrenar 2.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .boton-descanso[data-estado="pendiente"] {
+    animation: none;
+    box-shadow: 0 0 14px color-mix(in srgb, var(--color-vip) 45%, transparent);
+  }
+}
+
+/* Ejercicio encadenado (superserie/biserie/triserie/circuito): el botón de
+   la serie que toca ahora suma un segundo resplandor con el color de la
+   familia (ver `--color-glow-tecnica`, inyectado desde SesionEjercicioCard),
+   además del ámbar de siempre — así se distingue de lejos que este
+   ejercicio va pegado a otro. */
+.boton-descanso[data-grupo-tecnica="true"][data-estado="pendiente"] {
+  border-color: var(--color-glow-tecnica);
+  /* Propio keyframe: el que respira solo con ámbar no incluye el anillo del
+     color de grupo, y una animación pisa cualquier box-shadow estático que
+     se le ponga aparte. */
+  animation: respiracion-entrenar-grupo 2.6s ease-in-out infinite;
+}
+@keyframes respiracion-entrenar-grupo {
+  0%,
+  100% {
+    box-shadow:
+      0 6px 22px color-mix(in srgb, var(--color-vip) 40%, transparent),
+      0 0 0 2px color-mix(in srgb, var(--color-glow-tecnica) 45%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 10px 34px color-mix(in srgb, var(--color-vip) 75%, transparent),
+      0 0 26px color-mix(in srgb, var(--color-vip) 50%, transparent),
+      0 0 0 2px color-mix(in srgb, var(--color-glow-tecnica) 70%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boton-descanso[data-grupo-tecnica="true"][data-estado="pendiente"] {
+    animation: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-glow-tecnica) 55%, transparent);
+  }
 }
 .boton-descanso[data-estado="pendiente"] .boton-descanso-segundos {
   color: color-mix(in srgb, var(--color-vip) 70%, var(--color-text-tertiary));
@@ -919,11 +1029,18 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 
 /* En pausa: todo se apaga a gris. Lo que se ve es que ACÁ no está corriendo el
-   tiempo, porque arrancó el descanso de otra serie. */
+   tiempo, porque arrancó el descanso de otra serie o todavía no es su turno.
+   Píldora chata, sin borde marcado — como la referencia, "Pendiente" se lee
+   como estado inerte, no como algo para tocar ya. */
 .boton-descanso[data-estado="pausado"] {
   color: var(--color-text-tertiary);
-  border-color: var(--color-text-tertiary);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  background: rgba(255, 255, 255, 0.05);
+  border-color: transparent;
+  box-shadow: none;
+  font-weight: 600;
+}
+:root[data-theme="light"] .boton-descanso[data-estado="pausado"] {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 /* Botón para empezar el día en Entrenar: es el llamado a la acción más
@@ -959,11 +1076,7 @@ input[type="date"]::-webkit-date-and-time-value {
    confirmar que es en serio". */
 .boton-descanso[data-estado="confirmar"] {
   color: var(--color-vip);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-vip) 26%, transparent),
-    color-mix(in srgb, var(--color-vip) 10%, transparent)
-  );
+  background: color-mix(in srgb, var(--color-vip) 18%, transparent);
   border-color: var(--color-vip);
   animation: confirmar-pulso 0.6s ease-in-out infinite;
 }
@@ -986,15 +1099,11 @@ input[type="date"]::-webkit-date-and-time-value {
    lo que sigue, que es lo único que hay que hacer en ese momento. */
 .boton-descanso[data-estado="avisando"] {
   color: #000;
-  background: linear-gradient(
-    160deg,
-    var(--color-vip),
-    color-mix(in srgb, var(--color-vip) 66%, #000)
-  );
+  background: var(--color-vip);
   border-color: transparent;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 0 16px color-mix(in srgb, var(--color-vip) 45%, transparent);
+  /* Sin inset (eso era el relieve/3D) — el resplandor de afuera se mantiene,
+     porque avisa algo (terminó el descanso), no es una textura de material. */
+  box-shadow: 0 0 16px color-mix(in srgb, var(--color-vip) 45%, transparent);
 }
 .flechas-seguir {
   display: flex;
@@ -1017,13 +1126,28 @@ input[type="date"]::-webkit-date-and-time-value {
   }
 }
 
-/* Hecha: contraste blanco y negro, sin fondo ámbar — el ámbar ya lo tienen el
-   disco del número y la fila entera. */
-.boton-descanso[data-estado="hecha"] {
-  color: var(--color-bg);
-  background: var(--color-text);
-  border-color: var(--color-text);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+/* Hecha: casillero cuadrado ámbar con tilde, como la referencia — en vez de
+   la píldora ancha "Listo". Se achica y centra sobre sí mismo en vez de
+   ocupar el ancho de siempre: los 96px eran para el texto, un ícono solo no
+   los necesita. */
+.boton-descanso[data-estado="hecha"],
+.boton-descanso[data-estado="confirmar-deshacer"] {
+  width: 30px;
+  min-height: 30px;
+  margin-left: auto;
+  padding: 0;
+  border-radius: 8px;
+  color: #000;
+  background: var(--color-vip);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* Semibloqueo de 2 toques para deshacer una serie ya hecha: el primer toque
+   no la desmarca, solo hace pulsar el casillero — recién el segundo toque
+   (dentro de los 2s) la deshace de verdad. */
+.boton-descanso[data-estado="confirmar-deshacer"] {
+  animation: confirmar-pulso 0.5s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1033,6 +1157,9 @@ input[type="date"]::-webkit-date-and-time-value {
   }
   .boton-descanso-relleno {
     transition: none;
+  }
+  .boton-descanso[data-estado="confirmar-deshacer"] {
+    animation: none;
   }
 }
 
@@ -1124,6 +1251,41 @@ input[type="date"]::-webkit-date-and-time-value {
   .flecha-siguiente-ejercicio {
     animation: none;
     opacity: 0.55;
+  }
+}
+
+/* Transición suave del visor de foto ampliada (FotoReferenciaAmpliable): el
+   fondo se desvanece y la foto entra con un leve acercamiento, en vez de
+   aparecer de golpe. Solo de entrada — al cerrar, el modal se desmonta al
+   toque, que es lo esperado para un cierre rápido. */
+.animate-visor-fondo {
+  animation: visor-fondo-entrada 0.22s ease-out;
+}
+@keyframes visor-fondo-entrada {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-visor-foto {
+  animation: visor-foto-entrada 0.25s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+@keyframes visor-foto-entrada {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-visor-fondo,
+  .animate-visor-foto {
+    animation: none;
   }
 }
 

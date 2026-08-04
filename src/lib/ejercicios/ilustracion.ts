@@ -134,6 +134,50 @@ const ILUSTRACIONES_DISPONIBLES = new Map<string, "webp" | "jpg" | "png" | "svg"
   ['zancadas', 'webp'],
 ]);
 
+/**
+ * Fotos ORIGINALES, sin recortar, tal como las tomó el entrenador en el
+ * gimnasio — para el visor ampliado (tocar la foto de referencia y verla
+ * completa). Son un archivo aparte de `ILUSTRACIONES_DISPONIBLES`: esas ya
+ * están recortadas/procesadas para la miniatura chica de la tarjeta, y
+ * recortar de nuevo esa versión no devuelve la foto completa que se pidió.
+ *
+ * Viven en public/ejercicios-completas/<slug>.webp, redimensionadas a 1400px
+ * de ancho (no recortadas, mismo encuadre completo del original) para no
+ * pesar varios MB por foto — ver `resize-fotos-completas.mjs` en la raíz del
+ * repo, que las generó a partir de `_fotos_ejercicios_staging/`.
+ *
+ * Todavía no todos los ejercicios tienen su foto completa identificada: el
+ * componente cae a la miniatura recortada cuando no hay entrada acá.
+ */
+const FOTOS_COMPLETAS_DISPONIBLES = new Set([
+  "aductores", "aperturas-inclinado", "aperturas-polea", "aperturas", "belt-squat",
+  "bicicleta", "buenos-dias", "bulgara", "burpees", "crunch-maquina", "crunch-polea",
+  "crunch", "curl-barra", "curl-concentrado", "curl-femoral-sentado", "curl-femoral",
+  "curl-inclinado", "curl-martillo", "curl-polea-alta", "curl-polea", "curl-predicador",
+  "dead-bug", "elevacion-piernas-colgado", "elevacion-piernas", "elevacion-rodillas-silla",
+  "elevaciones-frontales", "elevaciones-laterales", "encogimientos", "extension-cuadriceps",
+  "extension-unilateral", "face-pull", "farmer-walk", "femoral-unilateral", "flexiones",
+  "fondos", "frog-pumps", "hack-squat", "hip-thrust", "hiperextensiones",
+  "jalon-agarre-cerrado", "jalon-pecho", "kettlebell-swing", "maquina-aductores",
+  "mountain-climbers", "multi-hip", "pajaros", "patada-gluteo-polea", "patada-triceps",
+  "peso-muerto-rumano-mancuernas", "peso-muerto-rumano", "peso-muerto-sumo", "peso-muerto",
+  "plancha-lateral", "plancha", "prensa", "press-banca", "press-cerrado", "press-frances",
+  "press-hombro-mancuernas", "press-inclinado", "press-maquina", "press-militar",
+  "press-plano-mancuernas", "puente-gluteos", "pull-through", "pullover-mancuerna",
+  "pullover", "remo-barra", "remo-hammer", "remo-mancuerna", "remo-menton", "remo-sentado",
+  "rueda-abdominal", "russian-twist", "sentadilla-frontal", "sentadilla-goblet",
+  "sentadilla-libre-trasera", "sentadilla-smith", "sentadilla-sumo", "sentadilla",
+  "sissy-squat", "subida-cajon", "triceps-polea", "triceps-sobre-cabeza", "zancadas",
+]);
+
+/** La foto completa del ejercicio para el visor ampliado, o `null` si todavía
+ * no se identificó cuál es (el visor cae a la miniatura recortada en ese
+ * caso — sigue siendo la foto entera, solo que ya venía recortada de antes). */
+export function resolverFotoCompleta(ilustracionSlug: string | null | undefined): string | null {
+  if (!ilustracionSlug || !FOTOS_COMPLETAS_DISPONIBLES.has(ilustracionSlug)) return null;
+  return `/ejercicios-completas/${ilustracionSlug}.webp`;
+}
+
 export function resolverIlustracion(
   ilustracionSlug: string | null | undefined,
   grupoMuscular: GrupoMuscular | null | undefined

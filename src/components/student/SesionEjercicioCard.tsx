@@ -1,10 +1,11 @@
 "use client";
 
 import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import {
   Check,
   ChevronDown,
+  ChevronRight,
   Play,
   Layers,
   Repeat,
@@ -12,13 +13,16 @@ import {
   Gauge,
   ImageIcon,
   NotebookPen,
+  Maximize2,
+  X,
+  Info,
 } from "lucide-react";
 import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { guardarSeries, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
-import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
+import { resolverIlustracion, resolverFotoCompleta } from "@/lib/ejercicios/ilustracion";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { repsObjetivo, esEjercicioDeTiempo } from "@/lib/entrenamiento/reps";
 import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
@@ -43,6 +47,13 @@ type FilaSerieHandle = {
 };
 
 const initialState: GuardarSeriesState = { error: null };
+
+/** "01:15" en vez de "75s" — mismo dato, formato reloj como en la referencia. */
+function formatoRestante(segundos: number): string {
+  const m = Math.floor(segundos / 60);
+  const s = segundos % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
 function formatUltimo(u: EjercicioSesion["ultimoRegistro"], esTiempo: boolean) {
   if (!u) return null;
@@ -91,7 +102,14 @@ function CuadroFotoReferencia({
     );
   }
 
-  return <FotoReferenciaAmpliable src={src} nombre={nombre} tamano={tamano} />;
+  return (
+    <FotoReferenciaAmpliable
+      src={src}
+      srcCompleta={resolverFotoCompleta(ilustracionSlug)}
+      nombre={nombre}
+      tamano={tamano}
+    />
+  );
 }
 
 /**
@@ -104,14 +122,21 @@ function CuadroFotoReferencia({
  */
 function FotoReferenciaAmpliable({
   src,
+  srcCompleta,
   nombre,
   tamano,
 }: {
   src: string;
+  /** La foto ORIGINAL sin recortar, si ya se identificó cuál es (ver
+   * `resolverFotoCompleta`) — el visor la usa en vez de `src` (que es la
+   * versión recortada de la miniatura) para que el alumno vea el ejercicio
+   * completo, tal como se tomó en el gimnasio. */
+  srcCompleta: string | null;
   nombre: string;
   tamano: { width: number; minHeight: number };
 }) {
   const [ampliada, setAmpliada] = useState(false);
+  const srcAmpliada = srcCompleta ?? src;
 
   return (
     <>
@@ -133,26 +158,48 @@ function FotoReferenciaAmpliable({
           // mitad de abajo de la persona en cuadros más anchos que altos.
           className="object-cover object-center"
         />
+        {/* Botón de expandir, chico y en la esquina (referencia de diseño):
+            un ícono basta como pista de que hay más para ver, sin tapar la
+            foto con una franja de texto. */}
+        <span className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm">
+          <Maximize2 size={12} strokeWidth={2.5} />
+        </span>
       </button>
 
       {ampliada &&
         createPortal(
-          <button
-            type="button"
+          <div
+            role="dialog"
+            aria-label={`Foto de referencia de ${nombre}`}
             onClick={() => setAmpliada(false)}
-            aria-label="Cerrar vista ampliada"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-6"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/90 p-4 animate-visor-fondo"
           >
-            <div className="relative aspect-square w-full max-w-md">
+            {/* Sin aspect-square: la foto se muestra tal cual está guardada,
+                con su proporción real (la mayoría son de cuerpo entero, más
+                altas que anchas), acotada por el alto y ancho de la pantalla
+                — no un cuadrado que la deja flotando con bordes vacíos. */}
+            <div
+              className="relative h-[75vh] w-full max-w-md animate-visor-foto"
+              onClick={(e) => e.stopPropagation()}
+            >
               <Image
-                src={src}
+                src={srcAmpliada}
                 alt={`Foto de referencia de ${nombre}`}
                 fill
                 sizes="90vw"
                 className="rounded-xl object-contain"
               />
             </div>
-          </button>,
+            <p className="text-caption text-white/70">{nombre}</p>
+            <button
+              type="button"
+              onClick={() => setAmpliada(false)}
+              aria-label="Cerrar vista ampliada"
+              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white"
+            >
+              <X size={20} />
+            </button>
+          </div>,
           document.body
         )}
     </>
@@ -233,6 +280,34 @@ function resolverTecnica(
   return deBiblioteca ? { texto: deBiblioteca, sugerida: true } : null;
 }
 
+/**
+ * Técnicas que encadenan varios ejercicios seguidos, casi sin descanso entre
+ * uno y otro (superserie, biserie, triserie, circuito, giant set...): el
+ * entrenador ya las escribe en `tecnica_tipo` como texto libre ("Superserie
+ * (1/2)", "Biserie (2/2)", "Circuito metabólico (1/3)"), y los dos o más
+ * ejercicios que forman el grupo comparten el mismo nombre de familia.
+ *
+ * Acá no se cambia el flujo de series (sigue siendo un ejercicio a la vez,
+ * en el orden de la rutina) — se resuelve un color por familia para que el
+ * alumno VEA de un vistazo qué ejercicios van encadenados entre sí, que es
+ * lo que se pidió: visualización, no una reestructuración del ejercicio en
+ * curso.
+ */
+type GrupoTecnica = { color: string; etiqueta: string };
+
+function resolverGrupoTecnica(tecnicaTipo: string | null | undefined): GrupoTecnica | null {
+  if (!tecnicaTipo) return null;
+  const t = tecnicaTipo.toLowerCase();
+  if (t.includes("superserie")) return { color: "var(--color-tecnica-superserie)", etiqueta: "Superserie" };
+  if (t.includes("biserie") || t.includes("biset"))
+    return { color: "var(--color-tecnica-biserie)", etiqueta: "Biserie" };
+  if (t.includes("triserie")) return { color: "var(--color-tecnica-triserie)", etiqueta: "Triserie" };
+  if (t.includes("giant set")) return { color: "var(--color-tecnica-giant)", etiqueta: "Giant Set" };
+  if (t.includes("circuito") || t.includes("tabata"))
+    return { color: "var(--color-tecnica-circuito)", etiqueta: "Circuito" };
+  return null;
+}
+
 const FilaSerie = forwardRef<
   FilaSerieHandle,
   {
@@ -263,6 +338,10 @@ const FilaSerie = forwardRef<
      * vuelve a estar pendiente y el barrido tiene que volver a ella. */
     onCicloDeshecho: (numero: number) => void;
     onIniciar: (numero: number) => void;
+    /** Color de la familia de técnica encadenada (superserie/biserie/...),
+     * si el ejercicio pertenece a una — el botón de la serie que toca ahora
+     * se ilumina con este color además del ámbar de siempre. */
+    colorGrupoTecnica?: string | null;
   }
 >(function FilaSerie(
   {
@@ -280,6 +359,7 @@ const FilaSerie = forwardRef<
     onCicloDeshecho,
     onIniciar,
     onGuardar,
+    colorGrupoTecnica,
   },
   ref
 ) {
@@ -301,9 +381,18 @@ const FilaSerie = forwardRef<
   const confirmacionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const TOQUES_CONFIRMACION = 3;
 
+  /** Semibloqueo para deshacer una serie ya marcada: un solo toque por error
+   * sobre el check no la desmarca — hacen falta 2 toques seguidos. Mismo
+   * mecanismo que el de arriba (fuera de turno), con su propio contador
+   * porque son dos gestos distintos que pueden pasar en momentos distintos. */
+  const [tocandoDeshacer, setTocandoDeshacer] = useState(0);
+  const deshacerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const TOQUES_DESHACER = 2;
+
   useEffect(() => {
     return () => {
       if (confirmacionTimeoutRef.current) clearTimeout(confirmacionTimeoutRef.current);
+      if (deshacerTimeoutRef.current) clearTimeout(deshacerTimeoutRef.current);
     };
   }, []);
 
@@ -312,8 +401,10 @@ const FilaSerie = forwardRef<
       // Fuerza la serie como hecha ya mismo, corte el descanso si estaba
       // corriendo — lo usa el botón "Ejercicio listo" para saltar todo.
       limpiarDescanso(sesionId, sesionEjercicioId, numero);
-      setRealizada(true);
-      setRestante(null);
+      flushSync(() => {
+        setRealizada(true);
+        setRestante(null);
+      });
       if (!avisadoRef.current) {
         avisadoRef.current = true;
         onCicloCompleto(numero);
@@ -332,7 +423,9 @@ const FilaSerie = forwardRef<
     : avisandoSiguiente
       ? "avisando"
       : realizada
-        ? "hecha"
+        ? tocandoDeshacer > 0
+          ? "confirmar-deshacer"
+          : "hecha"
         : tocandoConfirmacion > 0
           ? "confirmar"
           // Fuera de turno se pinta como "pausado" (gris, apagado) en vez del
@@ -458,9 +551,16 @@ const FilaSerie = forwardRef<
       // Antes lo reiniciaba, y un toque accidental no tenía vuelta atrás salvo
       // esperar los 150 segundos completos.
       limpiarDescanso(sesionId, sesionEjercicioId, numero);
-      setRestante(null);
-      setRealizada(false);
-      setAvisandoSiguiente(false);
+      // flushSync: `onGuardar` lee el <input hidden> de "realizada" del DOM
+      // (vía FormData) apenas termina esta función. Sin forzar el
+      // re-render acá, React todavía no había pintado el "false" nuevo y el
+      // guardado mandaba el valor viejo ("true") — la serie quedaba marcada
+      // como hecha en el servidor aunque en pantalla se viera deshecha.
+      flushSync(() => {
+        setRestante(null);
+        setRealizada(false);
+        setAvisandoSiguiente(false);
+      });
       avisadoRef.current = false;
       onCicloDeshecho(numero);
       onGuardar();
@@ -468,11 +568,27 @@ const FilaSerie = forwardRef<
     }
 
     if (realizada) {
-      // Ya terminó el descanso: permite deshacer un toque accidental. Sin
-      // semibloqueo acá — arrepentirse tiene que ser fácil, lo que hay que
-      // frenar es completar por error, no deshacer.
-      setRealizada(false);
-      setAvisandoSiguiente(false);
+      // El check queda a mano del pulgar al lado de los campos: un toque de
+      // más ahí lo desmarcaba sin querer. Mismo semibloqueo que las series
+      // fuera de turno, pero con 2 toques (acá el error es más fácil de
+      // cometer sin querer, no hace falta pedir 3).
+      const siguiente = tocandoDeshacer + 1;
+      if (siguiente < TOQUES_DESHACER) {
+        setTocandoDeshacer(siguiente);
+        if (deshacerTimeoutRef.current) clearTimeout(deshacerTimeoutRef.current);
+        deshacerTimeoutRef.current = setTimeout(() => setTocandoDeshacer(0), 2000);
+        return;
+      }
+      setTocandoDeshacer(0);
+      if (deshacerTimeoutRef.current) {
+        clearTimeout(deshacerTimeoutRef.current);
+        deshacerTimeoutRef.current = null;
+      }
+
+      flushSync(() => {
+        setRealizada(false);
+        setAvisandoSiguiente(false);
+      });
       avisadoRef.current = false;
       onCicloDeshecho(numero);
       onGuardar();
@@ -496,7 +612,7 @@ const FilaSerie = forwardRef<
       }
     }
 
-    setRealizada(true);
+    flushSync(() => setRealizada(true));
     if (descansoSegundos && descansoSegundos > 0) {
       // Este toque es el gesto del usuario que habilita el audio: el pitido va a
       // sonar dentro de un temporizador, y para entonces ya no hay gesto que
@@ -520,36 +636,40 @@ const FilaSerie = forwardRef<
     // cabecera del siguiente tienen que entrar juntas en una pantalla de
     // celular — que es como se usa esto, apoyado en el banco.
     <div
-      className="fila-serie p-1.5"
+      className="fila-serie p-3"
       data-hecha={realizada ? "true" : "false"}
       data-activa={esLaQueToca ? "true" : "false"}
+      data-descansando={descansando ? "true" : "false"}
     >
       <input type="hidden" name={`peso_corporal_${numero}`} value={esPesoCorporal ? "true" : "false"} />
       <input type="hidden" name={`realizada_${numero}`} value={realizada ? "true" : "false"} />
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         {/* Número en disco y no "#1": con el celular apoyado y de reojo, la
             forma se distingue antes que el texto, y marca dónde arranca la fila. */}
         <span className="numero-serie" data-hecha={realizada ? "true" : "false"}>
           {numero}
         </span>
-        {/* La unidad va DESPUÉS del número, como se dice: "25 kg", no "kg 25". */}
-        <label className="campo-serie flex-1">
+        {/* Campos planos, sin caja propia — la referencia no encierra cada
+            número en su propio recuadro, es un solo renglón con un separador
+            vertical entre carga y repeticiones. */}
+        <label className="campo-serie-plano flex-1">
           <input
             name={`peso_${numero}`}
             type="number"
             step="0.5"
             min="0"
             inputMode="decimal"
-            placeholder="Carga"
+            placeholder="—"
             disabled={esPesoCorporal}
             defaultValue={inicial?.pesoKg ?? ""}
           />
           <span className="campo-serie-etiqueta">kg</span>
         </label>
+        <span className="separador-serie" aria-hidden />
         {/* La etiqueta va dentro del campo, a la izquierda del número: sin ella
             "8" al lado de la carga se leía como otro peso. */}
-        <label className="campo-serie w-[68px] shrink-0">
+        <label className="campo-serie-plano w-[64px] shrink-0">
           <input
             name={`reps_${numero}`}
             type="number"
@@ -571,7 +691,13 @@ const FilaSerie = forwardRef<
             type="button"
             onClick={presionarListo}
             data-estado={estadoBoton}
+            data-grupo-tecnica={colorGrupoTecnica && esLaQueToca ? "true" : "false"}
             className="boton-descanso"
+            style={
+              colorGrupoTecnica
+                ? ({ "--color-glow-tecnica": colorGrupoTecnica } as React.CSSProperties)
+                : undefined
+            }
             aria-label={
               descansando
                 ? activo
@@ -580,11 +706,13 @@ const FilaSerie = forwardRef<
                 : realizada
                   ? avisandoSiguiente
                     ? "Descanso terminado — seguí con lo que viene"
-                    : "Serie lista"
+                    : tocandoDeshacer > 0
+                      ? "Tocá de nuevo para deshacer esta serie"
+                      : "Serie lista"
                   : tocandoConfirmacion > 0
                     ? `Esta no es la serie en turno — tocá ${TOQUES_CONFIRMACION - tocandoConfirmacion} vez más para confirmar`
                     : esLaQueToca
-                      ? "Empezar a recuperar"
+                      ? "Empezar descanso"
                       : "Serie fuera de turno — tocar 3 veces para confirmar"
             }
           >
@@ -602,7 +730,16 @@ const FilaSerie = forwardRef<
             <span className="boton-descanso-contenido">
               {descansando ? (
                 activo ? (
-                  <span className="boton-descanso-cuenta">{restante}s</span>
+                  // Reloj + etiqueta + cuenta en formato mm:ss, como la
+                  // referencia — mismo dato que antes (segundos crudos),
+                  // solo el formato de lectura cambia.
+                  <span className="flex items-center gap-1.5">
+                    <Timer size={14} strokeWidth={2.5} />
+                    <span className="flex flex-col items-start leading-tight">
+                      <span className="boton-descanso-etiqueta">Descanso</span>
+                      <span className="boton-descanso-cuenta">{formatoRestante(restante ?? 0)}</span>
+                    </span>
+                  </span>
                 ) : (
                   <>
                     <Play size={13} strokeWidth={3} />
@@ -623,10 +760,11 @@ const FilaSerie = forwardRef<
                   ))}
                 </span>
               ) : realizada ? (
-                <>
-                  <Check size={14} strokeWidth={3} />
-                  <span>Listo</span>
-                </>
+                // Casillero tipo checkbox, como la referencia — mismo estado
+                // "hecha" de siempre, solo cambia de píldora con texto a
+                // cuadrito con tilde. Al primer toque para deshacer, el tilde
+                // pulsa en vez de desaparecer — recién al segundo se deshace.
+                <Check size={16} strokeWidth={3} />
               ) : tocandoConfirmacion > 0 ? (
                 // Semibloqueo de serie fuera de turno: el toque cuenta pero
                 // todavía no completa nada — avisa cuántos más faltan.
@@ -636,17 +774,18 @@ const FilaSerie = forwardRef<
                     {TOQUES_CONFIRMACION - tocandoConfirmacion === 1 ? "vez" : "veces"} más
                   </span>
                 </span>
-              ) : (
-                /* "Recupérate" y no "Descanso": el ejercicio ya dice arriba
-                   cuánto se descansa; acá lo que hace falta es la orden de qué
-                   hacer ahora. Sin ícono: el reloj de arena no agregaba nada que
-                   la palabra no dijera y descentraba el texto. */
+              ) : esLaQueToca ? (
                 <span className="flex flex-col items-center leading-tight">
-                  <span>Recupérate</span>
+                  <span>Descanso</span>
                   {descansoSegundos ? (
                     <span className="boton-descanso-segundos">{descansoSegundos}s</span>
                   ) : null}
                 </span>
+              ) : (
+                // Fuera de turno y todavía sin tocar: píldora neutra, como
+                // la referencia — el semibloqueo de 3 toques sigue igual,
+                // solo cambia de "Recupérate" apagado a esta etiqueta.
+                <span>Pendiente</span>
               )}
             </span>
           </button>
@@ -674,6 +813,7 @@ export const SesionEjercicioCard = forwardRef<
   const esTiempo = esEjercicioDeTiempo(ejercicio.repsProgramadas);
   const ultimoTexto = formatUltimo(ejercicio.ultimoRegistro, esTiempo);
   const tecnica = resolverTecnica(ejercicio);
+  const grupoTecnica = resolverGrupoTecnica(ejercicio.tecnicaTipo);
   const cardRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const enviadoRef = useRef(false);
@@ -689,6 +829,10 @@ export const SesionEjercicioCard = forwardRef<
   const [serieActivaNumero, setSerieActivaNumero] = useState<number | null>(null);
   const [mostrandoSiguiente, setMostrandoSiguiente] = useState(false);
   const filasRef = useRef(new Map<number, FilaSerieHandle>());
+  /** Nodo DOM de cada fila de serie, para centrarla en pantalla al terminar
+   * la anterior — no confundir con `filasRef` (el handle imperativo de cada
+   * fila). */
+  const filaNodoRef = useRef(new Map<number, HTMLDivElement>());
 
   const filas = Array.from({ length: ejercicio.seriesProgramadas }, (_, i) => i + 1);
   const objetivoReps = repsObjetivo(ejercicio.repsProgramadas);
@@ -801,7 +945,11 @@ export const SesionEjercicioCard = forwardRef<
 
   useEffect(() => {
     if (activo && !soloLectura) {
-      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      // "start" y no "center": centrada, la mitad de arriba de la tarjeta
+      // (foto, nombre, técnica) quedaba tapada arriba del todo de la
+      // pantalla — así entra completa, empezando justo debajo de la
+      // cabecera fija.
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [activo, soloLectura]);
 
@@ -832,18 +980,51 @@ export const SesionEjercicioCard = forwardRef<
     if (!enviadoRef.current && completadasRef.current.size === ejercicio.seriesProgramadas) {
       enviadoRef.current = true;
       // El aviso visual aparece antes de guardar; al revalidar, el siguiente
-      // ejercicio pasa a ser el activo y recibe el destello sutil.
+      // ejercicio pasa a ser el activo y recibe el destello sutil. 400ms y no
+      // 1200: alcanza para que se note el aviso sin sentirse trabado — se
+      // pidió que pasar al siguiente ejercicio fuera más inmediato.
       setMostrandoSiguiente(true);
       window.setTimeout(() => {
         formRef.current?.requestSubmit();
         setMostrandoSiguiente(false);
-      }, 1200);
+      }, 400);
+    } else {
+      // Todavía queda otra serie de ESTE ejercicio: la centra en pantalla,
+      // donde sea más cómodo verla, en vez de dejar que quede tapada arriba
+      // o abajo del recuadro visible (cuando el ejercicio termina del todo,
+      // el centrado de la tarjeta siguiente ya lo hace el efecto de `activo`
+      // más abajo).
+      const siguiente = filas.find((n) => n > numero && !completadasRef.current.has(n));
+      if (siguiente) {
+        window.requestAnimationFrame(() => {
+          filaNodoRef.current.get(siguiente)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      }
     }
   }
 
   return (
-    <div ref={cardRef}>
-      <Card className={`p-3 ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}>
+    <div
+      ref={cardRef}
+      // El scroll automático al siguiente ejercicio para justo acá abajo:
+      // sin esto, `scrollIntoView({block:"start"})` alinea la tarjeta con el
+      // borde de arriba de la pantalla, que queda TAPADO por la cabecera fija
+      // (título + barra de puntos, position sticky) — la tarjeta entraba
+      // por debajo de esa barra en vez de después.
+      style={{ scrollMarginTop: "calc(var(--alto-cabecera-alumno) + 130px)" }}
+    >
+      {/* `tarjeta-modelo-oscura`: negro real en los dos temas, como la
+          referencia — antes usaba el gris de `bg-surface`, que al lado del
+          resto de la pantalla se veía deslavado. */}
+      <Card
+        className={`tarjeta-modelo-oscura tarjeta-ejercicio-oscura p-3 ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
+        style={
+          grupoTecnica
+            ? { borderLeft: `3px solid ${grupoTecnica.color}` }
+            : undefined
+        }
+      >
+
         {/* Cabecera en dos columnas: a la izquierda lo que se lee (qué
             ejercicio es y con qué números), a la derecha la foto de referencia.
             La fila de datos vive DENTRO de la columna izquierda —antes cruzaba
@@ -857,16 +1038,20 @@ export const SesionEjercicioCard = forwardRef<
                 "Press" debajo de la E de "EJERCICIO") en vez de escalonados, y
                 el muñeco puede ser grande sin empujar nada. */}
             <div className="flex items-start gap-2">
-              <IlustracionEjercicio
-                // Siempre el "modelo" del grupo muscular acá: la foto real del
-                // ejercicio (si existe) va en el cuadro grande de la derecha,
-                // no en este ícono. Por eso ilustracionSlug va fijo en null.
-                ilustracionSlug={null}
-                grupoMuscular={ejercicio.grupoMuscular}
-                nombre={ejercicio.nombre}
-                tamano={48}
-                className="shrink-0"
-              />
+              {/* Anillo ámbar sutil alrededor del muñeco/foto de grupo
+                  muscular — mismo lenguaje "premium" que el resto de la
+                  identidad VIP, sin agrandar el ícono en sí. */}
+              <div className="anillo-vip-suave shrink-0 rounded-full">
+                <IlustracionEjercicio
+                  // Siempre el "modelo" del grupo muscular acá: la foto real del
+                  // ejercicio (si existe) va en el cuadro grande de la derecha,
+                  // no en este ícono. Por eso ilustracionSlug va fijo en null.
+                  ilustracionSlug={null}
+                  grupoMuscular={ejercicio.grupoMuscular}
+                  nombre={ejercicio.nombre}
+                  tamano={48}
+                />
+              </div>
               <div className="min-w-0 flex-1">
                 {/* Sin "EJERCICIO" ni truncate: ese prefijo era lo que hacía
                     que el grupo muscular ("PIERNAS", "ESPALDA") se cortara en
@@ -879,45 +1064,64 @@ export const SesionEjercicioCard = forwardRef<
                     ? ` · ${ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular].toUpperCase()}`
                     : ""}
                 </p>
-                {/* 14 px y no 18: al lado de la foto de referencia quedan ~190 px
-                    de ancho, y a 18 px un nombre normal como "Press inclinado con
-                    barra" se partía en dos líneas y empujaba toda la tarjeta. */}
-                <p className="text-secondary mt-0.5 font-semibold leading-tight text-text">
+                {/* Jerarquía más marcada: el nombre del ejercicio es lo primero
+                    que hay que leer de la tarjeta, así que sube de tamaño
+                    (antes 14px, igual que cualquier texto secundario). Sigue
+                    sin truncate ni tamaño fijo por longitud: si no entra en una
+                    línea, pasa a la siguiente. */}
+                <p className="text-card-title mt-0.5 leading-tight text-text">
                   {ejercicio.nombre}
                 </p>
                 {ejercicio.tecnicaTipo && (
-                  <p className="text-micro mt-0.5 text-text-tertiary">{ejercicio.tecnicaTipo}</p>
+                  <span
+                    className="pill-tecnica mt-1 inline-block"
+                    // Coloreada por familia cuando es una técnica encadenada
+                    // (superserie, biserie...): el alumno ve de un vistazo
+                    // que este ejercicio va pegado a otro, sin tener que leer
+                    // el texto completo.
+                    style={
+                      grupoTecnica
+                        ? {
+                            color: grupoTecnica.color,
+                            borderColor: grupoTecnica.color,
+                            background: `color-mix(in srgb, ${grupoTecnica.color} 16%, transparent)`,
+                          }
+                        : undefined
+                    }
+                  >
+                    {ejercicio.tecnicaTipo}
+                  </span>
                 )}
               </div>
             </div>
-
-            {/* Los números que se consultan de reojo entre serie y serie. Las
-                etiquetas van abreviadas ("Reps", no "Repeticiones") porque en
-                esta media tarjeta cada columna tiene ~55 px: la palabra entera
-                se partía en dos renglones y volvía a estirar la fila. */}
-            <div className="radius-control mt-1.5 flex items-stretch overflow-hidden border border-border bg-surface-2">
-              <Dato
-                icono={<Layers size={13} />}
-                valor={String(ejercicio.seriesProgramadas)}
-                etiqueta="Series"
-              />
-              <Dato
-                icono={esTiempo ? <Timer size={13} /> : <Repeat size={13} />}
-                valor={ejercicio.repsProgramadas}
-                etiqueta={esTiempo ? "Tiempo" : "Reps"}
-              />
-              <Dato
-                icono={<Timer size={13} />}
-                valor={ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s` : "—"}
-                etiqueta="Desc."
-              />
-              {/* El tempo NO va acá. Como cuarta columna, en la media tarjeta
-                  que deja la foto, quedaban ~55 px para "3-1-2-0" y el valor se
-                  cortaba. Va en su propia línea abajo, a todo el ancho y junto
-                  a la explicación, que es donde se vuelve entendible. */}
-            </div>
           </div>
           <CuadroFotoReferencia ilustracionSlug={ejercicio.ilustracionSlug} nombre={ejercicio.nombre} />
+        </div>
+
+        {/* Los números que se consultan de reojo entre serie y serie, ahora a
+            todo el ancho de la tarjeta (antes vivía en la columna angosta que
+            dejaba la foto al lado, y el tempo no entraba como 4ta columna —
+            afuera de esa columna ya no hay ese límite, como en la
+            referencia). */}
+        <div className="radius-control mb-2 flex items-stretch overflow-hidden border border-border bg-surface-2">
+          <Dato
+            icono={<Layers size={13} />}
+            valor={String(ejercicio.seriesProgramadas)}
+            etiqueta="Series"
+          />
+          <Dato
+            icono={esTiempo ? <Timer size={13} /> : <Repeat size={13} />}
+            valor={ejercicio.repsProgramadas}
+            etiqueta={esTiempo ? "Tiempo" : "Reps"}
+          />
+          <Dato
+            icono={<Timer size={13} />}
+            valor={ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s` : "—"}
+            etiqueta="Desc."
+          />
+          {ejercicio.tempo && (
+            <Dato icono={<Gauge size={13} />} valor={ejercicio.tempo.valor} etiqueta="Tempo" compacto />
+          )}
         </div>
 
         {/* Plegado: el ejercicio que no toca todavía muestra solo la cabecera de
@@ -925,27 +1129,27 @@ export const SesionEjercicioCard = forwardRef<
             ciegas para encontrar en cuál iba uno; así la sesión entera se ve de
             una y el que está en curso es el único abierto. */}
         {!expandido ? (
+          // Vista plegada: mismo resumen que se ve en la referencia para el
+          // "siguiente ejercicio" (series · reps · descanso), no solo un
+          // link de texto — pero el toque sigue haciendo exactamente lo
+          // mismo, expandir esta misma tarjeta.
           <button
             type="button"
             onClick={() => setExpandido(true)}
             aria-expanded={false}
-            className="text-caption flex w-full items-center gap-1 text-left text-vip"
+            className="flex w-full items-center justify-between gap-2 text-left"
           >
-            Ver detalles del ejercicio <ChevronDown size={14} />
+            <span className="text-caption text-text-secondary">
+              {ejercicio.seriesProgramadas} series · {ejercicio.repsProgramadas}
+              {esTiempo ? " seg" : " reps"}
+              {ejercicio.descansoSegundos ? ` · ${ejercicio.descansoSegundos}s descanso` : ""}
+            </span>
+            <ChevronRight size={16} className="shrink-0 text-vip" />
           </button>
         ) : (
           <>
-        {/* Solo el valor del tempo, sin la traducción larga ("3s bajando · 1s
-            abajo · 1s subiendo · Baja en tres, aguanta...") — ocupaba varias
-            líneas debajo de CADA ejercicio y era lo que empujaba fuera de
-            pantalla al siguiente. Quien conoce la notación no la necesita, y
-            quien no, tiene la técnica de abajo para saber cómo ejecutarlo. */}
-        {ejercicio.tempo && (
-          <p className="text-micro mb-2 flex items-center gap-1 text-text-tertiary">
-            <Gauge size={12} className="shrink-0 text-vip" />
-            <span className="font-semibold text-text-secondary">Tempo {ejercicio.tempo.valor}</span>
-          </p>
-        )}
+      {/* El tempo ya se muestra arriba, como 4ta columna de la fila de datos
+          (junto a Series/Reps/Descanso) — acá no se repite. */}
 
       {/* Técnica, en lugar de la observación que había antes: lo que se lee
           acá tiene que ser CÓMO se hace el ejercicio, no un comentario suelto.
@@ -953,12 +1157,15 @@ export const SesionEjercicioCard = forwardRef<
           de la biblioteca del gimnasio, marcada como sugerencia para que no se
           confunda con una orden. Ver `resolverTecnica` arriba. */}
       {tecnica && (
-        <p className="text-micro mb-2 leading-snug text-text-secondary">
-          <span className="font-semibold text-vip">
-            {tecnica.sugerida ? "Técnica sugerida: " : "Técnica: "}
-          </span>
-          {tecnica.texto}
-        </p>
+        <div className="tarjeta-tecnica mb-2 flex items-start gap-2">
+          <Info size={14} className="mt-0.5 shrink-0 text-vip" strokeWidth={2.5} />
+          <p className="text-micro leading-snug text-text-secondary">
+            <span className="font-semibold text-vip">
+              {tecnica.sugerida ? "Técnica sugerida: " : "Técnica: "}
+            </span>
+            {tecnica.texto}
+          </p>
+        </div>
       )}
 
       {ultimoTexto && (
@@ -995,39 +1202,49 @@ export const SesionEjercicioCard = forwardRef<
           <input type="hidden" name="sesion_id" value={sesionId} />
           <input type="hidden" name="cantidad_series" value={ejercicio.seriesProgramadas} />
 
+          <p className="text-micro mb-1 font-bold tracking-wide text-vip">SERIES</p>
+
           {filas.map((n) => (
-            <FilaSerie
-              // La clave incluye si ya se leyó el respaldo local: al llegar un
-              // borrador, la fila se vuelve a montar con esos valores. Los
-              // campos son no controlados, así que es la forma de refrescar
-              // sus `defaultValue` sin romper la hidratación.
+            <div
               key={`${n}-${borradorLeido}`}
-              ref={(handle) => {
-                if (handle) filasRef.current.set(n, handle);
-                else filasRef.current.delete(n);
+              ref={(nodo) => {
+                if (nodo) filaNodoRef.current.set(n, nodo);
+                else filaNodoRef.current.delete(n);
               }}
-              numero={n}
-              inicial={serieInicial(n)}
-              repsObjetivo={objetivoReps}
-              esTiempo={esTiempo}
-              descansoSegundos={ejercicio.descansoSegundos}
-              soloLectura={soloLectura}
-              sesionId={sesionId}
-              sesionEjercicioId={ejercicio.sesionEjercicioId}
-              activo={serieActivaNumero === n}
-              esLaQueToca={serieQueToca === n}
-              onIniciar={setSerieActivaNumero}
-              onCicloCompleto={alCompletarCicloSerie}
-              onCicloDeshecho={alDeshacerCicloSerie}
-              onGuardar={guardarAhora}
-            />
+            >
+              <FilaSerie
+                // La clave incluye si ya se leyó el respaldo local: al llegar un
+                // borrador, la fila se vuelve a montar con esos valores. Los
+                // campos son no controlados, así que es la forma de refrescar
+                // sus `defaultValue` sin romper la hidratación.
+                ref={(handle) => {
+                  if (handle) filasRef.current.set(n, handle);
+                  else filasRef.current.delete(n);
+                }}
+                numero={n}
+                inicial={serieInicial(n)}
+                repsObjetivo={objetivoReps}
+                esTiempo={esTiempo}
+                descansoSegundos={ejercicio.descansoSegundos}
+                soloLectura={soloLectura}
+                sesionId={sesionId}
+                sesionEjercicioId={ejercicio.sesionEjercicioId}
+                activo={serieActivaNumero === n}
+                esLaQueToca={serieQueToca === n}
+                onIniciar={setSerieActivaNumero}
+                onCicloCompleto={alCompletarCicloSerie}
+                onCicloDeshecho={alDeshacerCicloSerie}
+                onGuardar={guardarAhora}
+                colorGrupoTecnica={grupoTecnica?.color}
+              />
+            </div>
           ))}
 
           {!ejercicio.completado && (
             <button
               type="button"
               onClick={marcarEjercicioListo}
-              className="radius-control flex h-9 w-full items-center justify-center gap-2 border border-vip/40 bg-transparent text-caption font-semibold text-vip"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-vip/50 bg-transparent text-secondary font-semibold text-vip"
             >
               <Check size={14} strokeWidth={3} /> Marcar ejercicio como completado
             </button>
