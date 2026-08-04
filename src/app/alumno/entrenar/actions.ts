@@ -11,43 +11,17 @@ import {
   registrarEntrenamiento,
 } from "@/lib/ranking/movimientos";
 
-export async function iniciarSesion(formData: FormData): Promise<void> {
-  const diaId = String(formData.get("dia_id") || "");
-  const rutinaId = String(formData.get("rutina_id") || "");
-  const numero = Number(formData.get("numero_calendario") || 0);
-  if (!diaId || !rutinaId || !numero) redirect("/alumno/entrenar");
-
-  // `requireAlumno()`, no `auth.getUser()` a secas: con el entrenador en
-  // "ver como alumno", el usuario autenticado sigue siendo el entrenador, y
-  // esto crearía la sesión en su propia cuenta en vez de la del alumno que
-  // está mirando (mismo bug ya arreglado en comer/actions.ts). Además, esa
-  // vista es de solo lectura — no debe poder arrancar nada.
-  const { alumnoId, soloLectura } = await requireAlumno();
-  if (soloLectura) redirect("/alumno/entrenar");
-
-  const supabase = await createClient();
-
-  // Solo bloquea si hay una rutina EMPEZADA DE VERDAD (cronómetro corriendo,
-  // o un día de descanso, que no tiene ese segundo paso) — una sesión creada
-  // por "Ver entrenamiento" en otro día, todavía bloqueada, es solo una vista
-  // previa y no debe impedir entrar a mirar/empezar este otro día.
-  const { data: candidatas } = await supabase
-    .from("sesiones_entrenamiento")
-    .select("id, rutina_iniciada_en, rutina_dias(tipo)")
-    .eq("alumno_id", alumnoId)
-    .eq("estado", "en_progreso")
-    .order("hora_inicio", { ascending: false })
-    .limit(20);
-
-  const enProgreso = (candidatas ?? []).find((s) => {
-    const dia = s.rutina_dias as unknown as { tipo: string } | null;
-    return dia?.tipo === "descanso" || s.rutina_iniciada_en !== null;
-  });
-
-  if (enProgreso) {
-    redirect(`/alumno/entrenar/sesion/${enProgreso.id}`);
-  }
-
+/** Encuentra la sesión existente de este día o la crea, y redirige ahí.
+ * Compartido por `iniciarSesion` (chequea primero si hay OTRO día
+ * bloqueando) y `cancelarYEmpezarOtroDia` (ya canceló ese otro día, así que
+ * entra directo sin repetir el chequeo). */
+async function crearOEntrarSesion(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  alumnoId: string,
+  diaId: string,
+  rutinaId: string,
+  numero: number
+): Promise<never> {
   const { data: existente } = await supabase
     .from("sesiones_entrenamiento")
     .select("id")
@@ -81,6 +55,96 @@ export async function iniciarSesion(formData: FormData): Promise<void> {
 
   revalidatePath("/alumno/entrenar");
   redirect(`/alumno/entrenar/sesion/${sesion.id}`);
+}
+
+export async function iniciarSesion(formData: FormData): Promise<void> {
+  const diaId = String(formData.get("dia_id") || "");
+  const rutinaId = String(formData.get("rutina_id") || "");
+  const numero = Number(formData.get("numero_calendario") || 0);
+  if (!diaId || !rutinaId || !numero) redirect("/alumno/entrenar");
+
+  // `requireAlumno()`, no `auth.getUser()` a secas: con el entrenador en
+  // "ver como alumno", el usuario autenticado sigue siendo el entrenador, y
+  // esto crearía la sesión en su propia cuenta en vez de la del alumno que
+  // está mirando (mismo bug ya arreglado en comer/actions.ts). Además, esa
+  // vista es de solo lectura — no debe poder arrancar nada.
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) redirect("/alumno/entrenar");
+
+  const supabase = await createClient();
+
+  // Solo bloquea si hay una rutina EMPEZADA DE VERDAD (cronómetro corriendo,
+  // o un día de descanso, que no tiene ese segundo paso) — una sesión creada
+  // por "Ver entrenamiento" en otro día, todavía bloqueada, es solo una vista
+  // previa y no debe impedir entrar a mirar/empezar este otro día.
+  //
+  // El calendario (CalendarioEntrenamiento.tsx) ya hace este mismo chequeo
+  // ANTES de mandar el formulario, para ofrecer el modal de "tenés un
+  // entrenamiento activo, ¿continuar o cancelarlo?" en vez de redirigir en
+  // silencio. Este bloqueo server-side queda como red de seguridad (JS
+  // desactualizado, dos pestañas, etc.), no como el camino normal.
+  const { data: candidatas } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id, rutina_iniciada_en, rutina_dias(tipo)")
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "en_progreso")
+    .order("hora_inicio", { ascending: false })
+    .limit(20);
+
+  const enProgreso = (candidatas ?? []).find((s) => {
+    const dia = s.rutina_dias as unknown as { tipo: string } | null;
+    return dia?.tipo === "descanso" || s.rutina_iniciada_en !== null;
+  });
+
+  if (enProgreso) {
+    redirect(`/alumno/entrenar/sesion/${enProgreso.id}`);
+  }
+
+  await crearOEntrarSesion(supabase, alumnoId, diaId, rutinaId, numero);
+}
+
+/**
+ * El alumno eligió, desde el modal de conflicto, cancelar el entrenamiento
+ * activo de OTRO día para empezar este. Cancela igual que
+ * `cancelarSesionEnCurso` (solo si sigue en_progreso y sin ejercicios
+ * completados — si ya hay progreso real, no la toca) y de ahí entra directo
+ * al día nuevo.
+ */
+export async function cancelarYEmpezarOtroDia(formData: FormData): Promise<void> {
+  const sesionIdCancelar = String(formData.get("sesion_id_cancelar") || "");
+  const diaId = String(formData.get("dia_id") || "");
+  const rutinaId = String(formData.get("rutina_id") || "");
+  const numero = Number(formData.get("numero_calendario") || 0);
+  if (!sesionIdCancelar || !diaId || !rutinaId || !numero) redirect("/alumno/entrenar");
+
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) redirect("/alumno/entrenar");
+
+  const supabase = await createClient();
+
+  const { data: sesion } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id, estado")
+    .eq("id", sesionIdCancelar)
+    .eq("alumno_id", alumnoId)
+    .maybeSingle();
+
+  if (sesion && sesion.estado === "en_progreso") {
+    const { count } = await supabase
+      .from("sesion_ejercicios")
+      .select("id", { count: "exact", head: true })
+      .eq("sesion_id", sesionIdCancelar)
+      .eq("completado", true);
+
+    // Si mientras tanto ya cargó progreso real, no se cancela: se prioriza no
+    // perder datos por sobre completar el cambio de día que pidió el modal.
+    if (!count) {
+      await supabase.from("sesiones_entrenamiento").delete().eq("id", sesionIdCancelar).eq("alumno_id", alumnoId);
+      revalidatePath("/alumno/entrenar/historial");
+    }
+  }
+
+  await crearOEntrarSesion(supabase, alumnoId, diaId, rutinaId, numero);
 }
 
 /** El alumno ya está en la pantalla de la sesión pero la rutina sigue

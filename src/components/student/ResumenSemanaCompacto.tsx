@@ -1,6 +1,5 @@
-import Image from "next/image";
-import { ETIQUETAS_GRUPO_MUSCULAR, GrupoMuscularIcon } from "./GrupoMuscularIcon";
-import { FOTOS_GRUPO_MUSCULAR } from "@/lib/grupos-musculares/fotos";
+import { Moon } from "lucide-react";
+import { ETIQUETAS_GRUPO_MUSCULAR, FotoDiaEntrenamiento } from "./GrupoMuscularIcon";
 import type { ConstanciaSemana, EstadoDiaResumen } from "@/app/alumno/inicio/data";
 
 /** Puntitos de la semana real (L M X J V S D): verde el día entrenado,
@@ -55,22 +54,23 @@ export function ResumenSemanaCompacto({
   const titulo = descanso
     ? "DESCANSO"
     : (diaHoy.grupo ? ETIQUETAS_GRUPO_MUSCULAR[diaHoy.grupo] : diaHoy.nombre).toUpperCase();
-  const fotos = diaHoy.grupo ? FOTOS_GRUPO_MUSCULAR[diaHoy.grupo] : undefined;
 
   return (
-    <div className="space-y-1.5">
-      {/* Vuelta al layout anterior: texto a la izquierda, modelo a la
-          derecha — la versión centrada y grande (mx-auto, h-48) se probó y no
-          convenció. Sigue sin el círculo negro (FotoGrupoMuscular): acá va el
-          recorte crudo, flotando directo sobre la tarjeta oscura, con
-          object-contain para no recortar al modelo por los costados.
-          `-ml-3` lo corre un poco hacia la izquierda, más cerca del texto:
-          con `justify-between` y dos elementos, mover el margen IZQUIERDO
-          del segundo achica el hueco entre ambos y lo arrastra hacia el
-          texto — un margen derecho negativo haría lo contrario, lo empujaría
-          más hacia afuera. */}
-      <div className="flex items-end justify-between gap-1">
-        <div className="min-w-0">
+    <div className="space-y-3">
+      {/* Mismo tratamiento "de referencia" que la tarjeta del día en Entrenar
+          (rayos de luz + foto real + insignia con resplandor): antes acá iba
+          un recorte chico y plano, que quedaba gris y sin vida al lado de esa
+          otra pantalla. */}
+      <div className="relative -mx-5 -mt-2.5 flex min-h-[152px] flex-col justify-end overflow-hidden px-5 pb-3 pt-3">
+        {descanso ? (
+          <div className="pointer-events-none absolute right-4 top-3 opacity-30">
+            <Moon size={64} className="text-text-tertiary" />
+          </div>
+        ) : (
+          diaHoy.grupo && <FotoDiaEntrenamiento grupos={[diaHoy.grupo]} />
+        )}
+
+        <div className="relative min-w-0">
           <p className="text-secondary text-text-tertiary">
             {nombreDia} · Día {numeroDia}
           </p>
@@ -79,21 +79,6 @@ export function ResumenSemanaCompacto({
             {descanso ? "Día de recuperación" : `${diaHoy.completados} / ${diaHoy.total} ejercicios`}
           </p>
         </div>
-        {!descanso && diaHoy.grupo && (
-          fotos ? (
-            <div className="relative -ml-4 h-28 w-24 shrink-0">
-              <Image
-                src={fotos[0]}
-                alt={ETIQUETAS_GRUPO_MUSCULAR[diaHoy.grupo]}
-                fill
-                sizes="96px"
-                className="object-contain"
-              />
-            </div>
-          ) : (
-            <GrupoMuscularIcon grupo={diaHoy.grupo} alto={96} />
-          )
-        )}
       </div>
 
       <div className="border-t border-border pt-1.5">

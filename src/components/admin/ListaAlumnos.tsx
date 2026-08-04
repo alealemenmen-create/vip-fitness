@@ -13,6 +13,14 @@ const CONFIG = {
   destacado: { Icon: Star, color: "var(--color-vip)" },
 } as const;
 
+// Lo más urgente arriba: primero a quién hay que atender, después el resto,
+// y por último a quién solo hace falta felicitar.
+const GRUPOS = [
+  { estado: "atencion" as const, titulo: "Para revisar" },
+  { estado: "normal" as const, titulo: "Al día" },
+  { estado: "destacado" as const, titulo: "Para felicitar" },
+];
+
 /**
  * Lista de alumnos con dos vistas: la "detallada" (tarjetas grandes con todo
  * el reporte) y una "compacta" (una fila chica por alumno, sin scrollear
@@ -87,37 +95,40 @@ export function ListaAlumnos({
           <p className="text-body text-text-secondary">Ningún alumno coincide con la búsqueda.</p>
         </Card>
       ) : vista === "compacta" ? (
-        <Card padding="p-0" className="divide-y divide-border overflow-hidden">
-          <div className="grid grid-cols-[1fr_28px] items-stretch bg-surface-2">
-            <span className="px-2.5 py-1 text-[10px] font-semibold tracking-wide text-text-tertiary">
-              ALUMNO
-            </span>
-            <span className="border-l border-border" />
-          </div>
-          {filtrados.map((r) => {
-            const { Icon, color } = CONFIG[r.estado];
+        <div className="space-y-3">
+          {GRUPOS.map(({ estado, titulo }) => {
+            const delGrupo = filtrados.filter((r) => r.estado === estado);
+            if (delGrupo.length === 0) return null;
+            const { Icon, color } = CONFIG[estado];
             return (
-              <Link
-                key={r.alumnoId}
-                href={`/admin/alumnos/${r.alumnoId}`}
-                className="grid grid-cols-[1fr_28px] items-stretch active:bg-surface-2"
-              >
-                <span className="truncate px-2.5 py-1.5 text-caption text-text">
-                  {r.nombre}
-                  {r.alumnoId === sesionUserId && (
-                    <span className="text-text-tertiary"> (Tú)</span>
-                  )}
-                </span>
-                <span
-                  style={{ color }}
-                  className="flex items-center justify-center border-l border-border"
-                >
-                  <Icon size={12} strokeWidth={2.5} />
-                </span>
-              </Link>
+              <div key={estado}>
+                <div className="flex items-center gap-1.5 px-1 pb-1">
+                  <Icon size={13} strokeWidth={2.5} style={{ color }} />
+                  <span className="text-[11px] font-semibold tracking-wide text-text-tertiary">
+                    {titulo.toUpperCase()} · {delGrupo.length}
+                  </span>
+                </div>
+                <Card padding="p-0" className="divide-y divide-border overflow-hidden">
+                  {delGrupo.map((r) => (
+                    <Link
+                      key={r.alumnoId}
+                      href={`/admin/alumnos/${r.alumnoId}`}
+                      className="flex items-center justify-between gap-2 px-3 py-2.5 active:bg-surface-2"
+                    >
+                      <span className="truncate text-secondary font-medium text-text">
+                        {r.nombre}
+                        {r.alumnoId === sesionUserId && (
+                          <span className="text-text-tertiary"> (Tú)</span>
+                        )}
+                      </span>
+                      <Icon size={14} strokeWidth={2.5} style={{ color }} className="shrink-0" />
+                    </Link>
+                  ))}
+                </Card>
+              </div>
             );
           })}
-        </Card>
+        </div>
       ) : (
         <div className="space-y-4">
           {filtrados.map((reporte) => (

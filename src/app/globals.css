@@ -138,6 +138,15 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  /* Fuerza este contenedor a su propia capa de composición. Sin esto, Safari
+     de iOS a veces no repinta a tiempo durante un scroll rápido: por una
+     fracción de segundo se alcanza a ver el contenido que ya pasó de largo,
+     asomando por detrás de la cabecera pegajosa (`sticky`) de arriba, como
+     una franja de texto viejo. El transform va ACÁ, en el contenedor que
+     scrollea — no en la cabecera `sticky` misma: eso se probó antes y
+     rompió el `sticky` directamente en Safari (dejaba de pegarse). Puesto
+     en el padre, arregla el repintado sin tocar cómo se calcula el sticky. */
+  transform: translateZ(0);
   /* Scrollbar nativo oculto: mismo criterio que `.tira-dias` más abajo. El
      navegador la dibuja blanca por defecto, y contra el fondo oscuro de toda
      la app queda como una franja pegada al borde derecho. El scroll táctil
@@ -915,6 +924,62 @@ input[type="date"]::-webkit-date-and-time-value {
   color: var(--color-text-tertiary);
   border-color: var(--color-text-tertiary);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+}
+
+/* Botón para empezar el día en Entrenar: es el llamado a la acción más
+   importante de toda la app (arrancar a entrenar), así que lleva más
+   insistencia que un .btn-accion común. Mismo lenguaje que
+   .mensaje-dia-movimiento (resplandor "que respira", no un barrido), pero
+   más rápido — ahí es ambiental, acá tiene que insistir. color-mix con
+   var(--color-vip) y no un rgba fijo: así el resplandor cambia solo con los
+   3 temas de botón (Espejo/VIP/Lady), igual que el resto del botón. */
+.boton-entrenar-pulso {
+  animation: respiracion-entrenar 2.6s ease-in-out infinite;
+}
+@keyframes respiracion-entrenar {
+  0%,
+  100% {
+    box-shadow: 0 6px 22px color-mix(in srgb, var(--color-vip) 40%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 10px 34px color-mix(in srgb, var(--color-vip) 75%, transparent),
+      0 0 26px color-mix(in srgb, var(--color-vip) 50%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boton-entrenar-pulso {
+    animation: none;
+  }
+}
+
+/* Confirmar: serie fuera de turno, a mitad del semibloqueo de 3 toques. Ámbar
+   de "pendiente" pero con el borde lleno y un pulso — tiene que sentirse
+   distinto de "tocá acá para arrancar", más parecido a "seguí tocando para
+   confirmar que es en serio". */
+.boton-descanso[data-estado="confirmar"] {
+  color: var(--color-vip);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-vip) 26%, transparent),
+    color-mix(in srgb, var(--color-vip) 10%, transparent)
+  );
+  border-color: var(--color-vip);
+  animation: confirmar-pulso 0.6s ease-in-out infinite;
+}
+@keyframes confirmar-pulso {
+  0%,
+  100% {
+    box-shadow: 0 0 0 color-mix(in srgb, var(--color-vip) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-vip) 55%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boton-descanso[data-estado="confirmar"] {
+    animation: none;
+  }
 }
 
 /* Avisando: terminó el descanso. Ámbar lleno y las tres flechas cayendo hacia

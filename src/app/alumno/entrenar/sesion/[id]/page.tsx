@@ -71,20 +71,8 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
         <VolverAEntrenar
           titulo={`${sesion.numeroCalendario ? `SESIÓN ${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
           accion={
-            !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura ? (
-              rutinaIniciada ? (
-                <CronometroSesion horaInicio={sesion.rutinaIniciadaEn!} />
-              ) : (
-                <form action={iniciarRutina}>
-                  <input type="hidden" name="sesion_id" value={sesion.id} />
-                  <button
-                    type="submit"
-                    className="btn-accion radius-control flex shrink-0 items-center gap-1.5 px-3 py-2 text-caption font-semibold"
-                  >
-                    <Play size={14} strokeWidth={3} /> Iniciar rutina
-                  </button>
-                </form>
-              )
+            !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura && rutinaIniciada ? (
+              <CronometroSesion horaInicio={sesion.rutinaIniciadaEn!} />
             ) : null
           }
         />
@@ -99,16 +87,28 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
 
         {/* Barra de avance del día. Las pastillas de arriba ya dicen "2 de 7",
             pero hay que leerlas; la barra se entiende de una mirada, con el
-            celular apoyado y a medio ejercicio. El porcentaje va sobre la barra
-            misma para no gastar un renglón entero de cabecera fija. */}
+            celular apoyado y a medio ejercicio. Los puntos van ARRIBA de la
+            barra (antes quedaban abajo a la derecha, sueltos y chicos) y el
+            porcentaje al lado, mismo renglón — así se lee de una sola vez qué
+            se gana y cuánto falta antes de mirar la barra en sí. */}
         {!esDescanso && total > 0 && (
-          <div className="space-y-1">
-            {/* h-3 y no h-1.5: es el único indicador de avance de toda la
-                sesión y a 6 px la ola de luz apenas se veía. */}
-            <div className="h-3 overflow-hidden rounded-full bg-surface-2">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <p className="text-caption font-semibold text-vip">+{puntosPreparados} pts al finalizar</p>
+              <p className="text-caption font-semibold text-text">
+                {Math.round((completados / total) * 100)}%
+              </p>
+            </div>
+            {/* h-3.5 y con resplandor propio en el relleno: antes era una
+                barra plana, ahora se nota más que algo se está llenando de
+                verdad, no solo un rectángulo que crece. */}
+            <div className="h-3.5 overflow-hidden rounded-full bg-surface-2">
               <div
                 className="barra-progreso-relleno h-full rounded-full bg-vip transition-[width] duration-500 ease-out"
-                style={{ width: `${Math.round((completados / total) * 100)}%` }}
+                style={{
+                  width: `${Math.round((completados / total) * 100)}%`,
+                  boxShadow: "0 0 12px color-mix(in srgb, var(--color-vip) 55%, transparent)",
+                }}
               >
                 {/* Tres olas, cada una arrancando un tercio de ciclo después
                     que la anterior (ver .ola-progreso en globals.css). */}
@@ -121,24 +121,24 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
                 ))}
               </div>
             </div>
-            {/* Los puntos van EN SU PROPIA línea, debajo de la barra — antes
-                estaban a su derecha, en la misma fila, y a un ancho de celular
-                angosto el número se montaba encima de la barra en vez de quedar
-                al lado. */}
-            <p className="text-right text-[10px] leading-none text-text-tertiary">
-              <span className="font-semibold text-vip">+{puntosPreparados} pts</span> al finalizar
-            </p>
           </div>
         )}
       </div>
 
+      {/* Antes vivía arriba, chico, apretado junto al título — pasaba
+          desapercibido. Acá, grande y con el mismo resplandor insistente que
+          "Ver entrenamiento" en el calendario, es la primera cosa que se ve
+          al entrar a la sesión. */}
       {bloqueadaPorIniciar && (
-        <Card className="border border-vip/40 bg-vip/5">
-          <p className="text-caption text-text-secondary">
-            Toca <span className="font-semibold text-vip">Iniciar rutina</span> arriba para
-            empezar a marcar tus series y arrancar el cronómetro.
-          </p>
-        </Card>
+        <form action={iniciarRutina}>
+          <input type="hidden" name="sesion_id" value={sesion.id} />
+          <button
+            type="submit"
+            className="btn-accion boton-entrenar-pulso radius-control flex h-16 w-full items-center justify-center gap-2 text-body font-bold"
+          >
+            <Play size={20} strokeWidth={3} /> Iniciar rutina
+          </button>
+        </form>
       )}
 
       {esDescanso ? (

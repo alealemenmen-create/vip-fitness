@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { createPortal } from "react-dom";
 import { FileText, Download, Trash2, X } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -50,43 +51,45 @@ export function DocumentoConEliminar({ documento }: { documento: Documento }) {
         </button>
       </div>
 
-      {confirmando && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center">
-          <Card padding="p-4" className="w-full max-w-sm space-y-3">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-body font-medium text-text">¿Eliminar este plan?</p>
-              <button
-                type="button"
-                aria-label="Cerrar"
-                onClick={() => setConfirmando(false)}
-                className="text-text-tertiary"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <p className="text-caption text-text-secondary">
-              {documento.nombreArchivo} — dejará de aparecer en tu panel. Si lo necesitas de
-              nuevo, pídeselo a tu entrenador.
-            </p>
-            {state.error && <p className="text-caption text-error">{state.error}</p>}
-            <form action={formAction} className="flex gap-2">
-              <input type="hidden" name="documento_id" value={documento.id} />
-              <Button
-                type="button"
-                variant="secondary"
-                size="xsAuto"
-                className="flex-1"
-                onClick={() => setConfirmando(false)}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" variant="destructive" size="xsAuto" className="flex-1" loading={pending}>
-                Sí, eliminar
-              </Button>
-            </form>
-          </Card>
-        </div>
-      )}
+      {confirmando &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center">
+            <Card padding="p-4" className="w-full max-w-sm space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-body font-medium text-text">¿Eliminar este plan?</p>
+                <button
+                  type="button"
+                  aria-label="Cerrar"
+                  onClick={() => setConfirmando(false)}
+                  className="text-text-tertiary"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <p className="text-caption text-text-secondary">
+                {documento.nombreArchivo} — dejará de aparecer en tu panel. Si lo necesitas de
+                nuevo, pídeselo a tu entrenador.
+              </p>
+              {state.error && <p className="text-caption text-error">{state.error}</p>}
+              <form action={formAction} className="flex gap-2">
+                <input type="hidden" name="documento_id" value={documento.id} />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="xsAuto"
+                  className="flex-1"
+                  onClick={() => setConfirmando(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" variant="destructive" size="xsAuto" className="flex-1" loading={pending}>
+                  Sí, eliminar
+                </Button>
+              </form>
+            </Card>
+          </div>,
+          document.body
+        )}
     </>
   );
 }

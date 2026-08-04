@@ -291,6 +291,21 @@ const FilaSerie = forwardRef<
    * flechas hacia abajo en vez de "Listo": es el empujón para seguir con lo que
    * viene sin tener que buscarlo en la pantalla. */
   const [avisandoSiguiente, setAvisandoSiguiente] = useState(false);
+  /** Semibloqueo de series fuera de turno: tocar la serie que SÍ toca
+   * (`esLaQueToca`) completa con un toque, como siempre. Cualquier otra
+   * necesita 3 toques seguidos — el dedo puede rozar la fila equivocada
+   * mientras se busca la que corresponde, y antes eso la daba por hecha
+   * igual. Se reinicia si pasan más de 2s entre toques, para que no sea un
+   * contador que se acumula en toques sueltos a lo largo de la sesión. */
+  const [tocandoConfirmacion, setTocandoConfirmacion] = useState(0);
+  const confirmacionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const TOQUES_CONFIRMACION = 3;
+
+  useEffect(() => {
+    return () => {
+      if (confirmacionTimeoutRef.current) clearTimeout(confirmacionTimeoutRef.current);
+    };
+  }, []);
 
   useImperativeHandle(ref, () => ({
     completarYa: () => {
@@ -318,7 +333,14 @@ const FilaSerie = forwardRef<
       ? "avisando"
       : realizada
         ? "hecha"
-        : "pendiente";
+        : tocandoConfirmacion > 0
+          ? "confirmar"
+          // Fuera de turno se pinta como "pausado" (gris, apagado) en vez del
+          // ámbar de "tocá acá" — es el semibloqueo visual: se ve que no es
+          // esta la fila que corresponde, sin que deje de poder tocarse.
+          : !esLaQueToca
+            ? "pausado"
+            : "pendiente";
 
   // Al montar, si quedó un descanso corriendo de antes de cambiar de pestaña
   // (ver lib/entrenamiento/descanso.ts), se retoma contra la hora real: ni
@@ -446,13 +468,32 @@ const FilaSerie = forwardRef<
     }
 
     if (realizada) {
-      // Ya terminó el descanso: permite deshacer un toque accidental.
+      // Ya terminó el descanso: permite deshacer un toque accidental. Sin
+      // semibloqueo acá — arrepentirse tiene que ser fácil, lo que hay que
+      // frenar es completar por error, no deshacer.
       setRealizada(false);
       setAvisandoSiguiente(false);
       avisadoRef.current = false;
       onCicloDeshecho(numero);
       onGuardar();
       return;
+    }
+
+    if (!esLaQueToca) {
+      const siguiente = tocandoConfirmacion + 1;
+      if (siguiente < TOQUES_CONFIRMACION) {
+        setTocandoConfirmacion(siguiente);
+        if (confirmacionTimeoutRef.current) clearTimeout(confirmacionTimeoutRef.current);
+        confirmacionTimeoutRef.current = setTimeout(() => setTocandoConfirmacion(0), 2000);
+        return;
+      }
+      // Toque número TOQUES_CONFIRMACION: confirma, sigue el flujo normal de
+      // abajo como si fuera la serie en turno.
+      setTocandoConfirmacion(0);
+      if (confirmacionTimeoutRef.current) {
+        clearTimeout(confirmacionTimeoutRef.current);
+        confirmacionTimeoutRef.current = null;
+      }
     }
 
     setRealizada(true);
@@ -540,7 +581,11 @@ const FilaSerie = forwardRef<
                   ? avisandoSiguiente
                     ? "Descanso terminado — seguí con lo que viene"
                     : "Serie lista"
-                  : "Empezar a recuperar"
+                  : tocandoConfirmacion > 0
+                    ? `Esta no es la serie en turno — tocá ${TOQUES_CONFIRMACION - tocandoConfirmacion} vez más para confirmar`
+                    : esLaQueToca
+                      ? "Empezar a recuperar"
+                      : "Serie fuera de turno — tocar 3 veces para confirmar"
             }
           >
             {/* La barra que se vacía con la cuenta regresiva: el número dice
@@ -582,6 +627,15 @@ const FilaSerie = forwardRef<
                   <Check size={14} strokeWidth={3} />
                   <span>Listo</span>
                 </>
+              ) : tocandoConfirmacion > 0 ? (
+                // Semibloqueo de serie fuera de turno: el toque cuenta pero
+                // todavía no completa nada — avisa cuántos más faltan.
+                <span className="flex flex-col items-center leading-tight">
+                  <span>
+                    Tocá {TOQUES_CONFIRMACION - tocandoConfirmacion}{" "}
+                    {TOQUES_CONFIRMACION - tocandoConfirmacion === 1 ? "vez" : "veces"} más
+                  </span>
+                </span>
               ) : (
                 /* "Recupérate" y no "Descanso": el ejercicio ya dice arriba
                    cuánto se descansa; acá lo que hace falta es la orden de qué

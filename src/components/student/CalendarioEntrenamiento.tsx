@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Moon, Check } from "lucide-react";
-import { iniciarSesion } from "@/app/alumno/entrenar/actions";
+import { ChevronLeft, ChevronRight, Moon, Check, AlertTriangle } from "lucide-react";
+import { iniciarSesion, cancelarYEmpezarOtroDia } from "@/app/alumno/entrenar/actions";
 import type { NumeroCalendario, EstadoNumero } from "@/app/alumno/entrenar/data";
 import { FotoDiaEntrenamiento, ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 
@@ -81,6 +82,15 @@ export function CalendarioEntrenamiento({
   if (!actual) return null;
 
   const descanso = actual.dia.tipo === "descanso";
+  // Mismo criterio que el chequeo server-side de `iniciarSesion`: solo cuenta
+  // como "activo de verdad" un día con `estado === "en_progreso"` (ver
+  // `enProgresoDeVerdad` en entrenar/data.ts) — una vista previa todavía
+  // bloqueada no bloquea nada. Se calcula acá para poder ofrecer el modal de
+  // elegir ANTES de mandar el formulario, en vez de redirigir en silencio.
+  const conflicto =
+    actual.estado === "no_iniciado"
+      ? (numeros.find((n) => n.estado === "en_progreso" && n.numero !== actual.numero) ?? null)
+      : null;
   const resumen = actual.dia.resumen;
   const grupos = resumen?.gruposMusculares ?? [];
   const titulo = descanso ? "Descanso" : (grupos[0] ? ETIQUETAS_GRUPO_MUSCULAR[grupos[0]] : actual.dia.nombre);
@@ -152,61 +162,130 @@ export function CalendarioEntrenamiento({
         <div className="border-t border-border p-3">
           {actual.estado === "no_iniciado" ? (
             soloLectura ? null : (
-              <form action={iniciarSesion} className="space-y-2">
+              <BotonEmpezarDia actual={actual} descanso={descanso} rutinaId={rutinaId} conflicto={conflicto} />
+            )
+          ) : (
+            <Link
+              href={`/alumno/entrenar/sesion/${actual.sesionId}`}
+              className={`radius-control flex h-14 w-full items-center justify-center gap-2 text-body font-semibold ${
+                actual.estado === "en_progreso"
+                  ? "btn-accion"
+                  : "border border-border text-text"
+              }`}
+            >
+              {actual.estado === "en_progreso" ? "Continuar entrenamiento" : "Ver registro"}
+              <ChevronRight size={20} />
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Único botón para empezar/ver un día sin sesión todavía. El texto es "Ver
+ * entrenamiento" a propósito y no "Iniciar" — ni siquiera tocándolo arranca
+ * de verdad el cronómetro: crea la sesión y lleva a la pantalla de la
+ * rutina, donde queda bloqueada hasta tocar "Iniciar rutina" ahí adentro
+ * (ver sesion/[id]/page.tsx). El nombre no debe prometer un compromiso que
+ * el botón no toma.
+ *
+ * Si hay OTRO día con un entrenamiento realmente activo, en vez de mandar el
+ * formulario (que hoy redirigiría ahí en silencio) abre un modal para elegir:
+ * seguir con el que está activo, o cancelarlo y empezar este.
+ */
+function BotonEmpezarDia({
+  actual,
+  descanso,
+  rutinaId,
+  conflicto,
+}: {
+  actual: NumeroCalendario;
+  descanso: boolean;
+  rutinaId: string;
+  conflicto: NumeroCalendario | null;
+}) {
+  const [modalAbierto, setModalAbierto] = useState(false);
+
+  return (
+    <>
+      <form
+        action={iniciarSesion}
+        className="space-y-2"
+        onSubmit={(e) => {
+          if (conflicto) {
+            e.preventDefault();
+            setModalAbierto(true);
+          }
+        }}
+      >
+        <input type="hidden" name="dia_id" value={actual.dia.id} />
+        <input type="hidden" name="rutina_id" value={rutinaId} />
+        <input type="hidden" name="numero_calendario" value={actual.numero} />
+        <button
+          type="submit"
+          className="btn-accion boton-entrenar-pulso radius-control flex h-14 w-full items-center justify-center gap-2 text-body font-semibold"
+        >
+          {descanso ? "Registrar día de descanso" : "Ver entrenamiento"}
+          <ChevronRight size={20} />
+        </button>
+      </form>
+
+      {modalAbierto &&
+        conflicto &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center"
+            onClick={() => setModalAbierto(false)}
+          >
+            <div
+              className="radius-card w-full max-w-sm space-y-3 bg-surface p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle size={20} className="mt-0.5 shrink-0 text-vip" />
+                <div>
+                  <p className="text-body font-medium text-text">Tenés un entrenamiento activo</p>
+                  <p className="text-caption mt-1 text-text-secondary">
+                    El día {conflicto.numero} sigue en curso. ¿Querés continuar ese, o cancelarlo
+                    para empezar este?
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                href={`/alumno/entrenar/sesion/${conflicto.sesionId}`}
+                className="btn-accion radius-control flex h-12 w-full items-center justify-center text-body font-semibold"
+              >
+                Continuar el activo
+              </Link>
+
+              <form action={cancelarYEmpezarOtroDia}>
+                <input type="hidden" name="sesion_id_cancelar" value={conflicto.sesionId ?? ""} />
                 <input type="hidden" name="dia_id" value={actual.dia.id} />
                 <input type="hidden" name="rutina_id" value={rutinaId} />
                 <input type="hidden" name="numero_calendario" value={actual.numero} />
                 <button
                   type="submit"
-                  className="btn-accion radius-control flex h-14 w-full items-center justify-center gap-2 text-body font-semibold"
+                  className="radius-control flex h-12 w-full items-center justify-center border border-error/50 text-body font-medium text-error"
                 >
-                  {descanso ? "Registrar día de descanso" : "Iniciar entrenamiento"}
-                  <ChevronRight size={20} />
+                  Cancelar ese y empezar este
                 </button>
-                {/* Misma acción que el botón de arriba: crea la sesión y lleva a
-                    la pantalla de la rutina — pero ahí queda bloqueada hasta
-                    tocar "Iniciar rutina" (ver sesion/[id]/page.tsx), así que
-                    "ver" antes de comprometerse a entrenar es seguro de verdad,
-                    no un atajo que arranca nada solo. */}
-                {!descanso && (
-                  <button
-                    type="submit"
-                    className="radius-control flex h-11 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text-secondary"
-                  >
-                    Ver entrenamiento
-                  </button>
-                )}
               </form>
-            )
-          ) : (
-            <div className="space-y-2">
-              <Link
-                href={`/alumno/entrenar/sesion/${actual.sesionId}`}
-                className={`radius-control flex h-14 w-full items-center justify-center gap-2 text-body font-semibold ${
-                  actual.estado === "en_progreso"
-                    ? "btn-accion"
-                    : "border border-border text-text"
-                }`}
+
+              <button
+                type="button"
+                onClick={() => setModalAbierto(false)}
+                className="radius-control flex h-11 w-full items-center justify-center text-caption font-medium text-text-tertiary"
               >
-                {actual.estado === "en_progreso" ? "Continuar entrenamiento" : "Ver registro"}
-                <ChevronRight size={20} />
-              </Link>
-              {/* Solo mientras está en curso: si ya está "Completado" el botón de
-                  arriba ya dice "Ver registro" — repetir acá sería el mismo
-                  destino con otro nombre, sin agregar nada. */}
-              {actual.estado === "en_progreso" && (
-                <Link
-                  href={`/alumno/entrenar/sesion/${actual.sesionId}`}
-                  className="radius-control flex h-11 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text-secondary"
-                >
-                  Ver entrenamiento
-                </Link>
-              )}
+                Volver
+              </button>
             </div>
-          )}
-        </div>
-      </div>
-    </div>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 

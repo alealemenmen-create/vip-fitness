@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { guardarSeguimiento, type GuardarSeguimientoState } from "@/app/alumno/inicio/actions";
 import type { SeguimientoHoy } from "@/app/alumno/inicio/data";
@@ -70,8 +71,9 @@ export function SeguimientoDiario({ seguimientoHoy }: { seguimientoHoy: Seguimie
         {seguimientoHoy ? "Editar seguimiento diario" : "Completar seguimiento diario"}
       </Button>
 
-      {abierto && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center">
+      {abierto &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center">
           <div className="radius-card max-h-[85vh] w-full overflow-y-auto bg-surface p-6 sm:max-w-md">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-h3 text-text">Seguimiento diario</h2>
@@ -170,8 +172,9 @@ export function SeguimientoDiario({ seguimientoHoy }: { seguimientoHoy: Seguimie
               </form>
             )}
           </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </>
   );
 }
