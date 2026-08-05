@@ -1438,6 +1438,26 @@ export interface Database {
           },
         ];
       };
+      registro_cambios: {
+        Row: {
+          id: string;
+          titulo: string;
+          resumen: string;
+          categoria: "arreglo" | "mejora" | "funcion_nueva";
+          creado_en: string;
+        };
+        Insert: {
+          titulo: string;
+          resumen: string;
+          categoria?: "arreglo" | "mejora" | "funcion_nueva";
+        };
+        Update: {
+          titulo?: string;
+          resumen?: string;
+          categoria?: "arreglo" | "mejora" | "funcion_nueva";
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

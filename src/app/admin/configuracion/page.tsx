@@ -15,14 +15,17 @@ import { GavetaConfig } from "@/components/admin/GavetaConfig";
 import { TituloPestana } from "@/components/admin/TituloPestana";
 import Link from "next/link";
 import { Images, ChevronRight } from "lucide-react";
+import { obtenerNovedades } from "@/lib/novedades";
+import { Novedades } from "@/components/admin/Novedades";
 
 export default async function ConfiguracionAdminPage() {
   await requireRol(["entrenador", "admin"]);
-  const [config, supervision, registro, asistente] = await Promise.all([
+  const [config, supervision, registro, asistente, novedades] = await Promise.all([
     obtenerConfiguracionReconocimientos(),
     obtenerConfiguracionSupervision(),
     obtenerConfiguracionRegistro(),
     obtenerConfiguracionAsistenteVip(),
+    obtenerNovedades(),
   ]);
 
   return (
@@ -68,6 +71,9 @@ export default async function ConfiguracionAdminPage() {
       </GavetaConfig>
       <GavetaConfig titulo="Reconocimientos semanales" subtitulo="Felicitaciones automáticas por IA">
         <ConfiguracionReconocimientos config={config} supervision={supervision} />
+      </GavetaConfig>
+      <GavetaConfig titulo="Novedades de la app" subtitulo="Qué se arregló o se agregó, en orden" abiertaPorDefecto>
+        <Novedades novedades={novedades} />
       </GavetaConfig>
     </div>
   );

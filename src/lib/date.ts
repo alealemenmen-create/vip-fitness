@@ -100,6 +100,12 @@ export function formatFechaDiaSemana(fechaISO: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
+/** "5 ago, 14:32" — para timestamps completos (no solo fecha), como el
+ * registro de novedades de la app. */
+export function formatFechaHoraCorta(timestamptz: string): string {
+  return formatInTimeZone(timestamptz, ZONA_HORARIA_VIP, "d MMM, HH:mm", { locale: es }).replace(".", "");
+}
+
 /** Hora del día (0-23) en Chile. Se calcula en el servidor y se pasa como
  * prop: si el cliente usara su propio reloj, un alumno fuera de Chile
  * renderizaría otra hora que el servidor y React marcaría desajuste de
