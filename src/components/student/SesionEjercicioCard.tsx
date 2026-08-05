@@ -880,9 +880,15 @@ const FilaSerie = forwardRef<
         <label className="campo-serie-plano flex-1">
           <input
             name={`peso_${numero}`}
-            type="number"
-            step="0.5"
-            min="0"
+            // type="text" y no "number": en varios celulares (Android con
+            // teclado en español, sobre todo) el separador decimal que
+            // ofrece el teclado numérico es una coma, y un input type=number
+            // descarta en silencio cualquier valor con coma (el HTML solo
+            // acepta punto ahí) — el campo se veía escrito en pantalla pero
+            // llegaba vacío al guardar. El servidor ya convierte coma a
+            // punto (ver `guardarSeries` en actions.ts); con texto plano ese
+            // valor SÍ le llega.
+            type="text"
             inputMode="decimal"
             placeholder="—"
             disabled={esPesoCorporal}
