@@ -23,6 +23,7 @@ import {
 import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { guardarSeries, penalizarExcesoDescanso, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
+import { programarAvisoDescanso } from "@/app/alumno/entrenar/push-actions";
 import { reportarDolor, type ReportarDolorState } from "@/app/alumno/entrenar/impulso-actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
@@ -699,8 +700,15 @@ const FilaSerie = forwardRef<
    * arriba) y su descanso terminó DE VERDAD (avisadoRef true descarta el
    * caso de "arrepentimiento": tocar Listo por error y cancelar no debe
    * penalizar). Se resetea apenas se arranca la siguiente serie o el
-   * descanso de esta se reinicia. */
+   * descanso de esta se reinicia.
+   *
+   * Se puede frenar tocando el aviso mismo (`excesoPausado`): antes la única
+   * forma de que parara de sumar era arrancar la serie siguiente de verdad,
+   * sin margen para decir "ya me di cuenta, dejá de penalizar" sin
+   * comprometerse a seguir. Tocarlo congela el contador donde está — lo ya
+   * penalizado queda, pero no sigue creciendo. */
   const [segundosExceso, setSegundosExceso] = useState(0);
+  const [excesoPausado, setExcesoPausado] = useState(false);
   const excesoDesdeRef = useRef<number | null>(null);
   const tramosNotificadosRef = useRef(0);
   useEffect(() => {
@@ -708,8 +716,10 @@ const FilaSerie = forwardRef<
       excesoDesdeRef.current = null;
       tramosNotificadosRef.current = 0;
       setSegundosExceso(0);
+      setExcesoPausado(false);
       return;
     }
+    if (excesoPausado) return;
     excesoDesdeRef.current ??= Date.now();
     const id = setInterval(() => {
       const transcurridoS = Math.floor((Date.now() - (excesoDesdeRef.current ?? Date.now())) / 1000);
@@ -724,7 +734,7 @@ const FilaSerie = forwardRef<
     }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activo, descansando, soloLectura]);
+  }, [activo, descansando, soloLectura, excesoPausado]);
   const tramosExcedidos = Math.floor(segundosExceso / PUNTOS_VIP.descansoSegundosPorTramo);
 
   // Las flechas se apagan solas: son un empujón, no un estado en el que la fila
@@ -830,6 +840,11 @@ const FilaSerie = forwardRef<
       onIniciar(numero);
       setRestante(descansoSegundos);
       guardarDescanso(sesionId, sesionEjercicioId, numero, Date.now() + descansoSegundos * 1000);
+      // El aviso "real" (llega con pantalla bloqueada) lo manda el servidor
+      // — ver `programarAvisoDescanso`. Si cancelás el descanso antes de
+      // tiempo, este push programado no se puede des-agendar (limitación
+      // conocida): en el peor caso llega uno de más, ya vencido.
+      void programarAvisoDescanso(descansoSegundos);
     } else if (!avisadoRef.current) {
       avisadoRef.current = true;
       onCicloCompleto(numero);
@@ -1008,14 +1023,27 @@ const FilaSerie = forwardRef<
         // Aviso chico y en rojo, en vivo desde el segundo 1: primero avisa
         // que el reloj corre, y recién cuando se cruza el primer tramo (ver
         // PUNTOS_VIP.descansoSegundosPorTramo) muestra los puntos perdidos.
-        <p className="mt-1 text-micro text-error">
-          {tramosExcedidos > 0
-            ? `Te pasaste del descanso: -${Math.min(
-                PUNTOS_VIP.descansoPenalizacionMaxima,
-                tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
-              )} pts`
-            : `Descansaste ${segundosExceso}s de más`}
-        </p>
+        // Tocable: frena el contador donde está sin obligar a arrancar la
+        // siguiente serie (lo ya penalizado no se revierte).
+        <button
+          type="button"
+          onClick={() => setExcesoPausado(true)}
+          className="mt-1 text-left text-micro text-error underline decoration-dotted"
+        >
+          {excesoPausado
+            ? tramosExcedidos > 0
+              ? `Detenido — perdiste ${Math.min(
+                  PUNTOS_VIP.descansoPenalizacionMaxima,
+                  tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
+                )} pts`
+              : "Detenido"
+            : tramosExcedidos > 0
+              ? `Te pasaste del descanso: -${Math.min(
+                  PUNTOS_VIP.descansoPenalizacionMaxima,
+                  tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
+                )} pts · tocá para frenar`
+              : `Descansaste ${segundosExceso}s de más · tocá para frenar`}
+        </button>
       )}
     </div>
   );

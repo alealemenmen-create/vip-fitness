@@ -1407,6 +1407,37 @@ export interface Database {
           },
         ];
       };
+      push_suscripciones: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          creado_en: string;
+        };
+        Insert: {
+          alumno_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+        };
+        Update: {
+          alumno_id?: string;
+          endpoint?: string;
+          p256dh?: string;
+          auth?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "push_suscripciones_alumno_id_fkey";
+            columns: ["alumno_id"];
+            isOneToOne: false;
+            referencedRelation: "perfiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

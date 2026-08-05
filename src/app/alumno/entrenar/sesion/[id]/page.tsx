@@ -14,6 +14,14 @@ import { obtenerSesionCompleta } from "../../data";
 import { reabrirSesion, iniciarRutina } from "../../actions";
 import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 
+// El aviso de fin de descanso lo programa `programarAvisoDescanso` (Server
+// Action de esta página, ver push-actions.ts) con `after()`: el servidor
+// espera los segundos del descanso y recién ahí manda el push. maxDuration
+// de una Server Action se fija a nivel de página — sin esto, el default de
+// la plataforma corta la espera mucho antes de que termine un descanso
+// típico (90-180s).
+export const maxDuration = 300;
+
 const ESTADO_LABEL: Record<string, { texto: string; tone: "neutral" | "vip" | "success" | "error" }> = {
   en_progreso: { texto: "En progreso", tone: "vip" },
   completada: { texto: "Completada", tone: "success" },

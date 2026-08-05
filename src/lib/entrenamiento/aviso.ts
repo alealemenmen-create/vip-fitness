@@ -29,10 +29,12 @@ let sonando: { osc: OscillatorNode; gain: GainNode }[] = [];
  * nunca. Por eso esto se llama al tocar "Recupérate", que sí lo es.
  *
  * De paso pide permiso de notificaciones (mismo motivo: solo se puede pedir
- * dentro de un gesto del usuario) para que `avisarFinDescanso` pueda mostrar
- * una notificación del sistema si el alumno cambió de app durante el
- * descanso. Sin service worker esto no llega con la pantalla bloqueada o el
- * navegador cerrado — para eso hace falta Web Push real (aparte).
+ * dentro de un gesto del usuario). Con el permiso ya concedido, además se
+ * suscribe a Web Push (`asegurarSuscripcionPush`) — eso es lo que hace que
+ * el aviso llegue con la pantalla bloqueada o la app en otra pestaña; el
+ * `avisarFinDescanso` de acá abajo (vibración + sonido + notificación local)
+ * solo funciona con la app a la vista, porque vive en un temporizador de la
+ * pestaña que iOS suspende apenas pasa a segundo plano.
  */
 export function prepararAviso() {
   try {
@@ -47,8 +49,16 @@ export function prepararAviso() {
   }
 
   try {
-    if ("Notification" in window && Notification.permission === "default") {
-      void Notification.requestPermission();
+    if ("Notification" in window) {
+      if (Notification.permission === "default") {
+        void Notification.requestPermission().then((permiso) => {
+          if (permiso === "granted") {
+            void import("./push").then((m) => m.asegurarSuscripcionPush());
+          }
+        });
+      } else if (Notification.permission === "granted") {
+        void import("./push").then((m) => m.asegurarSuscripcionPush());
+      }
     }
   } catch {
     // Sin permiso de notificaciones se sigue avisando por vibración y sonido.
