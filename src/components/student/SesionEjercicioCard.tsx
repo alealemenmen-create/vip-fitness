@@ -691,34 +691,41 @@ const FilaSerie = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [descansando, activo]);
 
-  /** Cuánto se pasó del descanso indicado, en tramos de
-   * `PUNTOS_VIP.descansoSegundosPorTramo` — cada tramo completo resta puntos
-   * (ver `penalizarExcesoDescanso`). Corre mientras esta serie sigue "activa"
-   * (nadie arrancó la siguiente todavía) pero su propio descanso ya terminó
-   * DE VERDAD (avisadoRef true descarta el caso de "arrepentimiento": tocar
-   * Listo por error y cancelar no debe penalizar). Se resetea apenas se
-   * arranca la siguiente serie o el descanso de esta se reinicia. */
-  const [tramosExcedidos, setTramosExcedidos] = useState(0);
+  /** Segundos que pasaron desde que terminó el descanso indicado y todavía
+   * nadie arrancó la siguiente serie. Tickea cada segundo para que se vea un
+   * contador en vivo desde el segundo 1 (antes solo aparecía recién al
+   * primer tramo penalizado, y hasta entonces no se veía nada). Corre
+   * mientras esta serie sigue "activa" (ver comentario de `activo` más
+   * arriba) y su descanso terminó DE VERDAD (avisadoRef true descarta el
+   * caso de "arrepentimiento": tocar Listo por error y cancelar no debe
+   * penalizar). Se resetea apenas se arranca la siguiente serie o el
+   * descanso de esta se reinicia. */
+  const [segundosExceso, setSegundosExceso] = useState(0);
   const excesoDesdeRef = useRef<number | null>(null);
+  const tramosNotificadosRef = useRef(0);
   useEffect(() => {
     if (soloLectura || !activo || descansando || !avisadoRef.current || !descansoSegundos) {
       excesoDesdeRef.current = null;
-      setTramosExcedidos(0);
+      tramosNotificadosRef.current = 0;
+      setSegundosExceso(0);
       return;
     }
     excesoDesdeRef.current ??= Date.now();
-    const tramoMs = PUNTOS_VIP.descansoSegundosPorTramo * 1000;
     const id = setInterval(() => {
-      const transcurrido = Date.now() - (excesoDesdeRef.current ?? Date.now());
-      const tramos = Math.floor(transcurrido / tramoMs);
-      if (tramos > 0) {
-        setTramosExcedidos(tramos);
+      const transcurridoS = Math.floor((Date.now() - (excesoDesdeRef.current ?? Date.now())) / 1000);
+      setSegundosExceso(transcurridoS);
+      const tramos = Math.floor(transcurridoS / PUNTOS_VIP.descansoSegundosPorTramo);
+      // Solo se manda al servidor cuando se cruza un tramo nuevo, no cada
+      // segundo — el indicador visual sí se actualiza cada segundo.
+      if (tramos > tramosNotificadosRef.current) {
+        tramosNotificadosRef.current = tramos;
         void penalizarExcesoDescanso(sesionEjercicioId, numero, tramos);
       }
-    }, 5000);
+    }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activo, descansando, soloLectura]);
+  const tramosExcedidos = Math.floor(segundosExceso / PUNTOS_VIP.descansoSegundosPorTramo);
 
   // Las flechas se apagan solas: son un empujón, no un estado en el que la fila
   // se quede. Después el botón se asienta en "Listo".
@@ -997,13 +1004,17 @@ const FilaSerie = forwardRef<
           </button>
         )}
       </div>
-      {tramosExcedidos > 0 && (
-        // Aviso chico y en rojo: nada intrusivo, solo que quede claro por qué
-        // bajaron los puntos — se resetea solo apenas arranca la siguiente serie.
+      {segundosExceso > 0 && (
+        // Aviso chico y en rojo, en vivo desde el segundo 1: primero avisa
+        // que el reloj corre, y recién cuando se cruza el primer tramo (ver
+        // PUNTOS_VIP.descansoSegundosPorTramo) muestra los puntos perdidos.
         <p className="mt-1 text-micro text-error">
-          Te pasaste del descanso: -
-          {Math.min(PUNTOS_VIP.descansoPenalizacionMaxima, tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo)}{" "}
-          pts
+          {tramosExcedidos > 0
+            ? `Te pasaste del descanso: -${Math.min(
+                PUNTOS_VIP.descansoPenalizacionMaxima,
+                tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
+              )} pts`
+            : `Descansaste ${segundosExceso}s de más`}
         </p>
       )}
     </div>

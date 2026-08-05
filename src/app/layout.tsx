@@ -12,6 +12,25 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "VIP Fitness",
   description: "Portal del alumno y panel de entrenador de VIP Fitness",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-icon-180.png", sizes: "180x180", type: "image/png" }],
+  },
+  // Sin esto, "Agregar a pantalla de inicio" en iOS crea un simple atajo de
+  // Safari (con la barra de navegación visible), no una app standalone real
+  // — y las notificaciones del sistema (`avisarFinDescanso` en
+  // `lib/entrenamiento/aviso.ts`) solo las habilita iOS para apps agregadas
+  // en modo standalone de verdad. Quien ya la había agregado antes de este
+  // cambio tiene que borrar el ícono viejo y agregarla de nuevo.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "VIP Fitness",
+  },
 };
 
 // Se bloquea el zoom en celular y tablet: la app está pensada para usarse con
