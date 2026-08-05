@@ -199,31 +199,41 @@ export async function iniciarRutina(formData: FormData): Promise<void> {
 
 export type GuardarSeriesState = { error: string | null };
 
-export async function guardarSeries(
-  _prevState: GuardarSeriesState,
-  formData: FormData
-): Promise<GuardarSeriesState> {
-  const sesionEjercicioId = String(formData.get("sesion_ejercicio_id") || "");
-  const sesionId = String(formData.get("sesion_id") || "");
-  const cantidad = Number(formData.get("cantidad_series") || 0);
-  const notaEjercicio = String(formData.get("nota_ejercicio") || "").trim();
-  // Impulso VIP: se pregunta una vez por ejercicio al terminarlo, no por
-  // serie — viaja en el mismo formulario que el resto, no hace falta una
-  // Server Action separada.
-  const dificultadRaw = String(formData.get("dificultad_ejercicio") || "");
+/**
+ * Núcleo de guardado de un ejercicio: upsert de sus series + nota +
+ * dificultad + completado, y resolución de cumplimiento de Impulso VIP.
+ * Aislado de `guardarSeries` para poder reusarlo tal cual desde
+ * `guardarSeriesGrupo` (biseries/técnicas encadenadas, ver
+ * SesionGrupoCard.tsx): dos ejercicios en la misma técnica se guardan cada
+ * uno con esta misma lógica, sin duplicarla ni arriesgar que se desincronicen.
+ *
+ * `sufijo` namespacea los campos del formulario (ej. `peso_1` vs
+ * `peso_1_b`) para que dos ejercicios puedan compartir un único <form> sin
+ * que sus campos choquen entre sí.
+ */
+async function guardarUnEjercicio(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  formData: FormData,
+  sufijo: string
+): Promise<{ error: string | null }> {
+  const sesionEjercicioId = String(formData.get(`sesion_ejercicio_id${sufijo}`) || "");
+  const cantidad = Number(formData.get(`cantidad_series${sufijo}`) || 0);
+  const notaEjercicio = String(formData.get(`nota_ejercicio${sufijo}`) || "").trim();
+  const dificultadRaw = String(formData.get(`dificultad_ejercicio${sufijo}`) || "");
   const dificultadPercibida: DificultadPercibidaImpulso | null = DIFICULTADES_VALIDAS.has(dificultadRaw)
     ? (dificultadRaw as DificultadPercibidaImpulso)
     : null;
 
-  const supabase = await createClient();
+  if (!sesionEjercicioId) return { error: null };
+
   const filas = [];
   let seriesRealizadas = 0;
 
   for (let i = 1; i <= cantidad; i++) {
-    const esPesoCorporal = formData.get(`peso_corporal_${i}`) === "true";
-    const realizada = formData.get(`realizada_${i}`) === "true";
-    const pesoRaw = formData.get(`peso_${i}`);
-    const repsRaw = formData.get(`reps_${i}`);
+    const esPesoCorporal = formData.get(`peso_corporal_${i}${sufijo}`) === "true";
+    const realizada = formData.get(`realizada_${i}${sufijo}`) === "true";
+    const pesoRaw = formData.get(`peso_${i}${sufijo}`);
+    const repsRaw = formData.get(`reps_${i}${sufijo}`);
 
     const peso = esPesoCorporal ? null : pesoRaw ? Number(String(pesoRaw).replace(",", ".")) : null;
     const reps = repsRaw ? Number(repsRaw) : null;
@@ -285,6 +295,45 @@ export async function guardarSeries(
   if (completado) {
     await resolverCumplimientoImpulso(supabase, sesionEjercicioId, filas).catch(() => null);
   }
+
+  return { error: null };
+}
+
+export async function guardarSeries(
+  _prevState: GuardarSeriesState,
+  formData: FormData
+): Promise<GuardarSeriesState> {
+  const sesionId = String(formData.get("sesion_id") || "");
+  const supabase = await createClient();
+
+  const resultado = await guardarUnEjercicio(supabase, formData, "");
+  if (resultado.error) return resultado;
+
+  revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
+  revalidatePath("/alumno/inicio");
+  revalidatePath("/alumno/entrenar");
+  return { error: null };
+}
+
+/**
+ * Igual que `guardarSeries`, pero para dos ejercicios encadenados (biserie)
+ * que comparten un único <form> — ver `SesionGrupoCard.tsx`. Cada ejercicio
+ * usa sus propios campos namespaceados ("" para el primero, "_b" para el
+ * segundo) y se guarda con la MISMA lógica que un ejercicio suelto, uno
+ * después del otro. Si el primero falla, no se intenta guardar el segundo —
+ * mejor un error claro que un guardado a medias silencioso.
+ */
+export async function guardarSeriesGrupo(
+  _prevState: GuardarSeriesState,
+  formData: FormData
+): Promise<GuardarSeriesState> {
+  const sesionId = String(formData.get("sesion_id") || "");
+  const supabase = await createClient();
+
+  const primero = await guardarUnEjercicio(supabase, formData, "");
+  if (primero.error) return primero;
+  const segundo = await guardarUnEjercicio(supabase, formData, "_b");
+  if (segundo.error) return segundo;
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/inicio");

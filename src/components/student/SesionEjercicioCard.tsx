@@ -48,8 +48,9 @@ export type SesionEjercicioCardHandle = {
 };
 
 /** Lo que expone cada fila de serie al botón "Ejercicio listo" del
- * ejercicio, que fuerza todas las series como hechas de una sola vez. */
-type FilaSerieHandle = {
+ * ejercicio, que fuerza todas las series como hechas de una sola vez.
+ * Exportado: `SesionGrupoCard` lo usa para el mismo botón, por ejercicio. */
+export type FilaSerieHandle = {
   completarYa: () => void;
 };
 
@@ -78,7 +79,7 @@ function formatUltimo(u: EjercicioSesion["ultimoRegistro"], esTiempo: boolean) {
  * ejercicio, se muestra el cuadro vacío en gris — mezclar los dos fallbacks
  * en el mismo lugar los volvía indistinguibles.
  */
-function CuadroFotoReferencia({
+export function CuadroFotoReferencia({
   ilustracionSlug,
   fotoMiniaturaUrl,
   fotoCompletaUrl,
@@ -221,7 +222,7 @@ function FotoReferenciaAmpliable({
 }
 
 /** Una de las celdas de la fila de datos del ejercicio. */
-function Dato({
+export function Dato({
   icono,
   valor,
   etiqueta,
@@ -258,7 +259,7 @@ function Dato({
  * completo: no es una meta, es una pausa de seguridad — nunca dice "meta del
  * día" ni sugiere peso o repeticiones.
  */
-function TarjetaImpulsoVip({ recomendacion }: { recomendacion: EjercicioSesion["recomendacionImpulso"] }) {
+export function TarjetaImpulsoVip({ recomendacion }: { recomendacion: EjercicioSesion["recomendacionImpulso"] }) {
   if (!recomendacion) return null;
 
   if (recomendacion.estado === "bloqueada") {
@@ -303,10 +304,13 @@ const OPCIONES_DIFICULTAD: { valor: string; etiqueta: string }[] = [
  * más del mismo formulario de `guardarSeries`, vía el input oculto — no hace
  * falta una Server Action aparte.
  */
-function SelectorDificultad({
+/** Exportado para SesionGrupoCard (biseries) — dos ejercicios en un mismo
+ * <form> necesitan su propio campo namespaceado, ver `nombreCampo`. */
+export function SelectorDificultad({
   valorInicial,
   disabled,
   onGuardar,
+  nombreCampo = "dificultad_ejercicio",
 }: {
   valorInicial: string | null;
   disabled: boolean;
@@ -315,6 +319,7 @@ function SelectorDificultad({
    * (marcar una serie, editar la nota), y muchas veces no pasaba nada más
    * después de elegirla: quedaba sin persistir. */
   onGuardar: () => void;
+  nombreCampo?: string;
 }) {
   const [valor, setValor] = useState(valorInicial ?? "");
 
@@ -322,7 +327,7 @@ function SelectorDificultad({
 
   return (
     <div className="mt-1.5">
-      <input type="hidden" name="dificultad_ejercicio" value={valor} />
+      <input type="hidden" name={nombreCampo} value={valor} />
       <p className="text-micro mb-1 font-bold tracking-wide text-vip">¿CÓMO SENTISTE ESTE EJERCICIO?</p>
       <div className="flex flex-wrap gap-1.5">
         {OPCIONES_DIFICULTAD.map((op) => (
@@ -464,7 +469,7 @@ const MS_AVISO_SIGUIENTE = 4000;
  * Reemplaza a la observación, que era un campo cajón de sastre: a veces traía
  * la técnica, a veces un recordatorio, a veces el tempo repetido.
  */
-function resolverTecnica(
+export function resolverTecnica(
   ejercicio: EjercicioSesion
 ): { texto: string; sugerida: boolean } | null {
   const dePlan = [ejercicio.tecnicaInstruccion, ejercicio.tecnicaTipo, ejercicio.observacion]
@@ -476,7 +481,11 @@ function resolverTecnica(
   return deBiblioteca ? { texto: deBiblioteca, sugerida: true } : null;
 }
 
-const FilaSerie = forwardRef<
+/** Exportado: es la pieza que reutiliza `SesionGrupoCard` para renderizar
+ * las filas de una biserie/triserie intercaladas (1A, 1B, 2A, 2B...) dentro
+ * de un único formulario — ver `guardarSeriesGrupo` en actions.ts y el
+ * prop `sufijoNombre` de acá abajo. */
+export const FilaSerie = forwardRef<
   FilaSerieHandle,
   {
     numero: number;
@@ -515,6 +524,12 @@ const FilaSerie = forwardRef<
      * si el ejercicio pertenece a una — el botón de la serie que toca ahora
      * se ilumina con este color además del ámbar de siempre. */
     colorGrupoTecnica?: string | null;
+    /** Namespacea los `name` de los campos ("" por defecto, para un
+     * ejercicio suelto). SesionGrupoCard pasa "_b" para el segundo ejercicio
+     * de una biserie, así los dos comparten un único <form> (y por lo tanto
+     * un único guardado) sin que `peso_1` de uno pise el `peso_1` del
+     * otro — ver `guardarSeriesGrupo` en actions.ts. */
+    sufijoNombre?: string;
   }
 >(function FilaSerie(
   {
@@ -534,6 +549,7 @@ const FilaSerie = forwardRef<
     onIniciar,
     onGuardar,
     colorGrupoTecnica,
+    sufijoNombre = "",
   },
   ref
 ) {
@@ -865,8 +881,8 @@ const FilaSerie = forwardRef<
       data-activa={esLaQueToca ? "true" : "false"}
       data-descansando={descansando ? "true" : "false"}
     >
-      <input type="hidden" name={`peso_corporal_${numero}`} value={esPesoCorporal ? "true" : "false"} />
-      <input type="hidden" name={`realizada_${numero}`} value={realizada ? "true" : "false"} />
+      <input type="hidden" name={`peso_corporal_${numero}${sufijoNombre}`} value={esPesoCorporal ? "true" : "false"} />
+      <input type="hidden" name={`realizada_${numero}${sufijoNombre}`} value={realizada ? "true" : "false"} />
 
       <div className="flex items-center gap-1.5">
         {/* Número en disco y no "#1": con el celular apoyado y de reojo, la
@@ -879,7 +895,7 @@ const FilaSerie = forwardRef<
             vertical entre carga y repeticiones. */}
         <label className="campo-serie-plano flex-1">
           <input
-            name={`peso_${numero}`}
+            name={`peso_${numero}${sufijoNombre}`}
             // type="text" y no "number": en varios celulares (Android con
             // teclado en español, sobre todo) el separador decimal que
             // ofrece el teclado numérico es una coma, y un input type=number
@@ -905,7 +921,7 @@ const FilaSerie = forwardRef<
             "8" al lado de la carga se leía como otro peso. */}
         <label className="campo-serie-plano w-[64px] shrink-0">
           <input
-            name={`reps_${numero}`}
+            name={`reps_${numero}${sufijoNombre}`}
             type="number"
             min="0"
             inputMode="numeric"
@@ -1251,6 +1267,12 @@ export const SesionEjercicioCard = forwardRef<
     setSeriesHechas((prev) => new Set(prev).add(numero));
     if (!enviadoRef.current && completadasRef.current.size === ejercicio.seriesProgramadas) {
       enviadoRef.current = true;
+      // Nadie va a arrancar una serie más de este ejercicio — sin esto, la
+      // última fila se quedaba "activa" para siempre (nada vuelve a llamar
+      // onIniciar), y si el alumno se quedaba parado en la pantalla sin
+      // tocar "Finalizar", el contador de exceso de descanso seguía
+      // corriendo sobre una serie que ya terminó de verdad.
+      setSerieActivaNumero(null);
       // El aviso visual aparece antes de guardar; al revalidar, el siguiente
       // ejercicio pasa a ser el activo y recibe el destello sutil. 400ms y no
       // 1200: alcanza para que se note el aviso sin sentirse trabado — se
