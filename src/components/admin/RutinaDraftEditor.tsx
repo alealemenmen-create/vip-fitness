@@ -28,6 +28,17 @@ type Ejercicio = EjercicioExtraido & ConfigProgresionBorrador;
 type Dia = Omit<RutinaExtraida["dias"][number], "ejercicios"> & { ejercicios: Ejercicio[] };
 export type RutinaConProgresion = Omit<RutinaExtraida, "dias"> & { dias: Dia[] };
 
+// Progresión automática encendida por defecto: el entrenador pidió que
+// Impulso VIP corra para todos los alumnos sin tener que prenderlo ejercicio
+// por ejercicio. Se puede apagar puntualmente desde acá si un ejercicio
+// puntual no debería progresar solo (ver el checkbox más abajo).
+const DEFAULTS_PROGRESION: ConfigProgresionBorrador = {
+  aptoProgresion: true,
+  tipoProgresion: "doble",
+  incrementoKg: 2.5,
+  requiereAutorizacion: false,
+};
+
 const EJERCICIO_VACIO: Ejercicio = {
   orden: 0,
   nombre: "",
@@ -38,13 +49,7 @@ const EJERCICIO_VACIO: Ejercicio = {
   tecnicaInstruccion: null,
   observacion: null,
   grupoMuscular: null,
-  // Progresión automática apagada por defecto: publicar una rutina nunca
-  // activa Impulso VIP por sí solo — el entrenador lo prende ejercicio por
-  // ejercicio cuando quiere.
-  aptoProgresion: false,
-  tipoProgresion: "doble",
-  incrementoKg: 2.5,
-  requiereAutorizacion: false,
+  ...DEFAULTS_PROGRESION,
 };
 
 const TIPOS_PROGRESION: { value: TipoProgresionImpulso; label: string }[] = [
@@ -186,13 +191,13 @@ function EjercicioForm({
             className="py-1.5"
           />
 
-          {/* Impulso VIP: apagado por defecto (ver EJERCICIO_VACIO) — publicar
-              una rutina nunca activa progresión automática por sí sola. */}
+          {/* Impulso VIP: encendido por defecto (ver DEFAULTS_PROGRESION) —
+              se apaga puntualmente acá para el ejercicio que no corresponda. */}
           <div className="radius-control border border-border bg-surface-2 px-2.5 py-2">
             <label className="text-caption flex items-center gap-1.5 text-text-secondary">
               <input
                 type="checkbox"
-                checked={ejercicio.aptoProgresion ?? false}
+                checked={ejercicio.aptoProgresion ?? true}
                 onChange={(e) => onChange({ ...ejercicio, aptoProgresion: e.target.checked })}
               />
               Progresión automática (Impulso VIP)
@@ -255,7 +260,18 @@ export function RutinaDraftEditor({
   draftInicial: RutinaExtraida;
   onDescartar: () => void;
 }) {
-  const [draft, setDraft] = useState<RutinaConProgresion>(draftInicial);
+  // `draftInicial` viene de la extracción por IA (`RutinaExtraida` plano,
+  // sin config de progresión — eso nunca lo decide la IA). Se completan acá
+  // los defaults de Impulso VIP por ejercicio, para que quede prendido de
+  // entrada y no solo "se vea prendido" en el checkbox sin estarlo de
+  // verdad al publicar (ver DEFAULTS_PROGRESION más arriba).
+  const [draft, setDraft] = useState<RutinaConProgresion>(() => ({
+    ...draftInicial,
+    dias: draftInicial.dias.map((dia) => ({
+      ...dia,
+      ejercicios: dia.ejercicios.map((ej) => ({ ...DEFAULTS_PROGRESION, ...ej })),
+    })),
+  }));
   const [publicando, setPublicando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publicado, setPublicado] = useState(false);
