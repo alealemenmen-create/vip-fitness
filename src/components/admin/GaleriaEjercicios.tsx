@@ -201,7 +201,10 @@ function ModalSubirFoto({
           type="file"
           name="foto"
           accept="image/*"
-          capture="environment"
+          // Sin "capture": con ese atributo, varios navegadores de celular
+          // abren la cámara directo y nunca ofrecen elegir de la galería —
+          // sacándolo, el selector nativo siempre deja elegir entre sacar
+          // una foto nueva o subir una que ya existe.
           className="absolute inset-0 h-full w-full opacity-0"
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -306,7 +309,8 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
             type="file"
             name="foto"
             accept="image/*"
-            capture="environment"
+            // Ver comentario del mismo input en el modal de editar: sin
+            // "capture" deja elegir entre cámara y galería.
             className="absolute inset-0 h-full w-full opacity-0"
             onChange={(e) => {
               const f = e.target.files?.[0];
