@@ -80,7 +80,7 @@ export default async function SolicitudesPage() {
           <div className="flex items-center gap-3">
             <Inbox size={20} className="text-text-tertiary" />
             <p className="text-body text-text-secondary">
-              No hay solicitudes esperando. Cuando alguien se inscriba por el link, aparece acá.
+              No hay solicitudes esperando. Cuando alguien se inscriba por el link, aparece aquí.
             </p>
           </div>
         </Card>

@@ -556,7 +556,7 @@ export function ArchivosManager({
                   value={textoRutina}
                   onChange={(e) => setTextoRutina(e.target.value)}
                   placeholder={
-                    "Pega acá la rutina completa: días, ejercicios, series, repeticiones...\n\nEj:\nDía 1 · Pecho y tríceps\n1. Press banca 4x8-10\n2. Aperturas con mancuerna 3x12"
+                    "Pega aquí la rutina completa: días, ejercicios, series, repeticiones...\n\nEj:\nDía 1 · Pecho y tríceps\n1. Press banca 4x8-10\n2. Aperturas con mancuerna 3x12"
                   }
                   rows={10}
                   className="radius-control w-full resize-y border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text placeholder:text-text-tertiary"
@@ -736,7 +736,7 @@ export function ArchivosManager({
                   value={textoAlimentacion}
                   onChange={(e) => setTextoAlimentacion(e.target.value)}
                   placeholder={
-                    "Pega acá el plan completo: comidas, horas, alimentos y cantidades...\n\nEj:\nDesayuno · 8:00 AM\n- 2 huevos + 1 pan integral\n- 1 taza de avena con leche"
+                    "Pega aquí el plan completo: comidas, horas, alimentos y cantidades...\n\nEj:\nDesayuno · 8:00 AM\n- 2 huevos + 1 pan integral\n- 1 taza de avena con leche"
                   }
                   rows={10}
                   className="radius-control w-full resize-y border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text placeholder:text-text-tertiary"

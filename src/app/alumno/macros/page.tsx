@@ -22,7 +22,7 @@ export default async function MacrosPage() {
         <Card>
           <p className="text-body flex items-center gap-2 text-text-secondary">
             <Eye size={16} /> Modo solo lectura: no se puede editar la meta de otro alumno desde
-            acá.
+            aquí.
           </p>
         </Card>
       ) : (

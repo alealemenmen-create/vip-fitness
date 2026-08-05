@@ -16,7 +16,7 @@ function fail(mensaje: string): FormState {
 
 export async function cambiarMiCorreo(_prevState: FormState, formData: FormData): Promise<FormState> {
   const { alumnoId, soloLectura } = await requireAlumno();
-  if (soloLectura) return fail("No podés editar el perfil en modo solo lectura.");
+  if (soloLectura) return fail("No puedes editar el perfil en modo solo lectura.");
 
   const nuevoCorreo = String(formData.get("correo") || "");
   const mensajeError = await cambiarCorreoDeUsuario(alumnoId, nuevoCorreo);
@@ -30,7 +30,7 @@ export async function guardarDatosPersonales(
   formData: FormData
 ): Promise<FormState> {
   const { alumnoId, soloLectura } = await requireAlumno();
-  if (soloLectura) return fail("No podés editar el perfil en modo solo lectura.");
+  if (soloLectura) return fail("No puedes editar el perfil en modo solo lectura.");
 
   const supabase = await createClient();
 

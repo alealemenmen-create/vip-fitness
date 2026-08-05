@@ -25,7 +25,7 @@ export default async function PerfilPage() {
       {soloLectura ? (
         <Card>
           <p className="text-body text-text-secondary">
-            Estás viendo este perfil en modo solo lectura, no se puede editar desde acá.
+            Estás viendo este perfil en modo solo lectura, no se puede editar desde aquí.
           </p>
         </Card>
       ) : (

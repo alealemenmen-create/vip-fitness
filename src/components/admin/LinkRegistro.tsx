@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 
 const MENSAJE_WHATSAPP =
-  "¡Hola! Para empezar en VIP Fitness completa tu inscripción acá y yo activo tu cuenta: ";
+  "¡Hola! Para empezar en VIP Fitness completa tu inscripción aquí y yo activo tu cuenta: ";
 
 /**
  * El link que el entrenador le pasa por WhatsApp a un alumno nuevo.
@@ -52,7 +52,7 @@ export function LinkRegistro({ url }: { url: string }) {
         <p className="text-caption text-text-tertiary">LINK DE INSCRIPCIÓN</p>
       </div>
       <p className="text-secondary mb-3 text-text-secondary">
-        Mándaselo a quien quiera entrenar: completa sus datos y te llega la solicitud acá para
+        Mándaselo a quien quiera entrenar: completa sus datos y te llega la solicitud aquí para
         aceptarla.
       </p>
 

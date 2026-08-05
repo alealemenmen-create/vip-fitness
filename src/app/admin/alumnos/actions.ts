@@ -177,7 +177,7 @@ export async function eliminarAlumno(_prevState: FormState, formData: FormData):
   if (!perfil || perfil.rol !== "alumno") return fail("Este perfil no es un alumno eliminable.");
 
   const esCuentaDual = alumnoId === sesion.userId;
-  if (esCuentaDual) return fail("No puedes eliminar tu propia cuenta desde acá.");
+  if (esCuentaDual) return fail("No puedes eliminar tu propia cuenta desde aquí.");
 
   const { error } = await admin.auth.admin.deleteUser(alumnoId);
   if (error) return fail("No fue posible eliminar al alumno. Intenta nuevamente.");

@@ -25,7 +25,7 @@ function fail(mensaje: string): FormState {
  */
 export async function guardarMisMacros(_prevState: FormState, formData: FormData): Promise<FormState> {
   const { alumnoId, soloLectura } = await requireAlumno();
-  if (soloLectura) return fail("No podés editar esto en modo solo lectura.");
+  if (soloLectura) return fail("No puedes editar esto en modo solo lectura.");
 
   const entero = (texto: FormDataEntryValue | null) => {
     const s = String(texto ?? "").trim();

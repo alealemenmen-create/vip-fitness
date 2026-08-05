@@ -81,7 +81,7 @@ export async function enviarSolicitudRegistro(
   if (String(formData.get("sitio_web") || "")) return { error: null, ok: true };
 
   if (demasiadosIntentos(await ipDelVisitante())) {
-    return fail("Recibimos varias solicitudes desde acá. Intenta de nuevo en un rato.");
+    return fail("Recibimos varias solicitudes desde aquí. Intenta de nuevo en un rato.");
   }
 
   const texto = (campo: string) => String(formData.get(campo) || "").trim();

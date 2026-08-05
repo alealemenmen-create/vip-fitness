@@ -56,7 +56,7 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
   }
   if (!fecha) return fail("Selecciona una fecha.");
   if (!fechaEnVentanaValida(fecha)) {
-    return fail("Solo podés registrar el peso de hoy o de ayer.");
+    return fail("Solo puedes registrar el peso de hoy o de ayer.");
   }
 
   const { error } = await supabase.from("pesos_corporales").insert({
@@ -110,7 +110,7 @@ export async function subirFotoProgreso(
 
   if (!archivo || archivo.size === 0) return fail("Selecciona una foto.");
   if (!fechaEnVentanaValida(fechaFoto)) {
-    return fail("Solo podés subir una foto de hoy o de ayer.");
+    return fail("Solo puedes subir una foto de hoy o de ayer.");
   }
 
   const extensionArchivo = archivo.name.split(".").pop()?.toLowerCase() || "";

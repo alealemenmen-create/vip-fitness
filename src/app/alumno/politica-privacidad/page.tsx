@@ -46,7 +46,7 @@ export default function PoliticaPrivacidadPage() {
           usa la app.
         </p>
         <p>
-          Al crear una cuenta o usar el Portal, aceptas los términos descritos acá. Si no estás de
+          Al crear una cuenta o usar el Portal, aceptas los términos descritos aquí. Si no estás de
           acuerdo con algún punto, puedes solicitar la eliminación de tu cuenta contactando
           directamente a tu entrenador o al gimnasio.
         </p>

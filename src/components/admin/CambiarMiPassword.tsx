@@ -47,7 +47,7 @@ export function CambiarMiPassword() {
     <Card className="space-y-3 p-4">
       <p className="text-caption text-text-tertiary">MI CUENTA</p>
       <p className="text-secondary text-text-secondary">
-        Cambiá tu propia contraseña acá, sin necesitar entrar a Supabase.
+        Cambia tu propia contraseña aquí, sin necesitar entrar a Supabase.
       </p>
       <form onSubmit={onSubmit} className="space-y-3">
         <div>

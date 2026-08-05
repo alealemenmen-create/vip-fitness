@@ -14,7 +14,7 @@ export default async function EjerciciosAdminPage() {
         <h1 className="text-h2 text-text">Fotos de ejercicios</h1>
       </TituloPestana>
       <p className="text-secondary text-text-secondary">
-        Tocá la foto de cualquier ejercicio para subir una nueva o cambiar la que tiene. Se publica
+        Toca la foto de cualquier ejercicio para subir una nueva o cambiar la que tiene. Se publica
         para los alumnos al instante.
       </p>
       <GaleriaEjercicios ejercicios={biblioteca} />

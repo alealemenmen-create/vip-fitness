@@ -135,7 +135,7 @@ Solicitud: ${solicitud}`,
     if (!intencion) return { respuesta: null, reporte: null, error: "La IA no pudo identificar un reporte seguro." };
 
     if (intencion.herramienta === "eliminar_datos" && !intencion.alumno) {
-      return { respuesta: null, reporte: null, error: "Decime el nombre del alumno para poder borrar sus datos." };
+      return { respuesta: null, reporte: null, error: "Dime el nombre del alumno para poder borrar sus datos." };
     }
 
     const coincidencias = coincidenciasNombre(reportes, intencion.alumno);
@@ -157,7 +157,7 @@ Solicitud: ${solicitud}`,
         return {
           respuesta: null,
           reporte: null,
-          error: `¿Qué querés borrar de ${nombreAlumno}? Decime: entrenamiento, comida, progreso o ranking.`,
+          error: `¿Qué quieres borrar de ${nombreAlumno}? Dime: entrenamiento, comida, progreso o ranking.`,
         };
       }
 

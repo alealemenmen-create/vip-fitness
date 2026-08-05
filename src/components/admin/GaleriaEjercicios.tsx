@@ -197,7 +197,7 @@ function ModalSubirFoto({
         ) : (
           <span className="flex flex-col items-center gap-1 text-text-tertiary">
             <Camera size={26} />
-            <span className="text-caption">Tocá para elegir una foto</span>
+            <span className="text-caption">Toca para elegir una foto</span>
           </span>
         )}
         <input

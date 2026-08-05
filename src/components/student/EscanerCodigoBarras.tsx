@@ -275,7 +275,7 @@ export function EscanerCodigoBarras({
       {estadoCamara === "no_soportada" && (
         <div className="radius-control space-y-2 border border-border p-3">
           <p className="text-caption text-text-tertiary">
-            Este navegador no permite escanear códigos acá. Prueba desde el celular o busca por texto.
+            Este navegador no permite escanear códigos aquí. Prueba desde el celular o busca por texto.
           </p>
           <Button variant="secondary" size="sm" onClick={onVolverATexto} className="w-full">
             Buscar por texto

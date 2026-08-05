@@ -116,7 +116,7 @@ export function avisarFinDescanso() {
   try {
     if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
       notificacionActiva = new Notification("Se acabó el descanso", {
-        body: "Volvé a la app para tu siguiente serie.",
+        body: "Vuelve a la app para tu siguiente serie.",
         icon: "/icons/icon-192.png",
         tag: "fin-descanso",
         silent: true, // el sonido ya lo maneja Web Audio arriba

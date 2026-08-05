@@ -68,8 +68,8 @@ export function EditorMisMacros({
       <div className="radius-control mt-3 flex gap-2.5 border border-vip/40 bg-vip/5 p-3">
         <AlertTriangle size={18} className="mt-0.5 shrink-0 text-vip" />
         <p className="text-caption text-text-secondary">
-          Este cambio es delicado: los números que cargues acá reemplazan tu meta activa y son los
-          que después controlan tu progreso nutricional. Cargá los mismos que te pasó tu
+          Este cambio es delicado: los números que cargues aquí reemplazan tu meta activa y son los
+          que después controlan tu progreso nutricional. Carga los mismos que te pasó tu
           entrenador.
         </p>
       </div>

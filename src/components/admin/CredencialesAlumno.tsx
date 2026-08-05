@@ -46,7 +46,7 @@ export function CredencialesAlumno({ alumnoId }: { alumnoId: string }) {
           <input type="hidden" name="alumno_id" value={alumnoId} />
           <p className="text-caption text-text-secondary">
             Si el alumno no puede entrar (nunca le llegó el correo de invitación, o perdió la
-            contraseña), generá una nueva acá — se la mandamos por correo automáticamente.
+            contraseña), genera una nueva aquí — se la mandamos por correo automáticamente.
           </p>
           {state.error && <p className="text-caption text-error">{state.error}</p>}
           <Button type="submit" variant="secondary" loading={pending} size="xs">

@@ -107,7 +107,7 @@ export async function programarAvisoDescanso(segundos: number): Promise<void> {
     await esperar(segundos * 1000);
     const payload = {
       title: "Se acabó el descanso",
-      body: "Volvé a la app para tu siguiente serie.",
+      body: "Vuelve a la app para tu siguiente serie.",
       tag: "fin-descanso",
       url: "/alumno/entrenar",
     };

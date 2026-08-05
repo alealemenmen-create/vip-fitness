@@ -227,7 +227,7 @@ export function AsistenteVipPanel({ totalAlumnos }: { totalAlumnos: number }) {
                 ))}
               </ul>
               <p className="text-micro mt-2 text-text-tertiary">
-                Todavía no se borró nada. La IA solo propone — hace falta confirmar acá abajo.
+                Todavía no se borró nada. La IA solo propone — hace falta confirmar aquí abajo.
               </p>
               <div className="mt-3">
                 <EliminarPerfilBoton

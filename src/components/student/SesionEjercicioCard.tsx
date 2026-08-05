@@ -988,12 +988,12 @@ export const FilaSerie = forwardRef<
                   : `En pausa, ${restante}s — arrancó el descanso de otra serie`
                 : realizada
                   ? avisandoSiguiente
-                    ? "Descanso terminado — seguí con lo que viene"
+                    ? "Descanso terminado — sigue con lo que viene"
                     : tocandoDeshacer > 0
-                      ? "Tocá de nuevo para deshacer esta serie"
+                      ? "Toca de nuevo para deshacer esta serie"
                       : "Serie lista"
                   : tocandoConfirmacion > 0
-                    ? `Esta no es la serie en turno — tocá ${TOQUES_CONFIRMACION - tocandoConfirmacion} vez más para confirmar`
+                    ? `Esta no es la serie en turno — toca ${TOQUES_CONFIRMACION - tocandoConfirmacion} vez más para confirmar`
                     : esLaQueToca
                       ? "Empezar descanso"
                       : "Serie fuera de turno — tocar 3 veces para confirmar"
@@ -1053,7 +1053,7 @@ export const FilaSerie = forwardRef<
                 // todavía no completa nada — avisa cuántos más faltan.
                 <span className="flex flex-col items-center leading-tight">
                   <span>
-                    Tocá {TOQUES_CONFIRMACION - tocandoConfirmacion}{" "}
+                    Toca {TOQUES_CONFIRMACION - tocandoConfirmacion}{" "}
                     {TOQUES_CONFIRMACION - tocandoConfirmacion === 1 ? "vez" : "veces"} más
                   </span>
                 </span>
@@ -1096,8 +1096,8 @@ export const FilaSerie = forwardRef<
               ? `Te pasaste del descanso: -${Math.min(
                   PUNTOS_VIP.descansoPenalizacionMaxima,
                   tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
-                )} pts · tocá para frenar`
-              : `Descansaste ${segundosExceso}s de más · tocá para frenar`}
+                )} pts · toca para frenar`
+              : `Descansaste ${segundosExceso}s de más · toca para frenar`}
         </button>
       )}
     </div>

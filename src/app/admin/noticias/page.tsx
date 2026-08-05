@@ -27,7 +27,7 @@ export default async function NoticiasAdminPage({
         <h1 className="text-h2 text-text">Noticias</h1>
       </TituloPestana>
       <p className="text-secondary text-text-secondary">
-        Lo que publiques acá aparece para todos los alumnos en su pestaña de Noticias VIP.
+        Lo que publiques aquí aparece para todos los alumnos en su pestaña de Noticias VIP.
       </p>
       <AnunciosManager anuncios={anuncios} borradores={borradores} borradorIA={borradorIA} />
     </div>

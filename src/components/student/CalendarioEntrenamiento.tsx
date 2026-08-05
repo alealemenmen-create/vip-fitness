@@ -246,9 +246,9 @@ function BotonEmpezarDia({
               <div className="flex items-start gap-2.5">
                 <AlertTriangle size={20} className="mt-0.5 shrink-0 text-vip" />
                 <div>
-                  <p className="text-body font-medium text-text">Tenés un entrenamiento activo</p>
+                  <p className="text-body font-medium text-text">Tienes un entrenamiento activo</p>
                   <p className="text-caption mt-1 text-text-secondary">
-                    El día {conflicto.numero} sigue en curso. ¿Querés continuar ese, o cancelarlo
+                    El día {conflicto.numero} sigue en curso. ¿Quieres continuar ese, o cancelarlo
                     para empezar este?
                   </p>
                 </div>

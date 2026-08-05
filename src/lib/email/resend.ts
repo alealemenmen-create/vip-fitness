@@ -68,13 +68,13 @@ function envoltorio(contenido: string): string {
 export function plantillaCredenciales(input: { nombre: string; email: string; password: string; loginUrl: string }): string {
   return envoltorio(`
     <p>Hola ${input.nombre},</p>
-    <p>Tu cuenta en VIP Fitness ya está lista. Podés entrar con estos datos:</p>
+    <p>Tu cuenta en VIP Fitness ya está lista. Puedes entrar con estos datos:</p>
     <div style="background: #f4f4f4; border-radius: 12px; padding: 16px; margin: 16px 0;">
       <p style="margin: 0 0 8px;"><strong>Correo:</strong> ${input.email}</p>
       <p style="margin: 0;"><strong>Contraseña:</strong> ${input.password}</p>
     </div>
     <p><a href="${input.loginUrl}" style="color: #ffa100; font-weight: 600;">Entrar a VIP Fitness</a></p>
-    <p style="color: #666; font-size: 13px;">Podés cambiar esta contraseña cuando quieras desde "¿Olvidaste tu contraseña?" en la pantalla de entrada.</p>
+    <p style="color: #666; font-size: 13px;">Puedes cambiar esta contraseña cuando quieras desde "¿Olvidaste tu contraseña?" en la pantalla de entrada.</p>
   `);
 }
 
@@ -82,6 +82,6 @@ export function plantillaRecuperacion(input: { linkRecuperacion: string }): stri
   return envoltorio(`
     <p>Pediste cambiar tu contraseña de VIP Fitness.</p>
     <p><a href="${input.linkRecuperacion}" style="color: #ffa100; font-weight: 600;">Elegir una contraseña nueva</a></p>
-    <p style="color: #666; font-size: 13px;">Si no pediste esto, podés ignorar este correo — tu contraseña actual sigue funcionando.</p>
+    <p style="color: #666; font-size: 13px;">Si no pediste esto, puedes ignorar este correo — tu contraseña actual sigue funcionando.</p>
   `);
 }

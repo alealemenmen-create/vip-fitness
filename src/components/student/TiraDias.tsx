@@ -70,7 +70,7 @@ export function TiraDias({
     <div className="flex items-center gap-1 pt-1">
       <button
         type="button"
-        aria-label={hoyALaIzquierda ? "Día anterior (hoy es hacia acá)" : "Día anterior"}
+        aria-label={hoyALaIzquierda ? "Día anterior (hoy es hacia aquí)" : "Día anterior"}
         onClick={() => onSeleccionar(sumarDiasISO(seleccionada, -1))}
         className="flex h-11 w-7 shrink-0 items-center justify-center transition-[transform,color] duration-150 active:scale-90"
         style={{
@@ -122,7 +122,7 @@ export function TiraDias({
 
       <button
         type="button"
-        aria-label={hoyALaDerecha ? "Día siguiente (hoy es hacia acá)" : "Día siguiente"}
+        aria-label={hoyALaDerecha ? "Día siguiente (hoy es hacia aquí)" : "Día siguiente"}
         onClick={() => onSeleccionar(sumarDiasISO(seleccionada, 1))}
         className="flex h-11 w-7 shrink-0 items-center justify-center transition-[transform,color] duration-150 active:scale-90"
         style={{

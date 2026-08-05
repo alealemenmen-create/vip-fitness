@@ -140,7 +140,7 @@ export default async function NoticiasPage() {
           <Card>
             <p className="text-body text-text-secondary">
               Todavía no hay noticias. Las nuevas incorporaciones, logros semanales, torneos y
-              avances importantes aparecerán acá.
+              avances importantes aparecerán aquí.
             </p>
           </Card>
         )
