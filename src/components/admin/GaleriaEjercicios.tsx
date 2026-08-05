@@ -31,6 +31,12 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
   const [busqueda, setBusqueda] = useState("");
   const [editando, setEditando] = useState<Ejercicio | null>(null);
   const [creando, setCreando] = useState(false);
+  // Justo después de subir una foto nueva, a veces el CDN de Storage todavía
+  // no terminó de propagarla y la primera carga falla (el archivo ya está
+  // subido de verdad, es solo una demora de segundos) — sin esto se veía el
+  // ícono de "imagen rota" del navegador, que asusta más de lo que informa.
+  // Cae al mismo placeholder neutro que un ejercicio sin foto todavía.
+  const [erroresFoto, setErroresFoto] = useState<ReadonlySet<string>>(new Set());
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -75,7 +81,7 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
 
       <div className="grid grid-cols-2 gap-2.5">
         {filtrados.map((ej) => {
-          const foto = fotoDe(ej);
+          const foto = erroresFoto.has(ej.id) ? null : fotoDe(ej);
           return (
             <button
               key={ej.id}
@@ -92,6 +98,7 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
                       fill
                       sizes="200px"
                       className="object-cover"
+                      onError={() => setErroresFoto((prev) => new Set(prev).add(ej.id))}
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-text-tertiary">
