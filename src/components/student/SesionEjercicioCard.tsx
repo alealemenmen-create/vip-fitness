@@ -84,6 +84,7 @@ export function CuadroFotoReferencia({
   fotoMiniaturaUrl,
   fotoCompletaUrl,
   nombre,
+  compacto = false,
 }: {
   ilustracionSlug: string | null;
   /** Fotos subidas desde /admin/ejercicios — mandan sobre la ilustración
@@ -91,10 +92,16 @@ export function CuadroFotoReferencia({
   fotoMiniaturaUrl: string | null;
   fotoCompletaUrl: string | null;
   nombre: string;
+  /** El tamaño y las sangrías negativas de siempre están pensados para la
+   * esquina de una tarjeta suelta a todo el ancho. Dentro de un encabezado
+   * de dos columnas (ver SesionGrupoCard, biseries) ese mismo tamaño fijo
+   * se desbordaba de su columna y se amontonaba con la de al lado — acá
+   * pasa a un cuadrado chico, sin sangría. */
+  compacto?: boolean;
 }) {
   const { src: srcEstatico, origen } = resolverIlustracion(ilustracionSlug, null);
   const src = fotoMiniaturaUrl ?? (origen === "ilustracion" ? srcEstatico : null);
-  const tamano = { width: 116, minHeight: 96 };
+  const tamano = compacto ? { width: 44, minHeight: 44 } : { width: 116, minHeight: 96 };
 
   if (!src) {
     return (
@@ -105,14 +112,20 @@ export function CuadroFotoReferencia({
         // Los márgenes negativos son solo arriba y a la derecha: el cuadro se
         // estira en diagonal hacia esa esquina comiéndose casi todo el padding de
         // la tarjeta (queda ~4 px de aire para que se siga viendo el margen).
-        className="-mr-2 -mt-2 flex shrink-0 items-center justify-center self-stretch overflow-hidden rounded-[14px] border border-dashed border-border bg-surface-2 text-text-tertiary"
+        // En modo compacto no hay sangría ni estiramiento: es un cuadrado
+        // chico más, no la esquina de toda la tarjeta.
+        className={
+          compacto
+            ? "flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-surface-2 text-text-tertiary"
+            : "-mr-2 -mt-2 flex shrink-0 items-center justify-center self-stretch overflow-hidden rounded-[14px] border border-dashed border-border bg-surface-2 text-text-tertiary"
+        }
         style={tamano}
         // Para un lector de pantalla esto es decoración vacía, no una imagen que
         // falta: no aporta nada leerlo en voz alta.
         aria-hidden="true"
         title={`Foto de referencia de ${nombre} (pendiente)`}
       >
-        <ImageIcon size={22} />
+        <ImageIcon size={compacto ? 16 : 22} />
       </div>
     );
   }
@@ -123,6 +136,7 @@ export function CuadroFotoReferencia({
       srcCompleta={fotoCompletaUrl ?? resolverFotoCompleta(ilustracionSlug)}
       nombre={nombre}
       tamano={tamano}
+      compacto={compacto}
     />
   );
 }
@@ -140,6 +154,7 @@ function FotoReferenciaAmpliable({
   srcCompleta,
   nombre,
   tamano,
+  compacto = false,
 }: {
   src: string;
   /** La foto ORIGINAL sin recortar, si ya se identificó cuál es (ver
@@ -149,6 +164,7 @@ function FotoReferenciaAmpliable({
   srcCompleta: string | null;
   nombre: string;
   tamano: { width: number; minHeight: number };
+  compacto?: boolean;
 }) {
   const [ampliada, setAmpliada] = useState(false);
   const srcAmpliada = srcCompleta ?? src;
@@ -159,14 +175,18 @@ function FotoReferenciaAmpliable({
         type="button"
         onClick={() => setAmpliada(true)}
         aria-label={`Ver foto de referencia de ${nombre} en grande`}
-        className="-mr-2 -mt-2 relative flex shrink-0 self-stretch overflow-hidden rounded-[14px] border border-border bg-surface-2"
+        className={
+          compacto
+            ? "relative flex shrink-0 overflow-hidden rounded-xl border border-border bg-surface-2"
+            : "-mr-2 -mt-2 relative flex shrink-0 self-stretch overflow-hidden rounded-[14px] border border-border bg-surface-2"
+        }
         style={tamano}
       >
         <Image
           src={src}
           alt={`Foto de referencia de ${nombre}`}
           fill
-          sizes="116px"
+          sizes={compacto ? "44px" : "116px"}
           // object-center y no object-top: a diferencia de la foto de grupo
           // muscular (que se recorta desde arriba), estas fotos ya vienen
           // recortadas y centradas en el servidor. Anclarlas arriba cortaba la
@@ -175,10 +195,13 @@ function FotoReferenciaAmpliable({
         />
         {/* Botón de expandir, chico y en la esquina (referencia de diseño):
             un ícono basta como pista de que hay más para ver, sin tapar la
-            foto con una franja de texto. */}
-        <span className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm">
-          <Maximize2 size={12} strokeWidth={2.5} />
-        </span>
+            foto con una franja de texto. En modo compacto (44px) se saca
+            del todo: no entraba sin tapar casi toda la foto. */}
+        {!compacto && (
+          <span className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm">
+            <Maximize2 size={12} strokeWidth={2.5} />
+          </span>
+        )}
       </button>
 
       {ampliada &&
@@ -240,9 +263,13 @@ export function Dato({
       {/* Ícono y valor en la MISMA línea, no apilados: apilados, la fila medía
           65 px de alto en cada uno de los siete ejercicios. Así baja a ~44 sin
           achicar el número, que es lo que se mira de reojo entre serie y serie. */}
-      <span className="flex items-center gap-1">
-        <span className="text-vip">{icono}</span>
-        <span className="text-caption whitespace-nowrap font-semibold leading-none text-text">{valor}</span>
+      <span className="flex min-w-0 items-center gap-1">
+        <span className="shrink-0 text-vip">{icono}</span>
+        {/* truncate y no whitespace-nowrap a secas: un ejercicio con técnica
+            compleja puede traer un valor largo en "reps" (texto en vez de un
+            rango cortito) y sin recortar se desbordaba encima de la celda de
+            al lado en vez de cortarse con puntos suspensivos. */}
+        <span className="text-caption truncate font-semibold leading-none text-text">{valor}</span>
       </span>
       <span className="text-micro leading-none text-text-tertiary">{etiqueta}</span>
     </div>
@@ -906,6 +933,12 @@ export const FilaSerie = forwardRef<
             // valor SÍ le llega.
             type="text"
             inputMode="decimal"
+            // El truco de compatibilidad de siempre: en algunas versiones de
+            // iOS, inputMode solo no alcanza para que aparezca el teclado
+            // numérico en un input de texto — hace falta este pattern
+            // también, aunque no se use para validar (el campo no es
+            // required, y el servidor ya tolera coma o punto).
+            pattern="[0-9]*[.,]?[0-9]*"
             placeholder="—"
             disabled={esPesoCorporal}
             // Lo ya cargado (guardado o borrador) manda siempre; si no hay

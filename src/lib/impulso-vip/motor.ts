@@ -14,7 +14,12 @@ import type {
 const CONFIG_DEFAULT: ConfigProgresion = {
   aptoProgresion: true,
   tipoProgresion: "doble",
-  incrementoKg: 2.5,
+  // 5kg y no 2.5kg: el escalón real más común en la sala (discos de 2.5kg
+  // sueltos son mucho menos habituales que los de 5kg) — pedido explícito
+  // del entrenador para no forzar a comprar discos nuevos. Se puede seguir
+  // ajustando por ejercicio desde el editor de rutina si hace falta un
+  // escalón más fino.
+  incrementoKg: 5,
   requiereAutorizacion: false,
   rirObjetivo: null,
 };
@@ -154,7 +159,7 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
       peso: null,
       rango,
       pesoCorporal: false,
-      justificacion: "Primera vez que registrás este ejercicio: seguí el rango indicado por tu entrenador.",
+      justificacion: "Primera vez que registras este ejercicio: sigue el rango indicado por tu entrenador.",
       motivos: ["sin_historial"],
     });
   }
@@ -202,7 +207,7 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
         peso: null,
         rango: null,
         pesoCorporal,
-        justificacion: "Revisión requerida: llevás 3 sesiones sin progresar en este ejercicio. Mantené una carga segura y esperá que tu entrenador lo revise.",
+        justificacion: "Revisión requerida: llevas 3 sesiones sin progresar en este ejercicio. Mantén una carga segura y espera a que tu entrenador lo revise.",
         motivos: ["estancamiento_3_sesiones"],
         alertaTipo: "estancamiento_3_sesiones",
       });
@@ -217,7 +222,7 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
         peso: null,
         rango: null,
         pesoCorporal,
-        justificacion: "Revisión requerida: tu rendimiento cayó bastante respecto a la sesión anterior. Consultá con tu entrenador antes de seguir.",
+        justificacion: "Revisión requerida: tu rendimiento cayó bastante respecto a la sesión anterior. Consulta con tu entrenador antes de seguir.",
         motivos: ["caida_rendimiento"],
         alertaTipo: "caida_rendimiento",
       });
@@ -266,7 +271,7 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
       peso: pesoActual,
       rango,
       pesoCorporal,
-      justificacion: "Completaste el rango, pero todavía no registraste qué tan difícil te resultó. Repetí el mismo peso y contanos la dificultad al terminar para poder subir la carga la próxima vez.",
+      justificacion: "Completaste el rango, pero todavía no registraste qué tan difícil te resultó. Repite el mismo peso y cuéntanos la dificultad al terminar para poder subir la carga la próxima vez.",
       motivos: ["completo_maximo", "primera_sesion_sin_dificultad"],
       metaTotalReps: totalReps(ultima.series),
     });
@@ -281,8 +286,8 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
         pesoCorporal,
         justificacion:
           pesoActual === null
-            ? `Completaste el rango de ${rango.max} repeticiones en todas las series. Subí al siguiente peso disponible.`
-            : `Completaste ${rango.max} repeticiones en todas las series con ${pesoActual}kg. Hoy subí a ${nuevoPeso}kg y volvé a ${rango.min} repeticiones.`,
+            ? `Completaste el rango de ${rango.max} repeticiones en todas las series. Sube al siguiente peso disponible.`
+            : `Completaste ${rango.max} repeticiones en todas las series con ${pesoActual}kg. Hoy debes subir a ${nuevoPeso}kg y volver a ${rango.min} repeticiones.`,
         motivos: ["completo_maximo", "sin_esfuerzo_alto"],
         metaTotalReps: input.seriesProgramadas * rango.min,
       });
@@ -291,7 +296,7 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
       peso: pesoActual,
       rango,
       pesoCorporal,
-      justificacion: "Completaste el rango, pero con un esfuerzo muy alto. Hoy repetí el mismo peso y las mismas repeticiones antes de subir carga.",
+      justificacion: "Completaste el rango, pero con un esfuerzo muy alto. Hoy debes repetir el mismo peso y las mismas repeticiones antes de subir la carga.",
       motivos: ["completo_maximo", "esfuerzo_alto"],
       metaTotalReps: totalReps(ultima.series),
     });
@@ -302,7 +307,7 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
       peso: pesoActual,
       rango,
       pesoCorporal,
-      justificacion: "Completaste el máximo de repeticiones sin carga extra. Consultá a tu entrenador para sumar lastre o progresar de otra forma.",
+      justificacion: "Completaste el máximo de repeticiones sin carga extra. Consulta a tu entrenador para sumar lastre o progresar de otra forma.",
       motivos: ["max_sin_lever_de_peso"],
       metaTotalReps: totalReps(ultima.series),
     });
@@ -327,8 +332,8 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
       pesoCorporal,
       justificacion:
         pesoActual === null
-          ? `Mantené el peso de la última vez e intentá sumar ${faltan === 1 ? "una repetición" : `${faltan} repeticiones`} en total.`
-          : `Mantené los ${pesoActual}kg e intentá sumar ${faltan === 1 ? "una repetición" : `${faltan} repeticiones`} en total, sin salir del rango de ${rango.min}-${rango.max}.`,
+          ? `Mantén el peso de la última vez e intenta sumar ${faltan === 1 ? "una repetición" : `${faltan} repeticiones`} en total.`
+          : `Mantén los ${pesoActual}kg e intenta sumar ${faltan === 1 ? "una repetición" : `${faltan} repeticiones`} en total, sin salir del rango de ${rango.min}-${rango.max}.`,
       motivos: ["dentro_del_rango", "sin_fallo", "sin_esfuerzo_alto"],
       metaTotalReps: meta,
     });
@@ -341,10 +346,10 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
     pesoCorporal,
     justificacion:
       objetivo === "perdida_grasa" && falloAislado
-        ? "Estás en una etapa de pérdida de grasa. Hoy el objetivo es sostener lo que veniste haciendo: igualá tu última sesión."
+        ? "Estás en una etapa de pérdida de grasa. Hoy el objetivo es sostener lo que has venido haciendo: iguala tu última sesión."
         : falloAislado
-          ? "La última vez no llegaste al mínimo del rango. Hoy mantené el mismo peso e intentá recuperar tu marca."
-          : "La última vez el esfuerzo fue muy alto. Hoy mantené el mismo peso y las mismas repeticiones.",
+          ? "La última vez no llegaste al mínimo del rango. Hoy mantén el mismo peso e intenta recuperar tu marca."
+          : "La última vez el esfuerzo fue muy alto. Hoy mantén el mismo peso y las mismas repeticiones.",
     motivos: falloAislado ? ["fallo_minimo_aislado"] : ["esfuerzo_alto"],
     metaTotalReps: totalReps(ultima.series),
   });

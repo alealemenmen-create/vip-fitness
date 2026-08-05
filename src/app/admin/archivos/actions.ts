@@ -962,7 +962,7 @@ async function publicarUnaRutina(
           ? {
               apto_progresion: true,
               tipo_progresion: ej.tipoProgresion ?? "doble",
-              incremento_kg: ej.incrementoKg ?? 2.5,
+              incremento_kg: ej.incrementoKg ?? 5,
               requiere_autorizacion: ej.requiereAutorizacion ?? false,
             }
           : null,

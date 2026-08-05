@@ -35,7 +35,9 @@ export type RutinaConProgresion = Omit<RutinaExtraida, "dias"> & { dias: Dia[] }
 const DEFAULTS_PROGRESION: ConfigProgresionBorrador = {
   aptoProgresion: true,
   tipoProgresion: "doble",
-  incrementoKg: 2.5,
+  // 5kg: el escalón de disco más común en la sala (ver mismo default en
+  // motor.ts).
+  incrementoKg: 5,
   requiereAutorizacion: false,
 };
 
@@ -223,7 +225,7 @@ function EjercicioForm({
                     type="number"
                     min="0"
                     step="0.5"
-                    value={ejercicio.incrementoKg ?? 2.5}
+                    value={ejercicio.incrementoKg ?? 5}
                     onChange={(e) => onChange({ ...ejercicio, incrementoKg: Number(e.target.value) })}
                     className="w-16 px-1.5 py-1 text-center"
                   />

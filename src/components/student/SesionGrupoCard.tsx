@@ -225,6 +225,7 @@ export const SesionGrupoCard = forwardRef<
               fotoMiniaturaUrl={ej.fotoMiniaturaUrl}
               fotoCompletaUrl={ej.fotoCompletaUrl}
               nombre={ej.nombre}
+              compacto
             />
             <div className="min-w-0">
               <p className="text-micro font-bold leading-tight text-vip">{LETRAS[pos]}</p>
