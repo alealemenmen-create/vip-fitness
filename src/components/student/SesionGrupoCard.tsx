@@ -20,26 +20,30 @@ import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 
 const initialState: GuardarSeriesState = { error: null };
 
-/** Sufijo de campo por posición dentro del par — "" para el primero, "_b"
- * para el segundo, ver `guardarSeriesGrupo` en actions.ts. Esta tarjeta
- * combinada cubre el caso de a PAR (biserie): un grupo de 3+ (triserie,
- * giant set) sigue mostrándose como tarjetas sueltas alternando turno —
- * ver la condición en SesionEjercicios.tsx. */
-const SUFIJOS = ["", "_b"] as const;
+/** Letras para identificar cada ejercicio del grupo — hasta 8 (giant set
+ * grande), más que eso ya no tiene sentido como técnica encadenada. */
+const LETRAS = "ABCDEFGH".split("");
 
-type Paso = { pos: 0 | 1; numero: number };
+/** Sufijo de campo por posición dentro del grupo: "" para el primero,
+ * "_1", "_2"... para el resto (ver `guardarSeriesGrupo` en actions.ts, que
+ * lee `cantidad_ejercicios_grupo` para saber cuántos namespaces recorrer). */
+function sufijoDe(pos: number): string {
+  return pos === 0 ? "" : `_${pos}`;
+}
+
+type Paso = { pos: number; numero: number };
 
 /**
- * Tarjeta combinada para una biserie: dos ejercicios encadenados que se
- * hacen alternados, serie por serie — "press pecho plano" y "press
- * inclinado" se muestran como UNA sola tarjeta con las filas intercaladas
- * (1A, 1B, 2A, 2B...), en vez de dos tarjetas separadas donde había que
- * bajar toda una para encontrar la otra.
+ * Tarjeta combinada para una técnica encadenada (biserie, triserie, giant
+ * set): los ejercicios se hacen alternados, serie por serie — se muestran
+ * como UNA sola tarjeta con las filas intercaladas (1A, 1B, 1C, 2A, 2B,
+ * 2C...), en vez de tarjetas separadas donde había que bajar toda una para
+ * encontrar la siguiente.
  *
  * Reusa `FilaSerie` tal cual (descanso, exceso, aviso, precarga de Impulso
  * VIP — nada de eso se reimplementa) namespaceando sus campos con
- * `sufijoNombre` para que los dos ejercicios compartan un único <form> y un
- * único guardado (`guardarSeriesGrupo`), en vez de dos envíos separados.
+ * `sufijoNombre` para que todos los ejercicios compartan un único <form> y
+ * un único guardado (`guardarSeriesGrupo`), en vez de envíos separados.
  *
  * Deliberadamente NO tiene (todavía): respaldo local en el teléfono
  * (borrador) ni reporte de dolor — quedan pendientes de una vuelta
@@ -50,41 +54,45 @@ type Paso = { pos: 0 | 1; numero: number };
 export const SesionGrupoCard = forwardRef<
   SesionEjercicioCardHandle,
   {
-    ejercicios: [EjercicioSesion, EjercicioSesion];
+    /** 2 o más — biserie, triserie, giant set. */
+    ejercicios: EjercicioSesion[];
     sesionId: string;
     soloLectura: boolean;
     activo?: boolean;
   }
 >(function SesionGrupoCard({ ejercicios, sesionId, soloLectura, activo = false }, ref) {
   const [state, formAction, pending] = useActionState(guardarSeriesGrupo, initialState);
-  const completoTodo = ejercicios[0].completado && ejercicios[1].completado;
+  const n = ejercicios.length;
+  const completoTodo = ejercicios.every((e) => e.completado);
   const [expandido, setExpandido] = useState(activo || soloLectura || completoTodo);
 
-  const grupoTecnica = resolverGrupoTecnica(ejercicios[0].tecnicaTipo) ?? resolverGrupoTecnica(ejercicios[1].tecnicaTipo);
+  const grupoTecnica = ejercicios.map((e) => resolverGrupoTecnica(e.tecnicaTipo)).find((g) => g) ?? null;
+  const etiquetaGrupo = grupoTecnica?.etiqueta ?? "Técnica encadenada";
 
   const formRef = useRef<HTMLFormElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const enviadoRef = useRef(false);
-  const completadasRef = useRef<[Set<number>, Set<number>]>([
-    new Set(ejercicios[0].series.filter((s) => s.realizada).map((s) => s.numeroSerie)),
-    new Set(ejercicios[1].series.filter((s) => s.realizada).map((s) => s.numeroSerie)),
-  ]);
-  const [seriesHechas, setSeriesHechas] = useState<[ReadonlySet<number>, ReadonlySet<number>]>(
-    () => [new Set(completadasRef.current[0]), new Set(completadasRef.current[1])]
+  const completadasRef = useRef<Set<number>[]>(
+    ejercicios.map((ej) => new Set(ej.series.filter((s) => s.realizada).map((s) => s.numeroSerie)))
   );
-  const [serieActiva, setSerieActiva] = useState<{ pos: 0 | 1; numero: number } | null>(null);
+  const [seriesHechas, setSeriesHechas] = useState<ReadonlySet<number>[]>(() =>
+    completadasRef.current.map((s) => new Set(s))
+  );
+  const [serieActiva, setSerieActiva] = useState<{ pos: number; numero: number } | null>(null);
   const [mostrandoSiguiente, setMostrandoSiguiente] = useState(false);
-  const filasRef = useRef<[Map<number, FilaSerieHandle>, Map<number, FilaSerieHandle>]>([new Map(), new Map()]);
-  const filaNodoRef = useRef<[Map<number, HTMLDivElement>, Map<number, HTMLDivElement>]>([new Map(), new Map()]);
+  const filasRef = useRef<Map<number, FilaSerieHandle>[]>(ejercicios.map(() => new Map()));
+  const filaNodoRef = useRef<Map<number, HTMLDivElement>[]>(ejercicios.map(() => new Map()));
 
-  // La secuencia intercalada: 1A, 1B, 2A, 2B... Si un ejercicio tiene menos
-  // series programadas que el otro (caso raro, pero no imposible), sus
-  // rondas de más simplemente no tienen "pareja" y se muestran solas.
+  // La secuencia intercalada: 1A, 1B, 1C, 2A, 2B, 2C... Si un ejercicio
+  // tiene menos series programadas que los demás (caso raro, pero no
+  // imposible), sus rondas de más simplemente no tienen "pareja" y se
+  // muestran solas.
   const pasos: Paso[] = [];
-  const maxRondas = Math.max(ejercicios[0].seriesProgramadas, ejercicios[1].seriesProgramadas);
-  for (let n = 1; n <= maxRondas; n++) {
-    if (n <= ejercicios[0].seriesProgramadas) pasos.push({ pos: 0, numero: n });
-    if (n <= ejercicios[1].seriesProgramadas) pasos.push({ pos: 1, numero: n });
+  const maxRondas = Math.max(...ejercicios.map((e) => e.seriesProgramadas));
+  for (let ronda = 1; ronda <= maxRondas; ronda++) {
+    for (let pos = 0; pos < n; pos++) {
+      if (ronda <= ejercicios[pos].seriesProgramadas) pasos.push({ pos, numero: ronda });
+    }
   }
 
   const pasoQueToca =
@@ -96,33 +104,33 @@ export const SesionGrupoCard = forwardRef<
     formRef.current?.requestSubmit();
   }
 
-  function alIniciar(pos: 0 | 1) {
+  function alIniciar(pos: number) {
     return (numero: number) => setSerieActiva({ pos, numero });
   }
 
-  function alDeshacerCiclo(pos: 0 | 1) {
+  function alDeshacerCiclo(pos: number) {
     return (numero: number) => {
       completadasRef.current[pos].delete(numero);
       enviadoRef.current = false;
       setSeriesHechas((prev) => {
-        const copia = [new Set(prev[0]), new Set(prev[1])] as [Set<number>, Set<number>];
+        const copia = prev.map((s) => new Set(s));
         copia[pos].delete(numero);
         return copia;
       });
     };
   }
 
-  function alCompletarCiclo(pos: 0 | 1) {
+  function alCompletarCiclo(pos: number) {
     return (numero: number) => {
       completadasRef.current[pos].add(numero);
       setSeriesHechas((prev) => {
-        const copia = [new Set(prev[0]), new Set(prev[1])] as [Set<number>, Set<number>];
+        const copia = prev.map((s) => new Set(s));
         copia[pos].add(numero);
         return copia;
       });
 
-      const totalHecho = completadasRef.current[0].size + completadasRef.current[1].size;
-      const totalPasos = ejercicios[0].seriesProgramadas + ejercicios[1].seriesProgramadas;
+      const totalHecho = completadasRef.current.reduce((acc, s) => acc + s.size, 0);
+      const totalPasos = ejercicios.reduce((acc, e) => acc + e.seriesProgramadas, 0);
       if (!enviadoRef.current && totalHecho === totalPasos) {
         enviadoRef.current = true;
         // Ver el mismo fix en SesionEjercicioCard: sin esto, la última fila
@@ -147,8 +155,7 @@ export const SesionGrupoCard = forwardRef<
   }
 
   function marcarGrupoListo() {
-    filasRef.current[0].forEach((handle) => handle.completarYa());
-    filasRef.current[1].forEach((handle) => handle.completarYa());
+    filasRef.current.forEach((mapa) => mapa.forEach((handle) => handle.completarYa()));
   }
 
   useImperativeHandle(ref, () => ({
@@ -166,27 +173,27 @@ export const SesionGrupoCard = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activo]);
 
-  const esTiempo0 = esEjercicioDeTiempo(ejercicios[0].repsProgramadas);
-  const esTiempo1 = esEjercicioDeTiempo(ejercicios[1].repsProgramadas);
-  const esTiempoPorPos = [esTiempo0, esTiempo1] as const;
+  const esTiempoPorPos = ejercicios.map((e) => esEjercicioDeTiempo(e.repsProgramadas));
 
   const recomendacionAprobada = (ej: EjercicioSesion) =>
     ej.recomendacionImpulso &&
     (ej.recomendacionImpulso.estado === "aprobada" || ej.recomendacionImpulso.estado === "modificada")
       ? ej.recomendacionImpulso
       : null;
-  const objetivoRepsPorPos = [
-    recomendacionAprobada(ejercicios[0])?.repsObjetivoMax ?? calcularRepsObjetivo(ejercicios[0].repsProgramadas),
-    recomendacionAprobada(ejercicios[1])?.repsObjetivoMax ?? calcularRepsObjetivo(ejercicios[1].repsProgramadas),
-  ] as const;
-  const pesoSugeridoPorPos = [
-    recomendacionAprobada(ejercicios[0]) && !recomendacionAprobada(ejercicios[0])?.esPesoCorporal
-      ? (recomendacionAprobada(ejercicios[0])?.pesoSugeridoKg ?? null)
-      : null,
-    recomendacionAprobada(ejercicios[1]) && !recomendacionAprobada(ejercicios[1])?.esPesoCorporal
-      ? (recomendacionAprobada(ejercicios[1])?.pesoSugeridoKg ?? null)
-      : null,
-  ] as const;
+  const objetivoRepsPorPos = ejercicios.map(
+    (ej) => recomendacionAprobada(ej)?.repsObjetivoMax ?? calcularRepsObjetivo(ej.repsProgramadas)
+  );
+  const pesoSugeridoPorPos = ejercicios.map((ej) => {
+    const rec = recomendacionAprobada(ej);
+    return rec && !rec.esPesoCorporal ? (rec.pesoSugeridoKg ?? null) : null;
+  });
+
+  // El descanso "real" de la ronda es el del ÚLTIMO ejercicio del grupo —
+  // en la práctica es el único que suele tener un descanso propio (los
+  // anteriores encadenan directo), y es el que se muestra en la fila de
+  // datos como resumen. Cada fila sigue usando el descanso de SU PROPIO
+  // ejercicio, esto es solo el resumen de arriba.
+  const descansoRonda = ejercicios[n - 1]?.descansoSegundos ?? null;
 
   return (
     <div
@@ -194,10 +201,10 @@ export const SesionGrupoCard = forwardRef<
       className={`tarjeta-modelo-oscura tarjeta-ejercicio-oscura p-3 ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
       style={grupoTecnica ? ({ "--color-glow-tecnica": grupoTecnica.color } as React.CSSProperties) : undefined}
     >
-      {/* Cabecera única para el par: la etiqueta de técnica (coloreada por
-          familia, ver tecnica-grupo.ts) y los dos ejercicios lado a lado —
-          antes cada uno tenía su propia cabecera completa y había que
-          scrollear toda la de A para encontrar la de B. */}
+      {/* Cabecera única para el grupo: la etiqueta de técnica (coloreada por
+          familia, ver tecnica-grupo.ts) y los ejercicios lado a lado — antes
+          cada uno tenía su propia cabecera completa y había que scrollear
+          una entera para encontrar la siguiente. */}
       {grupoTecnica && (
         <span
           className="pill-tecnica mb-1.5 inline-block"
@@ -220,7 +227,7 @@ export const SesionGrupoCard = forwardRef<
               nombre={ej.nombre}
             />
             <div className="min-w-0">
-              <p className="text-micro font-bold leading-tight text-vip">{pos === 0 ? "A" : "B"}</p>
+              <p className="text-micro font-bold leading-tight text-vip">{LETRAS[pos]}</p>
               <p className="text-caption leading-tight text-text">{ej.nombre}</p>
               {ej.grupoMuscular && (
                 <p className="text-micro leading-tight text-text-tertiary">
@@ -233,15 +240,15 @@ export const SesionGrupoCard = forwardRef<
       </div>
 
       <div className="radius-control mb-1.5 flex items-stretch overflow-hidden border border-border bg-surface-2">
-        <Dato icono={<Layers size={13} />} valor={`${ejercicios[0].seriesProgramadas}+${ejercicios[1].seriesProgramadas}`} etiqueta="Series" />
+        <Dato icono={<Layers size={13} />} valor={ejercicios.map((e) => e.seriesProgramadas).join("+")} etiqueta="Series" />
         <Dato
-          icono={esTiempo0 || esTiempo1 ? <Timer size={13} /> : <Repeat size={13} />}
-          valor={`${ejercicios[0].repsProgramadas} / ${ejercicios[1].repsProgramadas}`}
-          etiqueta={esTiempo0 || esTiempo1 ? "Tiempo" : "Reps"}
+          icono={esTiempoPorPos.some(Boolean) ? <Timer size={13} /> : <Repeat size={13} />}
+          valor={ejercicios.map((e) => e.repsProgramadas).join(" / ")}
+          etiqueta={esTiempoPorPos.some(Boolean) ? "Tiempo" : "Reps"}
         />
         <Dato
           icono={<Timer size={13} />}
-          valor={ejercicios[1].descansoSegundos ? `${ejercicios[1].descansoSegundos}s` : "—"}
+          valor={descansoRonda ? `${descansoRonda}s` : "—"}
           etiqueta="Desc. entre rondas"
         />
       </div>
@@ -254,7 +261,7 @@ export const SesionGrupoCard = forwardRef<
           className="flex w-full items-center justify-between gap-2 text-left"
         >
           <span className="text-caption text-text-secondary">
-            {maxRondas} rondas · {ejercicios[0].nombre} + {ejercicios[1].nombre}
+            {maxRondas} rondas · {ejercicios.map((e) => e.nombre).join(" + ")}
           </span>
           <ChevronRight size={16} className="shrink-0 text-vip" />
         </button>
@@ -275,15 +282,16 @@ export const SesionGrupoCard = forwardRef<
             );
           })}
 
-          <TarjetaImpulsoVip recomendacion={ejercicios[0].recomendacionImpulso} />
-          <TarjetaImpulsoVip recomendacion={ejercicios[1].recomendacionImpulso} />
+          {ejercicios.map((ej) => (
+            <TarjetaImpulsoVip key={ej.sesionEjercicioId} recomendacion={ej.recomendacionImpulso} />
+          ))}
 
           {soloLectura ? (
             <div className="space-y-2">
               {ejercicios.map((ej, pos) => (
                 <div key={ej.sesionEjercicioId} className="space-y-1">
                   <p className="text-micro font-semibold text-vip">
-                    {pos === 0 ? "A" : "B"} · {ej.nombre}
+                    {LETRAS[pos]} · {ej.nombre}
                   </p>
                   {ej.series.map((s) => (
                     <div key={s.numeroSerie} className="text-secondary flex justify-between text-text">
@@ -303,10 +311,11 @@ export const SesionGrupoCard = forwardRef<
           ) : (
             <form ref={formRef} action={formAction} className="space-y-1">
               <input type="hidden" name="sesion_id" value={sesionId} />
+              <input type="hidden" name="cantidad_ejercicios_grupo" value={n} />
               {ejercicios.map((ej, pos) => (
                 <span key={ej.sesionEjercicioId}>
-                  <input type="hidden" name={`sesion_ejercicio_id${SUFIJOS[pos]}`} value={ej.sesionEjercicioId} />
-                  <input type="hidden" name={`cantidad_series${SUFIJOS[pos]}`} value={ej.seriesProgramadas} />
+                  <input type="hidden" name={`sesion_ejercicio_id${sufijoDe(pos)}`} value={ej.sesionEjercicioId} />
+                  <input type="hidden" name={`cantidad_series${sufijoDe(pos)}`} value={ej.seriesProgramadas} />
                 </span>
               ))}
 
@@ -317,7 +326,7 @@ export const SesionGrupoCard = forwardRef<
                 return (
                   <div key={`${paso.pos}-${paso.numero}`}>
                     <div className="mb-0.5 flex items-center gap-1">
-                      <span className="text-micro font-bold text-vip">{paso.pos === 0 ? "A" : "B"}</span>
+                      <span className="text-micro font-bold text-vip">{LETRAS[paso.pos]}</span>
                       <span className="text-micro truncate text-text-tertiary">{ej.nombre}</span>
                     </div>
                     <div
@@ -332,7 +341,7 @@ export const SesionGrupoCard = forwardRef<
                           else filasRef.current[paso.pos].delete(paso.numero);
                         }}
                         numero={paso.numero}
-                        sufijoNombre={SUFIJOS[paso.pos]}
+                        sufijoNombre={sufijoDe(paso.pos)}
                         inicial={ej.series.find((s) => s.numeroSerie === paso.numero)}
                         repsObjetivo={objetivoRepsPorPos[paso.pos]}
                         pesoSugerido={pesoSugeridoPorPos[paso.pos]}
@@ -360,7 +369,7 @@ export const SesionGrupoCard = forwardRef<
                   onClick={marcarGrupoListo}
                   className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-vip/50 bg-transparent text-secondary font-semibold text-vip"
                 >
-                  <Check size={14} strokeWidth={3} /> Marcar biserie como completada
+                  <Check size={14} strokeWidth={3} /> Marcar {etiquetaGrupo.toLowerCase()} como completada
                 </button>
               )}
 
@@ -370,14 +379,14 @@ export const SesionGrupoCard = forwardRef<
                     valorInicial={ej.dificultadPercibida}
                     disabled={seriesHechas[pos].size < ej.seriesProgramadas}
                     onGuardar={guardarAhora}
-                    nombreCampo={`dificultad_ejercicio${SUFIJOS[pos]}`}
+                    nombreCampo={`dificultad_ejercicio${sufijoDe(pos)}`}
                   />
                   <label className="radius-control mt-1 flex items-center gap-2 border border-border bg-surface-2 px-2.5 py-1.5">
                     <NotebookPen size={14} className="shrink-0 text-text-tertiary" />
                     <input
-                      name={`nota_ejercicio${SUFIJOS[pos]}`}
+                      name={`nota_ejercicio${sufijoDe(pos)}`}
                       type="text"
-                      placeholder={`Nota de ${pos === 0 ? "A" : "B"} (opcional)`}
+                      placeholder={`Nota de ${LETRAS[pos]} (opcional)`}
                       defaultValue={ej.notaEjercicio ?? ""}
                       className="text-caption w-full min-w-0 bg-transparent text-text outline-none placeholder:text-text-tertiary"
                     />
@@ -388,7 +397,7 @@ export const SesionGrupoCard = forwardRef<
               {state.error && <p className="text-caption text-error">{state.error}</p>}
               {(pending || completoTodo) && (
                 <p className="text-micro text-center text-text-tertiary">
-                  {pending ? "Guardando…" : mostrandoSiguiente ? "Guardando…" : "Biserie finalizada ✓"}
+                  {pending ? "Guardando…" : mostrandoSiguiente ? "Guardando…" : `${etiquetaGrupo} finalizada ✓`}
                 </p>
               )}
             </form>

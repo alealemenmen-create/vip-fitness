@@ -316,24 +316,28 @@ export async function guardarSeries(
 }
 
 /**
- * Igual que `guardarSeries`, pero para dos ejercicios encadenados (biserie)
- * que comparten un único <form> — ver `SesionGrupoCard.tsx`. Cada ejercicio
- * usa sus propios campos namespaceados ("" para el primero, "_b" para el
- * segundo) y se guarda con la MISMA lógica que un ejercicio suelto, uno
- * después del otro. Si el primero falla, no se intenta guardar el segundo —
- * mejor un error claro que un guardado a medias silencioso.
+ * Igual que `guardarSeries`, pero para 2 o más ejercicios encadenados
+ * (biserie, triserie, giant set) que comparten un único <form> — ver
+ * `SesionGrupoCard.tsx`. Cada ejercicio usa sus propios campos
+ * namespaceados ("" para el primero, "_1", "_2"... para el resto, ver
+ * `SUFIJOS` en el componente) y se guarda con la MISMA lógica que un
+ * ejercicio suelto, uno después del otro. Si alguno falla, no se intenta
+ * guardar los que quedan — mejor un error claro que un guardado a medias
+ * silencioso.
  */
 export async function guardarSeriesGrupo(
   _prevState: GuardarSeriesState,
   formData: FormData
 ): Promise<GuardarSeriesState> {
   const sesionId = String(formData.get("sesion_id") || "");
+  const cantidad = Number(formData.get("cantidad_ejercicios_grupo") || 0);
   const supabase = await createClient();
 
-  const primero = await guardarUnEjercicio(supabase, formData, "");
-  if (primero.error) return primero;
-  const segundo = await guardarUnEjercicio(supabase, formData, "_b");
-  if (segundo.error) return segundo;
+  for (let i = 0; i < cantidad; i++) {
+    const sufijo = i === 0 ? "" : `_${i}`;
+    const resultado = await guardarUnEjercicio(supabase, formData, sufijo);
+    if (resultado.error) return resultado;
+  }
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/inicio");

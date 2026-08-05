@@ -79,10 +79,10 @@ function calcularActivo(ejercicios: EjercicioSesion[]): string | null {
  * todas sus series) sigue funcionando igual — este botón es el respaldo
  * manual para guardar todo de una vez.
  *
- * Las biseries (grupos de EXACTAMENTE 2 ejercicios encadenados) se muestran
- * como una sola tarjeta combinada con las series intercaladas — ver
- * `SesionGrupoCard`. Un grupo de 3+ (triserie, giant set, circuito) sigue
- * mostrándose como tarjetas sueltas alternando turno, igual que antes.
+ * Cualquier técnica encadenada (biserie, triserie, giant set — 2 o más
+ * ejercicios seguidos de la misma familia, ver `resolverGrupoTecnica`) se
+ * muestra como una sola tarjeta combinada con las series intercaladas —
+ * ver `SesionGrupoCard`.
  */
 export function SesionEjercicios({
   ejercicios,
@@ -111,7 +111,7 @@ export function SesionEjercicios({
   return (
     <>
       {grupos.map((grupo) => {
-        if (grupo.length === 2) {
+        if (grupo.length >= 2) {
           const activo = grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId);
           return (
             <SesionGrupoCard
@@ -122,26 +122,26 @@ export function SesionEjercicios({
                   else handles.current.delete(ej.sesionEjercicioId);
                 }
               }}
-              ejercicios={[grupo[0], grupo[1]]}
+              ejercicios={grupo}
               sesionId={sesionId}
               soloLectura={soloLectura}
               activo={activo}
             />
           );
         }
-        return grupo.map((ej) => (
+        return (
           <SesionEjercicioCard
-            key={ej.sesionEjercicioId}
+            key={grupo[0].sesionEjercicioId}
             ref={(handle) => {
-              if (handle) handles.current.set(ej.sesionEjercicioId, handle);
-              else handles.current.delete(ej.sesionEjercicioId);
+              if (handle) handles.current.set(grupo[0].sesionEjercicioId, handle);
+              else handles.current.delete(grupo[0].sesionEjercicioId);
             }}
-            ejercicio={ej}
+            ejercicio={grupo[0]}
             sesionId={sesionId}
             soloLectura={soloLectura}
-            activo={ej.sesionEjercicioId === ejercicioActivoId}
+            activo={grupo[0].sesionEjercicioId === ejercicioActivoId}
           />
-        ));
+        );
       })}
 
       {!soloLectura && (
