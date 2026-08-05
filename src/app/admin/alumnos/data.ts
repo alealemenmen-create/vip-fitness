@@ -1,6 +1,7 @@
 import "server-only";
+import { formatInTimeZone } from "date-fns-tz";
 import { createClient } from "@/lib/supabase/server";
-import { mesActualISO, ultimosNDiasISO, hoyISO } from "@/lib/date";
+import { mesActualISO, ultimosNDiasISO, hoyISO, ZONA_HORARIA_VIP } from "@/lib/date";
 import { obtenerConfiguracionSupervision } from "@/lib/configuracion/supervision";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -45,7 +46,11 @@ export async function obtenerIndicadores(
 
   const [{ data: rutinas }, { data: sesionesMes }, { data: sesionesRecientes }, { data: registros }] =
     await Promise.all([
-      supabase.from("rutinas").select("id, alumno_id").in("alumno_id", alumnoIds).eq("activa", true),
+      supabase
+        .from("rutinas")
+        .select("id, alumno_id, created_at")
+        .in("alumno_id", alumnoIds)
+        .eq("activa", true),
       supabase
         .from("sesiones_entrenamiento")
         .select("alumno_id, fecha, rutina_dias(tipo)")
@@ -69,6 +74,13 @@ export async function obtenerIndicadores(
 
   // Días de entrenamiento por alumno → cupo mensual (días/semana × 4).
   const rutinaPorAlumno = new Map((rutinas ?? []).map((r) => [r.id, r.alumno_id]));
+  // Rutina activa más antigua de cada alumno: si empezó a mitad de mes, el
+  // cupo se prorratea desde ahí en vez de exigirle el mes completo.
+  const inicioRutinaPorAlumno = new Map<string, string>();
+  for (const r of rutinas ?? []) {
+    const actual = inicioRutinaPorAlumno.get(r.alumno_id);
+    if (!actual || r.created_at < actual) inicioRutinaPorAlumno.set(r.alumno_id, r.created_at);
+  }
   const diasEntrenamiento = new Map<string, number>();
   if (rutinaPorAlumno.size > 0) {
     const { data: dias } = await supabase
@@ -107,10 +119,22 @@ export async function obtenerIndicadores(
   }
 
   const hoy = hoyISO();
+  const hoyMs = new Date(`${hoy}T00:00:00`).getTime();
+  const inicioMesMs = new Date(`${desde}T00:00:00`).getTime();
 
   for (const alumnoId of alumnoIds) {
     const diasSemana = diasEntrenamiento.get(alumnoId) ?? 0;
-    const sesionesAsignadas = diasSemana * 4;
+
+    // Cupo prorrateado: si el mes recién empezó, o la rutina activa es más
+    // nueva que el mes (alumno recién arrancó), no se le exige la cuota de
+    // 4 semanas completas — solo la parte que ya pudo haber cumplido.
+    const inicioRutinaISO = inicioRutinaPorAlumno.get(alumnoId);
+    const inicioRutinaMs = inicioRutinaISO
+      ? new Date(`${formatInTimeZone(new Date(inicioRutinaISO), ZONA_HORARIA_VIP, "yyyy-MM-dd")}T00:00:00`).getTime()
+      : inicioMesMs;
+    const inicioVentanaMs = Math.max(inicioMesMs, inicioRutinaMs);
+    const diasTranscurridos = Math.max(1, Math.round((hoyMs - inicioVentanaMs) / 86_400_000) + 1);
+    const sesionesAsignadas = Math.round(diasSemana * (diasTranscurridos / 7));
     const sesionesHechas = hechasPorAlumno.get(alumnoId) ?? 0;
     const pctSesiones =
       sesionesAsignadas > 0 ? Math.round((sesionesHechas / sesionesAsignadas) * 100) : 0;
@@ -127,7 +151,7 @@ export async function obtenerIndicadores(
     let estado: EstadoAlumno = "normal";
     let motivo = "Ritmo normal";
 
-    if (sesionesAsignadas === 0) {
+    if (diasSemana === 0) {
       estado = "atencion";
       motivo = "Sin rutina activa asignada";
     } else if (diasSinEntrenar === null) {
@@ -136,6 +160,10 @@ export async function obtenerIndicadores(
     } else if (diasSinEntrenar >= config.diasSinEntrenarAlerta) {
       estado = "atencion";
       motivo = `Hace ${diasSinEntrenar} días que no entrena`;
+    } else if (sesionesAsignadas === 0) {
+      // Rutina recién activada dentro de la ventana actual: todavía no
+      // acumuló cupo prorrateado como para juzgar su cumplimiento.
+      motivo = "Recién empezando, todavía sin cupo suficiente para evaluar";
     } else if (pctSesiones < config.pctEntrenamientoAtencion) {
       estado = "atencion";
       motivo = `Solo ${pctSesiones}% de sus sesiones del mes`;

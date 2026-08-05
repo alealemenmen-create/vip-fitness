@@ -194,6 +194,13 @@ describe("calcularRecomendacion — Regla E (consultar al entrenador)", () => {
     expect(r.regla).toBe("E_consultar");
   });
 
+  it("NO dispara caída de rendimiento si la última sesión no tiene peso cargado (dato faltante, no bajo rendimiento)", () => {
+    const buena = sesion([serie({ pesoKg: 20, repsRealizadas: 12 }), serie({ pesoKg: 20, repsRealizadas: 12 })]);
+    const sinPeso = sesion([serie({ pesoKg: null, repsRealizadas: 12 }), serie({ pesoKg: null, repsRealizadas: 12 })]);
+    const r = calcularRecomendacion(input({ historialUltimasSesiones: [sinPeso, buena] }));
+    expect(r.regla).not.toBe("E_consultar");
+  });
+
   it("dolor tiene prioridad incluso si además completó el máximo", () => {
     const ultima = sesion([serie({ repsRealizadas: 12 }), serie({ repsRealizadas: 12 })], { dolorReportado: true });
     const r = calcularRecomendacion(input({ historialUltimasSesiones: [ultima] }));

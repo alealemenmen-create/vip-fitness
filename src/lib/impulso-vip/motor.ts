@@ -83,12 +83,23 @@ function algunaFalloMinimo(series: SerieHistorial[], min: number): boolean {
   return series.some((s) => !s.realizada || (s.repsRealizadas ?? 0) < min);
 }
 
-function volumenSesion(sesion: SesionHistorial): number {
-  return sesion.series.reduce((total, s) => {
-    if (!s.realizada || s.repsRealizadas === null) return total;
-    const peso = s.esPesoCorporal ? 1 : (s.pesoKg ?? 0);
-    return total + peso * s.repsRealizadas;
-  }, 0);
+/** `null` cuando la sesión no tiene ningún dato de peso utilizable (el alumno
+ * no cargó peso en ninguna serie): no es que el volumen haya sido 0, es que
+ * no hay forma de saberlo. Las series individuales sin peso cargado se
+ * ignoran (no cuentan como volumen 0) en vez de penalizar por un dato
+ * faltante en lugar de por bajo rendimiento real — decisión de producto,
+ * HANDOFF 1.9, ver también línea ~380 donde ya se ignoraba pesoKg null. */
+function volumenSesion(sesion: SesionHistorial): number | null {
+  let total = 0;
+  let huboDatoDePeso = false;
+  for (const s of sesion.series) {
+    if (!s.realizada || s.repsRealizadas === null) continue;
+    if (!s.esPesoCorporal && s.pesoKg === null) continue;
+    huboDatoDePeso = true;
+    const peso = s.esPesoCorporal ? 1 : s.pesoKg!;
+    total += peso * s.repsRealizadas;
+  }
+  return huboDatoDePeso ? total : null;
 }
 
 function totalReps(series: SerieHistorial[]): number {
@@ -196,12 +207,18 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
 
   const haySuficienteHistorial = [ultima, anterior, previa].filter(Boolean).length >= 3;
   if (haySuficienteHistorial && anterior && previa) {
+    const volUltima = volumenSesion(ultima);
+    const volAnterior = volumenSesion(anterior);
+    const volPrevia = volumenSesion(previa);
     const sinAvance =
       !todasCompletaronMaximo(ultima.series, rango.max) &&
       !todasCompletaronMaximo(anterior.series, rango.max) &&
       !todasCompletaronMaximo(previa.series, rango.max) &&
-      volumenSesion(ultima) <= volumenSesion(anterior) &&
-      volumenSesion(anterior) <= volumenSesion(previa);
+      volUltima !== null &&
+      volAnterior !== null &&
+      volPrevia !== null &&
+      volUltima <= volAnterior &&
+      volAnterior <= volPrevia;
     if (sinAvance) {
       return construir("E_consultar", {
         peso: null,
@@ -217,7 +234,7 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
   if (anterior) {
     const volumenActual = volumenSesion(ultima);
     const volumenAnterior = volumenSesion(anterior);
-    if (volumenAnterior > 0 && volumenActual < volumenAnterior * 0.7) {
+    if (volumenAnterior !== null && volumenActual !== null && volumenAnterior > 0 && volumenActual < volumenAnterior * 0.7) {
       return construir("E_consultar", {
         peso: null,
         rango: null,
