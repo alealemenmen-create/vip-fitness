@@ -8,6 +8,7 @@ import { TorneoActivoCard } from "@/components/student/TorneoActivoCard";
 import { HistorialTorneos } from "@/components/student/HistorialTorneos";
 import { Card } from "@/components/ui/Card";
 import { Swords } from "lucide-react";
+import { GuiaPuntos } from "@/components/student/GuiaPuntos";
 
 export default async function RankedPage() {
   const { alumnoId, nombre } = await requireAlumno();
@@ -17,6 +18,7 @@ export default async function RankedPage() {
       <Suspense fallback={<div className="h-40 animate-pulse rounded-xl bg-surface-2" />}>
         <RangoActual alumnoId={alumnoId} />
       </Suspense>
+      <GuiaPuntos />
       <Suspense fallback={<div className="h-32 animate-pulse rounded-xl bg-surface-2" />}>
         <ArenaVip alumnoId={alumnoId} nombre={nombre} />
       </Suspense>
