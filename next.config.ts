@@ -16,6 +16,18 @@ const nextConfig: NextConfig = {
   // (ej. http://192.168.1.87:3000) para probar la app en un dispositivo real.
   // Next.js bloquea por defecto cualquier origen que no sea localhost.
   allowedDevOrigins: ["localhost", "127.0.0.1", "192.168.1.*"],
+  images: {
+    // Fotos de ejercicios y de progreso viven en Supabase Storage, no en
+    // /public — sin esto, next/image rechaza la URL entera con "Invalid src
+    // prop" apenas la migra de <img> a <Image> (optimización de imagen).
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "iowuocmxqwuddickiofi.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
+  },
   experimental: {
     // Caché de navegación del cliente. Desde Next 15 el valor por defecto de
     // `dynamic` es 0 s (apagado), así que volver a una pestaña de la barra
