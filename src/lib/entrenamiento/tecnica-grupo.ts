@@ -23,3 +23,16 @@ export function resolverGrupoTecnica(tecnicaTipo: string | null | undefined): Gr
     return { color: "var(--color-tecnica-circuito)", etiqueta: "Circuito" };
   return null;
 }
+
+/** Lee la numeración "(n/total)" que el entrenador escribe en `tecnica_tipo`
+ * (ej. "Biserie (1/2)", "Biserie (2/2)") para saber cuántos ejercicios
+ * forman ESTE grupo puntual. Sin esto, dos biseries seguidas (4 ejercicios
+ * consecutivos, todos con etiqueta "Biserie") se confundían con un solo
+ * grupo de 4 en vez de dos grupos de 2 — ver `calcularActivo` en
+ * `SesionEjercicios.tsx`. */
+export function posicionTecnica(tecnicaTipo: string | null | undefined): { actual: number; total: number } | null {
+  if (!tecnicaTipo) return null;
+  const m = tecnicaTipo.match(/\((\d+)\s*\/\s*(\d+)\)/);
+  if (!m) return null;
+  return { actual: Number(m[1]), total: Number(m[2]) };
+}

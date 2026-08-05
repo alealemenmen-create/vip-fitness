@@ -15,8 +15,25 @@ import {
   type PlanResuelto,
   type AlimentoResuelto,
 } from "@/lib/alimentos/emparejar";
+import type { TipoProgresionImpulso } from "@/lib/supabase/types";
 
 const TAMANO_MAXIMO_PDF = 15 * 1024 * 1024; // 15 MB
+
+/** Config de progresión de Impulso VIP, opcional en el borrador — la agrega
+ * `RutinaDraftEditor.tsx` (ver `ConfigProgresionBorrador` ahí), nunca la IA:
+ * es una decisión del entrenador, no algo que se extraiga del PDF. Ejercicio
+ * sin `aptoProgresion: true` no genera fila en `rutina_dia_ejercicio_progresion`
+ * — el motor queda desactivado para él, igual que el comportamiento de
+ * siempre (ver migración 0043). */
+type EjercicioConProgresion = RutinaExtraida["dias"][number]["ejercicios"][number] & {
+  aptoProgresion?: boolean;
+  tipoProgresion?: TipoProgresionImpulso;
+  incrementoKg?: number;
+  requiereAutorizacion?: boolean;
+};
+type RutinaConProgresion = Omit<RutinaExtraida, "dias"> & {
+  dias: (Omit<RutinaExtraida["dias"][number], "ejercicios"> & { ejercicios: EjercicioConProgresion[] })[];
+};
 
 /** Tipos aceptados al subir rutina o alimentación. El .txt sirve cuando el
  * entrenador arma la rutina escribiéndola en vez de exportar un PDF. */
@@ -787,7 +804,7 @@ export type PublicarAVariosState = {
  */
 export async function publicarRutinaAVariosAlumnos(
   alumnoIds: string[],
-  datos: RutinaExtraida
+  datos: RutinaConProgresion
 ): Promise<PublicarAVariosState> {
   const sesion = await requireRol(["entrenador", "admin"]);
 
@@ -870,7 +887,7 @@ async function publicarUnaRutina(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   alumnoId: string,
-  datos: RutinaExtraida,
+  datos: RutinaConProgresion,
   biblioteca: Biblioteca
 ): Promise<PublicarRutinaState> {
   const { data: rutinasPrevias } = await supabase
@@ -936,17 +953,55 @@ async function publicarUnaRutina(
         // Si la biblioteca no lo tiene clasificado, vale lo que dijo la IA.
         grupo_muscular: emparejado?.ejercicio.grupoMuscular ?? ej.grupoMuscular,
         ejercicio_id: emparejado?.ejercicio.id ?? null,
+        // No es columna de rutina_dia_ejercicios — se usa más abajo para
+        // armar rutina_dia_ejercicio_progresion y se descarta antes del
+        // insert. Null cuando el entrenador no activó progresión automática
+        // para este ejercicio: no se crea fila (motor desactivado por
+        // ausencia, ver migración 0043 — comportamiento actual sin cambios).
+        _progresion: ej.aptoProgresion
+          ? {
+              apto_progresion: true,
+              tipo_progresion: ej.tipoProgresion ?? "doble",
+              incremento_kg: ej.incrementoKg ?? 2.5,
+              requiere_autorizacion: ej.requiereAutorizacion ?? false,
+            }
+          : null,
       };
     })
   );
 
   if (filasEjercicios.length > 0) {
-    const { error: errorEjercicios } = await supabase
+    const { data: ejerciciosCreados, error: errorEjercicios } = await supabase
       .from("rutina_dia_ejercicios")
-      .insert(filasEjercicios);
+      .insert(filasEjercicios.map(({ _progresion, ...fila }) => fila))
+      .select("id, dia_id, orden");
 
     if (errorEjercicios) {
       return { error: "No fue posible guardar los ejercicios de la rutina.", ok: false };
+    }
+
+    // Impulso VIP: solo para los ejercicios donde el entrenador activó
+    // progresión automática. Se matchea por (dia_id, orden) — el orden de
+    // la respuesta de Supabase no está garantizado (mismo motivo que
+    // `idPorOrden` más arriba), nunca por posición del array.
+    const idPorDiaYOrden = new Map(
+      (ejerciciosCreados ?? []).map((e) => [`${e.dia_id}:${e.orden}`, e.id])
+    );
+    const filasProgresion = filasEjercicios
+      .filter((f) => f._progresion !== null)
+      .map((f) => {
+        const diaEjercicioId = idPorDiaYOrden.get(`${f.dia_id}:${f.orden}`);
+        if (!diaEjercicioId) return null;
+        return { dia_ejercicio_id: diaEjercicioId, creado_por: userId, ...f._progresion! };
+      })
+      .filter((f): f is NonNullable<typeof f> => f !== null);
+
+    if (filasProgresion.length > 0) {
+      // No bloqueante a propósito: si esto falla (incluida la migración
+      // 0043 si todavía no corrió en este entorno), la rutina ya se publicó
+      // bien — Impulso VIP es una mejora encima, no un requisito. Mismo
+      // criterio que `rellenarTemposFaltantes` más abajo.
+      await supabase.from("rutina_dia_ejercicio_progresion").insert(filasProgresion);
     }
   }
 
@@ -977,7 +1032,7 @@ async function publicarUnaRutina(
 
 export async function confirmarYPublicarRutina(
   alumnoId: string,
-  datos: RutinaExtraida
+  datos: RutinaConProgresion
 ): Promise<PublicarRutinaState> {
   const sesion = await requireRol(["entrenador", "admin"]);
 

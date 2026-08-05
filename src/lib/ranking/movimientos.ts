@@ -1,7 +1,89 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISO, sumarDiasISO } from "@/lib/date";
-import { calcularPuntosAlimentacion, calcularPuntosEntrenamiento, PUNTOS_VIP } from "./reglas";
+import { calcularPuntosAlimentacion, calcularPuntosEntrenamiento, calcularPuntosImpulso, PUNTOS_VIP } from "./reglas";
+
+/** Bono de Impulso VIP al finalizar una sesión — misma clave que
+ * `entrenamiento:<sesionId>` en concepto (una fila por sesión, no por
+ * ejercicio) pero con su propia clave `impulso:<sesionId>` para no pisar el
+ * puntaje de completar la sesión. `puntos` ya viene sumado y topeado por el
+ * llamador (ver `calcularPuntosImpulso` y `PUNTOS_VIP.impulsoMaximoPorSesion`
+ * en reglas.ts) — acá solo se persiste. */
+export async function registrarImpulso({
+  alumnoId,
+  sesionId,
+  fecha,
+  puntos,
+  detalle,
+}: {
+  alumnoId: string;
+  sesionId: string;
+  fecha: string;
+  puntos: number;
+  detalle: string;
+}) {
+  return guardarMovimiento({
+    alumnoId,
+    clave: `impulso:${sesionId}`,
+    categoria: "progreso",
+    puntos,
+    titulo: "Impulso VIP",
+    detalle,
+    fecha,
+    metadata: { sesionId },
+  });
+}
+
+/**
+ * Suma el bono de Impulso VIP de una sesión ya finalizada y lo registra.
+ * Solo cuentan las recomendaciones `aprobada` (nunca `propuesta` sin
+ * confirmar, ni `bloqueada`) de Reglas A, B o C — D (reducir) y E
+ * (consultar) nunca puntúan, no son una meta lograda. El total queda topeado
+ * en `PUNTOS_VIP.impulsoMaximoPorSesion` para que Impulso VIP sea un bono
+ * chico, nunca compita con los 300 puntos de completar la sesión.
+ *
+ * Devuelve 0 en cualquier error (migración 0043 sin correr, tabla vacía,
+ * etc.) en vez de lanzar: es un bono, no un requisito para poder finalizar.
+ */
+export async function calcularYRegistrarPuntosImpulso(
+  alumnoId: string,
+  sesionId: string,
+  fecha: string
+): Promise<number> {
+  try {
+    const admin = createAdminClient();
+    // `impulso_vip_recomendaciones` tiene DOS foreign keys hacia
+    // `sesion_ejercicios` (`sesion_ejercicio_id` y `basado_en_sesion_ejercicio_id`)
+    // — sin nombrar la constraint, PostgREST no puede resolver el embed
+    // ("more than one relationship was found", PGRST201) y esta consulta
+    // fallaba siempre, devolviendo 0 en silencio por el catch de abajo. Se
+    // detectó recién al verificar el bono con datos reales de punta a punta.
+    const { data: filas } = await admin
+      .from("impulso_vip_recomendaciones")
+      .select("cumplimiento, sesion_ejercicios!impulso_vip_recomendaciones_sesion_ejercicio_id_fkey!inner(sesion_id)")
+      .eq("sesion_ejercicios.sesion_id", sesionId)
+      .eq("estado", "aprobada")
+      .in("regla", ["A_subir_reps", "B_subir_peso", "C_mantener"]);
+
+    const evaluadas = filas ?? [];
+    const puntos = Math.min(
+      PUNTOS_VIP.impulsoMaximoPorSesion,
+      evaluadas.reduce((acc, f) => acc + calcularPuntosImpulso(f.cumplimiento), 0)
+    );
+    if (puntos <= 0) return 0;
+
+    await registrarImpulso({
+      alumnoId,
+      sesionId,
+      fecha,
+      puntos,
+      detalle: `${evaluadas.length} ${evaluadas.length === 1 ? "meta evaluada" : "metas evaluadas"} de Impulso VIP`,
+    });
+    return puntos;
+  } catch {
+    return 0;
+  }
+}
 
 type Categoria = "entrenamiento" | "alimentacion" | "progreso" | "constancia" | "competencia" | "ajuste";
 
@@ -97,6 +179,53 @@ export async function abandonarEntrenamiento(alumnoId: string, sesionId: string,
     detalle: "Sesión abandonada, no cuenta para el ranking.",
     fecha,
     metadata: { sesionId },
+  });
+}
+
+/** Borra los movimientos de puntos (`entrenamiento:<id>` e `impulso:<id>`)
+ * de sesiones que se eliminaron por completo, para que reiniciar una rutina
+ * no deje puntos huérfanos que se sumen de nuevo cuando el alumno la vuelva
+ * a completar con sesiones nuevas (ver `reiniciarRutina` en
+ * `alumno/entrenar/actions.ts`). */
+export async function eliminarMovimientosDeSesiones(alumnoId: string, sesionIds: string[]) {
+  if (sesionIds.length === 0) return;
+  const admin = createAdminClient();
+  const claves = sesionIds.flatMap((id) => [`entrenamiento:${id}`, `impulso:${id}`]);
+  await admin.from("puntos_vip_movimientos").delete().eq("alumno_id", alumnoId).in("clave", claves);
+}
+
+/** Penaliza descansar de más entre series. `tramosExcedidos` es cuántos
+ * bloques de `PUNTOS_VIP.descansoSegundosPorTramo` pasaron desde que terminó
+ * el descanso indicado — lo calcula el cliente (ver `SesionEjercicioCard`) y
+ * se guarda con upsert bajo una clave fija por serie, así que llamar de
+ * nuevo con un `tramosExcedidos` mayor solo actualiza el mismo movimiento en
+ * vez de sumar penalizaciones nuevas. */
+export async function registrarPenalizacionDescanso({
+  alumnoId,
+  sesionEjercicioId,
+  numero,
+  tramosExcedidos,
+  fecha,
+}: {
+  alumnoId: string;
+  sesionEjercicioId: string;
+  numero: number;
+  tramosExcedidos: number;
+  fecha: string;
+}) {
+  const puntos = -Math.min(
+    PUNTOS_VIP.descansoPenalizacionMaxima,
+    tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
+  );
+  return guardarMovimiento({
+    alumnoId,
+    clave: `descanso_exceso:${sesionEjercicioId}:${numero}`,
+    categoria: "ajuste",
+    puntos,
+    titulo: "Descanso excedido",
+    detalle: `Te pasaste ${tramosExcedidos * PUNTOS_VIP.descansoSegundosPorTramo}s del descanso indicado`,
+    fecha,
+    metadata: { sesionEjercicioId, numero, tramosExcedidos },
   });
 }
 

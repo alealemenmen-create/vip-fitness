@@ -25,6 +25,8 @@ import { obtenerDocumentos } from "@/app/alumno/documentos/data";
 import { ListaDocumentos } from "@/components/student/ListaDocumentos";
 import { obtenerIndicadores } from "@/app/admin/alumnos/data";
 import { DetalleEstadoAlumno } from "@/components/admin/IndicadorEstadoAlumno";
+import { AlertasImpulsoVip } from "@/components/admin/AlertasImpulsoVip";
+import { obtenerAlertasPendientes } from "@/lib/impulso-vip/data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 
 export default async function AlumnoDetallePage({
@@ -48,6 +50,7 @@ export default async function AlumnoDetallePage({
     seguimientos,
     datosPersonales,
     documentos,
+    alertasImpulso,
   ] = await Promise.all([
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     supabase
@@ -70,6 +73,7 @@ export default async function AlumnoDetallePage({
     obtenerHistorialSeguimientos(supabase, alumnoId),
     obtenerDatosPersonales(supabase, alumnoId),
     obtenerDocumentos(supabase, alumnoId),
+    obtenerAlertasPendientes(supabase, alumnoId),
   ]);
 
   // Marca como vistas las notas que generó la IA para este alumno, ahora que
@@ -105,6 +109,8 @@ export default async function AlumnoDetallePage({
           <DetalleEstadoAlumno indicador={indicador} />
         </Card>
       )}
+
+      <AlertasImpulsoVip alumnoId={alumnoId} alertas={alertasImpulso} />
 
       <form action={entrarComoAlumno}>
         <input type="hidden" name="alumno_id" value={alumnoId} />

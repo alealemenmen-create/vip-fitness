@@ -5,7 +5,7 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
-import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import { posicionTecnica, resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 
 /**
@@ -27,9 +27,15 @@ function calcularActivo(ejercicios: EjercicioSesion[]): string | null {
     const familia = resolverGrupoTecnica(ejercicios[i].tecnicaTipo)?.etiqueta ?? null;
     let j = i;
     if (familia) {
+      // El total de "(n/total)" del primer ejercicio acota el tamaño real
+      // del grupo, para no fusionar dos biseries seguidas en una sola de 4
+      // (ver `posicionTecnica`). Sin numeración, cae al comportamiento
+      // anterior (fusiona todos los consecutivos de la misma familia).
+      const total = posicionTecnica(ejercicios[i].tecnicaTipo)?.total ?? null;
       while (
         j + 1 < ejercicios.length &&
-        resolverGrupoTecnica(ejercicios[j + 1].tecnicaTipo)?.etiqueta === familia
+        resolverGrupoTecnica(ejercicios[j + 1].tecnicaTipo)?.etiqueta === familia &&
+        (total === null || j - i + 1 < total)
       ) {
         j++;
       }

@@ -35,6 +35,16 @@ export type CategoriaPuntosVIP =
   | "competencia"
   | "ajuste";
 export type MetadataPuntosVIP = Record<string, unknown>;
+// 0043_impulso_vip.sql — motor de progresión (doble progresión).
+export type DificultadPercibidaImpulso = "muy_facil" | "facil" | "justo" | "dificil" | "fallo";
+export type TipoProgresionImpulso = "doble" | "solo_peso" | "solo_reps" | "manual";
+export type ReglaImpulso = "A_subir_reps" | "B_subir_peso" | "C_mantener" | "D_reducir" | "E_consultar";
+export type EstadoRecomendacionImpulso = "propuesta" | "aprobada" | "bloqueada" | "modificada";
+export type CumplimientoImpulso = "cumplida" | "superada" | "parcial" | "no_cumplida";
+export type DecisionDataImpulso = Record<string, unknown>;
+export type TipoAlertaImpulso = "dolor" | "estancamiento_3_sesiones" | "caida_rendimiento";
+export type MomentoAlertaImpulso = "antes" | "durante" | "despues";
+export type EstadoAlertaImpulso = "pendiente" | "vista" | "resuelta";
 /** Forma de cada fila del snapshot de resultados de un torneo (ver ResultadoTorneo en lib/torneos/puntos.ts). */
 export type ResultadoTorneoJSON = {
   alumnoId: string;
@@ -649,9 +659,16 @@ export interface Database {
           completado: boolean;
           completado_en: string | null;
           nota: string | null;
+          // 0043_impulso_vip.sql — una vez por ejercicio, no por serie.
+          dificultad_percibida: DificultadPercibidaImpulso | null;
         };
         Insert: { sesion_id: string; dia_ejercicio_id: string; completado?: boolean };
-        Update: { completado?: boolean; completado_en?: string | null; nota?: string | null };
+        Update: {
+          completado?: boolean;
+          completado_en?: string | null;
+          nota?: string | null;
+          dificultad_percibida?: DificultadPercibidaImpulso | null;
+        };
         Relationships: [
           {
             foreignKeyName: "sesion_ejercicios_sesion_id_fkey";
@@ -1250,6 +1267,142 @@ export interface Database {
             columns: ["torneo_id"];
             isOneToOne: false;
             referencedRelation: "torneos";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // 0043_impulso_vip.sql — configuración de progresión por asignación
+      // (no por ejercicio de biblioteca: la misma máquina puede pedir
+      // progresión distinta en dos rutinas).
+      rutina_dia_ejercicio_progresion: {
+        Row: {
+          dia_ejercicio_id: string;
+          apto_progresion: boolean;
+          tipo_progresion: TipoProgresionImpulso;
+          incremento_kg: number;
+          requiere_autorizacion: boolean;
+          rir_objetivo: number | null;
+          creado_por: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          dia_ejercicio_id: string;
+          apto_progresion?: boolean;
+          tipo_progresion?: TipoProgresionImpulso;
+          incremento_kg?: number;
+          requiere_autorizacion?: boolean;
+          rir_objetivo?: number | null;
+          creado_por?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["rutina_dia_ejercicio_progresion"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "rutina_dia_ejercicio_progresion_dia_ejercicio_id_fkey";
+            columns: ["dia_ejercicio_id"];
+            isOneToOne: true;
+            referencedRelation: "rutina_dia_ejercicios";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // 0043_impulso_vip.sql — una fila por sesion_ejercicio_id, congelada tras
+      // el primer insert (ver generarYGuardarRecomendacion en
+      // src/lib/impulso-vip/data.ts): la app nunca hace upsert sobre esta tabla.
+      impulso_vip_recomendaciones: {
+        Row: {
+          id: string;
+          sesion_ejercicio_id: string;
+          dia_ejercicio_id: string;
+          alumno_id: string;
+          regla: ReglaImpulso;
+          peso_sugerido_kg: number | null;
+          reps_objetivo_min: number | null;
+          reps_objetivo_max: number | null;
+          es_peso_corporal: boolean;
+          justificacion: string;
+          basado_en_sesion_ejercicio_id: string | null;
+          estado: EstadoRecomendacionImpulso;
+          cumplimiento: CumplimientoImpulso | null;
+          motor_version: string;
+          decision_data: DecisionDataImpulso;
+          created_at: string;
+          resuelto_en: string | null;
+        };
+        Insert: {
+          sesion_ejercicio_id: string;
+          dia_ejercicio_id: string;
+          alumno_id: string;
+          regla: ReglaImpulso;
+          peso_sugerido_kg?: number | null;
+          reps_objetivo_min?: number | null;
+          reps_objetivo_max?: number | null;
+          es_peso_corporal?: boolean;
+          justificacion: string;
+          basado_en_sesion_ejercicio_id?: string | null;
+          estado?: EstadoRecomendacionImpulso;
+          motor_version?: string;
+          decision_data?: DecisionDataImpulso;
+        };
+        Update: {
+          estado?: EstadoRecomendacionImpulso;
+          cumplimiento?: CumplimientoImpulso | null;
+          resuelto_en?: string | null;
+          peso_sugerido_kg?: number | null;
+          reps_objetivo_min?: number | null;
+          reps_objetivo_max?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "impulso_vip_recomendaciones_sesion_ejercicio_id_fkey";
+            columns: ["sesion_ejercicio_id"];
+            isOneToOne: true;
+            referencedRelation: "sesion_ejercicios";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // 0043_impulso_vip.sql — dispara la Regla E. Zona/intensidad/momento son
+      // columnas (no jsonb) para poder filtrar y agregar en el panel del
+      // entrenador sin parsear nada.
+      impulso_vip_alertas: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          dia_ejercicio_id: string;
+          tipo: TipoAlertaImpulso;
+          zona: string | null;
+          intensidad: number | null;
+          momento: MomentoAlertaImpulso | null;
+          detuvo_ejercicio: boolean | null;
+          detalle: string | null;
+          sesion_ejercicio_id: string | null;
+          estado: EstadoAlertaImpulso;
+          creado_en: string;
+          resuelto_en: string | null;
+          resuelto_por: string | null;
+        };
+        Insert: {
+          alumno_id: string;
+          dia_ejercicio_id: string;
+          tipo: TipoAlertaImpulso;
+          zona?: string | null;
+          intensidad?: number | null;
+          momento?: MomentoAlertaImpulso | null;
+          detuvo_ejercicio?: boolean | null;
+          detalle?: string | null;
+          sesion_ejercicio_id?: string | null;
+        };
+        Update: {
+          estado?: EstadoAlertaImpulso;
+          resuelto_en?: string | null;
+          resuelto_por?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "impulso_vip_alertas_alumno_id_fkey";
+            columns: ["alumno_id"];
+            isOneToOne: false;
+            referencedRelation: "perfiles";
             referencedColumns: ["id"];
           },
         ];

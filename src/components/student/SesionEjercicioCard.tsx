@@ -16,10 +16,14 @@ import {
   Maximize2,
   X,
   Info,
+  TrendingUp,
+  ShieldAlert,
+  HeartCrack,
 } from "lucide-react";
 import Image from "next/image";
 import { Card } from "@/components/ui/Card";
-import { guardarSeries, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
+import { guardarSeries, penalizarExcesoDescanso, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
+import { reportarDolor, type ReportarDolorState } from "@/app/alumno/entrenar/impulso-actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { resolverIlustracion, resolverFotoCompleta } from "@/lib/ejercicios/ilustracion";
@@ -28,6 +32,7 @@ import { repsObjetivo, esEjercicioDeTiempo } from "@/lib/entrenamiento/reps";
 import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
 import { guardarDescanso, leerDescanso, limpiarDescanso } from "@/lib/entrenamiento/descanso";
 import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import { PUNTOS_VIP } from "@/lib/ranking/reglas";
 import {
   guardarBorrador,
   leerBorrador,
@@ -219,34 +224,216 @@ function Dato({
   icono,
   valor,
   etiqueta,
-  compacto = false,
 }: {
   icono: React.ReactNode;
   valor: string;
   etiqueta: string;
-  /** Para valores largos como el tempo ("1-2s / 1s / 2-3s"), que en la cuarta
-   * columna de un celular angosto se partían en dos líneas y descuadraban. */
-  compacto?: boolean;
 }) {
   return (
     // El borde izquierdo va en todas menos la primera: separa las celdas sin
     // meter un elemento extra entre medio.
     // `min-w-0`: sin esto las celdas no bajan de su ancho de contenido y la
     // fila entera se desbordaba por debajo de la foto de referencia.
-    <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-1 [&+&]:border-l [&+&]:border-border">
+    <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-0.5 [&+&]:border-l [&+&]:border-border">
       {/* Ícono y valor en la MISMA línea, no apilados: apilados, la fila medía
           65 px de alto en cada uno de los siete ejercicios. Así baja a ~44 sin
           achicar el número, que es lo que se mira de reojo entre serie y serie. */}
       <span className="flex items-center gap-1">
         <span className="text-vip">{icono}</span>
-        <span
-          className={`${compacto ? "text-micro" : "text-secondary"} whitespace-nowrap font-semibold leading-none text-text`}
-        >
-          {valor}
-        </span>
+        <span className="text-caption whitespace-nowrap font-semibold leading-none text-text">{valor}</span>
       </span>
       <span className="text-micro leading-none text-text-tertiary">{etiqueta}</span>
     </div>
+  );
+}
+
+/**
+ * La meta de Impulso VIP para este ejercicio — ya calculada y congelada al
+ * empezar la sesión (ver `generarYGuardarRecomendacion`), nunca recalculada
+ * acá. Se muestra antes de "Último registro": es la versión accionable de
+ * ese mismo dato histórico.
+ *
+ * `estado === 'bloqueada'` (Regla E) es la única que cambia de lenguaje por
+ * completo: no es una meta, es una pausa de seguridad — nunca dice "meta del
+ * día" ni sugiere peso o repeticiones.
+ */
+function TarjetaImpulsoVip({ recomendacion }: { recomendacion: EjercicioSesion["recomendacionImpulso"] }) {
+  if (!recomendacion) return null;
+
+  if (recomendacion.estado === "bloqueada") {
+    return (
+      <div className="tarjeta-impulso-vip tarjeta-impulso-vip-alerta mb-1.5 flex items-start gap-2">
+        <ShieldAlert size={13} className="mt-0.5 shrink-0 text-warning" strokeWidth={2.5} />
+        <p className="text-micro leading-snug text-text-secondary">
+          <span className="font-semibold text-warning">Revisión requerida: </span>
+          {recomendacion.justificacion}
+        </p>
+      </div>
+    );
+  }
+
+  const pendiente = recomendacion.estado === "propuesta";
+
+  return (
+    <div className={`tarjeta-impulso-vip mb-1.5 flex items-start gap-2 ${pendiente ? "tarjeta-impulso-vip-pendiente" : ""}`}>
+      <TrendingUp size={13} className="mt-0.5 shrink-0 text-vip" strokeWidth={2.5} />
+      <p className="text-micro leading-snug text-text-secondary">
+        <span className="font-semibold text-vip">
+          {pendiente ? "Impulso VIP (pendiente de aprobación): " : "Impulso VIP: "}
+        </span>
+        {recomendacion.justificacion}
+      </p>
+    </div>
+  );
+}
+
+const OPCIONES_DIFICULTAD: { valor: string; etiqueta: string }[] = [
+  { valor: "muy_facil", etiqueta: "Me quedaron varias" },
+  { valor: "facil", etiqueta: "Exigente y controlada" },
+  { valor: "justo", etiqueta: "Casi al límite" },
+  { valor: "dificil", etiqueta: "Muy difícil" },
+  { valor: "fallo", etiqueta: "No pude completar" },
+];
+
+/**
+ * "¿Cómo sentiste este ejercicio?" — se pregunta UNA vez por ejercicio al
+ * terminarlo, no por serie (ver decisión en AGENTS del proyecto): pedirlo
+ * serie por serie hubiera vuelto más lenta cada sesión. Viaja como un campo
+ * más del mismo formulario de `guardarSeries`, vía el input oculto — no hace
+ * falta una Server Action aparte.
+ */
+function SelectorDificultad({
+  valorInicial,
+  disabled,
+  onGuardar,
+}: {
+  valorInicial: string | null;
+  disabled: boolean;
+  /** Elegir una opción guarda al toque — sin esto, la respuesta se quedaba
+   * solo en estado de React hasta que otra cosa disparara un guardado
+   * (marcar una serie, editar la nota), y muchas veces no pasaba nada más
+   * después de elegirla: quedaba sin persistir. */
+  onGuardar: () => void;
+}) {
+  const [valor, setValor] = useState(valorInicial ?? "");
+
+  if (disabled) return null;
+
+  return (
+    <div className="mt-1.5">
+      <input type="hidden" name="dificultad_ejercicio" value={valor} />
+      <p className="text-micro mb-1 font-bold tracking-wide text-vip">¿CÓMO SENTISTE ESTE EJERCICIO?</p>
+      <div className="flex flex-wrap gap-1.5">
+        {OPCIONES_DIFICULTAD.map((op) => (
+          <button
+            key={op.valor}
+            type="button"
+            onClick={() => {
+              // flushSync: igual que en FilaSerie — sin forzar el re-render
+              // acá, el <input hidden> todavía tendría el valor viejo cuando
+              // `onGuardar` arma el FormData un instante después.
+              flushSync(() => setValor(op.valor));
+              onGuardar();
+            }}
+            data-activo={valor === op.valor ? "true" : "false"}
+            className="pill-dificultad"
+          >
+            {op.etiqueta}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const initialReportarDolorState: ReportarDolorState = { error: null, ok: false };
+
+/**
+ * Reportar una molestia es una acción explícita y separada del guardado de
+ * series: propio formulario, propia Server Action (`reportarDolor` en
+ * impulso-actions.ts) — no viaja mezclado con el resto de los datos del
+ * ejercicio.
+ */
+function ReportarDolorPanel({
+  sesionId,
+  sesionEjercicioId,
+  diaEjercicioId,
+}: {
+  sesionId: string;
+  sesionEjercicioId: string;
+  diaEjercicioId: string;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [state, formAction, pending] = useActionState(reportarDolor, initialReportarDolorState);
+
+  if (state.ok) {
+    return (
+      <p className="text-micro mt-1.5 flex items-center gap-1.5 text-text-tertiary">
+        <HeartCrack size={13} strokeWidth={2.5} /> Molestia registrada — tu entrenador la va a revisar.
+      </p>
+    );
+  }
+
+  if (!abierto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="text-micro mt-1.5 flex items-center gap-1.5 text-text-tertiary underline decoration-dotted"
+      >
+        <HeartCrack size={13} strokeWidth={2.5} /> Sentí una molestia en este ejercicio
+      </button>
+    );
+  }
+
+  return (
+    <form action={formAction} className="tarjeta-impulso-vip tarjeta-impulso-vip-alerta mt-1.5 space-y-2">
+      <input type="hidden" name="sesion_id" value={sesionId} />
+      <input type="hidden" name="sesion_ejercicio_id" value={sesionEjercicioId} />
+      <input type="hidden" name="dia_ejercicio_id" value={diaEjercicioId} />
+      <p className="text-micro font-semibold text-warning">Contale a tu entrenador qué sentiste</p>
+      <label className="block">
+        <span className="text-micro text-text-tertiary">Zona (opcional)</span>
+        <input
+          name="zona"
+          type="text"
+          placeholder="Ej: hombro derecho"
+          className="text-caption mt-0.5 w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-text outline-none placeholder:text-text-tertiary"
+        />
+      </label>
+      <div>
+        <span className="text-micro text-text-tertiary">Intensidad (opcional)</span>
+        <div className="mt-1 flex gap-1.5">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <label key={n} className="pill-dificultad">
+              <input type="radio" name="intensidad" value={n} className="sr-only" />
+              {n}
+            </label>
+          ))}
+        </div>
+      </div>
+      <label className="flex items-center gap-2">
+        <input type="checkbox" name="detuvo_ejercicio" value="true" className="h-4 w-4" />
+        <span className="text-micro text-text-secondary">Tuve que parar el ejercicio</span>
+      </label>
+      {state.error && <p className="text-caption text-error">{state.error}</p>}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={pending}
+          className="h-9 flex-1 rounded-full bg-warning text-caption font-semibold text-black disabled:opacity-60"
+        >
+          {pending ? "Enviando…" : "Enviar"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setAbierto(false)}
+          className="h-9 rounded-full border border-border px-3 text-caption text-text-secondary"
+        >
+          Cancelar
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -293,8 +480,13 @@ const FilaSerie = forwardRef<
   {
     numero: number;
     inicial: EjercicioSesion["series"][number] | undefined;
-    /** Repeticiones programadas de la rutina, para precargar el campo. */
+    /** Repeticiones a precargar: la meta de Impulso VIP si hay una
+     * aprobada, si no el techo del rango que escribió el entrenador. */
     repsObjetivo: number | null;
+    /** Peso a precargar — solo cuando hay una recomendación de Impulso VIP
+     * aprobada (nunca para 'propuesta' ni 'bloqueada'). Null mantiene el
+     * comportamiento de siempre: el campo arranca vacío. */
+    pesoSugerido: number | null;
     /** Ejercicios por tiempo (plancha, isométricos): mismo campo, pero pide
      * segundos en vez de repeticiones — ver `esEjercicioDeTiempo`. */
     esTiempo: boolean;
@@ -328,6 +520,7 @@ const FilaSerie = forwardRef<
     numero,
     inicial,
     repsObjetivo,
+    pesoSugerido,
     esTiempo,
     descansoSegundos,
     soloLectura,
@@ -498,6 +691,35 @@ const FilaSerie = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [descansando, activo]);
 
+  /** Cuánto se pasó del descanso indicado, en tramos de
+   * `PUNTOS_VIP.descansoSegundosPorTramo` — cada tramo completo resta puntos
+   * (ver `penalizarExcesoDescanso`). Corre mientras esta serie sigue "activa"
+   * (nadie arrancó la siguiente todavía) pero su propio descanso ya terminó
+   * DE VERDAD (avisadoRef true descarta el caso de "arrepentimiento": tocar
+   * Listo por error y cancelar no debe penalizar). Se resetea apenas se
+   * arranca la siguiente serie o el descanso de esta se reinicia. */
+  const [tramosExcedidos, setTramosExcedidos] = useState(0);
+  const excesoDesdeRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (soloLectura || !activo || descansando || !avisadoRef.current || !descansoSegundos) {
+      excesoDesdeRef.current = null;
+      setTramosExcedidos(0);
+      return;
+    }
+    excesoDesdeRef.current ??= Date.now();
+    const tramoMs = PUNTOS_VIP.descansoSegundosPorTramo * 1000;
+    const id = setInterval(() => {
+      const transcurrido = Date.now() - (excesoDesdeRef.current ?? Date.now());
+      const tramos = Math.floor(transcurrido / tramoMs);
+      if (tramos > 0) {
+        setTramosExcedidos(tramos);
+        void penalizarExcesoDescanso(sesionEjercicioId, numero, tramos);
+      }
+    }, 5000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activo, descansando, soloLectura]);
+
   // Las flechas se apagan solas: son un empujón, no un estado en el que la fila
   // se quede. Después el botón se asienta en "Listo".
   //
@@ -616,7 +838,7 @@ const FilaSerie = forwardRef<
     // cabecera del siguiente tienen que entrar juntas en una pantalla de
     // celular — que es como se usa esto, apoyado en el banco.
     <div
-      className="fila-serie p-3"
+      className="fila-serie p-2"
       data-hecha={realizada ? "true" : "false"}
       data-activa={esLaQueToca ? "true" : "false"}
       data-descansando={descansando ? "true" : "false"}
@@ -624,7 +846,7 @@ const FilaSerie = forwardRef<
       <input type="hidden" name={`peso_corporal_${numero}`} value={esPesoCorporal ? "true" : "false"} />
       <input type="hidden" name={`realizada_${numero}`} value={realizada ? "true" : "false"} />
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         {/* Número en disco y no "#1": con el celular apoyado y de reojo, la
             forma se distingue antes que el texto, y marca dónde arranca la fila. */}
         <span className="numero-serie" data-hecha={realizada ? "true" : "false"}>
@@ -642,7 +864,11 @@ const FilaSerie = forwardRef<
             inputMode="decimal"
             placeholder="—"
             disabled={esPesoCorporal}
-            defaultValue={inicial?.pesoKg ?? ""}
+            // Lo ya cargado (guardado o borrador) manda siempre; si no hay
+            // nada todavía, la meta de Impulso VIP precarga el peso a
+            // intentar (solo si hay una recomendación aprobada — ver
+            // `pesoSugeridoEfectivo` en el componente padre).
+            defaultValue={inicial?.pesoKg ?? pesoSugerido ?? ""}
           />
           <span className="campo-serie-etiqueta">kg</span>
         </label>
@@ -771,6 +997,15 @@ const FilaSerie = forwardRef<
           </button>
         )}
       </div>
+      {tramosExcedidos > 0 && (
+        // Aviso chico y en rojo: nada intrusivo, solo que quede claro por qué
+        // bajaron los puntos — se resetea solo apenas arranca la siguiente serie.
+        <p className="mt-1 text-micro text-error">
+          Te pasaste del descanso: -
+          {Math.min(PUNTOS_VIP.descansoPenalizacionMaxima, tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo)}{" "}
+          pts
+        </p>
+      )}
     </div>
   );
 });
@@ -793,6 +1028,15 @@ export const SesionEjercicioCard = forwardRef<
   const esTiempo = esEjercicioDeTiempo(ejercicio.repsProgramadas);
   const ultimoTexto = formatUltimo(ejercicio.ultimoRegistro, esTiempo);
   const tecnica = resolverTecnica(ejercicio);
+  const recomendacionImpulso = ejercicio.recomendacionImpulso;
+  // Solo una recomendación APROBADA precarga algo — 'propuesta' (esperando
+  // al entrenador) y 'bloqueada' (Regla E) nunca sugieren peso ni reps.
+  const recomendacionAprobada =
+    recomendacionImpulso && (recomendacionImpulso.estado === "aprobada" || recomendacionImpulso.estado === "modificada")
+      ? recomendacionImpulso
+      : null;
+  const pesoSugeridoEfectivo =
+    recomendacionAprobada && !recomendacionAprobada.esPesoCorporal ? recomendacionAprobada.pesoSugeridoKg : null;
   const grupoTecnica = resolverGrupoTecnica(ejercicio.tecnicaTipo);
   const cardRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -815,7 +1059,10 @@ export const SesionEjercicioCard = forwardRef<
   const filaNodoRef = useRef(new Map<number, HTMLDivElement>());
 
   const filas = Array.from({ length: ejercicio.seriesProgramadas }, (_, i) => i + 1);
-  const objetivoReps = repsObjetivo(ejercicio.repsProgramadas);
+  // La meta de reps de Impulso VIP (si hay una aprobada) manda por sobre el
+  // techo del rango del PDF — mismo criterio que el peso: sin recomendación
+  // aprobada, el comportamiento de precarga queda igual que siempre.
+  const objetivoReps = recomendacionAprobada?.repsObjetivoMax ?? repsObjetivo(ejercicio.repsProgramadas);
 
   /**
    * La serie que toca ahora: la primera sin hacer, y solo dentro del ejercicio
@@ -1088,7 +1335,7 @@ export const SesionEjercicioCard = forwardRef<
             dejaba la foto al lado, y el tempo no entraba como 4ta columna —
             afuera de esa columna ya no hay ese límite, como en la
             referencia). */}
-        <div className="radius-control mb-2 flex items-stretch overflow-hidden border border-border bg-surface-2">
+        <div className="radius-control mb-1.5 flex items-stretch overflow-hidden border border-border bg-surface-2">
           <Dato
             icono={<Layers size={13} />}
             valor={String(ejercicio.seriesProgramadas)}
@@ -1105,7 +1352,7 @@ export const SesionEjercicioCard = forwardRef<
             etiqueta="Desc."
           />
           {ejercicio.tempo && (
-            <Dato icono={<Gauge size={13} />} valor={ejercicio.tempo.valor} etiqueta="Tempo" compacto />
+            <Dato icono={<Gauge size={13} />} valor={ejercicio.tempo.valor} etiqueta="Tempo" />
           )}
         </div>
 
@@ -1142,8 +1389,8 @@ export const SesionEjercicioCard = forwardRef<
           de la biblioteca del gimnasio, marcada como sugerencia para que no se
           confunda con una orden. Ver `resolverTecnica` arriba. */}
       {tecnica && (
-        <div className="tarjeta-tecnica mb-2 flex items-start gap-2">
-          <Info size={14} className="mt-0.5 shrink-0 text-vip" strokeWidth={2.5} />
+        <div className="tarjeta-tecnica mb-1.5 flex items-start gap-2">
+          <Info size={13} className="mt-0.5 shrink-0 text-vip" strokeWidth={2.5} />
           <p className="text-micro leading-snug text-text-secondary">
             <span className="font-semibold text-vip">
               {tecnica.sugerida ? "Técnica sugerida: " : "Técnica: "}
@@ -1153,8 +1400,10 @@ export const SesionEjercicioCard = forwardRef<
         </div>
       )}
 
+      <TarjetaImpulsoVip recomendacion={recomendacionImpulso} />
+
       {ultimoTexto && (
-        <p className="text-caption mb-2 text-text-tertiary">
+        <p className="text-micro mb-1.5 text-text-tertiary">
           Último registro: {ultimoTexto} ({ejercicio.ultimoRegistro?.fecha})
         </p>
       )}
@@ -1181,7 +1430,7 @@ export const SesionEjercicioCard = forwardRef<
           ref={formRef}
           action={formAction}
           onChange={respaldarLocal}
-          className="space-y-1.5"
+          className="space-y-1"
         >
           <input type="hidden" name="sesion_ejercicio_id" value={ejercicio.sesionEjercicioId} />
           <input type="hidden" name="sesion_id" value={sesionId} />
@@ -1209,6 +1458,7 @@ export const SesionEjercicioCard = forwardRef<
                 numero={n}
                 inicial={serieInicial(n)}
                 repsObjetivo={objetivoReps}
+                pesoSugerido={pesoSugeridoEfectivo}
                 esTiempo={esTiempo}
                 descansoSegundos={ejercicio.descansoSegundos}
                 soloLectura={soloLectura}
@@ -1235,6 +1485,15 @@ export const SesionEjercicioCard = forwardRef<
             </button>
           )}
 
+          {/* Se pregunta una sola vez, cuando ya se hicieron todas las
+              series de este ejercicio — no antes, para no interrumpir el
+              ritmo mientras el alumno todavía está entrenando. */}
+          <SelectorDificultad
+            valorInicial={ejercicio.dificultadPercibida}
+            disabled={seriesHechas.size < ejercicio.seriesProgramadas}
+            onGuardar={guardarAhora}
+          />
+
           {/* El ícono va dentro del campo, a la izquierda: sin él, el recuadro
               vacío se confundía con otro campo de carga más. */}
           <label className="radius-control mt-1 flex items-center gap-2 border border-border bg-surface-2 px-2.5 py-1.5">
@@ -1258,6 +1517,16 @@ export const SesionEjercicioCard = forwardRef<
             </p>
           )}
         </form>
+      )}
+      {/* Fuera del <form> de arriba a propósito: HTML no permite forms
+          anidados, y reportar dolor es una acción separada (propia Server
+          Action) del guardado de series. */}
+      {!soloLectura && (
+        <ReportarDolorPanel
+          sesionId={sesionId}
+          sesionEjercicioId={ejercicio.sesionEjercicioId}
+          diaEjercicioId={ejercicio.diaEjercicioId}
+        />
       )}
           </>
         )}

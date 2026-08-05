@@ -8,7 +8,43 @@ export const PUNTOS_VIP = {
   fotoSemanal: 100,
   alimentacionSinRegistro: -150,
   alimentacionPenalizacionMaxima: -100,
+  // Impulso VIP: bono chico frente a los 300 de completar la sesión — no
+  // debe competir con eso, solo premiar además haber seguido la meta.
+  // Reglas D (reducir) y E (consultar) nunca puntúan: no son una meta
+  // lograda, son una pausa o una corrección.
+  impulsoCumplida: 8,
+  impulsoSuperada: 12,
+  impulsoParcial: 3,
+  // Tope por sesión: aunque haya 8 ejercicios con recomendación, Impulso VIP
+  // no puede aportar más que una fracción chica del máximo de entrenamiento.
+  impulsoMaximoPorSesion: 60,
+  // Descansar de más: por cada tramo completo excedido después de que
+  // termina el descanso indicado, se resta esta cantidad de puntos, hasta el
+  // tope por serie. Nunca revierte los puntos ya ganados por completar la
+  // serie — es un ajuste aparte (categoría "ajuste").
+  descansoSegundosPorTramo: 20,
+  descansoPenalizacionPorTramo: 3,
+  descansoPenalizacionMaxima: 30,
 } as const;
+
+export type CumplimientoImpulso = "cumplida" | "superada" | "parcial" | "no_cumplida";
+
+/** Puntos por una recomendación resuelta. Se llama una vez por cada
+ * ejercicio puntuable de la sesión, y el resultado se suma y se topea en
+ * `PUNTOS_VIP.impulsoMaximoPorSesion` (ver `registrarImpulso` en
+ * `movimientos.ts`) — acá solo se calcula el valor de una fila. */
+export function calcularPuntosImpulso(cumplimiento: CumplimientoImpulso | null): number {
+  switch (cumplimiento) {
+    case "superada":
+      return PUNTOS_VIP.impulsoSuperada;
+    case "cumplida":
+      return PUNTOS_VIP.impulsoCumplida;
+    case "parcial":
+      return PUNTOS_VIP.impulsoParcial;
+    default:
+      return 0;
+  }
+}
 
 /**
  * Durante la rutina estos puntos se muestran como "preparados". Se confirman

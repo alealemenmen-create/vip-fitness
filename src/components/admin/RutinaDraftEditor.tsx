@@ -7,9 +7,26 @@ import { Button, IconButton } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { publicarRutinaAVariosAlumnos } from "@/app/admin/archivos/actions";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
+import type { TipoProgresionImpulso } from "@/lib/supabase/types";
 
-type Ejercicio = RutinaExtraida["dias"][number]["ejercicios"][number];
-type Dia = RutinaExtraida["dias"][number];
+type EjercicioExtraido = RutinaExtraida["dias"][number]["ejercicios"][number];
+
+/** Config de progresión de Impulso VIP para este ejercicio ASIGNADO — no es
+ * parte de lo que extrae la IA del PDF (por eso vive aparte de
+ * `EjercicioExtraidoSchema` en extraerRutina.ts, no mezclado ahí: es una
+ * decisión del entrenador, no algo que deba adivinar la IA). Opcionales para
+ * que un borrador viejo (`RutinaExtraida` plano, sin estos campos) siga
+ * siendo válido — `conDefaultsProgresion` los completa al cargar. */
+type ConfigProgresionBorrador = {
+  aptoProgresion?: boolean;
+  tipoProgresion?: TipoProgresionImpulso;
+  incrementoKg?: number;
+  requiereAutorizacion?: boolean;
+};
+
+type Ejercicio = EjercicioExtraido & ConfigProgresionBorrador;
+type Dia = Omit<RutinaExtraida["dias"][number], "ejercicios"> & { ejercicios: Ejercicio[] };
+export type RutinaConProgresion = Omit<RutinaExtraida, "dias"> & { dias: Dia[] };
 
 const EJERCICIO_VACIO: Ejercicio = {
   orden: 0,
@@ -21,7 +38,21 @@ const EJERCICIO_VACIO: Ejercicio = {
   tecnicaInstruccion: null,
   observacion: null,
   grupoMuscular: null,
+  // Progresión automática apagada por defecto: publicar una rutina nunca
+  // activa Impulso VIP por sí solo — el entrenador lo prende ejercicio por
+  // ejercicio cuando quiere.
+  aptoProgresion: false,
+  tipoProgresion: "doble",
+  incrementoKg: 2.5,
+  requiereAutorizacion: false,
 };
+
+const TIPOS_PROGRESION: { value: TipoProgresionImpulso; label: string }[] = [
+  { value: "doble", label: "Doble progresión (reps y después peso)" },
+  { value: "solo_peso", label: "Solo peso" },
+  { value: "solo_reps", label: "Solo repeticiones" },
+  { value: "manual", label: "Manual (yo la ajusto)" },
+];
 
 const GRUPOS_MUSCULARES: { value: NonNullable<Ejercicio["grupoMuscular"]>; label: string }[] = [
   { value: "pecho", label: "Pecho" },
@@ -52,7 +83,7 @@ function EjercicioForm({
   onRemove: () => void;
 }) {
   const traeExtras = Boolean(
-    ejercicio.grupoMuscular || ejercicio.tecnicaTipo || ejercicio.observacion
+    ejercicio.grupoMuscular || ejercicio.tecnicaTipo || ejercicio.observacion || ejercicio.aptoProgresion
   );
   const [ampliado, setAmpliado] = useState(traeExtras);
 
@@ -154,6 +185,56 @@ function EjercicioForm({
             placeholder="Observación"
             className="py-1.5"
           />
+
+          {/* Impulso VIP: apagado por defecto (ver EJERCICIO_VACIO) — publicar
+              una rutina nunca activa progresión automática por sí sola. */}
+          <div className="radius-control border border-border bg-surface-2 px-2.5 py-2">
+            <label className="text-caption flex items-center gap-1.5 text-text-secondary">
+              <input
+                type="checkbox"
+                checked={ejercicio.aptoProgresion ?? false}
+                onChange={(e) => onChange({ ...ejercicio, aptoProgresion: e.target.checked })}
+              />
+              Progresión automática (Impulso VIP)
+            </label>
+            {ejercicio.aptoProgresion && (
+              <div className="mt-1.5 space-y-1.5">
+                <Select
+                  value={ejercicio.tipoProgresion ?? "doble"}
+                  onChange={(e) =>
+                    onChange({ ...ejercicio, tipoProgresion: e.target.value as TipoProgresionImpulso })
+                  }
+                  className="py-1.5"
+                >
+                  {TIPOS_PROGRESION.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </Select>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-caption shrink-0 text-text-tertiary">Incremento de carga</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={ejercicio.incrementoKg ?? 2.5}
+                    onChange={(e) => onChange({ ...ejercicio, incrementoKg: Number(e.target.value) })}
+                    className="w-16 px-1.5 py-1 text-center"
+                  />
+                  <span className="text-caption text-text-tertiary">kg</span>
+                </div>
+                <label className="text-caption flex items-center gap-1.5 text-text-secondary">
+                  <input
+                    type="checkbox"
+                    checked={ejercicio.requiereAutorizacion ?? false}
+                    onChange={(e) => onChange({ ...ejercicio, requiereAutorizacion: e.target.checked })}
+                  />
+                  Requiere mi aprobación para subir peso
+                </label>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -174,7 +255,7 @@ export function RutinaDraftEditor({
   draftInicial: RutinaExtraida;
   onDescartar: () => void;
 }) {
-  const [draft, setDraft] = useState(draftInicial);
+  const [draft, setDraft] = useState<RutinaConProgresion>(draftInicial);
   const [publicando, setPublicando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publicado, setPublicado] = useState(false);

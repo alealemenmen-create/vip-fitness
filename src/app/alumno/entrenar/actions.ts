@@ -5,11 +5,22 @@ import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { requireAlumno } from "@/lib/auth";
+import { hoyISO } from "@/lib/date";
 import {
   abandonarEntrenamiento,
+  calcularYRegistrarPuntosImpulso,
   desactivarEntrenamiento,
+  eliminarMovimientosDeSesiones,
   registrarEntrenamiento,
+  registrarPenalizacionDescanso,
 } from "@/lib/ranking/movimientos";
+import { generarYGuardarRecomendacion } from "@/lib/impulso-vip/data";
+import { leerDatosCumplimiento } from "@/lib/impulso-vip/congelar";
+import { resolverCumplimiento } from "@/lib/impulso-vip/motor";
+import type { ReglaImpulso } from "@/lib/impulso-vip/tipos";
+import type { DificultadPercibidaImpulso } from "@/lib/supabase/types";
+
+const DIFICULTADES_VALIDAS = new Set(["muy_facil", "facil", "justo", "dificil", "fallo"]);
 
 /** Encuentra la sesión existente de este día o la crea, y redirige ahí.
  * Compartido por `iniciarSesion` (chequea primero si hay OTRO día
@@ -48,9 +59,27 @@ async function crearOEntrarSesion(
     .eq("dia_id", diaId);
 
   if (ejercicios && ejercicios.length > 0) {
-    await supabase
+    const { data: sesionEjercicios } = await supabase
       .from("sesion_ejercicios")
-      .insert(ejercicios.map((e) => ({ sesion_id: sesion.id, dia_ejercicio_id: e.id })));
+      .insert(ejercicios.map((e) => ({ sesion_id: sesion.id, dia_ejercicio_id: e.id })))
+      .select("id, dia_ejercicio_id");
+
+    // La recomendación de Impulso VIP se congela acá, al crear la sesión —
+    // no se recalcula después aunque el alumno reabra la sesión. Es una
+    // mejora sobre el flujo de entrenar, no un requisito para poder
+    // arrancar: si algo falla (incluida la migración 0043 si todavía no
+    // corrió en este entorno), no debe impedir empezar a entrenar.
+    if (sesionEjercicios && sesionEjercicios.length > 0) {
+      await Promise.all(
+        sesionEjercicios.map((se) =>
+          generarYGuardarRecomendacion(supabase, {
+            sesionEjercicioId: se.id,
+            diaEjercicioId: se.dia_ejercicio_id,
+            alumnoId,
+          }).catch(() => null)
+        )
+      );
+    }
   }
 
   revalidatePath("/alumno/entrenar");
@@ -178,6 +207,13 @@ export async function guardarSeries(
   const sesionId = String(formData.get("sesion_id") || "");
   const cantidad = Number(formData.get("cantidad_series") || 0);
   const notaEjercicio = String(formData.get("nota_ejercicio") || "").trim();
+  // Impulso VIP: se pregunta una vez por ejercicio al terminarlo, no por
+  // serie — viaja en el mismo formulario que el resto, no hace falta una
+  // Server Action separada.
+  const dificultadRaw = String(formData.get("dificultad_ejercicio") || "");
+  const dificultadPercibida: DificultadPercibidaImpulso | null = DIFICULTADES_VALIDAS.has(dificultadRaw)
+    ? (dificultadRaw as DificultadPercibidaImpulso)
+    : null;
 
   const supabase = await createClient();
   const filas = [];
@@ -226,14 +262,75 @@ export async function guardarSeries(
       nota: notaEjercicio || null,
       completado,
       completado_en: completado ? new Date().toISOString() : null,
+      // Columna nueva (migración 0043): si todavía no corrió en este
+      // entorno, Supabase devuelve error de columna inexistente — no debe
+      // impedir guardar el resto del ejercicio (mismo criterio de
+      // degradación que el resto de Impulso VIP).
+      dificultad_percibida: dificultadPercibida,
     })
     .eq("id", sesionEjercicioId);
-  if (errorNota) return { error: "No fue posible guardar. Revisa tu conexión e intenta nuevamente." };
+  if (errorNota) {
+    const { error: errorSinDificultad } = await supabase
+      .from("sesion_ejercicios")
+      .update({ nota: notaEjercicio || null, completado, completado_en: completado ? new Date().toISOString() : null })
+      .eq("id", sesionEjercicioId);
+    if (errorSinDificultad) return { error: "No fue posible guardar. Revisa tu conexión e intenta nuevamente." };
+  }
+
+  // Impulso VIP: solo al completar el ejercicio (no en cada guardado
+  // parcial) se resuelve si cumplió, superó o no la meta congelada al
+  // empezar la sesión. Es best-effort: si la recomendación no existe (motor
+  // desactivado para este ejercicio, o migración 0043 sin correr todavía),
+  // no hay nada que resolver y el guardado normal ya terminó bien.
+  if (completado) {
+    await resolverCumplimientoImpulso(supabase, sesionEjercicioId, filas).catch(() => null);
+  }
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
   return { error: null };
+}
+
+/** Compara las series recién guardadas contra la recomendación congelada de
+ * este ejercicio (si existe) y guarda el resultado — cumplida, superada,
+ * parcial o no cumplida. Regla E nunca se evalúa (`resolverCumplimiento`
+ * devuelve null), así que nunca queda con un cumplimiento asignado. */
+async function resolverCumplimientoImpulso(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  sesionEjercicioId: string,
+  filas: { numero_serie: number; peso_kg: number | null; es_peso_corporal: boolean; reps_realizadas: number | null; realizada: boolean }[]
+): Promise<void> {
+  const { data: recomendacion } = await supabase
+    .from("impulso_vip_recomendaciones")
+    .select("regla, peso_sugerido_kg, reps_objetivo_min, reps_objetivo_max, decision_data")
+    .eq("sesion_ejercicio_id", sesionEjercicioId)
+    .maybeSingle();
+  if (!recomendacion) return;
+
+  const { metaTotalReps, totalAnteriorReps } = leerDatosCumplimiento(recomendacion.decision_data);
+  const cumplimiento = resolverCumplimiento(
+    {
+      regla: recomendacion.regla as ReglaImpulso,
+      pesoSugeridoKg: recomendacion.peso_sugerido_kg,
+      repsObjetivoMin: recomendacion.reps_objetivo_min,
+      repsObjetivoMax: recomendacion.reps_objetivo_max,
+      metaTotalReps,
+    },
+    filas.map((f) => ({
+      numeroSerie: f.numero_serie,
+      pesoKg: f.peso_kg,
+      esPesoCorporal: f.es_peso_corporal,
+      repsRealizadas: f.reps_realizadas,
+      realizada: f.realizada,
+    })),
+    totalAnteriorReps
+  );
+
+  await supabase
+    .from("impulso_vip_recomendaciones")
+    .update({ cumplimiento, resuelto_en: new Date().toISOString() })
+    .eq("sesion_ejercicio_id", sesionEjercicioId);
 }
 
 export async function finalizarSesion(formData: FormData): Promise<void> {
@@ -272,13 +369,18 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
     total,
   });
 
+  // Bono de Impulso VIP: solo si de verdad hubo metas evaluadas (ver
+  // `calcularYRegistrarPuntosImpulso` — devuelve 0 en cualquier error, nunca
+  // bloquea poder finalizar la sesión).
+  const puntosImpulso = await calcularYRegistrarPuntosImpulso(alumnoId, sesionId, sesion.fecha);
+
   // Finalizar una sesión cambia los puntos de asistencia: el ranking cacheado
   // tiene que rehacerse ahora, no cuando venza solo.
   updateTag(TAG_RANKING);
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
-  redirect(`/alumno/entrenar?puntos=${puntos}`);
+  redirect(`/alumno/entrenar?puntos=${puntos + puntosImpulso}`);
 }
 
 export async function reabrirSesion(formData: FormData): Promise<void> {
@@ -386,12 +488,11 @@ export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
  * ejercicios y series) que el alumno haya registrado bajo esa rutina, para
  * que el calendario de Entrenar vuelva a empezar desde el Día 1.
  *
- * A propósito NO llama a `abandonarEntrenamiento` ni toca
- * `puntos_vip_movimientos`: ese es un registro aparte (clave
- * `entrenamiento:<sesionId>`), sin relación de llave foránea con
- * `sesiones_entrenamiento`, así que borrar las sesiones no le afecta. Los
- * Puntos VIP que el alumno ya ganó quedan intactos — el pedido explícito de
- * "reiniciar sin que afecte el ranking".
+ * También borra los movimientos de puntos de esas sesiones (`entrenamiento:
+ * <sesionId>` e `impulso:<sesionId>`) antes de eliminarlas: dejarlos
+ * intactos (como se hacía antes) generaba puntos duplicados, porque al
+ * volver a completar la rutina se crean sesiones con IDs nuevos y se suman
+ * puntos nuevos encima de los viejos que quedaban huérfanos.
  */
 export async function reiniciarRutina(formData: FormData): Promise<void> {
   const rutinaId = String(formData.get("rutina_id") || "");
@@ -407,6 +508,17 @@ export async function reiniciarRutina(formData: FormData): Promise<void> {
     .maybeSingle();
   if (!rutina) return;
 
+  const { data: sesiones } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id")
+    .eq("rutina_id", rutinaId)
+    .eq("alumno_id", alumnoId);
+
+  await eliminarMovimientosDeSesiones(
+    alumnoId,
+    (sesiones ?? []).map((s) => s.id)
+  );
+
   await supabase
     .from("sesiones_entrenamiento")
     .delete()
@@ -417,4 +529,35 @@ export async function reiniciarRutina(formData: FormData): Promise<void> {
   revalidatePath("/alumno/entrenar");
   revalidatePath("/alumno/inicio");
   redirect("/alumno/entrenar/historial");
+}
+
+/**
+ * Penaliza descansar de más entre series. Se llama directo desde el
+ * cliente (no es un `<form>`) por un intervalo que corre mientras el
+ * descanso de una serie ya terminó y el alumno no arrancó la siguiente —
+ * ver el efecto de "exceso" en `SesionEjercicioCard.tsx`.
+ *
+ * No valida que el descanso siga corriendo de verdad server-side (sería una
+ * llamada extra por tick): confía en que `tramosExcedidos` viene de un
+ * `setInterval` real del cliente. El upsert por clave fija en
+ * `registrarPenalizacionDescanso` limita el daño de un cliente manipulado a,
+ * como mucho, `PUNTOS_VIP.descansoPenalizacionMaxima` por serie — el mismo
+ * tope que tendría un alumno de buena fe.
+ */
+export async function penalizarExcesoDescanso(
+  sesionEjercicioId: string,
+  numero: number,
+  tramosExcedidos: number
+): Promise<void> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (!sesionEjercicioId || numero <= 0 || tramosExcedidos <= 0 || soloLectura) return;
+
+  await registrarPenalizacionDescanso({
+    alumnoId,
+    sesionEjercicioId,
+    numero,
+    tramosExcedidos,
+    fecha: hoyISO(),
+  });
+  updateTag(TAG_RANKING);
 }

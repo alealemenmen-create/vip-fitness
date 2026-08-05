@@ -39,3 +39,39 @@ export function repsObjetivo(repsProgramadas: string | null | undefined): number
   // corresponde a la primera serie, y es de donde arranca el alumno.
   return numeros[0];
 }
+
+/** Texto que indica una técnica o formato que un rango simple de min-max no
+ * representa bien ("al fallo", "AMRAP", "10 + dropset", "8-10 + parciales").
+ * Deliberadamente separado de `esEjercicioDeTiempo`: esto no decide si es
+ * tiempo o reps, decide si el número que hay es confiable como meta. */
+function esFormatoAmbiguo(texto: string): boolean {
+  return /fallo|amrap|dropset|drop set|parcial|rest.?pause|myo|cluster|burnout|descendente|m[aá]ximo posible/.test(
+    texto
+  );
+}
+
+/**
+ * Extrae el rango completo (mínimo y máximo) de las repeticiones programadas,
+ * para el motor de doble progresión de Impulso VIP — a diferencia de
+ * `repsObjetivo`, que solo devuelve el techo para precargar el input.
+ *
+ * "10-12" -> {min:10, max:12}. "12/10/8" (series descendentes) -> {min:8,
+ * max:12}: no es un rango real, pero el motor lo usa como banda de trabajo.
+ * Un número fijo ("12") da {min:12, max:12}. Deliberadamente más
+ * conservador que `repsObjetivo`: cualquier texto ambiguo ("al fallo",
+ * "AMRAP", "10 + dropset") devuelve null en vez de inventar un rango falso
+ * — el motor de progresión directamente no genera recomendación para esos
+ * ejercicios.
+ */
+export function rangoRepsObjetivo(repsProgramadas: string | null | undefined): { min: number; max: number } | null {
+  if (!repsProgramadas) return null;
+  if (esEjercicioDeTiempo(repsProgramadas)) return null;
+
+  const texto = repsProgramadas.toLowerCase();
+  if (esFormatoAmbiguo(texto)) return null;
+
+  const numeros = texto.match(/\d+/g)?.map(Number).filter((n) => n > 0) ?? [];
+  if (numeros.length === 0) return null;
+
+  return { min: Math.min(...numeros), max: Math.max(...numeros) };
+}

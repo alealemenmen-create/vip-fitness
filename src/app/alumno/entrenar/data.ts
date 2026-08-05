@@ -279,6 +279,25 @@ export type SerieRealizada = {
 
 export type UltimoRegistro = { pesoKg: number | null; esPesoCorporal: boolean; reps: number | null; fecha: string } | null;
 
+export type DificultadPercibida = "muy_facil" | "facil" | "justo" | "dificil" | "fallo";
+
+/** Meta de Impulso VIP para este ejercicio, ya congelada (ver
+ * `generarYGuardarRecomendacion` en `src/lib/impulso-vip/data.ts`) — se
+ * calculó una sola vez, al crear la sesión, y no cambia aunque el alumno
+ * reabra la pantalla. Null cuando el motor no generó recomendación (sin
+ * config, técnica excluida, primera vez que se hace el ejercicio, etc). */
+export type RecomendacionImpulso = {
+  regla: "A_subir_reps" | "B_subir_peso" | "C_mantener" | "D_reducir" | "E_consultar";
+  pesoSugeridoKg: number | null;
+  repsObjetivoMin: number | null;
+  repsObjetivoMax: number | null;
+  esPesoCorporal: boolean;
+  justificacion: string;
+  /** 'propuesta': el entrenador todavía no aprobó subir peso — no se
+   * precarga. 'bloqueada' (Regla E): revisión requerida, sin meta. */
+  estado: "propuesta" | "aprobada" | "bloqueada" | "modificada";
+} | null;
+
 export type EjercicioSesion = {
   sesionEjercicioId: string;
   diaEjercicioId: string;
@@ -309,6 +328,10 @@ export type EjercicioSesion = {
   notaEjercicio: string | null;
   series: SerieRealizada[];
   ultimoRegistro: UltimoRegistro;
+  /** Se pregunta una vez al terminar el ejercicio, no por serie. Null si
+   * migración 0043 no corrió todavía, o si el alumno no la cargó. */
+  dificultadPercibida: DificultadPercibida | null;
+  recomendacionImpulso: RecomendacionImpulso;
 };
 
 export type SesionCompleta = {
@@ -449,6 +472,35 @@ export async function obtenerSesionCompleta(
     seriesPorEjercicio.set(s.sesion_ejercicio_id, arr);
   }
 
+  // Impulso VIP: dificultad percibida y recomendación congelada. Van en
+  // consultas separadas (no en `consultarEjercicios` de arriba) para no
+  // agregar una quinta variante a esa cadena de fallbacks — si la migración
+  // 0043 todavía no corrió en este entorno, estas dos consultas fallan solas
+  // y la pantalla de sesión sigue funcionando igual que hoy, sin Impulso VIP.
+  const intentoDificultad = sesionEjercicioIds.length
+    ? await supabase.from("sesion_ejercicios").select("id, dificultad_percibida").in("id", sesionEjercicioIds)
+    : { data: [], error: null };
+  const dificultadPorEjercicio = new Map<string, DificultadPercibida | null>(
+    (intentoDificultad.error ? [] : (intentoDificultad.data ?? [])).map((d) => [
+      d.id,
+      d.dificultad_percibida as DificultadPercibida | null,
+    ])
+  );
+
+  const intentoRecomendaciones = sesionEjercicioIds.length
+    ? await supabase
+        .from("impulso_vip_recomendaciones")
+        .select(
+          "sesion_ejercicio_id, regla, peso_sugerido_kg, reps_objetivo_min, reps_objetivo_max, es_peso_corporal, justificacion, estado"
+        )
+        .in("sesion_ejercicio_id", sesionEjercicioIds)
+    : { data: [], error: null };
+  const recomendacionPorEjercicio = new Map<string, FilaRecomendacionSesion>(
+    (intentoRecomendaciones.error ? [] : ((intentoRecomendaciones.data ?? []) as FilaRecomendacionSesion[])).map(
+      (r) => [r.sesion_ejercicio_id, r]
+    )
+  );
+
   const ejercicios: EjercicioSesion[] = [];
   for (const se of lista) {
     const prog = se.rutina_dia_ejercicios;
@@ -485,6 +537,8 @@ export async function obtenerSesionCompleta(
       notaEjercicio: se.nota,
       series: (seriesPorEjercicio.get(se.id) ?? []).sort((a, b) => a.numeroSerie - b.numeroSerie),
       ultimoRegistro: await obtenerUltimoRegistro(supabase, alumnoId, se.dia_ejercicio_id, sesionId),
+      dificultadPercibida: dificultadPorEjercicio.get(se.id) ?? null,
+      recomendacionImpulso: mapearRecomendacionImpulso(recomendacionPorEjercicio.get(se.id)),
     });
   }
 
@@ -659,6 +713,30 @@ export async function obtenerRutinasHistorial(
       };
     })
     .sort((a, b) => (a.ultimaFecha < b.ultimaFecha ? 1 : -1));
+}
+
+type FilaRecomendacionSesion = {
+  sesion_ejercicio_id: string;
+  regla: string;
+  peso_sugerido_kg: number | null;
+  reps_objetivo_min: number | null;
+  reps_objetivo_max: number | null;
+  es_peso_corporal: boolean;
+  justificacion: string;
+  estado: string;
+};
+
+function mapearRecomendacionImpulso(fila: FilaRecomendacionSesion | undefined): RecomendacionImpulso {
+  if (!fila) return null;
+  return {
+    regla: fila.regla as NonNullable<RecomendacionImpulso>["regla"],
+    pesoSugeridoKg: fila.peso_sugerido_kg,
+    repsObjetivoMin: fila.reps_objetivo_min,
+    repsObjetivoMax: fila.reps_objetivo_max,
+    esPesoCorporal: fila.es_peso_corporal,
+    justificacion: fila.justificacion,
+    estado: fila.estado as NonNullable<RecomendacionImpulso>["estado"],
+  };
 }
 
 async function obtenerUltimoRegistro(
