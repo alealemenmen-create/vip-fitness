@@ -29,7 +29,13 @@ export type SubirFotoState = { error: string | null; ok: boolean };
  * Genera dos versiones a partir de la MISMA foto que sube el entrenador —
  * nunca dos fotos distintas — para que la miniatura chica de la tarjeta y la
  * foto completa del visor ampliado sean siempre la misma imagen:
- *   - miniatura: 500px de ancho, recortada 4:3 (para la tarjetita).
+ *   - miniatura: 500x500, recortada cuadrada (para la tarjetita de la
+ *     galería, que también es `aspect-square` — igual que el recuadro donde
+ *     el entrenador encuadra la foto al elegirla, ver GaleriaEjercicios.tsx.
+ *     Antes era un recorte 4:3 horizontal mostrado dentro de un cuadro
+ *     cuadrado: dos recortes distintos encadenados, así que la foto quedaba
+ *     descentrada — muy arriba o muy abajo — respecto de lo que se había
+ *     encuadrado al sacarla).
  *   - completa: 1400px de ancho, SIN recortar (respeta el encuadre entero).
  * `.rotate()` sin argumentos aplica la orientación EXIF del celular, así la
  * foto queda derecha sin depender de que el navegador la interprete.
@@ -58,7 +64,7 @@ export async function subirFotoEjercicio(
   try {
     const base = sharp(bytes).rotate();
     [miniatura, completa] = await Promise.all([
-      base.clone().resize({ width: 500, height: 375, fit: "cover" }).webp({ quality: 80 }).toBuffer(),
+      base.clone().resize({ width: 500, height: 500, fit: "cover" }).webp({ quality: 80 }).toBuffer(),
       base.clone().resize({ width: 1400, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer(),
     ]);
   } catch {

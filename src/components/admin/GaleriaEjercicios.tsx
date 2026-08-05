@@ -186,7 +186,11 @@ function ModalSubirFoto({
         </button>
       </div>
 
-      <label className="radius-card relative flex aspect-video w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-border bg-surface-2">
+      {/* aspect-square y no aspect-video: tiene que coincidir con el recorte
+          que hace el servidor (500x500, ver subirFotoEjercicio en actions.ts)
+          y con la tarjetita de la galería (también aspect-square) — si no,
+          lo que encuadrás acá no es lo que termina guardado. */}
+      <label className="radius-card relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-border bg-surface-2">
         {previa || fotoActual ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={previa ?? fotoActual ?? ""} alt="" className="h-full w-full object-cover" />
@@ -295,7 +299,11 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
       </div>
 
       <form action={formAction} className="space-y-3">
-        <label className="radius-card relative flex aspect-video w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-border bg-surface-2">
+        {/* aspect-square y no aspect-video: tiene que coincidir con el recorte
+          que hace el servidor (500x500, ver subirFotoEjercicio en actions.ts)
+          y con la tarjetita de la galería (también aspect-square) — si no,
+          lo que encuadrás acá no es lo que termina guardado. */}
+      <label className="radius-card relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-border bg-surface-2">
           {previa ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={previa} alt="" className="h-full w-full object-cover" />
