@@ -6,7 +6,7 @@ import { requireAlumno } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import convertirHeic from "heic-convert";
 import sharp from "sharp";
-import { hoyISO } from "@/lib/date";
+import { fechaEnVentanaValida, hoyISO } from "@/lib/date";
 import {
   recalcularFotoSemana,
   recalcularPesoSemana,
@@ -55,6 +55,9 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
     return fail("Ingresa un peso válido (mayor a cero).");
   }
   if (!fecha) return fail("Selecciona una fecha.");
+  if (!fechaEnVentanaValida(fecha)) {
+    return fail("Solo podés registrar el peso de hoy o de ayer.");
+  }
 
   const { error } = await supabase.from("pesos_corporales").insert({
     alumno_id: alumnoId,
@@ -103,9 +106,12 @@ export async function subirFotoProgreso(
   const supabase = await createClient();
 
   const archivo = formData.get("archivo") as File | null;
-  const fechaFoto = String(formData.get("fecha_foto") || "");
+  const fechaFoto = String(formData.get("fecha_foto") || "") || hoyISO();
 
   if (!archivo || archivo.size === 0) return fail("Selecciona una foto.");
+  if (!fechaEnVentanaValida(fechaFoto)) {
+    return fail("Solo podés subir una foto de hoy o de ayer.");
+  }
 
   const extensionArchivo = archivo.name.split(".").pop()?.toLowerCase() || "";
   const tipoValido =
@@ -168,12 +174,12 @@ export async function subirFotoProgreso(
   const { error: errorInsert } = await supabase.from("fotos_progreso").insert({
     alumno_id: alumnoId,
     storage_path: storagePath,
-    fecha_foto: fechaFoto || undefined,
+    fecha_foto: fechaFoto,
   });
 
   if (errorInsert) return fail("La foto se subió, pero no fue posible registrarla.");
 
-  const puntos = await registrarFoto(alumnoId, fechaFoto || hoyISO());
+  const puntos = await registrarFoto(alumnoId, fechaFoto);
   updateTag(TAG_RANKING);
   revalidatePath("/alumno/progreso");
   revalidatePath("/alumno/inicio");

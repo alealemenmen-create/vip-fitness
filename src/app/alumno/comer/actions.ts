@@ -15,6 +15,7 @@ import {
 } from "@/lib/alimentos/openFoodFacts";
 import { deducirMedidaCasera, medidaDeAlimento } from "@/lib/alimentos/medidaCasera";
 import { recalcularAlimentacionDia } from "@/lib/ranking/movimientos";
+import { fechaEnVentanaValida } from "@/lib/date";
 
 /**
  * El buscador por texto de Open Food Facts (`cgi/search.pl`) no manda
@@ -45,6 +46,16 @@ async function obtenerORegistroDiario(
     .maybeSingle();
 
   if (existente) return existente.id;
+
+  // Sin este límite, cualquiera podía navegar a /alumno/comer/<fecha vieja>
+  // y fabricar un día entero de comida a la medida exacta de su meta de
+  // calorías, cobrando el puntaje "cerrado" (máximo) de un día que nunca
+  // ocurrió — ver auditoría de puntos VIP. Un registro que YA existe (un día
+  // real, ya creado dentro de la ventana permitida) se sigue pudiendo editar
+  // sin este chequeo: acá solo se bloquea FABRICAR uno nuevo fuera de fecha.
+  if (!fechaEnVentanaValida(fecha)) {
+    throw new Error("Solo se puede registrar comida de hoy o de ayer.");
+  }
 
   const { data: nuevo, error } = await supabase
     .from("registros_diarios")
@@ -152,7 +163,10 @@ export async function agregarAlimentoAComida(
     revalidatePath(`/alumno/comer/${fecha}`);
     revalidatePath("/alumno/inicio");
     return { error: null, puntos };
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("hoy o de ayer")) {
+      return { error: error.message };
+    }
     return { error: "No fue posible guardar. Revisa tu conexión e intenta nuevamente." };
   }
 }

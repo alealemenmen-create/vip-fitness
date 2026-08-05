@@ -115,6 +115,25 @@ export function sumarDiasISO(fechaISO: string, delta: number): string {
   return formatInTimeZone(base, ZONA_HORARIA_VIP, "yyyy-MM-dd");
 }
 
+/**
+ * Ventana de fechas permitida para registrar peso/foto/comida NUEVOS: hoy o
+ * ayer, nunca más atrás ni en el futuro.
+ *
+ * Sin este límite, cualquiera podía mandar una fecha arbitraria del pasado
+ * (el campo de fecha del formulario solo lo bloqueaba visualmente, nunca en
+ * el servidor) y cobrar los puntos de esa semana/día como si los hubiera
+ * cumplido, sin que pasara un solo día real — y como el ranking histórico
+ * suma todo sin filtro de fecha, eso inflaba el puntaje acumulado para
+ * siempre de una sola vez. "Ayer" se permite a propósito: es el caso real
+ * de un alumno que se olvidó de cargar el día anterior y lo carga a primera
+ * hora del siguiente.
+ */
+export function fechaEnVentanaValida(fechaISO: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaISO)) return false;
+  const hoy = hoyISO();
+  return fechaISO === hoy || fechaISO === sumarDiasISO(hoy, -1);
+}
+
 export type DiaTira = { fecha: string; letra: string; dia: number; esHoy: boolean };
 
 /** Ventana de días alrededor de `centroISO`, para una tira que se arrastra de

@@ -152,7 +152,26 @@ export async function registrarEntrenamiento({
   });
 }
 
+/** Pone en cero el bono de Impulso VIP de una sesión (clave `impulso:
+ * <sesionId>`), para que reabrir/abandonar la revierta igual que el resto
+ * de sus puntos — antes solo se revertía `entrenamiento:<sesionId>` y el
+ * bono de Impulso quedaba cobrado aunque la sesión ya no contara como
+ * completada en ningún otro lado. */
+async function desactivarImpulso(alumnoId: string, sesionId: string, fecha: string) {
+  return guardarMovimiento({
+    alumnoId,
+    clave: `impulso:${sesionId}`,
+    categoria: "progreso",
+    puntos: 0,
+    titulo: "Impulso VIP revertido",
+    detalle: "Se confirmará de nuevo si la sesión se vuelve a finalizar.",
+    fecha,
+    metadata: { sesionId },
+  });
+}
+
 export async function desactivarEntrenamiento(alumnoId: string, sesionId: string, fecha: string) {
+  await desactivarImpulso(alumnoId, sesionId, fecha);
   return guardarMovimiento({
     alumnoId,
     clave: `entrenamiento:${sesionId}`,
@@ -170,6 +189,7 @@ export async function desactivarEntrenamiento(alumnoId: string, sesionId: string
  * progreso", queda cerrada y marcada como abandonada (se ve en el
  * historial, no desaparece). */
 export async function abandonarEntrenamiento(alumnoId: string, sesionId: string, fecha: string) {
+  await desactivarImpulso(alumnoId, sesionId, fecha);
   return guardarMovimiento({
     alumnoId,
     clave: `entrenamiento:${sesionId}`,
@@ -242,7 +262,9 @@ export async function recalcularAlimentacionDia(alumnoId: string, fecha: string)
       .maybeSingle(),
     admin
       .from("registros_diarios")
-      .select("comidas_registradas(omitida, alimentos_consumidos(cantidad, alimentos(kcal, porcion_base)))")
+      .select(
+        "comidas_registradas(omitida, alimentos_consumidos(cantidad, alimentos(kcal, porcion_base, aprobado)))"
+      )
       .eq("alumno_id", alumnoId)
       .eq("fecha", fecha)
       .maybeSingle(),
@@ -251,13 +273,21 @@ export async function recalcularAlimentacionDia(alumnoId: string, fecha: string)
   let kcal = 0;
   type Comida = {
     omitida: boolean;
-    alimentos_consumidos: { cantidad: number; alimentos: { kcal: number; porcion_base: number } | null }[] | null;
+    alimentos_consumidos:
+      | { cantidad: number; alimentos: { kcal: number; porcion_base: number; aprobado: boolean } | null }[]
+      | null;
   };
   const comidas = (registro?.comidas_registradas as unknown as Comida[] | null) ?? [];
   for (const comida of comidas) {
     if (comida.omitida) continue;
     for (const consumido of comida.alimentos_consumidos ?? []) {
       if (!consumido.alimentos || consumido.alimentos.porcion_base <= 0) continue;
+      // Un alimento personalizado que el alumno todavía no vio aprobado por
+      // el entrenador sigue registrado en su diario (no se le oculta), pero
+      // no cuenta para el puntaje del día — sin esto, cualquiera podía
+      // fabricar un "alimento" con las calorías exactas que necesitaba para
+      // dar siempre el 100% de su meta.
+      if (!consumido.alimentos.aprobado) continue;
       kcal += (consumido.cantidad / consumido.alimentos.porcion_base) * consumido.alimentos.kcal;
     }
   }

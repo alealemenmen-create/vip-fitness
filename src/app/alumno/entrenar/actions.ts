@@ -217,7 +217,6 @@ async function guardarUnEjercicio(
   sufijo: string
 ): Promise<{ error: string | null }> {
   const sesionEjercicioId = String(formData.get(`sesion_ejercicio_id${sufijo}`) || "");
-  const cantidad = Number(formData.get(`cantidad_series${sufijo}`) || 0);
   const notaEjercicio = String(formData.get(`nota_ejercicio${sufijo}`) || "").trim();
   const dificultadRaw = String(formData.get(`dificultad_ejercicio${sufijo}`) || "");
   const dificultadPercibida: DificultadPercibidaImpulso | null = DIFICULTADES_VALIDAS.has(dificultadRaw)
@@ -225,6 +224,24 @@ async function guardarUnEjercicio(
     : null;
 
   if (!sesionEjercicioId) return { error: null };
+
+  // La cantidad de series NUNCA sale del formulario: viene de un <input
+  // hidden> que cualquiera puede editar desde las herramientas de
+  // desarrollador antes de enviar (por ejemplo, decir que el ejercicio
+  // tenía 1 serie en vez de 4) y así marcar "completado" — con el bono de
+  // 300 puntos completo — habiendo hecho una fracción real del trabajo. Se
+  // relee la cantidad real asignada por el entrenador desde la base; el
+  // valor del formulario queda solo como resguardo si por algún motivo la
+  // fila no tiene el vínculo esperado (dato huérfano, no un caso normal).
+  const { data: asignacion } = await supabase
+    .from("sesion_ejercicios")
+    .select("rutina_dia_ejercicios(series_programadas)")
+    .eq("id", sesionEjercicioId)
+    .maybeSingle();
+  const seriesAsignadas = (
+    asignacion?.rutina_dia_ejercicios as { series_programadas: number } | null | undefined
+  )?.series_programadas;
+  const cantidad = seriesAsignadas ?? Number(formData.get(`cantidad_series${sufijo}`) || 0);
 
   const filas = [];
   let seriesRealizadas = 0;
