@@ -3,6 +3,8 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { mesActualISO } from "@/lib/date";
 import { resolverTempo, type Tempo } from "@/lib/ejercicios/tempo";
+import { emparejarEjercicio } from "@/lib/ejercicios/emparejar";
+import { obtenerBiblioteca } from "@/lib/ejercicios/data";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -501,6 +503,12 @@ export async function obtenerSesionCompleta(
     )
   );
 
+  // Lazy y una sola vez: la mayoría de los ejercicios ya vienen con foto por
+  // el join de arriba y no hace falta tocar esto. `obtenerBiblioteca` está
+  // cacheada (1h, se invalida sola al editar un ejercicio), así que ni
+  // siquiera en el caso con foto faltante es una consulta cara.
+  let bibliotecaActual: Awaited<ReturnType<typeof obtenerBiblioteca>> | null = null;
+
   const ejercicios: EjercicioSesion[] = [];
   for (const se of lista) {
     const prog = se.rutina_dia_ejercicios;
@@ -509,6 +517,27 @@ export async function obtenerSesionCompleta(
     // PostgREST devuelve la relación como objeto o como arreglo según la
     // cardinalidad que infiera; acá siempre es a lo sumo uno.
     const dellaBiblioteca = Array.isArray(prog.ejercicios) ? prog.ejercicios[0] : prog.ejercicios;
+
+    let ilustracionSlug = dellaBiblioteca?.ilustracion_slug ?? null;
+    let fotoMiniaturaUrl = dellaBiblioteca?.foto_miniatura_url ?? null;
+    let fotoCompletaUrl = dellaBiblioteca?.foto_completa_url ?? null;
+
+    // Respaldo: el ejercicio de esta rutina puede haber quedado sin vincular
+    // (o vinculado a una entrada sin foto todavía) porque cuando se importó
+    // el PDF nadie había cargado el alias con el que el entrenador lo
+    // escribió. En vez de resignarse a no mostrar nada, se reintenta el
+    // mismo emparejamiento por nombre contra la biblioteca ACTUAL — así,
+    // agregar el alias desde /admin/ejercicios (ver `actualizarNombreEjercicio`)
+    // hace aparecer la foto en rutinas ya creadas, sin tener que reimportarlas.
+    if (!ilustracionSlug && !fotoMiniaturaUrl) {
+      bibliotecaActual ??= await obtenerBiblioteca();
+      const emparejado = emparejarEjercicio(prog.nombre, bibliotecaActual)?.ejercicio;
+      if (emparejado) {
+        ilustracionSlug = emparejado.ilustracionSlug;
+        fotoMiniaturaUrl = emparejado.fotoMiniaturaUrl;
+        fotoCompletaUrl = emparejado.fotoCompletaUrl;
+      }
+    }
 
     ejercicios.push({
       sesionEjercicioId: se.id,
@@ -523,9 +552,9 @@ export async function obtenerSesionCompleta(
       observacion: prog.observacion,
       tecnicaSugerida: dellaBiblioteca?.tecnica ?? null,
       grupoMuscular: prog.grupo_muscular,
-      ilustracionSlug: dellaBiblioteca?.ilustracion_slug ?? null,
-      fotoMiniaturaUrl: dellaBiblioteca?.foto_miniatura_url ?? null,
-      fotoCompletaUrl: dellaBiblioteca?.foto_completa_url ?? null,
+      ilustracionSlug,
+      fotoMiniaturaUrl,
+      fotoCompletaUrl,
       // Lo que el entrenador escribió en la rutina gana sobre lo que dedujo la
       // IA para la biblioteca. Ver src/lib/ejercicios/tempo.ts.
       tempo: resolverTempo(

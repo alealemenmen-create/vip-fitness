@@ -131,11 +131,19 @@ export async function crearEjercicioNuevo(
   await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
 
-  const nombre = String(formData.get("nombre") || "").trim();
+  const nombresTexto = String(formData.get("nombre") || "").trim();
   const grupoMuscular = String(formData.get("grupo_muscular") || "") as GrupoMuscular;
   const categoria = String(formData.get("categoria") || "") as CategoriaEjercicio;
   const equipo = String(formData.get("equipo") || "") as EquipoEjercicio;
   const archivo = formData.get("foto") as File | null;
+
+  // Mismo formato que el editor de nombre de un ejercicio existente: variantes
+  // separadas por "/", la primera es el nombre que se ve, el resto quedan
+  // como alias para que `emparejarEjercicio` las reconozca en rutinas futuras.
+  const [nombre, ...aliases] = nombresTexto
+    .split("/")
+    .map((n) => n.trim())
+    .filter(Boolean);
 
   if (!nombre) return { error: "Ponele un nombre al ejercicio.", ok: false };
   if (!grupoMuscular) return { error: "Elegí el grupo muscular.", ok: false };
@@ -158,6 +166,7 @@ export async function crearEjercicioNuevo(
     .insert({
       slug,
       nombre,
+      aliases,
       grupo_muscular: grupoMuscular,
       categoria,
       equipo,
@@ -182,6 +191,79 @@ export async function crearEjercicioNuevo(
       return { error: `Ejercicio creado, pero la foto falló: ${resultadoFoto.error}`, ok: true };
     }
   }
+
+  avisarCambios();
+  return { error: null, ok: true };
+}
+
+export type ActualizarNombreState = { error: string | null; ok: boolean };
+
+/**
+ * Edita el nombre "principal" de un ejercicio y sus alias — todas las formas
+ * en que un entrenador podría escribir el mismo movimiento en una rutina
+ * ("Press de pecho / Bench press / Press banca"), separadas por "/". La
+ * primera queda como `nombre` (lo que se ve en la galería); el resto se
+ * guarda en `aliases` para que `emparejarEjercicio` (lib/ejercicios/emparejar.ts)
+ * las reconozca como el mismo ejercicio.
+ *
+ * No alcanza con esto para que una rutina YA CREADA con un nombre no
+ * reconocido muestre la foto al instante — eso lo resuelve el respaldo de
+ * reemparejamiento en `obtenerSesionCompleta` (alumno/entrenar/data.ts), que
+ * usa estos alias actualizados como fallback cuando el ejercicio de la
+ * sesión no tiene foto propia vinculada.
+ */
+export async function actualizarNombreEjercicio(
+  _prevState: ActualizarNombreState,
+  formData: FormData
+): Promise<ActualizarNombreState> {
+  await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  const nombres = String(formData.get("nombres") || "")
+    .split("/")
+    .map((n) => n.trim())
+    .filter(Boolean);
+
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+  if (nombres.length === 0) return { error: "Escribí al menos un nombre.", ok: false };
+
+  const [nombre, ...aliasesConDuplicados] = nombres;
+  const aliases = Array.from(new Set(aliasesConDuplicados)).filter(
+    (a) => a.toLowerCase() !== nombre.toLowerCase()
+  );
+
+  const { error } = await supabase.from("ejercicios").update({ nombre, aliases }).eq("id", ejercicioId);
+  if (error) return { error: "No se pudo guardar el nombre. Probá de nuevo.", ok: false };
+
+  avisarCambios();
+  return { error: null, ok: true };
+}
+
+export type DesactivarEjercicioState = { error: string | null; ok: boolean };
+
+/**
+ * "Elimina" un ejercicio de la galería sin borrar la fila de verdad: pone
+ * `activo` en false, el mismo campo que ya filtra `obtenerBiblioteca` (así
+ * que deja de listarse en la galería y de ofrecerse para emparejar rutinas
+ * nuevas). Las rutinas que YA lo tienen vinculado
+ * (`rutina_dia_ejercicios.ejercicio_id`) lo siguen mostrando igual — ese join
+ * es un lookup directo por id, no pasa por `obtenerBiblioteca` ni filtra por
+ * `activo` — así que nada se rompe retroactivamente para un alumno a mitad
+ * de su rutina.
+ */
+export async function desactivarEjercicio(
+  _prevState: DesactivarEjercicioState,
+  formData: FormData
+): Promise<DesactivarEjercicioState> {
+  await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+
+  const { error } = await supabase.from("ejercicios").update({ activo: false }).eq("id", ejercicioId);
+  if (error) return { error: "No se pudo eliminar. Probá de nuevo.", ok: false };
 
   avisarCambios();
   return { error: null, ok: true };

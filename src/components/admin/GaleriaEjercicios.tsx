@@ -5,7 +5,14 @@ import Image from "next/image";
 import { Search, Camera, Plus, X, Check, ImageIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
-import { subirFotoEjercicio, crearEjercicioNuevo } from "@/app/admin/ejercicios/actions";
+import {
+  subirFotoEjercicio,
+  crearEjercicioNuevo,
+  actualizarNombreEjercicio,
+  desactivarEjercicio,
+} from "@/app/admin/ejercicios/actions";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Input";
 import type { Ejercicio } from "@/lib/ejercicios/tipos";
 
 const ETIQUETAS_GRUPO: Record<string, string> = {
@@ -137,6 +144,24 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
   );
 }
 
+/**
+ * Lee el archivo como data URL para la vista previa, en vez de
+ * `URL.createObjectURL`. Con fotos HEIC tomadas directo con la cámara del
+ * iPhone, el `File` que entrega el selector nativo a veces trae el `type`
+ * vacío — un `<img src="blob:...">` con eso no sabe qué formato es y Safari
+ * muestra el ícono de archivo roto (esto era el bug: la foto se subía bien
+ * igual, pero la vista previa nunca aparecía). El data URL no depende de esa
+ * metadata para decidir si puede pintarlo.
+ */
+function leerComoDataUrl(archivo: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    const lector = new FileReader();
+    lector.onload = () => resolve(typeof lector.result === "string" ? lector.result : null);
+    lector.onerror = () => resolve(null);
+    lector.readAsDataURL(archivo);
+  });
+}
+
 function Overlay({ children, onCerrar }: { children: React.ReactNode; onCerrar: () => void }) {
   return (
     <div
@@ -155,6 +180,99 @@ function Overlay({ children, onCerrar }: { children: React.ReactNode; onCerrar: 
 }
 
 const ESTADO_INICIAL_FOTO = { error: null, ok: false };
+const ESTADO_INICIAL_NOMBRE = { error: null, ok: false };
+const ESTADO_INICIAL_ELIMINAR = { error: null, ok: false };
+
+/** Eliminar un ejercicio de la galería, con confirmación en dos pasos. En
+ * realidad lo desactiva (`activo = false`, ver `desactivarEjercicio` en
+ * actions.ts) — las rutinas que ya lo usan lo siguen mostrando igual, solo
+ * deja de listarse y de ofrecerse para rutinas nuevas. */
+function BotonEliminar({ ejercicio, onEliminado }: { ejercicio: Ejercicio; onEliminado: () => void }) {
+  const [confirmando, setConfirmando] = useState(false);
+  const [state, formAction, pending] = useActionState(desactivarEjercicio, ESTADO_INICIAL_ELIMINAR);
+
+  useEffect(() => {
+    if (state.ok) {
+      const id = setTimeout(onEliminado, 500);
+      return () => clearTimeout(id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.ok]);
+
+  if (!confirmando) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirmando(true)}
+        className="text-caption font-medium text-error"
+      >
+        Eliminar de la galería
+      </button>
+    );
+  }
+
+  return (
+    <div className="radius-control space-y-1.5 border border-error/40 bg-error/5 p-2">
+      <p className="text-caption text-text">
+        Deja de aparecer en la galería y de ofrecerse para rutinas nuevas. Las rutinas que ya usan esta
+        foto no se rompen — la siguen mostrando igual.
+      </p>
+      {state.error && <p className="text-caption text-error">{state.error}</p>}
+      <form action={formAction} className="flex gap-2">
+        <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+        <Button type="submit" variant="destructive" size="xsAuto" loading={pending}>
+          Sí, eliminar
+        </Button>
+        <Button type="button" variant="ghost" size="xsAuto" onClick={() => setConfirmando(false)}>
+          Cancelar
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+/** Todas las formas conocidas de nombrar el ejercicio, en el formato que
+ * escribe el entrenador: "Press de pecho / Bench press / Press banca". La
+ * primera es el nombre que se ve en la galería; el resto son los alias que
+ * usa `emparejarEjercicio` para reconocer el mismo movimiento en una rutina
+ * nueva, sin importar cómo lo haya escrito. */
+function nombresComoTexto(ejercicio: Ejercicio): string {
+  return [ejercicio.nombre, ...ejercicio.aliases].join(" / ");
+}
+
+function EditorNombre({ ejercicio }: { ejercicio: Ejercicio }) {
+  const [state, formAction, pending] = useActionState(actualizarNombreEjercicio, ESTADO_INICIAL_NOMBRE);
+
+  return (
+    <form action={formAction} className="space-y-1.5">
+      <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+      <span className="text-caption block text-text-tertiary">
+        Nombre — separá variantes con &quot;/&quot; para que cualquiera muestre esta misma foto
+      </span>
+      <Textarea
+        name="nombres"
+        required
+        rows={2}
+        defaultValue={nombresComoTexto(ejercicio)}
+        placeholder="Ej: Press de pecho / Bench press / Press banca"
+        className="!py-2 text-caption"
+      />
+      {state.error && <p className="text-caption text-error">{state.error}</p>}
+      {state.ok && (
+        <p className="text-caption flex items-center gap-1 text-success">
+          <Check size={12} /> Nombre guardado.
+        </p>
+      )}
+      <button
+        type="submit"
+        disabled={pending}
+        className="radius-control flex h-9 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text disabled:opacity-60"
+      >
+        {pending ? "Guardando..." : "Guardar nombre"}
+      </button>
+    </form>
+  );
+}
 
 function ModalSubirFoto({
   ejercicio,
@@ -167,6 +285,7 @@ function ModalSubirFoto({
 }) {
   const [state, formAction, pending] = useActionState(subirFotoEjercicio, ESTADO_INICIAL_FOTO);
   const [previa, setPrevia] = useState<string | null>(null);
+  const [previaRota, setPreviaRota] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -177,11 +296,13 @@ function ModalSubirFoto({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.ok]);
 
+  const imagenAMostrar = previa ?? fotoActual;
+
   return (
     <Overlay onCerrar={onCerrar}>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <p className="text-card-title text-text">{ejercicio.nombre}</p>
-        <button type="button" onClick={onCerrar} aria-label="Cerrar" className="text-text-tertiary">
+        <p className="text-card-title min-w-0 truncate text-text">{ejercicio.nombre}</p>
+        <button type="button" onClick={onCerrar} aria-label="Cerrar" className="shrink-0 text-text-tertiary">
           <X size={20} />
         </button>
       </div>
@@ -191,13 +312,22 @@ function ModalSubirFoto({
           y con la tarjetita de la galería (también aspect-square) — si no,
           lo que encuadrás acá no es lo que termina guardado. */}
       <label className="radius-card relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-border bg-surface-2">
-        {previa || fotoActual ? (
+        {imagenAMostrar && !previaRota ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={previa ?? fotoActual ?? ""} alt="" className="h-full w-full object-cover" />
+          <img
+            src={imagenAMostrar}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={() => setPreviaRota(true)}
+          />
         ) : (
-          <span className="flex flex-col items-center gap-1 text-text-tertiary">
+          <span className="flex flex-col items-center gap-1 px-4 text-center text-text-tertiary">
             <Camera size={26} />
-            <span className="text-caption">Toca para elegir una foto</span>
+            <span className="text-caption">
+              {previaRota
+                ? "No se pudo mostrar la vista previa — igual se guarda bien al tocar \"Guardar foto\""
+                : "Toca para elegir una foto"}
+            </span>
           </span>
         )}
         <input
@@ -210,9 +340,11 @@ function ModalSubirFoto({
           // sacándolo, el selector nativo siempre deja elegir entre sacar
           // una foto nueva o subir una que ya existe.
           className="absolute inset-0 h-full w-full opacity-0"
-          onChange={(e) => {
+          onChange={async (e) => {
             const f = e.target.files?.[0];
-            if (f) setPrevia(URL.createObjectURL(f));
+            if (!f) return;
+            setPreviaRota(false);
+            setPrevia(await leerComoDataUrl(f));
           }}
         />
       </label>
@@ -240,6 +372,14 @@ function ModalSubirFoto({
           {pending ? "Subiendo..." : "Guardar foto"}
         </button>
       </form>
+
+      <div className="mt-4 border-t border-border pt-3">
+        <EditorNombre ejercicio={ejercicio} />
+      </div>
+
+      <div className="mt-4 border-t border-border pt-3">
+        <BotonEliminar ejercicio={ejercicio} onEliminado={onCerrar} />
+      </div>
     </Overlay>
   );
 }
@@ -280,6 +420,7 @@ const EQUIPOS: { valor: string; etiqueta: string }[] = [
 function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
   const [state, formAction, pending] = useActionState(crearEjercicioNuevo, ESTADO_INICIAL_CREAR);
   const [previa, setPrevia] = useState<string | null>(null);
+  const [previaRota, setPreviaRota] = useState(false);
 
   useEffect(() => {
     if (state.ok) {
@@ -304,13 +445,22 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
           y con la tarjetita de la galería (también aspect-square) — si no,
           lo que encuadrás acá no es lo que termina guardado. */}
       <label className="radius-card relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-border bg-surface-2">
-          {previa ? (
+          {previa && !previaRota ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={previa} alt="" className="h-full w-full object-cover" />
+            <img
+              src={previa}
+              alt=""
+              className="h-full w-full object-cover"
+              onError={() => setPreviaRota(true)}
+            />
           ) : (
-            <span className="flex flex-col items-center gap-1 text-text-tertiary">
+            <span className="flex flex-col items-center gap-1 px-4 text-center text-text-tertiary">
               <Camera size={26} />
-              <span className="text-caption">Foto (opcional, se puede subir después)</span>
+              <span className="text-caption">
+                {previaRota
+                  ? "No se pudo mostrar la vista previa — igual se guarda bien"
+                  : "Foto (opcional, se puede subir después)"}
+              </span>
             </span>
           )}
           <input
@@ -320,20 +470,24 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
             // Ver comentario del mismo input en el modal de editar: sin
             // "capture" deja elegir entre cámara y galería.
             className="absolute inset-0 h-full w-full opacity-0"
-            onChange={(e) => {
+            onChange={async (e) => {
               const f = e.target.files?.[0];
-              if (f) setPrevia(URL.createObjectURL(f));
+              if (!f) return;
+              setPreviaRota(false);
+              setPrevia(await leerComoDataUrl(f));
             }}
           />
         </label>
 
         <label className="block">
-          <span className="text-caption mb-1 block text-text-tertiary">Nombre</span>
+          <span className="text-caption mb-1 block text-text-tertiary">
+            Nombre — separá variantes con &quot;/&quot; si se lo dicen distinto
+          </span>
           <input
             name="nombre"
             type="text"
             required
-            placeholder="Ej: Press en máquina Hammer"
+            placeholder="Ej: Press de pecho / Bench press / Press banca"
             className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
           />
         </label>
