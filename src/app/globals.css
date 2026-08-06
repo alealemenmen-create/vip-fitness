@@ -150,6 +150,43 @@ body {
 }
 
 /*
+  Bloqueo de orientación vertical, aunque el alumno tenga el bloqueo de
+  rotación del teléfono APAGADO.
+
+  No hay forma nativa confiable de lograr esto en iOS: `screen.orientation.lock()`
+  no está implementado en Safari (ni en modo standalone), y Safari tampoco
+  respeta el campo `orientation` del manifest de la PWA (que sí se agregó en
+  manifest.ts, por si ayuda en Android — ahí `orientation.lock()` tampoco
+  aplica fuera de fullscreen, pero el manifest sí se respeta). La única forma
+  que funciona en cualquier navegador, sin depender de ninguna API, es esta:
+  cuando el viewport queda en horizontal, se rota TODO el `<html>` -90° para
+  que se siga viendo vertical.
+
+  Por qué en `html` y no en un wrapper: al ponerle `transform` a `html`, se
+  vuelve el "contenedor" de cualquier `position: fixed` de toda la app (así
+  funciona el spec de CSS) — que es exactamente lo que ya usan los layouts de
+  /alumno y /admin (`fixed inset-0`) y los modales con `createPortal` a
+  `document.body`. Sin esto, esos elementos se seguirían midiendo contra el
+  viewport real (horizontal) en vez de contra el rectángulo rotado.
+
+  Los `!important` son necesarios: `<html>` ya trae `h-full` de Tailwind
+  (clase, más específica que un selector de elemento) y sin forzarlo esta
+  regla pierde en landscape.
+*/
+@media screen and (orientation: landscape) {
+  html {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    width: 100vh !important;
+    height: 100vw !important;
+    transform: rotate(-90deg) !important;
+    transform-origin: left top !important;
+    overflow: hidden !important;
+  }
+}
+
+/*
   El único que scrollea. `-webkit-overflow-scrolling: touch` conserva el
   desplazamiento con inercia, que se pierde al sacar el scroll del documento.
 */

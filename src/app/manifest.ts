@@ -10,6 +10,9 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Portal del alumno y panel de entrenador de VIP Fitness",
     start_url: "/",
     display: "standalone",
+    // Respetado por Android; iOS lo ignora (por eso el bloqueo real vive en
+    // globals.css, con CSS puro). No hace daño dejarlo igual.
+    orientation: "portrait",
     background_color: "#000000",
     theme_color: "#000000",
     icons: [
