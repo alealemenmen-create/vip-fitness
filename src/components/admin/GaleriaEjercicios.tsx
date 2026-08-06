@@ -40,10 +40,25 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
   const [creando, setCreando] = useState(false);
   // Justo después de subir una foto nueva, a veces el CDN de Storage todavía
   // no terminó de propagarla y la primera carga falla (el archivo ya está
-  // subido de verdad, es solo una demora de segundos) — sin esto se veía el
-  // ícono de "imagen rota" del navegador, que asusta más de lo que informa.
-  // Cae al mismo placeholder neutro que un ejercicio sin foto todavía.
+  // subido de verdad, es solo una demora de segundos). Antes, ese primer
+  // fallo quedaba marcado para siempre y solo se arreglaba recargando la
+  // página a mano — confuso justo después de ver "Foto actualizada". Ahora
+  // se reintenta una vez, con una pequeña demora, antes de darse por
+  // vencido y caer al placeholder neutro.
   const [erroresFoto, setErroresFoto] = useState<ReadonlySet<string>>(new Set());
+  const [reintentos, setReintentos] = useState<Readonly<Record<string, number>>>({});
+
+  function onErrorFoto(id: string) {
+    setReintentos((prev) => {
+      const intento = prev[id] ?? 0;
+      if (intento >= 1) {
+        setErroresFoto((s) => new Set(s).add(id));
+        return prev;
+      }
+      setTimeout(() => setReintentos((p) => ({ ...p, [id]: intento + 1 })), 1500);
+      return prev;
+    });
+  }
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -88,7 +103,11 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
 
       <div className="grid grid-cols-2 gap-2.5">
         {filtrados.map((ej) => {
-          const foto = erroresFoto.has(ej.id) ? null : fotoDe(ej);
+          const fotoBase = erroresFoto.has(ej.id) ? null : fotoDe(ej);
+          const intento = reintentos[ej.id] ?? 0;
+          // El "?r=N" fuerza a next/image a pedirla de nuevo en vez de repetir
+          // el mismo fallo cacheado — solo se agrega a partir del reintento.
+          const foto = fotoBase && intento > 0 ? `${fotoBase}?r=${intento}` : fotoBase;
           return (
             <button
               key={ej.id}
@@ -105,7 +124,7 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
                       fill
                       sizes="200px"
                       className="object-cover"
-                      onError={() => setErroresFoto((prev) => new Set(prev).add(ej.id))}
+                      onError={() => onErrorFoto(ej.id)}
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-text-tertiary">
@@ -145,21 +164,41 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
 }
 
 /**
- * Lee el archivo como data URL para la vista previa, en vez de
- * `URL.createObjectURL`. Con fotos HEIC tomadas directo con la cámara del
- * iPhone, el `File` que entrega el selector nativo a veces trae el `type`
- * vacío — un `<img src="blob:...">` con eso no sabe qué formato es y Safari
- * muestra el ícono de archivo roto (esto era el bug: la foto se subía bien
- * igual, pero la vista previa nunca aparecía). El data URL no depende de esa
- * metadata para decidir si puede pintarlo.
+ * Genera la vista previa de la foto elegida/tomada.
+ *
+ * Primer intento (el que de verdad soluciona el problema en iPhone):
+ * decodificar el archivo con `createImageBitmap` y dibujarlo en un
+ * `<canvas>`, exportando el resultado como JPEG. Una foto HEIC tomada con la
+ * cámara del iPhone es justamente el caso que fallaba: un `<img>` alimentado
+ * con `blob:` o `data:` URL del archivo original depende de que el propio
+ * `<img>` sepa decodificar ese formato ahí mismo, y esa vía tiene fallas
+ * conocidas de WebKit con HEIC — mientras que `createImageBitmap` usa el
+ * decodificador de imágenes del sistema operativo (el mismo que abre Fotos),
+ * mucho más confiable. Como ya queda dibujada en un canvas, el resultado
+ * siempre es un JPEG normal que cualquier `<img>` puede mostrar sin problema.
+ *
+ * Si el navegador no soporta `createImageBitmap` (poco probable, pero por las
+ * dudas), cae a leer el archivo como data URL directamente.
  */
-function leerComoDataUrl(archivo: File): Promise<string | null> {
-  return new Promise((resolve) => {
-    const lector = new FileReader();
-    lector.onload = () => resolve(typeof lector.result === "string" ? lector.result : null);
-    lector.onerror = () => resolve(null);
-    lector.readAsDataURL(archivo);
-  });
+async function generarPreview(archivo: File): Promise<string | null> {
+  try {
+    const bitmap = await createImageBitmap(archivo, { imageOrientation: "from-image" });
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("sin contexto 2d");
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    return canvas.toDataURL("image/jpeg", 0.85);
+  } catch {
+    return new Promise((resolve) => {
+      const lector = new FileReader();
+      lector.onload = () => resolve(typeof lector.result === "string" ? lector.result : null);
+      lector.onerror = () => resolve(null);
+      lector.readAsDataURL(archivo);
+    });
+  }
 }
 
 function Overlay({ children, onCerrar }: { children: React.ReactNode; onCerrar: () => void }) {
@@ -344,7 +383,7 @@ function ModalSubirFoto({
             const f = e.target.files?.[0];
             if (!f) return;
             setPreviaRota(false);
-            setPrevia(await leerComoDataUrl(f));
+            setPrevia(await generarPreview(f));
           }}
         />
       </label>
@@ -474,7 +513,7 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
               const f = e.target.files?.[0];
               if (!f) return;
               setPreviaRota(false);
-              setPrevia(await leerComoDataUrl(f));
+              setPrevia(await generarPreview(f));
             }}
           />
         </label>
