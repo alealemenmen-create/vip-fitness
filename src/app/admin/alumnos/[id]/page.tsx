@@ -14,6 +14,7 @@ import { NotasManager } from "@/components/admin/NotasManager";
 import { PesoCorporalSoloLectura } from "@/components/admin/PesoCorporalSoloLectura";
 import { FotosSoloLectura } from "@/components/admin/FotosSoloLectura";
 import { HistorialEntrenamiento } from "@/components/admin/HistorialEntrenamiento";
+import { HistorialPuntosAlumno } from "@/components/admin/HistorialPuntosAlumno";
 import { ResumenComidas } from "@/components/admin/ResumenComidas";
 import { SeguimientoDiarioSoloLectura } from "@/components/admin/SeguimientoDiarioSoloLectura";
 import { obtenerHistorialPeso, obtenerFotosProgreso } from "@/app/alumno/progreso/data";
@@ -24,6 +25,7 @@ import { obtenerDatosPersonales } from "@/app/alumno/perfil/data";
 import { obtenerDocumentos } from "@/app/alumno/documentos/data";
 import { ListaDocumentos } from "@/components/student/ListaDocumentos";
 import { obtenerIndicadores } from "@/app/admin/alumnos/data";
+import { obtenerMovimientosAlumno } from "@/lib/ranking/data";
 import { DetalleEstadoAlumno } from "@/components/admin/IndicadorEstadoAlumno";
 import { AlertasImpulsoVip } from "@/components/admin/AlertasImpulsoVip";
 import { obtenerAlertasPendientes } from "@/lib/impulso-vip/data";
@@ -51,6 +53,7 @@ export default async function AlumnoDetallePage({
     datosPersonales,
     documentos,
     alertasImpulso,
+    movimientosPuntos,
   ] = await Promise.all([
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     supabase
@@ -74,6 +77,7 @@ export default async function AlumnoDetallePage({
     obtenerDatosPersonales(supabase, alumnoId),
     obtenerDocumentos(supabase, alumnoId),
     obtenerAlertasPendientes(supabase, alumnoId),
+    obtenerMovimientosAlumno(alumnoId, 1000),
   ]);
 
   // Marca como vistas las notas que generó la IA para este alumno, ahora que
@@ -144,6 +148,7 @@ export default async function AlumnoDetallePage({
       <PesoCorporalSoloLectura historial={historialPeso} />
       <FotosSoloLectura fotos={fotos} />
       <HistorialEntrenamiento rutinaActivaNombre={rutinaActiva?.nombre ?? null} sesiones={sesiones} />
+      <HistorialPuntosAlumno movimientos={movimientosPuntos} />
       <ResumenComidas resumen={resumenComidas} />
       <SeguimientoDiarioSoloLectura seguimientos={seguimientos} />
 

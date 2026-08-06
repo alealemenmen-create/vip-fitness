@@ -602,6 +602,40 @@ export async function reiniciarRutina(formData: FormData): Promise<void> {
 }
 
 /**
+ * Borra del todo una tanda de sesiones ya cerradas que el alumno marcó en el
+ * Historial — pensado para sesiones de prueba, que a diferencia de
+ * `abandonarSesion` no tiene sentido dejar registradas.
+ *
+ * El borrado real (no solo cambiar el estado) es lo que importa acá: mientras
+ * la fila exista, sigue contando para `obtenerProximoNumero` (data.ts), que
+ * toma el `numero_calendario` más alto sin filtrar por estado — por eso una
+ * sesión de prueba vieja podía dejar al alumno "en la sesión 7" cuando en la
+ * práctica solo había entrenado 2 veces de verdad.
+ */
+export async function borrarSesiones(sesionIds: string[], rutinaId: string): Promise<void> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura || sesionIds.length === 0) return;
+
+  const supabase = await createClient();
+  const { data: sesiones } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id")
+    .in("id", sesionIds)
+    .eq("alumno_id", alumnoId);
+  const idsValidos = (sesiones ?? []).map((s) => s.id);
+  if (idsValidos.length === 0) return;
+
+  await eliminarMovimientosDeSesiones(alumnoId, idsValidos);
+  await supabase.from("sesiones_entrenamiento").delete().in("id", idsValidos).eq("alumno_id", alumnoId);
+
+  updateTag(TAG_RANKING);
+  revalidatePath(`/alumno/entrenar/historial/rutina/${rutinaId}`);
+  revalidatePath("/alumno/entrenar/historial");
+  revalidatePath("/alumno/entrenar");
+  revalidatePath("/alumno/inicio");
+}
+
+/**
  * Penaliza descansar de más entre series. Se llama directo desde el
  * cliente (no es un `<form>`) por un intervalo que corre mientras el
  * descanso de una serie ya terminó y el alumno no arrancó la siguiente —
