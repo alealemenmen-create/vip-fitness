@@ -1,13 +1,19 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
+import { AbandonarSesionBoton } from "@/components/student/AbandonarSesionBoton";
 import { ReiniciarRutinaBoton } from "@/components/student/ReiniciarRutinaBoton";
-import { HistorialSesionesLista } from "@/components/student/HistorialSesionesLista";
 import { obtenerHistorialSesiones, obtenerRutinasHistorial } from "../../../data";
 import { formatFechaDiaSemana } from "@/lib/date";
+
+const ESTADO_LABEL: Record<string, { texto: string; tone: "success" | "error" | "neutral" }> = {
+  completada: { texto: "Completada", tone: "success" },
+  finalizada_incompleta: { texto: "Incompleta", tone: "error" },
+  abandonada: { texto: "Abandonada", tone: "neutral" },
+};
 
 /** Reporte completo de una rutina: todas las sesiones que el alumno haya
  * cerrado bajo ella, de más reciente a más antigua, más un resumen arriba
@@ -73,7 +79,31 @@ export default async function HistorialRutinaPage({ params }: { params: Promise<
         {formatFechaDiaSemana(rutina.primeraFecha)} — {formatFechaDiaSemana(rutina.ultimaFecha)}
       </p>
 
-      <HistorialSesionesLista sesiones={sesiones} rutinaId={rutina.id} soloLectura={soloLectura} />
+      <div className="space-y-2">
+        {sesiones.map((s) => {
+          const estado = ESTADO_LABEL[s.estado];
+          return (
+            <Card key={s.id} className="flex items-center justify-between gap-2">
+              <Link href={`/alumno/entrenar/sesion/${s.id}`} className="min-w-0 flex-1">
+                <p className="text-body text-text">
+                  {s.numeroCalendario ? `#${s.numeroCalendario} · ` : ""}
+                  {s.diaNombre}
+                </p>
+                <p className="text-caption text-text-tertiary">
+                  {s.fecha} · {s.total === 0 ? "Descanso" : `${s.completados}/${s.total} ejercicios`}
+                </p>
+              </Link>
+              <div className="flex shrink-0 items-center gap-1">
+                <Pill tone={estado.tone}>{estado.texto}</Pill>
+                {s.estado !== "abandonada" && <AbandonarSesionBoton sesionId={s.id} />}
+                <Link href={`/alumno/entrenar/sesion/${s.id}`}>
+                  <ChevronRight size={18} className="text-text-tertiary" />
+                </Link>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
 
       {!soloLectura && (
         <div className="pt-2">
