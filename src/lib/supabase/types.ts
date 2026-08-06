@@ -708,7 +708,15 @@ export interface Database {
           realizada?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["series_realizadas"]["Insert"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "series_realizadas_sesion_ejercicio_id_fkey";
+            columns: ["sesion_ejercicio_id"];
+            isOneToOne: false;
+            referencedRelation: "sesion_ejercicios";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       // 0026_biblioteca_ejercicios.sql — biblioteca maestra de ejercicios.
       // `ilustracion_slug` va aparte de `slug` para que varias variantes del
@@ -1457,6 +1465,50 @@ export interface Database {
           categoria?: "arreglo" | "mejora" | "funcion_nueva";
         };
         Relationships: [];
+      };
+      // 0046_auditoria_revisiones.sql
+      auditoria_revisiones: {
+        Row: {
+          id: string;
+          tipo: "sesion_duracion_imposible" | "puntos_entrenamiento_huerfanos";
+          referencia_id: string;
+          alumno_id: string;
+          estado: "descartado" | "penalizado";
+          puntos_ajustados: number | null;
+          nota: string | null;
+          revisor_id: string;
+          creado_en: string;
+        };
+        Insert: {
+          tipo: "sesion_duracion_imposible" | "puntos_entrenamiento_huerfanos";
+          referencia_id: string;
+          alumno_id: string;
+          estado: "descartado" | "penalizado";
+          puntos_ajustados?: number | null;
+          nota?: string | null;
+          revisor_id: string;
+        };
+        Update: {
+          estado?: "descartado" | "penalizado";
+          puntos_ajustados?: number | null;
+          nota?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "auditoria_revisiones_alumno_id_fkey";
+            columns: ["alumno_id"];
+            isOneToOne: false;
+            referencedRelation: "perfiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "auditoria_revisiones_revisor_id_fkey";
+            columns: ["revisor_id"];
+            isOneToOne: false;
+            referencedRelation: "perfiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: Record<string, never>;

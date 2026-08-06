@@ -14,18 +14,20 @@ import { ConfiguracionAsistenteVip } from "@/components/admin/ConfiguracionAsist
 import { GavetaConfig } from "@/components/admin/GavetaConfig";
 import { TituloPestana } from "@/components/admin/TituloPestana";
 import Link from "next/link";
-import { Images, ChevronRight } from "lucide-react";
+import { Images, ChevronRight, ShieldAlert } from "lucide-react";
 import { obtenerNovedades } from "@/lib/novedades";
 import { Novedades } from "@/components/admin/Novedades";
+import { obtenerHallazgosPendientes } from "@/lib/auditoria/data";
 
 export default async function ConfiguracionAdminPage() {
   await requireRol(["entrenador", "admin"]);
-  const [config, supervision, registro, asistente, novedades] = await Promise.all([
+  const [config, supervision, registro, asistente, novedades, hallazgos] = await Promise.all([
     obtenerConfiguracionReconocimientos(),
     obtenerConfiguracionSupervision(),
     obtenerConfiguracionRegistro(),
     obtenerConfiguracionAsistenteVip(),
     obtenerNovedades(),
+    obtenerHallazgosPendientes(),
   ]);
 
   return (
@@ -50,6 +52,25 @@ export default async function ConfiguracionAdminPage() {
               Fotos de cada ejercicio — subir, cambiar o agregar nuevas
             </span>
           </span>
+          <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
+        </Card>
+      </Link>
+      <Link href="/admin/auditoria" className="block">
+        <Card className="flex items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-vip/15 text-vip">
+            <ShieldAlert size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="text-secondary block font-semibold text-text">Auditoría de Puntos VIP</span>
+            <span className="text-caption block text-text-tertiary">
+              {hallazgos.length === 0
+                ? "Sin sospechas pendientes"
+                : `${hallazgos.length} ${hallazgos.length === 1 ? "hallazgo pendiente" : "hallazgos pendientes"} de revisar`}
+            </span>
+          </span>
+          {hallazgos.length > 0 && (
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-error" />
+          )}
           <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
         </Card>
       </Link>
