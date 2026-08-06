@@ -11,6 +11,61 @@ import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
 const TAMANO_MAXIMO = 15 * 1024 * 1024; // 15 MB, la foto sin procesar del celular.
 const TIPOS_IMAGEN = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 
+/** Bloquea que el link pegado apunte a la red interna del servidor (SSRF) —
+ * localhost, IPs privadas, o el endpoint de metadata de la nube. El link lo
+ * pega un entrenador/admin ya autenticado, no un desconocido, pero igual no
+ * cuesta nada chequearlo antes de que el servidor le haga un fetch. */
+function esUrlDeImagenSegura(valor: string): URL | null {
+  let url: URL;
+  try {
+    url = new URL(valor);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+
+  const host = url.hostname.toLowerCase();
+  const patronesBloqueados = [
+    /^localhost$/,
+    /^127\./,
+    /^0\.0\.0\.0$/,
+    /^10\./,
+    /^172\.(1[6-9]|2\d|3[01])\./,
+    /^192\.168\./,
+    /^169\.254\./, // incluye el endpoint de metadata de la nube (169.254.169.254)
+    /^\[?::1\]?$/,
+  ];
+  if (patronesBloqueados.some((p) => p.test(host))) return null;
+
+  return url;
+}
+
+/** Descarga una imagen desde un link pegado a mano, como alternativa a subir
+ * un archivo — pensado para cuando el selector de archivos del celular da
+ * problemas (ver ModalSubirFoto): si ya tenés la foto en otro lado (Drive,
+ * una nota, otra app), pegar el link la evita por completo. */
+async function descargarImagenDeUrl(valor: string): Promise<{ bytes: Buffer } | { error: string }> {
+  const url = esUrlDeImagenSegura(valor);
+  if (!url) return { error: "Ese link no es válido." };
+
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+  } catch {
+    return { error: "No se pudo descargar esa imagen — revisá el link." };
+  }
+  if (!respuesta.ok) return { error: "No se pudo descargar esa imagen — revisá el link." };
+
+  const contentType = respuesta.headers.get("content-type") ?? "";
+  if (!contentType.startsWith("image/")) return { error: "Ese link no apunta a una imagen." };
+
+  const arrayBuffer = await respuesta.arrayBuffer();
+  if (arrayBuffer.byteLength === 0) return { error: "Ese link no apunta a una imagen." };
+  if (arrayBuffer.byteLength > TAMANO_MAXIMO) return { error: "La imagen pesa demasiado (máx. 15 MB)." };
+
+  return { bytes: Buffer.from(arrayBuffer) };
+}
+
 function avisarCambios() {
   // Mismo aviso que usa cualquier edición de la biblioteca (ver
   // src/lib/ejercicios/data.ts): sin esto el cambio tarda hasta 1h en
@@ -49,15 +104,24 @@ export async function subirFotoEjercicio(
 
   const ejercicioId = String(formData.get("ejercicio_id") || "");
   const archivo = formData.get("foto") as File | null;
+  const fotoUrl = String(formData.get("foto_url") || "").trim();
 
   if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
-  if (!archivo || archivo.size === 0) return { error: "Elegí una foto.", ok: false };
-  if (archivo.size > TAMANO_MAXIMO) return { error: "La foto pesa demasiado (máx. 15 MB).", ok: false };
-  if (archivo.type && !TIPOS_IMAGEN.has(archivo.type)) {
-    return { error: "Formato no soportado — subí una foto JPG, PNG o HEIC.", ok: false };
-  }
 
-  const bytes = Buffer.from(await archivo.arrayBuffer());
+  let bytes: Buffer;
+  if (archivo && archivo.size > 0) {
+    if (archivo.size > TAMANO_MAXIMO) return { error: "La foto pesa demasiado (máx. 15 MB).", ok: false };
+    if (archivo.type && !TIPOS_IMAGEN.has(archivo.type)) {
+      return { error: "Formato no soportado — subí una foto JPG, PNG o HEIC.", ok: false };
+    }
+    bytes = Buffer.from(await archivo.arrayBuffer());
+  } else if (fotoUrl) {
+    const resultado = await descargarImagenDeUrl(fotoUrl);
+    if ("error" in resultado) return { error: resultado.error, ok: false };
+    bytes = resultado.bytes;
+  } else {
+    return { error: "Elegí una foto o pegá un link.", ok: false };
+  }
 
   let miniatura: Buffer;
   let completa: Buffer;
@@ -136,6 +200,7 @@ export async function crearEjercicioNuevo(
   const categoria = String(formData.get("categoria") || "") as CategoriaEjercicio;
   const equipo = String(formData.get("equipo") || "") as EquipoEjercicio;
   const archivo = formData.get("foto") as File | null;
+  const fotoUrl = String(formData.get("foto_url") || "").trim();
 
   // Mismo formato que el editor de nombre de un ejercicio existente: variantes
   // separadas por "/", la primera es el nombre que se ve, el resto quedan
@@ -179,10 +244,11 @@ export async function crearEjercicioNuevo(
     return { error: "No se pudo crear el ejercicio. Probá de nuevo.", ok: false };
   }
 
-  if (archivo && archivo.size > 0) {
+  if ((archivo && archivo.size > 0) || fotoUrl) {
     const datosFoto = new FormData();
     datosFoto.set("ejercicio_id", nuevo.id);
-    datosFoto.set("foto", archivo);
+    if (archivo && archivo.size > 0) datosFoto.set("foto", archivo);
+    if (fotoUrl) datosFoto.set("foto_url", fotoUrl);
     const resultadoFoto = await subirFotoEjercicio({ error: null, ok: false }, datosFoto);
     if (resultadoFoto.error) {
       // El ejercicio ya quedó creado — no se pierde el alta por un problema

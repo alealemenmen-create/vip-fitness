@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Search, Camera, Plus, X, Check, ImageIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -12,7 +12,7 @@ import {
   desactivarEjercicio,
 } from "@/app/admin/ejercicios/actions";
 import { Button } from "@/components/ui/Button";
-import { Textarea } from "@/components/ui/Input";
+import { Input, Textarea } from "@/components/ui/Input";
 import type { Ejercicio } from "@/lib/ejercicios/tipos";
 
 const ETIQUETAS_GRUPO: Record<string, string> = {
@@ -325,7 +325,12 @@ function ModalSubirFoto({
   const [state, formAction, pending] = useActionState(subirFotoEjercicio, ESTADO_INICIAL_FOTO);
   const [previa, setPrevia] = useState<string | null>(null);
   const [previaRota, setPreviaRota] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  // El archivo elegido se guarda en estado apenas se selecciona, en vez de
+  // releerlo del <input> recién al tocar "Guardar foto": en Safari de iPhone
+  // esa relectura a veces llegaba vacía (el input ya no tenía el archivo, sin
+  // ningún cambio visible de por medio) y el servidor rechazaba el envío con
+  // "Elegí una foto" aunque la vista previa ya lo mostrara elegido.
+  const [archivoElegido, setArchivoElegido] = useState<File | null>(null);
 
   useEffect(() => {
     if (state.ok) {
@@ -370,7 +375,6 @@ function ModalSubirFoto({
           </span>
         )}
         <input
-          ref={inputRef}
           type="file"
           name="foto"
           accept="image/*"
@@ -382,6 +386,7 @@ function ModalSubirFoto({
           onChange={async (e) => {
             const f = e.target.files?.[0];
             if (!f) return;
+            setArchivoElegido(f);
             setPreviaRota(false);
             setPrevia(await generarPreview(f));
           }}
@@ -390,13 +395,24 @@ function ModalSubirFoto({
 
       <form
         action={(fd) => {
-          const f = inputRef.current?.files?.[0];
-          if (f) fd.set("foto", f);
+          if (archivoElegido) fd.set("foto", archivoElegido);
           fd.set("ejercicio_id", ejercicio.id);
           formAction(fd);
         }}
         className="mt-3 space-y-2"
       >
+        {/* Alternativa a elegir un archivo, para cuando el selector del
+            celular da problemas (ver el comentario largo en generarPreview):
+            si la foto ya está en otro lado (Drive, otra app), pegar el link
+            se salta el archivo del celular por completo. Si se cargan las
+            dos cosas, gana el archivo — el link solo se usa si no hay
+            archivo elegido (ver subirFotoEjercicio en actions.ts). */}
+        <div className="flex items-center gap-2 text-[10px] text-text-tertiary">
+          <div className="h-px flex-1 bg-border" /> o pegá el link de una imagen{" "}
+          <div className="h-px flex-1 bg-border" />
+        </div>
+        <Input type="url" name="foto_url" placeholder="https://…" className="!py-2 text-caption" />
+
         {state.error && <p className="text-caption text-error">{state.error}</p>}
         {state.ok && (
           <p className="text-caption flex items-center gap-1 text-success">
@@ -460,6 +476,9 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
   const [state, formAction, pending] = useActionState(crearEjercicioNuevo, ESTADO_INICIAL_CREAR);
   const [previa, setPrevia] = useState<string | null>(null);
   const [previaRota, setPreviaRota] = useState(false);
+  // Ver el mismo estado en ModalSubirFoto: se guarda el archivo apenas se
+  // elige, no se relee del <input> recién al enviar.
+  const [archivoElegido, setArchivoElegido] = useState<File | null>(null);
 
   useEffect(() => {
     if (state.ok) {
@@ -478,7 +497,13 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
         </button>
       </div>
 
-      <form action={formAction} className="space-y-3">
+      <form
+        action={(fd) => {
+          if (archivoElegido) fd.set("foto", archivoElegido);
+          formAction(fd);
+        }}
+        className="space-y-3"
+      >
         {/* aspect-square y no aspect-video: tiene que coincidir con el recorte
           que hace el servidor (500x500, ver subirFotoEjercicio en actions.ts)
           y con la tarjetita de la galería (también aspect-square) — si no,
@@ -512,11 +537,18 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
             onChange={async (e) => {
               const f = e.target.files?.[0];
               if (!f) return;
+              setArchivoElegido(f);
               setPreviaRota(false);
               setPrevia(await generarPreview(f));
             }}
           />
         </label>
+
+        <div className="flex items-center gap-2 text-[10px] text-text-tertiary">
+          <div className="h-px flex-1 bg-border" /> o pegá el link de una imagen{" "}
+          <div className="h-px flex-1 bg-border" />
+        </div>
+        <Input type="url" name="foto_url" placeholder="https://…" className="!py-2 text-caption" />
 
         <label className="block">
           <span className="text-caption mb-1 block text-text-tertiary">
