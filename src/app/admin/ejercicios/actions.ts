@@ -1,6 +1,7 @@
 "use server";
 
 import sharp from "sharp";
+import { randomUUID } from "node:crypto";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
@@ -78,24 +79,104 @@ function avisarCambios() {
   revalidatePath("/alumno/entrenar/[id]", "page");
 }
 
+/**
+ * Redimensiona una foto a las dos versiones que usa toda la app — miniatura
+ * cuadrada (500x500, recortada, para la tarjetita) y completa (1400px de
+ * ancho, sin recortar, para el visor ampliado) — a partir de la MISMA foto,
+ * nunca dos fotos distintas. `.rotate()` sin argumentos aplica la
+ * orientación EXIF del celular, así la foto queda derecha sin depender de
+ * que el navegador la interprete. Compartido entre `subirFotoAlmacen` (la
+ * subida inmediata) y `subirFotoEjercicio` (el respaldo con link pegado).
+ */
+async function procesarImagen(
+  bytes: Buffer
+): Promise<{ miniatura: Buffer; completa: Buffer } | { error: string }> {
+  try {
+    const base = sharp(bytes).rotate();
+    const [miniatura, completa] = await Promise.all([
+      base.clone().resize({ width: 500, height: 500, fit: "cover" }).webp({ quality: 80 }).toBuffer(),
+      base.clone().resize({ width: 1400, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer(),
+    ]);
+    return { miniatura, completa };
+  } catch {
+    return { error: "No se pudo procesar esa foto — probá con otra." };
+  }
+}
+
+export type FotoSubidaResultado =
+  | { ok: true; miniaturaUrl: string; completaUrl: string }
+  | { ok: false; error: string };
+
+/**
+ * Sube una foto a Storage YA, sin vincularla todavía a ningún ejercicio —
+ * se llama apenas se elige/saca la foto (dentro del `onChange` del selector
+ * en el cliente), antes de que el entrenador termine de llenar el resto del
+ * formulario o toque "Guardar".
+ *
+ * Por qué existe: en iPhone, elegir "Cámara" en el selector manda Safari a
+ * segundo plano mientras la app Cámara está abierta — hay un problema
+ * conocido de WebKit donde, al volver, la referencia al archivo elegido
+ * puede llegar vacía (0 bytes) más adelante, aunque la vista previa se haya
+ * visto bien un instante antes. Antes, el archivo se guardaba en estado de
+ * React y recién se mandaba al servidor al tocar "Guardar" — si para ese
+ * momento WebKit ya invalidó el archivo, la foto se perdía en silencio (el
+ * ejercicio se creaba/guardaba igual, sin foto, sin ningún aviso, porque la
+ * foto es opcional). Subiendo la foto DE INMEDIATO, mientras el archivo
+ * todavía es válido, se saca esa ventana de riesgo del medio: lo que se
+ * manda al tocar "Guardar" es solo la URL ya subida, nunca el archivo de
+ * nuevo (ver `foto_miniatura_url_subida`/`foto_completa_url_subida` en
+ * `subirFotoEjercicio`).
+ *
+ * Queda en una carpeta `sueltas/<id al azar>` porque en este momento todavía
+ * no existe (o no se conoce) el id del ejercicio al que va a terminar
+ * vinculada — no hace falta moverla después, la URL ya es la definitiva.
+ */
+export async function subirFotoAlmacen(formData: FormData): Promise<FotoSubidaResultado> {
+  await requireRol(["entrenador", "admin"]);
+
+  const archivo = formData.get("foto") as File | null;
+  if (!archivo || archivo.size === 0) return { ok: false, error: "No se recibió ningún archivo." };
+  if (archivo.size > TAMANO_MAXIMO) return { ok: false, error: "La foto pesa demasiado (máx. 15 MB)." };
+  if (archivo.type && !TIPOS_IMAGEN.has(archivo.type)) {
+    return { ok: false, error: "Formato no soportado — subí una foto JPG, PNG o HEIC." };
+  }
+
+  const bytes = Buffer.from(await archivo.arrayBuffer());
+  const procesada = await procesarImagen(bytes);
+  if ("error" in procesada) return { ok: false, error: procesada.error };
+
+  const supabase = await createClient();
+  const carpeta = `sueltas/${randomUUID()}`;
+  const rutaMini = `${carpeta}/miniatura.webp`;
+  const rutaCompleta = `${carpeta}/completa.webp`;
+
+  const [subeMini, subeCompleta] = await Promise.all([
+    supabase.storage.from("ejercicios-fotos").upload(rutaMini, procesada.miniatura, { contentType: "image/webp" }),
+    supabase.storage.from("ejercicios-fotos").upload(rutaCompleta, procesada.completa, { contentType: "image/webp" }),
+  ]);
+  if (subeMini.error || subeCompleta.error) {
+    return { ok: false, error: "No se pudo subir la foto. Revisá tu conexión e intentá de nuevo." };
+  }
+
+  return {
+    ok: true,
+    miniaturaUrl: supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaMini).data.publicUrl,
+    completaUrl: supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaCompleta).data.publicUrl,
+  };
+}
+
 export type SubirFotoState = { error: string | null; ok: boolean };
 
 /**
- * Sube (o reemplaza) la foto de un ejercicio ya existente en la biblioteca.
- *
- * Genera dos versiones a partir de la MISMA foto que sube el entrenador —
- * nunca dos fotos distintas — para que la miniatura chica de la tarjeta y la
- * foto completa del visor ampliado sean siempre la misma imagen:
- *   - miniatura: 500x500, recortada cuadrada (para la tarjetita de la
- *     galería, que también es `aspect-square` — igual que el recuadro donde
- *     el entrenador encuadra la foto al elegirla, ver GaleriaEjercicios.tsx.
- *     Antes era un recorte 4:3 horizontal mostrado dentro de un cuadro
- *     cuadrado: dos recortes distintos encadenados, así que la foto quedaba
- *     descentrada — muy arriba o muy abajo — respecto de lo que se había
- *     encuadrado al sacarla).
- *   - completa: 1400px de ancho, SIN recortar (respeta el encuadre entero).
- * `.rotate()` sin argumentos aplica la orientación EXIF del celular, así la
- * foto queda derecha sin depender de que el navegador la interprete.
+ * Vincula (o reemplaza) la foto de un ejercicio ya existente en la
+ * biblioteca. Tres orígenes posibles para la foto, en este orden de
+ * prioridad:
+ *   1. `foto_miniatura_url_subida`/`foto_completa_url_subida` — ya subida de
+ *      antemano por `subirFotoAlmacen` (el camino normal desde
+ *      GaleriaEjercicios.tsx, ver el comentario ahí).
+ *   2. `foto` — un archivo mandado directo (respaldo, por si el paso 1
+ *      fallara del lado del cliente).
+ *   3. `foto_url` — un link pegado a mano, para descargar server-side.
  */
 export async function subirFotoEjercicio(
   _prevState: SubirFotoState,
@@ -107,68 +188,64 @@ export async function subirFotoEjercicio(
   const ejercicioId = String(formData.get("ejercicio_id") || "");
   const archivo = formData.get("foto") as File | null;
   const fotoUrl = String(formData.get("foto_url") || "").trim();
+  const miniaturaUrlSubida = String(formData.get("foto_miniatura_url_subida") || "").trim();
+  const completaUrlSubida = String(formData.get("foto_completa_url_subida") || "").trim();
 
   if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
 
-  // Se guardan las rutas viejas ANTES de subir nada nuevo, para poder
-  // borrarlas al final si esto resulta ser un reemplazo (no la primera foto).
-  // Sin esto, cada vez que se reemplaza una foto el archivo anterior queda
-  // huérfano en Storage para siempre — el nombre siempre lleva un timestamp
-  // nuevo (ver más abajo), así que nunca se pisa solo.
+  // Se guardan las rutas viejas ANTES de tocar nada, para poder borrarlas al
+  // final si esto resulta ser un reemplazo (no la primera foto). Sin esto,
+  // cada reemplazo deja el archivo anterior huérfano en Storage para
+  // siempre — el nombre/carpeta siempre es nuevo, así que nunca se pisa solo.
   const { data: fotoAnterior } = await supabase
     .from("ejercicios")
     .select("foto_miniatura_url, foto_completa_url")
     .eq("id", ejercicioId)
     .maybeSingle();
 
-  let bytes: Buffer;
-  if (archivo && archivo.size > 0) {
-    if (archivo.size > TAMANO_MAXIMO) return { error: "La foto pesa demasiado (máx. 15 MB).", ok: false };
-    if (archivo.type && !TIPOS_IMAGEN.has(archivo.type)) {
-      return { error: "Formato no soportado — subí una foto JPG, PNG o HEIC.", ok: false };
-    }
-    bytes = Buffer.from(await archivo.arrayBuffer());
-  } else if (fotoUrl) {
-    const resultado = await descargarImagenDeUrl(fotoUrl);
-    if ("error" in resultado) return { error: resultado.error, ok: false };
-    bytes = resultado.bytes;
+  let urlMini: string;
+  let urlCompleta: string;
+
+  if (miniaturaUrlSubida && completaUrlSubida) {
+    urlMini = miniaturaUrlSubida;
+    urlCompleta = completaUrlSubida;
   } else {
-    return { error: "Elegí una foto o pegá un link.", ok: false };
-  }
+    let bytes: Buffer;
+    if (archivo && archivo.size > 0) {
+      if (archivo.size > TAMANO_MAXIMO) return { error: "La foto pesa demasiado (máx. 15 MB).", ok: false };
+      if (archivo.type && !TIPOS_IMAGEN.has(archivo.type)) {
+        return { error: "Formato no soportado — subí una foto JPG, PNG o HEIC.", ok: false };
+      }
+      bytes = Buffer.from(await archivo.arrayBuffer());
+    } else if (fotoUrl) {
+      const resultado = await descargarImagenDeUrl(fotoUrl);
+      if ("error" in resultado) return { error: resultado.error, ok: false };
+      bytes = resultado.bytes;
+    } else {
+      return { error: "Elegí una foto o pegá un link.", ok: false };
+    }
 
-  let miniatura: Buffer;
-  let completa: Buffer;
-  try {
-    const base = sharp(bytes).rotate();
-    [miniatura, completa] = await Promise.all([
-      base.clone().resize({ width: 500, height: 500, fit: "cover" }).webp({ quality: 80 }).toBuffer(),
-      base.clone().resize({ width: 1400, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer(),
+    const procesada = await procesarImagen(bytes);
+    if ("error" in procesada) return { error: procesada.error, ok: false };
+
+    // Timestamp en el nombre: fuerza a que sea una URL nueva cada vez que se
+    // reemplaza la foto, así el navegador del alumno no sigue mostrando la
+    // vieja desde caché con la URL de siempre.
+    const sello = Date.now();
+    const rutaMini = `${ejercicioId}/miniatura-${sello}.webp`;
+    const rutaCompleta = `${ejercicioId}/completa-${sello}.webp`;
+
+    const [subeMini, subeCompleta] = await Promise.all([
+      supabase.storage.from("ejercicios-fotos").upload(rutaMini, procesada.miniatura, { contentType: "image/webp" }),
+      supabase.storage.from("ejercicios-fotos").upload(rutaCompleta, procesada.completa, { contentType: "image/webp" }),
     ]);
-  } catch {
-    return { error: "No se pudo procesar esa foto — probá con otra.", ok: false };
+    if (subeMini.error || subeCompleta.error) {
+      return { error: "No se pudo subir la foto. Revisá tu conexión e intentá de nuevo.", ok: false };
+    }
+
+    urlMini = supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaMini).data.publicUrl;
+    urlCompleta = supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaCompleta).data.publicUrl;
   }
-
-  // Timestamp en el nombre: fuerza a que sea una URL nueva cada vez que se
-  // reemplaza la foto, así el navegador del alumno no sigue mostrando la
-  // vieja desde caché con la URL de siempre.
-  const sello = Date.now();
-  const rutaMini = `${ejercicioId}/miniatura-${sello}.webp`;
-  const rutaCompleta = `${ejercicioId}/completa-${sello}.webp`;
-
-  const [subeMini, subeCompleta] = await Promise.all([
-    supabase.storage.from("ejercicios-fotos").upload(rutaMini, miniatura, {
-      contentType: "image/webp",
-    }),
-    supabase.storage.from("ejercicios-fotos").upload(rutaCompleta, completa, {
-      contentType: "image/webp",
-    }),
-  ]);
-  if (subeMini.error || subeCompleta.error) {
-    return { error: "No se pudo subir la foto. Revisá tu conexión e intentá de nuevo.", ok: false };
-  }
-
-  const urlMini = supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaMini).data.publicUrl;
-  const urlCompleta = supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaCompleta).data.publicUrl;
 
   const { error: errorUpdate } = await supabase
     .from("ejercicios")
@@ -183,10 +260,12 @@ export async function subirFotoEjercicio(
   // ejercicio, se borran los archivos viejos — best-effort: si esto falla
   // (permisos, ya no existían), la foto nueva ya quedó bien de todos modos,
   // no tiene sentido devolver error por un archivo huérfano.
+  const rutaMiniNueva = urlMini.split("/ejercicios-fotos/")[1];
+  const rutaCompletaNueva = urlCompleta.split("/ejercicios-fotos/")[1];
   const rutasViejas = [fotoAnterior?.foto_miniatura_url, fotoAnterior?.foto_completa_url]
     .filter((url): url is string => !!url)
     .map((url) => url.split("/ejercicios-fotos/")[1])
-    .filter((ruta): ruta is string => !!ruta && ruta !== rutaMini && ruta !== rutaCompleta);
+    .filter((ruta): ruta is string => !!ruta && ruta !== rutaMiniNueva && ruta !== rutaCompletaNueva);
   if (rutasViejas.length > 0) {
     await supabase.storage.from("ejercicios-fotos").remove(rutasViejas);
   }
@@ -226,6 +305,8 @@ export async function crearEjercicioNuevo(
   const equipo = String(formData.get("equipo") || "") as EquipoEjercicio;
   const archivo = formData.get("foto") as File | null;
   const fotoUrl = String(formData.get("foto_url") || "").trim();
+  const miniaturaUrlSubida = String(formData.get("foto_miniatura_url_subida") || "").trim();
+  const completaUrlSubida = String(formData.get("foto_completa_url_subida") || "").trim();
 
   // Mismo formato que el editor de nombre de un ejercicio existente: variantes
   // separadas por "/", la primera es el nombre que se ve, el resto quedan
@@ -269,11 +350,15 @@ export async function crearEjercicioNuevo(
     return { error: "No se pudo crear el ejercicio. Probá de nuevo.", ok: false };
   }
 
-  if ((archivo && archivo.size > 0) || fotoUrl) {
+  if ((archivo && archivo.size > 0) || fotoUrl || (miniaturaUrlSubida && completaUrlSubida)) {
     const datosFoto = new FormData();
     datosFoto.set("ejercicio_id", nuevo.id);
     if (archivo && archivo.size > 0) datosFoto.set("foto", archivo);
     if (fotoUrl) datosFoto.set("foto_url", fotoUrl);
+    if (miniaturaUrlSubida && completaUrlSubida) {
+      datosFoto.set("foto_miniatura_url_subida", miniaturaUrlSubida);
+      datosFoto.set("foto_completa_url_subida", completaUrlSubida);
+    }
     const resultadoFoto = await subirFotoEjercicio({ error: null, ok: false }, datosFoto);
     if (resultadoFoto.error) {
       // El ejercicio ya quedó creado — no se pierde el alta por un problema
