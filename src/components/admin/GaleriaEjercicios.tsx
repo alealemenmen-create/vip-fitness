@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { Search, Camera, Plus, X, Check, ImageIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -202,7 +203,17 @@ async function generarPreview(archivo: File): Promise<string | null> {
 }
 
 function Overlay({ children, onCerrar }: { children: React.ReactNode; onCerrar: () => void }) {
-  return (
+  // `createPortal` a `document.body`: es el único modal de esta pantalla que
+  // NO lo hacía (todos los demás de la app sí, ver AbandonarSesionBoton,
+  // ReiniciarRutinaBoton, etc.). Al quedar montado adentro del contenedor con
+  // scroll de la página (`.pantalla-scroll`) en vez de directo en el body,
+  // cuando el alumno... el entrenador volvía de elegir la foto (cámara o
+  // galería), Safari intentaba llevarlo al elemento que había quedado
+  // enfocado y terminaba scrolleando esa columna entera hasta arriba del
+  // todo — el modal seguía viéndose bien (es `fixed`), pero por detrás la
+  // página había saltado, y al cerrarlo aparecía arriba de todo en vez de
+  // donde estaba.
+  return createPortal(
     <div
       role="dialog"
       onClick={onCerrar}
@@ -214,7 +225,8 @@ function Overlay({ children, onCerrar }: { children: React.ReactNode; onCerrar: 
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
