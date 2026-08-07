@@ -164,32 +164,48 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
   );
 }
 
+// Alcanza de sobra para una vista previa en un cuadro chico — no hace falta
+// la resolución completa de la foto (puede ser 12+ megapíxeles en un iPhone
+// moderno). El procesamiento final de verdad lo hace el servidor con sharp.
+const LADO_MAXIMO_PREVIA = 800;
+
 /**
  * Genera la vista previa de la foto elegida/tomada.
  *
  * Primer intento (el que de verdad soluciona el problema en iPhone):
  * decodificar el archivo con `createImageBitmap` y dibujarlo en un
- * `<canvas>`, exportando el resultado como JPEG. Una foto HEIC tomada con la
- * cámara del iPhone es justamente el caso que fallaba: un `<img>` alimentado
- * con `blob:` o `data:` URL del archivo original depende de que el propio
- * `<img>` sepa decodificar ese formato ahí mismo, y esa vía tiene fallas
- * conocidas de WebKit con HEIC — mientras que `createImageBitmap` usa el
- * decodificador de imágenes del sistema operativo (el mismo que abre Fotos),
- * mucho más confiable. Como ya queda dibujada en un canvas, el resultado
- * siempre es un JPEG normal que cualquier `<img>` puede mostrar sin problema.
+ * `<canvas>` YA ACHICADO, exportando el resultado como JPEG. Una foto HEIC
+ * tomada con la cámara del iPhone es justamente el caso que fallaba: un
+ * `<img>` alimentado con `blob:` o `data:` URL del archivo original depende
+ * de que el propio `<img>` sepa decodificar ese formato ahí mismo, y esa vía
+ * tiene fallas conocidas de WebKit con HEIC — mientras que `createImageBitmap`
+ * usa el decodificador de imágenes del sistema operativo (el mismo que abre
+ * Fotos), mucho más confiable.
+ *
+ * Achicar ANTES de dibujar en el canvas no es opcional: la primera versión
+ * de esto dibujaba a la resolución completa de la foto y exportaba ese
+ * canvas gigante a base64 — con una foto de 12 megapíxeles eso podía
+ * consumir tanta memoria que Safari cerraba la pestaña entera ("This page
+ * couldn't load"), un bug peor que el que se estaba arreglando.
  *
  * Si el navegador no soporta `createImageBitmap` (poco probable, pero por las
- * dudas), cae a leer el archivo como data URL directamente.
+ * dudas), cae a leer el archivo como data URL directamente — a resolución
+ * completa, porque ahí no hay forma de achicar sin decodificar primero, pero
+ * es solo el respaldo del respaldo.
  */
 async function generarPreview(archivo: File): Promise<string | null> {
   try {
     const bitmap = await createImageBitmap(archivo, { imageOrientation: "from-image" });
+    const escala = Math.min(1, LADO_MAXIMO_PREVIA / Math.max(bitmap.width, bitmap.height));
+    const ancho = Math.round(bitmap.width * escala);
+    const alto = Math.round(bitmap.height * escala);
+
     const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    canvas.width = ancho;
+    canvas.height = alto;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("sin contexto 2d");
-    ctx.drawImage(bitmap, 0, 0);
+    ctx.drawImage(bitmap, 0, 0, ancho, alto);
     bitmap.close();
     return canvas.toDataURL("image/jpeg", 0.85);
   } catch {
