@@ -771,9 +771,12 @@ export interface Database {
           // /admin/ejercicios, mandan sobre `ilustracion_slug` cuando existen.
           foto_miniatura_url: string | null;
           foto_completa_url: string | null;
-          // 0048_video_cloudflare_stream.sql
+          // 0048_video_cloudflare_stream.sql, 0049_video_cloudflare_estados.sql
           video_cloudflare_uid: string | null;
-          video_cloudflare_listo: boolean;
+          video_cloudflare_estado: "subiendo" | "procesando" | "listo" | "error" | null;
+          video_cloudflare_duracion_seg: number | null;
+          video_cloudflare_miniatura_url: string | null;
+          video_cloudflare_error: string | null;
           activo: boolean;
           created_at: string;
         };
@@ -822,7 +825,10 @@ export interface Database {
           foto_miniatura_url?: string | null;
           foto_completa_url?: string | null;
           video_cloudflare_uid?: string | null;
-          video_cloudflare_listo?: boolean;
+          video_cloudflare_estado?: "subiendo" | "procesando" | "listo" | "error" | null;
+          video_cloudflare_duracion_seg?: number | null;
+          video_cloudflare_miniatura_url?: string | null;
+          video_cloudflare_error?: string | null;
           activo?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["ejercicios"]["Insert"]>;

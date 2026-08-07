@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
+import * as tus from "tus-js-client";
 import { Search, Camera, Plus, X, Check, ImageIcon, Play } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
@@ -15,6 +16,7 @@ import {
   quitarVideoEjercicio,
   iniciarSubidaVideoCloudflare,
   quitarVideoCloudflare,
+  obtenerPreviaVideoCloudflare,
 } from "@/app/admin/ejercicios/actions";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
@@ -142,12 +144,18 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
                   {(ej.videoUrl || ej.videoCloudflareUid) && (
                     <span
                       title={
-                        ej.videoCloudflareUid && !ej.videoCloudflareListo
-                          ? "Video subido a Cloudflare, procesando"
-                          : "Tiene video de referencia"
+                        ej.videoCloudflareEstado === "error"
+                          ? "El video de Cloudflare falló al procesarse"
+                          : ej.videoCloudflareUid && ej.videoCloudflareEstado !== "listo"
+                            ? "Video subido a Cloudflare, procesando"
+                            : "Tiene video de referencia"
                       }
                       className={`absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm ${
-                        ej.videoCloudflareUid && !ej.videoCloudflareListo ? "text-text-tertiary" : "text-vip"
+                        ej.videoCloudflareEstado === "error"
+                          ? "text-error"
+                          : ej.videoCloudflareUid && ej.videoCloudflareEstado !== "listo"
+                            ? "text-text-tertiary"
+                            : "text-vip"
                       }`}
                     >
                       <Play size={11} fill="currentColor" />
@@ -425,15 +433,69 @@ function EditorVideo({ ejercicio }: { ejercicio: Ejercicio }) {
 
 const ESTADO_INICIAL_QUITAR_CLOUDFLARE = { error: null, ok: false };
 
+const TAMANO_MAXIMO_VIDEO_CLOUDFLARE = 1024 * 1024 * 1024; // 1 GB — mismo límite que valida el servidor (ver actions.ts).
+const DURACION_MAXIMA_VIDEO_CLOUDFLARE = 180; // 3 minutos.
+const TIPOS_VIDEO_CLOUDFLARE_ACEPTADOS = new Set([
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "video/x-m4v",
+  "video/x-msvideo",
+]);
+
+const ETIQUETA_ESTADO_CLOUDFLARE: Record<string, string> = {
+  subiendo: "Subiendo a Cloudflare...",
+  procesando: "Video subido — Cloudflare todavía lo está procesando, puede tardar unos minutos.",
+  listo: "✓ Video listo para reproducirse.",
+  error: "Cloudflare no pudo procesar este video.",
+};
+
+/** Duración del video en segundos, leída del lado del cliente ANTES de
+ * subir nada — así se puede avisar de un video de más de tres minutos al
+ * toque, en vez de esperar a que Cloudflare lo procese entero para recién
+ * ahí avisar (por webhook) que lo rechazó. Cloudflare igual vuelve a validar
+ * esto del otro lado (`maxDurationSeconds`, ver `solicitarSubidaResumable`)
+ * — este chequeo es solo para el error rápido, no reemplaza esa validación
+ * real. Si el navegador no puede leer la duración (poco común), se deja
+ * pasar y que decida Cloudflare. */
+function duracionDeVideo(archivo: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    const url = URL.createObjectURL(archivo);
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(url);
+      resolve(Number.isFinite(video.duration) ? video.duration : null);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    video.src = url;
+  });
+}
+
 /**
  * Subir el ARCHIVO de video de verdad, vía Cloudflare Stream — a diferencia
  * de `EditorVideo` (que solo guarda un link), esto sí sube el archivo, pero
  * nunca pasa por nuestro servidor ni lo decodifica el celular del
  * entrenador: `iniciarSubidaVideoCloudflare` le pide a Cloudflare una URL de
- * subida de un solo uso, y el navegador le manda el archivo DIRECTO a esa
- * URL. Mismo motivo por el que las fotos casi rompen la app entera al
- * intentar procesarlas del lado del celular — un video pesa mucho más, así
- * que ni se lo intenta.
+ * subida RESUMIBLE (protocolo TUS, vía `tus-js-client`) de un solo uso, y el
+ * navegador le manda el archivo en partes DIRECTO a esa URL, con progreso y
+ * reintentos automáticos si se corta la conexión a mitad de camino. Mismo
+ * motivo por el que las fotos casi rompen la app entera al intentar
+ * procesarlas del lado del celular — un video pesa mucho más, así que ni se
+ * lo intenta acá tampoco.
+ *
+ * El video queda privado en Cloudflare (`requiresignedurls`, ver
+ * `solicitarSubidaResumable`) — para verlo hay que pedir un token firmado de
+ * corta duración (`obtenerPreviaVideoCloudflare`, botón "Ver video" abajo),
+ * igual que hace la app del alumno al reproducirlo de verdad.
+ *
+ * Si la subida falla a mitad de camino, se descarta todo (Cloudflare y la
+ * referencia acá, ver `quitarVideoCloudflare`) en vez de dejar el ejercicio
+ * con un video roto marcado "subiendo" para siempre — así alcanza con
+ * intentar subir de nuevo.
  *
  * Requiere que el entorno tenga configuradas las variables de Cloudflare
  * (ver `src/lib/cloudflare/stream.ts`) — si no, `iniciarSubidaVideoCloudflare`
@@ -441,7 +503,10 @@ const ESTADO_INICIAL_QUITAR_CLOUDFLARE = { error: null, ok: false };
  */
 function EditorVideoCloudflare({ ejercicio }: { ejercicio: Ejercicio }) {
   const [subiendo, setSubiendo] = useState(false);
+  const [progreso, setProgreso] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [previaUrl, setPreviaUrl] = useState<string | null>(null);
+  const [cargandoPrevia, setCargandoPrevia] = useState(false);
   const [estadoQuitar, accionQuitar, pendingQuitar] = useActionState(
     quitarVideoCloudflare,
     ESTADO_INICIAL_QUITAR_CLOUDFLARE
@@ -449,65 +514,143 @@ function EditorVideoCloudflare({ ejercicio }: { ejercicio: Ejercicio }) {
 
   async function subirArchivo(archivo: File) {
     setError(null);
+    setPreviaUrl(null);
     setSubiendo(true);
+    setProgreso(0);
     try {
-      const inicio = await iniciarSubidaVideoCloudflare(ejercicio.id);
+      if (archivo.size > TAMANO_MAXIMO_VIDEO_CLOUDFLARE) {
+        setError("El video pesa demasiado (máx. 1 GB).");
+        return;
+      }
+      if (archivo.type && !TIPOS_VIDEO_CLOUDFLARE_ACEPTADOS.has(archivo.type)) {
+        setError("Formato no soportado — subí un archivo MP4, MOV o WEBM.");
+        return;
+      }
+      const duracion = await duracionDeVideo(archivo);
+      if (duracion !== null && duracion > DURACION_MAXIMA_VIDEO_CLOUDFLARE) {
+        setError("El video dura más de tres minutos — recortalo antes de subirlo.");
+        return;
+      }
+
+      const inicio = await iniciarSubidaVideoCloudflare(ejercicio.id, archivo.size, archivo.type, archivo.name);
       if (!inicio.ok) {
         setError(inicio.error);
         return;
       }
-      // Subida directa a Cloudflare: `uploadURL` acepta un POST simple con
-      // el archivo en un campo "file" — el archivo nunca toca nuestro
-      // servidor, va del navegador del entrenador directo a Cloudflare.
-      const datos = new FormData();
-      datos.set("file", archivo);
-      const respuesta = await fetch(inicio.uploadURL, { method: "POST", body: datos });
-      if (!respuesta.ok) {
-        setError("El video no llegó a Cloudflare. Probá de nuevo.");
-      }
+
+      await new Promise<void>((resolve, reject) => {
+        const subida = new tus.Upload(archivo, {
+          uploadUrl: inicio.endpoint,
+          chunkSize: 50 * 1024 * 1024,
+          retryDelays: [0, 3000, 5000, 10000, 20000],
+          onError: (err) => reject(err),
+          onProgress: (enviados, total) => setProgreso(Math.round((enviados / total) * 100)),
+          onSuccess: () => resolve(),
+        });
+        subida.start();
+      });
       // No hace falta hacer nada más acá: Cloudflare procesa el video en
-      // segundo plano y avisa por webhook cuando está listo (ver
-      // /api/webhooks/cloudflare-stream), que es lo que pone
-      // `videoCloudflareListo` en true.
+      // segundo plano y avisa por webhook cuando está listo (o si falló),
+      // que es lo que actualiza `videoCloudflareEstado`.
     } catch {
-      setError("No se pudo subir el video. Revisá tu conexión e intentá de nuevo.");
+      setError("No se pudo subir el video. Se descartó — probá de nuevo.");
+      const descarte = new FormData();
+      descarte.set("ejercicio_id", ejercicio.id);
+      await quitarVideoCloudflare({ error: null, ok: false }, descarte).catch(() => {});
     } finally {
       setSubiendo(false);
+      setProgreso(0);
+    }
+  }
+
+  async function verVideo() {
+    setError(null);
+    setCargandoPrevia(true);
+    try {
+      const resultado = await obtenerPreviaVideoCloudflare(ejercicio.id);
+      if (!resultado.ok) {
+        setError(resultado.error);
+        return;
+      }
+      setPreviaUrl(resultado.url);
+    } catch {
+      setError("No se pudo cargar la vista previa. Probá de nuevo.");
+    } finally {
+      setCargandoPrevia(false);
     }
   }
 
   const tieneVideo = !!ejercicio.videoCloudflareUid;
+  const estado = ejercicio.videoCloudflareEstado;
 
   return (
     <div className="space-y-1.5">
       <span className="text-caption block text-text-tertiary">
-        Video de referencia — subir el archivo de verdad (Cloudflare Stream)
+        Video de referencia — subir el archivo de verdad (Cloudflare Stream), máx. 3 min y 1 GB
       </span>
-      {tieneVideo && (
-        <p className="text-caption text-text-secondary">
-          {ejercicio.videoCloudflareListo
-            ? "✓ Video subido y listo para reproducirse."
-            : "Video subido — Cloudflare todavía lo está procesando, puede tardar unos minutos."}
+
+      {tieneVideo && !subiendo && estado && (
+        <p className={`text-caption ${estado === "error" ? "text-error" : "text-text-secondary"}`}>
+          {ETIQUETA_ESTADO_CLOUDFLARE[estado]}
+          {estado === "error" && ejercicio.videoCloudflareError ? ` (${ejercicio.videoCloudflareError})` : ""}
+          {estado === "listo" && ejercicio.videoCloudflareDuracionSeg != null
+            ? ` (${Math.round(ejercicio.videoCloudflareDuracionSeg)}s)`
+            : ""}
         </p>
       )}
+
+      {subiendo && (
+        <div className="radius-control h-1.5 w-full overflow-hidden bg-surface-2">
+          <div className="h-full bg-vip transition-all" style={{ width: `${progreso}%` }} />
+        </div>
+      )}
+
       <label
         className={`radius-control flex h-9 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text ${
           subiendo ? "opacity-60" : "cursor-pointer"
         }`}
       >
-        {subiendo ? "Subiendo..." : tieneVideo ? "Reemplazar el archivo de video" : "Subir archivo de video"}
+        {subiendo
+          ? `Subiendo... ${progreso}%`
+          : tieneVideo
+            ? "Reemplazar el archivo de video"
+            : "Subir archivo de video"}
         <input
           type="file"
-          accept="video/*"
+          accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm,.m4v"
           className="hidden"
           disabled={subiendo}
           onChange={(e) => {
             const archivo = e.target.files?.[0];
+            e.target.value = "";
             if (archivo) void subirArchivo(archivo);
           }}
         />
       </label>
       {error && <p className="text-caption text-error">{error}</p>}
+
+      {tieneVideo && estado === "listo" && !previaUrl && (
+        <button
+          type="button"
+          onClick={verVideo}
+          disabled={cargandoPrevia}
+          className="text-caption font-medium text-vip disabled:opacity-60"
+        >
+          {cargandoPrevia ? "Cargando..." : "Ver video"}
+        </button>
+      )}
+
+      {previaUrl && (
+        <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
+          <iframe
+            src={previaUrl}
+            title="Vista previa del video"
+            className="h-full w-full"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      )}
 
       {tieneVideo && (
         <form action={accionQuitar}>

@@ -13,8 +13,8 @@ export type FuenteVideo = { tipo: "iframe"; src: string } | { tipo: "archivo"; s
 /**
  * Decide qué reproducir y cómo, con una sola prioridad: el video subido de
  * verdad a Cloudflare Stream (`urlEmbedIframe`, ya resuelto por el servidor
- * con `urlEmbedCloudflare` — solo llega no-nulo cuando terminó de procesarse)
- * gana sobre el link externo (`videoUrl`, YouTube o archivo directo).
+ * con `urlEmbedFirmada` — solo llega no-nulo cuando terminó de procesarse
+ * bien) gana sobre el link externo (`videoUrl`, YouTube o archivo directo).
  *
  * Devuelve `null` cuando no hay nada para reproducir todavía — incluye el
  * caso de un video de Cloudflare que se está subiendo/procesando pero

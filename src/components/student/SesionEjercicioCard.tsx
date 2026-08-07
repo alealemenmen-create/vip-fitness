@@ -98,9 +98,9 @@ export function CuadroFotoReferencia({
   /** Link externo (YouTube o un video directo, ver /admin/ejercicios). */
   videoUrl: string | null;
   /** Video subido de verdad a Cloudflare Stream, YA resuelto a su URL de
-   * reproducción por el servidor (`urlEmbedCloudflare` en
-   * lib/cloudflare/stream.ts) — null si no hay uno, o si todavía se está
-   * procesando. Gana sobre `videoUrl` cuando los dos existen (ver
+   * reproducción firmada por el servidor (`urlEmbedFirmada` en
+   * lib/cloudflare/stream.ts) — null si no hay uno, si todavía se está
+   * procesando, o si falló. Gana sobre `videoUrl` cuando los dos existen (ver
    * `resolverFuenteVideo`). Cuando existe cualquiera de los dos, tocar el
    * cuadro reproduce el video en vez de solo ampliar la foto — la
    * referencia en movimiento gana porque enseña más. */

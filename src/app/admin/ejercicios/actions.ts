@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { TAG_BIBLIOTECA_EJERCICIOS } from "@/lib/ejercicios/data";
 import { idDeYoutube } from "@/lib/ejercicios/video";
-import { solicitarSubidaDirecta } from "@/lib/cloudflare/stream";
+import { solicitarSubidaResumable, eliminarVideoCloudflare, urlEmbedFirmada } from "@/lib/cloudflare/stream";
 import type { CategoriaEjercicio, EquipoEjercicio, NivelEjercicio } from "@/lib/ejercicios/tipos";
 import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
 
@@ -429,42 +429,110 @@ export async function quitarVideoEjercicio(
   return { error: null, ok: true };
 }
 
-export type IniciarSubidaCloudflareResultado = { ok: true; uploadURL: string } | { ok: false; error: string };
+const TAMANO_MAXIMO_VIDEO = 1024 * 1024 * 1024; // 1 GB
+const DURACION_MAXIMA_VIDEO_SEG = 180; // 3 minutos
+const TIPOS_VIDEO_CLOUDFLARE = new Set([
+  "video/mp4",
+  "video/quicktime", // .mov
+  "video/webm",
+  "video/x-m4v",
+  "video/x-msvideo", // .avi
+]);
+
+/** Trae solo el uid actual de Cloudflare de un ejercicio — se usa antes de
+ * reemplazar o quitar el video, para saber qué borrar allá. */
+async function uidCloudflareActual(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ejercicioId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("ejercicios")
+    .select("video_cloudflare_uid")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+  return data?.video_cloudflare_uid ?? null;
+}
+
+export type IniciarSubidaCloudflareResultado = { ok: true; endpoint: string } | { ok: false; error: string };
 
 /**
  * Primer paso para subir un video de verdad (no solo un link) a un
- * ejercicio: pide a Cloudflare Stream una URL de subida directa y de un solo
- * uso, y vincula el `uid` que devuelve al ejercicio DE INMEDIATO — antes de
- * que el archivo termine de subirse. Así el ejercicio ya queda marcado como
- * "tiene un video en camino" (`video_cloudflare_listo: false`) aunque la
- * subida en sí la haga el navegador del entrenador directo contra
- * Cloudflare, sin pasar por acá (ver `subirVideoCloudflare` en
- * GaleriaEjercicios.tsx) — este servidor nunca toca los bytes del video.
+ * ejercicio: pide a Cloudflare Stream una URL de subida RESUMIBLE (TUS) y de
+ * un solo uso, y vincula el `uid` que devuelve al ejercicio DE INMEDIATO —
+ * antes de que el archivo termine de subirse. Así el ejercicio ya queda
+ * marcado como "subiendo" aunque la subida en sí la haga el navegador del
+ * entrenador directo contra Cloudflare con `tus-js-client`, sin pasar por
+ * acá (ver `subirArchivo` en GaleriaEjercicios.tsx) — este servidor nunca
+ * toca los bytes del video.
+ *
+ * Si el ejercicio ya tenía un video de Cloudflare (se está reemplazando), el
+ * anterior se elimina allá antes de pedir uno nuevo — si no, queda huérfano
+ * para siempre, ocupando espacio y costando de más.
  *
  * No es un `useActionState` porque no envuelve un `<form>`: se llama directo
- * desde el cliente antes de hacer el `fetch` de subida, igual que
+ * desde el cliente antes de arrancar la subida, igual que
  * `programarAvisoDescanso` en push-actions.ts.
  */
-export async function iniciarSubidaVideoCloudflare(ejercicioId: string): Promise<IniciarSubidaCloudflareResultado> {
+export async function iniciarSubidaVideoCloudflare(
+  ejercicioId: string,
+  tamanoBytes: number,
+  tipoMime: string,
+  nombreArchivo: string
+): Promise<IniciarSubidaCloudflareResultado> {
   await requireRol(["entrenador", "admin"]);
   if (!ejercicioId) return { ok: false, error: "Falta el ejercicio." };
-
-  const resultado = await solicitarSubidaDirecta();
-  if ("error" in resultado) return { ok: false, error: resultado.error };
+  if (!Number.isFinite(tamanoBytes) || tamanoBytes <= 0) {
+    return { ok: false, error: "Archivo inválido." };
+  }
+  if (tamanoBytes > TAMANO_MAXIMO_VIDEO) {
+    return { ok: false, error: "El video pesa demasiado (máx. 1 GB)." };
+  }
+  if (tipoMime && !TIPOS_VIDEO_CLOUDFLARE.has(tipoMime)) {
+    return { ok: false, error: "Formato no soportado — subí un archivo MP4, MOV o WEBM." };
+  }
 
   const supabase = await createClient();
+
+  const uidAnterior = await uidCloudflareActual(supabase, ejercicioId);
+  if (uidAnterior) await eliminarVideoCloudflare(uidAnterior);
+
+  const resultado = await solicitarSubidaResumable(tamanoBytes, {
+    maxDurationSeconds: DURACION_MAXIMA_VIDEO_SEG,
+    nombreArchivo,
+  });
+  if ("error" in resultado) return { ok: false, error: resultado.error };
+
   const { error } = await supabase
     .from("ejercicios")
-    .update({ video_cloudflare_uid: resultado.uid, video_cloudflare_listo: false })
+    .update({
+      video_cloudflare_uid: resultado.uid,
+      video_cloudflare_estado: "subiendo",
+      video_cloudflare_duracion_seg: null,
+      video_cloudflare_miniatura_url: null,
+      video_cloudflare_error: null,
+    })
     .eq("id", ejercicioId);
   if (error) return { ok: false, error: "No se pudo vincular el video al ejercicio." };
 
   avisarCambios();
-  return { ok: true, uploadURL: resultado.uploadURL };
+  return { ok: true, endpoint: resultado.endpoint };
 }
 
 export type QuitarVideoCloudflareState = { error: string | null; ok: boolean };
 
+/**
+ * Quita el video de Cloudflare de un ejercicio — y lo elimina DE VERDAD allá
+ * (no solo la referencia acá), para no dejarlo huérfano pagando espacio de
+ * por vida. La eliminación en Cloudflare es best-effort: si esa llamada
+ * falla (API caída, credenciales vencidas), igual se desvincula del
+ * ejercicio — no tiene sentido dejar al entrenador sin poder sacar un video
+ * roto solo porque un servicio externo tuvo un problema en ese momento.
+ *
+ * También es el camino de recuperación cuando una subida falla a mitad de
+ * camino (ver `subirArchivo` en GaleriaEjercicios.tsx, que llama a esto
+ * mismo desde su bloque `catch`): deja al ejercicio limpio, sin un video
+ * marcado "subiendo" para siempre, listo para intentar de nuevo.
+ */
 export async function quitarVideoCloudflare(
   _prevState: QuitarVideoCloudflareState,
   formData: FormData
@@ -475,12 +543,52 @@ export async function quitarVideoCloudflare(
   const ejercicioId = String(formData.get("ejercicio_id") || "");
   if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
 
+  const uid = await uidCloudflareActual(supabase, ejercicioId);
+  if (uid) await eliminarVideoCloudflare(uid);
+
   const { error } = await supabase
     .from("ejercicios")
-    .update({ video_cloudflare_uid: null, video_cloudflare_listo: false })
+    .update({
+      video_cloudflare_uid: null,
+      video_cloudflare_estado: null,
+      video_cloudflare_duracion_seg: null,
+      video_cloudflare_miniatura_url: null,
+      video_cloudflare_error: null,
+    })
     .eq("id", ejercicioId);
   if (error) return { error: "No se pudo quitar el video. Probá de nuevo.", ok: false };
 
   avisarCambios();
   return { error: null, ok: true };
+}
+
+export type PreviaVideoCloudflareResultado = { ok: true; url: string } | { ok: false; error: string };
+
+/**
+ * Token firmado para que el propio entrenador/admin pueda ver el video que
+ * acaba de subir, antes de que lo vean los alumnos — mismo mecanismo que
+ * `urlEmbedFirmada` para la reproducción en la app del alumno (ver
+ * `obtenerSesionCompleta`), pedido bajo demanda (al tocar "Ver video" en
+ * GaleriaEjercicios.tsx) para no gastar una llamada a Cloudflare en cada
+ * carga de la galería.
+ */
+export async function obtenerPreviaVideoCloudflare(ejercicioId: string): Promise<PreviaVideoCloudflareResultado> {
+  await requireRol(["entrenador", "admin"]);
+  if (!ejercicioId) return { ok: false, error: "Falta el ejercicio." };
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("ejercicios")
+    .select("video_cloudflare_uid, video_cloudflare_estado")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+
+  if (!data?.video_cloudflare_uid || data.video_cloudflare_estado !== "listo") {
+    return { ok: false, error: "El video todavía no está listo para verse." };
+  }
+
+  const url = await urlEmbedFirmada(data.video_cloudflare_uid);
+  if (!url) return { ok: false, error: "No se pudo generar la vista previa. Probá de nuevo." };
+
+  return { ok: true, url };
 }

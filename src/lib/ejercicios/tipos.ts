@@ -43,12 +43,17 @@ export type Ejercicio = {
   ilustracionSlug: string | null;
   /** Link externo (YouTube o archivo directo) — ver `guardarVideoEjercicio`. */
   videoUrl: string | null;
-  /** Video subido de verdad a Cloudflare Stream (ver 0048_video_cloudflare_stream
-   * y `src/lib/cloudflare/stream.ts`) — cuando `videoCloudflareListo` es true,
-   * manda por sobre `videoUrl`. Mientras es false, Cloudflare todavía lo está
-   * procesando y no hay que ofrecerlo para reproducir. */
+  /** Video subido de verdad a Cloudflare Stream (ver 0048_video_cloudflare_stream,
+   * 0049_video_cloudflare_estados y `src/lib/cloudflare/stream.ts`) — cuando
+   * `videoCloudflareEstado` es 'listo', manda por sobre `videoUrl`. Mientras
+   * es 'subiendo' o 'procesando' no hay que ofrecerlo para reproducir
+   * todavía; 'error' significa que Cloudflare no pudo procesarlo (ver
+   * `videoCloudflareError`). Null cuando no hay ningún video de Cloudflare. */
   videoCloudflareUid: string | null;
-  videoCloudflareListo: boolean;
+  videoCloudflareEstado: "subiendo" | "procesando" | "listo" | "error" | null;
+  videoCloudflareDuracionSeg: number | null;
+  videoCloudflareMiniaturaUrl: string | null;
+  videoCloudflareError: string | null;
   /** Fotos subidas a mano desde /admin/ejercicios (bucket `ejercicios-fotos`
    * de Storage) — cuando existen, mandan por sobre `ilustracionSlug` (el
    * archivo estático de public/ejercicios). Ver 0042_fotos_ejercicios_admin. */
@@ -65,7 +70,7 @@ export const COLUMNAS_EJERCICIO_SIN_FOTOS =
  * quien la use debe tener el respaldo a la de arriba. Van juntas en el mismo
  * nivel porque las dos son "opcionales hasta que se corra la migración", no
  * porque tengan relación entre sí. */
-export const COLUMNAS_EJERCICIO = `${COLUMNAS_EJERCICIO_SIN_FOTOS}, foto_miniatura_url, foto_completa_url, video_cloudflare_uid, video_cloudflare_listo`;
+export const COLUMNAS_EJERCICIO = `${COLUMNAS_EJERCICIO_SIN_FOTOS}, foto_miniatura_url, foto_completa_url, video_cloudflare_uid, video_cloudflare_estado, video_cloudflare_duracion_seg, video_cloudflare_miniatura_url, video_cloudflare_error`;
 
 type FilaEjercicio = {
   id: string;
@@ -86,7 +91,10 @@ type FilaEjercicio = {
   foto_miniatura_url?: string | null;
   foto_completa_url?: string | null;
   video_cloudflare_uid?: string | null;
-  video_cloudflare_listo?: boolean | null;
+  video_cloudflare_estado?: "subiendo" | "procesando" | "listo" | "error" | null;
+  video_cloudflare_duracion_seg?: number | null;
+  video_cloudflare_miniatura_url?: string | null;
+  video_cloudflare_error?: string | null;
 };
 
 export function aEjercicio(fila: FilaEjercicio): Ejercicio {
@@ -107,7 +115,10 @@ export function aEjercicio(fila: FilaEjercicio): Ejercicio {
     ilustracionSlug: fila.ilustracion_slug,
     videoUrl: fila.video_url,
     videoCloudflareUid: fila.video_cloudflare_uid ?? null,
-    videoCloudflareListo: fila.video_cloudflare_listo ?? false,
+    videoCloudflareEstado: fila.video_cloudflare_estado ?? null,
+    videoCloudflareDuracionSeg: fila.video_cloudflare_duracion_seg ?? null,
+    videoCloudflareMiniaturaUrl: fila.video_cloudflare_miniatura_url ?? null,
+    videoCloudflareError: fila.video_cloudflare_error ?? null,
     fotoMiniaturaUrl: fila.foto_miniatura_url ?? null,
     fotoCompletaUrl: fila.foto_completa_url ?? null,
   };

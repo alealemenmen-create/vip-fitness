@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 /**
  * Webhook de Cloudflare Stream: avisa cuando un video terminó de procesarse
  * (o falló). Es la única forma de saber que un video ya está listo para
- * reproducirse — la subida directa desde el navegador (ver
- * `solicitarSubidaDirecta`) no lo sabe, Cloudflare lo procesa en segundo
+ * reproducirse — la subida resumible desde el navegador (ver
+ * `solicitarSubidaResumable`) no lo sabe, Cloudflare lo procesa en segundo
  * plano después.
  *
  * No requiere sesión (lo llama Cloudflare, no un usuario logueado) — la
@@ -43,7 +43,9 @@ export async function POST(request: Request): Promise<Response> {
   type PayloadCloudflare = {
     uid?: string;
     readyToStream?: boolean;
-    status?: { state?: string };
+    status?: { state?: string; errorReasonCode?: string; errorReasonText?: string };
+    duration?: number;
+    thumbnail?: string;
   };
   let payload: PayloadCloudflare;
   try {
@@ -55,12 +57,31 @@ export async function POST(request: Request): Promise<Response> {
   const uid = payload.uid;
   if (!uid) return Response.json({ ok: false, error: "Falta el uid del video." }, { status: 400 });
 
-  const listo = payload.readyToStream === true || payload.status?.state === "ready";
+  const estadoCloudflare = payload.status?.state;
+  const estado: "listo" | "error" | "procesando" =
+    payload.readyToStream === true || estadoCloudflare === "ready"
+      ? "listo"
+      : estadoCloudflare === "error"
+        ? "error"
+        : "procesando";
+
+  // -1 es el valor que manda Cloudflare mientras todavía no conoce la
+  // duración real (recién arrancó a procesar) — no hay que guardarlo como si
+  // fuera un dato válido.
+  const duracion = typeof payload.duration === "number" && payload.duration >= 0 ? payload.duration : null;
+  const miniatura = payload.thumbnail ?? null;
+  const mensajeError =
+    estado === "error" ? payload.status?.errorReasonText || payload.status?.errorReasonCode || "Error desconocido de Cloudflare." : null;
 
   const admin = createAdminClient();
   const { data: actualizados, error } = await admin
     .from("ejercicios")
-    .update({ video_cloudflare_listo: listo })
+    .update({
+      video_cloudflare_estado: estado,
+      video_cloudflare_duracion_seg: duracion,
+      video_cloudflare_miniatura_url: miniatura,
+      video_cloudflare_error: mensajeError,
+    })
     .eq("video_cloudflare_uid", uid)
     .select("id");
 
