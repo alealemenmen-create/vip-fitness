@@ -323,6 +323,10 @@ export type EjercicioSesion = {
    * migración 0042 todavía. */
   fotoMiniaturaUrl: string | null;
   fotoCompletaUrl: string | null;
+  /** Link de YouTube o a un archivo de video directo, cargado desde
+   * /admin/ejercicios (ver `guardarVideoEjercicio`). Cuando existe, la
+   * referencia del ejercicio abre el video en vez de solo ampliar la foto. */
+  videoUrl: string | null;
   /** Cuánto dura cada fase de la repetición. Null cuando ni la rutina lo trae
    * escrito ni la biblioteca lo tiene calculado todavía. */
   tempo: Tempo | null;
@@ -404,6 +408,9 @@ export async function obtenerSesionCompleta(
   // `obtenerCatalogoAlimentos`.
   type FilaBiblioteca = {
     ilustracion_slug: string | null;
+    // Existe desde la migración base (0026), igual que ilustracion_slug —
+    // por eso va en el mismo nivel de resguardo, no en el de fotos (0042).
+    video_url: string | null;
     tempo?: string | null;
     tempo_nota?: string | null;
     /** Cómo se ejecuta el ejercicio según la biblioteca del gimnasio. Es la
@@ -439,13 +446,15 @@ export async function obtenerSesionCompleta(
   // biblioteca (0026), y pelado. Cada migración que todavía no haya corrido
   // se degrada sola en vez de dejar al alumno sin pantalla de entrenamiento.
   const intentoConFotos = await consultarEjercicios(
-    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, tempo, tempo_nota, tecnica, foto_miniatura_url, foto_completa_url)`
+    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url, tempo, tempo_nota, tecnica, foto_miniatura_url, foto_completa_url)`
   );
   const intento = intentoConFotos.error
-    ? await consultarEjercicios(`${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, tempo, tempo_nota, tecnica)`)
+    ? await consultarEjercicios(
+        `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url, tempo, tempo_nota, tecnica)`
+      )
     : intentoConFotos;
   const conBiblioteca = intento.error
-    ? await consultarEjercicios(`${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug)`)
+    ? await consultarEjercicios(`${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url)`)
     : intento;
   const resultado = conBiblioteca.error
     ? await consultarEjercicios(COLUMNAS_PROGRAMA)
@@ -521,6 +530,7 @@ export async function obtenerSesionCompleta(
     let ilustracionSlug = dellaBiblioteca?.ilustracion_slug ?? null;
     let fotoMiniaturaUrl = dellaBiblioteca?.foto_miniatura_url ?? null;
     let fotoCompletaUrl = dellaBiblioteca?.foto_completa_url ?? null;
+    let videoUrl = dellaBiblioteca?.video_url ?? null;
 
     // Respaldo: el ejercicio de esta rutina puede haber quedado sin vincular
     // (o vinculado a una entrada sin foto todavía) porque cuando se importó
@@ -536,6 +546,7 @@ export async function obtenerSesionCompleta(
         ilustracionSlug = emparejado.ilustracionSlug;
         fotoMiniaturaUrl = emparejado.fotoMiniaturaUrl;
         fotoCompletaUrl = emparejado.fotoCompletaUrl;
+        videoUrl = emparejado.videoUrl;
       }
     }
 
@@ -555,6 +566,7 @@ export async function obtenerSesionCompleta(
       ilustracionSlug,
       fotoMiniaturaUrl,
       fotoCompletaUrl,
+      videoUrl,
       // Lo que el entrenador escribió en la rutina gana sobre lo que dedujo la
       // IA para la biblioteca. Ver src/lib/ejercicios/tempo.ts.
       tempo: resolverTempo(

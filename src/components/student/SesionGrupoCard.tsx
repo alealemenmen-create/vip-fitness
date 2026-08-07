@@ -224,6 +224,7 @@ export const SesionGrupoCard = forwardRef<
               ilustracionSlug={ej.ilustracionSlug}
               fotoMiniaturaUrl={ej.fotoMiniaturaUrl}
               fotoCompletaUrl={ej.fotoCompletaUrl}
+              videoUrl={ej.videoUrl}
               nombre={ej.nombre}
               compacto
             />

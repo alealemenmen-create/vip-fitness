@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-import { Search, Camera, Plus, X, Check, ImageIcon } from "lucide-react";
+import { Search, Camera, Plus, X, Check, ImageIcon, Play } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import {
@@ -11,6 +11,8 @@ import {
   crearEjercicioNuevo,
   actualizarNombreEjercicio,
   desactivarEjercicio,
+  guardarVideoEjercicio,
+  quitarVideoEjercicio,
 } from "@/app/admin/ejercicios/actions";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
@@ -135,6 +137,14 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
                   <span className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm">
                     <Camera size={13} />
                   </span>
+                  {ej.videoUrl && (
+                    <span
+                      title="Tiene video de referencia"
+                      className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-vip backdrop-blur-sm"
+                    >
+                      <Play size={11} fill="currentColor" />
+                    </span>
+                  )}
                 </div>
                 <div className="p-2">
                   <p className="text-caption line-clamp-2 font-semibold leading-tight text-text">
@@ -341,6 +351,70 @@ function EditorNombre({ ejercicio }: { ejercicio: Ejercicio }) {
   );
 }
 
+const ESTADO_INICIAL_VIDEO = { error: null, ok: false };
+const ESTADO_INICIAL_QUITAR_VIDEO = { error: null, ok: false };
+
+/**
+ * Video de referencia — SOLO por link (YouTube o un archivo de video
+ * directo), nunca subiendo el archivo desde el celular. Un video pesa mucho
+ * más que cualquier foto, y decodificarlo del lado del navegador es
+ * exactamente el problema que costó resolver con las fotos — las apps que
+ * manejan video de verdad tampoco lo hacen así, mandan el archivo pesado
+ * directo a un servidor especializado sin tocarlo en el celular.
+ */
+function EditorVideo({ ejercicio }: { ejercicio: Ejercicio }) {
+  const [state, formAction, pending] = useActionState(guardarVideoEjercicio, ESTADO_INICIAL_VIDEO);
+  const [estadoQuitar, accionQuitar, pendingQuitar] = useActionState(
+    quitarVideoEjercicio,
+    ESTADO_INICIAL_QUITAR_VIDEO
+  );
+
+  return (
+    <div className="space-y-1.5">
+      <form action={formAction} className="space-y-1.5">
+        <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+        <span className="text-caption block text-text-tertiary">
+          Video de referencia — link de YouTube o link directo a un archivo (mp4, mov, webm)
+        </span>
+        <Input
+          type="url"
+          name="video_url"
+          defaultValue={ejercicio.videoUrl ?? ""}
+          placeholder="https://youtube.com/watch?v=…"
+          className="!py-2 text-caption"
+        />
+        {state.error && <p className="text-caption text-error">{state.error}</p>}
+        {state.ok && (
+          <p className="text-caption flex items-center gap-1 text-success">
+            <Check size={12} /> Video guardado.
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={pending}
+          className="radius-control flex h-9 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text disabled:opacity-60"
+        >
+          {pending ? "Guardando..." : "Guardar video"}
+        </button>
+      </form>
+
+      {ejercicio.videoUrl && (
+        <form action={accionQuitar}>
+          <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+          {estadoQuitar.error && <p className="text-caption mb-1 text-error">{estadoQuitar.error}</p>}
+          <button
+            type="submit"
+            disabled={pendingQuitar}
+            className="text-caption font-medium text-text-tertiary disabled:opacity-60"
+          >
+            {pendingQuitar ? "Quitando..." : "Quitar video"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 function ModalSubirFoto({
   ejercicio,
   fotoActual,
@@ -458,6 +532,10 @@ function ModalSubirFoto({
 
       <div className="mt-4 border-t border-border pt-3">
         <EditorNombre ejercicio={ejercicio} />
+      </div>
+
+      <div className="mt-4 border-t border-border pt-3">
+        <EditorVideo ejercicio={ejercicio} />
       </div>
 
       <div className="mt-4 border-t border-border pt-3">

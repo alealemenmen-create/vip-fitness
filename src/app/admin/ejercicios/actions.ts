@@ -5,6 +5,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { TAG_BIBLIOTECA_EJERCICIOS } from "@/lib/ejercicios/data";
+import { idDeYoutube } from "@/lib/ejercicios/video";
 import type { CategoriaEjercicio, EquipoEjercicio, NivelEjercicio } from "@/lib/ejercicios/tipos";
 import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
 
@@ -14,8 +15,9 @@ const TIPOS_IMAGEN = new Set(["image/jpeg", "image/png", "image/webp", "image/he
 /** Bloquea que el link pegado apunte a la red interna del servidor (SSRF) —
  * localhost, IPs privadas, o el endpoint de metadata de la nube. El link lo
  * pega un entrenador/admin ya autenticado, no un desconocido, pero igual no
- * cuesta nada chequearlo antes de que el servidor le haga un fetch. */
-function esUrlDeImagenSegura(valor: string): URL | null {
+ * cuesta nada chequearlo antes de que el servidor le haga un fetch (imagen o
+ * video, se usa para las dos cosas). */
+function esUrlExternaSegura(valor: string): URL | null {
   let url: URL;
   try {
     url = new URL(valor);
@@ -45,7 +47,7 @@ function esUrlDeImagenSegura(valor: string): URL | null {
  * problemas (ver ModalSubirFoto): si ya tenés la foto en otro lado (Drive,
  * una nota, otra app), pegar el link la evita por completo. */
 async function descargarImagenDeUrl(valor: string): Promise<{ bytes: Buffer } | { error: string }> {
-  const url = esUrlDeImagenSegura(valor);
+  const url = esUrlExternaSegura(valor);
   if (!url) return { error: "Ese link no es válido." };
 
   let respuesta: Response;
@@ -330,6 +332,97 @@ export async function desactivarEjercicio(
 
   const { error } = await supabase.from("ejercicios").update({ activo: false }).eq("id", ejercicioId);
   if (error) return { error: "No se pudo eliminar. Probá de nuevo.", ok: false };
+
+  avisarCambios();
+  return { error: null, ok: true };
+}
+
+const EXTENSIONES_VIDEO_DIRECTO = /\.(mp4|mov|webm|avi|m4v)(\?.*)?$/i;
+
+export type GuardarVideoState = { error: string | null; ok: boolean };
+
+/**
+ * Guarda el video de referencia de un ejercicio — a diferencia de la foto,
+ * SOLO por link, nunca subiendo el archivo: un video pesa mucho más que
+ * cualquier foto, y decodificarlo del lado del celular (como se intentó al
+ * principio con las fotos) es exactamente lo que no hay que hacer — por eso
+ * las apps de video de verdad tampoco lo hacen, mandan el archivo pesado
+ * directo a un servidor especializado sin tocarlo en el navegador.
+ *
+ * Acepta dos formatos:
+ *   - Un link de YouTube: se guarda el link tal cual y, si el ejercicio
+ *     todavía no tiene foto propia, se usa la miniatura de YouTube como foto
+ *     (mismo pipeline de `subirFotoEjercicio` con `foto_url`) — así aparece
+ *     en la galería sin pedir un paso aparte.
+ *   - Un link directo a un archivo de video (mp4, mov, webm, avi, m4v): se
+ *     guarda tal cual, sin miniatura (no hay forma de generarla sin bajar el
+ *     archivo entero, que es justo lo que se quiere evitar acá).
+ */
+export async function guardarVideoEjercicio(
+  _prevState: GuardarVideoState,
+  formData: FormData
+): Promise<GuardarVideoState> {
+  await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  const videoUrlTexto = String(formData.get("video_url") || "").trim();
+
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+  if (!videoUrlTexto) return { error: "Pegá un link de video.", ok: false };
+
+  const url = esUrlExternaSegura(videoUrlTexto);
+  if (!url) return { error: "Ese link no es válido.", ok: false };
+
+  const idYoutube = idDeYoutube(videoUrlTexto);
+  if (!idYoutube && !EXTENSIONES_VIDEO_DIRECTO.test(url.pathname)) {
+    return {
+      error: "Pegá un link de YouTube o un link directo a un archivo de video (mp4, mov, webm).",
+      ok: false,
+    };
+  }
+
+  const { error: errorUpdate } = await supabase
+    .from("ejercicios")
+    .update({ video_url: videoUrlTexto })
+    .eq("id", ejercicioId);
+  if (errorUpdate) return { error: "No se pudo guardar el video. Probá de nuevo.", ok: false };
+
+  if (idYoutube) {
+    const { data: actual } = await supabase
+      .from("ejercicios")
+      .select("foto_miniatura_url")
+      .eq("id", ejercicioId)
+      .maybeSingle();
+
+    if (!actual?.foto_miniatura_url) {
+      const datosFoto = new FormData();
+      datosFoto.set("ejercicio_id", ejercicioId);
+      datosFoto.set("foto_url", `https://img.youtube.com/vi/${idYoutube}/hqdefault.jpg`);
+      // Best-effort: si la miniatura falla, el video ya quedó guardado igual
+      // (línea de arriba) — no tiene sentido devolver error por esto.
+      await subirFotoEjercicio({ error: null, ok: false }, datosFoto);
+    }
+  }
+
+  avisarCambios();
+  return { error: null, ok: true };
+}
+
+export type QuitarVideoState = { error: string | null; ok: boolean };
+
+export async function quitarVideoEjercicio(
+  _prevState: QuitarVideoState,
+  formData: FormData
+): Promise<QuitarVideoState> {
+  await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+
+  const { error } = await supabase.from("ejercicios").update({ video_url: null }).eq("id", ejercicioId);
+  if (error) return { error: "No se pudo quitar el video. Probá de nuevo.", ok: false };
 
   avisarCambios();
   return { error: null, ok: true };
