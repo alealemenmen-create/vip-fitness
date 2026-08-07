@@ -110,6 +110,17 @@ export async function subirFotoEjercicio(
 
   if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
 
+  // Se guardan las rutas viejas ANTES de subir nada nuevo, para poder
+  // borrarlas al final si esto resulta ser un reemplazo (no la primera foto).
+  // Sin esto, cada vez que se reemplaza una foto el archivo anterior queda
+  // huérfano en Storage para siempre — el nombre siempre lleva un timestamp
+  // nuevo (ver más abajo), así que nunca se pisa solo.
+  const { data: fotoAnterior } = await supabase
+    .from("ejercicios")
+    .select("foto_miniatura_url, foto_completa_url")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+
   let bytes: Buffer;
   if (archivo && archivo.size > 0) {
     if (archivo.size > TAMANO_MAXIMO) return { error: "La foto pesa demasiado (máx. 15 MB).", ok: false };
@@ -166,6 +177,18 @@ export async function subirFotoEjercicio(
 
   if (errorUpdate) {
     return { error: "La foto se subió pero no se pudo guardar en el ejercicio.", ok: false };
+  }
+
+  // Recién ahora, con la foto nueva ya guardada y confirmada en la fila del
+  // ejercicio, se borran los archivos viejos — best-effort: si esto falla
+  // (permisos, ya no existían), la foto nueva ya quedó bien de todos modos,
+  // no tiene sentido devolver error por un archivo huérfano.
+  const rutasViejas = [fotoAnterior?.foto_miniatura_url, fotoAnterior?.foto_completa_url]
+    .filter((url): url is string => !!url)
+    .map((url) => url.split("/ejercicios-fotos/")[1])
+    .filter((ruta): ruta is string => !!ruta && ruta !== rutaMini && ruta !== rutaCompleta);
+  if (rutasViejas.length > 0) {
+    await supabase.storage.from("ejercicios-fotos").remove(rutasViejas);
   }
 
   avisarCambios();
