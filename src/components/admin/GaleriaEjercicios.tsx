@@ -8,7 +8,6 @@ import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import {
   subirFotoEjercicio,
-  subirFotoAlmacen,
   crearEjercicioNuevo,
   actualizarNombreEjercicio,
   desactivarEjercicio,
@@ -265,8 +264,14 @@ type FotoSubidaCliente = { miniaturaUrl: string; completaUrl: string };
  * (la foto es opcional, así que el servidor no tenía forma de distinguir
  * "no eligió foto" de "la eligió pero se perdió"). Subiendo apenas se elige,
  * mientras el archivo todavía es válido, se saca ese riesgo del medio: lo
- * que se manda al guardar es la URL ya subida (`subirFotoAlmacen` en
- * actions.ts), nunca el archivo de nuevo.
+ * que se manda al guardar es la URL ya subida, nunca el archivo de nuevo.
+ *
+ * La subida en sí va por un `fetch` normal a una ruta de verdad
+ * (`/api/admin/ejercicios/foto`), NO por un Server Action llamado directo:
+ * las fotos mandadas por un Server Action así llegaban corruptas a Storage
+ * (confirmado byte a byte) — el archivo viaja envuelto en el protocolo RSC
+ * de Next en ese camino, y algo ahí lo alteraba. Un POST común, con el
+ * archivo tal cual en el cuerpo, no tiene ese problema.
  */
 function useFotoInmediata() {
   const [archivoElegido, setArchivoElegido] = useState<File | null>(null);
@@ -283,7 +288,9 @@ function useFotoInmediata() {
     try {
       const fd = new FormData();
       fd.set("foto", archivo);
-      const resultado = await subirFotoAlmacen(fd);
+      const respuesta = await fetch("/api/admin/ejercicios/foto", { method: "POST", body: fd });
+      const resultado: { ok: true; miniaturaUrl: string; completaUrl: string } | { ok: false; error: string } =
+        await respuesta.json();
       if (resultado.ok) {
         setFotoSubida({ miniaturaUrl: resultado.miniaturaUrl, completaUrl: resultado.completaUrl });
       } else {

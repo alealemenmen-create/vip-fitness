@@ -1,17 +1,13 @@
 "use server";
 
-import sharp from "sharp";
-import { randomUUID } from "node:crypto";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { TAG_BIBLIOTECA_EJERCICIOS } from "@/lib/ejercicios/data";
 import { idDeYoutube } from "@/lib/ejercicios/video";
+import { procesarImagen, TAMANO_MAXIMO_FOTO as TAMANO_MAXIMO, TIPOS_IMAGEN } from "@/lib/ejercicios/procesarFoto";
 import type { CategoriaEjercicio, EquipoEjercicio, NivelEjercicio } from "@/lib/ejercicios/tipos";
 import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
-
-const TAMANO_MAXIMO = 15 * 1024 * 1024; // 15 MB, la foto sin procesar del celular.
-const TIPOS_IMAGEN = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 
 /** Bloquea que el link pegado apunte a la red interna del servidor (SSRF) —
  * localhost, IPs privadas, o el endpoint de metadata de la nube. El link lo
@@ -79,92 +75,6 @@ function avisarCambios() {
   revalidatePath("/alumno/entrenar/[id]", "page");
 }
 
-/**
- * Redimensiona una foto a las dos versiones que usa toda la app — miniatura
- * cuadrada (500x500, recortada, para la tarjetita) y completa (1400px de
- * ancho, sin recortar, para el visor ampliado) — a partir de la MISMA foto,
- * nunca dos fotos distintas. `.rotate()` sin argumentos aplica la
- * orientación EXIF del celular, así la foto queda derecha sin depender de
- * que el navegador la interprete. Compartido entre `subirFotoAlmacen` (la
- * subida inmediata) y `subirFotoEjercicio` (el respaldo con link pegado).
- */
-async function procesarImagen(
-  bytes: Buffer
-): Promise<{ miniatura: Buffer; completa: Buffer } | { error: string }> {
-  try {
-    const base = sharp(bytes).rotate();
-    const [miniatura, completa] = await Promise.all([
-      base.clone().resize({ width: 500, height: 500, fit: "cover" }).webp({ quality: 80 }).toBuffer(),
-      base.clone().resize({ width: 1400, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer(),
-    ]);
-    return { miniatura, completa };
-  } catch {
-    return { error: "No se pudo procesar esa foto — probá con otra." };
-  }
-}
-
-export type FotoSubidaResultado =
-  | { ok: true; miniaturaUrl: string; completaUrl: string }
-  | { ok: false; error: string };
-
-/**
- * Sube una foto a Storage YA, sin vincularla todavía a ningún ejercicio —
- * se llama apenas se elige/saca la foto (dentro del `onChange` del selector
- * en el cliente), antes de que el entrenador termine de llenar el resto del
- * formulario o toque "Guardar".
- *
- * Por qué existe: en iPhone, elegir "Cámara" en el selector manda Safari a
- * segundo plano mientras la app Cámara está abierta — hay un problema
- * conocido de WebKit donde, al volver, la referencia al archivo elegido
- * puede llegar vacía (0 bytes) más adelante, aunque la vista previa se haya
- * visto bien un instante antes. Antes, el archivo se guardaba en estado de
- * React y recién se mandaba al servidor al tocar "Guardar" — si para ese
- * momento WebKit ya invalidó el archivo, la foto se perdía en silencio (el
- * ejercicio se creaba/guardaba igual, sin foto, sin ningún aviso, porque la
- * foto es opcional). Subiendo la foto DE INMEDIATO, mientras el archivo
- * todavía es válido, se saca esa ventana de riesgo del medio: lo que se
- * manda al tocar "Guardar" es solo la URL ya subida, nunca el archivo de
- * nuevo (ver `foto_miniatura_url_subida`/`foto_completa_url_subida` en
- * `subirFotoEjercicio`).
- *
- * Queda en una carpeta `sueltas/<id al azar>` porque en este momento todavía
- * no existe (o no se conoce) el id del ejercicio al que va a terminar
- * vinculada — no hace falta moverla después, la URL ya es la definitiva.
- */
-export async function subirFotoAlmacen(formData: FormData): Promise<FotoSubidaResultado> {
-  await requireRol(["entrenador", "admin"]);
-
-  const archivo = formData.get("foto") as File | null;
-  if (!archivo || archivo.size === 0) return { ok: false, error: "No se recibió ningún archivo." };
-  if (archivo.size > TAMANO_MAXIMO) return { ok: false, error: "La foto pesa demasiado (máx. 15 MB)." };
-  if (archivo.type && !TIPOS_IMAGEN.has(archivo.type)) {
-    return { ok: false, error: "Formato no soportado — subí una foto JPG, PNG o HEIC." };
-  }
-
-  const bytes = Buffer.from(await archivo.arrayBuffer());
-  const procesada = await procesarImagen(bytes);
-  if ("error" in procesada) return { ok: false, error: procesada.error };
-
-  const supabase = await createClient();
-  const carpeta = `sueltas/${randomUUID()}`;
-  const rutaMini = `${carpeta}/miniatura.webp`;
-  const rutaCompleta = `${carpeta}/completa.webp`;
-
-  const [subeMini, subeCompleta] = await Promise.all([
-    supabase.storage.from("ejercicios-fotos").upload(rutaMini, procesada.miniatura, { contentType: "image/webp" }),
-    supabase.storage.from("ejercicios-fotos").upload(rutaCompleta, procesada.completa, { contentType: "image/webp" }),
-  ]);
-  if (subeMini.error || subeCompleta.error) {
-    return { ok: false, error: "No se pudo subir la foto. Revisá tu conexión e intentá de nuevo." };
-  }
-
-  return {
-    ok: true,
-    miniaturaUrl: supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaMini).data.publicUrl,
-    completaUrl: supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaCompleta).data.publicUrl,
-  };
-}
-
 export type SubirFotoState = { error: string | null; ok: boolean };
 
 /**
@@ -172,8 +82,8 @@ export type SubirFotoState = { error: string | null; ok: boolean };
  * biblioteca. Tres orígenes posibles para la foto, en este orden de
  * prioridad:
  *   1. `foto_miniatura_url_subida`/`foto_completa_url_subida` — ya subida de
- *      antemano por `subirFotoAlmacen` (el camino normal desde
- *      GaleriaEjercicios.tsx, ver el comentario ahí).
+ *      antemano por `POST /api/admin/ejercicios/foto` (el camino normal
+ *      desde GaleriaEjercicios.tsx, ver el comentario en esa ruta).
  *   2. `foto` — un archivo mandado directo (respaldo, por si el paso 1
  *      fallara del lado del cliente).
  *   3. `foto_url` — un link pegado a mano, para descargar server-side.
