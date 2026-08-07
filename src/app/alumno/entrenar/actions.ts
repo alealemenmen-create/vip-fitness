@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { requireAlumno } from "@/lib/auth";
@@ -446,7 +446,7 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
 
   // Finalizar una sesión cambia los puntos de asistencia: el ranking cacheado
   // tiene que rehacerse ahora, no cuando venza solo.
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
@@ -474,7 +474,7 @@ export async function reabrirSesion(formData: FormData): Promise<void> {
   await desactivarEntrenamiento(alumnoId, sesionId, sesion.fecha);
 
   // Reabrir devuelve el cupo de la sesión, así que también mueve los puntos.
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
@@ -507,7 +507,7 @@ export async function abandonarSesion(formData: FormData): Promise<void> {
   await supabase.from("sesiones_entrenamiento").update({ estado: "abandonada" }).eq("id", sesionId);
   await abandonarEntrenamiento(alumnoId, sesionId, sesion.fecha);
 
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/entrenar/historial");
   revalidatePath("/alumno/inicio");
@@ -629,5 +629,5 @@ export async function penalizarExcesoDescanso(
     tramosExcedidos,
     fecha: hoyISO(),
   });
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRol } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
@@ -276,7 +276,7 @@ export async function cerrarTorneo(_prevState: FormState, formData: FormData): P
   }
 
   // El premio entra como movimiento auditable en semana, mes, año y acumulado.
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/admin/torneos");
   revalidatePath("/alumno/ranked");
   revalidatePath("/alumno/inicio");
@@ -308,7 +308,7 @@ export async function eliminarTorneo(_prevState: FormState, formData: FormData):
   const { error } = await admin.from("torneos").delete().eq("id", torneoId);
   if (error) return fail("No se pudo eliminar la competencia. Intenta nuevamente.");
 
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/admin/torneos");
   revalidatePath("/alumno/ranked");
   revalidatePath("/alumno/inicio");

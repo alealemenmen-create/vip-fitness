@@ -1,7 +1,7 @@
 "use server";
 
 import sharp from "sharp";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { TAG_BIBLIOTECA_EJERCICIOS } from "@/lib/ejercicios/data";
@@ -70,7 +70,7 @@ function avisarCambios() {
   // Mismo aviso que usa cualquier edición de la biblioteca (ver
   // src/lib/ejercicios/data.ts): sin esto el cambio tarda hasta 1h en
   // aparecer para los alumnos, por el cacheo de `obtenerBiblioteca`.
-  updateTag(TAG_BIBLIOTECA_EJERCICIOS);
+  revalidateTag(TAG_BIBLIOTECA_EJERCICIOS, { expire: 0 });
   revalidatePath("/admin/ejercicios");
   revalidatePath("/alumno/entrenar");
   revalidatePath("/alumno/entrenar/[id]", "page");

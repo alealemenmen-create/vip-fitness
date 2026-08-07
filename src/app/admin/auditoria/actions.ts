@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRol } from "@/lib/auth";
 import { guardarMovimiento } from "@/lib/ranking/movimientos";
@@ -112,7 +112,7 @@ export async function penalizarHallazgo(prevState: FormState, formData: FormData
     revisorId: sesion.userId,
   });
 
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/admin/auditoria");
   revalidatePath(`/admin/alumnos/${alumnoId}`);
   return okState;

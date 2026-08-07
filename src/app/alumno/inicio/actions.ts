@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAlumno } from "@/lib/auth";
@@ -58,7 +58,7 @@ export async function guardarSeguimiento(
     };
   }
 
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/inicio");
   return { error: null, guardado: true };
 }

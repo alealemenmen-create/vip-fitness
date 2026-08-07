@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
@@ -70,7 +70,7 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
   if (error) return fail("No fue posible guardar el peso. Revisa tu conexión e intenta nuevamente.");
 
   const puntos = await registrarPeso(alumnoId, fecha);
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
   revalidatePath("/alumno/inicio");
   return { ...okState, puntos };
@@ -87,7 +87,7 @@ export async function eliminarPeso(pesoId: string): Promise<void> {
     .maybeSingle();
   await supabase.from("pesos_corporales").delete().eq("id", pesoId);
   if (peso?.fecha) await recalcularPesoSemana(alumnoId, peso.fecha);
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
   revalidatePath("/alumno/inicio");
 }
@@ -180,7 +180,7 @@ export async function subirFotoProgreso(
   if (errorInsert) return fail("La foto se subió, pero no fue posible registrarla.");
 
   const puntos = await registrarFoto(alumnoId, fechaFoto);
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
   revalidatePath("/alumno/inicio");
   return { ...okState, puntos };
@@ -198,7 +198,7 @@ export async function eliminarFotoProgreso(fotoId: string, storagePath: string):
   await supabase.storage.from("fotos-progreso").remove([storagePath]);
   await supabase.from("fotos_progreso").delete().eq("id", fotoId);
   if (foto?.fecha_foto) await recalcularFotoSemana(alumnoId, foto.fecha_foto);
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
   revalidatePath("/alumno/inicio");
 }

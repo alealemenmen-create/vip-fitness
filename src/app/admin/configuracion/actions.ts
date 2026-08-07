@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TAG_CONFIG_SUPERVISION } from "@/lib/configuracion/supervision";
@@ -83,7 +83,7 @@ export async function actualizarConfiguracionReconocimientos(
 
   // Los umbrales del semáforo van cacheados: sin esto, el entrenador guardaba
   // y seguía viendo el panel con los valores viejos.
-  updateTag(TAG_CONFIG_SUPERVISION);
+  revalidateTag(TAG_CONFIG_SUPERVISION, { expire: 0 });
   revalidatePath("/admin/configuracion");
   revalidatePath("/admin/alumnos");
   return { ok: true, mensaje: "Configuración guardada." };
@@ -149,7 +149,7 @@ export async function actualizarConfiguracionRegistro(
 
   // La configuración del registro va cacheada por etiqueta: sin esto, la
   // pantalla pública seguiría mostrando lo anterior.
-  updateTag(TAG_CONFIG_REGISTRO);
+  revalidateTag(TAG_CONFIG_REGISTRO, { expire: 0 });
   revalidatePath("/admin/configuracion");
   revalidatePath("/registro");
   revalidatePath("/login");

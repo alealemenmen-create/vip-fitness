@@ -1,11 +1,13 @@
 import { requireRol } from "@/lib/auth";
-import { obtenerBiblioteca } from "@/lib/ejercicios/data";
+import { obtenerBibliotecaSinCache } from "@/lib/ejercicios/data";
 import { GaleriaEjercicios } from "@/components/admin/GaleriaEjercicios";
 import { TituloPestana } from "@/components/admin/TituloPestana";
 
 export default async function EjerciciosAdminPage() {
   await requireRol(["entrenador", "admin"]);
-  const biblioteca = await obtenerBiblioteca();
+  // Sin caché a propósito — ver `obtenerBibliotecaSinCache`: esta es la
+  // pantalla donde el entrenador acaba de subir una foto y tiene que verla.
+  const biblioteca = await obtenerBibliotecaSinCache();
 
   return (
     <div className="space-y-4 pb-4">

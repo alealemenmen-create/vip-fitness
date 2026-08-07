@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAlumno } from "@/lib/auth";
@@ -159,7 +159,7 @@ export async function agregarAlimentoAComida(
       .is("registrado_en", null);
 
     const puntos = await recalcularAlimentacionDia(quien.alumnoId, fecha);
-    updateTag(TAG_RANKING);
+    revalidateTag(TAG_RANKING, { expire: 0 });
     revalidatePath(`/alumno/comer/${fecha}`);
     revalidatePath("/alumno/inicio");
     return { error: null, puntos };
@@ -198,7 +198,7 @@ export async function eliminarComida(comidaId: string, fecha: string): Promise<C
     if (error) return { error: "No fue posible eliminar la comida." };
 
     await recalcularAlimentacionDia(quien.alumnoId, fecha);
-    updateTag(TAG_RANKING);
+    revalidateTag(TAG_RANKING, { expire: 0 });
     revalidatePath(`/alumno/comer/${fecha}`);
     revalidatePath("/alumno/inicio");
     return { error: null };
@@ -512,7 +512,7 @@ export async function quitarAlimentoDeComida(alimentoConsumidoId: string, fecha:
   const supabase = await createClient();
   await supabase.from("alimentos_consumidos").delete().eq("id", alimentoConsumidoId);
   await recalcularAlimentacionDia(quien.alumnoId, fecha);
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/comer/${fecha}`);
   revalidatePath("/alumno/inicio");
 }
@@ -541,7 +541,7 @@ export async function actualizarCantidadAlimento(
   if (error) return { error: "No fue posible actualizar la cantidad." };
 
   const puntos = await recalcularAlimentacionDia(quien.alumnoId, fecha);
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/comer/${fecha}`);
   revalidatePath("/alumno/inicio");
   return { error: null, puntos };
@@ -560,7 +560,7 @@ export async function marcarComidaOmitida(
 
   await supabase.from("comidas_registradas").update({ omitida }).eq("id", comidaId);
   await recalcularAlimentacionDia(quien.alumnoId, fecha);
-  updateTag(TAG_RANKING);
+  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/comer/${fecha}`);
   revalidatePath("/alumno/inicio");
 }
