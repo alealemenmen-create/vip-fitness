@@ -48,18 +48,29 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
   // página a mano — confuso justo después de ver "Foto actualizada". Ahora
   // se reintenta una vez, con una pequeña demora, antes de darse por
   // vencido y caer al placeholder neutro.
+  //
+  // El "cache-buster" del reintento tiene que ser realmente único
+  // (Date.now(), no un contador chico tipo 1, 2, 3...): Safari puede guardar
+  // en caché esa primera respuesta fallida, y una recarga de página nueva
+  // vuelve a pedir exactamente la misma URL sin el "?r=" (el estado del
+  // reintento se resetea) — con un contador chico, el reintento de ESA
+  // sesión nueva puede terminar pidiendo un "?r=1" que ya se había intentado
+  // y fallado en una sesión anterior, chocando con esa misma caché vieja.
+  // Un timestamp nunca se repite entre sesiones.
   const [erroresFoto, setErroresFoto] = useState<ReadonlySet<string>>(new Set());
-  const [reintentos, setReintentos] = useState<Readonly<Record<string, number>>>({});
+  // Solo se lee dentro de su propio updater funcional (más abajo) — no hace
+  // falta la variable de lectura acá afuera.
+  const [, setYaReintentado] = useState<ReadonlySet<string>>(new Set());
+  const [cacheBuster, setCacheBuster] = useState<Readonly<Record<string, number>>>({});
 
   function onErrorFoto(id: string) {
-    setReintentos((prev) => {
-      const intento = prev[id] ?? 0;
-      if (intento >= 1) {
+    setYaReintentado((prev) => {
+      if (prev.has(id)) {
         setErroresFoto((s) => new Set(s).add(id));
         return prev;
       }
-      setTimeout(() => setReintentos((p) => ({ ...p, [id]: intento + 1 })), 1500);
-      return prev;
+      setTimeout(() => setCacheBuster((c) => ({ ...c, [id]: Date.now() })), 1500);
+      return new Set(prev).add(id);
     });
   }
 
@@ -107,10 +118,11 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
       <div className="grid grid-cols-2 gap-2.5">
         {filtrados.map((ej) => {
           const fotoBase = erroresFoto.has(ej.id) ? null : fotoDe(ej);
-          const intento = reintentos[ej.id] ?? 0;
-          // El "?r=N" fuerza a next/image a pedirla de nuevo en vez de repetir
-          // el mismo fallo cacheado — solo se agrega a partir del reintento.
-          const foto = fotoBase && intento > 0 ? `${fotoBase}?r=${intento}` : fotoBase;
+          const buster = cacheBuster[ej.id];
+          // El "?r=<timestamp>" fuerza a next/image a pedirla de nuevo en vez
+          // de repetir el mismo fallo cacheado — solo se agrega a partir del
+          // reintento, y con un valor que nunca choca con uno de antes.
+          const foto = fotoBase && buster ? `${fotoBase}?r=${buster}` : fotoBase;
           return (
             <button
               key={ej.id}
