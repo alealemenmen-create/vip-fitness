@@ -2,25 +2,27 @@
 
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { idDeYoutube } from "@/lib/ejercicios/video";
+import type { FuenteVideo } from "@/lib/ejercicios/video";
 
 /**
- * Reproductor de video de referencia — YouTube (embebido) o un archivo de
- * video directo (`<video>` nativo). Mismo look que el visor de foto ampliada
- * (`FotoReferenciaAmpliable` en SesionEjercicioCard.tsx): fondo oscuro a toda
- * pantalla, tocar afuera cierra.
+ * Reproductor de video de referencia. La decisión de QUÉ mostrar (Cloudflare
+ * Stream, YouTube embebido, o un archivo directo) ya viene resuelta desde
+ * `resolverFuenteVideo` (lib/ejercicios/video.ts) — este componente solo
+ * sabe pintar un `FuenteVideo`, no conoce las prioridades entre orígenes.
+ *
+ * Mismo look que el visor de foto ampliada (`FotoReferenciaAmpliable` en
+ * SesionEjercicioCard.tsx): fondo oscuro a toda pantalla, tocar afuera
+ * cierra.
  */
 export function ModalVideo({
-  videoUrl,
+  fuente,
   nombre,
   onCerrar,
 }: {
-  videoUrl: string;
+  fuente: FuenteVideo;
   nombre: string;
   onCerrar: () => void;
 }) {
-  const idYoutube = idDeYoutube(videoUrl);
-
   return createPortal(
     <div
       role="dialog"
@@ -32,9 +34,9 @@ export function ModalVideo({
         className="relative aspect-video w-full max-w-md animate-visor-foto"
         onClick={(e) => e.stopPropagation()}
       >
-        {idYoutube ? (
+        {fuente.tipo === "iframe" ? (
           <iframe
-            src={`https://www.youtube.com/embed/${idYoutube}?autoplay=1&playsinline=1`}
+            src={fuente.src}
             title={`Video de referencia de ${nombre}`}
             className="h-full w-full rounded-xl"
             allow="autoplay; encrypted-media; picture-in-picture"
@@ -42,7 +44,7 @@ export function ModalVideo({
           />
         ) : (
           <video
-            src={videoUrl}
+            src={fuente.src}
             controls
             autoPlay
             playsInline

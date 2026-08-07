@@ -771,6 +771,9 @@ export interface Database {
           // /admin/ejercicios, mandan sobre `ilustracion_slug` cuando existen.
           foto_miniatura_url: string | null;
           foto_completa_url: string | null;
+          // 0048_video_cloudflare_stream.sql
+          video_cloudflare_uid: string | null;
+          video_cloudflare_listo: boolean;
           activo: boolean;
           created_at: string;
         };
@@ -818,6 +821,8 @@ export interface Database {
           tempo_origen?: "ia" | "entrenador" | null;
           foto_miniatura_url?: string | null;
           foto_completa_url?: string | null;
+          video_cloudflare_uid?: string | null;
+          video_cloudflare_listo?: boolean;
           activo?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["ejercicios"]["Insert"]>;

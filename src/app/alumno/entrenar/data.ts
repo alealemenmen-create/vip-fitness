@@ -5,6 +5,7 @@ import { mesActualISO } from "@/lib/date";
 import { resolverTempo, type Tempo } from "@/lib/ejercicios/tempo";
 import { emparejarEjercicio } from "@/lib/ejercicios/emparejar";
 import { obtenerBiblioteca } from "@/lib/ejercicios/data";
+import { urlEmbedCloudflare } from "@/lib/cloudflare/stream";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -327,6 +328,11 @@ export type EjercicioSesion = {
    * /admin/ejercicios (ver `guardarVideoEjercicio`). Cuando existe, la
    * referencia del ejercicio abre el video en vez de solo ampliar la foto. */
   videoUrl: string | null;
+  /** Video subido de verdad a Cloudflare Stream, ya resuelto a su URL de
+   * reproducción (ver `urlEmbedCloudflare`) — null si no hay uno subido, o
+   * si Cloudflare todavía no terminó de procesarlo. Gana sobre `videoUrl`
+   * cuando los dos existen (ver `resolverFuenteVideo`). */
+  urlEmbedIframe: string | null;
   /** Cuánto dura cada fase de la repetición. Null cuando ni la rutina lo trae
    * escrito ni la biblioteca lo tiene calculado todavía. */
   tempo: Tempo | null;
@@ -418,6 +424,10 @@ export async function obtenerSesionCompleta(
     tecnica?: string | null;
     foto_miniatura_url?: string | null;
     foto_completa_url?: string | null;
+    // Migración 0048 — mismo nivel de resguardo que las fotos (0042): recién
+    // agregada, puede no haber corrido todavía en este entorno.
+    video_cloudflare_uid?: string | null;
+    video_cloudflare_listo?: boolean | null;
   };
 
   type FilaSesionEjercicio = {
@@ -446,7 +456,7 @@ export async function obtenerSesionCompleta(
   // biblioteca (0026), y pelado. Cada migración que todavía no haya corrido
   // se degrada sola en vez de dejar al alumno sin pantalla de entrenamiento.
   const intentoConFotos = await consultarEjercicios(
-    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url, tempo, tempo_nota, tecnica, foto_miniatura_url, foto_completa_url)`
+    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url, tempo, tempo_nota, tecnica, foto_miniatura_url, foto_completa_url, video_cloudflare_uid, video_cloudflare_listo)`
   );
   const intento = intentoConFotos.error
     ? await consultarEjercicios(
@@ -531,6 +541,13 @@ export async function obtenerSesionCompleta(
     let fotoMiniaturaUrl = dellaBiblioteca?.foto_miniatura_url ?? null;
     let fotoCompletaUrl = dellaBiblioteca?.foto_completa_url ?? null;
     let videoUrl = dellaBiblioteca?.video_url ?? null;
+    // Solo se resuelve a una URL de reproducción cuando Cloudflare ya avisó
+    // (por webhook) que terminó de procesar el video — mientras tanto,
+    // `resolverFuenteVideo` cae solo al link externo si hay uno.
+    let urlEmbedIframe =
+      dellaBiblioteca?.video_cloudflare_uid && dellaBiblioteca?.video_cloudflare_listo
+        ? urlEmbedCloudflare(dellaBiblioteca.video_cloudflare_uid)
+        : null;
 
     // Respaldo: el ejercicio de esta rutina puede haber quedado sin vincular
     // (o vinculado a una entrada sin foto todavía) porque cuando se importó
@@ -547,6 +564,10 @@ export async function obtenerSesionCompleta(
         fotoMiniaturaUrl = emparejado.fotoMiniaturaUrl;
         fotoCompletaUrl = emparejado.fotoCompletaUrl;
         videoUrl = emparejado.videoUrl;
+        urlEmbedIframe =
+          emparejado.videoCloudflareUid && emparejado.videoCloudflareListo
+            ? urlEmbedCloudflare(emparejado.videoCloudflareUid)
+            : null;
       }
     }
 
@@ -567,6 +588,7 @@ export async function obtenerSesionCompleta(
       fotoMiniaturaUrl,
       fotoCompletaUrl,
       videoUrl,
+      urlEmbedIframe,
       // Lo que el entrenador escribió en la rutina gana sobre lo que dedujo la
       // IA para la biblioteca. Ver src/lib/ejercicios/tempo.ts.
       tempo: resolverTempo(

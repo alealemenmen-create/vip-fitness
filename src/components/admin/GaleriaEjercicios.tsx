@@ -13,6 +13,8 @@ import {
   desactivarEjercicio,
   guardarVideoEjercicio,
   quitarVideoEjercicio,
+  iniciarSubidaVideoCloudflare,
+  quitarVideoCloudflare,
 } from "@/app/admin/ejercicios/actions";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
@@ -137,10 +139,16 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
                   <span className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm">
                     <Camera size={13} />
                   </span>
-                  {ej.videoUrl && (
+                  {(ej.videoUrl || ej.videoCloudflareUid) && (
                     <span
-                      title="Tiene video de referencia"
-                      className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-vip backdrop-blur-sm"
+                      title={
+                        ej.videoCloudflareUid && !ej.videoCloudflareListo
+                          ? "Video subido a Cloudflare, procesando"
+                          : "Tiene video de referencia"
+                      }
+                      className={`absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm ${
+                        ej.videoCloudflareUid && !ej.videoCloudflareListo ? "text-text-tertiary" : "text-vip"
+                      }`}
                     >
                       <Play size={11} fill="currentColor" />
                     </span>
@@ -415,6 +423,109 @@ function EditorVideo({ ejercicio }: { ejercicio: Ejercicio }) {
   );
 }
 
+const ESTADO_INICIAL_QUITAR_CLOUDFLARE = { error: null, ok: false };
+
+/**
+ * Subir el ARCHIVO de video de verdad, vía Cloudflare Stream — a diferencia
+ * de `EditorVideo` (que solo guarda un link), esto sí sube el archivo, pero
+ * nunca pasa por nuestro servidor ni lo decodifica el celular del
+ * entrenador: `iniciarSubidaVideoCloudflare` le pide a Cloudflare una URL de
+ * subida de un solo uso, y el navegador le manda el archivo DIRECTO a esa
+ * URL. Mismo motivo por el que las fotos casi rompen la app entera al
+ * intentar procesarlas del lado del celular — un video pesa mucho más, así
+ * que ni se lo intenta.
+ *
+ * Requiere que el entorno tenga configuradas las variables de Cloudflare
+ * (ver `src/lib/cloudflare/stream.ts`) — si no, `iniciarSubidaVideoCloudflare`
+ * devuelve un error claro en vez de fallar sin explicación.
+ */
+function EditorVideoCloudflare({ ejercicio }: { ejercicio: Ejercicio }) {
+  const [subiendo, setSubiendo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [estadoQuitar, accionQuitar, pendingQuitar] = useActionState(
+    quitarVideoCloudflare,
+    ESTADO_INICIAL_QUITAR_CLOUDFLARE
+  );
+
+  async function subirArchivo(archivo: File) {
+    setError(null);
+    setSubiendo(true);
+    try {
+      const inicio = await iniciarSubidaVideoCloudflare(ejercicio.id);
+      if (!inicio.ok) {
+        setError(inicio.error);
+        return;
+      }
+      // Subida directa a Cloudflare: `uploadURL` acepta un POST simple con
+      // el archivo en un campo "file" — el archivo nunca toca nuestro
+      // servidor, va del navegador del entrenador directo a Cloudflare.
+      const datos = new FormData();
+      datos.set("file", archivo);
+      const respuesta = await fetch(inicio.uploadURL, { method: "POST", body: datos });
+      if (!respuesta.ok) {
+        setError("El video no llegó a Cloudflare. Probá de nuevo.");
+      }
+      // No hace falta hacer nada más acá: Cloudflare procesa el video en
+      // segundo plano y avisa por webhook cuando está listo (ver
+      // /api/webhooks/cloudflare-stream), que es lo que pone
+      // `videoCloudflareListo` en true.
+    } catch {
+      setError("No se pudo subir el video. Revisá tu conexión e intentá de nuevo.");
+    } finally {
+      setSubiendo(false);
+    }
+  }
+
+  const tieneVideo = !!ejercicio.videoCloudflareUid;
+
+  return (
+    <div className="space-y-1.5">
+      <span className="text-caption block text-text-tertiary">
+        Video de referencia — subir el archivo de verdad (Cloudflare Stream)
+      </span>
+      {tieneVideo && (
+        <p className="text-caption text-text-secondary">
+          {ejercicio.videoCloudflareListo
+            ? "✓ Video subido y listo para reproducirse."
+            : "Video subido — Cloudflare todavía lo está procesando, puede tardar unos minutos."}
+        </p>
+      )}
+      <label
+        className={`radius-control flex h-9 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text ${
+          subiendo ? "opacity-60" : "cursor-pointer"
+        }`}
+      >
+        {subiendo ? "Subiendo..." : tieneVideo ? "Reemplazar el archivo de video" : "Subir archivo de video"}
+        <input
+          type="file"
+          accept="video/*"
+          className="hidden"
+          disabled={subiendo}
+          onChange={(e) => {
+            const archivo = e.target.files?.[0];
+            if (archivo) void subirArchivo(archivo);
+          }}
+        />
+      </label>
+      {error && <p className="text-caption text-error">{error}</p>}
+
+      {tieneVideo && (
+        <form action={accionQuitar}>
+          <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+          {estadoQuitar.error && <p className="text-caption mb-1 text-error">{estadoQuitar.error}</p>}
+          <button
+            type="submit"
+            disabled={pendingQuitar}
+            className="text-caption font-medium text-text-tertiary disabled:opacity-60"
+          >
+            {pendingQuitar ? "Quitando..." : "Quitar video de Cloudflare"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 function ModalSubirFoto({
   ejercicio,
   fotoActual,
@@ -536,6 +647,10 @@ function ModalSubirFoto({
 
       <div className="mt-4 border-t border-border pt-3">
         <EditorVideo ejercicio={ejercicio} />
+      </div>
+
+      <div className="mt-4 border-t border-border pt-3">
+        <EditorVideoCloudflare ejercicio={ejercicio} />
       </div>
 
       <div className="mt-4 border-t border-border pt-3">

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { TAG_BIBLIOTECA_EJERCICIOS } from "@/lib/ejercicios/data";
 import { idDeYoutube } from "@/lib/ejercicios/video";
+import { solicitarSubidaDirecta } from "@/lib/cloudflare/stream";
 import type { CategoriaEjercicio, EquipoEjercicio, NivelEjercicio } from "@/lib/ejercicios/tipos";
 import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
 
@@ -422,6 +423,62 @@ export async function quitarVideoEjercicio(
   if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
 
   const { error } = await supabase.from("ejercicios").update({ video_url: null }).eq("id", ejercicioId);
+  if (error) return { error: "No se pudo quitar el video. Probá de nuevo.", ok: false };
+
+  avisarCambios();
+  return { error: null, ok: true };
+}
+
+export type IniciarSubidaCloudflareResultado = { ok: true; uploadURL: string } | { ok: false; error: string };
+
+/**
+ * Primer paso para subir un video de verdad (no solo un link) a un
+ * ejercicio: pide a Cloudflare Stream una URL de subida directa y de un solo
+ * uso, y vincula el `uid` que devuelve al ejercicio DE INMEDIATO — antes de
+ * que el archivo termine de subirse. Así el ejercicio ya queda marcado como
+ * "tiene un video en camino" (`video_cloudflare_listo: false`) aunque la
+ * subida en sí la haga el navegador del entrenador directo contra
+ * Cloudflare, sin pasar por acá (ver `subirVideoCloudflare` en
+ * GaleriaEjercicios.tsx) — este servidor nunca toca los bytes del video.
+ *
+ * No es un `useActionState` porque no envuelve un `<form>`: se llama directo
+ * desde el cliente antes de hacer el `fetch` de subida, igual que
+ * `programarAvisoDescanso` en push-actions.ts.
+ */
+export async function iniciarSubidaVideoCloudflare(ejercicioId: string): Promise<IniciarSubidaCloudflareResultado> {
+  await requireRol(["entrenador", "admin"]);
+  if (!ejercicioId) return { ok: false, error: "Falta el ejercicio." };
+
+  const resultado = await solicitarSubidaDirecta();
+  if ("error" in resultado) return { ok: false, error: resultado.error };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ejercicios")
+    .update({ video_cloudflare_uid: resultado.uid, video_cloudflare_listo: false })
+    .eq("id", ejercicioId);
+  if (error) return { ok: false, error: "No se pudo vincular el video al ejercicio." };
+
+  avisarCambios();
+  return { ok: true, uploadURL: resultado.uploadURL };
+}
+
+export type QuitarVideoCloudflareState = { error: string | null; ok: boolean };
+
+export async function quitarVideoCloudflare(
+  _prevState: QuitarVideoCloudflareState,
+  formData: FormData
+): Promise<QuitarVideoCloudflareState> {
+  await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+
+  const { error } = await supabase
+    .from("ejercicios")
+    .update({ video_cloudflare_uid: null, video_cloudflare_listo: false })
+    .eq("id", ejercicioId);
   if (error) return { error: "No se pudo quitar el video. Probá de nuevo.", ok: false };
 
   avisarCambios();

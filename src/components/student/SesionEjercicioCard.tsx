@@ -29,6 +29,7 @@ import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { ModalVideo } from "@/components/student/ModalVideo";
 import { resolverIlustracion, resolverFotoCompleta } from "@/lib/ejercicios/ilustracion";
+import { resolverFuenteVideo, type FuenteVideo } from "@/lib/ejercicios/video";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { repsObjetivo, esEjercicioDeTiempo } from "@/lib/entrenamiento/reps";
 import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
@@ -85,6 +86,7 @@ export function CuadroFotoReferencia({
   fotoMiniaturaUrl,
   fotoCompletaUrl,
   videoUrl,
+  urlEmbedIframe,
   nombre,
   compacto = false,
 }: {
@@ -93,10 +95,16 @@ export function CuadroFotoReferencia({
    * estática cuando existen (ver migración 0042). */
   fotoMiniaturaUrl: string | null;
   fotoCompletaUrl: string | null;
-  /** Link de YouTube o a un video directo (ver /admin/ejercicios). Cuando
-   * existe, tocar el cuadro reproduce el video en vez de solo ampliar la
-   * foto — la referencia en movimiento gana porque enseña más. */
+  /** Link externo (YouTube o un video directo, ver /admin/ejercicios). */
   videoUrl: string | null;
+  /** Video subido de verdad a Cloudflare Stream, YA resuelto a su URL de
+   * reproducción por el servidor (`urlEmbedCloudflare` en
+   * lib/cloudflare/stream.ts) — null si no hay uno, o si todavía se está
+   * procesando. Gana sobre `videoUrl` cuando los dos existen (ver
+   * `resolverFuenteVideo`). Cuando existe cualquiera de los dos, tocar el
+   * cuadro reproduce el video en vez de solo ampliar la foto — la
+   * referencia en movimiento gana porque enseña más. */
+  urlEmbedIframe: string | null;
   nombre: string;
   /** El tamaño y las sangrías negativas de siempre están pensados para la
    * esquina de una tarjeta suelta a todo el ancho. Dentro de un encabezado
@@ -108,12 +116,13 @@ export function CuadroFotoReferencia({
   const { src: srcEstatico, origen } = resolverIlustracion(ilustracionSlug, null);
   const src = fotoMiniaturaUrl ?? (origen === "ilustracion" ? srcEstatico : null);
   const tamano = compacto ? { width: 44, minHeight: 44 } : { width: 116, minHeight: 96 };
+  const fuenteVideo = resolverFuenteVideo(videoUrl, urlEmbedIframe);
 
   if (!src) {
     // Sin foto pero CON video: el cuadro vacío pasa a ser un botón que
     // reproduce el video directo — no tiene sentido dejarlo en gris sabiendo
     // que sí hay una referencia para mostrar.
-    if (videoUrl) return <CuadroSoloVideo videoUrl={videoUrl} nombre={nombre} tamano={tamano} compacto={compacto} />;
+    if (fuenteVideo) return <CuadroSoloVideo fuente={fuenteVideo} nombre={nombre} tamano={tamano} compacto={compacto} />;
 
     return (
       <div
@@ -145,7 +154,7 @@ export function CuadroFotoReferencia({
     <FotoReferenciaAmpliable
       src={src}
       srcCompleta={fotoCompletaUrl ?? resolverFotoCompleta(ilustracionSlug)}
-      videoUrl={videoUrl}
+      fuenteVideo={fuenteVideo}
       nombre={nombre}
       tamano={tamano}
       compacto={compacto}
@@ -154,15 +163,16 @@ export function CuadroFotoReferencia({
 }
 
 /** El cuadro de referencia cuando hay video pero todavía no hay foto propia
- * (un video de un link directo, sin miniatura de YouTube). Mismo tamaño y
- * bordes que el cuadro "pendiente", pero tocarlo reproduce el video. */
+ * (un video de un link directo, sin miniatura de YouTube, o uno de
+ * Cloudflare recién subido). Mismo tamaño y bordes que el cuadro
+ * "pendiente", pero tocarlo reproduce el video. */
 function CuadroSoloVideo({
-  videoUrl,
+  fuente,
   nombre,
   tamano,
   compacto,
 }: {
-  videoUrl: string;
+  fuente: FuenteVideo;
   nombre: string;
   tamano: { width: number; minHeight: number };
   compacto: boolean;
@@ -184,9 +194,7 @@ function CuadroSoloVideo({
       >
         <Play size={compacto ? 16 : 22} fill="currentColor" />
       </button>
-      {reproduciendo && (
-        <ModalVideo videoUrl={videoUrl} nombre={nombre} onCerrar={() => setReproduciendo(false)} />
-      )}
+      {reproduciendo && <ModalVideo fuente={fuente} nombre={nombre} onCerrar={() => setReproduciendo(false)} />}
     </>
   );
 }
@@ -202,7 +210,7 @@ function CuadroSoloVideo({
 function FotoReferenciaAmpliable({
   src,
   srcCompleta,
-  videoUrl,
+  fuenteVideo,
   nombre,
   tamano,
   compacto = false,
@@ -216,8 +224,9 @@ function FotoReferenciaAmpliable({
   /** Si existe, tocar el cuadro reproduce el video en vez de ampliar la
    * foto — cuando ya se cargó un video (aunque su miniatura sea la misma
    * foto que se ve acá, ej. la de YouTube), la referencia en movimiento es
-   * siempre mejor guía que una imagen fija ampliada. */
-  videoUrl: string | null;
+   * siempre mejor guía que una imagen fija ampliada. Ya viene resuelto (ver
+   * `resolverFuenteVideo`): acá no importa si es Cloudflare o un link. */
+  fuenteVideo: FuenteVideo | null;
   nombre: string;
   tamano: { width: number; minHeight: number };
   compacto?: boolean;
@@ -231,7 +240,7 @@ function FotoReferenciaAmpliable({
         type="button"
         onClick={() => setAmpliada(true)}
         aria-label={
-          videoUrl ? `Ver video de referencia de ${nombre}` : `Ver foto de referencia de ${nombre} en grande`
+          fuenteVideo ? `Ver video de referencia de ${nombre}` : `Ver foto de referencia de ${nombre} en grande`
         }
         className={
           compacto
@@ -257,17 +266,17 @@ function FotoReferenciaAmpliable({
             saca del todo: no entraba sin tapar casi toda la foto. */}
         {!compacto && (
           <span className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm">
-            {videoUrl ? <Play size={11} fill="currentColor" /> : <Maximize2 size={12} strokeWidth={2.5} />}
+            {fuenteVideo ? <Play size={11} fill="currentColor" /> : <Maximize2 size={12} strokeWidth={2.5} />}
           </span>
         )}
       </button>
 
-      {ampliada && videoUrl && (
-        <ModalVideo videoUrl={videoUrl} nombre={nombre} onCerrar={() => setAmpliada(false)} />
+      {ampliada && fuenteVideo && (
+        <ModalVideo fuente={fuenteVideo} nombre={nombre} onCerrar={() => setAmpliada(false)} />
       )}
 
       {ampliada &&
-        !videoUrl &&
+        !fuenteVideo &&
         createPortal(
           <div
             role="dialog"
@@ -1490,6 +1499,7 @@ export const SesionEjercicioCard = forwardRef<
             fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
             fotoCompletaUrl={ejercicio.fotoCompletaUrl}
             videoUrl={ejercicio.videoUrl}
+            urlEmbedIframe={ejercicio.urlEmbedIframe}
             nombre={ejercicio.nombre}
           />
         </div>

@@ -41,7 +41,14 @@ export type Ejercicio = {
   /** Qué dibujo le toca. Va aparte del slug porque varios ejercicios
    * comparten ilustración a propósito. */
   ilustracionSlug: string | null;
+  /** Link externo (YouTube o archivo directo) — ver `guardarVideoEjercicio`. */
   videoUrl: string | null;
+  /** Video subido de verdad a Cloudflare Stream (ver 0048_video_cloudflare_stream
+   * y `src/lib/cloudflare/stream.ts`) — cuando `videoCloudflareListo` es true,
+   * manda por sobre `videoUrl`. Mientras es false, Cloudflare todavía lo está
+   * procesando y no hay que ofrecerlo para reproducir. */
+  videoCloudflareUid: string | null;
+  videoCloudflareListo: boolean;
   /** Fotos subidas a mano desde /admin/ejercicios (bucket `ejercicios-fotos`
    * de Storage) — cuando existen, mandan por sobre `ilustracionSlug` (el
    * archivo estático de public/ejercicios). Ver 0042_fotos_ejercicios_admin. */
@@ -53,9 +60,12 @@ export type Ejercicio = {
 export const COLUMNAS_EJERCICIO_SIN_FOTOS =
   "id, slug, nombre, aliases, grupo_muscular, grupos_secundarios, categoria, equipo, nivel, " +
   "descripcion_corta, tecnica, errores_comunes, consejos, ilustracion_slug, video_url";
-/** Con las fotos de admin (migración 0042) — puede fallar si esa migración
- * todavía no corrió; quien la use debe tener el respaldo a la de arriba. */
-export const COLUMNAS_EJERCICIO = `${COLUMNAS_EJERCICIO_SIN_FOTOS}, foto_miniatura_url, foto_completa_url`;
+/** Con las fotos de admin (migración 0042) y el video de Cloudflare Stream
+ * (migración 0048) — puede fallar si esas migraciones todavía no corrieron;
+ * quien la use debe tener el respaldo a la de arriba. Van juntas en el mismo
+ * nivel porque las dos son "opcionales hasta que se corra la migración", no
+ * porque tengan relación entre sí. */
+export const COLUMNAS_EJERCICIO = `${COLUMNAS_EJERCICIO_SIN_FOTOS}, foto_miniatura_url, foto_completa_url, video_cloudflare_uid, video_cloudflare_listo`;
 
 type FilaEjercicio = {
   id: string;
@@ -75,6 +85,8 @@ type FilaEjercicio = {
   video_url: string | null;
   foto_miniatura_url?: string | null;
   foto_completa_url?: string | null;
+  video_cloudflare_uid?: string | null;
+  video_cloudflare_listo?: boolean | null;
 };
 
 export function aEjercicio(fila: FilaEjercicio): Ejercicio {
@@ -94,6 +106,8 @@ export function aEjercicio(fila: FilaEjercicio): Ejercicio {
     consejos: fila.consejos ?? [],
     ilustracionSlug: fila.ilustracion_slug,
     videoUrl: fila.video_url,
+    videoCloudflareUid: fila.video_cloudflare_uid ?? null,
+    videoCloudflareListo: fila.video_cloudflare_listo ?? false,
     fotoMiniaturaUrl: fila.foto_miniatura_url ?? null,
     fotoCompletaUrl: fila.foto_completa_url ?? null,
   };
