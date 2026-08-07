@@ -13,7 +13,11 @@ import {
   desactivarEjercicio,
   guardarVideoEjercicio,
   quitarVideoEjercicio,
+  obtenerUsosRutina,
+  reasignarEntradaRutina,
+  type UsoRutina,
 } from "@/app/admin/ejercicios/actions";
+import { normalizar } from "@/lib/alimentos/emparejar";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import type { Ejercicio } from "@/lib/ejercicios/tipos";
@@ -179,7 +183,12 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
       )}
 
       {editando && (
-        <ModalSubirFoto ejercicio={editando} fotoActual={fotoDe(editando)} onCerrar={() => setEditando(null)} />
+        <ModalSubirFoto
+          ejercicio={editando}
+          fotoActual={fotoDe(editando)}
+          todosLosEjercicios={ejercicios}
+          onCerrar={() => setEditando(null)}
+        />
       )}
       {creando && <ModalEjercicioNuevo onCerrar={() => setCreando(false)} />}
     </div>
@@ -430,10 +439,12 @@ function EditorVideo({ ejercicio }: { ejercicio: Ejercicio }) {
 function ModalSubirFoto({
   ejercicio,
   fotoActual,
+  todosLosEjercicios,
   onCerrar,
 }: {
   ejercicio: Ejercicio;
   fotoActual: string | null;
+  todosLosEjercicios: Ejercicio[];
   onCerrar: () => void;
 }) {
   const [state, formAction, pending] = useActionState(subirFotoEjercicio, ESTADO_INICIAL_FOTO);
@@ -527,6 +538,16 @@ function ModalSubirFoto({
         </div>
         <Input type="url" name="foto_url" placeholder="https://…" className="!py-2 text-caption" />
 
+        {/* Corrección global explícita: esto reemplaza la foto para TODOS
+            los alumnos que tengan este ejercicio bien vinculado, no solo
+            para quien lo esté editando ahora — hay que dejarlo claro antes
+            de guardar, no después. */}
+        <p className="text-caption text-text-tertiary">
+          Se va a actualizar la foto de{" "}
+          <span className="font-semibold text-text">{ejercicio.nombre}</span> para todos los alumnos
+          que lo tengan bien vinculado.
+        </p>
+
         {state.error && <p className="text-caption text-error">{state.error}</p>}
         {state.ok && (
           <p className="text-caption flex items-center gap-1 text-success">
@@ -551,9 +572,192 @@ function ModalSubirFoto({
       </div>
 
       <div className="mt-4 border-t border-border pt-3">
+        <UsosRutinaEditor ejercicio={ejercicio} todosLosEjercicios={todosLosEjercicios} />
+      </div>
+
+      <div className="mt-4 border-t border-border pt-3">
         <BotonEliminar ejercicio={ejercicio} onEliminado={onCerrar} />
       </div>
     </Overlay>
+  );
+}
+
+type ElegidoReasignar = { id: string; nombre: string };
+
+const ESTADO_INICIAL_REASIGNAR = { error: null, ok: false };
+
+/**
+ * Para ESTE ejercicio de la biblioteca: todas las variantes de texto que hoy
+ * usan su enlace en rutinas de alumnos (ver `obtenerUsosRutina`) — y deja
+ * corregir un enlace mal hecho SIN tocar la foto de nadie (ver
+ * `reasignarEntradaRutina` en actions.ts).
+ *
+ * Caso real que resuelve: "Press de hombro" quedó vinculado por error al
+ * registro de "Press de banca" — acá aparece listado bajo Press de banca, y
+ * se puede reasignar hacia el ejercicio correcto sin arriesgar la foto de
+ * los alumnos que sí tienen el press de banca bien vinculado.
+ */
+function UsosRutinaEditor({
+  ejercicio,
+  todosLosEjercicios,
+}: {
+  ejercicio: Ejercicio;
+  todosLosEjercicios: Ejercicio[];
+}) {
+  const [usos, setUsos] = useState<UsoRutina[] | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    obtenerUsosRutina(ejercicio.id).then((resultado) => {
+      if (!cancelado) setUsos(resultado);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [ejercicio.id]);
+
+  if (usos === null) {
+    return <p className="text-caption text-text-tertiary">Revisando entradas de rutina...</p>;
+  }
+  if (usos.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      <span className="text-caption block text-text-tertiary">
+        Entradas de rutina que usan esta ficha — si alguna en realidad es OTRO ejercicio, reasignala sin
+        tocar esta foto
+      </span>
+      <div className="space-y-1.5">
+        {usos.map((uso) => (
+          <UsoRutinaFila
+            key={uso.nombre}
+            ejercicio={ejercicio}
+            uso={uso}
+            todosLosEjercicios={todosLosEjercicios}
+            onReasignado={() => setUsos((prev) => (prev ? prev.filter((u) => u.nombre !== uso.nombre) : prev))}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function UsoRutinaFila({
+  ejercicio,
+  uso,
+  todosLosEjercicios,
+  onReasignado,
+}: {
+  ejercicio: Ejercicio;
+  uso: UsoRutina;
+  todosLosEjercicios: Ejercicio[];
+  onReasignado: () => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [elegido, setElegido] = useState<ElegidoReasignar | null>(null);
+  const [state, formAction, pending] = useActionState(reasignarEntradaRutina, ESTADO_INICIAL_REASIGNAR);
+
+  useEffect(() => {
+    if (state.ok) onReasignado();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.ok]);
+
+  const resultados = useMemo(() => {
+    const q = normalizar(busqueda);
+    if (!q) return [];
+    return todosLosEjercicios
+      .filter((e) => e.id !== ejercicio.id)
+      .filter((e) => normalizar(e.nombre).includes(q) || e.aliases.some((a) => normalizar(a).includes(q)))
+      .slice(0, 6);
+  }, [busqueda, todosLosEjercicios, ejercicio.id]);
+
+  return (
+    <div className="radius-control border border-border p-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-caption text-text">
+          <span className="font-semibold">«{uso.nombre}»</span> — {uso.cantidad}{" "}
+          {uso.cantidad === 1 ? "vez" : "veces"} en rutinas
+        </p>
+        {!abierto && (
+          <button
+            type="button"
+            onClick={() => setAbierto(true)}
+            className="shrink-0 text-[10px] font-medium text-vip"
+          >
+            ¿No es este?
+          </button>
+        )}
+      </div>
+
+      {abierto && !elegido && (
+        <div className="mt-2 space-y-1.5">
+          <input
+            type="text"
+            autoFocus
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar el ejercicio correcto..."
+            className="radius-control w-full border border-border bg-surface px-2 py-1.5 text-caption text-text"
+          />
+          {resultados.length > 0 && (
+            <div className="max-h-40 space-y-0.5 overflow-y-auto">
+              {resultados.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setElegido({ id: r.id, nombre: r.nombre })}
+                  className="block w-full rounded px-2 py-1.5 text-left text-caption text-text hover:bg-surface-2"
+                >
+                  {r.nombre}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setElegido({ id: "", nombre: "sin vincular todavía" })}
+              className="text-[10px] text-text-tertiary underline"
+            >
+              No existe todavía — desvincular sin foto por ahora
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAbierto(false);
+                setBusqueda("");
+              }}
+              className="text-[10px] text-text-tertiary"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {elegido && (
+        <form action={formAction} className="radius-control mt-2 space-y-1.5 border border-vip/40 bg-vip/5 p-2">
+          <input type="hidden" name="ejercicio_id_actual" value={ejercicio.id} />
+          <input type="hidden" name="nombre_exacto" value={uso.nombre} />
+          <input type="hidden" name="ejercicio_id_nuevo" value={elegido.id} />
+          <p className="text-caption text-text">
+            Se van a mover las {uso.cantidad} entrada{uso.cantidad === 1 ? "" : "s"} «{uso.nombre}» de{" "}
+            <span className="font-semibold">{ejercicio.nombre}</span> hacia{" "}
+            <span className="font-semibold">{elegido.nombre}</span>. No se toca ninguna foto.
+          </p>
+          {state.error && <p className="text-caption text-error">{state.error}</p>}
+          <div className="flex gap-2">
+            <Button type="submit" size="xsAuto" loading={pending}>
+              Confirmar
+            </Button>
+            <Button type="button" variant="ghost" size="xsAuto" onClick={() => setElegido(null)}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }
 

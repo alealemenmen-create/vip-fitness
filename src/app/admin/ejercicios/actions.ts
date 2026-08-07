@@ -427,3 +427,73 @@ export async function quitarVideoEjercicio(
   avisarCambios();
   return { error: null, ok: true };
 }
+
+export type UsoRutina = { nombre: string; cantidad: number };
+
+/**
+ * Para el modal de un ejercicio en la galería: todas las variantes de texto
+ * (tal como las escribió el entrenador o las extrajo el import del PDF) que
+ * HOY apuntan a este ejercicio de la biblioteca, agrupadas y contadas —
+ * cuántas filas de `rutina_dia_ejercicios` (de cualquier alumno) lo usan.
+ *
+ * Sirve para notar de un vistazo si algo quedó mal vinculado ("Press de
+ * hombro" apareciendo bajo "Press de banca", por ejemplo) sin depender de
+ * toparse con el error a mitad de la sesión de un alumno.
+ */
+export async function obtenerUsosRutina(ejercicioId: string): Promise<UsoRutina[]> {
+  await requireRol(["entrenador", "admin"]);
+  if (!ejercicioId) return [];
+
+  const supabase = await createClient();
+  const { data } = await supabase.from("rutina_dia_ejercicios").select("nombre").eq("ejercicio_id", ejercicioId);
+
+  const conteos = new Map<string, number>();
+  for (const fila of data ?? []) {
+    conteos.set(fila.nombre, (conteos.get(fila.nombre) ?? 0) + 1);
+  }
+  return Array.from(conteos.entries())
+    .map(([nombre, cantidad]) => ({ nombre, cantidad }))
+    .sort((a, b) => b.cantidad - a.cantidad);
+}
+
+export type ReasignarState = { error: string | null; ok: boolean };
+
+/**
+ * Corrige un enlace mal hecho SIN tocar la foto de ningún ejercicio: mueve
+ * TODAS las entradas de rutina (de cualquier alumno) que dicen literalmente
+ * `nombre_exacto` y hoy apuntan a `ejercicio_id_actual`, para que apunten a
+ * `ejercicio_id_nuevo` en su lugar — o las desvincula (`null`, sin foto por
+ * ahora) si el ejercicio correcto todavía no existe en la biblioteca.
+ *
+ * Es a propósito "por nombre exacto + ejercicio actual", no "por una fila
+ * puntual de un alumno": el mismo error de vinculación se repite en todos
+ * los alumnos que comparten esa rutina (viene del mismo import de PDF), así
+ * que corregirlo de a un alumno dejaría el resto con la misma falla.
+ */
+export async function reasignarEntradaRutina(
+  _prevState: ReasignarState,
+  formData: FormData
+): Promise<ReasignarState> {
+  await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+
+  const ejercicioIdActual = String(formData.get("ejercicio_id_actual") || "");
+  const nombreExacto = String(formData.get("nombre_exacto") || "");
+  const ejercicioIdNuevo = String(formData.get("ejercicio_id_nuevo") || "") || null;
+
+  if (!ejercicioIdActual || !nombreExacto) return { error: "Faltan datos.", ok: false };
+  if (ejercicioIdNuevo === ejercicioIdActual) {
+    return { error: "Elegí un ejercicio distinto al actual.", ok: false };
+  }
+
+  const { error } = await supabase
+    .from("rutina_dia_ejercicios")
+    .update({ ejercicio_id: ejercicioIdNuevo })
+    .eq("ejercicio_id", ejercicioIdActual)
+    .eq("nombre", nombreExacto);
+
+  if (error) return { error: "No se pudo reasignar. Probá de nuevo.", ok: false };
+
+  avisarCambios();
+  return { error: null, ok: true };
+}
