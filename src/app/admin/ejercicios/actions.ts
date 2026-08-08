@@ -5,7 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { TAG_BIBLIOTECA_EJERCICIOS } from "@/lib/ejercicios/data";
 import { idDeYoutube } from "@/lib/ejercicios/video";
-import { procesarImagen, TAMANO_MAXIMO_FOTO as TAMANO_MAXIMO, TIPOS_IMAGEN } from "@/lib/ejercicios/procesarFoto";
+import {
+  bufferAImagenBlob,
+  procesarImagen,
+  TAMANO_MAXIMO_FOTO as TAMANO_MAXIMO,
+  TIPOS_IMAGEN,
+} from "@/lib/ejercicios/procesarFoto";
 import type { CategoriaEjercicio, EquipoEjercicio, NivelEjercicio } from "@/lib/ejercicios/tipos";
 import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
 
@@ -146,8 +151,12 @@ export async function subirFotoEjercicio(
     const rutaCompleta = `${ejercicioId}/completa-${sello}.webp`;
 
     const [subeMini, subeCompleta] = await Promise.all([
-      supabase.storage.from("ejercicios-fotos").upload(rutaMini, procesada.miniatura, { contentType: "image/webp" }),
-      supabase.storage.from("ejercicios-fotos").upload(rutaCompleta, procesada.completa, { contentType: "image/webp" }),
+      supabase.storage
+        .from("ejercicios-fotos")
+        .upload(rutaMini, bufferAImagenBlob(procesada.miniatura), { contentType: "image/webp" }),
+      supabase.storage
+        .from("ejercicios-fotos")
+        .upload(rutaCompleta, bufferAImagenBlob(procesada.completa), { contentType: "image/webp" }),
     ]);
     if (subeMini.error || subeCompleta.error) {
       return { error: "No se pudo subir la foto. Revisá tu conexión e intentá de nuevo.", ok: false };

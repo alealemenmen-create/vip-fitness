@@ -1,9 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { procesarImagen, TAMANO_MAXIMO_FOTO, TIPOS_IMAGEN } from "@/lib/ejercicios/procesarFoto";
+import {
+  bufferAImagenBlob,
+  procesarImagen,
+  TAMANO_MAXIMO_FOTO,
+  TIPOS_IMAGEN,
+} from "@/lib/ejercicios/procesarFoto";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 /**
  * Sube una foto a Storage YA, sin vincularla todavía a ningún ejercicio —
@@ -25,6 +31,8 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: Request): Promise<Response> {
   await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+  const bucket = supabase.storage.from("ejercicios-fotos");
 
   // DIAGNÓSTICO TEMPORAL: un patrón fijo (los 256 valores de byte posibles),
   // generado en el propio servidor — no depende del navegador ni del
@@ -36,9 +44,11 @@ export async function POST(request: Request): Promise<Response> {
   // desplegado). Sacar una vez que se encuentre la causa.
   const patronFijo = Buffer.alloc(256);
   for (let i = 0; i < 256; i++) patronFijo[i] = i;
-  const resultadoPatron = await (await createClient()).storage
-    .from("ejercicios-fotos")
-    .upload("_diagnostico/patron-fijo.bin", patronFijo, { contentType: "image/webp", upsert: true });
+  const resultadoPatron = await bucket.upload(
+    "_diagnostico/patron-fijo.bin",
+    bufferAImagenBlob(patronFijo, "application/octet-stream"),
+    { contentType: "application/octet-stream", upsert: true }
+  );
 
   const formData = await request.formData();
   const archivo = formData.get("foto") as File | null;
@@ -58,7 +68,6 @@ export async function POST(request: Request): Promise<Response> {
 
   const bytes = Buffer.from(await archivo.arrayBuffer());
 
-  const supabase = await createClient();
   // Carpeta al azar: en este momento todavía no existe (o no se conoce) el
   // id del ejercicio al que va a terminar vinculada esta foto — no hace
   // falta moverla después, la URL ya es la definitiva.
@@ -72,9 +81,22 @@ export async function POST(request: Request): Promise<Response> {
   // (`bytes.length`), y bajar este archivo crudo aparte para ver si la
   // corrupción ya está acá (algo en el camino navegador→servidor) o si
   // aparece recién al procesarla. Sacar una vez que se encuentre la causa.
-  const resultadoCrudo = await supabase.storage
-    .from("ejercicios-fotos")
-    .upload(`${carpeta}/original-crudo.bin`, bytes, { contentType: "image/webp" });
+  const resultadoCrudo = await bucket.upload(
+    `${carpeta}/original-crudo.bin`,
+    bufferAImagenBlob(bytes, archivo.type || "application/octet-stream"),
+    { contentType: archivo.type || "application/octet-stream" }
+  );
+
+  const [descargaPatron, descargaCrudo] = await Promise.all([
+    resultadoPatron.error ? null : bucket.download("_diagnostico/patron-fijo.bin"),
+    resultadoCrudo.error ? null : bucket.download(`${carpeta}/original-crudo.bin`),
+  ]);
+  const patronGuardado = descargaPatron?.data
+    ? Buffer.from(await descargaPatron.data.arrayBuffer())
+    : null;
+  const crudoGuardado = descargaCrudo?.data
+    ? Buffer.from(await descargaCrudo.data.arrayBuffer())
+    : null;
 
   const diagnostico = {
     tamanoNavegador: archivo.size,
@@ -82,6 +104,10 @@ export async function POST(request: Request): Promise<Response> {
     carpeta,
     errorPatronFijo: resultadoPatron.error?.message ?? null,
     errorOriginalCrudo: resultadoCrudo.error?.message ?? null,
+    patronFijoCoincide: patronGuardado?.equals(patronFijo) ?? false,
+    originalCrudoCoincide: crudoGuardado?.equals(bytes) ?? false,
+    errorDescargaPatron: descargaPatron?.error?.message ?? null,
+    errorDescargaCrudo: descargaCrudo?.error?.message ?? null,
   };
 
   const procesada = await procesarImagen(bytes);
@@ -90,8 +116,8 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const [subeMini, subeCompleta] = await Promise.all([
-    supabase.storage.from("ejercicios-fotos").upload(rutaMini, procesada.miniatura, { contentType: "image/webp" }),
-    supabase.storage.from("ejercicios-fotos").upload(rutaCompleta, procesada.completa, { contentType: "image/webp" }),
+    bucket.upload(rutaMini, bufferAImagenBlob(procesada.miniatura), { contentType: "image/webp" }),
+    bucket.upload(rutaCompleta, bufferAImagenBlob(procesada.completa), { contentType: "image/webp" }),
   ]);
   if (subeMini.error || subeCompleta.error) {
     return Response.json(
@@ -100,10 +126,40 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  const [descargaMini, descargaCompleta] = await Promise.all([
+    bucket.download(rutaMini),
+    bucket.download(rutaCompleta),
+  ]);
+  const miniGuardada = descargaMini.data ? Buffer.from(await descargaMini.data.arrayBuffer()) : null;
+  const completaGuardada = descargaCompleta.data
+    ? Buffer.from(await descargaCompleta.data.arrayBuffer())
+    : null;
+  const miniaturaCoincide = miniGuardada?.equals(procesada.miniatura) ?? false;
+  const completaCoincide = completaGuardada?.equals(procesada.completa) ?? false;
+
+  Object.assign(diagnostico, {
+    miniaturaCoincide,
+    completaCoincide,
+    errorDescargaMiniatura: descargaMini.error?.message ?? null,
+    errorDescargaCompleta: descargaCompleta.error?.message ?? null,
+  });
+
+  if (!miniaturaCoincide || !completaCoincide) {
+    await bucket.remove([rutaMini, rutaCompleta]);
+    return Response.json(
+      {
+        ok: false,
+        error: "Storage alteró los bytes de la foto durante la subida. No se guardó una imagen corrupta.",
+        diagnostico,
+      },
+      { status: 502 }
+    );
+  }
+
   return Response.json({
     ok: true,
-    miniaturaUrl: supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaMini).data.publicUrl,
-    completaUrl: supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaCompleta).data.publicUrl,
+    miniaturaUrl: bucket.getPublicUrl(rutaMini).data.publicUrl,
+    completaUrl: bucket.getPublicUrl(rutaCompleta).data.publicUrl,
     diagnostico,
   });
 }
