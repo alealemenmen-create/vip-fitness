@@ -14,7 +14,9 @@ import { BurbujaFlotante } from "./BurbujaFlotante";
  */
 export function AnuncioImportanteFlotante({ anuncio }: { anuncio: Anuncio }) {
   const pathname = usePathname();
-  if (pathname === "/alumno/noticias") return null;
+  // Durante una serie ningún aviso puede cubrir peso, repeticiones o descanso.
+  // La campana conserva el anuncio para leerlo al salir del entrenamiento.
+  if (pathname === "/alumno/noticias" || pathname.startsWith("/alumno/entrenar/sesion/")) return null;
 
   return (
     <BurbujaFlotante
