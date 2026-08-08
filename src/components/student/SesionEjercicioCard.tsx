@@ -112,7 +112,7 @@ export function CuadroFotoReferencia({
   const { src: srcEstatico, origen } = resolverIlustracion(ilustracionSlug, null);
   const src = fotoMiniaturaUrl ?? (origen === "ilustracion" ? srcEstatico : null);
   const tamano: React.CSSProperties = destacado
-    ? { width: "100%", minHeight: 148, height: 148 }
+    ? { width: "100%", minHeight: 104, height: 104 }
     : compacto
     ? { width: 44, minHeight: 44, height: 44 }
     : { width: 116, minHeight: 116, height: 116 };

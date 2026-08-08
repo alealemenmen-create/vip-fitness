@@ -79,7 +79,9 @@ const THEME_INIT_SCRIPT = `
       localStorage.setItem("vip-tema-boton", "vip");
     }
     var esc = parseFloat(localStorage.getItem("vip-escala-texto"));
-    if (esc >= 1 && esc <= 1.3) document.documentElement.style.setProperty("--escala-texto", String(esc));
+    if (!(esc >= 1 && esc <= 1.3)) esc = 1;
+    document.documentElement.style.setProperty("--escala-texto", String(esc));
+    document.documentElement.setAttribute("data-escala-texto", String(esc));
   } catch (e) {}
 `;
 

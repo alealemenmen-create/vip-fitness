@@ -67,6 +67,7 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
   const elegirEscala = (valor: Escala) => {
     setEscala(valor);
     document.documentElement.style.setProperty("--escala-texto", String(valor));
+    document.documentElement.setAttribute("data-escala-texto", String(valor));
     localStorage.setItem("vip-escala-texto", String(valor));
   };
 
