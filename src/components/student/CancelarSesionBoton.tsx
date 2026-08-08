@@ -10,17 +10,30 @@ import { cancelarSesionEnCurso } from "@/app/alumno/entrenar/actions";
 /** Para cuando se tocó "Entrenar" en el día equivocado por error: borra esta
  * sesión puntual (sin tocar el resto del historial de la rutina) siempre que
  * todavía no se haya completado ningún ejercicio. */
-export function CancelarSesionBoton({ sesionId }: { sesionId: string }) {
+export function CancelarSesionBoton({
+  sesionId,
+  compacto = false,
+  tieneProgreso = false,
+}: {
+  sesionId: string;
+  compacto?: boolean;
+  tieneProgreso?: boolean;
+}) {
   const [confirmando, setConfirmando] = useState(false);
 
   return (
     <>
       <button
         type="button"
+        aria-label="Inicié esta rutina por error"
         onClick={() => setConfirmando(true)}
-        className="radius-control flex h-12 w-full items-center justify-center gap-2 text-body font-medium text-text-tertiary underline"
+        className={
+          compacto
+            ? "radius-control flex h-8 shrink-0 items-center justify-center border border-border bg-surface-2 px-2 text-micro font-semibold text-text-secondary"
+            : "radius-control flex h-12 w-full items-center justify-center gap-2 text-body font-medium text-text-tertiary underline"
+        }
       >
-        Empecé este día por error
+        {compacto ? "Salir" : "Empecé este día por error"}
       </button>
 
       {confirmando &&
@@ -31,7 +44,7 @@ export function CancelarSesionBoton({ sesionId }: { sesionId: string }) {
           >
             <Card padding="p-4" className="w-full max-w-sm space-y-3">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-body font-medium text-text">¿Cancelar este entrenamiento?</p>
+                <p className="text-body font-medium text-text">¿Iniciaste esta rutina por error?</p>
                 <button
                   type="button"
                   aria-label="Cerrar"
@@ -42,8 +55,9 @@ export function CancelarSesionBoton({ sesionId }: { sesionId: string }) {
                 </button>
               </div>
               <p className="text-caption text-text-secondary">
-                Se borra por completo, como si nunca lo hubieras tocado. No queda en tu historial
-                ni afecta tu ranking.
+                {tieneProgreso
+                  ? "La sesión se cerrará como abandonada, conservará lo registrado en el historial y no sumará puntos."
+                  : "Se borrará por completo, como si nunca la hubieras iniciado. No quedará en el historial ni afectará tu ranking."}
               </p>
               <form action={cancelarSesionEnCurso} className="flex gap-2">
                 <input type="hidden" name="sesion_id" value={sesionId} />
@@ -57,7 +71,7 @@ export function CancelarSesionBoton({ sesionId }: { sesionId: string }) {
                   Volver
                 </Button>
                 <Button type="submit" variant="destructive" size="xsAuto" className="flex-1">
-                  Sí, cancelar
+                  Sí, salir
                 </Button>
               </form>
             </Card>

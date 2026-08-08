@@ -57,13 +57,16 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
           El `-mx-4 px-4` es para que el fondo tape de borde a borde — el padding
           lateral lo pone el layout, y sin esto se veían las tarjetas colándose
           por los costados. */}
-      <div className="sticky top-[var(--alto-cabecera-alumno)] z-20 -mx-4 space-y-1.5 bg-bg px-4 pb-2 pt-1">
+      <div className="sticky top-0 z-20 -mx-4 space-y-1.5 bg-bg px-4 pb-2 pt-1">
         <VolverAEntrenar
           titulo={`${sesion.numeroCalendario ? `${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
           compacto
           accion={
-            !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura && rutinaIniciada ? (
-              <CronometroSesion horaInicio={sesion.rutinaIniciadaEn!} />
+            !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura ? (
+              <div className="flex items-center gap-1.5">
+                {rutinaIniciada && <CronometroSesion horaInicio={sesion.rutinaIniciadaEn!} />}
+                <CancelarSesionBoton sesionId={sesion.id} compacto tieneProgreso={completados > 0} />
+              </div>
             ) : null
           }
         />
@@ -163,10 +166,6 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
             <RotateCcw size={18} /> Reiniciar
           </button>
         </form>
-      )}
-
-      {!vistaSoloLectura && !esDescanso && sesion.estado === "en_progreso" && completados === 0 && (
-        <CancelarSesionBoton sesionId={sesion.id} />
       )}
 
     </div>
