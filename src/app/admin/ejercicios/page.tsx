@@ -4,7 +4,11 @@ import { obtenerBibliotecaSinCache } from "@/lib/ejercicios/data";
 import { GaleriaEjercicios, type ReporteFotoPendiente } from "@/components/admin/GaleriaEjercicios";
 import { TituloPestana } from "@/components/admin/TituloPestana";
 
-export default async function EjerciciosAdminPage() {
+export default async function EjerciciosAdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ demoSolicitudFoto?: string }>;
+}) {
   await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
   // Sin caché a propósito — ver `obtenerBibliotecaSinCache`: esta es la
@@ -28,6 +32,20 @@ export default async function EjerciciosAdminPage() {
     creadoEn: fila.creado_en,
     alumnoNombre: nombres.get(fila.alumno_id) ?? "Alumno",
   }));
+  const { demoSolicitudFoto } = await searchParams;
+  if (demoSolicitudFoto === "1") {
+    const ejercicioDemo = biblioteca.find((ejercicio) =>
+      ejercicio.nombre.toLowerCase().includes("cuerda") && ejercicio.nombre.toLowerCase().includes("jal")
+    );
+    reportes.unshift({
+      id: "demo-solicitud-foto",
+      ejercicioId: ejercicioDemo?.id ?? null,
+      nombreEjercicio: ejercicioDemo?.nombre ?? "Jal\u00f3n con cuerda",
+      fotoUrl: null,
+      creadoEn: new Date().toISOString(),
+      alumnoNombre: "Solicitud de ejemplo",
+    });
+  }
 
   return (
     <div className="space-y-4 pb-4">
