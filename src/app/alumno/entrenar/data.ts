@@ -303,6 +303,9 @@ export type RecomendacionImpulso = {
 export type EjercicioSesion = {
   sesionEjercicioId: string;
   diaEjercicioId: string;
+  /** Ejercicio de la biblioteca global cuya foto puede corregir el entrenador.
+   * Null cuando la entrada de rutina todavía no está vinculada. */
+  ejercicioId: string | null;
   orden: number;
   nombre: string;
   seriesProgramadas: number;
@@ -323,6 +326,10 @@ export type EjercicioSesion = {
    * migración 0042 todavía. */
   fotoMiniaturaUrl: string | null;
   fotoCompletaUrl: string | null;
+  fotoPanoramaX: number;
+  fotoPanoramaY: number;
+  fotoCuadradaX: number;
+  fotoCuadradaY: number;
   /** Link de YouTube o a un archivo de video directo, cargado desde
    * /admin/ejercicios (ver `guardarVideoEjercicio`). Cuando existe, la
    * referencia del ejercicio abre el video en vez de solo ampliar la foto. */
@@ -394,8 +401,9 @@ export async function obtenerSesionCompleta(
   // se repite sin él: el código puede llegar a producción antes que la
   // migración, y sin este respaldo la pantalla de sesión quedaría rota entera
   // hasta correrla. Ya pasó con las migraciones 0009, 0010 y 0013.
-  const COLUMNAS_PROGRAMA =
+  const COLUMNAS_PROGRAMA_BASE =
     "orden, nombre, series_programadas, reps_programadas, descanso_segundos, tecnica_tipo, tecnica_instruccion, observacion, grupo_muscular";
+  const COLUMNAS_PROGRAMA = `${COLUMNAS_PROGRAMA_BASE}, ejercicio_id`;
 
   const consultarEjercicios = (columnasPrograma: string) =>
     supabase
@@ -418,6 +426,10 @@ export async function obtenerSesionCompleta(
     tecnica?: string | null;
     foto_miniatura_url?: string | null;
     foto_completa_url?: string | null;
+    foto_panorama_x?: number | null;
+    foto_panorama_y?: number | null;
+    foto_cuadrada_x?: number | null;
+    foto_cuadrada_y?: number | null;
   };
 
   type FilaSesionEjercicio = {
@@ -435,6 +447,7 @@ export async function obtenerSesionCompleta(
       tecnica_instruccion: string | null;
       observacion: string | null;
       grupo_muscular: GrupoMuscular | null;
+      ejercicio_id?: string | null;
       // Presente solo si la migración 0026 ya corrió (ver el respaldo arriba);
       // los campos de tempo, solo si además corrió la 0031.
       ejercicios?: FilaBiblioteca | FilaBiblioteca[] | null;
@@ -445,9 +458,12 @@ export async function obtenerSesionCompleta(
   // fotos de admin (migración 0042), con tempo (0031), sin tempo pero con
   // biblioteca (0026), y pelado. Cada migración que todavía no haya corrido
   // se degrada sola en vez de dejar al alumno sin pantalla de entrenamiento.
-  const intentoConFotos = await consultarEjercicios(
-    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url, tempo, tempo_nota, tecnica, foto_miniatura_url, foto_completa_url)`
+  const intentoConEncuadre = await consultarEjercicios(
+    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url, tempo, tempo_nota, tecnica, foto_miniatura_url, foto_completa_url, foto_panorama_x, foto_panorama_y, foto_cuadrada_x, foto_cuadrada_y)`
   );
+  const intentoConFotos = intentoConEncuadre.error ? await consultarEjercicios(
+    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url, tempo, tempo_nota, tecnica, foto_miniatura_url, foto_completa_url)`
+  ) : intentoConEncuadre;
   const intento = intentoConFotos.error
     ? await consultarEjercicios(
         `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url, tempo, tempo_nota, tecnica)`
@@ -457,7 +473,7 @@ export async function obtenerSesionCompleta(
     ? await consultarEjercicios(`${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url)`)
     : intento;
   const resultado = conBiblioteca.error
-    ? await consultarEjercicios(COLUMNAS_PROGRAMA)
+    ? await consultarEjercicios(COLUMNAS_PROGRAMA_BASE)
     : conBiblioteca;
 
   const lista = (resultado.data ?? []) as unknown as FilaSesionEjercicio[];
@@ -528,8 +544,13 @@ export async function obtenerSesionCompleta(
     const dellaBiblioteca = Array.isArray(prog.ejercicios) ? prog.ejercicios[0] : prog.ejercicios;
 
     let ilustracionSlug = dellaBiblioteca?.ilustracion_slug ?? null;
+    let ejercicioId = prog.ejercicio_id ?? null;
     let fotoMiniaturaUrl = dellaBiblioteca?.foto_miniatura_url ?? null;
     let fotoCompletaUrl = dellaBiblioteca?.foto_completa_url ?? null;
+    let fotoPanoramaX = dellaBiblioteca?.foto_panorama_x ?? 50;
+    let fotoPanoramaY = dellaBiblioteca?.foto_panorama_y ?? 50;
+    let fotoCuadradaX = dellaBiblioteca?.foto_cuadrada_x ?? 50;
+    let fotoCuadradaY = dellaBiblioteca?.foto_cuadrada_y ?? 50;
     let videoUrl = dellaBiblioteca?.video_url ?? null;
 
     // Respaldo: el ejercicio de esta rutina puede haber quedado sin vincular
@@ -543,9 +564,14 @@ export async function obtenerSesionCompleta(
       bibliotecaActual ??= await obtenerBiblioteca();
       const emparejado = emparejarEjercicio(prog.nombre, bibliotecaActual)?.ejercicio;
       if (emparejado) {
+        ejercicioId = emparejado.id;
         ilustracionSlug = emparejado.ilustracionSlug;
         fotoMiniaturaUrl = emparejado.fotoMiniaturaUrl;
         fotoCompletaUrl = emparejado.fotoCompletaUrl;
+        fotoPanoramaX = emparejado.fotoPanoramaX;
+        fotoPanoramaY = emparejado.fotoPanoramaY;
+        fotoCuadradaX = emparejado.fotoCuadradaX;
+        fotoCuadradaY = emparejado.fotoCuadradaY;
         videoUrl = emparejado.videoUrl;
       }
     }
@@ -553,6 +579,7 @@ export async function obtenerSesionCompleta(
     ejercicios.push({
       sesionEjercicioId: se.id,
       diaEjercicioId: se.dia_ejercicio_id,
+      ejercicioId,
       orden: prog.orden,
       nombre: prog.nombre,
       seriesProgramadas: prog.series_programadas,
@@ -566,6 +593,10 @@ export async function obtenerSesionCompleta(
       ilustracionSlug,
       fotoMiniaturaUrl,
       fotoCompletaUrl,
+      fotoPanoramaX,
+      fotoPanoramaY,
+      fotoCuadradaX,
+      fotoCuadradaY,
       videoUrl,
       // Lo que el entrenador escribió en la rutina gana sobre lo que dedujo la
       // IA para la biblioteca. Ver src/lib/ejercicios/tempo.ts.

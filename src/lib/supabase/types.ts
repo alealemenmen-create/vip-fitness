@@ -45,6 +45,7 @@ export type DecisionDataImpulso = Record<string, unknown>;
 export type TipoAlertaImpulso = "dolor" | "estancamiento_3_sesiones" | "caida_rendimiento";
 export type MomentoAlertaImpulso = "antes" | "durante" | "despues";
 export type EstadoAlertaImpulso = "pendiente" | "vista" | "resuelta";
+export type EstadoReporteFotoEjercicio = "pendiente" | "resuelto";
 /** Forma de cada fila del snapshot de resultados de un torneo (ver ResultadoTorneo en lib/torneos/puntos.ts). */
 export type ResultadoTorneoJSON = {
   alumnoId: string;
@@ -770,6 +771,10 @@ export interface Database {
           // 0042_fotos_ejercicios_admin.sql — fotos subidas desde
           // /admin/ejercicios, mandan sobre `ilustracion_slug` cuando existen.
           foto_miniatura_url: string | null;
+          foto_panorama_x: number;
+          foto_panorama_y: number;
+          foto_cuadrada_x: number;
+          foto_cuadrada_y: number;
           foto_completa_url: string | null;
           activo: boolean;
           created_at: string;
@@ -817,6 +822,10 @@ export interface Database {
           tempo_nota?: string | null;
           tempo_origen?: "ia" | "entrenador" | null;
           foto_miniatura_url?: string | null;
+          foto_panorama_x?: number;
+          foto_panorama_y?: number;
+          foto_cuadrada_x?: number;
+          foto_cuadrada_y?: number;
           foto_completa_url?: string | null;
           activo?: boolean;
         };
@@ -1414,6 +1423,36 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ];
+      };
+      // 0048_reportes_fotos_ejercicios.sql — aviso del alumno cuando la foto
+      // de referencia no corresponde al movimiento indicado.
+      reportes_fotos_ejercicios: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          ejercicio_id: string | null;
+          sesion_ejercicio_id: string | null;
+          nombre_ejercicio: string;
+          foto_url_reportada: string | null;
+          estado: EstadoReporteFotoEjercicio;
+          creado_en: string;
+          resuelto_en: string | null;
+          resuelto_por: string | null;
+        };
+        Insert: {
+          alumno_id: string;
+          ejercicio_id?: string | null;
+          sesion_ejercicio_id?: string | null;
+          nombre_ejercicio: string;
+          foto_url_reportada?: string | null;
+          estado?: EstadoReporteFotoEjercicio;
+        };
+        Update: {
+          estado?: EstadoReporteFotoEjercicio;
+          resuelto_en?: string | null;
+          resuelto_por?: string | null;
+        };
+        Relationships: [];
       };
       push_suscripciones: {
         Row: {

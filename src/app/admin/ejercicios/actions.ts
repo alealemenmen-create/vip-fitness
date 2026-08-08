@@ -96,7 +96,7 @@ export async function subirFotoEjercicio(
   _prevState: SubirFotoState,
   formData: FormData
 ): Promise<SubirFotoState> {
-  await requireRol(["entrenador", "admin"]);
+  const entrenador = await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
 
   const ejercicioId = String(formData.get("ejercicio_id") || "");
@@ -104,6 +104,16 @@ export async function subirFotoEjercicio(
   const fotoUrl = String(formData.get("foto_url") || "").trim();
   const miniaturaUrlSubida = String(formData.get("foto_miniatura_url_subida") || "").trim();
   const completaUrlSubida = String(formData.get("foto_completa_url_subida") || "").trim();
+  const numeroEncuadre = (nombre: string) => {
+    const valor = Number(formData.get(nombre));
+    return Number.isFinite(valor) ? Math.min(100, Math.max(0, valor)) : 50;
+  };
+  const encuadre = {
+    foto_panorama_x: numeroEncuadre("foto_panorama_x"),
+    foto_panorama_y: numeroEncuadre("foto_panorama_y"),
+    foto_cuadrada_x: numeroEncuadre("foto_cuadrada_x"),
+    foto_cuadrada_y: numeroEncuadre("foto_cuadrada_y"),
+  };
 
   if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
 
@@ -117,8 +127,13 @@ export async function subirFotoEjercicio(
     .eq("id", ejercicioId)
     .maybeSingle();
 
-  let urlMini: string;
-  let urlCompleta: string;
+  let urlMini = "";
+  let urlCompleta = "";
+  const reemplazoFoto = !!(
+    (miniaturaUrlSubida && completaUrlSubida) ||
+    (archivo && archivo.size > 0) ||
+    fotoUrl
+  );
 
   if (miniaturaUrlSubida && completaUrlSubida) {
     urlMini = miniaturaUrlSubida;
@@ -135,40 +150,57 @@ export async function subirFotoEjercicio(
       const resultado = await descargarImagenDeUrl(fotoUrl);
       if ("error" in resultado) return { error: resultado.error, ok: false };
       bytes = resultado.bytes;
+    } else if (fotoAnterior?.foto_miniatura_url && fotoAnterior.foto_completa_url) {
+      urlMini = fotoAnterior.foto_miniatura_url;
+      urlCompleta = fotoAnterior.foto_completa_url;
+      bytes = Buffer.alloc(0);
     } else {
       return { error: "Elegí una foto o pegá un link.", ok: false };
     }
 
-    const procesada = await procesarImagen(bytes);
-    if ("error" in procesada) return { error: procesada.error, ok: false };
+    if (reemplazoFoto) {
+      const procesada = await procesarImagen(bytes);
+      if ("error" in procesada) return { error: procesada.error, ok: false };
 
     // Timestamp en el nombre: fuerza a que sea una URL nueva cada vez que se
     // reemplaza la foto, así el navegador del alumno no sigue mostrando la
     // vieja desde caché con la URL de siempre.
-    const sello = Date.now();
-    const rutaMini = `${ejercicioId}/miniatura-${sello}.webp`;
-    const rutaCompleta = `${ejercicioId}/completa-${sello}.webp`;
+      const sello = Date.now();
+      const rutaMini = `${ejercicioId}/miniatura-${sello}.webp`;
+      const rutaCompleta = `${ejercicioId}/completa-${sello}.webp`;
 
-    const [subeMini, subeCompleta] = await Promise.all([
-      supabase.storage
-        .from("ejercicios-fotos")
-        .upload(rutaMini, bufferAImagenBlob(procesada.miniatura), { contentType: "image/webp" }),
-      supabase.storage
-        .from("ejercicios-fotos")
-        .upload(rutaCompleta, bufferAImagenBlob(procesada.completa), { contentType: "image/webp" }),
-    ]);
-    if (subeMini.error || subeCompleta.error) {
-      return { error: "No se pudo subir la foto. Revisá tu conexión e intentá de nuevo.", ok: false };
+      const [subeMini, subeCompleta] = await Promise.all([
+        supabase.storage
+          .from("ejercicios-fotos")
+          .upload(rutaMini, bufferAImagenBlob(procesada.miniatura), { contentType: "image/webp" }),
+        supabase.storage
+          .from("ejercicios-fotos")
+          .upload(rutaCompleta, bufferAImagenBlob(procesada.completa), { contentType: "image/webp" }),
+      ]);
+      if (subeMini.error || subeCompleta.error) {
+        return { error: "No se pudo subir la foto. Revisá tu conexión e intentá de nuevo.", ok: false };
+      }
+
+      urlMini = supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaMini).data.publicUrl;
+      urlCompleta = supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaCompleta).data.publicUrl;
     }
-
-    urlMini = supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaMini).data.publicUrl;
-    urlCompleta = supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaCompleta).data.publicUrl;
   }
 
-  const { error: errorUpdate } = await supabase
+  let { error: errorUpdate } = await supabase
     .from("ejercicios")
-    .update({ foto_miniatura_url: urlMini, foto_completa_url: urlCompleta })
+    .update({ foto_miniatura_url: urlMini, foto_completa_url: urlCompleta, ...encuadre })
     .eq("id", ejercicioId);
+
+  // Un preview puede desplegarse unos minutos antes que la migraciÃ³n 0048.
+  // En ese intervalo, reemplazar una foto debe seguir funcionando como antes;
+  // solamente el nuevo encuadre espera a que existan sus columnas.
+  if (errorUpdate?.code === "42703" && reemplazoFoto) {
+    const respaldo = await supabase
+      .from("ejercicios")
+      .update({ foto_miniatura_url: urlMini, foto_completa_url: urlCompleta })
+      .eq("id", ejercicioId);
+    errorUpdate = respaldo.error;
+  }
 
   if (errorUpdate) {
     return { error: "La foto se subió pero no se pudo guardar en el ejercicio.", ok: false };
@@ -184,12 +216,37 @@ export async function subirFotoEjercicio(
     .filter((url): url is string => !!url)
     .map((url) => url.split("/ejercicios-fotos/")[1])
     .filter((ruta): ruta is string => !!ruta && ruta !== rutaMiniNueva && ruta !== rutaCompletaNueva);
-  if (rutasViejas.length > 0) {
+  if (reemplazoFoto && rutasViejas.length > 0) {
     await supabase.storage.from("ejercicios-fotos").remove(rutasViejas);
+  }
+
+  // Reemplazar la referencia corrige el problema de raíz para todos los
+  // alumnos; todos los reportes pendientes de este ejercicio quedan resueltos
+  // en el mismo paso. Best-effort para poder desplegar código antes de 0048.
+  if (reemplazoFoto) {
+    await supabase
+      .from("reportes_fotos_ejercicios")
+      .update({ estado: "resuelto", resuelto_en: new Date().toISOString(), resuelto_por: entrenador.userId })
+      .eq("ejercicio_id", ejercicioId)
+      .eq("estado", "pendiente");
   }
 
   avisarCambios();
   return { error: null, ok: true };
+}
+
+/** Cierra manualmente un aviso falso o uno que no pudo vincularse a una fila
+ * de la biblioteca. Reemplazar una foto lo resuelve automáticamente. */
+export async function resolverReporteFoto(formData: FormData): Promise<void> {
+  const entrenador = await requireRol(["entrenador", "admin"]);
+  const reporteId = String(formData.get("reporte_id") || "");
+  if (!reporteId) return;
+  const supabase = await createClient();
+  await supabase
+    .from("reportes_fotos_ejercicios")
+    .update({ estado: "resuelto", resuelto_en: new Date().toISOString(), resuelto_por: entrenador.userId })
+    .eq("id", reporteId);
+  revalidatePath("/admin/ejercicios");
 }
 
 export type CrearEjercicioState = { error: string | null; ok: boolean };

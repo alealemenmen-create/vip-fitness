@@ -246,6 +246,12 @@ export const SesionGrupoCard = forwardRef<
               fotoCompletaUrl={ej.fotoCompletaUrl}
               videoUrl={ej.videoUrl}
               nombre={ej.nombre}
+              sesionEjercicioId={ej.sesionEjercicioId}
+              ejercicioId={ej.ejercicioId}
+              fotoPanoramaX={ej.fotoPanoramaX}
+              fotoPanoramaY={ej.fotoPanoramaY}
+              fotoCuadradaX={ej.fotoCuadradaX}
+              fotoCuadradaY={ej.fotoCuadradaY}
               compacto
             />
             <div className="min-w-0">

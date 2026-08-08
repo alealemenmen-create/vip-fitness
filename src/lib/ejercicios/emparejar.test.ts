@@ -22,6 +22,10 @@ function ejercicio(overrides: Partial<Ejercicio> & Pick<Ejercicio, "id" | "nombr
     videoUrl: null,
     fotoMiniaturaUrl: null,
     fotoCompletaUrl: null,
+    fotoPanoramaX: 50,
+    fotoPanoramaY: 50,
+    fotoCuadradaX: 50,
+    fotoCuadradaY: 50,
     ...overrides,
   };
 }

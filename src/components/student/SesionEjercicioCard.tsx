@@ -25,6 +25,7 @@ import { Card } from "@/components/ui/Card";
 import { guardarSeries, penalizarExcesoDescanso, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
 import { programarAvisoDescanso } from "@/app/alumno/entrenar/push-actions";
 import { reportarDolor, type ReportarDolorState } from "@/app/alumno/entrenar/impulso-actions";
+import { reportarFotoIncorrecta, type ReportarFotoState } from "@/app/alumno/entrenar/foto-actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { ModalVideo } from "@/components/student/ModalVideo";
@@ -88,6 +89,12 @@ export function CuadroFotoReferencia({
   fotoCompletaUrl,
   videoUrl,
   nombre,
+  sesionEjercicioId,
+  ejercicioId,
+  fotoPanoramaX = 50,
+  fotoPanoramaY = 50,
+  fotoCuadradaX = 50,
+  fotoCuadradaY = 50,
   compacto = false,
   destacado = false,
 }: {
@@ -101,6 +108,12 @@ export function CuadroFotoReferencia({
    * foto — la referencia en movimiento gana porque enseña más. */
   videoUrl: string | null;
   nombre: string;
+  sesionEjercicioId?: string;
+  ejercicioId?: string | null;
+  fotoPanoramaX?: number;
+  fotoPanoramaY?: number;
+  fotoCuadradaX?: number;
+  fotoCuadradaY?: number;
   /** El tamaño y las sangrías negativas de siempre están pensados para la
    * esquina de una tarjeta suelta a todo el ancho. Dentro de un encabezado
    * de dos columnas (ver SesionGrupoCard, biseries) ese mismo tamaño fijo
@@ -159,6 +172,11 @@ export function CuadroFotoReferencia({
       srcCompleta={fotoCompletaUrl ?? resolverFotoCompleta(ilustracionSlug)}
       videoUrl={videoUrl}
       nombre={nombre}
+      sesionEjercicioId={sesionEjercicioId}
+      ejercicioId={ejercicioId}
+      posicionX={destacado ? fotoPanoramaX : fotoCuadradaX}
+      posicionY={destacado ? fotoPanoramaY : fotoCuadradaY}
+      usarRecorte={!!fotoMiniaturaUrl}
       tamano={tamano}
       compacto={compacto}
       destacado={destacado}
@@ -221,6 +239,11 @@ function FotoReferenciaAmpliable({
   srcCompleta,
   videoUrl,
   nombre,
+  sesionEjercicioId,
+  ejercicioId,
+  posicionX,
+  posicionY,
+  usarRecorte,
   tamano,
   compacto = false,
   destacado = false,
@@ -237,11 +260,21 @@ function FotoReferenciaAmpliable({
    * siempre mejor guía que una imagen fija ampliada. */
   videoUrl: string | null;
   nombre: string;
+  sesionEjercicioId?: string;
+  ejercicioId?: string | null;
+  posicionX: number;
+  posicionY: number;
+  usarRecorte: boolean;
   tamano: React.CSSProperties;
   compacto?: boolean;
   destacado?: boolean;
 }) {
   const [ampliada, setAmpliada] = useState(false);
+  const [confirmandoReporte, setConfirmandoReporte] = useState(false);
+  const [reporte, accionReporte, enviandoReporte] = useActionState<ReportarFotoState, FormData>(
+    reportarFotoIncorrecta,
+    { error: null, ok: false }
+  );
   const srcAmpliada = srcCompleta ?? src;
 
   return (
@@ -270,7 +303,8 @@ function FotoReferenciaAmpliable({
           // muscular (que se recorta desde arriba), estas fotos ya vienen
           // recortadas y centradas en el servidor. Anclarlas arriba cortaba la
           // mitad de abajo de la persona en cuadros más anchos que altos.
-          className={destacado ? "object-cover object-center" : "object-contain object-center"}
+          className={usarRecorte ? "object-cover" : destacado ? "object-cover object-center" : "object-contain object-center"}
+          style={usarRecorte ? { objectPosition: `${posicionX}% ${posicionY}%` } : undefined}
         />
         {/* Botón de expandir/reproducir, chico y en la esquina (referencia de
             diseño): un ícono basta como pista de que hay más para ver, sin
@@ -313,6 +347,40 @@ function FotoReferenciaAmpliable({
               />
             </div>
             <p className="text-caption text-white/70">{nombre}</p>
+            {sesionEjercicioId && !reporte.ok && !confirmandoReporte && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setConfirmandoReporte(true);
+                }}
+                className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-caption font-semibold text-white"
+              >
+                No es el ejercicio
+              </button>
+            )}
+            {sesionEjercicioId && confirmandoReporte && !reporte.ok && (
+              <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-error/35 bg-[#141416] p-3 text-center">
+                <p className="text-body font-bold text-white">¿Confirmas que no es el ejercicio?</p>
+                <p className="text-caption mt-1 text-white/60">Avisaremos al entrenador para que cambie esta referencia para todos.</p>
+                {reporte.error && <p className="text-caption mt-2 text-error">{reporte.error}</p>}
+                <form action={accionReporte} className="mt-3 grid grid-cols-2 gap-2">
+                  <input type="hidden" name="sesion_ejercicio_id" value={sesionEjercicioId} />
+                  <input type="hidden" name="ejercicio_id" value={ejercicioId ?? ""} />
+                  <button type="button" onClick={() => setConfirmandoReporte(false)} className="h-10 rounded-xl border border-white/15 text-caption font-semibold text-white/70">
+                    Volver
+                  </button>
+                  <button type="submit" disabled={enviandoReporte} className="h-10 rounded-xl bg-error text-caption font-bold text-white disabled:opacity-60">
+                    {enviandoReporte ? "Enviando…" : "Sí, reportar"}
+                  </button>
+                </form>
+              </div>
+            )}
+            {reporte.ok && (
+              <p onClick={(e) => e.stopPropagation()} className="rounded-full bg-success/15 px-4 py-2 text-caption font-semibold text-success">
+                Reporte enviado al entrenador ✓
+              </p>
+            )}
             <button
               type="button"
               onClick={() => setAmpliada(false)}
@@ -1537,6 +1605,12 @@ export const SesionEjercicioCard = forwardRef<
             fotoCompletaUrl={ejercicio.fotoCompletaUrl}
             videoUrl={ejercicio.videoUrl}
             nombre={ejercicio.nombre}
+            sesionEjercicioId={ejercicio.sesionEjercicioId}
+            ejercicioId={ejercicio.ejercicioId}
+            fotoPanoramaX={ejercicio.fotoPanoramaX}
+            fotoPanoramaY={ejercicio.fotoPanoramaY}
+            fotoCuadradaX={ejercicio.fotoCuadradaX}
+            fotoCuadradaY={ejercicio.fotoCuadradaY}
             destacado={modoEnfocado}
           />
         </div>
