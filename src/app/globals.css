@@ -172,8 +172,13 @@ body {
   Los `!important` son necesarios: `<html>` ya trae `h-full` de Tailwind
   (clase, más específica que un selector de elemento) y sin forzarlo esta
   regla pierde en landscape.
+
+  `(pointer: coarse)` limita esto a pantallas táctiles (celulares/tablets):
+  sin esa condición, cualquier ventana de navegador de escritorio más ancha
+  que alta —lo normal— también entra en "orientation: landscape" y queda
+  rotada, aunque nadie giró nada.
 */
-@media screen and (orientation: landscape) {
+@media screen and (orientation: landscape) and (pointer: coarse) {
   html {
     position: absolute !important;
     top: 100% !important;
