@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { Search, Camera, Plus, X, Check, ImageIcon, Play } from "lucide-react";
@@ -21,6 +21,7 @@ import { normalizar } from "@/lib/alimentos/emparejar";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import type { Ejercicio } from "@/lib/ejercicios/tipos";
+import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 const ETIQUETAS_GRUPO: Record<string, string> = {
   pecho: "Pecho",
@@ -195,83 +196,44 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
   );
 }
 
-// Alcanza de sobra para una vista previa en un cuadro chico — no hace falta
-// la resolución completa de la foto (puede ser 12+ megapíxeles en un iPhone
-// moderno). El procesamiento final de verdad lo hace el servidor con sharp.
-const LADO_MAXIMO_PREVIA = 800;
+const LADO_MAXIMO_FOTO = 1600;
 
-/**
- * Genera la vista previa de la foto elegida/tomada.
- *
- * Primer intento (el que de verdad soluciona el problema en iPhone):
- * decodificar el archivo con `createImageBitmap` y dibujarlo en un
- * `<canvas>` YA ACHICADO, exportando el resultado como JPEG. Una foto HEIC
- * tomada con la cámara del iPhone es justamente el caso que fallaba: un
- * `<img>` alimentado con `blob:` o `data:` URL del archivo original depende
- * de que el propio `<img>` sepa decodificar ese formato ahí mismo, y esa vía
- * tiene fallas conocidas de WebKit con HEIC — mientras que `createImageBitmap`
- * usa el decodificador de imágenes del sistema operativo (el mismo que abre
- * Fotos), mucho más confiable.
- *
- * Achicar ANTES de dibujar en el canvas no es opcional: la primera versión
- * de esto dibujaba a la resolución completa de la foto y exportaba ese
- * canvas gigante a base64 — con una foto de 12 megapíxeles eso podía
- * consumir tanta memoria que Safari cerraba la pestaña entera ("This page
- * couldn't load"), un bug peor que el que se estaba arreglando.
- *
- * Si el navegador no soporta `createImageBitmap` (poco probable, pero por las
- * dudas), cae a leer el archivo como data URL directamente — a resolución
- * completa, porque ahí no hay forma de achicar sin decodificar primero, pero
- * es solo el respaldo del respaldo.
- */
-async function generarPreview(archivo: File): Promise<string | null> {
+/** Produce el único archivo que usa la app: suficientemente nítido al
+ * ampliarlo y liviano para descargarlo como miniatura. Todo ocurre en el
+ * teléfono; los bytes nunca pasan por Vercel. */
+async function optimizarFotoEnNavegador(archivo: File): Promise<Blob> {
   try {
     const bitmap = await createImageBitmap(archivo, { imageOrientation: "from-image" });
-    const escala = Math.min(1, LADO_MAXIMO_PREVIA / Math.max(bitmap.width, bitmap.height));
-    const ancho = Math.round(bitmap.width * escala);
-    const alto = Math.round(bitmap.height * escala);
-
+    const escala = Math.min(1, LADO_MAXIMO_FOTO / Math.max(bitmap.width, bitmap.height));
+    const ancho = Math.max(1, Math.round(bitmap.width * escala));
+    const alto = Math.max(1, Math.round(bitmap.height * escala));
     const canvas = document.createElement("canvas");
     canvas.width = ancho;
     canvas.height = alto;
     const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("sin contexto 2d");
+    if (!ctx) throw new Error("No se pudo preparar la imagen.");
     ctx.drawImage(bitmap, 0, 0, ancho, alto);
     bitmap.close();
-    return canvas.toDataURL("image/jpeg", 0.85);
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.86)
+    );
+    if (!blob) throw new Error("No se pudo preparar la imagen.");
+    return blob;
   } catch {
-    return new Promise((resolve) => {
-      const lector = new FileReader();
-      lector.onload = () => resolve(typeof lector.result === "string" ? lector.result : null);
-      lector.onerror = () => resolve(null);
-      lector.readAsDataURL(archivo);
-    });
+    // JPEG/PNG/WebP ya son mostrables por todos los navegadores de la app.
+    // Si el canvas puntual del dispositivo falla, subir el archivo original
+    // sigue siendo mejor que volver al servidor que corrompía sus bytes.
+    if (["image/jpeg", "image/png", "image/webp"].includes(archivo.type)) return archivo;
+    throw new Error("El teléfono no pudo convertir esa foto. Elige una imagen JPG o PNG.");
   }
 }
 
 type FotoSubidaCliente = { miniaturaUrl: string; completaUrl: string };
 
 /**
- * Vista previa Y subida inmediata de la foto elegida — compartido entre
- * ModalSubirFoto y ModalEjercicioNuevo.
- *
- * La subida no espera a que se toque "Guardar": en iPhone, elegir "Cámara"
- * manda Safari a segundo plano mientras la app Cámara está abierta, y hay un
- * problema conocido de WebKit donde el archivo elegido puede quedar
- * inválido (0 bytes) en la memoria del navegador para cuando se vuelve —
- * aunque la vista previa se haya visto bien un instante antes. Antes, eso
- * hacía que el ejercicio se guardara igual pero SIN foto, sin ningún aviso
- * (la foto es opcional, así que el servidor no tenía forma de distinguir
- * "no eligió foto" de "la eligió pero se perdió"). Subiendo apenas se elige,
- * mientras el archivo todavía es válido, se saca ese riesgo del medio: lo
- * que se manda al guardar es la URL ya subida, nunca el archivo de nuevo.
- *
- * La subida en sí va por un `fetch` normal a una ruta de verdad
- * (`/api/admin/ejercicios/foto`), NO por un Server Action llamado directo:
- * las fotos mandadas por un Server Action así llegaban corruptas a Storage
- * (confirmado byte a byte) — el archivo viaja envuelto en el protocolo RSC
- * de Next en ese camino, y algo ahí lo alteraba. Un POST común, con el
- * archivo tal cual en el cuerpo, no tiene ese problema.
+ * Vista previa inmediata y subida directa navegador → Supabase. El servidor
+ * recibe solamente la URL final, nunca el archivo binario.
  */
 function useFotoInmediata() {
   const [archivoElegido, setArchivoElegido] = useState<File | null>(null);
@@ -280,24 +242,45 @@ function useFotoInmediata() {
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [fotoSubida, setFotoSubida] = useState<FotoSubidaCliente | null>(null);
   const [errorFoto, setErrorFoto] = useState<string | null>(null);
+  const urlPrevia = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (urlPrevia.current) URL.revokeObjectURL(urlPrevia.current);
+    };
+  }, []);
+
+  function mostrarPrevia(blob: Blob) {
+    if (urlPrevia.current) URL.revokeObjectURL(urlPrevia.current);
+    urlPrevia.current = URL.createObjectURL(blob);
+    setPrevia(urlPrevia.current);
+    setPreviaRota(false);
+  }
 
   async function subir(archivo: File) {
     setSubiendoFoto(true);
     setErrorFoto(null);
     setFotoSubida(null);
     try {
-      const fd = new FormData();
-      fd.set("foto", archivo);
-      const respuesta = await fetch("/api/admin/ejercicios/foto", { method: "POST", body: fd });
-      const resultado: { ok: true; miniaturaUrl: string; completaUrl: string } | { ok: false; error: string } =
-        await respuesta.json();
-      if (resultado.ok) {
-        setFotoSubida({ miniaturaUrl: resultado.miniaturaUrl, completaUrl: resultado.completaUrl });
-      } else {
-        setErrorFoto(resultado.error);
-      }
-    } catch {
-      setErrorFoto("No se pudo subir la foto. Revisá tu conexión e intentá de nuevo.");
+      const fotoLista = await optimizarFotoEnNavegador(archivo);
+      mostrarPrevia(fotoLista);
+
+      const supabase = createBrowserSupabaseClient();
+      const ruta = `sueltas/${crypto.randomUUID()}/foto.jpg`;
+      const { error } = await supabase.storage.from("ejercicios-fotos").upload(ruta, fotoLista, {
+        contentType: fotoLista.type || "image/jpeg",
+        cacheControl: "31536000",
+      });
+      if (error) throw error;
+
+      const url = supabase.storage.from("ejercicios-fotos").getPublicUrl(ruta).data.publicUrl;
+      setFotoSubida({ miniaturaUrl: url, completaUrl: url });
+    } catch (error) {
+      setErrorFoto(
+        error instanceof Error
+          ? error.message
+          : "No se pudo subir la foto. Revisa tu conexión e intenta de nuevo."
+      );
     } finally {
       setSubiendoFoto(false);
     }
@@ -305,9 +288,9 @@ function useFotoInmediata() {
 
   async function elegirArchivo(archivo: File) {
     setArchivoElegido(archivo);
-    setPreviaRota(false);
-    setPrevia(await generarPreview(archivo));
-    void subir(archivo);
+    // Visible de inmediato, antes incluso de comprimir o tocar la red.
+    mostrarPrevia(archivo);
+    await subir(archivo);
   }
 
   function reintentar() {
@@ -557,10 +540,8 @@ function ModalSubirFoto({
         </button>
       </div>
 
-      {/* aspect-square y no aspect-video: tiene que coincidir con el recorte
-          que hace el servidor (500x500, ver subirFotoEjercicio en actions.ts)
-          y con la tarjetita de la galería (también aspect-square) — si no,
-          lo que encuadrás acá no es lo que termina guardado. */}
+      {/* La tarjeta usa recorte visual cuadrado, pero el archivo conserva su
+          encuadre completo para poder abrirlo ampliado. */}
       <label className="radius-card relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-border bg-surface-2">
         {imagenAMostrar && !previaRota ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -575,25 +556,24 @@ function ModalSubirFoto({
             <Camera size={26} />
             <span className="text-caption">
               {previaRota
-                ? "No se pudo mostrar la vista previa — igual se guarda bien al tocar \"Guardar foto\""
+                ? "No se pudo mostrar esta imagen. Elige una foto JPG o PNG."
                 : "Toca para elegir una foto"}
             </span>
           </span>
         )}
-        {/* Estado de la subida inmediata (ver useFotoInmediata) — se ve
-            encima de la vista previa, en la esquina, sin taparla. */}
+        {/* Estado de la preparación y subida directa a Storage. */}
         {(subiendoFoto || fotoSubida || errorFoto) && (
           <span
             className={`absolute bottom-1.5 left-1.5 rounded-full px-2 py-1 text-[10px] font-medium backdrop-blur-sm ${
               errorFoto ? "bg-error/80 text-white" : "bg-black/60 text-white"
             }`}
           >
-            {subiendoFoto ? "Subiendo foto..." : errorFoto ? "No se pudo subir" : "✓ Foto lista"}
+            {subiendoFoto ? "Preparando foto..." : errorFoto ? "No se pudo subir" : "✓ Lista para guardar"}
           </span>
         )}
         <input
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           // Sin "capture": con ese atributo, varios navegadores de celular
           // abren la cámara directo y nunca ofrecen elegir de la galería —
           // sacándolo, el selector nativo siempre deja elegir entre sacar
@@ -620,22 +600,13 @@ function ModalSubirFoto({
           if (fotoSubida) {
             fd.set("foto_miniatura_url_subida", fotoSubida.miniaturaUrl);
             fd.set("foto_completa_url_subida", fotoSubida.completaUrl);
-          } else if (archivoElegido) {
-            // Respaldo: la subida inmediata no llegó a terminar o falló —
-            // se manda el archivo tal cual, mismo camino de siempre.
-            fd.set("foto", archivoElegido);
           }
           fd.set("ejercicio_id", ejercicio.id);
           formAction(fd);
         }}
         className="mt-3 space-y-2"
       >
-        {/* Alternativa a elegir un archivo, para cuando el selector del
-            celular da problemas (ver el comentario largo en generarPreview):
-            si la foto ya está en otro lado (Drive, otra app), pegar el link
-            se salta el archivo del celular por completo. Si se cargan las
-            dos cosas, gana el archivo — el link solo se usa si no hay
-            archivo elegido (ver subirFotoEjercicio en actions.ts). */}
+        {/* Alternativa para una imagen que ya está publicada en otro sitio. */}
         <div className="flex items-center gap-2 text-[10px] text-text-tertiary">
           <div className="h-px flex-1 bg-border" /> o pegá el link de una imagen{" "}
           <div className="h-px flex-1 bg-border" />
@@ -660,10 +631,10 @@ function ModalSubirFoto({
         )}
         <button
           type="submit"
-          disabled={pending || subiendoFoto}
+          disabled={pending || subiendoFoto || (!!archivoElegido && !fotoSubida)}
           className="btn-accion radius-control flex h-11 w-full items-center justify-center gap-2 text-secondary font-semibold disabled:opacity-60"
         >
-          {pending ? "Guardando..." : subiendoFoto ? "Esperando la foto..." : "Guardar foto"}
+          {pending ? "Guardando..." : subiendoFoto ? "Preparando la foto..." : "Guardar foto"}
         </button>
       </form>
 
@@ -934,17 +905,12 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
           if (fotoSubida) {
             fd.set("foto_miniatura_url_subida", fotoSubida.miniaturaUrl);
             fd.set("foto_completa_url_subida", fotoSubida.completaUrl);
-          } else if (archivoElegido) {
-            fd.set("foto", archivoElegido);
           }
           formAction(fd);
         }}
         className="space-y-3"
       >
-        {/* aspect-square y no aspect-video: tiene que coincidir con el recorte
-          que hace el servidor (500x500, ver subirFotoEjercicio en actions.ts)
-          y con la tarjetita de la galería (también aspect-square) — si no,
-          lo que encuadrás acá no es lo que termina guardado. */}
+        {/* La misma foto sirve como tarjeta cuadrada y vista ampliada. */}
       <label className="radius-card relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-border bg-surface-2">
           {previa && !previaRota ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -959,7 +925,7 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
               <Camera size={26} />
               <span className="text-caption">
                 {previaRota
-                  ? "No se pudo mostrar la vista previa — igual se guarda bien"
+                  ? "No se pudo mostrar esta imagen. Elige una foto JPG o PNG."
                   : "Foto (opcional, se puede subir después)"}
               </span>
             </span>
@@ -970,12 +936,12 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
                 errorFoto ? "bg-error/80 text-white" : "bg-black/60 text-white"
               }`}
             >
-              {subiendoFoto ? "Subiendo foto..." : errorFoto ? "No se pudo subir" : "✓ Foto lista"}
+              {subiendoFoto ? "Preparando foto..." : errorFoto ? "No se pudo subir" : "✓ Lista para guardar"}
             </span>
           )}
           <input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             // Ver comentario del mismo input en el modal de editar: sin
             // "capture" deja elegir entre cámara y galería.
             className="absolute inset-0 h-full w-full opacity-0"
@@ -1076,7 +1042,7 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
 
         <button
           type="submit"
-          disabled={pending || subiendoFoto}
+          disabled={pending || subiendoFoto || (!!archivoElegido && !fotoSubida)}
           className="btn-accion radius-control flex h-11 w-full items-center justify-center gap-2 text-secondary font-semibold disabled:opacity-60"
         >
           {pending ? "Creando..." : subiendoFoto ? "Esperando la foto..." : "Crear ejercicio"}

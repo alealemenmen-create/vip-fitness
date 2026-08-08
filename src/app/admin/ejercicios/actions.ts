@@ -86,9 +86,8 @@ export type SubirFotoState = { error: string | null; ok: boolean };
  * Vincula (o reemplaza) la foto de un ejercicio ya existente en la
  * biblioteca. Tres orígenes posibles para la foto, en este orden de
  * prioridad:
- *   1. `foto_miniatura_url_subida`/`foto_completa_url_subida` — ya subida de
- *      antemano por `POST /api/admin/ejercicios/foto` (el camino normal
- *      desde GaleriaEjercicios.tsx, ver el comentario en esa ruta).
+ *   1. `foto_miniatura_url_subida`/`foto_completa_url_subida` — ya subida
+ *      directamente por el navegador a Supabase Storage (camino normal).
  *   2. `foto` — un archivo mandado directo (respaldo, por si el paso 1
  *      fallara del lado del cliente).
  *   3. `foto_url` — un link pegado a mano, para descargar server-side.

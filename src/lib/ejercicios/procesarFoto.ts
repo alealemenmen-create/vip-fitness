@@ -25,9 +25,8 @@ export function bufferAImagenBlob(bytes: Buffer, contentType = "image/webp"): Bl
  * orientación EXIF del celular, así la foto queda derecha sin depender de
  * que el navegador la interprete.
  *
- * Vive en un módulo aparte (sin `"use server"`) para poder llamarse tanto
- * desde Server Actions (actions.ts) como desde la ruta de subida
- * (`app/api/admin/ejercicios/foto/route.ts`).
+ * Vive en un módulo aparte (sin `"use server"`) para que el respaldo por URL
+ * de `actions.ts` pueda procesar una imagen descargada por el servidor.
  */
 export async function procesarImagen(
   bytes: Buffer
