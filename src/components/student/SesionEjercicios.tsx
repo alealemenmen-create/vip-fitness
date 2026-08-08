@@ -233,14 +233,20 @@ export function SesionEjercicios({
       {montado && !soloLectura && navegacion ? createPortal(navegacion, document.body) : null}
 
       {!soloLectura && (
-        <div className={indiceVisible === grupos.length - 1 ? "grid grid-cols-[120px_minmax(0,1fr)] gap-2" : "grid grid-cols-1 gap-2"}>
-          <Button variant="secondary" size="xs" onClick={guardarTodo} className="w-full px-2">
-            <Check size={14} strokeWidth={3} /> {guardado ? "Guardado" : "Guardar"}
-          </Button>
-          {indiceVisible === grupos.length - 1 && (
-            <FinalizarEntrenamiento sesionId={sesionId} completados={completados} total={total} compacto />
-          )}
-        </div>
+        <>
+          <div className={indiceVisible === grupos.length - 1 ? "grid grid-cols-[120px_minmax(0,1fr)] gap-2" : "grid grid-cols-1 gap-2"}>
+            <Button variant="secondary" size="xs" onClick={guardarTodo} className="w-full px-2">
+              <Check size={14} strokeWidth={3} /> {guardado ? "Guardado" : "Guardar"}
+            </Button>
+            {indiceVisible === grupos.length - 1 && (
+              <FinalizarEntrenamiento sesionId={sesionId} completados={completados} total={total} compacto />
+            )}
+          </div>
+          {/* Reserva suficiente recorrido al final del scroll para que
+              Guardar, Finalizar y los paneles de nota/molestia puedan subir
+              completamente por encima de las dos barras fijas. */}
+          <div className="h-16" aria-hidden="true" />
+        </>
       )}
     </>
   );

@@ -828,7 +828,11 @@ input[type="date"]::-webkit-date-and-time-value {
 .navegacion-modo-enfocado-fija {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--alto-nav-alumno, 82px) + 6px);
+  /* La barra inferior trae 16px de aire ANTES de los íconos. Entrar 12px en
+     ese aire deja solo 4px visuales entre ambos controles, sin tapar los
+     íconos y sin depender de si aparece el enlace de entrenador o del área
+     segura del iPhone. */
+  bottom: calc(var(--alto-nav-alumno, 82px) - 12px);
   z-index: 39;
   width: min(calc(100% - 24px), 416px);
   padding: 4px;
