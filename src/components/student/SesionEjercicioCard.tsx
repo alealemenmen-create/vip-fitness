@@ -268,7 +268,7 @@ function FotoReferenciaAmpliable({
           // muscular (que se recorta desde arriba), estas fotos ya vienen
           // recortadas y centradas en el servidor. Anclarlas arriba cortaba la
           // mitad de abajo de la persona en cuadros más anchos que altos.
-          className="object-contain object-center"
+          className={destacado ? "object-cover object-center" : "object-contain object-center"}
         />
         {/* Botón de expandir/reproducir, chico y en la esquina (referencia de
             diseño): un ícono basta como pista de que hay más para ver, sin
