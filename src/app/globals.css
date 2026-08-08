@@ -950,7 +950,7 @@ input[type="date"]::-webkit-date-and-time-value {
   background: #1d1c22;
 }
 .tarjeta-ejercicio-enfocada .fila-serie-contenido .campo-serie-plano input {
-  font-size: calc(18px * var(--escala-texto));
+  font-size: calc(16px * var(--escala-texto));
   text-align: center;
 }
 .tarjeta-ejercicio-enfocada .fila-serie-contenido .boton-descanso {

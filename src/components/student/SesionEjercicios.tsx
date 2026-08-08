@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Dumbbell } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
@@ -160,21 +160,11 @@ export function SesionEjercicios({
         grupos.map(renderizarGrupo)
       ) : grupoVisible ? (
         <section className="modo-entrenamiento-enfocado space-y-3" aria-label="Ejercicio actual">
-          <div className="cabecera-modo-enfocado">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="icono-modo-enfocado" aria-hidden="true">
-                <Dumbbell size={18} strokeWidth={2.6} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-micro font-bold uppercase tracking-[0.16em] text-vip">
-                  Ahora entrenas
-                </p>
-                <p className="truncate text-caption font-semibold text-text">{tituloVisible}</p>
-              </div>
-            </div>
-            <span className="contador-modo-enfocado">
-              {indiceVisible + 1}/{grupos.length}
-            </span>
+          <div className="flex items-center justify-between px-1">
+            <p className="text-micro font-semibold uppercase tracking-[0.14em] text-text-secondary">
+              Ejercicio {indiceVisible + 1} de {grupos.length}
+            </p>
+            <p className="text-micro truncate text-vip">{tituloVisible}</p>
           </div>
 
           {renderizarGrupo(grupoVisible)}

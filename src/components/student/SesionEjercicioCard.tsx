@@ -112,7 +112,7 @@ export function CuadroFotoReferencia({
   const { src: srcEstatico, origen } = resolverIlustracion(ilustracionSlug, null);
   const src = fotoMiniaturaUrl ?? (origen === "ilustracion" ? srcEstatico : null);
   const tamano: React.CSSProperties = destacado
-    ? { width: "100%", minHeight: 196, height: 196 }
+    ? { width: "100%", minHeight: 148, height: 148 }
     : compacto
     ? { width: 44, minHeight: 44, height: 44 }
     : { width: 116, minHeight: 116, height: 116 };
@@ -1526,7 +1526,7 @@ export const SesionEjercicioCard = forwardRef<
             dejaba la foto al lado, y el tempo no entraba como 4ta columna —
             afuera de esa columna ya no hay ese límite, como en la
             referencia). */}
-        <div className="datos-ejercicio radius-control mb-1.5 flex items-stretch overflow-hidden border border-border bg-surface-2">
+        {!modoEnfocado && <div className="datos-ejercicio radius-control mb-1.5 flex items-stretch overflow-hidden border border-border bg-surface-2">
           <Dato
             icono={<Layers size={13} />}
             valor={String(ejercicio.seriesProgramadas)}
@@ -1545,7 +1545,7 @@ export const SesionEjercicioCard = forwardRef<
           {ejercicio.tempo && (
             <Dato icono={<Gauge size={13} />} valor={ejercicio.tempo.valor} etiqueta="Tempo" />
           )}
-        </div>
+        </div>}
 
         {/* Plegado: el ejercicio que no toca todavía muestra solo la cabecera de
             arriba. Con siete ejercicios abiertos a la vez había que scrollear a
