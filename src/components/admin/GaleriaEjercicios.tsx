@@ -64,7 +64,7 @@ export function GaleriaEjercicios({
   const [busqueda, setBusqueda] = useState("");
   const [editando, setEditando] = useState<Ejercicio | null>(null);
   const [probandoVideo, setProbandoVideo] = useState<Ejercicio | null>(null);
-  const [creando, setCreando] = useState(false);
+  const [creando, setCreando] = useState<string | null>(null);
   // Justo después de subir una foto nueva, a veces el CDN de Storage todavía
   // no terminó de propagarla y la primera carga falla (el archivo ya está
   // subido de verdad, es solo una demora de segundos). Antes, ese primer
@@ -142,9 +142,8 @@ export function GaleriaEjercicios({
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    disabled={!ejercicio}
-                    onClick={() => ejercicio && setEditando(ejercicio)}
-                    className="btn-accion radius-control h-9 text-caption font-bold disabled:opacity-40"
+                    onClick={() => ejercicio ? setEditando(ejercicio) : setCreando(reporte.nombreEjercicio)}
+                    className="btn-accion radius-control h-9 text-caption font-bold"
                   >
                     {reporte.fotoUrl ? "Corregir ahora" : "Agregar foto"}
                   </button>
@@ -186,7 +185,7 @@ export function GaleriaEjercicios({
 
       <button
         type="button"
-        onClick={() => setCreando(true)}
+        onClick={() => setCreando("")}
         className="radius-control flex w-full items-center justify-center gap-2 border border-dashed border-vip/50 py-3 text-secondary font-semibold text-vip"
       >
         <Plus size={16} /> Ejercicio nuevo, con foto
@@ -290,7 +289,7 @@ export function GaleriaEjercicios({
           onCerrar={() => setProbandoVideo(null)}
         />
       )}
-      {creando && <ModalEjercicioNuevo onCerrar={() => setCreando(false)} />}
+      {creando !== null && <ModalEjercicioNuevo nombreInicial={creando} onCerrar={() => setCreando(null)} />}
     </div>
   );
 }
@@ -1038,7 +1037,7 @@ const EQUIPOS: { valor: string; etiqueta: string }[] = [
   { valor: "otro", etiqueta: "Otro" },
 ];
 
-function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
+function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?: string; onCerrar: () => void }) {
   const [state, formAction, pending] = useActionState(crearEjercicioNuevo, ESTADO_INICIAL_CREAR);
   const {
     archivoElegido,
@@ -1140,6 +1139,7 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
             name="nombre"
             type="text"
             required
+            defaultValue={nombreInicial}
             placeholder="Ej: Press de pecho / Bench press / Press banca"
             className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
           />
