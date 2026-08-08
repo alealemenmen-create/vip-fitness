@@ -26,6 +26,20 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request): Promise<Response> {
   await requireRol(["entrenador", "admin"]);
 
+  // DIAGNÓSTICO TEMPORAL: un patrón fijo (los 256 valores de byte posibles),
+  // generado en el propio servidor — no depende del navegador ni del
+  // archivo que suba el entrenador. Sirve para aislar si la corrupción pasa
+  // ANTES de este punto (algo con el archivo real, en el camino
+  // navegador→servidor) o DESPUÉS (algo con esta subida a Storage
+  // puntualmente, corriendo en el entorno real de producción — la prueba
+  // local anterior corrió en otra máquina, no en este mismo entorno
+  // desplegado). Sacar una vez que se encuentre la causa.
+  const patronFijo = Buffer.alloc(256);
+  for (let i = 0; i < 256; i++) patronFijo[i] = i;
+  await (await createClient()).storage
+    .from("ejercicios-fotos")
+    .upload("_diagnostico/patron-fijo.bin", patronFijo, { contentType: "application/octet-stream", upsert: true });
+
   const formData = await request.formData();
   const archivo = formData.get("foto") as File | null;
 
@@ -43,10 +57,6 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const bytes = Buffer.from(await archivo.arrayBuffer());
-  const procesada = await procesarImagen(bytes);
-  if ("error" in procesada) {
-    return Response.json({ ok: false, error: procesada.error }, { status: 400 });
-  }
 
   const supabase = await createClient();
   // Carpeta al azar: en este momento todavía no existe (o no se conoce) el
@@ -55,6 +65,28 @@ export async function POST(request: Request): Promise<Response> {
   const carpeta = `sueltas/${randomUUID()}`;
   const rutaMini = `${carpeta}/miniatura.webp`;
   const rutaCompleta = `${carpeta}/completa.webp`;
+
+  // DIAGNÓSTICO TEMPORAL: guarda los bytes tal cual llegaron al servidor,
+  // ANTES de que sharp los toque — para poder comparar el tamaño que dice el
+  // navegador (`archivo.size`) contra lo que de verdad recibió el servidor
+  // (`bytes.length`), y bajar este archivo crudo aparte para ver si la
+  // corrupción ya está acá (algo en el camino navegador→servidor) o si
+  // aparece recién al procesarla. Sacar una vez que se encuentre la causa.
+  await supabase.storage.from("ejercicios-fotos").upload(`${carpeta}/original-crudo.bin`, bytes, {
+    contentType: "application/octet-stream",
+  });
+
+  const procesada = await procesarImagen(bytes);
+  if ("error" in procesada) {
+    return Response.json(
+      {
+        ok: false,
+        error: procesada.error,
+        diagnostico: { tamanoNavegador: archivo.size, tamanoRecibido: bytes.length, carpeta },
+      },
+      { status: 400 }
+    );
+  }
 
   const [subeMini, subeCompleta] = await Promise.all([
     supabase.storage.from("ejercicios-fotos").upload(rutaMini, procesada.miniatura, { contentType: "image/webp" }),
