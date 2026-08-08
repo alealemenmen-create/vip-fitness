@@ -293,7 +293,11 @@ async function guardarUnEjercicio(
       // entorno, Supabase devuelve error de columna inexistente — no debe
       // impedir guardar el resto del ejercicio (mismo criterio de
       // degradación que el resto de Impulso VIP).
-      dificultad_percibida: dificultadPercibida,
+      // Un guardado automático de las series puede viajar casi al mismo
+      // tiempo que la respuesta del modal. Si todavía no hay respuesta, no
+      // se toca esta columna: así una petición anterior nunca puede borrar
+      // la respuesta de Impulso VIP que llegó después.
+      ...(dificultadPercibida ? { dificultad_percibida: dificultadPercibida } : {}),
     })
     .eq("id", sesionEjercicioId);
   if (errorNota) {

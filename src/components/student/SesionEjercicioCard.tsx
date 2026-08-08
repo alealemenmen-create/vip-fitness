@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal, flushSync } from "react-dom";
 import {
   Check,
@@ -41,6 +41,8 @@ import {
   limpiarBorrador,
   type BorradorEjercicio,
 } from "@/lib/entrenamiento/borrador";
+
+const suscribirSinCambios = () => () => {};
 
 /** Lo que expone cada tarjeta de ejercicio al botón general "Guardar
  * progreso" de la sesión (ver SesionEjercicios.tsx). */
@@ -399,11 +401,11 @@ export function TarjetaImpulsoVip({ recomendacion }: { recomendacion: EjercicioS
 }
 
 const OPCIONES_DIFICULTAD: { valor: string; etiqueta: string }[] = [
-  { valor: "muy_facil", etiqueta: "Me quedaron varias" },
-  { valor: "facil", etiqueta: "Exigente y controlada" },
-  { valor: "justo", etiqueta: "Casi al límite" },
-  { valor: "dificil", etiqueta: "Muy difícil" },
-  { valor: "fallo", etiqueta: "No pude completar" },
+  { valor: "muy_facil", etiqueta: "Estuvo fácil" },
+  { valor: "facil", etiqueta: "Podía hacer más" },
+  { valor: "justo", etiqueta: "Estuvo justo" },
+  { valor: "dificil", etiqueta: "Estuvo muy difícil" },
+  { valor: "fallo", etiqueta: "No pude completarlo" },
 ];
 
 /**
@@ -419,6 +421,8 @@ export function SelectorDificultad({
   valorInicial,
   disabled,
   onGuardar,
+  forzarModal = false,
+  onResponder,
   nombreCampo = "dificultad_ejercicio",
 }: {
   valorInicial: string | null;
@@ -428,55 +432,50 @@ export function SelectorDificultad({
    * (marcar una serie, editar la nota), y muchas veces no pasaba nada más
    * después de elegirla: quedaba sin persistir. */
   onGuardar: () => void;
+  forzarModal?: boolean;
+  onResponder?: () => void;
   nombreCampo?: string;
 }) {
   const [valor, setValor] = useState(valorInicial ?? "");
-  const [abierto, setAbierto] = useState(false);
+  const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
 
   if (disabled) return null;
 
-  const seleccion = OPCIONES_DIFICULTAD.find((op) => op.valor === valor)?.etiqueta;
-
-  if (!abierto) {
-    return (
-      <div className="mt-1.5">
-        <input type="hidden" name={nombreCampo} value={valor} />
-        <button
-          type="button"
-          onClick={() => setAbierto(true)}
-          className="accion-secundaria-ejercicio flex h-9 w-full items-center justify-center px-3"
-        >
-          {seleccion ? `Esfuerzo: ${seleccion}` : "¿Cómo se sintió? (opcional)"}
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="mt-1.5 rounded-xl border border-border bg-surface-2 p-2">
+    <>
       <input type="hidden" name={nombreCampo} value={valor} />
-      <p className="text-micro mb-1 font-bold tracking-wide text-vip">¿CÓMO SENTISTE ESTE EJERCICIO?</p>
-      <div className="flex flex-wrap gap-1.5">
-        {OPCIONES_DIFICULTAD.map((op) => (
-          <button
-            key={op.valor}
-            type="button"
-            onClick={() => {
-              // flushSync: igual que en FilaSerie — sin forzar el re-render
-              // acá, el <input hidden> todavía tendría el valor viejo cuando
-              // `onGuardar` arma el FormData un instante después.
-              flushSync(() => setValor(op.valor));
-              onGuardar();
-              setAbierto(false);
-            }}
-            data-activo={valor === op.valor ? "true" : "false"}
-            className="pill-dificultad"
-          >
-            {op.etiqueta}
-          </button>
-        ))}
-      </div>
-    </div>
+      {montado && forzarModal && !valor
+        ? createPortal(
+            <div className="fixed inset-0 z-[70] grid place-items-center bg-black/80 px-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="titulo-impulso-vip">
+              <div className="w-full max-w-sm overflow-hidden rounded-[28px] border border-vip/30 bg-[#0b0c0e] shadow-[0_24px_80px_rgba(0,0,0,.72)]">
+                <div className="bg-gradient-to-br from-vip/25 via-vip/5 to-transparent px-5 pb-4 pt-5 text-center">
+                  <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-vip text-base font-black text-black shadow-[0_0_30px_rgba(190,242,50,.35)]">VIP</div>
+                  <p className="text-micro font-bold uppercase tracking-[0.2em] text-vip">Impulso VIP</p>
+                  <h2 id="titulo-impulso-vip" className="mt-1 text-xl font-bold text-white">¿Cómo sentiste este ejercicio?</h2>
+                  <p className="mt-1 text-caption leading-snug text-text-secondary">Tu respuesta ayuda a preparar mejor el peso de tu próxima rutina.</p>
+                </div>
+                <div className="grid gap-2 px-4 pb-5">
+                  {OPCIONES_DIFICULTAD.map((op) => (
+                    <button
+                      key={op.valor}
+                      type="button"
+                      onClick={() => {
+                        flushSync(() => setValor(op.valor));
+                        onGuardar();
+                        onResponder?.();
+                      }}
+                      className="min-h-12 rounded-2xl border border-white/10 bg-white/[0.055] px-4 text-left text-sm font-semibold text-white transition active:scale-[0.98] active:border-vip active:text-vip"
+                    >
+                      {op.etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   );
 }
 
@@ -1215,8 +1214,9 @@ export const SesionEjercicioCard = forwardRef<
      * el brillo corriendo, para que se note de lejos en cuál está parado. */
     activo?: boolean;
     modoEnfocado?: boolean;
+    onDificultadRespondida?: () => void;
   }
->(function SesionEjercicioCard({ ejercicio, sesionId, soloLectura, activo = false, modoEnfocado = false }, ref) {
+>(function SesionEjercicioCard({ ejercicio, sesionId, soloLectura, activo = false, modoEnfocado = false, onDificultadRespondida }, ref) {
   const [state, formAction, pending] = useActionState(guardarSeries, initialState);
   // Abierto de entrada el que está en curso y los ya terminados (para poder
   // revisar lo que se levantó); en modo lectura, todos.
@@ -1705,6 +1705,8 @@ export const SesionEjercicioCard = forwardRef<
             valorInicial={ejercicio.dificultadPercibida}
             disabled={seriesHechas.size < ejercicio.seriesProgramadas}
             onGuardar={guardarAhora}
+            forzarModal={modoEnfocado}
+            onResponder={onDificultadRespondida}
           />
 
           {state.error && <p className="text-caption text-error">{state.error}</p>}

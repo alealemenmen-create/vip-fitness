@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
@@ -9,6 +10,8 @@ import { SesionGrupoCard } from "@/components/student/SesionGrupoCard";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { posicionTecnica, resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
+
+const suscribirSinCambios = () => () => {};
 
 /**
  * Parte la lista de ejercicios en grupos consecutivos de la misma familia de
@@ -102,6 +105,7 @@ export function SesionEjercicios({
   const ejercicioActivoId = calcularActivo(ejercicios);
   const grupos = agruparPorTecnica(ejercicios);
   const [guardado, setGuardado] = useState(false);
+  const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
   const indiceActivo = Math.max(
     0,
     grupos.findIndex((grupo) => grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId))
@@ -114,6 +118,11 @@ export function SesionEjercicios({
     handles.current.forEach((handle) => handle.guardar());
     setGuardado(true);
     window.setTimeout(() => setGuardado(false), 2500);
+  };
+
+  const avanzarDesdeEncuesta = (grupo: EjercicioSesion[]) => {
+    const indice = grupos.findIndex((actual) => actual[0].sesionEjercicioId === grupo[0].sesionEjercicioId);
+    if (indice >= 0 && indice < grupos.length - 1) setIndiceVisible(indice + 1);
   };
 
   const renderizarGrupo = (grupo: EjercicioSesion[]) => {
@@ -132,6 +141,7 @@ export function SesionEjercicios({
           sesionId={sesionId}
           soloLectura={soloLectura}
           activo={activo}
+          onDificultadRespondida={() => avanzarDesdeEncuesta(grupo)}
         />
       );
     }
@@ -148,12 +158,51 @@ export function SesionEjercicios({
         soloLectura={soloLectura}
         activo={grupo[0].sesionEjercicioId === ejercicioActivoId}
         modoEnfocado={!soloLectura}
+        onDificultadRespondida={() => avanzarDesdeEncuesta(grupo)}
       />
     );
   };
 
   const grupoVisible = grupos[indiceVisible] ?? grupos[0];
   const tituloVisible = grupoVisible?.map((ej) => ej.nombre).join(" + ") ?? "Entrenamiento";
+
+  const navegacion = grupoVisible ? (
+    <nav className="navegacion-modo-enfocado navegacion-modo-enfocado-fija" aria-label="Navegar por los ejercicios">
+      <button
+        type="button"
+        onClick={() => setIndiceVisible((indice) => Math.max(0, indice - 1))}
+        disabled={indiceVisible === 0}
+        className="boton-navegacion-ejercicio"
+      >
+        <ChevronLeft size={18} /> Anterior
+      </button>
+
+      <div className="flex items-center justify-center gap-1.5" aria-label={`Ejercicio ${indiceVisible + 1} de ${grupos.length}`}>
+        {grupos.map((grupo, indice) => (
+          <button
+            key={grupo[0].sesionEjercicioId}
+            type="button"
+            onClick={() => setIndiceVisible(indice)}
+            className="punto-rutina"
+            data-activo={indice === indiceVisible}
+            data-completo={grupo.every((ej) => ej.completado)}
+            aria-label={`Ir al ejercicio ${indice + 1}`}
+            aria-current={indice === indiceVisible ? "step" : undefined}
+          />
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setIndiceVisible((indice) => Math.min(grupos.length - 1, indice + 1))}
+        disabled={indiceVisible === grupos.length - 1}
+        className="boton-navegacion-ejercicio"
+        data-recomendado={grupoVisible.every((ej) => ej.completado) ? "true" : "false"}
+      >
+        Siguiente <ChevronRight size={18} />
+      </button>
+    </nav>
+  ) : null;
 
   return (
     <>
@@ -178,50 +227,19 @@ export function SesionEjercicios({
 
           {renderizarGrupo(grupoVisible)}
 
-          <nav className="navegacion-modo-enfocado navegacion-modo-enfocado-fija" aria-label="Navegar por los ejercicios">
-            <button
-              type="button"
-              onClick={() => setIndiceVisible((indice) => Math.max(0, indice - 1))}
-              disabled={indiceVisible === 0}
-              className="boton-navegacion-ejercicio"
-            >
-              <ChevronLeft size={18} /> Anterior
-            </button>
-
-            <div className="flex items-center justify-center gap-1.5" aria-label={`Ejercicio ${indiceVisible + 1} de ${grupos.length}`}>
-              {grupos.map((grupo, indice) => (
-                <button
-                  key={grupo[0].sesionEjercicioId}
-                  type="button"
-                  onClick={() => setIndiceVisible(indice)}
-                  className="punto-rutina"
-                  data-activo={indice === indiceVisible}
-                  data-completo={grupo.every((ej) => ej.completado)}
-                  aria-label={`Ir al ejercicio ${indice + 1}`}
-                  aria-current={indice === indiceVisible ? "step" : undefined}
-                />
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIndiceVisible((indice) => Math.min(grupos.length - 1, indice + 1))}
-              disabled={indiceVisible === grupos.length - 1}
-              className="boton-navegacion-ejercicio"
-              data-recomendado={grupoVisible.every((ej) => ej.completado) ? "true" : "false"}
-            >
-              Siguiente <ChevronRight size={18} />
-            </button>
-          </nav>
         </section>
       ) : null}
 
+      {montado && !soloLectura && navegacion ? createPortal(navegacion, document.body) : null}
+
       {!soloLectura && (
-        <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2">
+        <div className={indiceVisible === grupos.length - 1 ? "grid grid-cols-[120px_minmax(0,1fr)] gap-2" : "grid grid-cols-1 gap-2"}>
           <Button variant="secondary" size="xs" onClick={guardarTodo} className="w-full px-2">
             <Check size={14} strokeWidth={3} /> {guardado ? "Guardado" : "Guardar"}
           </Button>
-          <FinalizarEntrenamiento sesionId={sesionId} completados={completados} total={total} compacto />
+          {indiceVisible === grupos.length - 1 && (
+            <FinalizarEntrenamiento sesionId={sesionId} completados={completados} total={total} compacto />
+          )}
         </div>
       )}
     </>

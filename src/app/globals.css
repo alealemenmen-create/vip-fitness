@@ -828,7 +828,7 @@ input[type="date"]::-webkit-date-and-time-value {
 .navegacion-modo-enfocado-fija {
   position: fixed;
   left: 50%;
-  bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--alto-nav-alumno, 82px) + 6px);
   z-index: 39;
   width: min(calc(100% - 24px), 416px);
   padding: 4px;
