@@ -105,21 +105,10 @@ export function SesionEjercicios({
     0,
     grupos.findIndex((grupo) => grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId))
   );
-  const [navegacion, setNavegacion] = useState({
-    indice: indiceActivo,
-    activoId: ejercicioActivoId,
-  });
-  const cambioElActivo = navegacion.activoId !== ejercicioActivoId;
-  const indiceVisible = cambioElActivo ? indiceActivo : navegacion.indice;
+  const [indiceVisible, setIndiceVisible] = useState(indiceActivo);
 
-  // Ajustar estado durante el render es el patrón de React para conservar una
-  // selección que también debe reaccionar a un cambio de props. Así, al
-  // completar el ejercicio, la revalidación abre el siguiente sin un efecto
-  // adicional ni un destello intermedio de la tarjeta anterior.
-  if (!soloLectura && cambioElActivo) {
-    setNavegacion({ indice: indiceActivo, activoId: ejercicioActivoId });
-  }
-
+  // Se conserva la tarjeta actual después de guardar: el próximo paso se
+  // indica iluminando “Siguiente”, en vez de mover la pantalla sin avisar.
   const guardarTodo = () => {
     handles.current.forEach((handle) => handle.guardar());
     setGuardado(true);
@@ -157,6 +146,7 @@ export function SesionEjercicios({
         sesionId={sesionId}
         soloLectura={soloLectura}
         activo={grupo[0].sesionEjercicioId === ejercicioActivoId}
+        modoEnfocado={!soloLectura}
       />
     );
   };
@@ -192,7 +182,7 @@ export function SesionEjercicios({
           <nav className="navegacion-modo-enfocado" aria-label="Navegar por los ejercicios">
             <button
               type="button"
-              onClick={() => setNavegacion((actual) => ({ ...actual, indice: Math.max(0, actual.indice - 1) }))}
+              onClick={() => setIndiceVisible((indice) => Math.max(0, indice - 1))}
               disabled={indiceVisible === 0}
               className="boton-navegacion-ejercicio"
             >
@@ -204,7 +194,7 @@ export function SesionEjercicios({
                 <button
                   key={grupo[0].sesionEjercicioId}
                   type="button"
-                  onClick={() => setNavegacion((actual) => ({ ...actual, indice }))}
+                  onClick={() => setIndiceVisible(indice)}
                   className="punto-rutina"
                   data-activo={indice === indiceVisible}
                   data-completo={grupo.every((ej) => ej.completado)}
@@ -216,9 +206,10 @@ export function SesionEjercicios({
 
             <button
               type="button"
-              onClick={() => setNavegacion((actual) => ({ ...actual, indice: Math.min(grupos.length - 1, actual.indice + 1) }))}
+              onClick={() => setIndiceVisible((indice) => Math.min(grupos.length - 1, indice + 1))}
               disabled={indiceVisible === grupos.length - 1}
               className="boton-navegacion-ejercicio"
+              data-recomendado={grupoVisible.every((ej) => ej.completado) ? "true" : "false"}
             >
               Siguiente <ChevronRight size={18} />
             </button>
@@ -227,8 +218,8 @@ export function SesionEjercicios({
       ) : null}
 
       {!soloLectura && (
-        <Button variant="accion" onClick={guardarTodo} className="w-full">
-          <Check size={16} strokeWidth={3} /> {guardado ? "Progreso guardado" : "Guardar ejercicio"}
+        <Button variant="secondary" onClick={guardarTodo} className="w-full">
+          <Check size={16} strokeWidth={3} /> {guardado ? "Progreso guardado" : "Guardar ahora"}
         </Button>
       )}
 

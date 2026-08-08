@@ -155,7 +155,11 @@ export const SesionGrupoCard = forwardRef<
   }
 
   function marcarGrupoListo() {
-    filasRef.current.forEach((mapa) => mapa.forEach((handle) => handle.completarYa()));
+    // Un solo envío después de actualizar todas las filas evita carreras entre
+    // respuestas parciales del mismo grupo (el mismo problema corregido en la
+    // tarjeta de ejercicio individual).
+    filasRef.current.forEach((mapa) => mapa.forEach((handle) => handle.completarYa(false)));
+    formRef.current?.requestSubmit();
   }
 
   useImperativeHandle(ref, () => ({

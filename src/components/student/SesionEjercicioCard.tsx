@@ -52,7 +52,7 @@ export type SesionEjercicioCardHandle = {
  * ejercicio, que fuerza todas las series como hechas de una sola vez.
  * Exportado: `SesionGrupoCard` lo usa para el mismo botón, por ejercicio. */
 export type FilaSerieHandle = {
-  completarYa: () => void;
+  completarYa: (guardar?: boolean) => void;
 };
 
 const initialState: GuardarSeriesState = { error: null };
@@ -87,6 +87,7 @@ export function CuadroFotoReferencia({
   videoUrl,
   nombre,
   compacto = false,
+  destacado = false,
 }: {
   ilustracionSlug: string | null;
   /** Fotos subidas desde /admin/ejercicios — mandan sobre la ilustración
@@ -104,10 +105,15 @@ export function CuadroFotoReferencia({
    * se desbordaba de su columna y se amontonaba con la de al lado — acá
    * pasa a un cuadrado chico, sin sangría. */
   compacto?: boolean;
+  /** En el modo enfocado la referencia es el elemento principal de la
+   * pantalla, no una miniatura arrinconada junto al título. */
+  destacado?: boolean;
 }) {
   const { src: srcEstatico, origen } = resolverIlustracion(ilustracionSlug, null);
   const src = fotoMiniaturaUrl ?? (origen === "ilustracion" ? srcEstatico : null);
-  const tamano = compacto
+  const tamano: React.CSSProperties = destacado
+    ? { width: "100%", minHeight: 196, height: 196 }
+    : compacto
     ? { width: 44, minHeight: 44, height: 44 }
     : { width: 116, minHeight: 116, height: 116 };
 
@@ -115,7 +121,7 @@ export function CuadroFotoReferencia({
     // Sin foto pero CON video: el cuadro vacío pasa a ser un botón que
     // reproduce el video directo — no tiene sentido dejarlo en gris sabiendo
     // que sí hay una referencia para mostrar.
-    if (videoUrl) return <CuadroSoloVideo videoUrl={videoUrl} nombre={nombre} tamano={tamano} compacto={compacto} />;
+    if (videoUrl) return <CuadroSoloVideo videoUrl={videoUrl} nombre={nombre} tamano={tamano} compacto={compacto} destacado={destacado} />;
 
     return (
       <div
@@ -128,7 +134,9 @@ export function CuadroFotoReferencia({
         // En modo compacto no hay sangría ni estiramiento: es un cuadrado
         // chico más, no la esquina de toda la tarjeta.
         className={
-          compacto
+          destacado
+            ? "flex w-full items-center justify-center overflow-hidden rounded-[22px] border border-dashed border-border bg-surface-2 text-text-tertiary"
+            : compacto
             ? "flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-surface-2 text-text-tertiary"
             : "-mr-2 -mt-2 flex shrink-0 items-center justify-center self-stretch overflow-hidden rounded-[14px] border border-dashed border-border bg-surface-2 text-text-tertiary"
         }
@@ -151,6 +159,7 @@ export function CuadroFotoReferencia({
       nombre={nombre}
       tamano={tamano}
       compacto={compacto}
+      destacado={destacado}
     />
   );
 }
@@ -163,11 +172,13 @@ function CuadroSoloVideo({
   nombre,
   tamano,
   compacto,
+  destacado,
 }: {
   videoUrl: string;
   nombre: string;
-  tamano: { width: number; minHeight: number; height: number };
+  tamano: React.CSSProperties;
   compacto: boolean;
+  destacado: boolean;
 }) {
   const [reproduciendo, setReproduciendo] = useState(false);
 
@@ -178,7 +189,9 @@ function CuadroSoloVideo({
         onClick={() => setReproduciendo(true)}
         aria-label={`Ver video de referencia de ${nombre}`}
         className={
-          compacto
+          destacado
+            ? "flex w-full items-center justify-center overflow-hidden rounded-[22px] border border-vip/40 bg-surface-2 text-vip"
+            : compacto
             ? "flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-vip/40 bg-surface-2 text-vip"
             : "-mr-2 -mt-2 flex shrink-0 items-center justify-center self-stretch overflow-hidden rounded-[14px] border border-vip/40 bg-surface-2 text-vip"
         }
@@ -208,6 +221,7 @@ function FotoReferenciaAmpliable({
   nombre,
   tamano,
   compacto = false,
+  destacado = false,
 }: {
   src: string;
   /** La foto ORIGINAL sin recortar, si ya se identificó cuál es (ver
@@ -221,8 +235,9 @@ function FotoReferenciaAmpliable({
    * siempre mejor guía que una imagen fija ampliada. */
   videoUrl: string | null;
   nombre: string;
-  tamano: { width: number; minHeight: number; height: number };
+  tamano: React.CSSProperties;
   compacto?: boolean;
+  destacado?: boolean;
 }) {
   const [ampliada, setAmpliada] = useState(false);
   const srcAmpliada = srcCompleta ?? src;
@@ -236,7 +251,9 @@ function FotoReferenciaAmpliable({
           videoUrl ? `Ver video de referencia de ${nombre}` : `Ver foto de referencia de ${nombre} en grande`
         }
         className={
-          compacto
+          destacado
+            ? "relative flex w-full overflow-hidden rounded-[22px] border border-border bg-surface-2"
+            : compacto
             ? "relative flex shrink-0 overflow-hidden rounded-xl border border-border bg-surface-2"
             : "-mr-2 -mt-2 relative flex shrink-0 self-stretch overflow-hidden rounded-[14px] border border-border bg-surface-2"
         }
@@ -246,7 +263,7 @@ function FotoReferenciaAmpliable({
           src={src}
           alt={`Foto de referencia de ${nombre}`}
           fill
-          sizes={compacto ? "44px" : "116px"}
+          sizes={destacado ? "(max-width: 640px) calc(100vw - 56px), 520px" : compacto ? "44px" : "116px"}
           // object-center y no object-top: a diferencia de la foto de grupo
           // muscular (que se recorta desde arriba), estas fotos ya vienen
           // recortadas y centradas en el servidor. Anclarlas arriba cortaba la
@@ -679,7 +696,7 @@ export const FilaSerie = forwardRef<
   }, []);
 
   useImperativeHandle(ref, () => ({
-    completarYa: () => {
+    completarYa: (guardar = true) => {
       // Fuerza la serie como hecha ya mismo, corte el descanso si estaba
       // corriendo — lo usa el botón "Ejercicio listo" para saltar todo.
       limpiarDescanso(sesionId, sesionEjercicioId, numero);
@@ -691,7 +708,7 @@ export const FilaSerie = forwardRef<
         avisadoRef.current = true;
         onCicloCompleto(numero);
       }
-      onGuardar();
+      if (guardar) onGuardar();
     },
   }));
 
@@ -976,7 +993,7 @@ export const FilaSerie = forwardRef<
       <input type="hidden" name={`peso_corporal_${numero}${sufijoNombre}`} value={esPesoCorporal ? "true" : "false"} />
       <input type="hidden" name={`realizada_${numero}${sufijoNombre}`} value={realizada ? "true" : "false"} />
 
-      <div className="flex items-center gap-1.5">
+      <div className="fila-serie-contenido flex items-center gap-1.5">
         {/* Número en disco y no "#1": con el celular apoyado y de reojo, la
             forma se distingue antes que el texto, y marca dónde arranca la fila. */}
         <span className="numero-serie" data-hecha={realizada ? "true" : "false"}>
@@ -1178,8 +1195,9 @@ export const SesionEjercicioCard = forwardRef<
     /** Es el próximo ejercicio pendiente de la sesión: panel espejo negro con
      * el brillo corriendo, para que se note de lejos en cuál está parado. */
     activo?: boolean;
+    modoEnfocado?: boolean;
   }
->(function SesionEjercicioCard({ ejercicio, sesionId, soloLectura, activo = false }, ref) {
+>(function SesionEjercicioCard({ ejercicio, sesionId, soloLectura, activo = false, modoEnfocado = false }, ref) {
   const [state, formAction, pending] = useActionState(guardarSeries, initialState);
   // Abierto de entrada el que está en curso y los ya terminados (para poder
   // revisar lo que se levantó); en modo lectura, todos.
@@ -1322,7 +1340,13 @@ export const SesionEjercicioCard = forwardRef<
   function marcarEjercicioListo() {
     // Fuerza todas las series pendientes como hechas y salta al siguiente
     // ejercicio, sin esperar los descansos — el botón cuadrado de "listo".
-    filasRef.current.forEach((handle) => handle.completarYa());
+    // Antes cada fila enviaba el formulario por separado. En un ejercicio de
+    // cuatro series eso disparaba cuatro guardados simultáneos con estados
+    // distintos; una respuesta antigua podía llegar última y hacer que kilos
+    // y checks desaparecieran hasta recargar la app. Se actualizan todas las
+    // filas primero y se envía una única fotografía coherente del formulario.
+    filasRef.current.forEach((handle) => handle.completarYa(false));
+    guardarAhora();
   }
 
   useImperativeHandle(ref, () => ({
@@ -1409,7 +1433,7 @@ export const SesionEjercicioCard = forwardRef<
           referencia — antes usaba el gris de `bg-surface`, que al lado del
           resto de la pantalla se veía deslavado. */}
       <Card
-        className={`tarjeta-modelo-oscura tarjeta-ejercicio-oscura p-3 ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
+        className={`tarjeta-modelo-oscura tarjeta-ejercicio-oscura p-3 ${modoEnfocado ? "tarjeta-ejercicio-enfocada" : ""} ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
         style={
           grupoTecnica
             ? { borderLeft: `3px solid ${grupoTecnica.color}` }
@@ -1422,7 +1446,7 @@ export const SesionEjercicioCard = forwardRef<
             La fila de datos vive DENTRO de la columna izquierda —antes cruzaba
             la tarjeta entera debajo de la foto— y eso es lo que deja lugar para
             que la foto sea grande sin estirar la tarjeta hacia abajo. */}
-        <div className="mb-2 flex items-start gap-2">
+        <div className="cabecera-ejercicio mb-2 flex items-start gap-2">
           <div className="flex min-w-0 flex-1 flex-col">
             {/* El muñeco del grupo muscular es una columna propia y no un
                 iconito metido en la línea de arriba: así la etiqueta y el
@@ -1493,6 +1517,7 @@ export const SesionEjercicioCard = forwardRef<
             fotoCompletaUrl={ejercicio.fotoCompletaUrl}
             videoUrl={ejercicio.videoUrl}
             nombre={ejercicio.nombre}
+            destacado={modoEnfocado}
           />
         </div>
 
@@ -1501,7 +1526,7 @@ export const SesionEjercicioCard = forwardRef<
             dejaba la foto al lado, y el tempo no entraba como 4ta columna —
             afuera de esa columna ya no hay ese límite, como en la
             referencia). */}
-        <div className="radius-control mb-1.5 flex items-stretch overflow-hidden border border-border bg-surface-2">
+        <div className="datos-ejercicio radius-control mb-1.5 flex items-stretch overflow-hidden border border-border bg-surface-2">
           <Dato
             icono={<Layers size={13} />}
             valor={String(ejercicio.seriesProgramadas)}
@@ -1645,7 +1670,8 @@ export const SesionEjercicioCard = forwardRef<
             <button
               type="button"
               onClick={marcarEjercicioListo}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-vip/50 bg-transparent text-secondary font-semibold text-vip"
+              data-recomendado={seriesHechas.size === ejercicio.seriesProgramadas ? "true" : "false"}
+              className="boton-completar-ejercicio flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-vip/50 bg-transparent text-secondary font-semibold text-vip"
             >
               <Check size={14} strokeWidth={3} /> Marcar ejercicio como completado
             </button>
