@@ -233,14 +233,14 @@ function CuadroSolicitarFoto({
             ) : (
               <>
                 <span className="mx-auto grid size-11 place-items-center rounded-full bg-vip/15 text-vip"><ImageIcon size={22} /></span>
-                <p className="text-card-title mt-3 text-white">Â¿Solicitar esta foto?</p>
+                <p className="text-card-title mt-3 text-white">{"\u00bfSolicitar esta foto?"}</p>
                 <p className="text-caption mt-1 text-white/60">Avisaremos al entrenador que falta la referencia de {nombre}.</p>
                 {solicitud.error && <p className="text-caption mt-2 text-error">{solicitud.error}</p>}
                 <form action={accionSolicitud} className="mt-4 grid grid-cols-2 gap-2">
                   <input type="hidden" name="sesion_ejercicio_id" value={sesionEjercicioId ?? ""} />
                   <input type="hidden" name="ejercicio_id" value={ejercicioId ?? ""} />
                   <button type="button" onClick={() => setAbierto(false)} className="h-10 rounded-xl border border-white/15 text-caption font-semibold text-white/70">Volver</button>
-                  <button type="submit" disabled={enviando} className="h-10 rounded-xl bg-vip text-caption font-bold text-black disabled:opacity-60">{enviando ? "Enviandoâ€¦" : "SÃ­, solicitar"}</button>
+                  <button type="submit" disabled={enviando} className="h-10 rounded-xl bg-vip text-caption font-bold text-black disabled:opacity-60">{enviando ? "Enviando..." : "Confirmar solicitud"}</button>
                 </form>
               </>
             )}
