@@ -62,9 +62,9 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
           titulo={`${sesion.numeroCalendario ? `${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
           compacto
           accion={
-            !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura ? (
+            !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura && rutinaIniciada ? (
               <div className="flex items-center gap-1.5">
-                {rutinaIniciada && <CronometroSesion horaInicio={sesion.rutinaIniciadaEn!} />}
+                <CronometroSesion horaInicio={sesion.rutinaIniciadaEn!} />
                 <CancelarSesionBoton sesionId={sesion.id} compacto tieneProgreso={completados > 0} />
               </div>
             ) : null
@@ -156,7 +156,7 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
         />
       )}
 
-      {sesionSoloLectura && !vistaSoloLectura && (
+      {sesion.estado !== "en_progreso" && !vistaSoloLectura && (
         <form action={reabrirSesion}>
           <input type="hidden" name="sesion_id" value={sesion.id} />
           <button
