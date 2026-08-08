@@ -25,7 +25,7 @@ export function FinalizarEntrenamiento({
 
   if (!abierto) {
     return (
-      <Button variant="secondary" onClick={() => setAbierto(true)}>
+      <Button variant="accion" onClick={() => setAbierto(true)}>
         {esDescanso ? "Marcar día como completado" : `Finalizar y sumar +${puntos} pts`}
       </Button>
     );

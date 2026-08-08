@@ -483,7 +483,7 @@ function ReportarDolorPanel({
 
   if (state.ok) {
     return (
-      <p className="text-micro mt-1.5 flex items-center gap-1.5 text-text-tertiary">
+      <p className="text-micro col-span-2 flex items-center gap-1.5 text-text-tertiary">
         <HeartCrack size={13} strokeWidth={2.5} /> Molestia registrada — tu entrenador la va a revisar.
       </p>
     );
@@ -494,15 +494,15 @@ function ReportarDolorPanel({
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="text-micro mt-1.5 flex items-center gap-1.5 text-text-tertiary underline decoration-dotted"
+        className="accion-secundaria-ejercicio flex min-w-0 items-center justify-center gap-1.5"
       >
-        <HeartCrack size={13} strokeWidth={2.5} /> Sentí una molestia en este ejercicio
+        <HeartCrack size={13} strokeWidth={2.5} /> Alguna molestia
       </button>
     );
   }
 
   return (
-    <form action={formAction} className="tarjeta-impulso-vip tarjeta-impulso-vip-alerta mt-1.5 space-y-2">
+    <form action={formAction} className="tarjeta-impulso-vip tarjeta-impulso-vip-alerta col-span-2 space-y-2">
       <input type="hidden" name="sesion_id" value={sesionId} />
       <input type="hidden" name="sesion_ejercicio_id" value={sesionEjercicioId} />
       <input type="hidden" name="dia_ejercicio_id" value={diaEjercicioId} />
@@ -1217,6 +1217,7 @@ export const SesionEjercicioCard = forwardRef<
   const grupoTecnica = resolverGrupoTecnica(ejercicio.tecnicaTipo);
   const cardRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const formId = `series-${ejercicio.sesionEjercicioId}`;
   const enviadoRef = useRef(false);
   const completadasRef = useRef(
     new Set(ejercicio.series.filter((s) => s.realizada).map((s) => s.numeroSerie))
@@ -1447,7 +1448,7 @@ export const SesionEjercicioCard = forwardRef<
             la tarjeta entera debajo de la foto— y eso es lo que deja lugar para
             que la foto sea grande sin estirar la tarjeta hacia abajo. */}
         <div className="cabecera-ejercicio mb-2 flex items-start gap-2">
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className={modoEnfocado ? "hidden" : "flex min-w-0 flex-1 flex-col"}>
             {/* El muñeco del grupo muscular es una columna propia y no un
                 iconito metido en la línea de arriba: así la etiqueta y el
                 nombre del ejercicio arrancan en la MISMA vertical (la P de
@@ -1580,7 +1581,7 @@ export const SesionEjercicioCard = forwardRef<
           de la biblioteca del gimnasio, marcada como sugerencia para que no se
           confunda con una orden. Ver `resolverTecnica` arriba. */}
       {tecnica && (
-        <div className="tarjeta-tecnica mb-1.5 flex items-start gap-2">
+        <div className={`tarjeta-tecnica mb-1.5 flex items-start gap-2 ${modoEnfocado ? "tecnica-ejercicio-enfocada" : ""}`}>
           <Info size={13} className="mt-0.5 shrink-0 text-vip" strokeWidth={2.5} />
           <p className="text-micro leading-snug text-text-secondary">
             <span className="font-semibold text-vip">
@@ -1618,6 +1619,7 @@ export const SesionEjercicioCard = forwardRef<
         </div>
       ) : (
         <form
+          id={formId}
           ref={formRef}
           action={formAction}
           onChange={respaldarLocal}
@@ -1686,18 +1688,6 @@ export const SesionEjercicioCard = forwardRef<
             onGuardar={guardarAhora}
           />
 
-          {/* El ícono va dentro del campo, a la izquierda: sin él, el recuadro
-              vacío se confundía con otro campo de carga más. */}
-          <label className="radius-control mt-1 flex items-center gap-2 border border-border bg-surface-2 px-2.5 py-1.5">
-            <NotebookPen size={14} className="shrink-0 text-text-tertiary" />
-            <input
-              name="nota_ejercicio"
-              type="text"
-              placeholder="Nota de este ejercicio (opcional)"
-              defaultValue={ejercicio.notaEjercicio ?? ""}
-              className="text-caption w-full min-w-0 bg-transparent text-text outline-none placeholder:text-text-tertiary"
-            />
-          </label>
           {state.error && <p className="text-caption text-error">{state.error}</p>}
           {/* El instructivo largo ("marca cada serie al terminarla…") se sacó:
               ocupaba tres líneas debajo de CADA ejercicio para explicar algo
@@ -1710,15 +1700,27 @@ export const SesionEjercicioCard = forwardRef<
           )}
         </form>
       )}
-      {/* Fuera del <form> de arriba a propósito: HTML no permite forms
-          anidados, y reportar dolor es una acción separada (propia Server
-          Action) del guardado de series. */}
       {!soloLectura && (
-        <ReportarDolorPanel
-          sesionId={sesionId}
-          sesionEjercicioId={ejercicio.sesionEjercicioId}
-          diaEjercicioId={ejercicio.diaEjercicioId}
-        />
+        <div className="acciones-secundarias-ejercicio mt-1.5 grid grid-cols-2 gap-2">
+          <label className="accion-secundaria-ejercicio flex min-w-0 items-center gap-1.5 px-2">
+            <NotebookPen size={13} className="shrink-0 text-text-tertiary" />
+            <input
+              form={formId}
+              name="nota_ejercicio"
+              type="text"
+              placeholder="Nota"
+              aria-label="Nota del ejercicio"
+              defaultValue={ejercicio.notaEjercicio ?? ""}
+              onChange={respaldarLocal}
+              className="text-caption w-full min-w-0 bg-transparent text-text outline-none placeholder:text-text-tertiary"
+            />
+          </label>
+          <ReportarDolorPanel
+            sesionId={sesionId}
+            sesionEjercicioId={ejercicio.sesionEjercicioId}
+            diaEjercicioId={ejercicio.diaEjercicioId}
+          />
+        </div>
       )}
           </>
         )}

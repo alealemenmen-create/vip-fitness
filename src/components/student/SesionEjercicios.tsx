@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
 import { SesionGrupoCard } from "@/components/student/SesionGrupoCard";
+import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { posicionTecnica, resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 
@@ -159,17 +160,25 @@ export function SesionEjercicios({
       {soloLectura ? (
         grupos.map(renderizarGrupo)
       ) : grupoVisible ? (
-        <section className="modo-entrenamiento-enfocado space-y-3" aria-label="Ejercicio actual">
-          <div className="flex items-center justify-between px-1">
-            <p className="text-micro font-semibold uppercase tracking-[0.14em] text-text-secondary">
-              Ejercicio {indiceVisible + 1} de {grupos.length}
-            </p>
-            <p className="text-micro truncate text-vip">{tituloVisible}</p>
+        <section className="modo-entrenamiento-enfocado space-y-2 pb-14" aria-label="Ejercicio actual">
+          <div className="flex min-w-0 items-center gap-2 px-1">
+            <IlustracionEjercicio
+              ilustracionSlug={null}
+              grupoMuscular={grupoVisible[0].grupoMuscular}
+              nombre={tituloVisible}
+              tamano={30}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+                Ejercicio {indiceVisible + 1} de {grupos.length}
+              </p>
+              <p className="text-caption truncate font-semibold text-vip">{tituloVisible}</p>
+            </div>
           </div>
 
           {renderizarGrupo(grupoVisible)}
 
-          <nav className="navegacion-modo-enfocado" aria-label="Navegar por los ejercicios">
+          <nav className="navegacion-modo-enfocado navegacion-modo-enfocado-fija" aria-label="Navegar por los ejercicios">
             <button
               type="button"
               onClick={() => setIndiceVisible((indice) => Math.max(0, indice - 1))}
@@ -208,7 +217,7 @@ export function SesionEjercicios({
       ) : null}
 
       {!soloLectura && (
-        <Button variant="secondary" onClick={guardarTodo} className="w-full">
+        <Button variant="secondary" size="xs" onClick={guardarTodo} className="mx-auto max-w-[180px]">
           <Check size={16} strokeWidth={3} /> {guardado ? "Progreso guardado" : "Guardar ahora"}
         </Button>
       )}
