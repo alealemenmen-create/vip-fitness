@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Dumbbell } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
@@ -101,6 +101,24 @@ export function SesionEjercicios({
   const ejercicioActivoId = calcularActivo(ejercicios);
   const grupos = agruparPorTecnica(ejercicios);
   const [guardado, setGuardado] = useState(false);
+  const indiceActivo = Math.max(
+    0,
+    grupos.findIndex((grupo) => grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId))
+  );
+  const [navegacion, setNavegacion] = useState({
+    indice: indiceActivo,
+    activoId: ejercicioActivoId,
+  });
+  const cambioElActivo = navegacion.activoId !== ejercicioActivoId;
+  const indiceVisible = cambioElActivo ? indiceActivo : navegacion.indice;
+
+  // Ajustar estado durante el render es el patrón de React para conservar una
+  // selección que también debe reaccionar a un cambio de props. Así, al
+  // completar el ejercicio, la revalidación abre el siguiente sin un efecto
+  // adicional ni un destello intermedio de la tarjeta anterior.
+  if (!soloLectura && cambioElActivo) {
+    setNavegacion({ indice: indiceActivo, activoId: ejercicioActivoId });
+  }
 
   const guardarTodo = () => {
     handles.current.forEach((handle) => handle.guardar());
@@ -108,45 +126,109 @@ export function SesionEjercicios({
     window.setTimeout(() => setGuardado(false), 2500);
   };
 
+  const renderizarGrupo = (grupo: EjercicioSesion[]) => {
+    if (grupo.length >= 2) {
+      const activo = grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId);
+      return (
+        <SesionGrupoCard
+          key={grupo[0].sesionEjercicioId}
+          ref={(handle) => {
+            for (const ej of grupo) {
+              if (handle) handles.current.set(ej.sesionEjercicioId, handle);
+              else handles.current.delete(ej.sesionEjercicioId);
+            }
+          }}
+          ejercicios={grupo}
+          sesionId={sesionId}
+          soloLectura={soloLectura}
+          activo={activo}
+        />
+      );
+    }
+
+    return (
+      <SesionEjercicioCard
+        key={grupo[0].sesionEjercicioId}
+        ref={(handle) => {
+          if (handle) handles.current.set(grupo[0].sesionEjercicioId, handle);
+          else handles.current.delete(grupo[0].sesionEjercicioId);
+        }}
+        ejercicio={grupo[0]}
+        sesionId={sesionId}
+        soloLectura={soloLectura}
+        activo={grupo[0].sesionEjercicioId === ejercicioActivoId}
+      />
+    );
+  };
+
+  const grupoVisible = grupos[indiceVisible] ?? grupos[0];
+  const tituloVisible = grupoVisible?.map((ej) => ej.nombre).join(" + ") ?? "Entrenamiento";
+
   return (
     <>
-      {grupos.map((grupo) => {
-        if (grupo.length >= 2) {
-          const activo = grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId);
-          return (
-            <SesionGrupoCard
-              key={grupo[0].sesionEjercicioId}
-              ref={(handle) => {
-                for (const ej of grupo) {
-                  if (handle) handles.current.set(ej.sesionEjercicioId, handle);
-                  else handles.current.delete(ej.sesionEjercicioId);
-                }
-              }}
-              ejercicios={grupo}
-              sesionId={sesionId}
-              soloLectura={soloLectura}
-              activo={activo}
-            />
-          );
-        }
-        return (
-          <SesionEjercicioCard
-            key={grupo[0].sesionEjercicioId}
-            ref={(handle) => {
-              if (handle) handles.current.set(grupo[0].sesionEjercicioId, handle);
-              else handles.current.delete(grupo[0].sesionEjercicioId);
-            }}
-            ejercicio={grupo[0]}
-            sesionId={sesionId}
-            soloLectura={soloLectura}
-            activo={grupo[0].sesionEjercicioId === ejercicioActivoId}
-          />
-        );
-      })}
+      {soloLectura ? (
+        grupos.map(renderizarGrupo)
+      ) : grupoVisible ? (
+        <section className="modo-entrenamiento-enfocado space-y-3" aria-label="Ejercicio actual">
+          <div className="cabecera-modo-enfocado">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="icono-modo-enfocado" aria-hidden="true">
+                <Dumbbell size={18} strokeWidth={2.6} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-micro font-bold uppercase tracking-[0.16em] text-vip">
+                  Ahora entrenas
+                </p>
+                <p className="truncate text-caption font-semibold text-text">{tituloVisible}</p>
+              </div>
+            </div>
+            <span className="contador-modo-enfocado">
+              {indiceVisible + 1}/{grupos.length}
+            </span>
+          </div>
+
+          {renderizarGrupo(grupoVisible)}
+
+          <nav className="navegacion-modo-enfocado" aria-label="Navegar por los ejercicios">
+            <button
+              type="button"
+              onClick={() => setNavegacion((actual) => ({ ...actual, indice: Math.max(0, actual.indice - 1) }))}
+              disabled={indiceVisible === 0}
+              className="boton-navegacion-ejercicio"
+            >
+              <ChevronLeft size={18} /> Anterior
+            </button>
+
+            <div className="flex items-center justify-center gap-1.5" aria-label={`Ejercicio ${indiceVisible + 1} de ${grupos.length}`}>
+              {grupos.map((grupo, indice) => (
+                <button
+                  key={grupo[0].sesionEjercicioId}
+                  type="button"
+                  onClick={() => setNavegacion((actual) => ({ ...actual, indice }))}
+                  className="punto-rutina"
+                  data-activo={indice === indiceVisible}
+                  data-completo={grupo.every((ej) => ej.completado)}
+                  aria-label={`Ir al ejercicio ${indice + 1}`}
+                  aria-current={indice === indiceVisible ? "step" : undefined}
+                />
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setNavegacion((actual) => ({ ...actual, indice: Math.min(grupos.length - 1, actual.indice + 1) }))}
+              disabled={indiceVisible === grupos.length - 1}
+              className="boton-navegacion-ejercicio"
+            >
+              Siguiente <ChevronRight size={18} />
+            </button>
+          </nav>
+        </section>
+      ) : null}
 
       {!soloLectura && (
         <Button variant="accion" onClick={guardarTodo} className="w-full">
-          <Check size={16} strokeWidth={3} /> {guardado ? "Progreso guardado" : "Guardar progreso"}
+          <Check size={16} strokeWidth={3} /> {guardado ? "Progreso guardado" : "Guardar ejercicio"}
         </Button>
       )}
 

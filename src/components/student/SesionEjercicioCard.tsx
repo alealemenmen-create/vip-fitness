@@ -107,7 +107,9 @@ export function CuadroFotoReferencia({
 }) {
   const { src: srcEstatico, origen } = resolverIlustracion(ilustracionSlug, null);
   const src = fotoMiniaturaUrl ?? (origen === "ilustracion" ? srcEstatico : null);
-  const tamano = compacto ? { width: 44, minHeight: 44 } : { width: 116, minHeight: 96 };
+  const tamano = compacto
+    ? { width: 44, minHeight: 44, height: 44 }
+    : { width: 116, minHeight: 116, height: 116 };
 
   if (!src) {
     // Sin foto pero CON video: el cuadro vacío pasa a ser un botón que
@@ -164,7 +166,7 @@ function CuadroSoloVideo({
 }: {
   videoUrl: string;
   nombre: string;
-  tamano: { width: number; minHeight: number };
+  tamano: { width: number; minHeight: number; height: number };
   compacto: boolean;
 }) {
   const [reproduciendo, setReproduciendo] = useState(false);
@@ -219,7 +221,7 @@ function FotoReferenciaAmpliable({
    * siempre mejor guía que una imagen fija ampliada. */
   videoUrl: string | null;
   nombre: string;
-  tamano: { width: number; minHeight: number };
+  tamano: { width: number; minHeight: number; height: number };
   compacto?: boolean;
 }) {
   const [ampliada, setAmpliada] = useState(false);
@@ -249,7 +251,7 @@ function FotoReferenciaAmpliable({
           // muscular (que se recorta desde arriba), estas fotos ya vienen
           // recortadas y centradas en el servidor. Anclarlas arriba cortaba la
           // mitad de abajo de la persona en cuadros más anchos que altos.
-          className="object-cover object-center"
+          className="object-contain object-center"
         />
         {/* Botón de expandir/reproducir, chico y en la esquina (referencia de
             diseño): un ícono basta como pista de que hay más para ver, sin
