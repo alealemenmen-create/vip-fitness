@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Sparkles, Trophy } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
@@ -27,6 +28,29 @@ export function FinalizarEntrenamiento({
   const puntos = calcularPuntosEntrenamiento(completados, total);
 
   if (!abierto) {
+    if (compacto && !esDescanso) {
+      return (
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="boton-finalizar-celebracion group flex min-h-[72px] w-full items-center gap-3 rounded-[20px] px-4 text-left text-black active:scale-[0.985]"
+        >
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-black/15 ring-1 ring-black/15">
+            <Trophy size={23} strokeWidth={2.6} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1 text-micro font-black uppercase tracking-[0.15em]">
+              <Sparkles size={12} /> {completados === total ? "¡Rutina completada!" : "¡Gran trabajo!"}
+            </span>
+            <span className="mt-0.5 block text-base font-black leading-tight">Finalizar entrenamiento</span>
+          </span>
+          <span className="shrink-0 rounded-full bg-black px-2.5 py-1.5 text-sm font-black text-vip">
+            +{puntos} pts
+          </span>
+        </button>
+      );
+    }
+
     return (
       <Button variant="accion" size={compacto ? "xs" : "lg"} onClick={() => setAbierto(true)} className="w-full">
         {esDescanso ? "Marcar día como completado" : `Finalizar y sumar +${puntos} pts`}

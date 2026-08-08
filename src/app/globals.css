@@ -864,6 +864,30 @@ input[type="date"]::-webkit-date-and-time-value {
 .boton-navegacion-ejercicio:disabled {
   opacity: 0.32;
 }
+.boton-finalizar-celebracion {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: linear-gradient(135deg, #f5a400 0%, #ffd65a 52%, var(--color-vip) 100%);
+  box-shadow:
+    0 12px 30px rgba(245, 164, 0, 0.24),
+    0 0 24px color-mix(in srgb, var(--color-vip) 28%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: transform 150ms ease, box-shadow 180ms ease;
+}
+.boton-finalizar-celebracion::after {
+  content: "";
+  position: absolute;
+  inset: -80% auto -80% -28%;
+  width: 24%;
+  transform: rotate(18deg);
+  background: rgba(255, 255, 255, 0.34);
+  animation: brillo-finalizar 2.8s ease-in-out infinite;
+}
+@keyframes brillo-finalizar {
+  0%, 48% { transform: translateX(-180%) rotate(18deg); }
+  72%, 100% { transform: translateX(650%) rotate(18deg); }
+}
 .punto-rutina {
   width: 7px;
   height: 7px;

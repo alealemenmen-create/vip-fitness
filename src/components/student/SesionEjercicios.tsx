@@ -234,8 +234,8 @@ export function SesionEjercicios({
 
       {!soloLectura && (
         <>
-          <div className={indiceVisible === grupos.length - 1 ? "grid grid-cols-[120px_minmax(0,1fr)] gap-2" : "grid grid-cols-1 gap-2"}>
-            <Button variant="secondary" size="xs" onClick={guardarTodo} className="w-full px-2">
+          <div className="flex flex-col gap-2">
+            <Button variant="secondary" size="xs" onClick={guardarTodo} className="w-[120px] px-2">
               <Check size={14} strokeWidth={3} /> {guardado ? "Guardado" : "Guardar"}
             </Button>
             {indiceVisible === grupos.length - 1 && (
