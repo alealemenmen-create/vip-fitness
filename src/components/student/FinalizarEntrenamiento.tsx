@@ -12,11 +12,13 @@ export function FinalizarEntrenamiento({
   completados,
   total,
   esDescanso = false,
+  compacto = false,
 }: {
   sesionId: string;
   completados: number;
   total: number;
   esDescanso?: boolean;
+  compacto?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const pendientes = total - completados;
@@ -25,14 +27,14 @@ export function FinalizarEntrenamiento({
 
   if (!abierto) {
     return (
-      <Button variant="accion" onClick={() => setAbierto(true)}>
+      <Button variant="accion" size={compacto ? "xs" : "lg"} onClick={() => setAbierto(true)} className="w-full">
         {esDescanso ? "Marcar día como completado" : `Finalizar y sumar +${puntos} pts`}
       </Button>
     );
   }
 
   return (
-    <Card>
+    <Card className={compacto ? "col-span-2" : ""}>
       {!esDescanso && (
         <p className="text-body text-text">
           {completados} de {total} ejercicios completados ({pct}%)

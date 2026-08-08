@@ -431,11 +431,29 @@ export function SelectorDificultad({
   nombreCampo?: string;
 }) {
   const [valor, setValor] = useState(valorInicial ?? "");
+  const [abierto, setAbierto] = useState(false);
 
   if (disabled) return null;
 
+  const seleccion = OPCIONES_DIFICULTAD.find((op) => op.valor === valor)?.etiqueta;
+
+  if (!abierto) {
+    return (
+      <div className="mt-1.5">
+        <input type="hidden" name={nombreCampo} value={valor} />
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="accion-secundaria-ejercicio flex h-9 w-full items-center justify-center px-3"
+        >
+          {seleccion ? `Esfuerzo: ${seleccion}` : "¿Cómo se sintió? (opcional)"}
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="mt-1.5">
+    <div className="mt-1.5 rounded-xl border border-border bg-surface-2 p-2">
       <input type="hidden" name={nombreCampo} value={valor} />
       <p className="text-micro mb-1 font-bold tracking-wide text-vip">¿CÓMO SENTISTE ESTE EJERCICIO?</p>
       <div className="flex flex-wrap gap-1.5">
@@ -449,6 +467,7 @@ export function SelectorDificultad({
               // `onGuardar` arma el FormData un instante después.
               flushSync(() => setValor(op.valor));
               onGuardar();
+              setAbierto(false);
             }}
             data-activo={valor === op.valor ? "true" : "false"}
             className="pill-dificultad"

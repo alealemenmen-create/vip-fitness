@@ -831,9 +831,9 @@ input[type="date"]::-webkit-date-and-time-value {
   bottom: calc(108px + env(safe-area-inset-bottom, 0px));
   z-index: 39;
   width: min(calc(100% - 24px), 416px);
-  padding: 6px;
+  padding: 4px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  border-radius: 15px;
   background: rgba(5, 5, 7, 0.9);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(16px);
@@ -841,12 +841,12 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 .boton-navegacion-ejercicio {
   display: flex;
-  min-height: 42px;
+  min-height: 34px;
   align-items: center;
   justify-content: center;
   gap: 3px;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: 11px;
   color: var(--color-text);
   background: var(--color-surface);
   font-size: calc(12px * var(--escala-texto));

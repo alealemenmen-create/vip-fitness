@@ -160,7 +160,7 @@ export function SesionEjercicios({
       {soloLectura ? (
         grupos.map(renderizarGrupo)
       ) : grupoVisible ? (
-        <section className="modo-entrenamiento-enfocado space-y-2 pb-14" aria-label="Ejercicio actual">
+        <section className="modo-entrenamiento-enfocado space-y-2" aria-label="Ejercicio actual">
           <div className="flex min-w-0 items-center gap-2 px-1">
             <IlustracionEjercicio
               ilustracionSlug={null}
@@ -217,13 +217,12 @@ export function SesionEjercicios({
       ) : null}
 
       {!soloLectura && (
-        <Button variant="secondary" size="xs" onClick={guardarTodo} className="mx-auto max-w-[180px]">
-          <Check size={16} strokeWidth={3} /> {guardado ? "Progreso guardado" : "Guardar ahora"}
-        </Button>
-      )}
-
-      {!soloLectura && (
-        <FinalizarEntrenamiento sesionId={sesionId} completados={completados} total={total} />
+        <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2">
+          <Button variant="secondary" size="xs" onClick={guardarTodo} className="w-full px-2">
+            <Check size={14} strokeWidth={3} /> {guardado ? "Guardado" : "Guardar"}
+          </Button>
+          <FinalizarEntrenamiento sesionId={sesionId} completados={completados} total={total} compacto />
+        </div>
       )}
     </>
   );
