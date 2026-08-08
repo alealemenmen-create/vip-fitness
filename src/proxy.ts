@@ -7,6 +7,33 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    {
+      // "api" también excluido: nada ahí depende de la cookie de sesión
+      // refrescada acá (cada ruta hace su propio chequeo de auth), y así
+      // ninguna subida de archivo (ver app/api/admin/ejercicios/foto) pasa
+      // por el proxy de arriba/abajo.
+      source: "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+      // Los Server Actions (subir una foto, un video, un PDF de rutina, etc.)
+      // viajan como un POST a la misma URL de la página que los llama, con
+      // este header puesto por Next.js — NO son una ruta aparte que se pueda
+      // excluir por path. La documentación de Next 16 advierte que, cuando
+      // el proxy corre sobre un request, clona y guarda una copia del cuerpo
+      // internamente (para que tanto el proxy como el handler final lo
+      // puedan leer) — se probó como posible causa de una corrupción real de
+      // archivos subidos, pero no lo era (la subida de fotos ahora va por
+      // una ruta de verdad en vez de un Server Action, ver
+      // app/api/admin/ejercicios/foto, que es donde estaba el problema de
+      // fondo). Esta exclusión queda igual, por las dudas y porque es lo que
+      // recomienda la documentación — no hay ninguna razón para que un
+      // Server Action necesite pasar por acá.
+      //
+      // "missing" con este header significa lo opuesto de lo que suena: el
+      // proxy corre cuando el header FALTA (una navegación normal), y se
+      // salta enteros los Server Actions (que sí lo traen). La sesión de
+      // todos modos se revalida sola adentro de cada Server Action (ver
+      // requireRol/createClient en lib/auth.ts), así que no se pierde nada
+      // de seguridad por saltear el refresco acá.
+      missing: [{ type: "header", key: "next-action" }],
+    },
   ],
 };

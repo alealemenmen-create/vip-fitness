@@ -249,6 +249,84 @@ async function generarPreview(archivo: File): Promise<string | null> {
   }
 }
 
+type FotoSubidaCliente = { miniaturaUrl: string; completaUrl: string };
+
+/**
+ * Vista previa Y subida inmediata de la foto elegida — compartido entre
+ * ModalSubirFoto y ModalEjercicioNuevo.
+ *
+ * La subida no espera a que se toque "Guardar": en iPhone, elegir "Cámara"
+ * manda Safari a segundo plano mientras la app Cámara está abierta, y hay un
+ * problema conocido de WebKit donde el archivo elegido puede quedar
+ * inválido (0 bytes) en la memoria del navegador para cuando se vuelve —
+ * aunque la vista previa se haya visto bien un instante antes. Antes, eso
+ * hacía que el ejercicio se guardara igual pero SIN foto, sin ningún aviso
+ * (la foto es opcional, así que el servidor no tenía forma de distinguir
+ * "no eligió foto" de "la eligió pero se perdió"). Subiendo apenas se elige,
+ * mientras el archivo todavía es válido, se saca ese riesgo del medio: lo
+ * que se manda al guardar es la URL ya subida, nunca el archivo de nuevo.
+ *
+ * La subida en sí va por un `fetch` normal a una ruta de verdad
+ * (`/api/admin/ejercicios/foto`), NO por un Server Action llamado directo:
+ * las fotos mandadas por un Server Action así llegaban corruptas a Storage
+ * (confirmado byte a byte) — el archivo viaja envuelto en el protocolo RSC
+ * de Next en ese camino, y algo ahí lo alteraba. Un POST común, con el
+ * archivo tal cual en el cuerpo, no tiene ese problema.
+ */
+function useFotoInmediata() {
+  const [archivoElegido, setArchivoElegido] = useState<File | null>(null);
+  const [previa, setPrevia] = useState<string | null>(null);
+  const [previaRota, setPreviaRota] = useState(false);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [fotoSubida, setFotoSubida] = useState<FotoSubidaCliente | null>(null);
+  const [errorFoto, setErrorFoto] = useState<string | null>(null);
+
+  async function subir(archivo: File) {
+    setSubiendoFoto(true);
+    setErrorFoto(null);
+    setFotoSubida(null);
+    try {
+      const fd = new FormData();
+      fd.set("foto", archivo);
+      const respuesta = await fetch("/api/admin/ejercicios/foto", { method: "POST", body: fd });
+      const resultado: { ok: true; miniaturaUrl: string; completaUrl: string } | { ok: false; error: string } =
+        await respuesta.json();
+      if (resultado.ok) {
+        setFotoSubida({ miniaturaUrl: resultado.miniaturaUrl, completaUrl: resultado.completaUrl });
+      } else {
+        setErrorFoto(resultado.error);
+      }
+    } catch {
+      setErrorFoto("No se pudo subir la foto. Revisá tu conexión e intentá de nuevo.");
+    } finally {
+      setSubiendoFoto(false);
+    }
+  }
+
+  async function elegirArchivo(archivo: File) {
+    setArchivoElegido(archivo);
+    setPreviaRota(false);
+    setPrevia(await generarPreview(archivo));
+    void subir(archivo);
+  }
+
+  function reintentar() {
+    if (archivoElegido) void subir(archivoElegido);
+  }
+
+  return {
+    archivoElegido,
+    previa,
+    previaRota,
+    setPreviaRota,
+    subiendoFoto,
+    fotoSubida,
+    errorFoto,
+    elegirArchivo,
+    reintentar,
+  };
+}
+
 function Overlay({ children, onCerrar }: { children: React.ReactNode; onCerrar: () => void }) {
   // `createPortal` a `document.body`: es el único modal de esta pantalla que
   // NO lo hacía (todos los demás de la app sí, ver AbandonarSesionBoton,
@@ -448,14 +526,17 @@ function ModalSubirFoto({
   onCerrar: () => void;
 }) {
   const [state, formAction, pending] = useActionState(subirFotoEjercicio, ESTADO_INICIAL_FOTO);
-  const [previa, setPrevia] = useState<string | null>(null);
-  const [previaRota, setPreviaRota] = useState(false);
-  // El archivo elegido se guarda en estado apenas se selecciona, en vez de
-  // releerlo del <input> recién al tocar "Guardar foto": en Safari de iPhone
-  // esa relectura a veces llegaba vacía (el input ya no tenía el archivo, sin
-  // ningún cambio visible de por medio) y el servidor rechazaba el envío con
-  // "Elegí una foto" aunque la vista previa ya lo mostrara elegido.
-  const [archivoElegido, setArchivoElegido] = useState<File | null>(null);
+  const {
+    archivoElegido,
+    previa,
+    previaRota,
+    setPreviaRota,
+    subiendoFoto,
+    fotoSubida,
+    errorFoto,
+    elegirArchivo,
+    reintentar,
+  } = useFotoInmediata();
 
   useEffect(() => {
     if (state.ok) {
@@ -499,28 +580,51 @@ function ModalSubirFoto({
             </span>
           </span>
         )}
+        {/* Estado de la subida inmediata (ver useFotoInmediata) — se ve
+            encima de la vista previa, en la esquina, sin taparla. */}
+        {(subiendoFoto || fotoSubida || errorFoto) && (
+          <span
+            className={`absolute bottom-1.5 left-1.5 rounded-full px-2 py-1 text-[10px] font-medium backdrop-blur-sm ${
+              errorFoto ? "bg-error/80 text-white" : "bg-black/60 text-white"
+            }`}
+          >
+            {subiendoFoto ? "Subiendo foto..." : errorFoto ? "No se pudo subir" : "✓ Foto lista"}
+          </span>
+        )}
         <input
           type="file"
-          name="foto"
           accept="image/*"
           // Sin "capture": con ese atributo, varios navegadores de celular
           // abren la cámara directo y nunca ofrecen elegir de la galería —
           // sacándolo, el selector nativo siempre deja elegir entre sacar
           // una foto nueva o subir una que ya existe.
           className="absolute inset-0 h-full w-full opacity-0"
-          onChange={async (e) => {
+          onChange={(e) => {
             const f = e.target.files?.[0];
-            if (!f) return;
-            setArchivoElegido(f);
-            setPreviaRota(false);
-            setPrevia(await generarPreview(f));
+            if (f) void elegirArchivo(f);
           }}
         />
       </label>
+      {errorFoto && (
+        <button
+          type="button"
+          onClick={reintentar}
+          className="text-caption mt-1 font-medium text-vip"
+        >
+          Reintentar subir la foto
+        </button>
+      )}
 
       <form
         action={(fd) => {
-          if (archivoElegido) fd.set("foto", archivoElegido);
+          if (fotoSubida) {
+            fd.set("foto_miniatura_url_subida", fotoSubida.miniaturaUrl);
+            fd.set("foto_completa_url_subida", fotoSubida.completaUrl);
+          } else if (archivoElegido) {
+            // Respaldo: la subida inmediata no llegó a terminar o falló —
+            // se manda el archivo tal cual, mismo camino de siempre.
+            fd.set("foto", archivoElegido);
+          }
           fd.set("ejercicio_id", ejercicio.id);
           formAction(fd);
         }}
@@ -556,10 +660,10 @@ function ModalSubirFoto({
         )}
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || subiendoFoto}
           className="btn-accion radius-control flex h-11 w-full items-center justify-center gap-2 text-secondary font-semibold disabled:opacity-60"
         >
-          {pending ? "Subiendo..." : "Guardar foto"}
+          {pending ? "Guardando..." : subiendoFoto ? "Esperando la foto..." : "Guardar foto"}
         </button>
       </form>
 
@@ -796,11 +900,17 @@ const EQUIPOS: { valor: string; etiqueta: string }[] = [
 
 function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
   const [state, formAction, pending] = useActionState(crearEjercicioNuevo, ESTADO_INICIAL_CREAR);
-  const [previa, setPrevia] = useState<string | null>(null);
-  const [previaRota, setPreviaRota] = useState(false);
-  // Ver el mismo estado en ModalSubirFoto: se guarda el archivo apenas se
-  // elige, no se relee del <input> recién al enviar.
-  const [archivoElegido, setArchivoElegido] = useState<File | null>(null);
+  const {
+    archivoElegido,
+    previa,
+    previaRota,
+    setPreviaRota,
+    subiendoFoto,
+    fotoSubida,
+    errorFoto,
+    elegirArchivo,
+    reintentar,
+  } = useFotoInmediata();
 
   useEffect(() => {
     if (state.ok) {
@@ -821,7 +931,12 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
 
       <form
         action={(fd) => {
-          if (archivoElegido) fd.set("foto", archivoElegido);
+          if (fotoSubida) {
+            fd.set("foto_miniatura_url_subida", fotoSubida.miniaturaUrl);
+            fd.set("foto_completa_url_subida", fotoSubida.completaUrl);
+          } else if (archivoElegido) {
+            fd.set("foto", archivoElegido);
+          }
           formAction(fd);
         }}
         className="space-y-3"
@@ -849,22 +964,32 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
               </span>
             </span>
           )}
+          {(subiendoFoto || fotoSubida || errorFoto) && (
+            <span
+              className={`absolute bottom-1.5 left-1.5 rounded-full px-2 py-1 text-[10px] font-medium backdrop-blur-sm ${
+                errorFoto ? "bg-error/80 text-white" : "bg-black/60 text-white"
+              }`}
+            >
+              {subiendoFoto ? "Subiendo foto..." : errorFoto ? "No se pudo subir" : "✓ Foto lista"}
+            </span>
+          )}
           <input
             type="file"
-            name="foto"
             accept="image/*"
             // Ver comentario del mismo input en el modal de editar: sin
             // "capture" deja elegir entre cámara y galería.
             className="absolute inset-0 h-full w-full opacity-0"
-            onChange={async (e) => {
+            onChange={(e) => {
               const f = e.target.files?.[0];
-              if (!f) return;
-              setArchivoElegido(f);
-              setPreviaRota(false);
-              setPrevia(await generarPreview(f));
+              if (f) void elegirArchivo(f);
             }}
           />
         </label>
+        {errorFoto && (
+          <button type="button" onClick={reintentar} className="text-caption font-medium text-vip">
+            Reintentar subir la foto
+          </button>
+        )}
 
         <div className="flex items-center gap-2 text-[10px] text-text-tertiary">
           <div className="h-px flex-1 bg-border" /> o pegá el link de una imagen{" "}
@@ -951,10 +1076,10 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || subiendoFoto}
           className="btn-accion radius-control flex h-11 w-full items-center justify-center gap-2 text-secondary font-semibold disabled:opacity-60"
         >
-          {pending ? "Creando..." : "Crear ejercicio"}
+          {pending ? "Creando..." : subiendoFoto ? "Esperando la foto..." : "Crear ejercicio"}
         </button>
       </form>
     </Overlay>
