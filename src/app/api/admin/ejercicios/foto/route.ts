@@ -36,9 +36,9 @@ export async function POST(request: Request): Promise<Response> {
   // desplegado). Sacar una vez que se encuentre la causa.
   const patronFijo = Buffer.alloc(256);
   for (let i = 0; i < 256; i++) patronFijo[i] = i;
-  await (await createClient()).storage
+  const resultadoPatron = await (await createClient()).storage
     .from("ejercicios-fotos")
-    .upload("_diagnostico/patron-fijo.bin", patronFijo, { contentType: "application/octet-stream", upsert: true });
+    .upload("_diagnostico/patron-fijo.bin", patronFijo, { contentType: "image/webp", upsert: true });
 
   const formData = await request.formData();
   const archivo = formData.get("foto") as File | null;
@@ -72,20 +72,21 @@ export async function POST(request: Request): Promise<Response> {
   // (`bytes.length`), y bajar este archivo crudo aparte para ver si la
   // corrupción ya está acá (algo en el camino navegador→servidor) o si
   // aparece recién al procesarla. Sacar una vez que se encuentre la causa.
-  await supabase.storage.from("ejercicios-fotos").upload(`${carpeta}/original-crudo.bin`, bytes, {
-    contentType: "application/octet-stream",
-  });
+  const resultadoCrudo = await supabase.storage
+    .from("ejercicios-fotos")
+    .upload(`${carpeta}/original-crudo.bin`, bytes, { contentType: "image/webp" });
+
+  const diagnostico = {
+    tamanoNavegador: archivo.size,
+    tamanoRecibido: bytes.length,
+    carpeta,
+    errorPatronFijo: resultadoPatron.error?.message ?? null,
+    errorOriginalCrudo: resultadoCrudo.error?.message ?? null,
+  };
 
   const procesada = await procesarImagen(bytes);
   if ("error" in procesada) {
-    return Response.json(
-      {
-        ok: false,
-        error: procesada.error,
-        diagnostico: { tamanoNavegador: archivo.size, tamanoRecibido: bytes.length, carpeta },
-      },
-      { status: 400 }
-    );
+    return Response.json({ ok: false, error: procesada.error, diagnostico }, { status: 400 });
   }
 
   const [subeMini, subeCompleta] = await Promise.all([
@@ -94,7 +95,7 @@ export async function POST(request: Request): Promise<Response> {
   ]);
   if (subeMini.error || subeCompleta.error) {
     return Response.json(
-      { ok: false, error: "No se pudo subir la foto. Revisá tu conexión e intentá de nuevo." },
+      { ok: false, error: "No se pudo subir la foto. Revisá tu conexión e intentá de nuevo.", diagnostico },
       { status: 500 }
     );
   }
@@ -103,5 +104,6 @@ export async function POST(request: Request): Promise<Response> {
     ok: true,
     miniaturaUrl: supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaMini).data.publicUrl,
     completaUrl: supabase.storage.from("ejercicios-fotos").getPublicUrl(rutaCompleta).data.publicUrl,
+    diagnostico,
   });
 }
