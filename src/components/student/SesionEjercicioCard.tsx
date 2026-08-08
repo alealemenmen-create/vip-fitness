@@ -139,7 +139,7 @@ export function CuadroFotoReferencia({
     if (videoUrl) return <CuadroSoloVideo videoUrl={videoUrl} nombre={nombre} tamano={tamano} compacto={compacto} destacado={destacado} />;
 
     return (
-      <div
+      <CuadroSolicitarFoto
         // `self-stretch`: el borde de ABAJO queda a la misma altura que la línea
         // inferior del recuadro de series/reps/descanso, porque los dos terminan
         // donde termina la columna de la izquierda.
@@ -148,21 +148,15 @@ export function CuadroFotoReferencia({
         // la tarjeta (queda ~4 px de aire para que se siga viendo el margen).
         // En modo compacto no hay sangría ni estiramiento: es un cuadrado
         // chico más, no la esquina de toda la tarjeta.
-        className={
-          destacado
-            ? "flex w-full items-center justify-center overflow-hidden rounded-[22px] border border-dashed border-border bg-surface-2 text-text-tertiary"
-            : compacto
-            ? "flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-surface-2 text-text-tertiary"
-            : "-mr-2 -mt-2 flex shrink-0 items-center justify-center self-stretch overflow-hidden rounded-[14px] border border-dashed border-border bg-surface-2 text-text-tertiary"
-        }
-        style={tamano}
+        nombre={nombre}
+        sesionEjercicioId={sesionEjercicioId}
+        ejercicioId={ejercicioId}
+        compacto={compacto}
+        destacado={destacado}
         // Para un lector de pantalla esto es decoración vacía, no una imagen que
         // falta: no aporta nada leerlo en voz alta.
-        aria-hidden="true"
-        title={`Foto de referencia de ${nombre} (pendiente)`}
-      >
-        <ImageIcon size={compacto ? 16 : 22} />
-      </div>
+        tamano={tamano}
+      />
     );
   }
 
@@ -187,6 +181,77 @@ export function CuadroFotoReferencia({
 /** El cuadro de referencia cuando hay video pero todavía no hay foto propia
  * (un video de un link directo, sin miniatura de YouTube). Mismo tamaño y
  * bordes que el cuadro "pendiente", pero tocarlo reproduce el video. */
+function CuadroSolicitarFoto({
+  nombre,
+  sesionEjercicioId,
+  ejercicioId,
+  tamano,
+  compacto,
+  destacado,
+}: {
+  nombre: string;
+  sesionEjercicioId?: string;
+  ejercicioId?: string | null;
+  tamano: React.CSSProperties;
+  compacto: boolean;
+  destacado: boolean;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [solicitud, accionSolicitud, enviando] = useActionState<ReportarFotoState, FormData>(
+    reportarFotoIncorrecta,
+    { error: null, ok: false }
+  );
+  const clase = destacado
+    ? "flex w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-[22px] border border-dashed border-vip/45 bg-vip/5 text-vip"
+    : compacto
+      ? "flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-vip/45 bg-vip/5 text-vip"
+      : "-mr-2 -mt-2 flex shrink-0 flex-col items-center justify-center gap-1 self-stretch overflow-hidden rounded-[14px] border border-dashed border-vip/45 bg-vip/5 text-vip";
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => sesionEjercicioId && setAbierto(true)}
+        disabled={!sesionEjercicioId}
+        className={clase}
+        style={tamano}
+        aria-label={`Solicitar foto de ${nombre}`}
+      >
+        <ImageIcon size={compacto ? 16 : 21} />
+        {!compacto && <span className="text-micro font-bold">Solicitar foto</span>}
+      </button>
+      {abierto && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setAbierto(false)}>
+          <div role="dialog" aria-label={`Solicitar foto de ${nombre}`} onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[22px] border border-white/10 bg-[#141416] p-4 text-center shadow-2xl">
+            {solicitud.ok ? (
+              <>
+                <span className="mx-auto grid size-11 place-items-center rounded-full bg-success/15 text-success"><Check size={22} /></span>
+                <p className="text-card-title mt-3 text-white">Solicitud enviada</p>
+                <p className="text-caption mt-1 text-white/60">El entrenador ya sabe que falta la foto de {nombre}.</p>
+                <button type="button" onClick={() => setAbierto(false)} className="radius-control mt-4 h-10 w-full bg-success font-bold text-white">Listo</button>
+              </>
+            ) : (
+              <>
+                <span className="mx-auto grid size-11 place-items-center rounded-full bg-vip/15 text-vip"><ImageIcon size={22} /></span>
+                <p className="text-card-title mt-3 text-white">Â¿Solicitar esta foto?</p>
+                <p className="text-caption mt-1 text-white/60">Avisaremos al entrenador que falta la referencia de {nombre}.</p>
+                {solicitud.error && <p className="text-caption mt-2 text-error">{solicitud.error}</p>}
+                <form action={accionSolicitud} className="mt-4 grid grid-cols-2 gap-2">
+                  <input type="hidden" name="sesion_ejercicio_id" value={sesionEjercicioId ?? ""} />
+                  <input type="hidden" name="ejercicio_id" value={ejercicioId ?? ""} />
+                  <button type="button" onClick={() => setAbierto(false)} className="h-10 rounded-xl border border-white/15 text-caption font-semibold text-white/70">Volver</button>
+                  <button type="submit" disabled={enviando} className="h-10 rounded-xl bg-vip text-caption font-bold text-black disabled:opacity-60">{enviando ? "Enviandoâ€¦" : "SÃ­, solicitar"}</button>
+                </form>
+              </>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
 function CuadroSoloVideo({
   videoUrl,
   nombre,

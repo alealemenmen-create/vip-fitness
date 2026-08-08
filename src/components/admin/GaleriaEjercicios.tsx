@@ -115,7 +115,7 @@ export function GaleriaEjercicios({
               <TriangleAlert size={17} />
             </span>
             <div>
-              <p className="text-caption font-bold text-text">Fotos reportadas por alumnos</p>
+              <p className="text-caption font-bold text-text">Solicitudes de fotos</p>
               <p className="text-micro text-text-tertiary">Corrige la foto aquí y se actualizará para todos.</p>
             </div>
           </div>
@@ -133,6 +133,9 @@ export function GaleriaEjercicios({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-caption truncate font-bold text-text">{reporte.nombreEjercicio}</p>
+                    <p className={`text-micro font-semibold ${reporte.fotoUrl ? "text-error" : "text-vip"}`}>
+                      {reporte.fotoUrl ? "La foto no corresponde" : "Falta la foto"}
+                    </p>
                     <p className="text-micro text-text-tertiary">Reportó: {reporte.alumnoNombre}</p>
                   </div>
                 </div>
@@ -143,7 +146,7 @@ export function GaleriaEjercicios({
                     onClick={() => ejercicio && setEditando(ejercicio)}
                     className="btn-accion radius-control h-9 text-caption font-bold disabled:opacity-40"
                   >
-                    Corregir ahora
+                    {reporte.fotoUrl ? "Corregir ahora" : "Agregar foto"}
                   </button>
                   <form action={resolverReporteFoto}>
                     <input type="hidden" name="reporte_id" value={reporte.id} />
