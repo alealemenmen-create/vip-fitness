@@ -13,7 +13,11 @@ import { BurbujaFlotante } from "./BurbujaFlotante";
  * noticia deje de existir ahí. */
 export function CumpleanosFlotante({ cumpleaneros }: { cumpleaneros: CumpleaneroHoy[] }) {
   const pathname = usePathname();
-  if (pathname === "/alumno/noticias" || cumpleaneros.length === 0) return null;
+  if (
+    pathname === "/alumno/noticias" ||
+    pathname.startsWith("/alumno/entrenar/sesion/") ||
+    cumpleaneros.length === 0
+  ) return null;
 
   const texto =
     cumpleaneros.length === 1

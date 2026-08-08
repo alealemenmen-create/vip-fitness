@@ -1,18 +1,14 @@
 import { RotateCcw, Play } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
-import { Pill } from "@/components/ui/Pill";
 import { Card } from "@/components/ui/Card";
 import { SesionEjercicios } from "@/components/student/SesionEjercicios";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { VolverAEntrenar } from "@/components/student/VolverAEntrenar";
-import { ConsejoEntrenamiento } from "@/components/student/ConsejoEntrenamiento";
 import { CronometroSesion } from "@/components/student/CronometroSesion";
-import { consejoInicial } from "@/lib/frasesMotivacionales";
 import { CancelarSesionBoton } from "@/components/student/CancelarSesionBoton";
 import { obtenerSesionCompleta } from "../../data";
 import { reabrirSesion, iniciarRutina } from "../../actions";
-import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 
 // El aviso de fin de descanso lo programa `programarAvisoDescanso` (Server
 // Action de esta página, ver push-actions.ts) con `after()`: el servidor
@@ -21,13 +17,6 @@ import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 // la plataforma corta la espera mucho antes de que termine un descanso
 // típico (90-180s).
 export const maxDuration = 300;
-
-const ESTADO_LABEL: Record<string, { texto: string; tone: "neutral" | "vip" | "success" | "error" }> = {
-  en_progreso: { texto: "En progreso", tone: "vip" },
-  completada: { texto: "Completada", tone: "success" },
-  finalizada_incompleta: { texto: "Finalizada incompleta", tone: "error" },
-  abandonada: { texto: "Abandonada", tone: "neutral" },
-};
 
 export default async function SesionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -55,13 +44,6 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
   const sesionSoloLectura = sesion.estado !== "en_progreso" || vistaSoloLectura || bloqueadaPorIniciar;
   const completados = sesion.ejercicios.filter((e) => e.completado).length;
   const total = sesion.ejercicios.length;
-  const estadoInfo = ESTADO_LABEL[sesion.estado];
-  const puntosPreparados = calcularPuntosEntrenamiento(completados, total);
-
-  // El consejo va fijo abajo, así que solo se muestra mientras se está
-  // entrenando de verdad: en un día de descanso no hay nada que ejecutar, y
-  // revisando una sesión ya cerrada solo taparía contenido.
-  const mostrarConsejo = !esDescanso && !sesionSoloLectura;
 
   return (
     // space-y-3 y no 4: con siete ejercicios, cada 4 px entre tarjetas son
@@ -75,24 +57,19 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
           El `-mx-4 px-4` es para que el fondo tape de borde a borde — el padding
           lateral lo pone el layout, y sin esto se veían las tarjetas colándose
           por los costados. */}
-      <div className="sticky top-[var(--alto-cabecera-alumno)] z-20 -mx-4 space-y-2 bg-bg px-4 pb-2 pt-1">
+      <div className="sticky top-0 z-20 -mx-4 space-y-1.5 bg-bg px-4 pb-2 pt-1">
         <VolverAEntrenar
-          titulo={`${sesion.numeroCalendario ? `SESIÓN ${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
+          titulo={`${sesion.numeroCalendario ? `${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
+          compacto
           accion={
             !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura && rutinaIniciada ? (
-              <CronometroSesion horaInicio={sesion.rutinaIniciadaEn!} />
+              <div className="flex items-center gap-1.5">
+                <CronometroSesion horaInicio={sesion.rutinaIniciadaEn!} />
+                <CancelarSesionBoton sesionId={sesion.id} compacto tieneProgreso={completados > 0} />
+              </div>
             ) : null
           }
         />
-        <div className="flex items-center gap-2">
-          <Pill tone={estadoInfo.tone}>{estadoInfo.texto}</Pill>
-          {!esDescanso && (
-            <Pill tone="neutral">
-              {completados} de {total} ejercicios
-            </Pill>
-          )}
-        </div>
-
         {/* Barra de avance del día. Las pastillas de arriba ya dicen "2 de 7",
             pero hay que leerlas; la barra se entiende de una mirada, con el
             celular apoyado y a medio ejercicio. Los puntos van ARRIBA de la
@@ -100,17 +77,11 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
             porcentaje al lado, mismo renglón — así se lee de una sola vez qué
             se gana y cuánto falta antes de mirar la barra en sí. */}
         {!esDescanso && total > 0 && (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <p className="text-caption font-semibold text-vip">+{puntosPreparados} pts al finalizar</p>
-              <p className="text-caption font-semibold text-text">
-                {Math.round((completados / total) * 100)}%
-              </p>
-            </div>
+          <div className="flex items-center gap-2.5">
             {/* h-3.5 y con resplandor propio en el relleno: antes era una
                 barra plana, ahora se nota más que algo se está llenando de
                 verdad, no solo un rectángulo que crece. */}
-            <div className="h-3.5 overflow-hidden rounded-full bg-surface-2">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2" aria-label={`Progreso: ${completados} de ${total} ejercicios`}>
               <div
                 className="barra-progreso-relleno h-full rounded-full bg-vip transition-[width] duration-500 ease-out"
                 style={{
@@ -129,6 +100,9 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
                 ))}
               </div>
             </div>
+            <p className="text-micro shrink-0 font-semibold tabular-nums text-text-secondary">
+              {completados}/{total}
+            </p>
           </div>
         )}
       </div>
@@ -182,7 +156,7 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
         />
       )}
 
-      {sesionSoloLectura && !vistaSoloLectura && (
+      {sesion.estado !== "en_progreso" && !vistaSoloLectura && (
         <form action={reabrirSesion}>
           <input type="hidden" name="sesion_id" value={sesion.id} />
           <button
@@ -194,11 +168,6 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
         </form>
       )}
 
-      {!vistaSoloLectura && !esDescanso && sesion.estado === "en_progreso" && completados === 0 && (
-        <CancelarSesionBoton sesionId={sesion.id} />
-      )}
-
-      {mostrarConsejo && <ConsejoEntrenamiento inicial={consejoInicial()} />}
     </div>
   );
 }

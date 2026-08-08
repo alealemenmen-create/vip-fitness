@@ -47,6 +47,10 @@ export type Ejercicio = {
    * archivo estático de public/ejercicios). Ver 0042_fotos_ejercicios_admin. */
   fotoMiniaturaUrl: string | null;
   fotoCompletaUrl: string | null;
+  fotoPanoramaX: number;
+  fotoPanoramaY: number;
+  fotoCuadradaX: number;
+  fotoCuadradaY: number;
 };
 
 /** Columnas a pedir cuando se lee la biblioteca. */
@@ -56,6 +60,8 @@ export const COLUMNAS_EJERCICIO_SIN_FOTOS =
 /** Con las fotos de admin (migración 0042) — puede fallar si esa migración
  * todavía no corrió; quien la use debe tener el respaldo a la de arriba. */
 export const COLUMNAS_EJERCICIO = `${COLUMNAS_EJERCICIO_SIN_FOTOS}, foto_miniatura_url, foto_completa_url`;
+export const COLUMNAS_EJERCICIO_CON_ENCUADRE =
+  `${COLUMNAS_EJERCICIO}, foto_panorama_x, foto_panorama_y, foto_cuadrada_x, foto_cuadrada_y`;
 
 type FilaEjercicio = {
   id: string;
@@ -75,6 +81,10 @@ type FilaEjercicio = {
   video_url: string | null;
   foto_miniatura_url?: string | null;
   foto_completa_url?: string | null;
+  foto_panorama_x?: number | null;
+  foto_panorama_y?: number | null;
+  foto_cuadrada_x?: number | null;
+  foto_cuadrada_y?: number | null;
 };
 
 export function aEjercicio(fila: FilaEjercicio): Ejercicio {
@@ -96,5 +106,9 @@ export function aEjercicio(fila: FilaEjercicio): Ejercicio {
     videoUrl: fila.video_url,
     fotoMiniaturaUrl: fila.foto_miniatura_url ?? null,
     fotoCompletaUrl: fila.foto_completa_url ?? null,
+    fotoPanoramaX: fila.foto_panorama_x ?? 50,
+    fotoPanoramaY: fila.foto_panorama_y ?? 50,
+    fotoCuadradaX: fila.foto_cuadrada_x ?? 50,
+    fotoCuadradaY: fila.foto_cuadrada_y ?? 50,
   };
 }

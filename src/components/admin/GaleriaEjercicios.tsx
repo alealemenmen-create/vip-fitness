@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-import { Search, Camera, Plus, X, Check, ImageIcon, Play } from "lucide-react";
+import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import {
@@ -15,6 +15,7 @@ import {
   quitarVideoEjercicio,
   obtenerUsosRutina,
   reasignarEntradaRutina,
+  resolverReporteFoto,
   type UsoRutina,
 } from "@/app/admin/ejercicios/actions";
 import { normalizar } from "@/lib/alimentos/emparejar";
@@ -22,6 +23,8 @@ import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import type { Ejercicio } from "@/lib/ejercicios/tipos";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
+import { ModalVideo } from "@/components/student/ModalVideo";
 
 const ETIQUETAS_GRUPO: Record<string, string> = {
   pecho: "Pecho",
@@ -33,6 +36,15 @@ const ETIQUETAS_GRUPO: Record<string, string> = {
   cardio: "Cardio",
 };
 
+export type ReporteFotoPendiente = {
+  id: string;
+  ejercicioId: string | null;
+  nombreEjercicio: string;
+  fotoUrl: string | null;
+  creadoEn: string;
+  alumnoNombre: string;
+};
+
 /** La miniatura a mostrar: la foto subida desde acá si existe, si no la
  * ilustración estática de siempre (public/ejercicios/<slug>). Mismo criterio
  * que usa la app del alumno (ver SesionEjercicioCard). */
@@ -42,10 +54,17 @@ function fotoDe(ej: Ejercicio): string | null {
   return origen === "ilustracion" ? src : null;
 }
 
-export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
+export function GaleriaEjercicios({
+  ejercicios,
+  reportes = [],
+}: {
+  ejercicios: Ejercicio[];
+  reportes?: ReporteFotoPendiente[];
+}) {
   const [busqueda, setBusqueda] = useState("");
   const [editando, setEditando] = useState<Ejercicio | null>(null);
-  const [creando, setCreando] = useState(false);
+  const [probandoVideo, setProbandoVideo] = useState<Ejercicio | null>(null);
+  const [creando, setCreando] = useState<string | null>(null);
   // Justo después de subir una foto nueva, a veces el CDN de Storage todavía
   // no terminó de propagarla y la primera carga falla (el archivo ya está
   // subido de verdad, es solo una demora de segundos). Antes, ese primer
@@ -89,6 +108,58 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
 
   return (
     <div className="space-y-3">
+      {reportes.length > 0 && (
+        <section className="space-y-2 rounded-[20px] border border-error/35 bg-error/5 p-3">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-error/15 text-error">
+              <TriangleAlert size={17} />
+            </span>
+            <div>
+              <p className="text-caption font-bold text-text">Solicitudes de fotos</p>
+              <p className="text-micro text-text-tertiary">Corrige la foto aquí y se actualizará para todos.</p>
+            </div>
+          </div>
+          {reportes.map((reporte) => {
+            const ejercicio = ejercicios.find((item) => item.id === reporte.ejercicioId);
+            return (
+              <Card key={reporte.id} padding="p-2.5" className="border-error/25">
+                <div className="flex items-center gap-2.5">
+                  <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-surface-2">
+                    {reporte.fotoUrl ? (
+                      <Image src={reporte.fotoUrl} alt="Foto reportada" fill sizes="56px" className="object-cover" />
+                    ) : (
+                      <div className="grid h-full place-items-center text-text-tertiary"><ImageIcon size={18} /></div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-caption truncate font-bold text-text">{reporte.nombreEjercicio}</p>
+                    <p className={`text-micro font-semibold ${reporte.fotoUrl ? "text-error" : "text-vip"}`}>
+                      {reporte.fotoUrl ? "La foto no corresponde" : "Falta la foto"}
+                    </p>
+                    <p className="text-micro text-text-tertiary">Reportó: {reporte.alumnoNombre}</p>
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => ejercicio ? setEditando(ejercicio) : setCreando(reporte.nombreEjercicio)}
+                    className="btn-accion radius-control h-9 text-caption font-bold"
+                  >
+                    {reporte.fotoUrl ? "Corregir ahora" : "Agregar foto"}
+                  </button>
+                  <form action={resolverReporteFoto}>
+                    <input type="hidden" name="reporte_id" value={reporte.id} />
+                    <button type="submit" className="radius-control h-9 w-full border border-border text-caption font-semibold text-text-secondary">
+                      Marcar resuelto
+                    </button>
+                  </form>
+                </div>
+              </Card>
+            );
+          })}
+        </section>
+      )}
+
       {sinFoto > 0 && (
         <Card padding="p-2.5" className="flex items-center gap-2">
           <ImageIcon size={16} className="shrink-0 text-text-tertiary" />
@@ -114,13 +185,13 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
 
       <button
         type="button"
-        onClick={() => setCreando(true)}
+        onClick={() => setCreando("")}
         className="radius-control flex w-full items-center justify-center gap-2 border border-dashed border-vip/50 py-3 text-secondary font-semibold text-vip"
       >
         <Plus size={16} /> Ejercicio nuevo, con foto
       </button>
 
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="space-y-3">
         {filtrados.map((ej) => {
           const fotoBase = erroresFoto.has(ej.id) ? null : fotoDe(ej);
           const buster = cacheBuster[ej.id];
@@ -129,21 +200,41 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
           // reintento, y con un valor que nunca choca con uno de antes.
           const foto = fotoBase && buster ? `${fotoBase}?r=${buster}` : fotoBase;
           return (
-            <button
-              key={ej.id}
-              type="button"
-              onClick={() => setEditando(ej)}
-              className="group text-left"
-            >
-              <Card padding="p-0" className="overflow-hidden">
-                <div className="relative aspect-square w-full bg-surface-2">
+            <Card key={ej.id} padding="p-0" className="tarjeta-modelo-oscura overflow-hidden border-white/10 bg-black">
+              <div className="flex items-center gap-2 px-3 pb-2 pt-3">
+                <IlustracionEjercicio
+                  ilustracionSlug={null}
+                  grupoMuscular={ej.grupoMuscular}
+                  nombre={ej.nombre}
+                  tamano={30}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
+                    Vista del alumno · {ETIQUETAS_GRUPO[ej.grupoMuscular] ?? ej.grupoMuscular}
+                  </p>
+                  <p className="text-caption truncate font-bold text-vip">{ej.nombre}</p>
+                </div>
+                {ej.videoUrl && (
+                  <span className="flex items-center gap-1 rounded-full bg-vip/10 px-2 py-1 text-[9px] font-bold text-vip">
+                    <Play size={10} fill="currentColor" /> VIDEO
+                  </span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => (ej.videoUrl ? setProbandoVideo(ej) : setEditando(ej))}
+                aria-label={ej.videoUrl ? `Probar video de ${ej.nombre}` : `Editar foto de ${ej.nombre}`}
+                className="relative mx-3 flex h-[112px] w-[calc(100%_-_24px)] overflow-hidden rounded-[20px] border border-white/15 bg-surface-2 text-left"
+              >
                   {foto ? (
                     <Image
                       src={foto}
                       alt={ej.nombre}
                       fill
-                      sizes="200px"
+                      sizes="(max-width: 640px) calc(100vw - 56px), 420px"
                       className="object-cover"
+                      style={{ objectPosition: `${ej.fotoPanoramaX}% ${ej.fotoPanoramaY}%` }}
                       onError={() => onErrorFoto(ej.id)}
                     />
                   ) : (
@@ -151,28 +242,28 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
                       <ImageIcon size={26} />
                     </div>
                   )}
-                  <span className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm">
-                    <Camera size={13} />
+                  <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur-sm">
+                    {ej.videoUrl ? <Play size={12} fill="currentColor" /> : <Camera size={13} />}
                   </span>
-                  {ej.videoUrl && (
-                    <span
-                      title="Tiene video de referencia"
-                      className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-vip backdrop-blur-sm"
-                    >
-                      <Play size={11} fill="currentColor" />
-                    </span>
-                  )}
-                </div>
-                <div className="p-2">
-                  <p className="text-caption line-clamp-2 font-semibold leading-tight text-text">
-                    {ej.nombre}
-                  </p>
-                  <p className="text-[10px] mt-0.5 text-text-tertiary">
-                    {ETIQUETAS_GRUPO[ej.grupoMuscular] ?? ej.grupoMuscular}
-                  </p>
-                </div>
-              </Card>
-            </button>
+              </button>
+
+              <div className="grid grid-cols-2 gap-2 p-3">
+                <button
+                  type="button"
+                  onClick={() => setEditando(ej)}
+                  className="radius-control flex h-9 items-center justify-center gap-1.5 border border-border bg-surface-2 text-caption font-semibold text-text"
+                >
+                  <Camera size={13} /> Foto y datos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => (ej.videoUrl ? setProbandoVideo(ej) : setEditando(ej))}
+                  className="radius-control flex h-9 items-center justify-center gap-1.5 border border-border bg-surface-2 text-caption font-semibold text-vip"
+                >
+                  <Play size={13} fill="currentColor" /> {ej.videoUrl ? "Probar video" : "Agregar video"}
+                </button>
+              </div>
+            </Card>
           );
         })}
       </div>
@@ -191,7 +282,14 @@ export function GaleriaEjercicios({ ejercicios }: { ejercicios: Ejercicio[] }) {
           onCerrar={() => setEditando(null)}
         />
       )}
-      {creando && <ModalEjercicioNuevo onCerrar={() => setCreando(false)} />}
+      {probandoVideo?.videoUrl && (
+        <ModalVideo
+          videoUrl={probandoVideo.videoUrl}
+          nombre={probandoVideo.nombre}
+          onCerrar={() => setProbandoVideo(null)}
+        />
+      )}
+      {creando !== null && <ModalEjercicioNuevo nombreInicial={creando} onCerrar={() => setCreando(null)} />}
     </div>
   );
 }
@@ -497,6 +595,72 @@ function EditorVideo({ ejercicio }: { ejercicio: Ejercicio }) {
   );
 }
 
+type PosicionFoto = { x: number; y: number };
+
+function EncuadreArrastrable({
+  src,
+  nombre,
+  formato,
+  posicion,
+  onChange,
+  onError,
+}: {
+  src: string;
+  nombre: string;
+  formato: "panorama" | "cuadrado";
+  posicion: PosicionFoto;
+  onChange: (posicion: PosicionFoto) => void;
+  onError: () => void;
+}) {
+  const inicio = useRef<{ clientX: number; clientY: number; posicion: PosicionFoto } | null>(null);
+
+  const mover = (evento: ReactPointerEvent<HTMLDivElement>) => {
+    if (!inicio.current) return;
+    const rect = evento.currentTarget.getBoundingClientRect();
+    const dx = ((evento.clientX - inicio.current.clientX) / rect.width) * 100;
+    const dy = ((evento.clientY - inicio.current.clientY) / rect.height) * 100;
+    const limitar = (valor: number) => Math.min(100, Math.max(0, valor));
+    onChange({
+      x: limitar(inicio.current.posicion.x - dx),
+      y: limitar(inicio.current.posicion.y - dy),
+    });
+  };
+
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <p className="text-caption font-semibold text-text">{nombre}</p>
+        <span className="text-micro text-text-tertiary">Arrastra para centrar</span>
+      </div>
+      <div
+        className={`relative touch-none select-none overflow-hidden border border-vip/35 bg-surface-2 ${
+          formato === "panorama" ? "h-[112px] w-full rounded-[20px]" : "mx-auto aspect-square w-[160px] rounded-[20px]"
+        }`}
+        onPointerDown={(evento) => {
+          inicio.current = { clientX: evento.clientX, clientY: evento.clientY, posicion };
+          evento.currentTarget.setPointerCapture(evento.pointerId);
+        }}
+        onPointerMove={mover}
+        onPointerUp={() => { inicio.current = null; }}
+        onPointerCancel={() => { inicio.current = null; }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={nombre}
+          draggable={false}
+          className="pointer-events-none h-full w-full object-cover"
+          style={{ objectPosition: `${posicion.x}% ${posicion.y}%` }}
+          onError={onError}
+        />
+        <span className="pointer-events-none absolute inset-0 grid place-items-center">
+          <span className="size-5 rounded-full border border-white/80 shadow-[0_0_0_1px_rgba(0,0,0,.35)]" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ModalSubirFoto({
   ejercicio,
   fotoActual,
@@ -530,6 +694,8 @@ function ModalSubirFoto({
   }, [state.ok]);
 
   const imagenAMostrar = previa ?? fotoActual;
+  const [panorama, setPanorama] = useState({ x: ejercicio.fotoPanoramaX, y: ejercicio.fotoPanoramaY });
+  const [cuadrada, setCuadrada] = useState({ x: ejercicio.fotoCuadradaX, y: ejercicio.fotoCuadradaY });
 
   return (
     <Overlay onCerrar={onCerrar}>
@@ -540,18 +706,23 @@ function ModalSubirFoto({
         </button>
       </div>
 
-      {/* La tarjeta usa recorte visual cuadrado, pero el archivo conserva su
-          encuadre completo para poder abrirlo ampliado. */}
-      <label className="radius-card relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-border bg-surface-2">
-        {imagenAMostrar && !previaRota ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imagenAMostrar}
-            alt=""
-            className="h-full w-full object-cover"
-            onError={() => setPreviaRota(true)}
-          />
-        ) : (
+      {imagenAMostrar && !previaRota ? (
+        <div className="space-y-3">
+          <p className="text-caption text-text-secondary">
+            Mueve la foto con el dedo. Cada formato guarda su propio centro.
+          </p>
+          <EncuadreArrastrable src={imagenAMostrar} nombre="Vista rectangular del alumno" formato="panorama" posicion={panorama} onChange={setPanorama} onError={() => setPreviaRota(true)} />
+          <EncuadreArrastrable src={imagenAMostrar} nombre="Vista cuadrada del alumno" formato="cuadrado" posicion={cuadrada} onChange={setCuadrada} onError={() => setPreviaRota(true)} />
+          <label className="radius-control flex h-10 w-full cursor-pointer items-center justify-center gap-2 border border-border text-caption font-semibold text-text">
+            <Camera size={15} /> Elegir o tomar otra foto
+            <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void elegirArchivo(f);
+            }} />
+          </label>
+        </div>
+      ) : (
+        <label className="radius-card relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-border bg-surface-2">
           <span className="flex flex-col items-center gap-1 px-4 text-center text-text-tertiary">
             <Camera size={26} />
             <span className="text-caption">
@@ -560,7 +731,13 @@ function ModalSubirFoto({
                 : "Toca para elegir una foto"}
             </span>
           </span>
-        )}
+          <input type="file" accept="image/jpeg,image/png,image/webp" className="absolute inset-0 h-full w-full opacity-0" onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void elegirArchivo(f);
+          }} />
+        </label>
+      )}
+      <div className="relative">
         {/* Estado de la preparación y subida directa a Storage. */}
         {(subiendoFoto || fotoSubida || errorFoto) && (
           <span
@@ -571,20 +748,7 @@ function ModalSubirFoto({
             {subiendoFoto ? "Preparando foto..." : errorFoto ? "No se pudo subir" : "✓ Lista para guardar"}
           </span>
         )}
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          // Sin "capture": con ese atributo, varios navegadores de celular
-          // abren la cámara directo y nunca ofrecen elegir de la galería —
-          // sacándolo, el selector nativo siempre deja elegir entre sacar
-          // una foto nueva o subir una que ya existe.
-          className="absolute inset-0 h-full w-full opacity-0"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void elegirArchivo(f);
-          }}
-        />
-      </label>
+      </div>
       {errorFoto && (
         <button
           type="button"
@@ -606,6 +770,10 @@ function ModalSubirFoto({
         }}
         className="mt-3 space-y-2"
       >
+        <input type="hidden" name="foto_panorama_x" value={panorama.x} />
+        <input type="hidden" name="foto_panorama_y" value={panorama.y} />
+        <input type="hidden" name="foto_cuadrada_x" value={cuadrada.x} />
+        <input type="hidden" name="foto_cuadrada_y" value={cuadrada.y} />
         {/* Alternativa para una imagen que ya está publicada en otro sitio. */}
         <div className="flex items-center gap-2 text-[10px] text-text-tertiary">
           <div className="h-px flex-1 bg-border" /> o pegá el link de una imagen{" "}
@@ -634,7 +802,7 @@ function ModalSubirFoto({
           disabled={pending || subiendoFoto || (!!archivoElegido && !fotoSubida)}
           className="btn-accion radius-control flex h-11 w-full items-center justify-center gap-2 text-secondary font-semibold disabled:opacity-60"
         >
-          {pending ? "Guardando..." : subiendoFoto ? "Preparando la foto..." : "Guardar foto"}
+          {pending ? "Guardando..." : subiendoFoto ? "Preparando la foto..." : "Guardar foto y encuadres"}
         </button>
       </form>
 
@@ -869,7 +1037,7 @@ const EQUIPOS: { valor: string; etiqueta: string }[] = [
   { valor: "otro", etiqueta: "Otro" },
 ];
 
-function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
+function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?: string; onCerrar: () => void }) {
   const [state, formAction, pending] = useActionState(crearEjercicioNuevo, ESTADO_INICIAL_CREAR);
   const {
     archivoElegido,
@@ -971,6 +1139,7 @@ function ModalEjercicioNuevo({ onCerrar }: { onCerrar: () => void }) {
             name="nombre"
             type="text"
             required
+            defaultValue={nombreInicial}
             placeholder="Ej: Press de pecho / Bench press / Press banca"
             className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
           />

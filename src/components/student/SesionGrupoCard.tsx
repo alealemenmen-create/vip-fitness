@@ -59,8 +59,9 @@ export const SesionGrupoCard = forwardRef<
     sesionId: string;
     soloLectura: boolean;
     activo?: boolean;
+    onDificultadRespondida?: () => void;
   }
->(function SesionGrupoCard({ ejercicios, sesionId, soloLectura, activo = false }, ref) {
+>(function SesionGrupoCard({ ejercicios, sesionId, soloLectura, activo = false, onDificultadRespondida }, ref) {
   const [state, formAction, pending] = useActionState(guardarSeriesGrupo, initialState);
   const n = ejercicios.length;
   const completoTodo = ejercicios.every((e) => e.completado);
@@ -77,6 +78,9 @@ export const SesionGrupoCard = forwardRef<
   );
   const [seriesHechas, setSeriesHechas] = useState<ReadonlySet<number>[]>(() =>
     completadasRef.current.map((s) => new Set(s))
+  );
+  const [encuestasRespondidas, setEncuestasRespondidas] = useState<ReadonlySet<number>>(
+    () => new Set(ejercicios.flatMap((ej, pos) => (ej.dificultadPercibida ? [pos] : [])))
   );
   const [serieActiva, setSerieActiva] = useState<{ pos: number; numero: number } | null>(null);
   const [mostrandoSiguiente, setMostrandoSiguiente] = useState(false);
@@ -155,7 +159,11 @@ export const SesionGrupoCard = forwardRef<
   }
 
   function marcarGrupoListo() {
-    filasRef.current.forEach((mapa) => mapa.forEach((handle) => handle.completarYa()));
+    // Un solo envío después de actualizar todas las filas evita carreras entre
+    // respuestas parciales del mismo grupo (el mismo problema corregido en la
+    // tarjeta de ejercicio individual).
+    filasRef.current.forEach((mapa) => mapa.forEach((handle) => handle.completarYa(false)));
+    formRef.current?.requestSubmit();
   }
 
   useImperativeHandle(ref, () => ({
@@ -194,6 +202,18 @@ export const SesionGrupoCard = forwardRef<
   // datos como resumen. Cada fila sigue usando el descanso de SU PROPIO
   // ejercicio, esto es solo el resumen de arriba.
   const descansoRonda = ejercicios[n - 1]?.descansoSegundos ?? null;
+  const todasLasSeriesHechas = ejercicios.every(
+    (ej, pos) => seriesHechas[pos].size >= ej.seriesProgramadas
+  );
+  const encuestaPendiente = todasLasSeriesHechas
+    ? ejercicios.findIndex((_, pos) => !encuestasRespondidas.has(pos))
+    : -1;
+
+  function alResponderEncuesta(pos: number) {
+    const proximo = new Set(encuestasRespondidas).add(pos);
+    setEncuestasRespondidas(proximo);
+    if (ejercicios.every((_, indice) => proximo.has(indice))) onDificultadRespondida?.();
+  }
 
   return (
     <div
@@ -226,6 +246,12 @@ export const SesionGrupoCard = forwardRef<
               fotoCompletaUrl={ej.fotoCompletaUrl}
               videoUrl={ej.videoUrl}
               nombre={ej.nombre}
+              sesionEjercicioId={ej.sesionEjercicioId}
+              ejercicioId={ej.ejercicioId}
+              fotoPanoramaX={ej.fotoPanoramaX}
+              fotoPanoramaY={ej.fotoPanoramaY}
+              fotoCuadradaX={ej.fotoCuadradaX}
+              fotoCuadradaY={ej.fotoCuadradaY}
               compacto
             />
             <div className="min-w-0">
@@ -381,6 +407,8 @@ export const SesionGrupoCard = forwardRef<
                     valorInicial={ej.dificultadPercibida}
                     disabled={seriesHechas[pos].size < ej.seriesProgramadas}
                     onGuardar={guardarAhora}
+                    forzarModal={pos === encuestaPendiente}
+                    onResponder={() => alResponderEncuesta(pos)}
                     nombreCampo={`dificultad_ejercicio${sufijoDe(pos)}`}
                   />
                   <label className="radius-control mt-1 flex items-center gap-2 border border-border bg-surface-2 px-2.5 py-1.5">

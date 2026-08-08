@@ -100,26 +100,11 @@ export default async function AlumnoLayout({ children }: { children: React.React
         </div>
       )}
 
-      {/* SIN padding-top. Un elemento `sticky` está confinado a su bloque
-          contenedor, que es el content box de este div — o sea, lo que queda
-          DESPUÉS del padding. Con `pt-1` acá, la cabecera de abajo no podía
-          anclarse en el borde real: se quedaba 4px más abajo y por esa
-          ventanita desfilaba el contenido al scrollear (se veía una franja
-          con trozos de tarjetas entre el logo y la hora del teléfono, en
-          Inicio, Progreso, Ranked y la sesión de entrenamiento). El aire
-          sobre el logo lo pone la cabecera con su propio `pt-1`. */}
-      <div className="pantalla-scroll mx-auto w-full max-w-md px-4 pb-24">
-        {/* El menú vive DENTRO de la placa dorada: una sola pieza de ancho
-            completo, sin el botón morado que la interrumpía. La campanita va
-            al lado, para que las novedades se vean desde cualquier pantalla.
-
-            Queda clavado arriba en todas las pestañas: la campanita y el
-            engranaje son las dos únicas salidas de la pantalla, y al scrollear
-            una sesión de siete ejercicios había que volver hasta arriba para
-            encontrarlas. El alto de este bloque está en --alto-cabecera-alumno
-            (globals.css), que es lo que usan las cabeceras de cada pestaña para
-            pegarse justo debajo sin taparse. */}
-        <div className="imprimir-oculto sticky top-0 z-30 -mx-4 bg-bg px-4 pb-2 pt-1">
+      {/* El encabezado vive FUERA de `.pantalla-scroll`, como hermano flex.
+          Esto replica la estabilidad de Nutrición en todas las pestañas:
+          Safari ya no puede arrastrar el logo durante el rebote porque el
+          único elemento que se desplaza es el contenido central de abajo. */}
+      <div className="imprimir-oculto z-30 mx-auto w-full max-w-md shrink-0 bg-bg px-4 pb-2 pt-1">
           <Logo
             compact
             corner={
@@ -129,7 +114,11 @@ export default async function AlumnoLayout({ children }: { children: React.React
               </div>
             }
           />
-        </div>
+      </div>
+
+      {/* SIN padding-top: las cabeceras secundarias sticky se anclan en top-0
+          de este contenedor, que ya comienza físicamente debajo del logo. */}
+      <div className="pantalla-scroll mx-auto w-full max-w-md px-4 pb-24">
         {children}
       </div>
       {/* z-40: por encima de las cabeceras fijas (z-30) y de cualquier tarjeta.

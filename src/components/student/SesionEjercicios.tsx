@@ -1,13 +1,17 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Check } from "lucide-react";
+import { useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
 import { SesionGrupoCard } from "@/components/student/SesionGrupoCard";
+import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { posicionTecnica, resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
+
+const suscribirSinCambios = () => () => {};
 
 /**
  * Parte la lista de ejercicios en grupos consecutivos de la misma familia de
@@ -101,57 +105,148 @@ export function SesionEjercicios({
   const ejercicioActivoId = calcularActivo(ejercicios);
   const grupos = agruparPorTecnica(ejercicios);
   const [guardado, setGuardado] = useState(false);
+  const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
+  const indiceActivo = Math.max(
+    0,
+    grupos.findIndex((grupo) => grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId))
+  );
+  const [indiceVisible, setIndiceVisible] = useState(indiceActivo);
 
+  // Se conserva la tarjeta actual después de guardar: el próximo paso se
+  // indica iluminando “Siguiente”, en vez de mover la pantalla sin avisar.
   const guardarTodo = () => {
     handles.current.forEach((handle) => handle.guardar());
     setGuardado(true);
     window.setTimeout(() => setGuardado(false), 2500);
   };
 
+  const avanzarDesdeEncuesta = (grupo: EjercicioSesion[]) => {
+    const indice = grupos.findIndex((actual) => actual[0].sesionEjercicioId === grupo[0].sesionEjercicioId);
+    if (indice >= 0 && indice < grupos.length - 1) setIndiceVisible(indice + 1);
+  };
+
+  const renderizarGrupo = (grupo: EjercicioSesion[]) => {
+    if (grupo.length >= 2) {
+      const activo = grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId);
+      return (
+        <SesionGrupoCard
+          key={grupo[0].sesionEjercicioId}
+          ref={(handle) => {
+            for (const ej of grupo) {
+              if (handle) handles.current.set(ej.sesionEjercicioId, handle);
+              else handles.current.delete(ej.sesionEjercicioId);
+            }
+          }}
+          ejercicios={grupo}
+          sesionId={sesionId}
+          soloLectura={soloLectura}
+          activo={activo}
+          onDificultadRespondida={() => avanzarDesdeEncuesta(grupo)}
+        />
+      );
+    }
+
+    return (
+      <SesionEjercicioCard
+        key={grupo[0].sesionEjercicioId}
+        ref={(handle) => {
+          if (handle) handles.current.set(grupo[0].sesionEjercicioId, handle);
+          else handles.current.delete(grupo[0].sesionEjercicioId);
+        }}
+        ejercicio={grupo[0]}
+        sesionId={sesionId}
+        soloLectura={soloLectura}
+        activo={grupo[0].sesionEjercicioId === ejercicioActivoId}
+        modoEnfocado={!soloLectura}
+        onDificultadRespondida={() => avanzarDesdeEncuesta(grupo)}
+      />
+    );
+  };
+
+  const grupoVisible = grupos[indiceVisible] ?? grupos[0];
+  const tituloVisible = grupoVisible?.map((ej) => ej.nombre).join(" + ") ?? "Entrenamiento";
+
+  const navegacion = grupoVisible ? (
+    <nav className="navegacion-modo-enfocado navegacion-modo-enfocado-fija" aria-label="Navegar por los ejercicios">
+      <button
+        type="button"
+        onClick={() => setIndiceVisible((indice) => Math.max(0, indice - 1))}
+        disabled={indiceVisible === 0}
+        className="boton-navegacion-ejercicio"
+      >
+        <ChevronLeft size={18} /> Anterior
+      </button>
+
+      <div className="flex items-center justify-center gap-1.5" aria-label={`Ejercicio ${indiceVisible + 1} de ${grupos.length}`}>
+        {grupos.map((grupo, indice) => (
+          <button
+            key={grupo[0].sesionEjercicioId}
+            type="button"
+            onClick={() => setIndiceVisible(indice)}
+            className="punto-rutina"
+            data-activo={indice === indiceVisible}
+            data-completo={grupo.every((ej) => ej.completado)}
+            aria-label={`Ir al ejercicio ${indice + 1}`}
+            aria-current={indice === indiceVisible ? "step" : undefined}
+          />
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setIndiceVisible((indice) => Math.min(grupos.length - 1, indice + 1))}
+        disabled={indiceVisible === grupos.length - 1}
+        className="boton-navegacion-ejercicio"
+        data-recomendado={grupoVisible.every((ej) => ej.completado) ? "true" : "false"}
+      >
+        Siguiente <ChevronRight size={18} />
+      </button>
+    </nav>
+  ) : null;
+
   return (
     <>
-      {grupos.map((grupo) => {
-        if (grupo.length >= 2) {
-          const activo = grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId);
-          return (
-            <SesionGrupoCard
-              key={grupo[0].sesionEjercicioId}
-              ref={(handle) => {
-                for (const ej of grupo) {
-                  if (handle) handles.current.set(ej.sesionEjercicioId, handle);
-                  else handles.current.delete(ej.sesionEjercicioId);
-                }
-              }}
-              ejercicios={grupo}
-              sesionId={sesionId}
-              soloLectura={soloLectura}
-              activo={activo}
+      {soloLectura ? (
+        grupos.map(renderizarGrupo)
+      ) : grupoVisible ? (
+        <section className="modo-entrenamiento-enfocado space-y-2" aria-label="Ejercicio actual">
+          <div className="flex min-w-0 items-center gap-2 px-1">
+            <IlustracionEjercicio
+              ilustracionSlug={null}
+              grupoMuscular={grupoVisible[0].grupoMuscular}
+              nombre={tituloVisible}
+              tamano={30}
             />
-          );
-        }
-        return (
-          <SesionEjercicioCard
-            key={grupo[0].sesionEjercicioId}
-            ref={(handle) => {
-              if (handle) handles.current.set(grupo[0].sesionEjercicioId, handle);
-              else handles.current.delete(grupo[0].sesionEjercicioId);
-            }}
-            ejercicio={grupo[0]}
-            sesionId={sesionId}
-            soloLectura={soloLectura}
-            activo={grupo[0].sesionEjercicioId === ejercicioActivoId}
-          />
-        );
-      })}
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+                Ejercicio {indiceVisible + 1} de {grupos.length}
+              </p>
+              <p className="text-caption truncate font-semibold text-vip">{tituloVisible}</p>
+            </div>
+          </div>
+
+          {renderizarGrupo(grupoVisible)}
+
+        </section>
+      ) : null}
+
+      {montado && !soloLectura && navegacion ? createPortal(navegacion, document.body) : null}
 
       {!soloLectura && (
-        <Button variant="accion" onClick={guardarTodo} className="w-full">
-          <Check size={16} strokeWidth={3} /> {guardado ? "Progreso guardado" : "Guardar progreso"}
-        </Button>
-      )}
-
-      {!soloLectura && (
-        <FinalizarEntrenamiento sesionId={sesionId} completados={completados} total={total} />
+        <>
+          <div className="flex flex-col gap-2">
+            <Button variant="secondary" size="xs" onClick={guardarTodo} className="w-[120px] px-2">
+              <Check size={14} strokeWidth={3} /> {guardado ? "Guardado" : "Guardar"}
+            </Button>
+            {indiceVisible === grupos.length - 1 && (
+              <FinalizarEntrenamiento sesionId={sesionId} completados={completados} total={total} compacto />
+            )}
+          </div>
+          {/* Reserva suficiente recorrido al final del scroll para que
+              Guardar, Finalizar y los paneles de nota/molestia puedan subir
+              completamente por encima de las dos barras fijas. */}
+          <div className="h-16" aria-hidden="true" />
+        </>
       )}
     </>
   );

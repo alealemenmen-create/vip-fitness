@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 /** `accion` va a la derecha del título — el cronómetro de la rutina o el
  * botón "Iniciar rutina" en la pantalla de sesión (ver sesion/[id]/page.tsx).
  * Va AFUERA del botón de volver, no adentro: son dos controles, no uno. */
-export function VolverAEntrenar({ titulo, accion }: { titulo: string; accion?: ReactNode }) {
+export function VolverAEntrenar({ titulo, accion, compacto = false }: { titulo: string; accion?: ReactNode; compacto?: boolean }) {
   const router = useRouter();
 
   return (
@@ -19,7 +19,7 @@ export function VolverAEntrenar({ titulo, accion }: { titulo: string; accion?: R
         aria-label="Volver a entrenar"
       >
         <ArrowLeft size={20} className="shrink-0 text-text-secondary" />
-        <span className="text-h3 truncate text-text">{titulo}</span>
+        <span className={`${compacto ? "text-body font-semibold" : "text-h3"} truncate text-text`}>{titulo}</span>
       </button>
       {accion}
     </div>

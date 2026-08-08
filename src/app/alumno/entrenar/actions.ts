@@ -293,7 +293,11 @@ async function guardarUnEjercicio(
       // entorno, Supabase devuelve error de columna inexistente — no debe
       // impedir guardar el resto del ejercicio (mismo criterio de
       // degradación que el resto de Impulso VIP).
-      dificultad_percibida: dificultadPercibida,
+      // Un guardado automático de las series puede viajar casi al mismo
+      // tiempo que la respuesta del modal. Si todavía no hay respuesta, no
+      // se toca esta columna: así una petición anterior nunca puede borrar
+      // la respuesta de Impulso VIP que llegó después.
+      ...(dificultadPercibida ? { dificultad_percibida: dificultadPercibida } : {}),
     })
     .eq("id", sesionEjercicioId);
   if (errorNota) {
@@ -516,13 +520,10 @@ export async function abandonarSesion(formData: FormData): Promise<void> {
 
 /**
  * Cancela una sesión en curso que se creó por error (ej. tocar "Iniciar
- * entrenamiento" en el día que no correspondía): borra la fila entera en vez
- * de marcarla "abandonada", para que no quede rastro de un toque accidental
- * ni siga ocupando el cupo de "un día en curso a la vez" de iniciarSesion().
- *
- * Solo permitido mientras sigue "en_progreso" y ningún ejercicio se marcó
- * completado — si el alumno ya cargó series de verdad, no es un error, es
- * progreso real y debe cerrarse y usar abandonarSesion (desde Historial).
+ * entrenamiento" en el día que no correspondía). Sin progreso real borra la
+ * fila por completo; si ya hay ejercicios terminados, preserva los datos en
+ * el historial como sesión abandonada y retira sus puntos. En ambos casos
+ * libera el cupo de "un día en curso a la vez" de iniciarSesion().
  */
 export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
   const sesionId = String(formData.get("sesion_id") || "");
@@ -532,7 +533,7 @@ export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
   const supabase = await createClient();
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
-    .select("id, estado")
+    .select("id, estado, fecha")
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .maybeSingle();
@@ -543,9 +544,20 @@ export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
     .select("id", { count: "exact", head: true })
     .eq("sesion_id", sesionId)
     .eq("completado", true);
-  if (count && count > 0) redirect(`/alumno/entrenar/sesion/${sesionId}`);
-
-  await supabase.from("sesiones_entrenamiento").delete().eq("id", sesionId).eq("alumno_id", alumnoId);
+  if (count && count > 0) {
+    // Si ya existe progreso real no se destruye: se conserva en el historial
+    // como abandonado y se retiran sus puntos. La sesión deja igualmente de
+    // ocupar el cupo de entrenamiento activo.
+    await supabase
+      .from("sesiones_entrenamiento")
+      .update({ estado: "abandonada" })
+      .eq("id", sesionId)
+      .eq("alumno_id", alumnoId);
+    await abandonarEntrenamiento(alumnoId, sesionId, sesion.fecha);
+    revalidateTag(TAG_RANKING, { expire: 0 });
+  } else {
+    await supabase.from("sesiones_entrenamiento").delete().eq("id", sesionId).eq("alumno_id", alumnoId);
+  }
 
   revalidatePath("/alumno/entrenar");
   revalidatePath("/alumno/entrenar/historial");
