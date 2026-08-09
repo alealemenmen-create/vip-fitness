@@ -51,11 +51,10 @@ export default async function EjerciciosAdminPage({
     <div className="space-y-4 pb-4">
       <TituloPestana>
         <p className="text-caption text-text-tertiary">GALERÍA</p>
-        <h1 className="text-h2 text-text">Fotos de ejercicios</h1>
+        <h1 className="text-h2 text-text">Galería multimedia</h1>
       </TituloPestana>
       <p className="text-secondary text-text-secondary">
-        Toca la foto de cualquier ejercicio para subir una nueva o cambiar la que tiene. Se publica
-        para los alumnos al instante.
+        Administra fotos y clips de referencia. La vista previa usa el mismo formato que verá el alumno.
       </p>
       <GaleriaEjercicios ejercicios={biblioteca} reportes={reportes} />
     </div>

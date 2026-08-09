@@ -29,6 +29,7 @@ import { reportarFotoIncorrecta, type ReportarFotoState } from "@/app/alumno/ent
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { ModalVideo } from "@/components/student/ModalVideo";
+import { VideoCloudflareAutomatico } from "@/components/student/VideoCloudflareAutomatico";
 import { resolverIlustracion, resolverFotoCompleta } from "@/lib/ejercicios/ilustracion";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { repsObjetivo, esEjercicioDeTiempo } from "@/lib/entrenamiento/reps";
@@ -88,6 +89,9 @@ export function CuadroFotoReferencia({
   fotoMiniaturaUrl,
   fotoCompletaUrl,
   videoUrl,
+  videoCloudflareUid,
+  videoCloudflareEstado,
+  videoCloudflareMiniaturaUrl,
   nombre,
   sesionEjercicioId,
   ejercicioId,
@@ -97,6 +101,7 @@ export function CuadroFotoReferencia({
   fotoCuadradaY = 50,
   compacto = false,
   destacado = false,
+  reproducirAutomaticamente = false,
 }: {
   ilustracionSlug: string | null;
   /** Fotos subidas desde /admin/ejercicios — mandan sobre la ilustración
@@ -107,6 +112,9 @@ export function CuadroFotoReferencia({
    * existe, tocar el cuadro reproduce el video en vez de solo ampliar la
    * foto — la referencia en movimiento gana porque enseña más. */
   videoUrl: string | null;
+  videoCloudflareUid?: string | null;
+  videoCloudflareEstado?: "subiendo" | "procesando" | "listo" | "error" | null;
+  videoCloudflareMiniaturaUrl?: string | null;
   nombre: string;
   sesionEjercicioId?: string;
   ejercicioId?: string | null;
@@ -123,11 +131,12 @@ export function CuadroFotoReferencia({
   /** En el modo enfocado la referencia es el elemento principal de la
    * pantalla, no una miniatura arrinconada junto al título. */
   destacado?: boolean;
+  reproducirAutomaticamente?: boolean;
 }) {
   const { src: srcEstatico, origen } = resolverIlustracion(ilustracionSlug, null);
-  const src = fotoMiniaturaUrl ?? (origen === "ilustracion" ? srcEstatico : null);
+  const src = fotoMiniaturaUrl ?? videoCloudflareMiniaturaUrl ?? (origen === "ilustracion" ? srcEstatico : null);
   const tamano: React.CSSProperties = destacado
-    ? { width: "100%", minHeight: 104, height: 104 }
+    ? { width: "100%", minHeight: 180, height: "auto", aspectRatio: "16 / 9" }
     : compacto
     ? { width: 44, minHeight: 44, height: 44 }
     : { width: 116, minHeight: 116, height: 116 };
@@ -165,6 +174,7 @@ export function CuadroFotoReferencia({
       src={src}
       srcCompleta={fotoCompletaUrl ?? resolverFotoCompleta(ilustracionSlug)}
       videoUrl={videoUrl}
+      videoCloudflareListo={!!videoCloudflareUid && videoCloudflareEstado === "listo"}
       nombre={nombre}
       sesionEjercicioId={sesionEjercicioId}
       ejercicioId={ejercicioId}
@@ -174,6 +184,7 @@ export function CuadroFotoReferencia({
       tamano={tamano}
       compacto={compacto}
       destacado={destacado}
+      reproducirAutomaticamente={reproducirAutomaticamente}
     />
   );
 }
@@ -303,6 +314,7 @@ function FotoReferenciaAmpliable({
   src,
   srcCompleta,
   videoUrl,
+  videoCloudflareListo,
   nombre,
   sesionEjercicioId,
   ejercicioId,
@@ -312,6 +324,7 @@ function FotoReferenciaAmpliable({
   tamano,
   compacto = false,
   destacado = false,
+  reproducirAutomaticamente = false,
 }: {
   src: string;
   /** La foto ORIGINAL sin recortar, si ya se identificó cuál es (ver
@@ -324,6 +337,7 @@ function FotoReferenciaAmpliable({
    * foto que se ve acá, ej. la de YouTube), la referencia en movimiento es
    * siempre mejor guía que una imagen fija ampliada. */
   videoUrl: string | null;
+  videoCloudflareListo: boolean;
   nombre: string;
   sesionEjercicioId?: string;
   ejercicioId?: string | null;
@@ -333,6 +347,7 @@ function FotoReferenciaAmpliable({
   tamano: React.CSSProperties;
   compacto?: boolean;
   destacado?: boolean;
+  reproducirAutomaticamente?: boolean;
 }) {
   const [ampliada, setAmpliada] = useState(false);
   const [confirmandoReporte, setConfirmandoReporte] = useState(false);
@@ -359,6 +374,17 @@ function FotoReferenciaAmpliable({
         }
         style={tamano}
       >
+        {destacado && (
+          <Image
+            src={src}
+            alt=""
+            aria-hidden
+            fill
+            sizes="(max-width: 640px) calc(100vw - 56px), 520px"
+            className="scale-110 object-cover opacity-45 blur-xl"
+            style={{ objectPosition: `${posicionX}% ${posicionY}%` }}
+          />
+        )}
         <Image
           src={src}
           alt={`Foto de referencia de ${nombre}`}
@@ -368,16 +394,23 @@ function FotoReferenciaAmpliable({
           // muscular (que se recorta desde arriba), estas fotos ya vienen
           // recortadas y centradas en el servidor. Anclarlas arriba cortaba la
           // mitad de abajo de la persona en cuadros más anchos que altos.
-          className={usarRecorte ? "object-cover" : destacado ? "object-cover object-center" : "object-contain object-center"}
-          style={usarRecorte ? { objectPosition: `${posicionX}% ${posicionY}%` } : undefined}
+          className={destacado ? "z-[1] object-contain object-center" : usarRecorte ? "object-cover" : "object-contain object-center"}
+          style={!destacado && usarRecorte ? { objectPosition: `${posicionX}% ${posicionY}%` } : undefined}
         />
+        {destacado && videoCloudflareListo && (
+          <VideoCloudflareAutomatico
+            ejercicioId={ejercicioId}
+            activo={reproducirAutomaticamente}
+            nombre={nombre}
+          />
+        )}
         {/* Botón de expandir/reproducir, chico y en la esquina (referencia de
             diseño): un ícono basta como pista de que hay más para ver, sin
             tapar la foto con una franja de texto. En modo compacto (44px) se
             saca del todo: no entraba sin tapar casi toda la foto. */}
         {!compacto && (
-          <span className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm">
-            {videoUrl ? <Play size={11} fill="currentColor" /> : <Maximize2 size={12} strokeWidth={2.5} />}
+          <span className="absolute bottom-1.5 right-1.5 z-[3] flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm">
+            {videoUrl || videoCloudflareListo ? <Play size={11} fill="currentColor" /> : <Maximize2 size={12} strokeWidth={2.5} />}
           </span>
         )}
       </button>
@@ -1669,6 +1702,9 @@ export const SesionEjercicioCard = forwardRef<
             fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
             fotoCompletaUrl={ejercicio.fotoCompletaUrl}
             videoUrl={ejercicio.videoUrl}
+            videoCloudflareUid={ejercicio.videoCloudflareUid}
+            videoCloudflareEstado={ejercicio.videoCloudflareEstado}
+            videoCloudflareMiniaturaUrl={ejercicio.videoCloudflareMiniaturaUrl}
             nombre={ejercicio.nombre}
             sesionEjercicioId={ejercicio.sesionEjercicioId}
             ejercicioId={ejercicio.ejercicioId}
@@ -1677,6 +1713,7 @@ export const SesionEjercicioCard = forwardRef<
             fotoCuadradaX={ejercicio.fotoCuadradaX}
             fotoCuadradaY={ejercicio.fotoCuadradaY}
             destacado={modoEnfocado}
+            reproducirAutomaticamente={modoEnfocado && activo && !soloLectura}
           />
         </div>
 

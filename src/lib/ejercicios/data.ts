@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   COLUMNAS_EJERCICIO,
   COLUMNAS_EJERCICIO_CON_ENCUADRE,
+  COLUMNAS_EJERCICIO_MULTIMEDIA,
   COLUMNAS_EJERCICIO_SIN_FOTOS,
   aEjercicio,
   type Ejercicio,
@@ -48,11 +49,17 @@ async function leerBiblioteca(): Promise<Ejercicio[]> {
   // ENTERO — antes se leía `data ?? []` sin mirar el error, así que la
   // biblioteca se quedaba vacía en silencio para toda la app. Mismo
   // respaldo encadenado que ya usa obtenerSesionCompleta para 0026/0031.
-  const conEncuadre = await supabase
+  const conMultimedia = await supabase
+    .from("ejercicios")
+    .select(COLUMNAS_EJERCICIO_MULTIMEDIA)
+    .eq("activo", true)
+    .order("nombre");
+
+  const conEncuadre = conMultimedia.error ? await supabase
     .from("ejercicios")
     .select(COLUMNAS_EJERCICIO_CON_ENCUADRE)
     .eq("activo", true)
-    .order("nombre");
+    .order("nombre") : conMultimedia;
 
   const conFotos = conEncuadre.error ? await supabase
     .from("ejercicios")

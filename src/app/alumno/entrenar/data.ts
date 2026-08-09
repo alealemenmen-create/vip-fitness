@@ -334,6 +334,9 @@ export type EjercicioSesion = {
    * /admin/ejercicios (ver `guardarVideoEjercicio`). Cuando existe, la
    * referencia del ejercicio abre el video en vez de solo ampliar la foto. */
   videoUrl: string | null;
+  videoCloudflareUid: string | null;
+  videoCloudflareEstado: "subiendo" | "procesando" | "listo" | "error" | null;
+  videoCloudflareMiniaturaUrl: string | null;
   /** Cuánto dura cada fase de la repetición. Null cuando ni la rutina lo trae
    * escrito ni la biblioteca lo tiene calculado todavía. */
   tempo: Tempo | null;
@@ -430,6 +433,9 @@ export async function obtenerSesionCompleta(
     foto_panorama_y?: number | null;
     foto_cuadrada_x?: number | null;
     foto_cuadrada_y?: number | null;
+    video_cloudflare_uid?: string | null;
+    video_cloudflare_estado?: "subiendo" | "procesando" | "listo" | "error" | null;
+    video_cloudflare_miniatura_url?: string | null;
   };
 
   type FilaSesionEjercicio = {
@@ -458,9 +464,12 @@ export async function obtenerSesionCompleta(
   // fotos de admin (migración 0042), con tempo (0031), sin tempo pero con
   // biblioteca (0026), y pelado. Cada migración que todavía no haya corrido
   // se degrada sola en vez de dejar al alumno sin pantalla de entrenamiento.
-  const intentoConEncuadre = await consultarEjercicios(
-    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url, tempo, tempo_nota, tecnica, foto_miniatura_url, foto_completa_url, foto_panorama_x, foto_panorama_y, foto_cuadrada_x, foto_cuadrada_y)`
+  const intentoConMultimedia = await consultarEjercicios(
+    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url, tempo, tempo_nota, tecnica, foto_miniatura_url, foto_completa_url, foto_panorama_x, foto_panorama_y, foto_cuadrada_x, foto_cuadrada_y, video_cloudflare_uid, video_cloudflare_estado, video_cloudflare_miniatura_url)`
   );
+  const intentoConEncuadre = intentoConMultimedia.error ? await consultarEjercicios(
+    `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url, tempo, tempo_nota, tecnica, foto_miniatura_url, foto_completa_url, foto_panorama_x, foto_panorama_y, foto_cuadrada_x, foto_cuadrada_y)`
+  ) : intentoConMultimedia;
   const intentoConFotos = intentoConEncuadre.error ? await consultarEjercicios(
     `${COLUMNAS_PROGRAMA}, ejercicios(ilustracion_slug, video_url, tempo, tempo_nota, tecnica, foto_miniatura_url, foto_completa_url)`
   ) : intentoConEncuadre;
@@ -552,6 +561,9 @@ export async function obtenerSesionCompleta(
     let fotoCuadradaX = dellaBiblioteca?.foto_cuadrada_x ?? 50;
     let fotoCuadradaY = dellaBiblioteca?.foto_cuadrada_y ?? 50;
     let videoUrl = dellaBiblioteca?.video_url ?? null;
+    let videoCloudflareUid = dellaBiblioteca?.video_cloudflare_uid ?? null;
+    let videoCloudflareEstado = dellaBiblioteca?.video_cloudflare_estado ?? null;
+    let videoCloudflareMiniaturaUrl = dellaBiblioteca?.video_cloudflare_miniatura_url ?? null;
 
     // Respaldo: el ejercicio de esta rutina puede haber quedado sin vincular
     // (o vinculado a una entrada sin foto todavía) porque cuando se importó
@@ -573,6 +585,9 @@ export async function obtenerSesionCompleta(
         fotoCuadradaX = emparejado.fotoCuadradaX;
         fotoCuadradaY = emparejado.fotoCuadradaY;
         videoUrl = emparejado.videoUrl;
+        videoCloudflareUid = emparejado.videoCloudflareUid;
+        videoCloudflareEstado = emparejado.videoCloudflareEstado;
+        videoCloudflareMiniaturaUrl = emparejado.videoCloudflareMiniaturaUrl;
       }
     }
 
@@ -598,6 +613,9 @@ export async function obtenerSesionCompleta(
       fotoCuadradaX,
       fotoCuadradaY,
       videoUrl,
+      videoCloudflareUid,
+      videoCloudflareEstado,
+      videoCloudflareMiniaturaUrl,
       // Lo que el entrenador escribió en la rutina gana sobre lo que dedujo la
       // IA para la biblioteca. Ver src/lib/ejercicios/tempo.ts.
       tempo: resolverTempo(

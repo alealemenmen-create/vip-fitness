@@ -42,6 +42,11 @@ export type Ejercicio = {
    * comparten ilustración a propósito. */
   ilustracionSlug: string | null;
   videoUrl: string | null;
+  videoCloudflareUid: string | null;
+  videoCloudflareEstado: "subiendo" | "procesando" | "listo" | "error" | null;
+  videoCloudflareDuracionSeg: number | null;
+  videoCloudflareMiniaturaUrl: string | null;
+  videoCloudflareError: string | null;
   /** Fotos subidas a mano desde /admin/ejercicios (bucket `ejercicios-fotos`
    * de Storage) — cuando existen, mandan por sobre `ilustracionSlug` (el
    * archivo estático de public/ejercicios). Ver 0042_fotos_ejercicios_admin. */
@@ -62,6 +67,9 @@ export const COLUMNAS_EJERCICIO_SIN_FOTOS =
 export const COLUMNAS_EJERCICIO = `${COLUMNAS_EJERCICIO_SIN_FOTOS}, foto_miniatura_url, foto_completa_url`;
 export const COLUMNAS_EJERCICIO_CON_ENCUADRE =
   `${COLUMNAS_EJERCICIO}, foto_panorama_x, foto_panorama_y, foto_cuadrada_x, foto_cuadrada_y`;
+export const COLUMNAS_EJERCICIO_MULTIMEDIA =
+  `${COLUMNAS_EJERCICIO_CON_ENCUADRE}, video_cloudflare_uid, video_cloudflare_estado, ` +
+  "video_cloudflare_duracion_seg, video_cloudflare_miniatura_url, video_cloudflare_error";
 
 type FilaEjercicio = {
   id: string;
@@ -79,6 +87,11 @@ type FilaEjercicio = {
   consejos: string[] | null;
   ilustracion_slug: string | null;
   video_url: string | null;
+  video_cloudflare_uid?: string | null;
+  video_cloudflare_estado?: "subiendo" | "procesando" | "listo" | "error" | null;
+  video_cloudflare_duracion_seg?: number | null;
+  video_cloudflare_miniatura_url?: string | null;
+  video_cloudflare_error?: string | null;
   foto_miniatura_url?: string | null;
   foto_completa_url?: string | null;
   foto_panorama_x?: number | null;
@@ -104,6 +117,11 @@ export function aEjercicio(fila: FilaEjercicio): Ejercicio {
     consejos: fila.consejos ?? [],
     ilustracionSlug: fila.ilustracion_slug,
     videoUrl: fila.video_url,
+    videoCloudflareUid: fila.video_cloudflare_uid ?? null,
+    videoCloudflareEstado: fila.video_cloudflare_estado ?? null,
+    videoCloudflareDuracionSeg: fila.video_cloudflare_duracion_seg ?? null,
+    videoCloudflareMiniaturaUrl: fila.video_cloudflare_miniatura_url ?? null,
+    videoCloudflareError: fila.video_cloudflare_error ?? null,
     fotoMiniaturaUrl: fila.foto_miniatura_url ?? null,
     fotoCompletaUrl: fila.foto_completa_url ?? null,
     fotoPanoramaX: fila.foto_panorama_x ?? 50,

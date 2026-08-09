@@ -763,6 +763,12 @@ export interface Database {
           consejos: string[];
           ilustracion_slug: string | null;
           video_url: string | null;
+          // 0049_video_cloudflare_stream.sql
+          video_cloudflare_uid: string | null;
+          video_cloudflare_estado: "subiendo" | "procesando" | "listo" | "error" | null;
+          video_cloudflare_duracion_seg: number | null;
+          video_cloudflare_miniatura_url: string | null;
+          video_cloudflare_error: string | null;
           // 0031_tempo_ejercicios.sql — el tempo es del movimiento, no de la
           // rutina: se calcula una vez por ejercicio y lo reutilizan todas.
           tempo: string | null;
@@ -818,6 +824,11 @@ export interface Database {
           consejos?: string[];
           ilustracion_slug?: string | null;
           video_url?: string | null;
+          video_cloudflare_uid?: string | null;
+          video_cloudflare_estado?: "subiendo" | "procesando" | "listo" | "error" | null;
+          video_cloudflare_duracion_seg?: number | null;
+          video_cloudflare_miniatura_url?: string | null;
+          video_cloudflare_error?: string | null;
           tempo?: string | null;
           tempo_nota?: string | null;
           tempo_origen?: "ia" | "entrenador" | null;
@@ -1546,6 +1557,31 @@ export interface Database {
             isOneToOne: false;
             referencedRelation: "perfiles";
             referencedColumns: ["id"];
+          },
+        ];
+      };
+      // 0050_alumno_accesos.sql
+      alumno_accesos: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          ingreso_en: string;
+        };
+        Insert: {
+          alumno_id: string;
+          ingreso_en?: string;
+        };
+        Update: {
+          alumno_id?: string;
+          ingreso_en?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "alumno_accesos_alumno_id_fkey";
+            columns: ["alumno_id"];
+            isOneToOne: false;
+            referencedRelation: "alumno_perfil";
+            referencedColumns: ["user_id"];
           },
         ];
       };

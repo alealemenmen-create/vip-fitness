@@ -26,6 +26,7 @@ import { Logo } from "@/components/Logo";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { marcarRequest } from "@/lib/supabase/instrumentacion";
 import { registrarIngresoDiario } from "@/lib/ranking/movimientos";
+import { registrarAccesoApp } from "@/lib/ingresos/data";
 
 export default async function AlumnoLayout({ children }: { children: React.ReactNode }) {
   marcarRequest("carga de pantalla de alumno");
@@ -43,18 +44,24 @@ export default async function AlumnoLayout({ children }: { children: React.React
   const [
     sesionEnProgresoId,
     ,
+    ,
     noticiasSinVer,
     anuncioImportante,
     celebracionTorneo,
     cumpleaneros,
     { data: perfilTema, error: errorTema },
   ] = contexto.soloLectura
-    ? ([null, 0, 0, null, null, [] as CumpleaneroHoy[], { data: null, error: null }] as const)
+    ? ([null, 0, undefined, 0, null, null, [] as CumpleaneroHoy[], { data: null, error: null }] as const)
     : await Promise.all([
         obtenerSesionEnProgreso(supabase, contexto.alumnoId),
         // Una sola recompensa por fecha. Si ya se registro hoy, el upsert no
         // suma nada. El fallo nunca debe impedir que el alumno use la app.
         registrarIngresoDiario(contexto.alumnoId).catch(() => 0),
+        // Huella de "el alumno usó la app ahora", para el control de
+        // ingresos del entrenador (ver /admin/ingresos). Deduplicada a nivel
+        // de datos (ventana de 2h, ver registrarAccesoApp), no debe impedir
+        // el uso de la app si falla.
+        registrarAccesoApp(contexto.alumnoId).catch(() => {}),
         contarNoticiasSinVer(supabase, contexto.alumnoId),
         obtenerAnuncioImportanteSinVer(supabase, contexto.alumnoId),
         obtenerCelebracionTorneoHoy(contexto.alumnoId),

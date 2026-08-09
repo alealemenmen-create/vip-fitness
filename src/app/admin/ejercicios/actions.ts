@@ -13,6 +13,11 @@ import {
 } from "@/lib/ejercicios/procesarFoto";
 import type { CategoriaEjercicio, EquipoEjercicio, NivelEjercicio } from "@/lib/ejercicios/tipos";
 import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
+import {
+  consultarVideoCloudflare,
+  eliminarVideoCloudflare,
+  solicitarSubidaDirecta,
+} from "@/lib/cloudflare/stream";
 
 /** Bloquea que el link pegado apunte a la red interna del servidor (SSRF) —
  * localhost, IPs privadas, o el endpoint de metadata de la nube. El link lo
@@ -507,6 +512,130 @@ export async function quitarVideoEjercicio(
   const { error } = await supabase.from("ejercicios").update({ video_url: null }).eq("id", ejercicioId);
   if (error) return { error: "No se pudo quitar el video. Probá de nuevo.", ok: false };
 
+  avisarCambios();
+  return { error: null, ok: true };
+}
+
+const TAMANO_MAXIMO_VIDEO_CLOUDFLARE = 100 * 1024 * 1024;
+const TIPOS_VIDEO_CLOUDFLARE = new Set(["video/mp4", "video/quicktime", "video/webm"]);
+
+export type IniciarSubidaCloudflareResultado =
+  | { ok: true; endpoint: string }
+  | { ok: false; error: string };
+
+/** Reserva una subida privada; el archivo viaja del navegador a Cloudflare. */
+export async function iniciarSubidaVideoCloudflare(
+  ejercicioId: string,
+  tamanoBytes: number,
+  tipoMime: string
+): Promise<IniciarSubidaCloudflareResultado> {
+  await requireRol(["entrenador", "admin"]);
+  if (!ejercicioId) return { ok: false, error: "Falta el ejercicio." };
+  if (!Number.isFinite(tamanoBytes) || tamanoBytes <= 0 || tamanoBytes > TAMANO_MAXIMO_VIDEO_CLOUDFLARE) {
+    return { ok: false, error: "El video debe pesar menos de 100 MB." };
+  }
+  if (tipoMime && !TIPOS_VIDEO_CLOUDFLARE.has(tipoMime)) {
+    return { ok: false, error: "Sube un archivo MP4, MOV o WebM." };
+  }
+
+  const resultado = await solicitarSubidaDirecta({ maxDurationSeconds: 30, creator: ejercicioId });
+  if ("error" in resultado) return { ok: false, error: resultado.error };
+
+  const supabase = await createClient();
+  const { data: anterior } = await supabase
+    .from("ejercicios")
+    .select("video_cloudflare_uid")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+  const { error } = await supabase
+    .from("ejercicios")
+    .update({
+      video_url: null,
+      video_cloudflare_uid: resultado.uid,
+      video_cloudflare_estado: "subiendo",
+      video_cloudflare_duracion_seg: null,
+      video_cloudflare_miniatura_url: null,
+      video_cloudflare_error: null,
+    })
+    .eq("id", ejercicioId);
+  if (error) {
+    await eliminarVideoCloudflare(resultado.uid);
+    return { ok: false, error: "No se pudo vincular el video al ejercicio." };
+  }
+  if (anterior?.video_cloudflare_uid && anterior.video_cloudflare_uid !== resultado.uid) {
+    await eliminarVideoCloudflare(anterior.video_cloudflare_uid);
+  }
+  avisarCambios();
+  return { ok: true, endpoint: resultado.endpoint };
+}
+
+export async function confirmarSubidaVideoCloudflare(ejercicioId: string): Promise<void> {
+  await requireRol(["entrenador", "admin"]);
+  if (!ejercicioId) return;
+  await (await createClient())
+    .from("ejercicios")
+    .update({ video_cloudflare_estado: "procesando" })
+    .eq("id", ejercicioId)
+    .eq("video_cloudflare_estado", "subiendo");
+  avisarCambios();
+}
+
+export async function sincronizarVideoCloudflare(
+  ejercicioId: string
+): Promise<"procesando" | "listo" | "error" | null> {
+  await requireRol(["entrenador", "admin"]);
+  if (!ejercicioId) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("ejercicios")
+    .select("video_cloudflare_uid")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+  if (!data?.video_cloudflare_uid) return null;
+
+  const estado = await consultarVideoCloudflare(data.video_cloudflare_uid);
+  if (!estado) return null;
+  await supabase
+    .from("ejercicios")
+    .update({
+      video_cloudflare_estado: estado.estado,
+      video_cloudflare_duracion_seg: estado.duracion,
+      video_cloudflare_miniatura_url: estado.miniaturaUrl,
+      video_cloudflare_error: estado.error,
+    })
+    .eq("id", ejercicioId)
+    .eq("video_cloudflare_uid", data.video_cloudflare_uid);
+  avisarCambios();
+  return estado.estado;
+}
+
+export type QuitarVideoCloudflareState = { error: string | null; ok: boolean };
+
+export async function quitarVideoCloudflare(
+  _prevState: QuitarVideoCloudflareState,
+  formData: FormData
+): Promise<QuitarVideoCloudflareState> {
+  await requireRol(["entrenador", "admin"]);
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("ejercicios")
+    .select("video_cloudflare_uid")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+  const { error } = await supabase
+    .from("ejercicios")
+    .update({
+      video_cloudflare_uid: null,
+      video_cloudflare_estado: null,
+      video_cloudflare_duracion_seg: null,
+      video_cloudflare_miniatura_url: null,
+      video_cloudflare_error: null,
+    })
+    .eq("id", ejercicioId);
+  if (error) return { error: "No se pudo quitar el video.", ok: false };
+  if (data?.video_cloudflare_uid) await eliminarVideoCloudflare(data.video_cloudflare_uid);
   avisarCambios();
   return { error: null, ok: true };
 }

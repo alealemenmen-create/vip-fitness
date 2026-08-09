@@ -3,7 +3,8 @@
 import { useActionState, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import {
@@ -11,11 +12,14 @@ import {
   crearEjercicioNuevo,
   actualizarNombreEjercicio,
   desactivarEjercicio,
-  guardarVideoEjercicio,
   quitarVideoEjercicio,
   obtenerUsosRutina,
   reasignarEntradaRutina,
   resolverReporteFoto,
+  iniciarSubidaVideoCloudflare,
+  confirmarSubidaVideoCloudflare,
+  sincronizarVideoCloudflare,
+  quitarVideoCloudflare,
   type UsoRutina,
 } from "@/app/admin/ejercicios/actions";
 import { normalizar } from "@/lib/alimentos/emparejar";
@@ -25,6 +29,7 @@ import type { Ejercicio } from "@/lib/ejercicios/tipos";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { ModalVideo } from "@/components/student/ModalVideo";
+import { CuadroFotoReferencia } from "@/components/student/SesionEjercicioCard";
 
 const ETIQUETAS_GRUPO: Record<string, string> = {
   pecho: "Pecho",
@@ -225,24 +230,34 @@ export function GaleriaEjercicios({
                 type="button"
                 onClick={() => (ej.videoUrl ? setProbandoVideo(ej) : setEditando(ej))}
                 aria-label={ej.videoUrl ? `Probar video de ${ej.nombre}` : `Editar foto de ${ej.nombre}`}
-                className="relative mx-3 flex h-[112px] w-[calc(100%_-_24px)] overflow-hidden rounded-[20px] border border-white/15 bg-surface-2 text-left"
+                className="relative mx-3 flex aspect-video h-auto w-[calc(100%_-_24px)] overflow-hidden rounded-[20px] border border-white/15 bg-black text-left"
               >
                   {foto ? (
-                    <Image
-                      src={foto}
-                      alt={ej.nombre}
-                      fill
-                      sizes="(max-width: 640px) calc(100vw - 56px), 420px"
-                      className="object-cover"
-                      style={{ objectPosition: `${ej.fotoPanoramaX}% ${ej.fotoPanoramaY}%` }}
-                      onError={() => onErrorFoto(ej.id)}
-                    />
+                    <>
+                      <Image
+                        src={foto}
+                        alt=""
+                        aria-hidden
+                        fill
+                        sizes="(max-width: 640px) calc(100vw - 56px), 420px"
+                        className="scale-110 object-cover opacity-45 blur-xl"
+                        style={{ objectPosition: `${ej.fotoPanoramaX}% ${ej.fotoPanoramaY}%` }}
+                      />
+                      <Image
+                        src={foto}
+                        alt={ej.nombre}
+                        fill
+                        sizes="(max-width: 640px) calc(100vw - 56px), 420px"
+                        className="z-[1] object-contain object-center"
+                        onError={() => onErrorFoto(ej.id)}
+                      />
+                    </>
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-text-tertiary">
                       <ImageIcon size={26} />
                     </div>
                   )}
-                  <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur-sm">
+                  <span className="absolute bottom-2 right-2 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur-sm">
                     {ej.videoUrl ? <Play size={12} fill="currentColor" /> : <Camera size={13} />}
                   </span>
               </button>
@@ -531,66 +546,170 @@ function EditorNombre({ ejercicio }: { ejercicio: Ejercicio }) {
   );
 }
 
-const ESTADO_INICIAL_VIDEO = { error: null, ok: false };
 const ESTADO_INICIAL_QUITAR_VIDEO = { error: null, ok: false };
+const ESTADO_INICIAL_QUITAR_CLOUDFLARE = { error: null, ok: false };
 
-/**
- * Video de referencia — SOLO por link (YouTube o un archivo de video
- * directo), nunca subiendo el archivo desde el celular. Un video pesa mucho
- * más que cualquier foto, y decodificarlo del lado del navegador es
- * exactamente el problema que costó resolver con las fotos — las apps que
- * manejan video de verdad tampoco lo hacen así, mandan el archivo pesado
- * directo a un servidor especializado sin tocarlo en el celular.
- */
-function EditorVideo({ ejercicio }: { ejercicio: Ejercicio }) {
-  const [state, formAction, pending] = useActionState(guardarVideoEjercicio, ESTADO_INICIAL_VIDEO);
+function duracionVideo(archivo: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(archivo);
+    const video = document.createElement("video");
+    const terminar = (valor: number | null) => {
+      URL.revokeObjectURL(url);
+      resolve(valor);
+    };
+    video.preload = "metadata";
+    video.onloadedmetadata = () => terminar(Number.isFinite(video.duration) ? video.duration : null);
+    video.onerror = () => terminar(null);
+    video.src = url;
+  });
+}
+
+function subirDirectoCloudflare(endpoint: string, archivo: File, onProgreso: (valor: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", endpoint);
+    xhr.upload.onprogress = (evento) => {
+      if (evento.lengthComputable) onProgreso(Math.round((evento.loaded / evento.total) * 100));
+    };
+    xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error("upload"));
+    xhr.onerror = () => reject(new Error("network"));
+    const datos = new FormData();
+    datos.append("file", archivo);
+    xhr.send(datos);
+  });
+}
+
+function EditorVideoCloudflare({ ejercicio }: { ejercicio: Ejercicio }) {
+  const router = useRouter();
+  const [subiendo, setSubiendo] = useState(false);
+  const [progreso, setProgreso] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [mensaje, setMensaje] = useState<string | null>(null);
+  const [estadoQuitar, accionQuitar, quitando] = useActionState(
+    quitarVideoCloudflare,
+    ESTADO_INICIAL_QUITAR_CLOUDFLARE
+  );
+
+  useEffect(() => {
+    if (ejercicio.videoCloudflareEstado !== "procesando") return;
+    let cancelado = false;
+    const comprobar = async () => {
+      const estado = await sincronizarVideoCloudflare(ejercicio.id);
+      if (!cancelado && (estado === "listo" || estado === "error")) router.refresh();
+    };
+    void comprobar();
+    const intervalo = window.setInterval(() => void comprobar(), 8_000);
+    return () => {
+      cancelado = true;
+      window.clearInterval(intervalo);
+    };
+  }, [ejercicio.id, ejercicio.videoCloudflareEstado, router]);
+
+  async function elegir(archivo: File) {
+    setError(null);
+    setMensaje(null);
+    if (archivo.size > 100 * 1024 * 1024) {
+      setError("El video supera el máximo de 100 MB.");
+      return;
+    }
+    const duracion = await duracionVideo(archivo);
+    if (duracion !== null && duracion > 30.5) {
+      setError("El clip debe durar 30 segundos o menos.");
+      return;
+    }
+    setSubiendo(true);
+    setProgreso(0);
+    try {
+      const inicio = await iniciarSubidaVideoCloudflare(ejercicio.id, archivo.size, archivo.type);
+      if (!inicio.ok) {
+        setError(inicio.error);
+        return;
+      }
+      await subirDirectoCloudflare(inicio.endpoint, archivo, setProgreso);
+      await confirmarSubidaVideoCloudflare(ejercicio.id);
+      setMensaje("Video recibido. Cloudflare está preparando la reproducción.");
+    } catch {
+      setError("La subida se interrumpió. Intenta nuevamente.");
+    } finally {
+      setSubiendo(false);
+    }
+  }
+
+  const estado = ejercicio.videoCloudflareEstado;
+  return (
+    <div className="space-y-2">
+      <div>
+        <p className="text-caption font-semibold text-text">Clip automático del ejercicio</p>
+        <p className="text-micro text-text-tertiary">MP4, MOV o WebM · máximo 30 segundos y 100 MB</p>
+      </div>
+      {estado && (
+        <p className={`text-caption ${estado === "error" ? "text-error" : estado === "listo" ? "text-success" : "text-text-secondary"}`}>
+          {estado === "subiendo" ? "Subiendo" : estado === "procesando" ? "Procesando en Cloudflare" : estado === "listo" ? "Listo para el alumno" : "Error al procesar"}
+          {estado === "listo" && ejercicio.videoCloudflareDuracionSeg != null ? ` · ${Math.round(ejercicio.videoCloudflareDuracionSeg)} s` : ""}
+          {estado === "error" && ejercicio.videoCloudflareError ? ` · ${ejercicio.videoCloudflareError}` : ""}
+        </p>
+      )}
+      {subiendo && (
+        <div className="h-2 overflow-hidden rounded-full bg-surface-2" aria-label={`Subida ${progreso}%`}>
+          <div className="h-full bg-vip transition-[width]" style={{ width: `${progreso}%` }} />
+        </div>
+      )}
+      <label className={`radius-control flex h-10 w-full items-center justify-center gap-2 border border-vip/40 text-caption font-semibold text-vip ${subiendo ? "opacity-50" : "cursor-pointer"}`}>
+        <Film size={16} /> {subiendo ? `Subiendo ${progreso}%` : ejercicio.videoCloudflareUid ? "Reemplazar clip" : "Subir clip"}
+        <input
+          type="file"
+          accept="video/mp4,video/quicktime,video/webm"
+          disabled={subiendo}
+          className="sr-only"
+          onChange={(evento) => {
+            const archivo = evento.target.files?.[0];
+            if (archivo) void elegir(archivo);
+            evento.target.value = "";
+          }}
+        />
+      </label>
+      {mensaje && <p className="text-caption text-success">{mensaje}</p>}
+      {error && <p className="text-caption text-error">{error}</p>}
+      {estadoQuitar.error && <p className="text-caption text-error">{estadoQuitar.error}</p>}
+      {ejercicio.videoCloudflareUid && (
+        <form action={accionQuitar}>
+          <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+          <button type="submit" disabled={quitando} className="text-caption font-medium text-text-tertiary disabled:opacity-50">
+            {quitando ? "Quitando…" : "Quitar clip de Cloudflare"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function EditorVideoAnterior({ ejercicio }: { ejercicio: Ejercicio }) {
   const [estadoQuitar, accionQuitar, pendingQuitar] = useActionState(
     quitarVideoEjercicio,
     ESTADO_INICIAL_QUITAR_VIDEO
   );
 
+  if (!ejercicio.videoUrl) return null;
+
   return (
-    <div className="space-y-1.5">
-      <form action={formAction} className="space-y-1.5">
+    <div className="space-y-2 rounded-xl border border-warning/30 bg-warning/5 p-3">
+      <p className="text-caption font-semibold text-text">Video anterior detectado</p>
+      <p className="text-micro text-text-tertiary">
+        Los enlaces de YouTube están desactivados. Puedes borrarlo ahora o subir un clip nuevo;
+        al vincular Cloudflare Stream se quitará automáticamente.
+      </p>
+      <form action={accionQuitar}>
         <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
-        <span className="text-caption block text-text-tertiary">
-          Video de referencia — link de YouTube o link directo a un archivo (mp4, mov, webm)
-        </span>
-        <Input
-          type="url"
-          name="video_url"
-          defaultValue={ejercicio.videoUrl ?? ""}
-          placeholder="https://youtube.com/watch?v=…"
-          className="!py-2 text-caption"
-        />
-        {state.error && <p className="text-caption text-error">{state.error}</p>}
-        {state.ok && (
-          <p className="text-caption flex items-center gap-1 text-success">
-            <Check size={12} /> Video guardado.
-          </p>
-        )}
+        {estadoQuitar.error && <p className="text-caption mb-1 text-error">{estadoQuitar.error}</p>}
+        {estadoQuitar.ok && <p className="text-caption mb-1 text-success">Video anterior eliminado.</p>}
         <button
           type="submit"
-          disabled={pending}
-          className="radius-control flex h-9 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text disabled:opacity-60"
+          disabled={pendingQuitar}
+          className="radius-control flex h-9 w-full items-center justify-center border border-border text-caption font-semibold text-text disabled:opacity-60"
         >
-          {pending ? "Guardando..." : "Guardar video"}
+          {pendingQuitar ? "Eliminando..." : "Eliminar video anterior"}
         </button>
       </form>
-
-      {ejercicio.videoUrl && (
-        <form action={accionQuitar}>
-          <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
-          {estadoQuitar.error && <p className="text-caption mb-1 text-error">{estadoQuitar.error}</p>}
-          <button
-            type="submit"
-            disabled={pendingQuitar}
-            className="text-caption font-medium text-text-tertiary disabled:opacity-60"
-          >
-            {pendingQuitar ? "Quitando..." : "Quitar video"}
-          </button>
-        </form>
-      )}
     </div>
   );
 }
@@ -807,11 +926,39 @@ function ModalSubirFoto({
       </form>
 
       <div className="mt-4 border-t border-border pt-3">
+        <div className="mb-2">
+          <p className="text-caption font-semibold text-text">Vista previa del alumno</p>
+          <p className="text-micro text-text-tertiary">Mismo formato 16:9 del ejercicio activo</p>
+        </div>
+        <CuadroFotoReferencia
+          ilustracionSlug={ejercicio.ilustracionSlug}
+          fotoMiniaturaUrl={imagenAMostrar ?? ejercicio.fotoMiniaturaUrl}
+          fotoCompletaUrl={imagenAMostrar ?? ejercicio.fotoCompletaUrl}
+          videoUrl={ejercicio.videoUrl}
+          videoCloudflareUid={ejercicio.videoCloudflareUid}
+          videoCloudflareEstado={ejercicio.videoCloudflareEstado}
+          videoCloudflareMiniaturaUrl={ejercicio.videoCloudflareMiniaturaUrl}
+          nombre={ejercicio.nombre}
+          ejercicioId={ejercicio.id}
+          fotoPanoramaX={panorama.x}
+          fotoPanoramaY={panorama.y}
+          fotoCuadradaX={cuadrada.x}
+          fotoCuadradaY={cuadrada.y}
+          destacado
+          reproducirAutomaticamente={ejercicio.videoCloudflareEstado === "listo"}
+        />
+      </div>
+
+      <div className="mt-4 border-t border-border pt-3">
         <EditorNombre ejercicio={ejercicio} />
       </div>
 
       <div className="mt-4 border-t border-border pt-3">
-        <EditorVideo ejercicio={ejercicio} />
+        <EditorVideoAnterior ejercicio={ejercicio} />
+      </div>
+
+      <div className="mt-4 border-t border-border pt-3">
+        <EditorVideoCloudflare ejercicio={ejercicio} />
       </div>
 
       <div className="mt-4 border-t border-border pt-3">

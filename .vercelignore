@@ -12,6 +12,11 @@ build
 node_modules
 .git
 
+# Variables locales y secretos: nunca forman parte del paquete de despliegue.
+.env
+.env.*
+!.env.example
+
 # Registros y temporales
 *.log
 deploy.log
