@@ -61,7 +61,7 @@ export function ResumenSemanaCompacto({
           (rayos de luz + foto real + insignia con resplandor): antes acá iba
           un recorte chico y plano, que quedaba gris y sin vida al lado de esa
           otra pantalla. */}
-      <div className="relative -mx-4 -mt-2 flex min-h-[106px] flex-col justify-end overflow-hidden px-4 pb-2 pt-2">
+      <div className="relative -mx-4 -mt-[21px] flex min-h-[125px] flex-col justify-end overflow-hidden px-4 pb-2 pt-6">
         {descanso ? (
           <div className="pointer-events-none absolute right-4 top-3 opacity-30">
             <Moon size={64} className="text-text-tertiary" />
@@ -81,7 +81,7 @@ export function ResumenSemanaCompacto({
         </div>
       </div>
 
-      <div className="mt-1 flex items-center gap-2 border-t border-border pt-1.5">
+      <div className="flex items-center gap-2 border-t border-border pt-1.5">
         <div className="min-w-0 flex-1">
           <PuntosSemana dias={constancia.dias} />
         </div>
