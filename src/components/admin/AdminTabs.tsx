@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, Salad, Trophy, Megaphone, Settings, FileText } from "lucide-react";
+import { Users, Salad, Trophy, Megaphone, Settings, WandSparkles } from "lucide-react";
 
 // Seis pestañas es el máximo que entra cómodo en un celular angosto; si hace
 // falta agregar otra, conviene mover alguna al menú en vez de apretarlas más.
 const TABS = [
   { href: "/admin/alumnos", label: "Alumnos", icon: Users },
-  { href: "/admin/documentos", label: "Docs", icon: FileText },
+  { href: "/admin/generador", label: "Generar", icon: WandSparkles },
   { href: "/admin/alimentos", label: "Alimentos", icon: Salad },
   { href: "/admin/torneos", label: "Arena", icon: Trophy },
   { href: "/admin/noticias", label: "Noticias", icon: Megaphone },

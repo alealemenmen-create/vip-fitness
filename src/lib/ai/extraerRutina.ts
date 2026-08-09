@@ -16,6 +16,9 @@ const GRUPOS_MUSCULARES = [
 export type GrupoMuscular = (typeof GRUPOS_MUSCULARES)[number];
 
 const EjercicioExtraidoSchema = z.object({
+  // El generador interno lo completa con un ID real. En importaciones desde
+  // PDF queda ausente y se mantiene el emparejamiento histórico por nombre.
+  ejercicioId: z.string().uuid().nullable().optional(),
   orden: z.number(),
   nombre: z.string(),
   series: z.number(),

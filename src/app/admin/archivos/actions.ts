@@ -939,7 +939,15 @@ async function publicarUnaRutina(
   // Y todos los ejercicios de todos los días, también de una vez.
   const filasEjercicios = datos.dias.flatMap((dia, i) =>
     dia.ejercicios.map((ej, idx) => {
-      const emparejado = emparejarEjercicio(ej.nombre, biblioteca);
+      // El generador nuevo entrega un ID de la biblioteca. Se valida contra la
+      // biblioteca activa antes de confiar en él; los PDFs antiguos conservan
+      // el respaldo por nombre/alias.
+      const elegidoPorId = ej.ejercicioId
+        ? biblioteca.find((candidato) => candidato.id === ej.ejercicioId) ?? null
+        : null;
+      const emparejado = elegidoPorId
+        ? { ejercicio: elegidoPorId }
+        : emparejarEjercicio(ej.nombre, biblioteca);
       return {
         dia_id: idPorOrden.get(i + 1)!,
         orden: idx + 1,
