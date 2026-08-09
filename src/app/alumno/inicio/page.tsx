@@ -283,10 +283,6 @@ function TarjetaEntrenamientoHoy({
     // Padding vertical más chico que el horizontal (py-3.5 en vez de p-5):
     // achica la tarjeta ~30% de alto sin apretar los costados.
     <Card className="tarjeta-modelo-oscura tarjeta-entrenamiento-premium px-4 py-2">
-      <p className="relative z-20 mb-1 text-[9px] tracking-[0.08em] text-text-tertiary">
-        TU ENTRENAMIENTO
-      </p>
-
       <ResumenSemanaCompacto
         diaHoy={diaHoy}
         nombreDia={nombreDiaSemana()}

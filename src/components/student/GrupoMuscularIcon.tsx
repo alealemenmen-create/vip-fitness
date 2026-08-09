@@ -243,15 +243,6 @@ export function FotoDiaEntrenamiento({ grupos }: { grupos: GrupoMuscular[] }) {
         ))}
       </div>
       <RayosLuz />
-      {/* Insignia del grupo principal, arriba a la izquierda: el mismo dibujo
-          anatómico de siempre (no una foto — a ese tamaño una foto recortada
-          no se reconoce), con resplandor cálido, igual que la referencia. */}
-      <div
-        className="pointer-events-none absolute left-4 top-3"
-        style={{ filter: "drop-shadow(0 0 6px color-mix(in srgb, var(--color-vip) 55%, transparent))" }}
-      >
-        <GrupoMuscularIcon grupo={principal} alto={40} />
-      </div>
     </>
   );
 }
