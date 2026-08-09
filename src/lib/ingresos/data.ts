@@ -1,6 +1,8 @@
 import "server-only";
+import { formatInTimeZone } from "date-fns-tz";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
+import { ZONA_HORARIA_VIP } from "@/lib/date";
 
 const VENTANA_DEDUP_HORAS = 2;
 const VENTANA_DEDUP_MS = VENTANA_DEDUP_HORAS * 60 * 60 * 1000;
@@ -55,6 +57,9 @@ export type IngresoDetalle = {
   alumnoId: string;
   nombre: string;
   ingresoEn: string;
+  /** Fecha del ingreso en horario de Chile (YYYY-MM-DD), para agrupar el
+   * detalle cronológico por día en vez de mostrarlo como una lista plana. */
+  fechaLocal: string;
 };
 
 export type RangoIngresos = "semana" | "mes";
@@ -123,6 +128,7 @@ export async function obtenerIngresos(rango: RangoIngresos): Promise<{
       alumnoId: a.alumno_id,
       nombre: nombrePorAlumno.get(a.alumno_id)!,
       ingresoEn: a.ingreso_en,
+      fechaLocal: formatInTimeZone(a.ingreso_en, ZONA_HORARIA_VIP, "yyyy-MM-dd"),
     }));
 
   const totalPorAlumno = new Map<string, number>();
@@ -152,6 +158,10 @@ export async function obtenerIngresos(rango: RangoIngresos): Promise<{
     .sort((a, b) => {
       const fechaA = a.ultimoIngreso ? new Date(a.ultimoIngreso).getTime() : -Infinity;
       const fechaB = b.ultimoIngreso ? new Date(b.ultimoIngreso).getTime() : -Infinity;
+      // Empate más común: dos alumnos que "nunca entraron" (ambos -Infinity).
+      // Sin este desempate quedaban en el orden que devolviera Supabase, que
+      // no es alfabético ni estable a la vista.
+      if (fechaA === fechaB) return a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" });
       return fechaB - fechaA;
     });
 

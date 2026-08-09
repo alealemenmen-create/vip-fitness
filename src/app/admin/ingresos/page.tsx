@@ -1,18 +1,16 @@
 import Link from "next/link";
 import { ArrowLeft, CircleDot } from "lucide-react";
 import { requireRol } from "@/lib/auth";
-import { obtenerIngresos, type EstadoIngresoAlumno, type RangoIngresos } from "@/lib/ingresos/data";
+import {
+  obtenerIngresos,
+  type EstadoIngresoAlumno,
+  type IngresoDetalle,
+  type RangoIngresos,
+  type ResumenIngresoAlumno,
+} from "@/lib/ingresos/data";
 import { Card } from "@/components/ui/Card";
 import { TituloPestana } from "@/components/admin/TituloPestana";
-import { formatFechaHoraCorta } from "@/lib/date";
-
-const ETIQUETA_ESTADO: Record<EstadoIngresoAlumno, string> = {
-  activo_ahora: "En el gimnasio ahora",
-  hoy: "Hoy",
-  esta_semana: "Esta semana",
-  inactivo: "Inactivo",
-  nunca: "Nunca entró",
-};
+import { formatFechaDiaSemana, formatFechaHoraCorta, hoyISO, sumarDiasISO } from "@/lib/date";
 
 const COLOR_ESTADO: Record<EstadoIngresoAlumno, string> = {
   activo_ahora: "text-vip",
@@ -21,6 +19,41 @@ const COLOR_ESTADO: Record<EstadoIngresoAlumno, string> = {
   inactivo: "text-text-tertiary",
   nunca: "text-text-tertiary",
 };
+
+// Orden de lectura del panel: primero quién está más activo, al final quién
+// necesita más atención. `resumen` ya viene ordenado por fecha dentro de
+// cada grupo (ver obtenerIngresos), acá solo se define el orden de los
+// encabezados de sección.
+const SECCIONES_ESTADO: { estado: EstadoIngresoAlumno; titulo: string }[] = [
+  { estado: "activo_ahora", titulo: "EN EL GIMNASIO AHORA" },
+  { estado: "hoy", titulo: "ENTRARON HOY" },
+  { estado: "esta_semana", titulo: "ESTA SEMANA" },
+  { estado: "inactivo", titulo: "SIN ACTIVIDAD RECIENTE" },
+  { estado: "nunca", titulo: "NUNCA ENTRARON" },
+];
+
+/** "Hoy", "Ayer" o "Jueves 6 de agosto" — igual criterio que el resto de la
+ * app para fechas recientes, así el detalle se lee de un vistazo en vez de
+ * obligar a comparar fechas. */
+function tituloDia(fechaLocal: string): string {
+  const hoy = hoyISO();
+  if (fechaLocal === hoy) return "Hoy";
+  if (fechaLocal === sumarDiasISO(hoy, -1)) return "Ayer";
+  return formatFechaDiaSemana(fechaLocal);
+}
+
+function agruparPorDia(detalle: IngresoDetalle[]): { titulo: string; items: IngresoDetalle[] }[] {
+  const grupos: { titulo: string; items: IngresoDetalle[] }[] = [];
+  for (const item of detalle) {
+    const titulo = tituloDia(item.fechaLocal);
+    const grupoActual = grupos[grupos.length - 1];
+    // `detalle` ya viene ordenado del más reciente al más antiguo, así que
+    // el día de un ítem nuevo siempre es igual o anterior al último grupo.
+    if (grupoActual?.titulo === titulo) grupoActual.items.push(item);
+    else grupos.push({ titulo, items: [item] });
+  }
+  return grupos;
+}
 
 export default async function IngresosPage({
   searchParams,
@@ -63,7 +96,7 @@ export default async function IngresosPage({
         <TabRango rango="mes" actual={rango} etiqueta="Mes" />
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-4">
         <p className="text-caption text-text-tertiary">
           POR ALUMNO · {rango === "semana" ? "ÚLTIMOS 7 DÍAS" : "ÚLTIMOS 30 DÍAS"}
         </p>
@@ -72,25 +105,11 @@ export default async function IngresosPage({
             <p className="text-secondary text-text-tertiary">Todavía no hay alumnos activos.</p>
           </Card>
         ) : (
-          resumen.map((r) => (
-            <Card key={r.alumnoId} padding="p-3" className="flex items-center gap-3">
-              {r.estado === "activo_ahora" && <CircleDot size={16} className="shrink-0 text-vip" />}
-              <span className="min-w-0 flex-1">
-                <span className="text-secondary block font-semibold text-text">{r.nombre}</span>
-                <span className={`text-caption block ${COLOR_ESTADO[r.estado]}`}>
-                  {ETIQUETA_ESTADO[r.estado]}
-                  {r.ultimoIngreso && ` · ${formatFechaHoraCorta(r.ultimoIngreso)}`}
-                </span>
-              </span>
-              <span className="text-caption shrink-0 text-text-tertiary">
-                {r.totalIngresos} {r.totalIngresos === 1 ? "ingreso" : "ingresos"}
-              </span>
-            </Card>
-          ))
+          <SeccionesPorEstado resumen={resumen} />
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         <p className="text-caption text-text-tertiary">
           DETALLE CRONOLÓGICO · {rango === "semana" ? "ÚLTIMOS 7 DÍAS" : "ÚLTIMOS 30 DÍAS"}
         </p>
@@ -99,17 +118,56 @@ export default async function IngresosPage({
             <p className="text-secondary text-text-tertiary">Sin ingresos registrados en este rango.</p>
           </Card>
         ) : (
-          <Card padding="p-0" className="divide-y divide-border">
-            {detalle.map((d) => (
-              <div key={d.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                <span className="text-secondary text-text">{d.nombre}</span>
-                <span className="text-caption text-text-tertiary">{formatFechaHoraCorta(d.ingresoEn)}</span>
-              </div>
-            ))}
-          </Card>
+          agruparPorDia(detalle).map((grupo) => (
+            <div key={grupo.titulo} className="space-y-1.5">
+              <p className="text-caption font-semibold text-text-tertiary">{grupo.titulo}</p>
+              <Card padding="p-0" className="divide-y divide-border">
+                {grupo.items.map((d) => (
+                  <div key={d.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                    <span className="text-secondary text-text">{d.nombre}</span>
+                    <span className="text-caption text-text-tertiary">{formatFechaHoraCorta(d.ingresoEn)}</span>
+                  </div>
+                ))}
+              </Card>
+            </div>
+          ))
         )}
       </div>
     </div>
+  );
+}
+
+function SeccionesPorEstado({ resumen }: { resumen: ResumenIngresoAlumno[] }) {
+  return (
+    <>
+      {SECCIONES_ESTADO.map(({ estado, titulo }) => {
+        const alumnos = resumen.filter((r) => r.estado === estado);
+        if (alumnos.length === 0) return null;
+        return (
+          <div key={estado} className="space-y-1.5">
+            <p className="text-caption font-semibold text-text-tertiary">
+              {titulo} · {alumnos.length}
+            </p>
+            {alumnos.map((r) => (
+              <Card key={r.alumnoId} padding="p-3" className="flex items-center gap-3">
+                {r.estado === "activo_ahora" && <CircleDot size={16} className="shrink-0 text-vip" />}
+                <span className="min-w-0 flex-1">
+                  <span className="text-secondary block font-semibold text-text">{r.nombre}</span>
+                  {r.ultimoIngreso && (
+                    <span className={`text-caption block ${COLOR_ESTADO[r.estado]}`}>
+                      {formatFechaHoraCorta(r.ultimoIngreso)}
+                    </span>
+                  )}
+                </span>
+                <span className="text-caption shrink-0 text-text-tertiary">
+                  {r.totalIngresos} {r.totalIngresos === 1 ? "ingreso" : "ingresos"}
+                </span>
+              </Card>
+            ))}
+          </div>
+        );
+      })}
+    </>
   );
 }
 
