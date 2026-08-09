@@ -238,20 +238,11 @@ export function FotoDiaEntrenamiento({ grupos }: { grupos: GrupoMuscular[] }) {
       >
         {fotosPrincipal.map((src) => (
           <div key={src} className="relative h-full flex-1">
-            <Image src={src} alt="" fill sizes="108px" className="object-contain object-bottom" />
+            <Image src={src} alt="" fill sizes="108px" className="object-cover object-top" />
           </div>
         ))}
       </div>
       <RayosLuz />
-      {/* Degradado hacia la superficie de la tarjeta, para que el título y el
-          subtítulo de la izquierda sigan leyéndose sobre la foto. */}
-      <div
-        className="pointer-events-none absolute inset-y-0 right-0"
-        style={{
-          width: anchoTotal + 56,
-          background: "linear-gradient(to right, var(--color-surface) 0%, transparent 60%)",
-        }}
-      />
       {/* Insignia del grupo principal, arriba a la izquierda: el mismo dibujo
           anatómico de siempre (no una foto — a ese tamaño una foto recortada
           no se reconoce), con resplandor cálido, igual que la referencia. */}

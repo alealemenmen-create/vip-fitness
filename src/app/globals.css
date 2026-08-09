@@ -2023,9 +2023,10 @@ input[type="number"] {
 /* La espalda tiene una silueta más angosta en su fotografía que Pecho. Este
    encuadre la acerca sin tocar el alto de la tarjeta ni invadir su información. */
 .foto-modelo-espalda {
-  right: 0 !important;
-  transform: scale(1.35);
-  transform-origin: 74% 61%;
+  right: -2px !important;
+  width: 148px !important;
+  transform: scale(1.08);
+  transform-origin: 72% 0%;
 }
 
 /* Marco Aero del alumno. El contenido pasa por debajo de la navegación fija y
