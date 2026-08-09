@@ -233,7 +233,7 @@ export function FotoDiaEntrenamiento({ grupos }: { grupos: GrupoMuscular[] }) {
   return (
     <>
       <div
-        className="foto-modelo-integrada pointer-events-none absolute inset-y-0 right-6 flex items-center"
+        className={`foto-modelo-integrada foto-modelo-${principal} pointer-events-none absolute inset-y-0 right-6 flex items-center`}
         style={{ width: anchoTotal }}
       >
         {fotosPrincipal.map((src) => (
