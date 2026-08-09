@@ -233,6 +233,12 @@ export function FotoDiaEntrenamiento({ grupos }: { grupos: GrupoMuscular[] }) {
   return (
     <>
       <div
+        aria-hidden
+        className="silueta-musculo-ambiental pointer-events-none absolute inset-0 flex items-center justify-center"
+      >
+        <GrupoMuscularIcon grupo={principal} alto={176} />
+      </div>
+      <div
         className={`foto-modelo-integrada foto-modelo-${principal} pointer-events-none absolute inset-y-0 right-6 flex items-center`}
         style={{ width: anchoTotal }}
       >
