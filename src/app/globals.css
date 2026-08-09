@@ -1943,6 +1943,67 @@ input[type="number"] {
   animation: puntos-vip-entrada 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+/* Portada premium: vidrio negro con halo oro/violeta y un patrón diagonal muy
+   fino. Se mantiene oscura en ambos temas para conservar la misma identidad
+   de alto rendimiento que las fotos de estudio. */
+.identidad-vip-premium {
+  --color-text: #ffffff;
+  --color-text-secondary: #b8bdc7;
+  --color-text-tertiary: #777e8b;
+  isolation: isolate;
+  border: 1px solid color-mix(in srgb, var(--color-vip) 38%, #343741);
+  background:
+    radial-gradient(circle at 88% 16%, color-mix(in srgb, var(--color-acento-fuerte) 22%, transparent), transparent 34%),
+    radial-gradient(circle at 8% -30%, color-mix(in srgb, var(--color-vip) 24%, transparent), transparent 42%),
+    linear-gradient(145deg, #17181d 0%, #0c0d10 54%, #14151a 100%);
+  box-shadow:
+    0 18px 40px -26px color-mix(in srgb, var(--color-vip) 65%, transparent),
+    0 14px 32px -20px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.7);
+}
+.identidad-vip-premium::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    118deg,
+    transparent 0 34px,
+    color-mix(in srgb, var(--color-vip) 8%, transparent) 35px,
+    transparent 36px 56px
+  );
+  opacity: 0.55;
+  pointer-events: none;
+}
+.identidad-vip-premium::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 20px;
+  border-top: 1px solid color-mix(in srgb, var(--color-vip) 30%, transparent);
+  pointer-events: none;
+}
+.rango-cabecera-premium {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.3));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 22px -18px color-mix(in srgb, var(--color-vip) 70%, transparent);
+}
+
+/* Tarjeta del modelo: filo de premio, profundidad negra y luz cálida controlada
+   alrededor del CTA. No agrega movimiento permanente ni tapa la fotografía. */
+.tarjeta-entrenamiento-premium {
+  border: 1px solid color-mix(in srgb, var(--color-vip) 28%, #292c33);
+  background:
+    radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--color-vip) 10%, transparent), transparent 40%),
+    linear-gradient(150deg, #15161a 0%, #0d0e11 100%);
+  box-shadow:
+    0 22px 48px -30px color-mix(in srgb, var(--color-vip) 72%, transparent),
+    0 18px 34px -24px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.8);
+}
+
 /* Inicio 2026: Impulso VIP reemplaza el mensaje genérico con la próxima
    acción útil del alumno. El violeta lo diferencia de Entrenamiento y Arena
    sin competir con el ámbar de las llamadas a la acción. */
@@ -1953,9 +2014,9 @@ input[type="number"] {
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-acento-fuerte) 14%, transparent);
 }
 
-/* Arena VIP: superficie de premio. La corona grande es ambiental y el brillo
-   queda fijo para no marear; el movimiento lo aporta el desplazamiento lateral
-   natural de las tarjetas del ranking. */
+/* Arena VIP: superficie de premio. La corona grande es ambiental y el Top 15
+   queda ordenado en una cuadrícula fija: podio grande y perseguidores compactos,
+   sin carrusel ni desplazamiento lateral. */
 .arena-vip {
   background:
     radial-gradient(circle at 50% -25%, color-mix(in srgb, var(--color-vip) 25%, transparent), transparent 46%),

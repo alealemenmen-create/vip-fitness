@@ -6,7 +6,7 @@ import type { ConstanciaSemana, EstadoDiaResumen } from "@/app/alumno/inicio/dat
  * morado el de hoy, hueco los demás. */
 function PuntosSemana({ dias }: { dias: ConstanciaSemana["dias"] }) {
   return (
-    <div className="flex items-center justify-between gap-1">
+    <div className="flex items-center justify-between gap-0.5">
       {dias.map((d) => {
         const color = d.entreno
           ? "var(--color-success)"
@@ -14,16 +14,16 @@ function PuntosSemana({ dias }: { dias: ConstanciaSemana["dias"] }) {
             ? "var(--color-vip)"
             : "transparent";
         return (
-          <div key={d.fecha} className="flex flex-1 flex-col items-center gap-1">
+          <div key={d.fecha} className="flex flex-1 flex-col items-center gap-0.5">
             <span
-              className="h-2.5 w-2.5 rounded-full"
+              className="h-2 w-2 rounded-full"
               style={{
                 background: color,
                 border: color === "transparent" ? "1px solid var(--color-border)" : "none",
               }}
             />
             <span
-              className={`text-caption leading-none ${
+              className={`text-[8px] leading-none ${
                 d.esHoy ? "font-semibold text-text" : "text-text-tertiary"
               }`}
             >
@@ -56,12 +56,12 @@ export function ResumenSemanaCompacto({
     : (diaHoy.grupo ? ETIQUETAS_GRUPO_MUSCULAR[diaHoy.grupo] : diaHoy.nombre).toUpperCase();
 
   return (
-    <div className="space-y-3">
+    <div>
       {/* Mismo tratamiento "de referencia" que la tarjeta del día en Entrenar
           (rayos de luz + foto real + insignia con resplandor): antes acá iba
           un recorte chico y plano, que quedaba gris y sin vida al lado de esa
           otra pantalla. */}
-      <div className="relative -mx-5 -mt-2.5 flex min-h-[152px] flex-col justify-end overflow-hidden px-5 pb-3 pt-3">
+      <div className="relative -mx-4 -mt-2 flex min-h-[106px] flex-col justify-end overflow-hidden px-4 pb-2 pt-2">
         {descanso ? (
           <div className="pointer-events-none absolute right-4 top-3 opacity-30">
             <Moon size={64} className="text-text-tertiary" />
@@ -71,25 +71,26 @@ export function ResumenSemanaCompacto({
         )}
 
         <div className="relative min-w-0">
-          <p className="text-secondary text-text-tertiary">
+          <p className="pl-8 text-[11px] text-text-tertiary">
             {nombreDia} · Día {numeroDia}
           </p>
-          <h2 className="text-h2 mt-0.5 truncate text-text">{titulo}</h2>
-          <p className="text-body text-text-secondary">
+          <h2 className="mt-0.5 truncate text-[22px] font-bold leading-none text-text">{titulo}</h2>
+          <p className="mt-0.5 text-[11px] text-text-secondary">
             {descanso ? "Día de recuperación" : `${diaHoy.completados} / ${diaHoy.total} ejercicios`}
           </p>
         </div>
       </div>
 
-      <div className="border-t border-border pt-1.5">
-        <PuntosSemana dias={constancia.dias} />
-      </div>
-
-      <div className="flex items-baseline gap-2">
-        <span className="text-h3 text-vip">{constancia.pct}%</span>
-        <span className="text-caption text-text-tertiary">
-          Constancia semanal · {constancia.entrenados} de {constancia.objetivo}
-        </span>
+      <div className="mt-1 flex items-center gap-2 border-t border-border pt-1.5">
+        <div className="min-w-0 flex-1">
+          <PuntosSemana dias={constancia.dias} />
+        </div>
+        <div className="shrink-0 border-l border-border pl-2 text-right leading-none">
+          <span className="block text-[16px] font-bold text-vip">{constancia.pct}%</span>
+          <span className="mt-1 block text-[7px] text-text-tertiary">
+            {constancia.entrenados} de {constancia.objetivo} semanal
+          </span>
+        </div>
       </div>
     </div>
   );

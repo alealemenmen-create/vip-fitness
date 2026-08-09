@@ -26,7 +26,7 @@ function TiraDias({
   onSeleccionar: (n: number) => void;
 }) {
   return (
-    <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+    <div className="-mx-1 flex gap-0.5 overflow-x-auto px-1">
       {numeros.map((n) => {
         const activo = n.numero === seleccionado;
         const descanso = n.dia.tipo === "descanso";
@@ -34,21 +34,21 @@ function TiraDias({
           <button
             key={n.numero}
             onClick={() => onSeleccionar(n.numero)}
-            className="radius-control flex min-w-0 flex-1 shrink-0 flex-col items-center gap-0.5 px-1 py-2.5 transition-colors duration-200 ease-in-out"
+            className="radius-control flex min-w-0 flex-1 shrink-0 flex-col items-center gap-0.5 px-0.5 py-1.5 transition-colors duration-200 ease-in-out"
             style={{ background: activo ? "var(--color-acento-suave)" : "transparent" }}
           >
             <span
-              className={`text-caption leading-none ${activo ? "text-acento-fuerte" : "text-text-tertiary"}`}
+              className={`text-[8px] leading-none ${activo ? "text-acento-fuerte" : "text-text-tertiary"}`}
             >
               {descanso ? "DESC." : "DÍA"}
             </span>
             <span
-              className={`text-body font-semibold leading-tight ${activo ? "text-text" : "text-text-secondary"}`}
+              className={`text-[12px] font-semibold leading-tight ${activo ? "text-text" : "text-text-secondary"}`}
             >
-              {descanso ? <Moon size={16} className="mt-0.5" /> : n.numero}
+              {descanso ? <Moon size={13} className="mt-0.5" /> : n.numero}
             </span>
             <span
-              className="mt-0.5 h-1.5 w-1.5 rounded-full"
+              className="h-1 w-1 rounded-full"
               style={{
                 background: COLOR_PUNTO[n.estado],
                 border: n.estado === "no_iniciado" ? "1px solid var(--color-border)" : "none",
@@ -101,23 +101,25 @@ export function CalendarioEntrenamiento({
       : actual.dia.nombre;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Navegación de semanas */}
       <div className="flex items-center justify-between">
         <Link
           href={`/alumno/entrenar?pagina=${Math.max(1, pagina - 1)}`}
           aria-label="Semana anterior"
-          className="flex h-9 w-9 items-center justify-center text-text-tertiary"
+          className="flex h-7 w-7 items-center justify-center text-text-tertiary"
         >
-          <ChevronLeft size={22} />
+          <ChevronLeft size={18} />
         </Link>
-        <span className="text-body font-semibold text-text">Semana {pagina}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+          Semana {pagina}
+        </span>
         <Link
           href={`/alumno/entrenar?pagina=${pagina + 1}`}
           aria-label="Próxima semana"
-          className="flex h-9 w-9 items-center justify-center text-text-tertiary"
+          className="flex h-7 w-7 items-center justify-center text-text-tertiary"
         >
-          <ChevronRight size={22} />
+          <ChevronRight size={18} />
         </Link>
       </div>
 
@@ -125,8 +127,8 @@ export function CalendarioEntrenamiento({
 
       {/* Tarjeta principal del día. `tarjeta-modelo-oscura` la mantiene en
           oscuro también con el tema claro — ver el porqué en globals.css. */}
-      <div className="tarjeta-modelo-oscura efecto-3d radius-card overflow-hidden bg-surface">
-        <div className="relative flex min-h-[168px] flex-col justify-end overflow-hidden p-5">
+      <div className="tarjeta-modelo-oscura tarjeta-entrenamiento-premium radius-card overflow-hidden bg-surface">
+        <div className="relative flex min-h-[132px] flex-col justify-end overflow-hidden p-4">
           {descanso ? (
             <div className="pointer-events-none absolute right-4 top-3 opacity-30">
               <Moon size={72} className="text-text-tertiary" />
@@ -136,11 +138,11 @@ export function CalendarioEntrenamiento({
           )}
 
           <div className="relative">
-            <p className="text-caption mb-1 text-text-tertiary">
+            <p className="mb-0.5 text-[9px] tracking-[0.08em] text-text-tertiary">
               {actual.numero === proximoNumero ? "HOY TOCA" : `DÍA ${actual.numero}`}
             </p>
-            <h2 className="text-h2 text-text">{titulo}</h2>
-            <p className="text-secondary mt-1 text-text-secondary">{subtitulo}</p>
+            <h2 className="text-[26px] font-bold leading-none text-text">{titulo}</h2>
+            <p className="mt-1 text-[11px] text-text-secondary">{subtitulo}</p>
           </div>
         </div>
 
@@ -154,12 +156,12 @@ export function CalendarioEntrenamiento({
         )}
 
         {actual.estado === "completado" && (
-          <div className="flex items-center justify-center gap-1.5 border-t border-border py-2.5 text-caption text-success">
+          <div className="flex items-center justify-center gap-1.5 border-t border-border py-2 text-[9px] text-success">
             <Check size={14} /> Completado
           </div>
         )}
 
-        <div className="border-t border-border p-3">
+        <div className="border-t border-border p-2">
           {actual.estado === "no_iniciado" ? (
             soloLectura ? null : (
               <BotonEmpezarDia actual={actual} descanso={descanso} rutinaId={rutinaId} conflicto={conflicto} />
@@ -167,7 +169,7 @@ export function CalendarioEntrenamiento({
           ) : (
             <Link
               href={`/alumno/entrenar/sesion/${actual.sesionId}`}
-              className={`radius-control flex h-14 w-full items-center justify-center gap-2 text-body font-semibold ${
+              className={`radius-control flex h-12 w-full items-center justify-center gap-2 text-[13px] font-semibold ${
                 actual.estado === "en_progreso"
                   ? "btn-accion"
                   : "border border-border text-text"
@@ -225,7 +227,7 @@ function BotonEmpezarDia({
         <input type="hidden" name="numero_calendario" value={actual.numero} />
         <button
           type="submit"
-          className="btn-accion boton-entrenar-pulso radius-control flex h-14 w-full items-center justify-center gap-2 text-body font-semibold"
+          className="btn-accion boton-entrenar-pulso radius-control flex h-12 w-full items-center justify-center gap-2 text-[13px] font-semibold"
         >
           {descanso ? "Registrar día de descanso" : "Ver entrenamiento"}
           <ChevronRight size={20} />
@@ -291,9 +293,9 @@ function BotonEmpezarDia({
 
 function Dato({ valor, etiqueta, borde = false }: { valor: number; etiqueta: string; borde?: boolean }) {
   return (
-    <div className={`py-3.5 text-center ${borde ? "border-x border-border" : ""}`}>
-      <p className="text-h3 text-text">{valor}</p>
-      <p className="text-caption text-text-tertiary">{etiqueta}</p>
+    <div className={`py-2 text-center ${borde ? "border-x border-border" : ""}`}>
+      <p className="text-[18px] font-bold leading-none text-text">{valor}</p>
+      <p className="mt-1 text-[8px] leading-none text-text-tertiary">{etiqueta}</p>
     </div>
   );
 }

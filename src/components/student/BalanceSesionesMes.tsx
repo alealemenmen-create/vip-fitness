@@ -27,14 +27,21 @@ function RielesDecorativos() {
   );
 }
 
-export function BalanceSesionesMes({ balance }: { balance: BalanceSesionesMesTipo }) {
+export function BalanceSesionesMes({
+  balance,
+  compacta = false,
+}: {
+  balance: BalanceSesionesMesTipo;
+  compacta?: boolean;
+}) {
   if (!balance) return null;
   const { consumidas, asignadas, balance: restante } = balance;
   const colorNumero = restante < 0 ? "text-error" : "text-vip";
 
   return (
     <Card
-      className="!py-6 relative overflow-hidden border"
+      padding={compacta ? "p-3" : "p-6"}
+      className="relative overflow-hidden border"
       style={{
         background:
           "linear-gradient(135deg, color-mix(in srgb, var(--color-acento) 16%, var(--color-surface)) 0%, var(--color-surface) 65%)",
@@ -42,22 +49,24 @@ export function BalanceSesionesMes({ balance }: { balance: BalanceSesionesMesTip
       }}
     >
       <RielesDecorativos />
-      <div className="relative flex items-center gap-4">
+      <div className={`relative flex items-center ${compacta ? "gap-3" : "gap-4"}`}>
         <div
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full"
+          className={`flex shrink-0 items-center justify-center rounded-full ${
+            compacta ? "h-10 w-10" : "h-14 w-14"
+          }`}
           style={{
             border: "2px solid var(--color-acento)",
             boxShadow: "0 0 14px color-mix(in srgb, var(--color-acento) 45%, transparent)",
           }}
         >
-          <Calendar size={22} className="text-vip" />
+          <Calendar size={compacta ? 17 : 22} className="text-vip" />
         </div>
         <div>
           <p className="text-caption text-text-tertiary">SESIONES DEL MES</p>
-          <p className={`text-h3 mt-1 ${colorNumero}`}>
+          <p className={`${compacta ? "mt-0.5 text-[18px] font-bold leading-none" : "text-h3 mt-1"} ${colorNumero}`}>
             {consumidas} <span className="text-text-tertiary">de {asignadas}</span>
           </p>
-          <p className="text-secondary text-text-secondary">
+          <p className={`${compacta ? "mt-1 text-[9px]" : "text-secondary"} text-text-secondary`}>
             {restante >= 0 ? (
               <>
                 Quedan <span className="text-acento-fuerte font-semibold">{restante}</span> sesiones

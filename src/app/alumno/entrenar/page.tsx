@@ -3,9 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { CalendarioEntrenamiento } from "@/components/student/CalendarioEntrenamiento";
-import { MensajeMotivacional } from "@/components/student/MensajeMotivacional";
 import { BalanceSesionesMes } from "@/components/student/BalanceSesionesMes";
-import { fraseDelDia } from "@/lib/frasesMotivacionales";
+import { ImpulsoVip } from "@/components/student/ImpulsoVip";
 import {
   obtenerRutinaActiva,
   obtenerDiasRutina,
@@ -14,7 +13,6 @@ import {
   obtenerBalanceSesionesMes,
   obtenerSesionEnProgreso,
 } from "./data";
-import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { PuntosVipGanados } from "@/components/student/PuntosVipGanados";
 
 const NUMEROS_POR_PAGINA = 7;
@@ -28,11 +26,11 @@ const NUMEROS_POR_PAGINA = 7;
  * y el puntito, no por ocupar espacio. El cronómetro de la rutina NO va acá
  * — vive en la pantalla de la sesión, junto al botón "Iniciar rutina" (ver
  * sesion/[id]/page.tsx). */
-const PILDORA = "text-micro rounded-full bg-surface-2 px-2.5 py-1 font-medium";
+const PILDORA = "text-[8px] rounded-full bg-surface-2 px-2 py-1 font-medium";
 
 function AccesosEntrenar({ sesionEnProgresoId }: { sesionEnProgresoId: string | null }) {
   return (
-    <div className="flex justify-end gap-2">
+    <div className="flex justify-end gap-1.5">
       {sesionEnProgresoId && (
         <Link
           href={`/alumno/entrenar/sesion/${sesionEnProgresoId}`}
@@ -54,7 +52,7 @@ export default async function EntrenarPage({
 }: {
   searchParams: Promise<{ pagina?: string; puntos?: string }>;
 }) {
-  const { alumnoId: userId, nombre, soloLectura } = await requireAlumno();
+  const { alumnoId: userId, soloLectura } = await requireAlumno();
   const supabase = await createClient();
 
   // Ninguna de estas dos depende de la rutina: se piden ya mismo, en paralelo
@@ -67,19 +65,17 @@ export default async function EntrenarPage({
 
   const rutina = await obtenerRutinaActiva(userId);
 
-  // El nombre sale de requireAlumno(), que ya lo trajo: preguntarle otra vez a
-  // `perfiles` era un viaje de ~95ms por la misma fila que ya estaba en mano.
-  const primerNombre = nombreAlumnoPublicado(nombre).split(" ")[0] ?? "";
-  const frase = fraseDelDia("entrenar", primerNombre);
-
   if (!rutina) {
     // Nadie las lee en esta rama, pero hay que esperarlas igual para no dejar
     // promesas colgadas.
     await Promise.all([sesionEnProgresoPromise, balanceSesionesPromise]);
     return (
-      <div className="space-y-4 pb-8">
-        <MensajeMotivacional frase={frase} />
-        <Card>
+      <div className="space-y-3 pb-6">
+        <ImpulsoVip
+          indicador="En preparación"
+          mensaje="Tu próxima rutina todavía no está asignada. Mantente activo y vuelve cuando tu entrenador la publique."
+        />
+        <Card padding="p-4">
           <p className="text-body text-text-secondary">
             Todavía no tienes una rutina asignada.
             <br />
@@ -100,9 +96,12 @@ export default async function EntrenarPage({
   if (diasRutina.length === 0) {
     await Promise.all([sesionEnProgresoPromise, balanceSesionesPromise]);
     return (
-      <div className="space-y-4 pb-8">
-        <MensajeMotivacional frase={frase} />
-        <Card>
+      <div className="space-y-3 pb-6">
+        <ImpulsoVip
+          indicador="En preparación"
+          mensaje="Tu rutina ya está creada; falta que tu entrenador cargue los días para comenzar."
+        />
+        <Card padding="p-4">
           <p className="text-body text-text-secondary">Esta rutina todavía no tiene días cargados.</p>
         </Card>
       </div>
@@ -126,11 +125,23 @@ export default async function EntrenarPage({
   const seleccionInicial =
     numeroEnProgreso ??
     (numeros.some((n) => n.numero === proximoNumero) ? proximoNumero : numeros[0].numero);
+  const diaImpulso = numeros.find((numero) => numero.numero === seleccionInicial) ?? numeros[0];
+  const mensajeImpulso = sesionEnProgresoId
+    ? "Ya estás en movimiento. Retoma tu sesión activa y ciérrala con la misma intensidad con la que comenzaste."
+    : diaImpulso.estado === "completado"
+      ? "Sesión cumplida. Revisa tus marcas y usa esa referencia para superar tu próxima semana."
+      : diaImpulso.dia.tipo === "descanso"
+        ? "La recuperación también construye resultados. Respeta el descanso y vuelve con energía completa."
+        : `Hoy toca ${diaImpulso.dia.nombre}. Entra con un objetivo claro y completa cada serie con intención.`;
 
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-2.5 pb-6">
       <PuntosVipGanados key={puntosParam ?? "0"} puntos={puntosGanados} detalle="Entrenamiento guardado en tu progreso" />
       <AccesosEntrenar sesionEnProgresoId={sesionEnProgresoId} />
+      <ImpulsoVip
+        indicador={sesionEnProgresoId ? "Sesión en curso" : `Día ${diaImpulso.numero}`}
+        mensaje={mensajeImpulso}
+      />
 
       {/* El calendario y la tarjeta de "Iniciar entrenamiento" van ANTES del
           balance del mes: es lo que el alumno viene a hacer, y con el balance
@@ -144,7 +155,7 @@ export default async function EntrenarPage({
         soloLectura={soloLectura}
       />
 
-      <BalanceSesionesMes balance={balanceSesiones} />
+      <BalanceSesionesMes balance={balanceSesiones} compacta />
     </div>
   );
 }

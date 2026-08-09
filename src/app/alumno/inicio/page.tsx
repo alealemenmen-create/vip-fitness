@@ -1,14 +1,14 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ChevronRight, Sparkles, Zap } from "lucide-react";
+import { ChevronRight, Crown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { SeguimientoDiario } from "@/components/student/SeguimientoDiario";
 import { ResumenSemanaCompacto } from "@/components/student/ResumenSemanaCompacto";
 import { GraficaProgresoECG } from "@/components/student/GraficaProgresoECG";
-import { BalanceSesionesMes } from "@/components/student/BalanceSesionesMes";
 import { AlimentacionHoyCuadro } from "@/components/student/AlimentacionHoyCuadro";
+import { ResumenMetricasInicio } from "@/components/student/ResumenMetricasInicio";
 import { RankedVipCard } from "@/components/student/RankedVipCard";
 import { BadgeRango } from "@/components/student/BadgeRango";
 import { progresoAlSiguiente } from "@/lib/ranking/puntos";
@@ -76,13 +76,15 @@ export default async function InicioPage() {
   const pctRendimientoGeneral = resumenDias?.pctGeneral ?? 0;
 
   return (
-    <div className="space-y-4 pb-8">
-      <Card className="efecto-3d !p-4">
-        <div className="flex items-center gap-3">
+    <div className="space-y-3 pb-6">
+      <section className="identidad-vip-premium relative overflow-hidden rounded-[22px] px-3 py-2.5">
+        <div className="relative flex items-center gap-2.5">
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-[0.12em] text-text-tertiary">Tu espacio VIP</p>
-            <h1 className="mt-1 truncate text-[21px] font-bold leading-tight text-text">{nombreVisible}</h1>
-            <p className="mt-1 truncate text-[11px] text-text-secondary">
+            <p className="flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.16em] text-vip">
+              <Crown size={10} fill="currentColor" /> Membresía VIP
+            </p>
+            <h1 className="mt-0.5 truncate text-[17px] font-bold leading-tight text-text">{nombreVisible}</h1>
+            <p className="mt-0.5 truncate text-[9px] text-text-secondary">
               {perfil.objetivo || "Objetivo pendiente"} · {formatFechaCompacta()}
             </p>
           </div>
@@ -90,7 +92,7 @@ export default async function InicioPage() {
             <MiRango rankingPromesa={rankingPromesa} alumnoId={alumnoId} />
           </Suspense>
         </div>
-      </Card>
+      </section>
 
       <TarjetaEntrenamientoHoy
         estado={entrenamiento}
@@ -99,31 +101,11 @@ export default async function InicioPage() {
         constancia={constanciaSemana}
       />
 
-      <ImpulsoVipInicio
-        entrenamiento={entrenamiento}
-        constancia={constanciaSemana}
+      <ResumenMetricasInicio
         comidasRegistradas={alimentacion.comidasRegistradas}
         comidasDisponibles={alimentacion.comidasDisponibles}
+        balanceSesiones={balanceSesiones}
       />
-
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="!p-4">
-          <p className="text-caption text-text-tertiary">COMIDAS DE HOY</p>
-          <p className="mt-1 text-[22px] font-bold text-text">
-            {alimentacion.comidasRegistradas}
-            <span className="text-[13px] font-normal text-text-tertiary"> / {alimentacion.comidasDisponibles}</span>
-          </p>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-2">
-            <div
-              className="h-full rounded-full bg-vip"
-              style={{
-                width: `${alimentacion.comidasDisponibles > 0 ? Math.min(100, (alimentacion.comidasRegistradas / alimentacion.comidasDisponibles) * 100) : 0}%`,
-              }}
-            />
-          </div>
-        </Card>
-        <BalanceSesionesMes balance={balanceSesiones} />
-      </div>
 
       <Suspense fallback={<RankingCargando />}>
         <RankingVip rankingPromesa={rankingPromesa} alumnoId={alumnoId} />
@@ -148,7 +130,7 @@ export default async function InicioPage() {
 
       {/* Cierre de la pantalla: el acumulado histórico, que no compite con el
           rendimiento de la semana allá arriba. */}
-      <Card className="!p-4">
+      <Card padding="p-3">
         <div className="mb-2 flex items-baseline justify-between gap-2">
           <p className="text-caption text-text-tertiary">RENDIMIENTO GENERAL</p>
           <p className="text-secondary font-bold text-text">{pctRendimientoGeneral}%</p>
@@ -179,7 +161,10 @@ async function MiRango({
   const progreso = progresoAlSiguiente(propia.puntosAcumulados);
 
   return (
-    <Link href="/alumno/ranked" className="block w-28 rounded-2xl border border-border bg-surface-2 px-2.5 py-2">
+    <Link
+      href="/alumno/ranked"
+      className="rango-cabecera-premium block w-28 rounded-2xl border border-vip/25 px-2.5 py-2"
+    >
       <span className="flex items-center gap-2">
         <BadgeRango rango={propia.rango} size={30} brillo={false} eager />
         <span className="min-w-0 leading-none">
@@ -212,49 +197,6 @@ async function MiRango({
   );
 }
 
-function ImpulsoVipInicio({
-  entrenamiento,
-  constancia,
-  comidasRegistradas,
-  comidasDisponibles,
-}: {
-  entrenamiento: Awaited<ReturnType<typeof obtenerEstadoEntrenamientoHoy>>;
-  constancia: ConstanciaSemana;
-  comidasRegistradas: number;
-  comidasDisponibles: number;
-}) {
-  let recomendacion = "Mantén tu constancia: cada acción de hoy fortalece tu progreso.";
-
-  if (entrenamiento.tipo === "sin_rutina") {
-    recomendacion = "Tu próxima rutina todavía no está asignada. Aprovecha hoy para completar tu nutrición.";
-  } else if (entrenamiento.tipo !== "completado") {
-    recomendacion = "Completa tu entrenamiento de hoy para mejorar tu constancia y seguir sumando en la Arena VIP.";
-  } else if (comidasDisponibles > 0 && comidasRegistradas < comidasDisponibles) {
-    recomendacion = "Entrenamiento completado. Tu mejor siguiente acción es registrar las comidas pendientes.";
-  } else {
-    recomendacion = "Día completado. Revisa tu progreso y prepárate para mantener la racha mañana.";
-  }
-
-  return (
-    <section className="impulso-inicio relative overflow-hidden rounded-[24px] border border-acento/30 p-4">
-      <div className="relative flex items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-acento text-white shadow-[0_8px_24px_color-mix(in_srgb,var(--color-acento)_35%,transparent)]">
-          <Zap size={21} fill="currentColor" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <p className="flex items-center gap-1.5 text-[12px] font-bold text-text">
-              IMPULSO VIP <Sparkles size={12} className="text-acento-fuerte" />
-            </p>
-            <span className="shrink-0 text-[10px] font-semibold text-acento-fuerte">{constancia.pct}% semanal</span>
-          </div>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-text-secondary">{recomendacion}</p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 async function RankingVip({
   rankingPromesa,
   alumnoId,
@@ -267,11 +209,11 @@ async function RankingVip({
 
 function RankingCargando() {
   return (
-    <div className="rounded-[26px] border border-border bg-surface p-4" aria-hidden>
-      <div className="h-11 w-44 animate-pulse rounded-2xl bg-surface-2" />
-      <div className="mt-4 flex gap-3 overflow-hidden">
+    <div className="rounded-[24px] border border-border bg-surface p-3" aria-hidden>
+      <div className="h-9 w-40 animate-pulse rounded-xl bg-surface-2" />
+      <div className="mt-3 grid grid-cols-3 gap-2">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-48 min-w-[168px] animate-pulse rounded-[22px] bg-surface-2" />
+          <div key={i} className="h-36 animate-pulse rounded-[18px] bg-surface-2" />
         ))}
       </div>
     </div>
@@ -340,8 +282,8 @@ function TarjetaEntrenamientoHoy({
   return (
     // Padding vertical más chico que el horizontal (py-3.5 en vez de p-5):
     // achica la tarjeta ~30% de alto sin apretar los costados.
-    <Card className="tarjeta-modelo-oscura px-5 py-2.5">
-      <p className="text-caption mb-1.5 text-text-tertiary">TU ENTRENAMIENTO</p>
+    <Card className="tarjeta-modelo-oscura tarjeta-entrenamiento-premium px-4 py-2">
+      <p className="mb-1 text-[9px] tracking-[0.08em] text-text-tertiary">TU ENTRENAMIENTO</p>
 
       <ResumenSemanaCompacto
         diaHoy={diaHoy}
@@ -350,14 +292,14 @@ function TarjetaEntrenamientoHoy({
         constancia={constancia}
       />
 
-      <div className="mt-2">
+      <div className="mt-1">
         <Link
           href={
             estado.tipo === "sin_dia_elegido"
               ? "/alumno/entrenar"
               : `/alumno/entrenar/sesion/${estado.sesionId}`
           }
-          className="btn-accion radius-control flex h-14 items-center justify-center gap-2 text-body font-semibold"
+          className="btn-accion radius-control flex h-11 items-center justify-center gap-2 text-[12px] font-semibold"
         >
           {estado.tipo === "sin_dia_elegido"
             ? "Comenzar"
@@ -368,8 +310,8 @@ function TarjetaEntrenamientoHoy({
         </Link>
       </div>
 
-      <details className="mt-2 border-t border-border pt-1.5">
-        <summary className="text-caption cursor-pointer text-text-tertiary">
+      <details className="mt-1.5 border-t border-border pt-1">
+        <summary className="cursor-pointer text-[9px] text-text-tertiary">
           Ver constancia histórica · General {resumenDias.pctGeneral}%
         </summary>
         <div className="mt-3">

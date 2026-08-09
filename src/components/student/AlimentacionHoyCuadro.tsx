@@ -30,8 +30,8 @@ export function AlimentacionHoyCuadro({
   const pct = objetivo ? Math.round((kcal / objetivo) * 100) : null;
 
   return (
-    <div className="radius-card w-full bg-surface px-4 py-6">
-      <div className="mb-3 flex items-baseline justify-between gap-2">
+    <div className="radius-card w-full bg-surface px-3 py-4">
+      <div className="mb-2 flex items-baseline justify-between gap-2">
         <p className="text-caption text-text-tertiary">ALIMENTACIÓN DE HOY</p>
         {objetivo && (
           <p className="text-caption shrink-0 text-text-tertiary">
@@ -50,7 +50,7 @@ export function AlimentacionHoyCuadro({
         ].map((m) => (
           <div key={m.etiqueta} className="min-w-0">
             <p
-              className={`truncate text-[20px] font-bold leading-tight tabular-nums ${
+              className={`truncate text-[17px] font-bold leading-tight tabular-nums ${
                 m.acento ? "text-vip" : "text-text"
               }`}
             >
@@ -62,7 +62,7 @@ export function AlimentacionHoyCuadro({
       </div>
 
       {pct !== null && (
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
           <div
             className="h-full rounded-full transition-all duration-300 ease-in-out"
             style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: colorAvance(pct) }}
