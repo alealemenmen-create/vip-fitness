@@ -1995,6 +1995,7 @@ input[type="number"] {
 .tarjeta-entrenamiento-premium {
   border: 1px solid color-mix(in srgb, var(--color-vip) 28%, #292c33);
   background:
+    radial-gradient(ellipse 62% 104% at 100% 46%, #000 0%, rgba(0, 0, 0, 0.98) 43%, rgba(0, 0, 0, 0.5) 69%, transparent 88%),
     radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--color-vip) 10%, transparent), transparent 40%),
     linear-gradient(150deg, #15161a 0%, #0d0e11 100%);
   box-shadow:
@@ -2012,27 +2013,12 @@ input[type="number"] {
   right: -4px !important;
   transform: scale(1.25);
   transform-origin: 72% 62%;
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.28) 28%, #000 52%, #000 92%, transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.28) 28%, #000 52%, #000 92%, transparent 100%);
-}
-.foto-modelo-integrada::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  z-index: 1;
-  pointer-events: none;
-  background: linear-gradient(
-    to right,
-    #0d0e11 0%,
-    rgba(13, 14, 17, 0.96) 36%,
-    rgba(13, 14, 17, 0.38) 50%,
-    rgba(13, 14, 17, 0.12) 58%,
-    transparent 68%
-  );
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.18) 22%, #000 50%, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.18) 22%, #000 50%, #000 100%);
 }
 .foto-modelo-integrada img {
-  mix-blend-mode: screen;
-  filter: brightness(0.84) contrast(1.72) saturate(1.13);
+  mix-blend-mode: normal;
+  filter: brightness(1.08) contrast(1.18) saturate(1.12) drop-shadow(0 0 12px color-mix(in srgb, var(--color-vip) 18%, transparent));
 }
 /* La espalda tiene una silueta más angosta en su fotografía que Pecho. Este
    encuadre la acerca sin tocar el alto de la tarjeta ni invadir su información. */
