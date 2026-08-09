@@ -1,27 +1,34 @@
 "use client";
 
-import { useRef, useState, type CSSProperties } from "react";
-import Link from "next/link";
+import { useState, type CSSProperties } from "react";
 import Image from "next/image";
-import { Trophy, Star, ChevronDown } from "lucide-react";
-import type { FilaRanking } from "@/lib/ranking/data";
-import { RANGOS } from "@/lib/ranking/puntos";
-import { nombreAlumnoPublicado } from "@/lib/nombre";
+import Link from "next/link";
+import { ChevronRight, Crown, Sparkles, Trophy } from "lucide-react";
 import { obtenerDesglosePuntosAlumno, type DesglosePuntos } from "@/app/alumno/inicio/actions";
+import type { FilaRanking } from "@/lib/ranking/data";
+import { nombreAlumnoPublicado } from "@/lib/nombre";
+import { RANGOS } from "@/lib/ranking/puntos";
 
 const TOP = 15;
-// Antes 5 — pedido explícito de achicar la tarjeta ~20%, mostrando 4.
-const VISIBLES = 4;
-const ALTO_FILA = 44;
-const ALTO_LISTA = VISIBLES * ALTO_FILA + (VISIBLES - 1) * 4;
 
-/** Color del puesto: dorado/plateado/bronce para el podio, blanco desde el 4°
- * — el emblema (rango real) nunca cambia por esto, solo el número y los pts. */
 function colorPuesto(posicion: number): string {
   if (posicion === 1) return "#ffc247";
-  if (posicion === 2) return "#c0c4cc";
-  if (posicion === 3) return "#c88a4a";
-  return "var(--color-text)";
+  if (posicion === 2) return "#cbd0d8";
+  if (posicion === 3) return "#d08a4d";
+  return "var(--color-vip)";
+}
+
+function fondoPuesto(posicion: number): string {
+  if (posicion === 1) {
+    return "linear-gradient(155deg, color-mix(in srgb, #ffc247 22%, var(--color-surface)) 0%, var(--color-surface) 72%)";
+  }
+  if (posicion === 2) {
+    return "linear-gradient(155deg, color-mix(in srgb, #cbd0d8 16%, var(--color-surface)) 0%, var(--color-surface) 72%)";
+  }
+  if (posicion === 3) {
+    return "linear-gradient(155deg, color-mix(in srgb, #d08a4d 18%, var(--color-surface)) 0%, var(--color-surface) 72%)";
+  }
+  return "var(--color-surface)";
 }
 
 function hexARgba(hex: string, alpha: number): string {
@@ -33,22 +40,26 @@ function hexARgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-/** Emblema del rango REAL de la cuenta (Bronze/Silver/Gold/…), con el mismo
- * resplandor "que respira" del mensaje del día — más intenso cuanto más alto
- * el rango. Se probó reemplazarlo por una insignia corona/estrella por
- * puesto semanal, pero el usuario pidió mantener las insignias propias de la
- * app: cada alumno lleva la que ganó de verdad, no un ícono genérico. */
-function EmblemaRango({ rango }: { rango: FilaRanking["rango"] }) {
-  const indice = RANGOS.findIndex((r) => r.nombre === rango.nombre);
+function EmblemaRango({ rango, destacado }: { rango: FilaRanking["rango"]; destacado: boolean }) {
+  const indice = RANGOS.findIndex((item) => item.nombre === rango.nombre);
   const intensidad = (indice + 1) / RANGOS.length;
+  const tamano = destacado ? 58 : 50;
 
   return (
-    <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
+    <span
+      className="relative flex shrink-0 items-center justify-center rounded-2xl border"
+      style={{
+        width: tamano + 18,
+        height: tamano + 18,
+        borderColor: hexARgba(rango.color, 0.38),
+        background: `radial-gradient(circle, ${hexARgba(rango.color, 0.2)} 0%, transparent 72%)`,
+      }}
+    >
       <Image
         src={rango.imagen}
-        alt={rango.nombre}
-        width={24}
-        height={24}
+        alt={`Rango ${rango.nombre}`}
+        width={tamano}
+        height={tamano}
         className="emblema-rango-movimiento object-contain"
         style={
           {
@@ -63,39 +74,21 @@ function EmblemaRango({ rango }: { rango: FilaRanking["rango"] }) {
 
 export function RankedVipCard({ filas, alumnoId }: { filas: FilaRanking[]; alumnoId: string }) {
   const top15 = filas.slice(0, TOP);
-  const listaRef = useRef<HTMLDivElement>(null);
-  const [alFinal, setAlFinal] = useState(false);
+  const filaPropia = filas.find((fila) => fila.alumnoId === alumnoId);
+  const participantes =
+    filaPropia && !top15.some((fila) => fila.alumnoId === alumnoId) ? [...top15, filaPropia] : top15;
 
-  // Alto del thumb del riel propio: no depende del scroll, sale directo de
-  // cuántas filas hay contra cuántas se ven — se recalcula solo si cambia el
-  // ranking. La posición (`topPct`) sí es dinámica, se actualiza en cada
-  // scroll más abajo.
-  const altoContenido = top15.length * ALTO_FILA + Math.max(0, top15.length - 1) * 4;
-  const alturaRielPct = Math.min(100, Math.max(12, (ALTO_LISTA / altoContenido) * 100));
-  const [rielTopPct, setRielTopPct] = useState(0);
-
-  // Tocar a alguien del ranking expande en qué ganó sus puntos (hoy, o esta
-  // semana si hoy todavía no tiene nada) — tocar de nuevo cierra. Se pide una
-  // sola vez por alumno y se cachea en `datos` mientras la tarjeta esté
-  // montada, así ida y vuelta entre dos personas no vuelve a pedir lo mismo.
   const [expandido, setExpandido] = useState<string | null>(null);
   const [cargando, setCargando] = useState<string | null>(null);
   const [datos, setDatos] = useState<Record<string, DesglosePuntos>>({});
   const [conError, setConError] = useState<string | null>(null);
-
-  function onScroll() {
-    const el = listaRef.current;
-    if (!el) return;
-    setAlFinal(el.scrollTop + el.clientHeight >= el.scrollHeight - 4);
-    const recorrido = el.scrollHeight - el.clientHeight;
-    setRielTopPct(recorrido > 0 ? (el.scrollTop / recorrido) * (100 - alturaRielPct) : 0);
-  }
 
   async function alternar(idAlumno: string) {
     if (expandido === idAlumno) {
       setExpandido(null);
       return;
     }
+
     setExpandido(idAlumno);
     if (datos[idAlumno]) return;
 
@@ -103,7 +96,7 @@ export function RankedVipCard({ filas, alumnoId }: { filas: FilaRanking[]; alumn
     setConError(null);
     try {
       const resultado = await obtenerDesglosePuntosAlumno(idAlumno);
-      setDatos((prev) => ({ ...prev, [idAlumno]: resultado }));
+      setDatos((actuales) => ({ ...actuales, [idAlumno]: resultado }));
     } catch {
       setConError(idAlumno);
     } finally {
@@ -112,139 +105,121 @@ export function RankedVipCard({ filas, alumnoId }: { filas: FilaRanking[]; alumn
   }
 
   return (
-    // Sin marco propio: vive dentro de la tarjeta compartida con el perfil, a
-    // la derecha de la línea divisoria.
-    <div className="flex h-full flex-col">
-      <div className="mb-2 flex items-start justify-between gap-1.5">
-        <div className="min-w-0">
-          <p className="flex items-center gap-1 text-[11px] font-semibold leading-none text-text">
-            <Trophy size={12} className="shrink-0 text-vip" /> RANKING VIP
-          </p>
-          <p className="mt-0.5 text-[8px] leading-none text-text-tertiary">Clasificación semanal</p>
-        </div>
-        <span className="radius-control flex shrink-0 items-center gap-0.5 border border-vip/40 px-1.5 py-0.5 text-[8px] leading-none text-text-tertiary">
-          <Star size={8} className="text-vip" fill="var(--color-vip)" /> Top {TOP}
-        </span>
+    <section className="arena-vip relative overflow-hidden rounded-[26px] border border-vip/35 bg-surface py-4">
+      <div className="arena-vip-corona pointer-events-none absolute -right-4 -top-8 text-vip" aria-hidden>
+        <Crown size={118} strokeWidth={1} />
       </div>
 
-      {top15.length === 0 ? (
-        <p className="text-body py-6 text-center text-text-secondary">
-          Todavía no hay participantes en el ranking.
+      <div className="relative flex items-center justify-between gap-3 px-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-vip text-black shadow-[0_8px_24px_color-mix(in_srgb,var(--color-vip)_30%,transparent)]">
+            <Trophy size={22} />
+          </span>
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[14px] font-bold tracking-[0.08em] text-text">
+              ARENA VIP <Sparkles size={13} className="text-vip" />
+            </p>
+            <p className="text-[10px] text-text-tertiary">Clasificación semanal · desliza para competir</p>
+          </div>
+        </div>
+        <Link href="/alumno/ranked" className="shrink-0 text-[10px] font-semibold text-vip">
+          Top {TOP} →
+        </Link>
+      </div>
+
+      {participantes.length === 0 ? (
+        <p className="px-4 py-8 text-center text-body text-text-secondary">
+          Todavía no hay participantes en la Arena VIP.
         </p>
       ) : (
-        <div className="relative">
-          {/* Se ven 5 puestos (pedido explícito, antes eran 3); el resto del
-              Top 15 se alcanza deslizando. */}
-          <div
-            ref={listaRef}
-            onScroll={onScroll}
-            className="scrollbar-oculta space-y-1 overflow-y-auto overscroll-contain scroll-smooth pr-2"
-            style={{ height: ALTO_LISTA }}
-          >
-            {top15.map((fila) => {
-              const esPropia = fila.alumnoId === alumnoId;
-              const abierto = expandido === fila.alumnoId;
-              const desglose = datos[fila.alumnoId];
-              return (
-                <div key={fila.alumnoId}>
-                  <button
-                    type="button"
-                    onClick={() => alternar(fila.alumnoId)}
-                    aria-expanded={abierto}
-                    className={`grid w-full grid-cols-[13px_24px_minmax(0,1fr)] items-center gap-1.5 rounded-xl bg-surface-2 px-1.5 py-2 text-left transition-colors duration-200 ${
-                      esPropia ? "border border-vip/60 bg-surface-2/80" : ""
-                    }`}
+        <div
+          className="scrollbar-oculta mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-4 pb-2"
+          aria-label="Ranking semanal deslizable"
+        >
+          {participantes.map((fila) => {
+            const esPropia = fila.alumnoId === alumnoId;
+            const esPodio = fila.posicion <= 3;
+            const abierto = expandido === fila.alumnoId;
+            const desglose = datos[fila.alumnoId];
+
+            return (
+              <article
+                key={fila.alumnoId}
+                className={`relative min-w-[168px] snap-center overflow-hidden rounded-[22px] border p-3 ${
+                  esPropia ? "border-vip shadow-[0_0_24px_color-mix(in_srgb,var(--color-vip)_20%,transparent)]" : "border-border"
+                }`}
+                style={{ background: fondoPuesto(fila.posicion) }}
+              >
+                {esPodio && (
+                  <span
+                    className="pointer-events-none absolute -right-3 -top-4 opacity-10"
+                    style={{ color: colorPuesto(fila.posicion) }}
+                    aria-hidden
                   >
-                    <span
-                      className="text-center text-[10px] font-bold leading-none tabular-nums"
-                      style={{ color: colorPuesto(fila.posicion) }}
-                    >
-                      {String(fila.posicion).padStart(2, "0")}
-                    </span>
-                    <EmblemaRango rango={fila.rango} />
-                    {/* Nombre y puntos apilados: a media tarjeta no entran los dos
-                        en la misma línea sin cortar casi todos los nombres. */}
-                    <div className="min-w-0">
-                      <p className="truncate text-[10px] font-medium leading-tight text-text">
-                        {nombreAlumnoPublicado(fila.nombre)}
-                        {esPropia && <span className="ml-1 text-[8px] text-vip">TÚ</span>}
-                      </p>
-                      <p
-                        className="mt-0.5 text-[10px] font-bold leading-none tabular-nums"
-                        style={{ color: colorPuesto(fila.posicion) }}
-                      >
-                        {fila.puntos.toLocaleString("es-CL")}
-                        <span className="ml-0.5 text-[7px] font-normal text-text-tertiary">pts</span>
-                      </p>
-                    </div>
-                  </button>
+                    <Trophy size={72} />
+                  </span>
+                )}
 
-                  {abierto && (
-                    <div className="mt-1 rounded-xl bg-surface-2/60 px-2 py-1.5">
-                      {cargando === fila.alumnoId ? (
-                        <p className="text-[9px] text-text-tertiary">Cargando…</p>
-                      ) : conError === fila.alumnoId ? (
-                        <p className="text-[9px] text-text-tertiary">No se pudo cargar el detalle.</p>
-                      ) : desglose && desglose.movimientos.length > 0 ? (
-                        <>
-                          <p className="mb-1 text-[8px] uppercase tracking-wide text-text-tertiary">
-                            En qué ganó puntos {desglose.rango === "dia" ? "hoy" : "esta semana"}
-                          </p>
-                          <div className="space-y-1">
-                            {desglose.movimientos.map((m) => (
-                              <div key={m.id} className="flex items-center justify-between gap-2">
-                                <p className="min-w-0 truncate text-[9px] text-text-secondary">{m.titulo}</p>
-                                <p
-                                  className={`shrink-0 text-[9px] font-bold ${m.puntos < 0 ? "text-error" : "text-vip"}`}
-                                >
-                                  {m.puntos > 0 ? "+" : ""}
-                                  {m.puntos}
-                                </p>
-                              </div>
-                            ))}
+                <button
+                  type="button"
+                  onClick={() => alternar(fila.alumnoId)}
+                  aria-expanded={abierto}
+                  className="relative flex w-full flex-col items-center text-center"
+                >
+                  <span
+                    className="mb-2 flex h-7 min-w-7 items-center justify-center rounded-full border px-2 text-[10px] font-bold tabular-nums"
+                    style={{ color: colorPuesto(fila.posicion), borderColor: colorPuesto(fila.posicion) }}
+                  >
+                    {String(fila.posicion).padStart(2, "0")}
+                  </span>
+                  <EmblemaRango rango={fila.rango} destacado={fila.posicion === 1} />
+                  <p className="mt-2 w-full truncate text-[11px] font-semibold text-text">
+                    {nombreAlumnoPublicado(fila.nombre)}
+                  </p>
+                  <p className="mt-1 text-[16px] font-bold tabular-nums" style={{ color: colorPuesto(fila.posicion) }}>
+                    {fila.puntos.toLocaleString("es-CL")}
+                    <span className="ml-1 text-[8px] font-normal text-text-tertiary">pts</span>
+                  </p>
+                  <p className="mt-1 text-[9px] text-text-tertiary">
+                    {fila.rango.nombre}{esPropia ? " · TÚ" : ""}
+                  </p>
+                </button>
+
+                {abierto && (
+                  <div className="mt-3 border-t border-border pt-2 text-left">
+                    {cargando === fila.alumnoId ? (
+                      <p className="text-[9px] text-text-tertiary">Cargando…</p>
+                    ) : conError === fila.alumnoId ? (
+                      <p className="text-[9px] text-text-tertiary">No se pudo cargar el detalle.</p>
+                    ) : desglose && desglose.movimientos.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {desglose.movimientos.slice(0, 3).map((movimiento) => (
+                          <div key={movimiento.id} className="flex items-center justify-between gap-2">
+                            <p className="min-w-0 truncate text-[8px] text-text-secondary">{movimiento.titulo}</p>
+                            <p className={`shrink-0 text-[8px] font-bold ${movimiento.puntos < 0 ? "text-error" : "text-vip"}`}>
+                              {movimiento.puntos > 0 ? "+" : ""}{movimiento.puntos}
+                            </p>
                           </div>
-                        </>
-                      ) : (
-                        <p className="text-[9px] text-text-tertiary">Todavía sin puntos esta semana.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[9px] text-text-tertiary">Todavía sin puntos esta semana.</p>
+                    )}
+                  </div>
+                )}
+              </article>
+            );
+          })}
 
-          {top15.length > VISIBLES && (
-            <div className="riel-scroll-vip" aria-hidden style={{ height: ALTO_LISTA }}>
-              <div
-                className="riel-scroll-vip-relleno"
-                style={{ height: `${alturaRielPct}%`, top: `${rielTopPct}%` }}
-              />
-            </div>
-          )}
-
-          {top15.length > VISIBLES && (
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center justify-end gap-0.5 rounded-b-2xl bg-gradient-to-t from-surface to-transparent pb-0.5 transition-opacity duration-300"
-              style={{ height: 24, opacity: alFinal ? 0 : 1 }}
-            >
-              <span className="flex items-center gap-0.5 text-[7px] leading-none text-text-tertiary">
-                <ChevronDown size={8} className="shrink-0" /> Desliza para ver{" "}
-                {Math.min(TOP, filas.length)}
-                <ChevronDown size={8} className="shrink-0" />
-              </span>
-            </div>
-          )}
+          <Link
+            href="/alumno/ranked"
+            className="flex min-w-[132px] snap-center flex-col items-center justify-center rounded-[22px] border border-dashed border-vip/45 bg-vip/5 px-4 text-center text-vip"
+          >
+            <ChevronRight size={28} />
+            <span className="mt-2 text-[11px] font-semibold">Ver ranking completo</span>
+          </Link>
         </div>
       )}
-
-      <Link
-        href="/alumno/ranked"
-        className="mt-auto flex items-center justify-center pt-2 text-[9px] font-medium leading-none text-vip"
-      >
-        Ver ranking completo →
-      </Link>
-    </div>
+    </section>
   );
 }

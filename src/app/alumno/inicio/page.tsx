@@ -1,12 +1,10 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Sparkles, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
-import { Pill } from "@/components/ui/Pill";
 import { SeguimientoDiario } from "@/components/student/SeguimientoDiario";
-import { MensajeMotivacional } from "@/components/student/MensajeMotivacional";
 import { ResumenSemanaCompacto } from "@/components/student/ResumenSemanaCompacto";
 import { GraficaProgresoECG } from "@/components/student/GraficaProgresoECG";
 import { BalanceSesionesMes } from "@/components/student/BalanceSesionesMes";
@@ -19,12 +17,10 @@ import { obtenerRankingSemanal, type FilaRanking } from "@/lib/ranking/data";
 import { obtenerTorneosPublicos } from "@/lib/torneos/data";
 import type { TorneoPublico } from "@/lib/torneos/types";
 import { obtenerPlanAlimentacion } from "@/app/alumno/comer/data";
-import { fraseDelDia } from "@/lib/frasesMotivacionales";
 import { formatFechaCompacta, nombreDiaSemana } from "@/lib/date";
 import { obtenerBalanceSesionesMes } from "@/app/alumno/entrenar/data";
 import {
   obtenerPerfilYObjetivo,
-  obtenerNotaActivaYMarcarLeida,
   obtenerEstadoEntrenamientoHoy,
   obtenerResumenEntrenamientoDias,
   obtenerResumenAlimentacionHoy,
@@ -53,7 +49,6 @@ export default async function InicioPage() {
 
   const [
     perfil,
-    nota,
     entrenamiento,
     resumenDias,
     alimentacion,
@@ -63,7 +58,6 @@ export default async function InicioPage() {
     plan,
   ] = await Promise.all([
     obtenerPerfilYObjetivo(supabase, alumnoId),
-    obtenerNotaActivaYMarcarLeida(supabase, alumnoId, !soloLectura),
     obtenerEstadoEntrenamientoHoy(supabase, alumnoId),
     obtenerResumenEntrenamientoDias(supabase, alumnoId),
     obtenerResumenAlimentacionHoy(supabase, alumnoId),
@@ -73,68 +67,28 @@ export default async function InicioPage() {
     obtenerPlanAlimentacion(supabase, alumnoId),
   ]);
 
-  const primerNombre = nombreAlumnoPublicado(perfil.nombre).split(" ")[0] ?? "";
-  const frase = fraseDelDia("inicio", primerNombre);
   const nombreVisible = nombreAlumnoPublicado(perfil.nombre);
 
   // Rendimiento general: promedio de lo que ya se mide de entrenamiento
   // (constancia general de la rutina) y alimentación (comidas de hoy
   // registradas) — los dos datos que esta misma página ya carga, sin
   // consultas nuevas. Si falta alguno, se promedia solo con el que haya.
-  const pctRendimientoSemanal = constanciaSemana.pct;
   const pctRendimientoGeneral = resumenDias?.pctGeneral ?? 0;
 
   return (
-    <div className="space-y-6 pb-8">
-      {/* Perfil y RANKING VIP en una sola tarjeta, partida por la mitad con una
-          línea divisoria. Justo encima de Entrenamiento. */}
-      <Card className="efecto-3d !p-0">
-        <div className="grid grid-cols-2">
-          <div className="flex min-w-0 flex-col p-2.5">
-            {/* Orden pedido: nombre, medalla + puntos (grandes), fecha,
-                objetivo, rendimiento semanal. Todo en flujo secuencial, sin
-                separar arriba/abajo — eso dejaba un hueco vacío en el medio.
-                El nombre ya no calcula su tamaño por cantidad de caracteres
-                (quedaba chico para nombres largos) — tamaño fijo grande, y si
-                no entra en una línea, CSS lo pasa a dos (line-clamp-2) en vez
-                de cortarlo con "…". */}
-            <h1 className="line-clamp-2 break-words text-[20px] font-bold leading-tight text-text">
-              {nombreVisible}
-            </h1>
-
-            <Suspense fallback={<div className="mt-4 h-7" />}>
-              <MiRango rankingPromesa={rankingPromesa} alumnoId={alumnoId} />
-            </Suspense>
-
-            <p className="mt-4 whitespace-nowrap text-[11px] leading-none text-text-secondary">
-              {formatFechaCompacta()}
+    <div className="space-y-4 pb-8">
+      <Card className="efecto-3d !p-4">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-text-tertiary">Tu espacio VIP</p>
+            <h1 className="mt-1 truncate text-[21px] font-bold leading-tight text-text">{nombreVisible}</h1>
+            <p className="mt-1 truncate text-[11px] text-text-secondary">
+              {perfil.objetivo || "Objetivo pendiente"} · {formatFechaCompacta()}
             </p>
-
-            <Pill tone="vip" className="mt-3 max-w-full truncate !px-3 !text-[12px]">
-              {perfil.objetivo || "Objetivo pendiente"}
-            </Pill>
-
-            <div className="mt-3 space-y-2">
-              <div className="flex items-baseline justify-between gap-1">
-                <span className="min-w-0 truncate whitespace-nowrap text-[11px] text-text-tertiary">
-                  Rendimiento semanal
-                </span>
-                <span className="text-[11px] font-bold text-vip">{pctRendimientoSemanal}%</span>
-              </div>
-              <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface-2">
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${pctRendimientoSemanal}%`, background: "var(--color-vip)" }}
-                />
-              </div>
-            </div>
           </div>
-
-          <div className="min-w-0 border-l border-border p-2.5">
-            <Suspense fallback={<RankingCargando />}>
-              <RankingVip rankingPromesa={rankingPromesa} alumnoId={alumnoId} />
-            </Suspense>
-          </div>
+          <Suspense fallback={<div className="h-12 w-28 animate-pulse rounded-2xl bg-surface-2" />}>
+            <MiRango rankingPromesa={rankingPromesa} alumnoId={alumnoId} />
+          </Suspense>
         </div>
       </Card>
 
@@ -145,40 +99,35 @@ export default async function InicioPage() {
         constancia={constanciaSemana}
       />
 
-      <MensajeMotivacional frase={frase} />
+      <ImpulsoVipInicio
+        entrenamiento={entrenamiento}
+        constancia={constanciaSemana}
+        comidasRegistradas={alimentacion.comidasRegistradas}
+        comidasDisponibles={alimentacion.comidasDisponibles}
+      />
 
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="!py-8">
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="!p-4">
           <p className="text-caption text-text-tertiary">COMIDAS DE HOY</p>
-          <p className="text-h3 mt-1 text-text">
-            {alimentacion.comidasRegistradas} de {alimentacion.comidasDisponibles}
+          <p className="mt-1 text-[22px] font-bold text-text">
+            {alimentacion.comidasRegistradas}
+            <span className="text-[13px] font-normal text-text-tertiary"> / {alimentacion.comidasDisponibles}</span>
           </p>
-          <p className="text-secondary text-text-secondary">registradas</p>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-2">
+            <div
+              className="h-full rounded-full bg-vip"
+              style={{
+                width: `${alimentacion.comidasDisponibles > 0 ? Math.min(100, (alimentacion.comidasRegistradas / alimentacion.comidasDisponibles) * 100) : 0}%`,
+              }}
+            />
+          </div>
         </Card>
         <BalanceSesionesMes balance={balanceSesiones} />
       </div>
 
-      <div className={nota ? "radius-card mensaje-dia mensaje-dia-movimiento p-4" : "radius-card bg-surface p-4"}>
-        <div className="mb-1.5 flex items-center justify-between gap-2">
-          <p className="text-secondary font-semibold text-text">
-            {nota?.generadoConIA ? "Mensaje motivacional" : "Nota de tu entrenador"}
-          </p>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {nota?.generadoConIA && <Pill tone="vip">IA</Pill>}
-            {nota?.esNueva && <Pill tone="error">Nuevo</Pill>}
-          </div>
-        </div>
-        {nota ? (
-          <>
-            <p className="text-secondary text-text-secondary">&quot;{nota.texto}&quot;</p>
-            <p className="text-caption mt-1.5 text-text-tertiary">{nota.fecha_inicio}</p>
-          </>
-        ) : (
-          <p className="text-secondary text-text-secondary">
-            Tu entrenador todavía no ha dejado una nota para hoy.
-          </p>
-        )}
-      </div>
+      <Suspense fallback={<RankingCargando />}>
+        <RankingVip rankingPromesa={rankingPromesa} alumnoId={alumnoId} />
+      </Suspense>
 
       <AlimentacionHoyCuadro
         kcal={alimentacion.kcal}
@@ -215,9 +164,8 @@ export default async function InicioPage() {
   );
 }
 
-/** El emblema y los puntos del alumno, en la mitad izquierda de la tarjeta de
- * arriba. Espera al ranking dentro de su propio <Suspense> para no frenar el
- * nombre ni el objetivo, que ya están listos. */
+/** Rango acumulado compacto para la cabecera. La clasificación semanal vive
+ * más abajo, en la Arena VIP deslizable. */
 async function MiRango({
   rankingPromesa,
   alumnoId,
@@ -227,36 +175,28 @@ async function MiRango({
 }) {
   const ranking = await rankingPromesa;
   const propia = ranking.find((fila) => fila.alumnoId === alumnoId);
-  if (!propia) return <div className="mt-4 h-7" />;
+  if (!propia) return <div className="h-12 w-28" />;
   const progreso = progresoAlSiguiente(propia.puntosAcumulados);
 
   return (
-    <Link href="/alumno/ranked" className="mt-4 block min-w-0">
-      <span className="flex min-w-0 items-center gap-2">
-        <BadgeRango rango={propia.rango} size={28} brillo={false} eager />
-        <span className="min-w-0 truncate text-[13px] font-medium leading-none text-text-secondary">
-          {propia.rango.nombre}
-        </span>
-        <span className="ml-auto shrink-0 text-right leading-none">
-          <span className="text-[16px] font-bold tabular-nums text-vip">
+    <Link href="/alumno/ranked" className="block w-28 rounded-2xl border border-border bg-surface-2 px-2.5 py-2">
+      <span className="flex items-center gap-2">
+        <BadgeRango rango={propia.rango} size={30} brillo={false} eager />
+        <span className="min-w-0 leading-none">
+          <span className="block truncate text-[10px] font-medium text-text-secondary">{propia.rango.nombre}</span>
+          <span className="mt-1 block text-[14px] font-bold tabular-nums text-vip">
             {propia.puntosAcumulados.toLocaleString("es-CL")}
-          </span>
-          {/* Al lado, en la misma tarjeta, el Ranking VIP muestra la
-              clasificación SEMANAL (ver RankedVipCard) — sin aclarar "total"
-              acá, los dos números parecen no coincidir cuando en realidad son
-              dos métricas distintas a propósito. */}
-          <span className="block text-[8px] font-normal leading-none text-text-tertiary">
-            pts totales
+            <span className="ml-1 text-[7px] font-normal text-text-tertiary">pts</span>
           </span>
         </span>
       </span>
       {progreso && (
-        <span className="mt-2 block">
-          <span className="mb-1 flex items-center justify-between gap-1 text-[8px] leading-none text-text-tertiary">
-            <span>Próximo: {progreso.siguiente.nombre}</span>
+        <span className="mt-1.5 block">
+          <span className="mb-1 flex items-center justify-between gap-1 text-[7px] leading-none text-text-tertiary">
+            <span className="truncate">Próximo: {progreso.siguiente.nombre}</span>
             <span>{progreso.pct}%</span>
           </span>
-          <span className="block h-1.5 overflow-hidden rounded-full bg-surface-2">
+          <span className="block h-1 overflow-hidden rounded-full bg-bg">
             <span
               className="barra-progreso-relleno block h-full rounded-full bg-vip transition-[width] duration-500"
               style={{ width: `${progreso.pct}%` }}
@@ -272,6 +212,49 @@ async function MiRango({
   );
 }
 
+function ImpulsoVipInicio({
+  entrenamiento,
+  constancia,
+  comidasRegistradas,
+  comidasDisponibles,
+}: {
+  entrenamiento: Awaited<ReturnType<typeof obtenerEstadoEntrenamientoHoy>>;
+  constancia: ConstanciaSemana;
+  comidasRegistradas: number;
+  comidasDisponibles: number;
+}) {
+  let recomendacion = "Mantén tu constancia: cada acción de hoy fortalece tu progreso.";
+
+  if (entrenamiento.tipo === "sin_rutina") {
+    recomendacion = "Tu próxima rutina todavía no está asignada. Aprovecha hoy para completar tu nutrición.";
+  } else if (entrenamiento.tipo !== "completado") {
+    recomendacion = "Completa tu entrenamiento de hoy para mejorar tu constancia y seguir sumando en la Arena VIP.";
+  } else if (comidasDisponibles > 0 && comidasRegistradas < comidasDisponibles) {
+    recomendacion = "Entrenamiento completado. Tu mejor siguiente acción es registrar las comidas pendientes.";
+  } else {
+    recomendacion = "Día completado. Revisa tu progreso y prepárate para mantener la racha mañana.";
+  }
+
+  return (
+    <section className="impulso-inicio relative overflow-hidden rounded-[24px] border border-acento/30 p-4">
+      <div className="relative flex items-start gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-acento text-white shadow-[0_8px_24px_color-mix(in_srgb,var(--color-acento)_35%,transparent)]">
+          <Zap size={21} fill="currentColor" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex items-center gap-1.5 text-[12px] font-bold text-text">
+              IMPULSO VIP <Sparkles size={12} className="text-acento-fuerte" />
+            </p>
+            <span className="shrink-0 text-[10px] font-semibold text-acento-fuerte">{constancia.pct}% semanal</span>
+          </div>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-text-secondary">{recomendacion}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 async function RankingVip({
   rankingPromesa,
   alumnoId,
@@ -282,16 +265,13 @@ async function RankingVip({
   return <RankedVipCard filas={await rankingPromesa} alumnoId={alumnoId} />;
 }
 
-/** Esqueleto del ranking: mismo alto que la lista real (4 filas de 44px con
- * 4px de separación, más el encabezado) para que al llegar los datos no se
- * mueva nada de lo que hay alrededor. */
 function RankingCargando() {
   return (
-    <div className="flex h-full flex-col" aria-hidden>
-      <div className="mb-2 h-[22px]" />
-      <div className="space-y-1">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-11 animate-pulse rounded-md bg-surface-2" />
+    <div className="rounded-[26px] border border-border bg-surface p-4" aria-hidden>
+      <div className="h-11 w-44 animate-pulse rounded-2xl bg-surface-2" />
+      <div className="mt-4 flex gap-3 overflow-hidden">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-48 min-w-[168px] animate-pulse rounded-[22px] bg-surface-2" />
         ))}
       </div>
     </div>
