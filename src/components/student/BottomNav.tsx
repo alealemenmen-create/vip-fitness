@@ -24,7 +24,7 @@ export function BottomNav({ sesionEnProgresoId = null }: { sesionEnProgresoId?: 
   const pathname = usePathname();
 
   return (
-    <div className="flex items-stretch gap-1 bg-bg px-2 pb-1 pt-4">
+    <nav aria-label="Navegación principal" className="navegacion-aero flex items-stretch gap-1 px-2 pb-1 pt-3">
       {TABS.map((tab) => {
         const Icon = tab.icon;
         const href =
@@ -41,8 +41,8 @@ export function BottomNav({ sesionEnProgresoId = null }: { sesionEnProgresoId?: 
           <Link
             key={tab.href}
             href={href}
-            className={`radius-card flex flex-1 flex-col items-center gap-1 py-2.5 transition-colors duration-200 ease-in-out ${
-              active ? "bg-surface-2 text-vip" : "text-text-tertiary"
+            className={`item-navegacion-aero radius-card flex flex-1 flex-col items-center gap-1 py-2.5 transition-all duration-200 ease-in-out ${
+              active ? "item-navegacion-aero-activo text-vip" : "text-text-tertiary"
             }`}
           >
             <Icon
@@ -50,7 +50,7 @@ export function BottomNav({ sesionEnProgresoId = null }: { sesionEnProgresoId?: 
               strokeWidth={active ? 2.25 : 1.75}
               fill={active ? "currentColor" : "none"}
               fillOpacity={active ? 0.16 : 0}
-              className={active ? "scale-110 transition-transform duration-200" : ""}
+              className={`icono-navegacion-aero ${active ? "scale-110 transition-transform duration-200" : ""}`}
             />
             <span className={`text-caption ${active ? "font-semibold text-text" : ""}`}>
               {tab.label}
@@ -58,6 +58,6 @@ export function BottomNav({ sesionEnProgresoId = null }: { sesionEnProgresoId?: 
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }

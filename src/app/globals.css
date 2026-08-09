@@ -1995,6 +1995,7 @@ input[type="number"] {
 .tarjeta-entrenamiento-premium {
   border: 1px solid color-mix(in srgb, var(--color-vip) 28%, #292c33);
   background:
+    linear-gradient(90deg, transparent 36%, #000000 62%, #000000 100%),
     radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--color-vip) 10%, transparent), transparent 40%),
     linear-gradient(150deg, #15161a 0%, #0d0e11 100%);
   box-shadow:
@@ -2002,6 +2003,116 @@ input[type="number"] {
     0 18px 34px -24px rgba(0, 0, 0, 0.95),
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 rgba(0, 0, 0, 0.8);
+}
+
+/* La foto original del modelo conserva un rectángulo negro del estudio. Un
+   fundido corto en los cuatro bordes lo integra al degradado de la tarjeta sin
+   borrar barba, short ni sombras, que también son casi negras. */
+.foto-modelo-integrada {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.28) 28%, #000 52%, #000 92%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.28) 28%, #000 52%, #000 92%, transparent 100%);
+}
+.foto-modelo-integrada img {
+  mix-blend-mode: screen;
+}
+
+/* Marco Aero del alumno. El contenido pasa por debajo de la navegación fija y
+   se percibe como color y forma difuminados, nunca como texto legible. El halo
+   usa el acento activo, así Espejo, VIP y Lady comparten material sin perder
+   personalidad. */
+.panel-aero-superior,
+.panel-aero-inferior {
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, rgba(24, 25, 30, 0.72), rgba(8, 9, 12, 0.88)),
+    color-mix(in srgb, var(--color-vip) 4%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(145%);
+  backdrop-filter: blur(20px) saturate(145%);
+}
+.panel-aero-superior {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 14px 34px -26px color-mix(in srgb, var(--color-vip) 45%, transparent),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28);
+}
+.panel-aero-inferior {
+  border-top: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow:
+    0 -22px 42px -30px color-mix(in srgb, var(--color-vip) 58%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.navegacion-aero {
+  background: transparent;
+}
+.item-navegacion-aero {
+  position: relative;
+  border: 1px solid transparent;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.72);
+}
+.item-navegacion-aero-activo {
+  border-color: color-mix(in srgb, var(--color-vip) 28%, rgba(255, 255, 255, 0.12));
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--color-vip) 20%, transparent), transparent 68%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.035));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    0 10px 24px -18px color-mix(in srgb, var(--color-vip) 80%, transparent);
+}
+.icono-navegacion-aero {
+  filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.45));
+}
+.item-navegacion-aero-activo .icono-navegacion-aero {
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-vip) 48%, transparent));
+}
+.franja-regreso-entrenador {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(7, 8, 10, 0.22);
+}
+
+:root[data-theme="light"] .panel-aero-superior,
+:root[data-theme="light"] .panel-aero-inferior {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.73), rgba(241, 243, 247, 0.86)),
+    color-mix(in srgb, var(--color-vip) 3%, transparent);
+  border-color: rgba(45, 50, 60, 0.13);
+}
+:root[data-theme="light"] .panel-aero-superior {
+  box-shadow: 0 14px 34px -28px rgba(35, 40, 50, 0.48);
+}
+:root[data-theme="light"] .panel-aero-inferior {
+  box-shadow: 0 -18px 38px -30px rgba(35, 40, 50, 0.56);
+}
+:root[data-theme="light"] .item-navegacion-aero {
+  text-shadow: none;
+}
+:root[data-theme="light"] .item-navegacion-aero-activo {
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--color-vip) 15%, transparent), transparent 72%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(224, 227, 233, 0.56));
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    0 10px 24px -20px rgba(35, 40, 50, 0.62);
+}
+:root[data-theme="light"] .franja-regreso-entrenador {
+  border-color: rgba(45, 50, 60, 0.09);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .panel-aero-superior,
+  .panel-aero-inferior {
+    background: color-mix(in srgb, var(--color-bg) 94%, var(--color-vip));
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .panel-aero-superior,
+  .panel-aero-inferior {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--color-bg) 96%, var(--color-vip));
+  }
 }
 
 /* Inicio 2026: Impulso VIP reemplaza el mensaje genérico con la próxima

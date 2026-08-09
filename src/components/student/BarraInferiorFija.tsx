@@ -34,7 +34,7 @@ export function BarraInferiorFija({ children }: { children: React.ReactNode }) {
   return (
     <div
       ref={ref}
-      className="franja-segura-inferior fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-md bg-bg"
+      className="panel-aero-inferior franja-segura-inferior fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-md"
     >
       {children}
     </div>

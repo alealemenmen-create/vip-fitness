@@ -232,9 +232,8 @@ export function FotoDiaEntrenamiento({ grupos }: { grupos: GrupoMuscular[] }) {
 
   return (
     <>
-      <RayosLuz />
       <div
-        className="pointer-events-none absolute inset-y-0 right-6 flex items-center"
+        className="foto-modelo-integrada pointer-events-none absolute inset-y-0 right-6 flex items-center"
         style={{ width: anchoTotal }}
       >
         {fotosPrincipal.map((src) => (
@@ -243,6 +242,7 @@ export function FotoDiaEntrenamiento({ grupos }: { grupos: GrupoMuscular[] }) {
           </div>
         ))}
       </div>
+      <RayosLuz />
       {/* Degradado hacia la superficie de la tarjeta, para que el título y el
           subtítulo de la izquierda sigan leyéndose sobre la foto. */}
       <div

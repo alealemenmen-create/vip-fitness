@@ -111,7 +111,7 @@ export default async function AlumnoLayout({ children }: { children: React.React
           Esto replica la estabilidad de Nutrición en todas las pestañas:
           Safari ya no puede arrastrar el logo durante el rebote porque el
           único elemento que se desplaza es el contenido central de abajo. */}
-      <div className="imprimir-oculto z-30 mx-auto w-full max-w-md shrink-0 bg-bg px-4 pb-2 pt-1">
+      <div className="panel-aero-superior imprimir-oculto z-30 mx-auto w-full max-w-md shrink-0 px-4 pb-2 pt-1">
           <Logo
             compact
             corner={
@@ -139,7 +139,7 @@ export default async function AlumnoLayout({ children }: { children: React.React
           {contexto.rolSesion !== "alumno" && !contexto.soloLectura && (
             <Link
               href="/admin/alumnos"
-              className="block w-full bg-bg py-1 text-center text-[11px] text-text-tertiary"
+              className="franja-regreso-entrenador block w-full py-1 text-center text-[11px] text-text-tertiary"
             >
               Volver al panel de entrenador
             </Link>
