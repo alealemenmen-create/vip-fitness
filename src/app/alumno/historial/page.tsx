@@ -5,7 +5,7 @@ import { requireAlumno } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { BotonImprimir } from "@/components/student/BotonImprimir";
-import { formatFechaDiaSemana } from "@/lib/date";
+import { formatFechaDiaSemana, formatoDuracion } from "@/lib/date";
 import { obtenerHistorialCombinado, type DiaHistorial } from "./data";
 
 const ESTADO_COMIDA: Record<string, { texto: string; tone: "success" | "vip" | "neutral" }> = {
@@ -19,14 +19,6 @@ const ESTADO_SESION: Record<string, { texto: string; tone: "success" | "error" |
   finalizada_incompleta: { texto: "Entrenamiento incompleto", tone: "error" },
   abandonada: { texto: "Entrenamiento abandonado", tone: "neutral" },
 };
-
-function formatoDuracion(inicio: string | null, fin: string | null): string | null {
-  if (!inicio || !fin) return null;
-  const minutos = Math.round((new Date(fin).getTime() - new Date(inicio).getTime()) / 60000);
-  if (minutos <= 0) return null;
-  if (minutos < 60) return `${minutos} min`;
-  return `${Math.floor(minutos / 60)}h ${minutos % 60}min`;
-}
 
 function FilaDia({ dia }: { dia: DiaHistorial }) {
   const estadoComida = ESTADO_COMIDA[dia.comida.estado] ?? ESTADO_COMIDA.vacio;
