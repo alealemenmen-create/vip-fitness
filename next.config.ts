@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Cada despliegue publica IDs nuevos para las Server Actions. El SHA hace
+  // que Next detecte cuando un celular sigue abierto con el JavaScript del
+  // despliegue anterior y fuerce una navegación completa antes de mezclar
+  // ambas versiones. En local queda undefined y no cambia el desarrollo.
+  deploymentId: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.NEXT_DEPLOYMENT_ID,
   // Temporal (medición de rendimiento): permite compilar a una carpeta aparte
   // para no chocar con el servidor de desarrollo que tiene tomado .next.
   ...(process.env.VIP_DIST_DIR ? { distDir: process.env.VIP_DIST_DIR } : {}),

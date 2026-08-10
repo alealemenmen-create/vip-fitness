@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search, Copy, RefreshCcw } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
@@ -427,6 +427,8 @@ export function RutinaDraftEditor({
   const [publicando, setPublicando] = useState(false);
   const [planCodigo, setPlanCodigo] = useState<CodigoPlanEntrenamiento | "">("");
   const [error, setError] = useState<string | null>(null);
+  const [versionDesactualizada, setVersionDesactualizada] = useState(false);
+  const [respaldoCopiado, setRespaldoCopiado] = useState(false);
   const [publicado, setPublicado] = useState(false);
   const [fallidos, setFallidos] = useState<{ nombre: string; error: string }[]>([]);
   const [publicados, setPublicados] = useState(0);
@@ -624,6 +626,7 @@ export function RutinaDraftEditor({
     }
     setPublicando(true);
     setError(null);
+    setVersionDesactualizada(false);
 
     // El try/finally NO es decorativo. Antes, si la acción del servidor lanzaba
     // (error de red, función cortada por tiempo, fallo del servidor), la promesa
@@ -650,10 +653,14 @@ export function RutinaDraftEditor({
       }
       setPublicado(true);
     } catch (e) {
-      setError(
-        `No se pudo publicar: ${e instanceof Error ? e.message : "error inesperado"}. ` +
-          "La rutina sigue aquí, puedes intentar de nuevo."
-      );
+      const detalle = e instanceof Error ? e.message : "error inesperado";
+      const esVersionAnterior = /failed to find server action|was not found on the server/i.test(detalle);
+      if (esVersionAnterior) {
+        setVersionDesactualizada(true);
+        setError("VIP Fitness se actualizó mientras esta pantalla estaba abierta. La rutina sigue visible: guarda un respaldo y actualiza la aplicación para publicar con la versión nueva.");
+      } else {
+        setError(`No se pudo publicar: ${detalle}. La rutina sigue aquí, puedes intentar de nuevo.`);
+      }
     } finally {
       setPublicando(false);
     }
@@ -897,7 +904,32 @@ export function RutinaDraftEditor({
         )}
       </Card>
 
-      {error && <p className="text-caption text-error">{error}</p>}
+      {error && (
+        <div className="space-y-2">
+          <p className="text-caption text-error">{error}</p>
+          {versionDesactualizada && (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(previewTexto);
+                    setRespaldoCopiado(true);
+                  } catch {
+                    setError("No se pudo copiar automáticamente. Selecciona el texto de la vista previa antes de actualizar.");
+                  }
+                }}
+              >
+                <Copy size={14} /> {respaldoCopiado ? "Respaldo copiado" : "Copiar respaldo"}
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => window.location.reload()}>
+                <RefreshCcw size={14} /> Actualizar aplicación
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-2">
         <Button onClick={publicar} loading={publicando} className="flex-1">
