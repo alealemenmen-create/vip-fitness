@@ -6,6 +6,7 @@ import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import { serializarRutinaATexto } from "@/lib/generador-rutinas/serializar";
 import { describirInventario } from "@/lib/gimnasio/inventario";
 import { METODO_VIP_PARA_AUDITORIA } from "@/lib/generador-rutinas/metodo-vip";
+import { detectarDeficienciasRutina } from "@/lib/rutinas/validacion";
 import type {
   BriefGenerador,
   EjercicioGenerador,
@@ -44,7 +45,7 @@ const CambioSchema = z.object({
 });
 
 const HallazgoSchema = z.object({
-  categoria: z.enum(["seguridad", "objetivo", "volumen", "variedad", "tecnica", "otro"]),
+  categoria: z.enum(["seguridad", "objetivo", "estructura", "cobertura", "redundancia", "orden", "volumen", "variedad", "tecnica", "otro"]),
   gravedad: z.enum(["alta", "media", "baja"]),
   detalle: z.string(),
 });
@@ -52,6 +53,11 @@ const HallazgoSchema = z.object({
 const RevisionSchema = z.object({
   veredicto: z.enum(["aprobada", "ajustes_sugeridos", "revisar_con_cuidado"]),
   resumen: z.string(),
+  auditoria: z.object({
+    diasRevisados: z.number(),
+    ejerciciosRevisados: z.number(),
+    capasCompletadas: z.array(z.enum(["perfil", "estructura", "cobertura", "redundancia", "orden", "volumen", "tecnicas", "seguridad"])),
+  }),
   hallazgos: z.array(HallazgoSchema),
   cambios: z.array(CambioSchema),
 });
@@ -85,15 +91,23 @@ No aplicas un criterio genérico de internet. Auditas con este método concreto:
 
 ${METODO_VIP_PARA_AUDITORIA}
 
-Tu trabajo es detectar lo que un sistema automático no puede ver: el cruce entre los ejercicios concretos de la semana y lo que la persona escribió en su ficha con sus propias palabras (molestias, lesiones, operaciones, condiciones médicas, medicamentos, ejercicios que no quiere hacer).
+Tu trabajo es realizar una auditoría total de la rutina y luego cruzarla con lo que la persona escribió en su ficha. No eres un corrector superficial ni buscas uno o dos detalles: revisas todos los días y todos los ejercicios antes de emitir el veredicto.
 
 Cómo trabajas:
 - Priorizas la seguridad de la persona por sobre la prolijidad del programa. Una molestia de rodilla y una sentadilla profunda en la misma semana es un hallazgo, aunque el resto de la rutina esté impecable.
 - Eres concreto: en vez de "cuidado con el hombro", dices qué ejercicio del día 2 es el problema y por cuál conviene cambiarlo.
 - No diagnosticas ni recomiendas tratamientos, medicamentos, dosis ni sustancias. Si algo excede lo que se resuelve ajustando ejercicios (dolor agudo, operación reciente sin alta, síntomas cardíacos), lo marcas con gravedad alta y dices que corresponde derivar a un profesional de la salud antes de entrenar eso.
-- Si la rutina está bien, lo dices sin inventar problemas. Un veredicto "aprobada" con cambios vacíos es una respuesta correcta y esperada.
-- Revisa la semana completa antes de mirar cambios aislados: frecuencia por grupo,
-  balance bíceps/tríceps, volumen directo, orden, recuperación y dosis de técnicas.
+- Si la rutina está bien después de completar toda la auditoría, lo dices sin inventar problemas. "Aprobada" solo corresponde si no queda ningún hallazgo alto o medio.
+- Auditas obligatoriamente estas ocho capas, en este orden:
+  1. PERFIL: objetivo, nivel, edad, tiempo, preferencias, molestias, lesiones y restricciones.
+  2. ESTRUCTURA: coherencia del split, frecuencia y función real de cada sesión.
+  3. COBERTURA: patrones por músculo. Pecho necesita base de press antes de aperturas/cruces; espalda combina tracción vertical y remo horizontal antes de lumbares/trapecio; hombro cubre press, lateral y posterior; pierna cubre base dominante de rodilla y cadena posterior según el enfoque; brazos no repiten el mismo ángulo con nombres distintos.
+  4. REDUNDANCIA: detecta sinónimos, traducciones y variantes biomecánicamente equivalentes. "Sobre la cabeza" y "overhead" son el mismo patrón; dos jalones que solo cambian agarre no sustituyen un remo.
+  5. ORDEN: base multiarticular y tensión mecánica antes del complemento y el aislamiento, salvo una activación explícita y justificada.
+  6. VOLUMEN: series directas, cantidad de ejercicios, frecuencia semanal, recuperación y duración realista.
+  7. TÉCNICAS: biseries, superseries, drop sets, FST-7 y fallo deben tener sentido, combinar estímulos compatibles y respetar la fatiga.
+  8. SEGURIDAD: cruza cada ejercicio con lesiones, molestias, operaciones y condiciones médicas.
+- En "auditoria" informas el número exacto de días y ejercicios revisados y marcas las ocho capas. No puedes decir que terminaste si falta una.
 - No elimines intensidad solo por prudencia genérica. Si el perfil es avanzado y
   la ejecución es estable, la exigencia y cercanía al fallo son parte del método.
 - Escribes en español de Chile, tuteando, directo y breve. Sin relleno ni disclaimers largos.
@@ -111,7 +125,10 @@ Reglas duras para los cambios que propones:
 - El reemplazo debe trabajar el mismo grupo muscular que el ejercicio que sale, salvo que expliques por qué no.
 - "dia" y "orden" tienen que coincidir con los números que ves en la rutina.
 - Los campos que no cambias van en null. Si solo bajas las series, mandas series con el número nuevo y el resto en null.
-- Propones pocos cambios y buenos. Cinco cambios bien fundados valen más que quince cosméticos.`;
+- Cada hallazgo de gravedad alta o media debe quedar resuelto por uno o más cambios concretos, salvo que requiera una decisión clínica o que el catálogo no tenga ninguna alternativa; en esos casos lo explicas expresamente en el hallazgo.
+- No hay un máximo artificial de cambios. Si encuentras ocho errores reales, propones los ocho cambios necesarios. No reduzcas la corrección a cinco ni cambies solo el primer ejemplo de un problema repetido.
+- No hagas cambios cosméticos para inflar la lista: cada cambio debe resolver un hallazgo concreto.
+- El resumen indica qué auditaste, cuántos problemas importantes encontraste y si quedó alguno sin solución aplicable.`;
 
 function describirPerfil(perfil: PerfilEntrenamiento): string {
   const l = (etiqueta: string, valor: string | number | null | undefined) =>
@@ -192,6 +209,7 @@ export async function revisarRutinaGenerada(params: {
 
   const { rutina, perfil, brief, biblioteca, reglasAplicadas } = params;
   const client = new Anthropic({ apiKey });
+  const barrerasDeterministas = detectarDeficienciasRutina(rutina.dias);
 
   const mensaje = `FICHA DEL ALUMNO (la llenó él mismo desde su cuenta)
 ${describirPerfil(perfil) || "- Sin datos registrados."}
@@ -201,6 +219,10 @@ ${describirBrief(brief)}
 
 REGLAS QUE YA APLICÓ EL MOTOR
 ${reglasAplicadas.map((r) => `- ${r}`).join("\n") || "- Sin reglas registradas."}
+
+BARRERAS DETERMINISTAS DETECTADAS
+Estas no reemplazan tu auditoría. Debes comprobarlas, explicar su causa y corregir cada una que corresponda.
+${barrerasDeterministas.map((r) => `- ${r}`).join("\n") || "- Ninguna; igualmente debes completar las ocho capas."}
 
 RUTINA GENERADA (el número al inicio de cada línea es el "orden" dentro del día)
 ${serializarRutinaATexto(rutina)}
@@ -264,5 +286,28 @@ export function resolverRevision(
     };
   });
 
-  return { ...revision, cambios, revisadaEn: new Date().toISOString() };
+  const capasEsperadas = ["perfil", "estructura", "cobertura", "redundancia", "orden", "volumen", "tecnicas", "seguridad"] as const;
+  const diasReales = rutina.dias.length;
+  const ejerciciosReales = rutina.dias.reduce((total, dia) => total + dia.ejercicios.length, 0);
+  const capasFaltantes = capasEsperadas.filter((capa) => !revision.auditoria.capasCompletadas.includes(capa));
+  const auditoriaIncompleta = revision.auditoria.diasRevisados !== diasReales
+    || revision.auditoria.ejerciciosRevisados !== ejerciciosReales
+    || capasFaltantes.length > 0;
+  const hallazgos = [...revision.hallazgos];
+  if (auditoriaIncompleta) {
+    hallazgos.unshift({
+      categoria: "estructura",
+      gravedad: "alta",
+      detalle: `La revisión quedó incompleta: debía revisar ${diasReales} días, ${ejerciciosReales} ejercicios y las 8 capas del Método VIP. Vuelve a analizar antes de aprobar.`,
+    });
+  }
+  const hayAlta = hallazgos.some((h) => h.gravedad === "alta");
+  const hayMedia = hallazgos.some((h) => h.gravedad === "media");
+  const veredicto = hayAlta
+    ? "revisar_con_cuidado" as const
+    : hayMedia
+      ? "ajustes_sugeridos" as const
+      : revision.veredicto;
+
+  return { ...revision, veredicto, hallazgos, cambios, revisadaEn: new Date().toISOString() };
 }

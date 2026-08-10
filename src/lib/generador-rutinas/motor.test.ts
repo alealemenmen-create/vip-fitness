@@ -62,6 +62,56 @@ const base = (id: string, grupoMuscular: EjercicioGenerador["grupoMuscular"], ca
 const biblioteca = [base("pecho", "pecho", "empuje"), base("espalda", "espalda", "traccion"), base("pierna", "piernas", "pierna"), base("salto", "cardio", "cardio", { requiereSalto: true }), base("bici", "cardio", "cardio")];
 
 describe("generarRutinaPorReglas", () => {
+  it("impide el borrador incoherente reportado: pecho sin press, espalda sin remo y patrones traducidos repetidos", () => {
+    const e = (id: string, nombre: string, grupoMuscular: EjercicioGenerador["grupoMuscular"], categoria: EjercicioGenerador["categoria"], posicionSesion: EjercicioGenerador["posicionSesion"] = "principal") =>
+      base(id, grupoMuscular, categoria, { nombre, posicionSesion });
+    const bibliotecaRealista = [
+      e("fly-plano", "Aperturas con mancuernas", "pecho", "aislamiento"),
+      e("fly-inclinado", "Aperturas con mancuernas inclinado", "pecho", "aislamiento"),
+      e("fly-polea", "Aperturas en polea", "pecho", "aislamiento"),
+      e("press-maquina", "Press de pecho en máquina", "pecho", "empuje", "accesorio"),
+      e("press-inclinado", "Press inclinado con mancuernas", "pecho", "empuje", "accesorio"),
+      e("buenos-dias", "Buenos días", "espalda", "traccion"),
+      e("dominadas", "Dominadas", "espalda", "traccion"),
+      e("shrugs", "Encogimiento de hombros", "espalda", "traccion"),
+      e("jalon-neutro", "Jalón al pecho agarre neutro", "espalda", "traccion"),
+      e("jalon-cerrado", "Jalón al pecho agarre cerrado", "espalda", "traccion"),
+      e("remo-polea", "Remo en polea baja", "espalda", "traccion", "accesorio"),
+      e("pullover", "Pullover en polea alta", "espalda", "traccion", "accesorio"),
+      e("triceps-abajo", "Extensión de tríceps en polea", "brazos", "aislamiento"),
+      e("triceps-cabeza", "Extensión de tríceps sobre la cabeza", "brazos", "aislamiento"),
+      e("triceps-overhead", "Extensión de tríceps overhead con cuerda", "brazos", "aislamiento"),
+      e("fondos", "Fondos en paralelas", "brazos", "empuje"),
+      e("curl-barra", "Curl de bíceps con barra", "brazos", "aislamiento"),
+      e("curl-martillo", "Curl martillo", "brazos", "aislamiento"),
+      e("curl-inclinado", "Curl inclinado", "brazos", "aislamiento"),
+      e("aductor", "Aductor en máquina", "piernas", "aislamiento"),
+      e("belt", "Belt squat", "piernas", "pierna", "accesorio"),
+      e("rumano", "Peso muerto rumano", "piernas", "pierna", "accesorio"),
+      e("press-hombro", "Press de hombros", "hombros", "empuje", "accesorio"),
+      e("lateral", "Elevación lateral", "hombros", "aislamiento"),
+      e("face", "Face pull", "hombros", "aislamiento"),
+      e("pajaro", "Pájaro con mancuernas", "hombros", "aislamiento"),
+    ];
+    const r = generarRutinaPorReglas(
+      { ...perfil, experiencia: "avanzado" },
+      { ...brief, dias: 5, distribucion: "vip_balanceada", ejerciciosPorSesion: 8, cardio: "ninguno", intensidadDeseada: "alta" },
+      bibliotecaRealista
+    );
+
+    const dia1 = r.dias[0].ejercicios;
+    expect(dia1.filter((x) => x.grupoMuscular === "pecho").map((x) => x.nombre)).toEqual(expect.arrayContaining(["Press de pecho en máquina", "Press inclinado con mancuernas"]));
+    const dia2Espalda = r.dias[1].ejercicios.filter((x) => x.grupoMuscular === "espalda").map((x) => x.nombre);
+    expect(dia2Espalda.some((n) => /Dominadas|Jalón/.test(n))).toBe(true);
+    expect(dia2Espalda.some((n) => /Remo/.test(n))).toBe(true);
+    const dia2Triceps = r.dias[1].ejercicios.filter((x) => x.grupoMuscular === "brazos").map((x) => x.nombre);
+    expect(dia2Triceps.filter((n) => /sobre la cabeza|overhead/i.test(n))).toHaveLength(1);
+    const piernasDia3 = r.dias[2].ejercicios.filter((x) => x.grupoMuscular === "piernas");
+    expect(piernasDia3[0].nombre).not.toBe("Aductor en máquina");
+    const dia4Pecho = r.dias[3].ejercicios.filter((x) => x.grupoMuscular === "pecho").map((x) => x.nombre);
+    expect(dia4Pecho.some((n) => /Press/.test(n))).toBe(true);
+  });
+
   it("incorpora activación e indicaciones técnicas como las rutinas reales de Alejandro", () => {
     const r = generarRutinaPorReglas(perfil, { ...brief, cardio: "ninguno" }, biblioteca);
     expect(r.dias.every((dia) => dia.descripcion?.startsWith("Activación:"))).toBe(true);
@@ -717,14 +767,19 @@ describe("reparto de técnicas en la semana", () => {
     const tecnicaFst: TecnicaEntrenamiento[] = [
       { id: "fst", nombre: "FST-7", slug: "fst-7", tipo: "individual", cantidadEjercicios: null, nivelMinimo: "avanzado", fatiga: "alta", requiereSupervision: true, descansoInternoSeg: 30, descansoFinalSeg: 90, maximoPorSesion: 1 },
     ];
+    const bibliotecaFst = [
+      base("press-banca", "pecho", "empuje", { nombre: "Press de banca", posicionSesion: "principal" }),
+      base("press-inclinado", "pecho", "empuje", { nombre: "Press inclinado", posicionSesion: "accesorio" }),
+      base("aperturas", "pecho", "aislamiento", { nombre: "Aperturas en polea", posicionSesion: "accesorio" }),
+    ];
     const r = generarRutinaPorReglas(
       { ...perfil, experiencia: "avanzado" },
       { ...briefSemana, dias: 1, diaGrupos: [["pecho"]], ejerciciosPorSesion: 3, intensidadDeseada: "competitiva" },
-      bibliotecaPecho,
+      bibliotecaFst,
       tecnicaFst
     );
     const aplicado = r.dias[0].ejercicios.find((e) => e.tecnicaTipo === "FST-7");
-    expect(aplicado).toMatchObject({ series: 7, reps: "10-15" });
+    expect(aplicado).toMatchObject({ nombre: "Aperturas en polea", series: 7, reps: "10-15" });
     expect(aplicado?.tecnicaInstruccion).toContain("7 series");
   });
 

@@ -16,6 +16,13 @@ import type {
   TecnicaEntrenamiento,
 } from "./tipos";
 import type { NivelEjercicio } from "@/lib/ejercicios/tipos";
+import {
+  esBaseEstructural,
+  esPressPecho,
+  patronMovimiento,
+  prioridadEstructural,
+  type PatronMovimiento,
+} from "@/lib/rutinas/patrones";
 import { validarSemanaVip } from "./validador-semanal";
 
 /** Heurística por nombre — no hay un campo estructurado en `ejercicios` que
@@ -368,17 +375,19 @@ function prescripcion(
  * escribir en sus entregas, en vez de dejar una fila muda. */
 export function indicacionTecnica(nombre: string, grupo: EjercicioGenerador["grupoMuscular"]): string {
   const n = normalizarNombre(nombre);
-  if (/sentadilla|squat|prensa|hack|belt/.test(n)) return "Controla la bajada, mantén las rodillas alineadas y empuja con todo el pie.";
-  if (/hip thrust|puente|patada|abdu|multi hip/.test(n)) return "Mantén la pelvis estable y aprieta el glúteo arriba sin arquear la zona lumbar.";
-  if (/peso muerto|rumano|buenos dias/.test(n)) return "Lleva la cadera atrás, conserva la columna neutra y controla la fase excéntrica.";
-  if (/femoral/.test(n)) return "Fija la cadera al apoyo y controla especialmente el regreso del peso.";
+  if (grupo === "piernas" && /sentadilla|squat|prensa|hack|belt/.test(n)) return "Controla la bajada, mantén las rodillas alineadas y empuja con todo el pie.";
+  if (grupo === "piernas" && /extension.*cuadriceps/.test(n)) return "Mantén la cadera apoyada, extiende sin impulso y controla la bajada.";
+  if (grupo === "piernas" && /hip thrust|puente|frog|patada|abdu|multi hip/.test(n)) return "Mantén la pelvis estable y aprieta el glúteo arriba sin arquear la zona lumbar.";
+  if (grupo === "piernas" && /peso muerto|rumano|buenos dias/.test(n)) return "Lleva la cadera atrás, conserva la columna neutra y controla la fase excéntrica.";
+  if (grupo === "piernas" && /femoral/.test(n)) return "Fija la cadera al apoyo y controla especialmente el regreso del peso.";
   if (/jalon|dominada|pull.?up/.test(n)) return "Lleva los codos hacia las costillas y evita balancear el torso.";
   if (/remo/.test(n)) return "Mantén el tronco estable y termina juntando las escápulas sin tirones.";
+  if (grupo === "espalda" && /pullover/.test(n)) return "Mantén los codos semiflexionados y lleva el movimiento con los dorsales, sin convertirlo en un tríceps.";
   if (/elevacion.*lateral|pajaro|reverse pec|face pull/.test(n)) return "Trabaja sin impulso y controla la bajada para mantener tensión en el hombro.";
-  if (/press.*hombro|press militar|shoulder press/.test(n)) return "Aprieta el abdomen, mantén los codos estables y controla la bajada.";
+  if (/press.*hombro|press militar|shoulder press|press arnold/.test(n)) return "Aprieta el abdomen, mantén los codos estables y controla la bajada.";
   if (/press|apertura|cruce|fondos/.test(n) && grupo === "pecho") return "Fija las escápulas, controla el descenso y evita rebotar al empujar.";
-  if (/curl|predicador|martillo/.test(n)) return "Mantén los codos fijos y evita balancear el tronco.";
-  if (/triceps|extension|press frances|pushdown/.test(n)) return "Mantén los codos fijos y completa la extensión sin mover los hombros.";
+  if (grupo === "brazos" && /curl|predicador|martillo/.test(n)) return "Mantén los codos fijos y evita balancear el tronco.";
+  if (grupo === "brazos" && /triceps|extension|press frances|press cerrado|fondos|pushdown|patada/.test(n)) return "Mantén los codos fijos y completa la extensión sin mover los hombros.";
   if (grupo === "core") return "Mantén el abdomen activo y evita compensar con la zona lumbar.";
   return "Usa un recorrido controlado, técnica limpia y sin rebotes.";
 }
@@ -391,10 +400,94 @@ function activacionDelDia(cupos: CupoDia[], perfil: PerfilEntrenamiento): string
     ? "Activación: 5-8 min de bicicleta y movilidad general; completa 1-2 series livianas del primer movimiento."
     : piernas
       ? "Activación: 5-8 min de bicicleta, movilidad de cadera/tobillo y trabajo suave de glúteos con banda."
-      : "Activación: 5 min de bicicleta o remo, movilidad escapular y 1-2 series livianas del primer movimiento.";
+      : "Activación: 5 min de bicicleta, movilidad escapular y 1-2 series livianas del primer movimiento.";
   return perfil.requiereRevision
     ? `${base} Todo debe realizarse sin dolor y respetando las restricciones confirmadas por el entrenador.`
     : base;
+}
+
+/**
+ * Elige un bloque con arquitectura muscular, no solo por puntaje.
+ *
+ * La puntuación decide cuál press o cuál remo conviene para esta persona. Esta
+ * función decide primero QUÉ patrones necesita el músculo. Así una preferencia
+ * por amplitud puede escoger la mejor apertura, pero jamás llenar todo pecho
+ * con tres aperturas ni llamar "espalda completa" a buenos días + dominadas +
+ * encogimientos.
+ */
+function seleccionarDiversos(
+  listaOrdenada: EjercicioGenerador[],
+  cantidad: number,
+  cupo: CupoDia,
+  brief: BriefGenerador
+): EjercicioGenerador[] {
+  if (cantidad <= 0) return [];
+  const elegidos: EjercicioGenerador[] = [];
+  const agregar = (predicado: (e: EjercicioGenerador, patron: PatronMovimiento) => boolean) => {
+    if (elegidos.length >= cantidad) return;
+    const ejercicio = listaOrdenada.find(
+      (e) => !elegidos.some((x) => x.id === e.id) && predicado(e, patronMovimiento(e.nombre, e.grupoMuscular))
+    );
+    if (ejercicio) elegidos.push(ejercicio);
+  };
+
+  // Lo que el entrenador marcó obligatorio conserva prioridad, incluso si
+  // rompe la combinación ideal. La validación posterior deja visible la
+  // redundancia para que Alejandro decida conscientemente.
+  for (const ejercicio of listaOrdenada.filter((e) => brief.obligatorios.includes(e.id))) {
+    if (elegidos.length >= cantidad) break;
+    elegidos.push(ejercicio);
+  }
+
+  if (cupo.grupo === "pecho") {
+    // Para un avanzado, flexiones/fondos pueden complementar, pero la primera
+    // base debe ser un press cargable de máquina, barra o mancuernas.
+    agregar((e, p) => esPressPecho(p) && /press|bench/.test(normalizarNombre(e.nombre)));
+    agregar((_e, p) => esPressPecho(p));
+    if (cantidad >= 2) agregar((_e, p) => p === "pecho_aislamiento");
+  } else if (cupo.grupo === "espalda") {
+    agregar((_e, p) => p === "espalda_traccion_vertical");
+    agregar((_e, p) => p === "espalda_remo_horizontal");
+    if (cantidad >= 3) agregar((_e, p) => p === "espalda_pullover");
+  } else if (cupo.grupo === "hombros") {
+    agregar((_e, p) => p === "hombro_press_vertical");
+    if (cantidad >= 2) agregar((_e, p) => p === "hombro_lateral");
+    if (cantidad >= 3) agregar((_e, p) => p === "hombro_posterior");
+  } else if (cupo.grupo === "piernas") {
+    if (cupo.subGrupoPierna === "cuadriceps") {
+      agregar((_e, p) => p === "pierna_dominante_rodilla");
+      if (cantidad >= 2) agregar((_e, p) => p === "pierna_dominante_rodilla");
+      if (cantidad >= 3) agregar((_e, p) => p === "pierna_extension_rodilla");
+    } else if (cupo.subGrupoPierna === "femoral") {
+      agregar((_e, p) => p === "pierna_bisagra_cadera");
+      agregar((_e, p) => p === "pierna_flexion_rodilla");
+    } else if (cupo.subGrupoPierna === "gluteo") {
+      agregar((_e, p) => p === "pierna_empuje_cadera");
+      agregar((_e, p) => p === "pierna_bisagra_cadera" || p === "pierna_dominante_rodilla");
+      if (cantidad >= 3) agregar((_e, p) => p === "pierna_abduccion");
+    } else {
+      agregar((_e, p) => p === "pierna_dominante_rodilla");
+      agregar((_e, p) => p === "pierna_bisagra_cadera" || p === "pierna_empuje_cadera" || p === "pierna_flexion_rodilla");
+    }
+  }
+
+  // Para brazos, o cuando falte completar cualquier bloque, preferimos un
+  // patrón todavía no usado. Después se completa por calidad estructural y
+  // finalmente por el puntaje personalizado que ya trae la lista.
+  const patronesUsados = () => new Set(elegidos.map((e) => patronMovimiento(e.nombre, e.grupoMuscular)));
+  const restantes = () => listaOrdenada
+    .map((ejercicio, indice) => ({ ejercicio, indice, patron: patronMovimiento(ejercicio.nombre, ejercicio.grupoMuscular) }))
+    .filter(({ ejercicio }) => !elegidos.some((e) => e.id === ejercicio.id))
+    .sort((a, b) => prioridadEstructural(a.patron) - prioridadEstructural(b.patron) || a.indice - b.indice);
+
+  while (elegidos.length < cantidad) {
+    const usados = patronesUsados();
+    const opciones = restantes();
+    const siguiente = opciones.find((o) => !usados.has(o.patron)) ?? opciones[0];
+    if (!siguiente) break;
+    elegidos.push(siguiente.ejercicio);
+  }
+  return elegidos;
 }
 
 /** Llena `cantidad` cupos repartidos entre `cupos`, garantizando que cada
@@ -439,7 +532,7 @@ function elegirPorCupos(
     const cantidadCupo = cupoAsignado[i];
     const cupo = cupos[i];
     if (cupo.grupo !== "brazos" || cupo.subGrupoBrazo || cantidadCupo < 2) {
-      elegidos.push(...lista.slice(0, cantidadCupo));
+      elegidos.push(...seleccionarDiversos(lista, cantidadCupo, cupo, brief));
       return;
     }
 
@@ -449,8 +542,8 @@ function elegirPorCupos(
     const biceps = lista.filter((e) => subGrupoBrazo(e.nombre) === "biceps");
     const triceps = lista.filter((e) => subGrupoBrazo(e.nombre) === "triceps");
     const seleccionados: EjercicioGenerador[] = [
-      ...biceps.slice(0, Math.floor(cantidadCupo / 2)),
-      ...triceps.slice(0, Math.floor(cantidadCupo / 2)),
+      ...seleccionarDiversos(biceps, Math.floor(cantidadCupo / 2), { ...cupo, subGrupoBrazo: "biceps" }, brief),
+      ...seleccionarDiversos(triceps, Math.floor(cantidadCupo / 2), { ...cupo, subGrupoBrazo: "triceps" }, brief),
     ];
     for (const ejercicio of lista) {
       if (seleccionados.length >= cantidadCupo) break;
@@ -595,26 +688,48 @@ function aplicarTecnicasDelDia(
       .filter((t) => competitiva || t.fatiga !== "alta")
       .find((t) => (t.cantidadEjercicios ?? 2) <= accesorios.length);
     if (tecnica) {
-      registrar(tecnica);
-      const bloque = accesorios.slice(-(tecnica.cantidadEjercicios ?? 2));
-      bloque.forEach((ejercicio, indice) => {
-        const siguiente = bloque[indice + 1];
-        ejercicio.tecnicaTipo = tecnica.nombre;
-        ejercicio.tecnicaInstruccion = siguiente
-          ? `Enlaza sin descanso con "${siguiente.nombre}".`
-          : `Cierra la ${tecnica.nombre.toLowerCase()} y descansa antes de repetir el bloque.`;
-        ejercicio.descansoSegundos = siguiente ? tecnica.descansoInternoSeg : tecnica.descansoFinalSeg;
-      });
+      const cantidadBloque = tecnica.cantidadEjercicios ?? 2;
+      let bloque: EjercicioBorrador[] | null = null;
+      // Una técnica encadenada debe combinar estímulos complementarios. No
+      // unimos dos traducciones del mismo ejercicio (p. ej. dos extensiones
+      // overhead) ni dos variantes idénticas solo porque quedaron al final.
+      for (let inicio = accesorios.length - cantidadBloque; inicio >= 0; inicio--) {
+        const candidato = accesorios.slice(inicio, inicio + cantidadBloque);
+        const familias = new Set(candidato.map((e) => {
+          const patron = patronMovimiento(e.nombre, e.grupoMuscular);
+          // Los ejercicios viejos o de prueba sin nombre clasificable no se
+          // consideran duplicados entre sí solo por caer en "otro".
+          return `${e.grupoMuscular}:${patron === "otro" ? e.ejercicioId : patron}`;
+        }));
+        if (familias.size === candidato.length) {
+          bloque = candidato;
+          break;
+        }
+      }
+      if (bloque) {
+        registrar(tecnica);
+        bloque.forEach((ejercicio, indice) => {
+          const siguiente = bloque?.[indice + 1];
+          ejercicio.tecnicaTipo = tecnica.nombre;
+          ejercicio.tecnicaInstruccion = siguiente
+            ? `Enlaza sin descanso con "${siguiente.nombre}".`
+            : `Cierra la ${tecnica.nombre.toLowerCase()} y descansa antes de repetir el bloque.`;
+          ejercicio.descansoSegundos = siguiente ? tecnica.descansoInternoSeg : tecnica.descansoFinalSeg;
+        });
+      }
     }
   }
 
   // En intensidad alta/competitiva, un avanzado puede recibir una segunda
   // familia individual sobre otro accesorio. En estándar, una biserie ya
   // consume toda la dosis del día. Nunca se usa el compuesto principal.
-  const ultimo = [...accesorios].reverse().find((e) => !e.tecnicaTipo);
-  if (ultimo && familiasAplicadas < maximoFamilias) {
+  if (familiasAplicadas < maximoFamilias) {
     const tecnica = disponibles("individual")[0];
-    if (tecnica) {
+    const candidatosIndividuales = [...accesorios].reverse().filter((e) => !e.tecnicaTipo);
+    const ultimo = tecnica?.slug === "fst-7"
+      ? candidatosIndividuales.find((e) => !esBaseEstructural(patronMovimiento(e.nombre, e.grupoMuscular)))
+      : candidatosIndividuales[0];
+    if (tecnica && ultimo) {
       registrar(tecnica);
       ultimo.tecnicaTipo = tecnica.nombre;
       // Siempre queda claro EN QUÉ SERIE va la técnica: el entrenador lee la
@@ -921,7 +1036,8 @@ export function generarRutinaPorReglas(
       if (brief.grupoPrioritario && e.grupoMuscular === brief.grupoPrioritario) return -1000;
       const tamano = e.grupoMuscular === "cardio" ? 0 : (TAMANO_GRUPO[e.grupoMuscular] ?? 0);
       const posicion = ORDEN_POSICION[e.posicionSesion ?? "accesorio"] ?? 2;
-      return (5 - tamano) * 10 + posicion;
+      const estructura = prioridadEstructural(patronMovimiento(e.nombre, e.grupoMuscular));
+      return (5 - tamano) * 20 + estructura * 4 + posicion;
     };
     const ordenados = [...elegidos].sort((a, b) => rangoOrden(a) - rangoOrden(b));
 

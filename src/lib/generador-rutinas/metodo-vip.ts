@@ -10,6 +10,23 @@ MÉTODO VIP — CRITERIO DE ALEJANDRO MENDOZA
 - Se busca frecuencia doble cuando días, experiencia y recuperación lo permiten;
   no es obligatoria cuando el alumno o la especialización justifican frecuencia simple.
 - Un músculo puede entrenarse solo si hay prioridad de fuerza, volumen o especialización.
+- La sesión se construye por función, no por nombres: base de tensión mecánica,
+  patrón complementario, aislamiento y técnica/remate. El aislamiento nunca
+  sustituye la base salvo una decisión explícita de rehabilitación o especialización.
+- Pecho: debe existir al menos un press cargable. En un bloque normal de tres
+  ejercicios se favorecen dos empujes de ángulo distinto y un aislamiento;
+  tres aperturas o cruces no constituyen un entrenamiento completo de pecho.
+- Espalda: primero se cubren amplitud (jalón/dominada) y densidad (remo). Buenos
+  días, hiperextensiones y encogimientos son accesorios de cadena posterior o
+  trapecio, no reemplazan un remo ni completan por sí solos la espalda.
+- Hombros: un bloque completo de tres ejercicios cubre press vertical,
+  deltoide lateral y deltoide posterior antes de repetir variantes.
+- Piernas: el enfoque decide el protagonismo, pero el orden parte de una base
+  dominante de rodilla o cadera; aductores, abductores, extensiones y otros
+  aislamientos se usan después, salvo que estén escritos como activación.
+- Bíceps y tríceps pueden llevar varios ejercicios, pero deben cambiar de verdad
+  el ángulo o la función. Una traducción distinta (overhead/sobre la cabeza) o
+  un cambio mínimo de agarre no crea un patrón nuevo.
 - Full body, push/pull/legs, upper/lower y culturismo clásico siguen disponibles,
   pero upper/lower no es la preferencia automática de Alejandro.
 - Un bloque de brazos debe cubrir bíceps y tríceps. Con cuatro ejercicios o

@@ -1,3 +1,5 @@
+import { esPressPecho, patronMovimiento, type PatronMovimiento } from "./patrones";
+
 export type EjercicioAuditable = {
   nombre: string;
   series: number;
@@ -37,9 +39,22 @@ export function detectarDeficienciasRutina(dias: DiaAuditable[]): string[] {
     if (dia.ejercicios.length > 10) {
       errores.push(`El día "${dia.nombre}" tiene ${dia.ejercicios.length} ejercicios; el máximo seguro de publicación es 10.`);
     }
+
+    const nombresVistos = new Set<string>();
+    const patronesPorGrupo = new Map<string, PatronMovimiento[]>();
     for (const ejercicio of dia.ejercicios) {
       const grupo = normalizar(ejercicio.grupoMuscular);
       const series = Math.max(0, Number(ejercicio.series) || 0);
+      const nombreNormalizado = normalizar(ejercicio.nombre);
+      if (nombreNormalizado && nombresVistos.has(nombreNormalizado)) {
+        errores.push(`El día "${dia.nombre}" repite exactamente "${ejercicio.nombre}".`);
+      }
+      nombresVistos.add(nombreNormalizado);
+      if (grupo && grupo !== "cardio") {
+        const patrones = patronesPorGrupo.get(grupo) ?? [];
+        patrones.push(patronMovimiento(ejercicio.nombre, grupo));
+        patronesPorGrupo.set(grupo, patrones);
+      }
       if (grupo && grupo !== "cardio" && grupo !== "brazos") {
         seriesPorGrupo.set(grupo, (seriesPorGrupo.get(grupo) ?? 0) + series);
       }
@@ -51,6 +66,39 @@ export function detectarDeficienciasRutina(dias: DiaAuditable[]): string[] {
         triceps += 1;
         seriesTriceps += series;
       }
+    }
+
+    const pecho = patronesPorGrupo.get("pecho") ?? [];
+    const pressesPecho = pecho.filter(esPressPecho).length;
+    const aislamientosPecho = pecho.filter((p) => p === "pecho_aislamiento").length;
+    if (pecho.length >= 2 && pressesPecho === 0) {
+      errores.push(`El día "${dia.nombre}" trabaja pecho sin ningún press; aperturas y cruces complementan, pero no sustituyen la base de empuje.`);
+    } else if (pecho.length >= 3 && pressesPecho < 2 && aislamientosPecho >= 2) {
+      errores.push(`El día "${dia.nombre}" tiene ${aislamientosPecho} aislamientos de pecho y solo ${pressesPecho} press; falta una segunda base de empuje.`);
+    }
+
+    const espalda = patronesPorGrupo.get("espalda") ?? [];
+    const jalones = espalda.filter((p) => p === "espalda_traccion_vertical").length;
+    const remos = espalda.filter((p) => p === "espalda_remo_horizontal").length;
+    if (espalda.length >= 3 && (jalones === 0 || remos === 0)) {
+      errores.push(`El día "${dia.nombre}" no cubre la espalda completa: requiere al menos una tracción vertical y un remo horizontal antes de sumar lumbares, trapecio o accesorios.`);
+    }
+    if (jalones >= 2 && remos === 0) {
+      errores.push(`El día "${dia.nombre}" repite ${jalones} variantes de jalón sin incluir un remo; cambiar el agarre no reemplaza el patrón horizontal.`);
+    }
+
+    const hombros = patronesPorGrupo.get("hombros") ?? [];
+    if (hombros.length >= 3 && normalizar(dia.nombre).includes("hombro")) {
+      const cobertura = new Set(hombros);
+      if (!["hombro_press_vertical", "hombro_lateral", "hombro_posterior"].every((p) => cobertura.has(p as PatronMovimiento))) {
+        errores.push(`El día "${dia.nombre}" debe cubrir press vertical, deltoide lateral y deltoide posterior antes de repetir variantes.`);
+      }
+    }
+
+    const brazos = patronesPorGrupo.get("brazos") ?? [];
+    const overhead = brazos.filter((p) => p === "triceps_sobre_cabeza").length;
+    if (overhead >= 2) {
+      errores.push(`El día "${dia.nombre}" repite ${overhead} extensiones de tríceps sobre la cabeza; son el mismo patrón aunque cambie la traducción o el implemento.`);
     }
   }
 

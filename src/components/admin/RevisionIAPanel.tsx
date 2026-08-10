@@ -41,6 +41,10 @@ const COLOR_GRAVEDAD = { alta: "text-error", media: "text-warning", baja: "text-
 const LABEL_CATEGORIA = {
   seguridad: "Seguridad",
   objetivo: "Objetivo",
+  estructura: "Estructura",
+  cobertura: "Cobertura muscular",
+  redundancia: "Redundancia",
+  orden: "Orden",
   volumen: "Volumen",
   variedad: "Variedad",
   tecnica: "Técnica",
@@ -130,6 +134,15 @@ export function RevisionIAPanel({
       {abierto && (
         <div className="space-y-3 border-t border-border p-3">
           <p className="text-caption text-text-secondary">{revision.resumen || v.bajada}</p>
+
+          {revision.auditoria && (
+            <div className="radius-control border border-border bg-surface-2 px-2.5 py-2">
+              <p className="text-micro font-semibold uppercase tracking-wide text-vip">Auditoría completa</p>
+              <p className="text-caption mt-0.5 text-text-secondary">
+                {revision.auditoria.diasRevisados} días · {revision.auditoria.ejerciciosRevisados} ejercicios · {revision.auditoria.capasCompletadas.length}/8 capas revisadas
+              </p>
+            </div>
+          )}
 
           {revision.hallazgos.length > 0 && (
             <div className="space-y-1.5">

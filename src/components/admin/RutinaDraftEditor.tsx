@@ -12,6 +12,7 @@ import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { CambioResuelto, RevisionResuelta } from "@/lib/ai/revisarRutina";
 import type { TipoProgresionImpulso } from "@/lib/supabase/types";
 import { PLANES_ENTRENAMIENTO, type CodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
+import { patronMovimiento } from "@/lib/rutinas/patrones";
 
 /** Revisión de IA del borrador. Opcional: solo el flujo del generador la pasa
  * — desde un PDF importado no hay ficha ni brief contra qué contrastar. */
@@ -88,6 +89,36 @@ const GRUPOS_MUSCULARES: { value: NonNullable<Ejercicio["grupoMuscular"]>; label
 ];
 const LABEL_GRUPO = new Map(GRUPOS_MUSCULARES.map((g) => [g.value, g.label]));
 
+type GrupoVisual = { etiqueta: string; color: string };
+
+/** Colores de lectura del borrador. Bíceps y tríceps se separan aunque la
+ * base todavía los guarde juntos como `brazos`. */
+function grupoVisual(ejercicio: Pick<Ejercicio, "nombre" | "grupoMuscular">): GrupoVisual {
+  const patron = patronMovimiento(ejercicio.nombre, ejercicio.grupoMuscular);
+  if (patron.startsWith("biceps_")) return { etiqueta: "Bíceps", color: "#06b6d4" };
+  if (patron.startsWith("triceps_")) return { etiqueta: "Tríceps", color: "#a855f7" };
+  const grupos: Record<NonNullable<Ejercicio["grupoMuscular"]>, GrupoVisual> = {
+    pecho: { etiqueta: "Pecho", color: "#ef4444" },
+    espalda: { etiqueta: "Espalda", color: "#3b82f6" },
+    piernas: { etiqueta: "Piernas", color: "#22c55e" },
+    hombros: { etiqueta: "Hombros", color: "#f59e0b" },
+    brazos: { etiqueta: "Brazos", color: "#8b5cf6" },
+    core: { etiqueta: "Core", color: "#ec4899" },
+    cardio: { etiqueta: "Cardio", color: "#14b8a6" },
+  };
+  return ejercicio.grupoMuscular ? grupos[ejercicio.grupoMuscular] : { etiqueta: "Ejercicio", color: "#94a3b8" };
+}
+
+function colorTecnicaVisual(tipo: string | null | undefined): string | null {
+  const tecnica = (tipo ?? "").toLowerCase();
+  if (tecnica.includes("biserie")) return "var(--color-tecnica-biserie)";
+  if (tecnica.includes("superserie")) return "var(--color-tecnica-superserie)";
+  if (tecnica.includes("triserie")) return "var(--color-tecnica-triserie)";
+  if (tecnica.includes("giant") || tecnica.includes("serie gigante")) return "var(--color-tecnica-giant)";
+  if (tecnica.includes("circuito")) return "var(--color-tecnica-circuito)";
+  return null;
+}
+
 /** Línea de resumen para el día colapsado: "6 ejercicios · Pecho · Hombros". */
 function resumenDia(dia: Dia): string {
   if (dia.tipo === "descanso") return "Descanso";
@@ -120,8 +151,8 @@ function grupoDominante(dia: Dia): string | null {
  * Antes se dibujaban los 7 campos apilados siempre: con una rutina de 7 días y
  * 8 ejercicios por día eran 56 bloques altísimos, imposibles de repasar. Ahora
  * queda a la vista lo que de verdad se corrige (nombre, series, reps, descanso)
- * y el resto se despliega solo si hace falta — o solo si ya trae contenido, así
- * nada de lo que extrajo la IA queda escondido. */
+ * y el resto se despliega solo si el entrenador lo necesita. La vista previa
+ * estructurada mantiene visibles técnicas y observaciones sin inflar el editor. */
 /** Lista buscable de la biblioteca real, filtrada por el grupo muscular que
  * se está trabajando — "que yo presione sobre el ejercicio y se me dé una
  * lista para elegir, por grupo muscular". Vive aparte de EjercicioForm para
@@ -202,21 +233,32 @@ function EjercicioForm({
   onChange: (e: Ejercicio) => void;
   onRemove: () => void;
 }) {
-  const traeExtras = Boolean(
-    ejercicio.grupoMuscular || ejercicio.tecnicaTipo || ejercicio.observacion || ejercicio.aptoProgresion
-  );
-  const [ampliado, setAmpliado] = useState(traeExtras);
+  // El resumen útil queda siempre visible. Técnica, observación y progresión
+  // empiezan cerradas para que una rutina de 30 ejercicios no obligue a
+  // recorrer una página interminable.
+  const [ampliado, setAmpliado] = useState(false);
   const [eligiendo, setEligiendo] = useState(false);
+  const colorTecnica = colorTecnicaVisual(ejercicio.tecnicaTipo);
+  const visual = grupoVisual(ejercicio);
 
   return (
-    <div className="radius-control border border-border px-2.5 py-2">
+    <div
+      className="radius-control border px-2 py-1.5"
+      style={{
+        borderColor: visual.color,
+        boxShadow: colorTecnica
+          ? `inset 3px 0 0 ${visual.color}, 0 0 0 1px ${colorTecnica}`
+          : `inset 3px 0 0 ${visual.color}`,
+      }}
+    >
       <div className="flex items-center gap-1.5">
         <span className="text-caption w-4 shrink-0 text-right text-text-tertiary">{numero}</span>
         {biblioteca ? (
           <button
             type="button"
             onClick={() => setEligiendo((v) => !v)}
-            className="radius-control min-w-0 flex-1 truncate border border-border bg-surface-2 px-4 py-3 text-left text-body text-text"
+            className="radius-control min-w-0 flex-1 truncate border border-border bg-surface-2 px-2.5 py-2 text-left text-secondary font-bold"
+            style={{ fontWeight: 700, color: visual.color }}
           >
             {ejercicio.nombre || <span className="text-text-tertiary">Toca para elegir ejercicio…</span>}
           </button>
@@ -225,7 +267,8 @@ function EjercicioForm({
             value={ejercicio.nombre}
             onChange={(e) => onChange({ ...ejercicio, nombre: e.target.value })}
             placeholder="Nombre del ejercicio"
-            className="flex-1 py-1.5"
+            className="flex-1 py-1 font-semibold"
+            style={{ fontWeight: 700, color: visual.color }}
           />
         )}
         <IconButton ariaLabel="Quitar ejercicio" onClick={onRemove}>
@@ -250,7 +293,18 @@ function EjercicioForm({
         />
       )}
 
-      <div className="mt-1.5 flex items-center gap-1.5 pl-[22px]">
+      {colorTecnica && ejercicio.tecnicaTipo && (
+        <div className="mt-1.5 pl-[22px]">
+          <span
+            className="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+            style={{ borderColor: colorTecnica, color: colorTecnica, backgroundColor: `color-mix(in srgb, ${colorTecnica} 12%, transparent)` }}
+          >
+            {ejercicio.tecnicaTipo}
+          </span>
+        </div>
+      )}
+
+      <div className="mt-1 flex items-center gap-1 pl-[22px]">
         <label className="text-caption shrink-0 text-text-tertiary">Series</label>
         <Input
           type="number"
@@ -385,6 +439,61 @@ function EjercicioForm({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function VistaPreviaEstructurada({ draft }: { draft: RutinaConProgresion }) {
+  return (
+    <div className="max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+      <p className="text-card-title font-bold text-text">{draft.nombreRutina}</p>
+      {draft.dias.map((dia) => (
+        <section key={dia.numero} className="radius-control overflow-hidden border border-border">
+          <div className="flex items-center justify-between gap-2 bg-surface-2 px-2.5 py-2">
+            <p className="text-secondary font-bold text-vip">DÍA {dia.numero} · {dia.nombre}</p>
+            <span className="text-micro shrink-0 text-text-tertiary">
+              {dia.tipo === "descanso" ? "Descanso" : `${dia.ejercicios.length} ejercicios`}
+            </span>
+          </div>
+          {dia.descripcion && <p className="text-micro border-t border-border px-2.5 py-1.5 text-text-tertiary">{dia.descripcion}</p>}
+          {dia.tipo === "entrenamiento" && (
+            <div className="space-y-1.5 border-t border-border p-2">
+              {dia.ejercicios.map((ejercicio, indice) => {
+                const visual = grupoVisual(ejercicio);
+                const colorTecnica = colorTecnicaVisual(ejercicio.tecnicaTipo);
+                return (
+                  <div
+                    key={`${dia.numero}-${indice}-${ejercicio.nombre}`}
+                    className="radius-control border bg-surface px-2 py-1.5"
+                    style={{ borderColor: visual.color, boxShadow: `inset 3px 0 0 ${visual.color}` }}
+                  >
+                    <div className="flex min-w-0 items-center gap-1.5 pl-1">
+                      <span className="text-micro w-4 shrink-0 text-right font-semibold text-text-tertiary">{indice + 1}.</span>
+                      <strong className="text-caption min-w-0 flex-1 truncate" style={{ color: visual.color, fontWeight: 800 }}>
+                        {ejercicio.nombre}
+                      </strong>
+                      <span className="text-[9px] shrink-0 rounded-full border px-1.5 py-0.5 font-bold uppercase" style={{ color: visual.color, borderColor: visual.color }}>
+                        {visual.etiqueta}
+                      </span>
+                    </div>
+                    <p className="text-micro mt-0.5 pl-6 text-text-secondary">
+                      {ejercicio.series} series × {ejercicio.reps} reps
+                      {ejercicio.descansoSegundos !== null ? ` · ${ejercicio.descansoSegundos}s descanso` : ""}
+                    </p>
+                    {ejercicio.tecnicaTipo && (
+                      <p className="text-micro mt-0.5 pl-6 font-semibold" style={{ color: colorTecnica ?? "var(--color-vip)" }}>
+                        {ejercicio.tecnicaTipo}{ejercicio.tecnicaInstruccion ? ` · ${ejercicio.tecnicaInstruccion}` : ""}
+                      </p>
+                    )}
+                    {ejercicio.observacion && <p className="text-micro mt-0.5 pl-6 text-text-tertiary">{ejercicio.observacion}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      ))}
+      <p className="text-caption text-right font-semibold text-text-secondary">— Alejandro Mendoza · Método VIP Fitness</p>
     </div>
   );
 }
@@ -895,11 +1004,9 @@ export function RutinaDraftEditor({
         {mostrarPreview && (
           <div className="border-t border-border p-3">
             <p className="text-micro mb-2 text-text-tertiary">
-              Esto es exactamente lo que se guarda como documento del alumno al confirmar.
+              Vista de revisión por día y grupo muscular. El contenido completo es el que se guarda como documento del alumno.
             </p>
-            <pre className="text-micro max-h-64 overflow-y-auto whitespace-pre-wrap rounded bg-surface-2 p-2 font-sans text-text-secondary">
-              {previewTexto}
-            </pre>
+            <VistaPreviaEstructurada draft={draft} />
           </div>
         )}
       </Card>
