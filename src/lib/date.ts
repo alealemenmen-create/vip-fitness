@@ -179,6 +179,16 @@ export function semanaAnteriorLunesISO(): string {
   return lunesDe(haceSieteDias);
 }
 
+/** "45 min" o "1h 20min" a partir de hora_inicio/hora_fin de una sesión.
+ * Sesiones sin cerrar (`fin` null) o con datos inconsistentes no muestran nada. */
+export function formatoDuracion(inicio: string | null, fin: string | null): string | null {
+  if (!inicio || !fin) return null;
+  const minutos = Math.round((new Date(fin).getTime() - new Date(inicio).getTime()) / 60000);
+  if (minutos <= 0) return null;
+  if (minutos < 60) return `${minutos} min`;
+  return `${Math.floor(minutos / 60)}h ${minutos % 60}min`;
+}
+
 /** Últimos n días (incluye hoy) en horario de Chile, YYYY-MM-DD, del más reciente al más antiguo. */
 export function ultimosNDiasISO(n: number): string[] {
   const hoy = toZonedTime(new Date(), ZONA_HORARIA_VIP);

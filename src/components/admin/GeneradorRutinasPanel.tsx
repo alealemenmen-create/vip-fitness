@@ -210,6 +210,10 @@ export function GeneradorRutinasPanel({ alumnos, ejercicios, tecnicas }: { alumn
         setMinutos(a.minutos);
         setCantidad(ejerciciosPorTiempo(a.minutos, cardio === "ninguno" ? 0 : cardioMinutos));
       }
+      // Punto de partida, no una decisión: el objetivo declarado por el
+      // alumno en su ficha precarga el select, pero el entrenador lo puede
+      // cambiar como cualquier otro campo del brief.
+      if (a?.ficha.objetivoPrincipal) setObjetivo(a.ficha.objetivoPrincipal as ObjetivoEntrenamiento);
     }
   };
 

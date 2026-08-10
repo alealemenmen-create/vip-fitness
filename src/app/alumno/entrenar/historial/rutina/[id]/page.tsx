@@ -7,7 +7,7 @@ import { Pill } from "@/components/ui/Pill";
 import { AbandonarSesionBoton } from "@/components/student/AbandonarSesionBoton";
 import { ReiniciarRutinaBoton } from "@/components/student/ReiniciarRutinaBoton";
 import { obtenerHistorialSesiones, obtenerRutinasHistorial } from "../../../data";
-import { formatFechaDiaSemana } from "@/lib/date";
+import { formatFechaDiaSemana, formatoDuracion } from "@/lib/date";
 
 const ESTADO_LABEL: Record<string, { texto: string; tone: "success" | "error" | "neutral" }> = {
   completada: { texto: "Completada", tone: "success" },
@@ -82,6 +82,7 @@ export default async function HistorialRutinaPage({ params }: { params: Promise<
       <div className="space-y-2">
         {sesiones.map((s) => {
           const estado = ESTADO_LABEL[s.estado];
+          const duracion = formatoDuracion(s.horaInicio, s.horaFin);
           return (
             <Card key={s.id} className="flex items-center justify-between gap-2">
               <Link href={`/alumno/entrenar/sesion/${s.id}`} className="min-w-0 flex-1">
@@ -91,6 +92,7 @@ export default async function HistorialRutinaPage({ params }: { params: Promise<
                 </p>
                 <p className="text-caption text-text-tertiary">
                   {s.fecha} · {s.total === 0 ? "Descanso" : `${s.completados}/${s.total} ejercicios`}
+                  {duracion ? ` · ${duracion}` : ""}
                 </p>
               </Link>
               <div className="flex shrink-0 items-center gap-1">
