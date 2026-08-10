@@ -26,9 +26,15 @@ export type GrupoEntrenable = Exclude<GrupoMuscular, "cardio">;
  * `grupoMuscular` real en la base (esa columna solo tiene "piernas"), así
  * que se resuelve por heurística de nombre igual que `EnfoqueForma`. */
 export type SubGrupoPierna = "gluteo" | "cuadriceps" | "femoral" | "pantorrilla";
+/** Sub-parte de "brazos" — mismo caso que `SubGrupoPierna`: la base solo
+ * guarda `grupoMuscular = brazos`, sin distinguir bíceps de tríceps, así que
+ * se resuelve por heurística de nombre (`subGrupoBrazo()` en motor.ts). El
+ * motor ya arma bíceps/tríceps por separado en sus plantillas automáticas
+ * (VIP balanceada, PPL); esto habilita lo mismo en "personalizada". */
+export type SubGrupoBrazo = "biceps" | "triceps";
 /** Lo que se puede marcar por día en la distribución "personalizada": un
- * grupo entero o, en vez de "piernas", una de sus sub-partes. */
-export type EtiquetaDia = GrupoEntrenable | SubGrupoPierna;
+ * grupo entero o, en vez de "piernas"/"brazos", una de sus sub-partes. */
+export type EtiquetaDia = GrupoEntrenable | SubGrupoPierna | SubGrupoBrazo;
 
 /** Arquetipos de programación inspirados en corrientes reales del
  * culturismo actual (HIT/alta intensidad, volumen tradicional, híbrido de

@@ -22,6 +22,14 @@ const SUBGRUPOS_PIERNA: { value: EtiquetaDia; label: string }[] = [
   { value: "pantorrilla", label: "Pantorrilla" },
 ];
 
+/** Sub-partes de "brazos" — mismo criterio que piernas: el motor ya arma
+ * bíceps/tríceps por separado en sus plantillas automáticas, esto lo habilita
+ * también cuando el entrenador arma la distribución a mano. */
+const SUBGRUPOS_BRAZO: { value: EtiquetaDia; label: string }[] = [
+  { value: "biceps", label: "Bíceps" },
+  { value: "triceps", label: "Tríceps" },
+];
+
 /** Distribución "personalizada": el entrenador elige a mano qué grupo (o
  * varios) entrena cada día, sin tope — en la práctica real hay días de un
  * solo grupo (Piernas) y días de cuatro combinados (Espalda + Hombros +
@@ -76,6 +84,22 @@ export function SelectorGruposDia({
                       type="button"
                       onClick={() => alternar(diaIdx, g.value)}
                       title="Sub-parte de piernas — alternativa a marcar Piernas combinado"
+                      className={`radius-control border px-2 py-1 text-micro ${activo ? "border-vip bg-vip/15 text-vip" : "border-border text-text-tertiary"}`}
+                    >
+                      {g.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {SUBGRUPOS_BRAZO.map((g) => {
+                  const activo = seleccion.includes(g.value);
+                  return (
+                    <button
+                      key={g.value}
+                      type="button"
+                      onClick={() => alternar(diaIdx, g.value)}
+                      title="Sub-parte de brazos — alternativa a marcar Brazos combinado"
                       className={`radius-control border px-2 py-1 text-micro ${activo ? "border-vip bg-vip/15 text-vip" : "border-border text-text-tertiary"}`}
                     >
                       {g.label}

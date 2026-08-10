@@ -12,6 +12,7 @@ import type {
   ObjetivoEntrenamiento,
   PerfilEntrenamiento,
   RutinaGenerada,
+  SubGrupoBrazo,
   SubGrupoPierna,
   TecnicaEntrenamiento,
 } from "./tipos";
@@ -69,8 +70,6 @@ function coincideSubGrupoPierna(nombre: string, sub: SubGrupoPierna): boolean {
   return PALABRAS_SUBGRUPO[sub].some((p) => n.includes(p));
 }
 
-type SubGrupoBrazo = "biceps" | "triceps";
-
 /** Separación temporal sobre el catálogo actual. La base solo guarda
  * `grupoMuscular = brazos`, pero para programar un día de brazos necesitamos
  * garantizar que no quede, por ejemplo, con cinco curls y un solo tríceps.
@@ -81,6 +80,12 @@ function subGrupoBrazo(nombre: string): SubGrupoBrazo | null {
   if (["triceps", "extension", "press frances", "press cerrado", "fondos", "patada"].some((p) => n.includes(p))) return "triceps";
   if (["biceps", "curl", "predicador", "martillo"].some((p) => n.includes(p))) return "biceps";
   return null;
+}
+
+const SUBGRUPOS_BRAZO: SubGrupoBrazo[] = ["biceps", "triceps"];
+
+function esSubGrupoBrazo(etiqueta: EtiquetaDia): etiqueta is SubGrupoBrazo {
+  return (SUBGRUPOS_BRAZO as string[]).includes(etiqueta);
 }
 
 /** Minúsculas y sin tildes, para comparar nombres de ejercicios sin tener que
@@ -157,9 +162,11 @@ function categoriaEfectiva(brief: BriefGenerador, perfil: PerfilEntrenamiento): 
 function cuposDelDia(brief: BriefGenerador, perfil: PerfilEntrenamiento, distribucion: string, indice: number): CupoDia[] {
   if (distribucion === "personalizada") {
     const etiquetas = brief.diaGrupos?.[indice] ?? GRUPOS_SUPERIOR.slice(0, 1);
-    return etiquetas.map((etiqueta) =>
-      esSubGrupoPierna(etiqueta) ? { grupo: "piernas" as const, subGrupoPierna: etiqueta } : { grupo: etiqueta }
-    );
+    return etiquetas.map((etiqueta) => {
+      if (esSubGrupoPierna(etiqueta)) return { grupo: "piernas" as const, subGrupoPierna: etiqueta };
+      if (esSubGrupoBrazo(etiqueta)) return { grupo: "brazos" as const, subGrupoBrazo: etiqueta };
+      return { grupo: etiqueta };
+    });
   }
   if (distribucion === "full_body") return GRUPOS_FULL_BODY.map((grupo) => ({ grupo }));
   if (distribucion === "vip_balanceada") {
@@ -678,46 +685,62 @@ function aplicarTecnicasDelDia(
   const noCardio = ejercicios.filter((e) => e.grupoMuscular !== "cardio");
   const accesorios = noCardio.filter((e) => e.orden !== noCardio[0]?.orden);
 
+  /** Busca una técnica encadenada (biserie/superserie/triserie/circuito) que
+   * quepa en `candidatos` y la aplica al primer bloque de estímulos
+   * complementarios que encuentre (nunca dos traducciones del mismo
+   * ejercicio). Devuelve si logró aplicarla. Se usa dos veces: la primera
+   * para todos (salvo alta intensidad) sobre todos los accesorios, y una
+   * segunda vez, solo para "volumen tradicional", sobre lo que haya quedado
+   * libre — ver más abajo. */
+  const intentarEncadenada = (candidatos: EjercicioBorrador[]): boolean => {
+    const tecnica = disponibles("encadenada")
+      .filter((t) => competitiva || t.fatiga !== "alta")
+      .find((t) => (t.cantidadEjercicios ?? 2) <= candidatos.length);
+    if (!tecnica) return false;
+    const cantidadBloque = tecnica.cantidadEjercicios ?? 2;
+    let bloque: EjercicioBorrador[] | null = null;
+    for (let inicio = candidatos.length - cantidadBloque; inicio >= 0; inicio--) {
+      const candidato = candidatos.slice(inicio, inicio + cantidadBloque);
+      const familias = new Set(candidato.map((e) => {
+        const patron = patronMovimiento(e.nombre, e.grupoMuscular);
+        // Los ejercicios viejos o de prueba sin nombre clasificable no se
+        // consideran duplicados entre sí solo por caer en "otro".
+        return `${e.grupoMuscular}:${patron === "otro" ? e.ejercicioId : patron}`;
+      }));
+      if (familias.size === candidato.length) {
+        bloque = candidato;
+        break;
+      }
+    }
+    if (!bloque) return false;
+    registrar(tecnica);
+    bloque.forEach((ejercicio, indice) => {
+      const siguiente = bloque?.[indice + 1];
+      ejercicio.tecnicaTipo = tecnica.nombre;
+      ejercicio.tecnicaInstruccion = siguiente
+        ? `Enlaza sin descanso con "${siguiente.nombre}".`
+        : `Cierra la ${tecnica.nombre.toLowerCase()} y descansa antes de repetir el bloque.`;
+      ejercicio.descansoSegundos = siguiente ? tecnica.descansoInternoSeg : tecnica.descansoFinalSeg;
+    });
+    return true;
+  };
+
   // Encadenada (biserie/superserie) desde intermedio; triserie/circuito
   // (fatiga alta) solo si pidió intensidad competitiva. "Alta intensidad"
   // (estilo Nick Walker/Hadi Choopan: pocas series al fallo, sin acumular
   // volumen con superseries) la salta a propósito — va directo a la técnica
   // individual de abajo (drop-set/rest-pause), que es la que define ese estilo.
   if (nivelMax >= NIVEL.intermedio && accesorios.length >= 2 && brief.inspiracionEstilo !== "alta_intensidad") {
-    const tecnica = disponibles("encadenada")
-      .filter((t) => competitiva || t.fatiga !== "alta")
-      .find((t) => (t.cantidadEjercicios ?? 2) <= accesorios.length);
-    if (tecnica) {
-      const cantidadBloque = tecnica.cantidadEjercicios ?? 2;
-      let bloque: EjercicioBorrador[] | null = null;
-      // Una técnica encadenada debe combinar estímulos complementarios. No
-      // unimos dos traducciones del mismo ejercicio (p. ej. dos extensiones
-      // overhead) ni dos variantes idénticas solo porque quedaron al final.
-      for (let inicio = accesorios.length - cantidadBloque; inicio >= 0; inicio--) {
-        const candidato = accesorios.slice(inicio, inicio + cantidadBloque);
-        const familias = new Set(candidato.map((e) => {
-          const patron = patronMovimiento(e.nombre, e.grupoMuscular);
-          // Los ejercicios viejos o de prueba sin nombre clasificable no se
-          // consideran duplicados entre sí solo por caer en "otro".
-          return `${e.grupoMuscular}:${patron === "otro" ? e.ejercicioId : patron}`;
-        }));
-        if (familias.size === candidato.length) {
-          bloque = candidato;
-          break;
-        }
-      }
-      if (bloque) {
-        registrar(tecnica);
-        bloque.forEach((ejercicio, indice) => {
-          const siguiente = bloque?.[indice + 1];
-          ejercicio.tecnicaTipo = tecnica.nombre;
-          ejercicio.tecnicaInstruccion = siguiente
-            ? `Enlaza sin descanso con "${siguiente.nombre}".`
-            : `Cierra la ${tecnica.nombre.toLowerCase()} y descansa antes de repetir el bloque.`;
-          ejercicio.descansoSegundos = siguiente ? tecnica.descansoInternoSeg : tecnica.descansoFinalSeg;
-        });
-      }
-    }
+    intentarEncadenada(accesorios);
+  }
+
+  // "Volumen tradicional" (Sam Sulek/Dana Linn Bailey: bro-split de alto
+  // volumen) prioriza una SEGUNDA encadenada sobre lo que quedó sin técnica,
+  // antes de caer en la individual de abajo — si no, "prioriza biseries" era
+  // solo una frase en `reglasAplicadas` sin efecto real en el motor.
+  if (brief.inspiracionEstilo === "volumen_tradicional" && familiasAplicadas < maximoFamilias) {
+    const restantes = accesorios.filter((e) => !e.tecnicaTipo);
+    if (restantes.length >= 2) intentarEncadenada(restantes);
   }
 
   // En intensidad alta/competitiva, un avanzado puede recibir una segunda
@@ -874,6 +897,86 @@ export function ejerciciosPorTiempo(minutosSesion: number, cardioMinutos = 0): n
 export function ejerciciosObjetivoDelDia(solicitados: number, cantidadGrupos: number): number {
   if (cantidadGrupos <= 0) return 0;
   return Math.min(solicitados, cantidadGrupos <= 2 ? 6 : 8);
+}
+
+/** Mismos topes que la barrera crítica de publicación
+ * (`detectarDeficienciasRutina` en lib/rutinas/validacion.ts) — piernas
+ * tolera más volumen semanal que el resto, bíceps/tríceps van aparte por ser
+ * sub-grupos de "brazos". Repetidos acá a propósito: ese archivo es la
+ * frontera de publicación y no debe importar del motor (ni al revés), pero
+ * los NÚMEROS tienen que ser el mismo tope en los dos lados. */
+const CAP_CRITICO_SEMANAL: Record<string, number> = {
+  piernas: 50,
+  pecho: 36,
+  espalda: 36,
+  hombros: 36,
+  core: 36,
+  biceps: 24,
+  triceps: 24,
+};
+
+/** Baja el volumen semanal de un grupo que superó el tope crítico ANTES de
+ * entregar el borrador — pedido explícito del entrenador tras ver una
+ * rutina que el propio validador de publicación rechazaba (tríceps 30/24,
+ * piernas 55/50, hombros 37/36): "deberían haber patrones que te limitan...
+ * métele mucha inteligencia y resuélvelo". Antes el motor no tenía ninguna
+ * noción del volumen ACUMULADO entre días — cada día se armaba con su cupo
+ * de series sin mirar cuánto ya llevaba el mismo músculo en días anteriores.
+ *
+ * Solo recorta accesorios (reps en rango simple, "10-15"), nunca principales
+ * en pirámide ("15-12-10-8-8"): esas reps tienen un número por serie, así
+ * que bajarle las series sin tocar el texto dejaría la rutina inconsistente
+ * (5 números de reps con series=4). Baja de a 1 serie por vuelta, empezando
+ * por el que más series tenga, con piso de 2 — nunca deja un ejercicio en 0
+ * o 1 serie por recortar volumen semanal. */
+function ajustarVolumenCritico(dias: RutinaGenerada["dias"]): string[] {
+  const avisos: string[] = [];
+  const porGrupo = new Map<string, EjercicioBorrador[]>();
+  for (const dia of dias) {
+    for (const ejercicio of dia.ejercicios) {
+      if (ejercicio.grupoMuscular === "cardio") continue;
+      const grupo = ejercicio.grupoMuscular === "brazos" ? subGrupoBrazo(ejercicio.nombre) : ejercicio.grupoMuscular;
+      if (!grupo) continue;
+      const lista = porGrupo.get(grupo) ?? [];
+      lista.push(ejercicio);
+      porGrupo.set(grupo, lista);
+    }
+  }
+
+  for (const [grupo, ejercicios] of porGrupo) {
+    const cap = CAP_CRITICO_SEMANAL[grupo];
+    if (!cap) continue;
+    const totalOriginal = ejercicios.reduce((s, e) => s + e.series, 0);
+    if (totalOriginal <= cap) continue;
+
+    const recortables = ejercicios.filter((e) => e.reps.split("-").length <= 2 && e.series > 2);
+    let total = totalOriginal;
+    let sinCambios = false;
+    while (total > cap && !sinCambios) {
+      sinCambios = true;
+      for (const e of [...recortables].sort((a, b) => b.series - a.series)) {
+        if (total <= cap) break;
+        if (e.series > 2) {
+          e.series -= 1;
+          total -= 1;
+          sinCambios = false;
+        }
+      }
+    }
+
+    if (total < totalOriginal) {
+      avisos.push(
+        `Volumen semanal de ${grupo} ajustado automáticamente de ${totalOriginal} a ${total} series directas (tope de publicación: ${cap}) — se bajaron series de los accesorios, nunca de los principales.`
+      );
+    }
+    if (total > cap) {
+      avisos.push(
+        `Volumen semanal de ${grupo} sigue en ${total} series directas (tope ${cap}) aun bajando todos los accesorios al mínimo — revisa manualmente cuántos ejercicios principales tiene esta semana.`
+      );
+    }
+  }
+
+  return avisos;
 }
 
 export function generarRutinaPorReglas(
@@ -1098,6 +1201,8 @@ export function generarRutinaPorReglas(
   if (distribucion === "personalizada" && brief.diaGrupos && brief.diaGrupos.length < brief.dias) {
     alertas.push("Faltan grupos musculares asignados a algunos días; se usó un valor por defecto.");
   }
+
+  alertas.push(...ajustarVolumenCritico(dias));
 
   const validacionSemanal = validarSemanaVip(
     { nombreRutina: "Borrador", dias, reglasAplicadas: [], alertas: [] },

@@ -417,6 +417,36 @@ describe("generarRutinaPorReglas", () => {
     expect(r.dias[1].ejercicios.every((e) => e.ejercicioId === "sentadilla")).toBe(true);
   });
 
+  it("sub-grupo de brazo 'biceps' filtra dentro de brazos por nombre", () => {
+    const bibliotecaAmplia = [
+      { id: "curl-biceps", nombre: "Curl de bíceps", grupoMuscular: "brazos" as const, categoria: "aislamiento" as const, equipo: "mancuerna" as const, nivel: "principiante" as const, posicionSesion: "principal" as const },
+      { id: "extension-triceps", nombre: "Extensión de tríceps", grupoMuscular: "brazos" as const, categoria: "aislamiento" as const, equipo: "polea" as const, nivel: "principiante" as const, posicionSesion: "principal" as const },
+    ];
+    const r = generarRutinaPorReglas(
+      perfil,
+      { ...brief, dias: 1, distribucion: "personalizada", diaGrupos: [["biceps"]], ejerciciosPorSesion: 2 },
+      bibliotecaAmplia
+    );
+    expect(r.dias[0].ejercicios.every((e) => e.ejercicioId === "curl-biceps")).toBe(true);
+    expect(r.dias[0].nombre).toBe("Bíceps");
+  });
+
+  it("brazos se puede separar por sub-grupo en días distintos de la misma semana", () => {
+    const bibliotecaAmplia = [
+      { id: "curl-biceps", nombre: "Curl de bíceps", grupoMuscular: "brazos" as const, categoria: "aislamiento" as const, equipo: "mancuerna" as const, nivel: "principiante" as const, posicionSesion: "principal" as const },
+      { id: "extension-triceps", nombre: "Extensión de tríceps", grupoMuscular: "brazos" as const, categoria: "aislamiento" as const, equipo: "polea" as const, nivel: "principiante" as const, posicionSesion: "principal" as const },
+    ];
+    const r = generarRutinaPorReglas(
+      perfil,
+      { ...brief, dias: 2, distribucion: "personalizada", diaGrupos: [["biceps"], ["triceps"]], ejerciciosPorSesion: 2 },
+      bibliotecaAmplia
+    );
+    expect(r.dias[0].nombre).toBe("Bíceps");
+    expect(r.dias[0].ejercicios.every((e) => e.ejercicioId === "curl-biceps")).toBe(true);
+    expect(r.dias[1].nombre).toBe("Tríceps");
+    expect(r.dias[1].ejercicios.every((e) => e.ejercicioId === "extension-triceps")).toBe(true);
+  });
+
   it("inspiracionEstilo 'alta_intensidad' baja una serie y salta las encadenadas", () => {
     const bibliotecaAmplia = [
       base("pecho-1", "pecho", "empuje", { posicionSesion: "principal" }),
@@ -448,6 +478,85 @@ describe("generarRutinaPorReglas", () => {
     const conVolumen = generarRutinaPorReglas(perfil, { ...brief, dias: 1, distribucion: "full_body", ejerciciosPorSesion: 1, inspiracionEstilo: "volumen_tradicional" }, bibliotecaSimple);
     const base_ = generarRutinaPorReglas(perfil, { ...brief, dias: 1, distribucion: "full_body", ejerciciosPorSesion: 1 }, bibliotecaSimple);
     expect(conVolumen.dias[0].ejercicios[0].series).toBe(base_.dias[0].ejercicios[0].series + 1);
+  });
+
+  it("ajustarVolumenCritico: baja el volumen semanal que supera el tope crítico sin tocar principales", () => {
+    const bibliotecaPierna = [
+      base("sentadilla", "piernas", "pierna", { nombre: "Sentadilla" }),
+      base("prensa", "piernas", "pierna", { nombre: "Prensa" }),
+      ...Array.from({ length: 6 }, (_, i) => base(`pierna-acc-${i}`, "piernas", "aislamiento", { posicionSesion: "accesorio" })),
+    ];
+    const r = generarRutinaPorReglas(
+      { ...perfil, experiencia: "avanzado" },
+      {
+        ...brief,
+        dias: 2,
+        distribucion: "personalizada",
+        diaGrupos: [["piernas"], ["piernas"]],
+        ejerciciosPorSesion: 6,
+        intensidadDeseada: "alta",
+        cardio: "ninguno",
+      },
+      bibliotecaPierna
+    );
+    const ejerciciosPiernas = r.dias.flatMap((d) => d.ejercicios).filter((e) => e.grupoMuscular === "piernas");
+    const totalPiernas = ejerciciosPiernas.reduce((s, e) => s + e.series, 0);
+    expect(totalPiernas).toBeLessThanOrEqual(50);
+    expect(r.alertas.some((a) => a.includes("Volumen semanal de piernas ajustado"))).toBe(true);
+    // Los principales en pirámide no se tocaron: un número de reps por serie.
+    const principales = ejerciciosPiernas.filter((e) => /Sentadilla|Prensa/.test(e.nombre));
+    principales.forEach((e) => expect(e.reps.split("-").length).toBe(e.series));
+    // Ningún accesorio quedó en menos de 2 series.
+    ejerciciosPiernas.forEach((e) => expect(e.series).toBeGreaterThanOrEqual(2));
+  });
+
+  it("ajustarVolumenCritico avisa cuando ni bajando todos los accesorios al mínimo alcanza el tope", () => {
+    const bibliotecaPierna = [
+      base("sentadilla", "piernas", "pierna", { nombre: "Sentadilla" }),
+      base("prensa", "piernas", "pierna", { nombre: "Prensa" }),
+      ...Array.from({ length: 6 }, (_, i) => base(`pierna-acc-${i}`, "piernas", "aislamiento", { posicionSesion: "accesorio" })),
+    ];
+    // Con 3 días de piernas, los principales solos (2 por día × 5 series)
+    // ya suman 30 — ni bajando los accesorios al piso de 2 se llega a 50.
+    const r = generarRutinaPorReglas(
+      { ...perfil, experiencia: "avanzado" },
+      {
+        ...brief,
+        dias: 3,
+        distribucion: "personalizada",
+        diaGrupos: [["piernas"], ["piernas"], ["piernas"]],
+        ejerciciosPorSesion: 6,
+        intensidadDeseada: "alta",
+        cardio: "ninguno",
+      },
+      bibliotecaPierna
+    );
+    const totalPiernas = r.dias.flatMap((d) => d.ejercicios).filter((e) => e.grupoMuscular === "piernas").reduce((s, e) => s + e.series, 0);
+    expect(totalPiernas).toBeGreaterThan(50);
+    expect(r.alertas.some((a) => a.includes("sigue en") && a.includes("revisa manualmente"))).toBe(true);
+  });
+
+  it("inspiracionEstilo 'volumen_tradicional' prioriza una segunda encadenada en vez de individual", () => {
+    const bibliotecaAmplia = [
+      base("pecho-principal", "pecho", "empuje", { posicionSesion: "principal" }),
+      base("pecho-1", "pecho", "empuje", { posicionSesion: "accesorio" }),
+      base("pecho-2", "pecho", "empuje", { posicionSesion: "accesorio" }),
+      base("pecho-3", "pecho", "empuje", { posicionSesion: "accesorio" }),
+      base("pecho-4", "pecho", "empuje", { posicionSesion: "accesorio" }),
+    ];
+    // Avanzado + intensidad no estándar = 2 técnicas por sesión (ver
+    // maximoTecnicasPorSesion) — sin margen para una segunda familia, no
+    // habría diferencia que medir.
+    const perfilAvanzado = { ...perfil, experiencia: "avanzado" as const };
+    const briefDia: BriefGenerador = { ...brief, dias: 1, distribucion: "personalizada", diaGrupos: [["pecho"]], ejerciciosPorSesion: 5, intensidadDeseada: "alta" };
+    const tecnicas: TecnicaEntrenamiento[] = [
+      { id: "1", nombre: "Biserie", slug: "biserie", tipo: "encadenada", cantidadEjercicios: 2, nivelMinimo: "intermedio", fatiga: "media", requiereSupervision: false, descansoInternoSeg: 0, descansoFinalSeg: 90, maximoPorSesion: 2 },
+    ];
+    const conVolumen = generarRutinaPorReglas(perfilAvanzado, { ...briefDia, inspiracionEstilo: "volumen_tradicional" }, bibliotecaAmplia, tecnicas);
+    const sinInspiracion = generarRutinaPorReglas(perfilAvanzado, briefDia, bibliotecaAmplia, tecnicas);
+    const accesoriosConTecnica = (r: typeof conVolumen) => r.dias[0].ejercicios.filter((e) => e.tecnicaTipo === "Biserie").length;
+    expect(accesoriosConTecnica(conVolumen)).toBe(4);
+    expect(accesoriosConTecnica(sinInspiracion)).toBe(2);
   });
 
   it("inspiracionEstilo 'cientifico_rir' agrega RIR a las reps", () => {
