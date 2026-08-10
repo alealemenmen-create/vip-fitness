@@ -15,6 +15,10 @@ import { PesoCorporalSoloLectura } from "@/components/admin/PesoCorporalSoloLect
 import { FotosSoloLectura } from "@/components/admin/FotosSoloLectura";
 import { HistorialEntrenamiento } from "@/components/admin/HistorialEntrenamiento";
 import { HistorialPuntosAlumno } from "@/components/admin/HistorialPuntosAlumno";
+import { CopiarRutinaAlumno } from "@/components/admin/CopiarRutinaAlumno";
+import { FichaAlumnoAdmin } from "@/components/admin/FichaAlumnoAdmin";
+import { leerFicha } from "@/lib/perfil-alumno/datos";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { ResumenComidas } from "@/components/admin/ResumenComidas";
 import { SeguimientoDiarioSoloLectura } from "@/components/admin/SeguimientoDiarioSoloLectura";
 import { obtenerHistorialPeso, obtenerFotosProgreso } from "@/app/alumno/progreso/data";
@@ -54,6 +58,7 @@ export default async function AlumnoDetallePage({
     documentos,
     alertasImpulso,
     movimientosPuntos,
+    ficha,
   ] = await Promise.all([
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     supabase
@@ -78,6 +83,7 @@ export default async function AlumnoDetallePage({
     obtenerDocumentos(supabase, alumnoId),
     obtenerAlertasPendientes(supabase, alumnoId),
     obtenerMovimientosAlumno(alumnoId, 1000),
+    leerFicha(supabase as unknown as SupabaseClient, alumnoId),
   ]);
 
   // Marca como vistas las notas que generó la IA para este alumno, ahora que
@@ -142,12 +148,15 @@ export default async function AlumnoDetallePage({
 
       <DatosPersonalesSoloLectura datos={datosPersonales} />
 
+      <FichaAlumnoAdmin alumnoId={alumnoId} nombre={perfil?.nombre ?? "este alumno"} ficha={ficha} />
+
       <NotasManager alumnoId={alumnoId} notasIniciales={notas ?? []} />
 
       <p className="text-[10px] pt-1 text-text-tertiary">ACTIVIDAD DEL ALUMNO</p>
       <PesoCorporalSoloLectura historial={historialPeso} />
       <FotosSoloLectura fotos={fotos} />
       <HistorialEntrenamiento rutinaActivaNombre={rutinaActiva?.nombre ?? null} sesiones={sesiones} />
+      {rutinaActiva && <CopiarRutinaAlumno rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />}
       <HistorialPuntosAlumno movimientos={movimientosPuntos} />
       <ResumenComidas resumen={resumenComidas} />
       <SeguimientoDiarioSoloLectura seguimientos={seguimientos} />

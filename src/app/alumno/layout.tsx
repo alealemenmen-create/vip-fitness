@@ -1,7 +1,11 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Eye } from "lucide-react";
 import { requireAlumno } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { leerFicha } from "@/lib/perfil-alumno/datos";
+import { fichaCompleta } from "@/lib/perfil-alumno/ficha";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { salirDeVistaAlumno } from "@/app/admin/alumnos/actions";
 import { obtenerSesionEnProgreso } from "@/app/alumno/entrenar/data";
 import {
@@ -32,6 +36,20 @@ export default async function AlumnoLayout({ children }: { children: React.React
   marcarRequest("carga de pantalla de alumno");
   const contexto = await requireAlumno();
   const supabase = await createClient();
+
+  // Ficha obligatoria: sin objetivo, nivel, edad ni antecedentes de salud, el
+  // generador arma a ciegas y el filtro de IA no tiene contra qué contrastar.
+  // Así que nadie entra a la app hasta contestarla — alumnos nuevos en su
+  // primera pantalla, y los de siempre la primera vez que abren después de
+  // esta actualización.
+  //
+  // Solo aplica a alumnos de verdad: al entrenador mirando "como alumno"
+  // (soloLectura) o usando su propia cuenta dual no se le bloquea nada, o no
+  // podría revisar la app de nadie.
+  if (contexto.rolSesion === "alumno" && !contexto.soloLectura) {
+    const ficha = await leerFicha(supabase as unknown as SupabaseClient, contexto.alumnoId);
+    if (!fichaCompleta(ficha)) redirect("/completar-perfil");
+  }
 
   // Sesión de entrenamiento en curso, si la hay: la burbuja flotante vive
   // acá para verse en cualquier pestaña, no solo en Entrenar.

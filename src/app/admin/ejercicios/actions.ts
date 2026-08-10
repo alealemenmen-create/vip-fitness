@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { TAG_BIBLIOTECA_EJERCICIOS } from "@/lib/ejercicios/data";
+import { TAG_TECNICAS_ENTRENAMIENTO } from "@/lib/generador-rutinas/data";
 import { idDeYoutube } from "@/lib/ejercicios/video";
 import {
   bufferAImagenBlob,
@@ -73,6 +74,24 @@ async function descargarImagenDeUrl(valor: string): Promise<{ bytes: Buffer } | 
   if (arrayBuffer.byteLength > TAMANO_MAXIMO) return { error: "La imagen pesa demasiado (máx. 15 MB)." };
 
   return { bytes: Buffer.from(arrayBuffer) };
+}
+
+/** Refresco manual de la biblioteca y las técnicas.
+ *
+ * La biblioteca se cachea 1 hora (ver `obtenerBiblioteca`), y ese caché solo
+ * se invalida cuando el cambio pasa por una Server Action. Cuando el
+ * entrenador edita la tabla directo en Supabase —cargar máquinas nuevas,
+ * desactivar las que el gimnasio no tiene, agregar una técnica— nada avisa, y
+ * el generador sigue armando rutinas con el catálogo viejo hasta una hora
+ * después. Este botón cierra ese hueco. */
+export async function refrescarCatalogo(): Promise<{ ok: boolean }> {
+  await requireRol(["entrenador", "admin"]);
+  revalidateTag(TAG_BIBLIOTECA_EJERCICIOS, { expire: 0 });
+  revalidateTag(TAG_TECNICAS_ENTRENAMIENTO, { expire: 0 });
+  revalidatePath("/admin/generador");
+  revalidatePath("/admin/ejercicios");
+  revalidatePath("/alumno/entrenar");
+  return { ok: true };
 }
 
 function avisarCambios() {

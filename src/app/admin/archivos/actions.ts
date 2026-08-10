@@ -9,6 +9,7 @@ import { obtenerCatalogoAlimentos } from "@/app/alumno/comer/data";
 import { obtenerBiblioteca } from "@/lib/ejercicios/data";
 import { emparejarEjercicio } from "@/lib/ejercicios/emparejar";
 import { rellenarTemposFaltantes } from "@/lib/ejercicios/rellenarTempos";
+import { serializarRutinaATexto } from "@/lib/generador-rutinas/serializar";
 import {
   resolverPlan,
   calcularAporte,
@@ -55,6 +56,53 @@ const ERROR_TIPO = "Solo se aceptan archivos PDF o TXT.";
 /** Qué tipo guardó una ruta, para poder mandárselo bien a la IA. */
 function tipoDeLaRuta(storagePath: string): "application/pdf" | "text/plain" {
   return storagePath.toLowerCase().endsWith(".txt") ? "text/plain" : "application/pdf";
+}
+
+/** Guarda una copia en texto de la rutina que se acaba de publicar, visible
+ * en Documentos del alumno — antes solo quedaba en las tablas estructuradas
+ * (rutinas/rutina_dias/rutina_dia_ejercicios), sin ningún rastro legible
+ * para el alumno fuera de la vista de Entrenar. No bloqueante a propósito
+ * (mismo criterio que `rellenarTemposFaltantes`): si esto falla, la rutina
+ * ya se publicó bien, el documento es un plus. */
+async function guardarRutinaComoDocumento(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  alumnoId: string,
+  entrenadorId: string,
+  datos: RutinaConProgresion
+): Promise<void> {
+  try {
+    const texto = serializarRutinaATexto(datos);
+    const storagePath = `${alumnoId}/rutina-generada-${Date.now()}.txt`;
+    // Subir el string tal cual dejaba los acentos rotos (Ã­, â€”): el bucket
+    // servía los bytes sin declarar charset y el navegador los interpretaba
+    // como Latin-1. Codificando a UTF-8 a mano y declarando el charset en el
+    // content-type se lee bien en cualquier visor.
+    const { error: errorSubida } = await supabase.storage
+      .from("documentos")
+      .upload(storagePath, new TextEncoder().encode(texto), { contentType: "text/plain; charset=utf-8" });
+    if (errorSubida) return;
+
+    const { data: documento } = await supabase
+      .from("documentos")
+      .insert({
+        alumno_id: alumnoId,
+        tipo: "rutina",
+        nombre_archivo: `${datos.nombreRutina || "Rutina"}.txt`,
+        storage_path: storagePath,
+        entrenador_id: entrenadorId,
+      })
+      .select("id")
+      .single();
+    if (!documento) return;
+
+    await supabase.from("documento_asignaciones").insert({
+      documento_id: documento.id,
+      alumno_id: alumnoId,
+      asignado_por: entrenadorId,
+    });
+  } catch {
+    // Silencioso a propósito — ver comentario de la función.
+  }
 }
 
 export type SubirPdfState = { error: string | null; storagePath: string | null };
@@ -1034,7 +1082,10 @@ async function publicarUnaRutina(
       .filter((id): id is string => id !== null)
   );
 
+  await guardarRutinaComoDocumento(supabase, alumnoId, userId, datos);
+
   revalidatePath(`/admin/alumnos/${alumnoId}`);
+  revalidatePath("/alumno/documentos");
   return { error: null, ok: true };
 }
 

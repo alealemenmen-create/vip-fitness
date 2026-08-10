@@ -59,37 +59,37 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           al borde y el contenido desfile por la rendija (es el bug que se
           arregló en /alumno). Siendo hermano no scrollea nunca y el contenido
           queda recortado por el borde del scroller, sin rendija posible. */}
-      <div className="mx-auto w-full max-w-md shrink-0 bg-bg px-4 pb-3 pt-8">
-        <Logo compact className="mb-3" corner={<ThemeToggle />} />
+      <div className="mx-auto w-full max-w-md shrink-0 bg-bg px-4 pb-2 pt-4">
+        <Logo compact height={30} className="mb-2" corner={<ThemeToggle />} />
 
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-2 flex items-center gap-2">
           <div>
-            <p className="text-[10px] text-text-tertiary">PANEL</p>
-            <h1 className="text-caption font-semibold text-text">{nombrePublicado(sesion.nombre)}</h1>
+            <p className="text-[9px] text-text-tertiary">PANEL</p>
+            <h1 className="text-micro font-semibold text-text">{nombrePublicado(sesion.nombre)}</h1>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           <Link
             href="/admin/asistente"
-            className="btn-accion radius-control flex items-center justify-center gap-2 px-3 py-3 text-secondary font-semibold"
+            className="btn-accion radius-control flex items-center justify-center gap-1.5 px-3 py-1.5 text-caption font-semibold"
           >
-            <Bot size={17} /> Asistente VIP
+            <Bot size={14} /> Asistente VIP
           </Link>
           {miAlumnoPerfil ? (
             <Link
               href="/alumno/inicio"
-              className="radius-control flex items-center justify-center gap-2 border border-border px-3 py-3 text-secondary font-medium text-vip"
+              className="radius-control flex items-center justify-center gap-1.5 border border-border px-3 py-1.5 text-caption font-medium text-vip"
             >
-              <Dumbbell size={16} /> Mi entrenamiento
+              <Dumbbell size={13} /> Mi entrenamiento
             </Link>
           ) : (
             <form action={crearMiPerfilAlumno}>
               <button
                 type="submit"
-                className="radius-control flex h-full w-full items-center justify-center gap-2 border border-dashed border-border px-2 py-3 text-caption text-text-tertiary"
+                className="radius-control flex h-full w-full items-center justify-center gap-1.5 border border-dashed border-border px-2 py-1.5 text-micro text-text-tertiary"
               >
-                <Dumbbell size={16} /> Activar alumno
+                <Dumbbell size={13} /> Activar alumno
               </button>
             </form>
           )}
