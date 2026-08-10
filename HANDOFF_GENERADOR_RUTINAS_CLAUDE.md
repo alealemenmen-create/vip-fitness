@@ -136,9 +136,20 @@ Flujo verificado que funciona: en la máquina nueva, `git fetch origin` + `git s
 
 Ver punto 5 arriba — es lo más inmediato y acotado de lo que falta.
 
-### 2. Multi-alumno real
+### 2. Multi-alumno real — resuelto (commit `16e9bbd`)
 
-Hoy, si se seleccionan varios alumnos, la rutina se genera y se revisa (IA incluida) con la ficha del primero solamente. Ya se avisa en pantalla, pero sigue siendo una limitación real.
+Este punto ya no es una limitación: `src/lib/generador-rutinas/perfil-grupal.ts`
+(`combinarPerfilesGrupo`) arma un perfil grupal conservador — nivel menos
+experimentado, mayor edad, cardio más bajo, y unión (no reemplazo) de
+molestias/lesiones/condiciones/medicamentos/ejercicios preferidos y no
+deseados de todos los integrantes. `src/app/admin/generador/actions.ts` lo usa
+tanto en `generarBorradorRutina` como en `revisarBorradorConIA`, así que la
+generación y la revisión de IA calibran con el grupo completo. Cubierto por
+`perfil-grupal.test.ts`.
+
+Lo único que sigue tomando solo al primer alumno del grupo es cosmético: el
+nombre de la rutina y el número de versión (`rutinasPrevias`), no la
+calibración de seguridad ni el contenido.
 
 ### 3. Metadatos de ejercicios
 
