@@ -38,6 +38,41 @@ export type PatronMovimiento =
   | "cardio"
   | "otro";
 
+/** Mismos valores que `PatronMovimiento`, en tiempo de ejecución — para
+ * validar en el servidor lo que llega desde el select del admin antes de
+ * guardarlo (ver `actualizarPatronMovimiento` en admin/ejercicios/actions.ts). */
+export const PATRONES_MOVIMIENTO_VALIDOS: PatronMovimiento[] = [
+  "pecho_press_horizontal",
+  "pecho_press_inclinado",
+  "pecho_aislamiento",
+  "espalda_traccion_vertical",
+  "espalda_remo_horizontal",
+  "espalda_pullover",
+  "espalda_bisagra",
+  "espalda_trapecio",
+  "hombro_press_vertical",
+  "hombro_lateral",
+  "hombro_posterior",
+  "hombro_anterior",
+  "biceps_supinado",
+  "biceps_neutro",
+  "biceps_hombro_flexionado",
+  "triceps_polea_abajo",
+  "triceps_sobre_cabeza",
+  "triceps_compuesto",
+  "pierna_dominante_rodilla",
+  "pierna_bisagra_cadera",
+  "pierna_empuje_cadera",
+  "pierna_flexion_rodilla",
+  "pierna_extension_rodilla",
+  "pierna_abduccion",
+  "pierna_aduccion",
+  "pierna_pantorrilla",
+  "core",
+  "cardio",
+  "otro",
+];
+
 export function normalizarMovimiento(texto: string | null | undefined): string {
   return (texto ?? "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
 }

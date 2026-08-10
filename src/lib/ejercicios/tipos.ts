@@ -1,4 +1,5 @@
 import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
+import type { PatronMovimiento } from "@/lib/rutinas/patrones";
 
 export type NivelEjercicio = "principiante" | "intermedio" | "avanzado";
 
@@ -56,6 +57,10 @@ export type Ejercicio = {
   fotoPanoramaY: number;
   fotoCuadradaX: number;
   fotoCuadradaY: number;
+  /** Clasificación biomecánica estructurada (migración 0051). Nula en casi
+   * toda la biblioteca todavía — mientras no se cargue, el generador sigue
+   * clasificando por nombre (ver `patronMovimiento()` en lib/rutinas/patrones.ts). */
+  patronMovimiento: PatronMovimiento | null;
 };
 
 /** Columnas a pedir cuando se lee la biblioteca. */
@@ -69,7 +74,7 @@ export const COLUMNAS_EJERCICIO_CON_ENCUADRE =
   `${COLUMNAS_EJERCICIO}, foto_panorama_x, foto_panorama_y, foto_cuadrada_x, foto_cuadrada_y`;
 export const COLUMNAS_EJERCICIO_MULTIMEDIA =
   `${COLUMNAS_EJERCICIO_CON_ENCUADRE}, video_cloudflare_uid, video_cloudflare_estado, ` +
-  "video_cloudflare_duracion_seg, video_cloudflare_miniatura_url, video_cloudflare_error";
+  "video_cloudflare_duracion_seg, video_cloudflare_miniatura_url, video_cloudflare_error, patron_movimiento";
 
 type FilaEjercicio = {
   id: string;
@@ -98,6 +103,7 @@ type FilaEjercicio = {
   foto_panorama_y?: number | null;
   foto_cuadrada_x?: number | null;
   foto_cuadrada_y?: number | null;
+  patron_movimiento?: PatronMovimiento | null;
 };
 
 export function aEjercicio(fila: FilaEjercicio): Ejercicio {
@@ -128,5 +134,6 @@ export function aEjercicio(fila: FilaEjercicio): Ejercicio {
     fotoPanoramaY: fila.foto_panorama_y ?? 50,
     fotoCuadradaX: fila.foto_cuadrada_x ?? 50,
     fotoCuadradaY: fila.foto_cuadrada_y ?? 50,
+    patronMovimiento: fila.patron_movimiento ?? null,
   };
 }

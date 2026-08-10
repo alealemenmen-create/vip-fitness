@@ -14,6 +14,7 @@ import {
 } from "@/lib/ejercicios/procesarFoto";
 import type { CategoriaEjercicio, EquipoEjercicio, NivelEjercicio } from "@/lib/ejercicios/tipos";
 import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
+import { PATRONES_MOVIMIENTO_VALIDOS } from "@/lib/rutinas/patrones";
 import {
   consultarVideoCloudflare,
   eliminarVideoCloudflare,
@@ -410,6 +411,43 @@ export async function actualizarNombreEjercicio(
 
   const { error } = await supabase.from("ejercicios").update({ nombre, aliases }).eq("id", ejercicioId);
   if (error) return { error: "No se pudo guardar el nombre. Probá de nuevo.", ok: false };
+
+  avisarCambios();
+  return { error: null, ok: true };
+}
+
+export type ActualizarPatronMovimientoState = { error: string | null; ok: boolean };
+
+/**
+ * Carga el patrón biomecánico estructurado (columna `patron_movimiento`,
+ * migración 0051) de un ejercicio. Mientras esta columna esté vacía, el
+ * generador sigue clasificando por nombre (`patronMovimiento()` en
+ * lib/rutinas/patrones.ts) — cargarla acá no cambia ese comportamiento por sí
+ * sola, es el primer paso para ir reemplazando la heurística por dato real.
+ */
+export async function actualizarPatronMovimiento(
+  _prevState: ActualizarPatronMovimientoState,
+  formData: FormData
+): Promise<ActualizarPatronMovimientoState> {
+  await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  const valorCrudo = String(formData.get("patron_movimiento") || "");
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+
+  // Vacío = "sin clasificar todavía", vuelve a depender de la heurística por
+  // nombre en vez de forzar un valor.
+  const patronMovimiento = valorCrudo === "" ? null : valorCrudo;
+  if (patronMovimiento !== null && !PATRONES_MOVIMIENTO_VALIDOS.includes(patronMovimiento as never)) {
+    return { error: "Ese patrón de movimiento no es válido.", ok: false };
+  }
+
+  const { error } = await supabase
+    .from("ejercicios")
+    .update({ patron_movimiento: patronMovimiento })
+    .eq("id", ejercicioId);
+  if (error) return { error: "No se pudo guardar el patrón. Probá de nuevo.", ok: false };
 
   avisarCambios();
   return { error: null, ok: true };

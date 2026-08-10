@@ -795,6 +795,11 @@ export interface Database {
           foto_cuadrada_x: number;
           foto_cuadrada_y: number;
           foto_completa_url: string | null;
+          // 0051_generador_rutinas.sql — clasificación biomecánica
+          // estructurada, vacía para casi toda la biblioteca todavía. Sin
+          // restricción `check` en la base: es texto libre validado en la
+          // Server Action (ver PATRONES_MOVIMIENTO_VALIDOS).
+          patron_movimiento: string | null;
           activo: boolean;
           created_at: string;
         };
@@ -851,6 +856,7 @@ export interface Database {
           foto_cuadrada_x?: number;
           foto_cuadrada_y?: number;
           foto_completa_url?: string | null;
+          patron_movimiento?: string | null;
           activo?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["ejercicios"]["Insert"]>;

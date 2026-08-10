@@ -11,6 +11,7 @@ import {
   subirFotoEjercicio,
   crearEjercicioNuevo,
   actualizarNombreEjercicio,
+  actualizarPatronMovimiento,
   desactivarEjercicio,
   quitarVideoEjercicio,
   obtenerUsosRutina,
@@ -26,6 +27,7 @@ import { normalizar } from "@/lib/alimentos/emparejar";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import type { Ejercicio } from "@/lib/ejercicios/tipos";
+import type { PatronMovimiento } from "@/lib/rutinas/patrones";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { ModalVideo } from "@/components/student/ModalVideo";
@@ -40,6 +42,126 @@ const ETIQUETAS_GRUPO: Record<string, string> = {
   core: "Core",
   cardio: "Cardio",
 };
+
+/** Mismo vocabulario que usa el generador para clasificar por nombre (ver
+ * `patronMovimiento()` en lib/rutinas/patrones.ts), agrupado por zona para que
+ * elegir entre 28 opciones no sea una lista plana interminable. */
+const GRUPOS_PATRON: { etiqueta: string; opciones: { valor: PatronMovimiento; etiqueta: string }[] }[] = [
+  {
+    etiqueta: "Pecho",
+    opciones: [
+      { valor: "pecho_press_horizontal", etiqueta: "Press horizontal" },
+      { valor: "pecho_press_inclinado", etiqueta: "Press inclinado" },
+      { valor: "pecho_aislamiento", etiqueta: "Aislamiento (aperturas/cruces)" },
+    ],
+  },
+  {
+    etiqueta: "Espalda",
+    opciones: [
+      { valor: "espalda_traccion_vertical", etiqueta: "Tracción vertical (jalón/dominada)" },
+      { valor: "espalda_remo_horizontal", etiqueta: "Remo horizontal" },
+      { valor: "espalda_pullover", etiqueta: "Pullover" },
+      { valor: "espalda_bisagra", etiqueta: "Bisagra (peso muerto/hiperextensión)" },
+      { valor: "espalda_trapecio", etiqueta: "Trapecio (encogimientos)" },
+    ],
+  },
+  {
+    etiqueta: "Hombros",
+    opciones: [
+      { valor: "hombro_press_vertical", etiqueta: "Press vertical" },
+      { valor: "hombro_lateral", etiqueta: "Elevación lateral" },
+      { valor: "hombro_posterior", etiqueta: "Deltoide posterior" },
+      { valor: "hombro_anterior", etiqueta: "Deltoide anterior (frontal)" },
+    ],
+  },
+  {
+    etiqueta: "Bíceps",
+    opciones: [
+      { valor: "biceps_supinado", etiqueta: "Supinado (curl clásico)" },
+      { valor: "biceps_neutro", etiqueta: "Neutro (martillo)" },
+      { valor: "biceps_hombro_flexionado", etiqueta: "Hombro flexionado (predicador/Scott)" },
+    ],
+  },
+  {
+    etiqueta: "Tríceps",
+    opciones: [
+      { valor: "triceps_polea_abajo", etiqueta: "Hacia abajo (polea)" },
+      { valor: "triceps_sobre_cabeza", etiqueta: "Sobre la cabeza (overhead)" },
+      { valor: "triceps_compuesto", etiqueta: "Compuesto (fondos/press cerrado)" },
+    ],
+  },
+  {
+    etiqueta: "Pierna",
+    opciones: [
+      { valor: "pierna_dominante_rodilla", etiqueta: "Dominante de rodilla (sentadilla/prensa)" },
+      { valor: "pierna_bisagra_cadera", etiqueta: "Bisagra de cadera (peso muerto rumano)" },
+      { valor: "pierna_empuje_cadera", etiqueta: "Empuje de cadera (hip thrust)" },
+      { valor: "pierna_flexion_rodilla", etiqueta: "Flexión de rodilla (curl femoral)" },
+      { valor: "pierna_extension_rodilla", etiqueta: "Extensión de rodilla (cuádriceps)" },
+      { valor: "pierna_abduccion", etiqueta: "Abducción" },
+      { valor: "pierna_aduccion", etiqueta: "Aducción" },
+      { valor: "pierna_pantorrilla", etiqueta: "Pantorrilla" },
+    ],
+  },
+  {
+    etiqueta: "Otros",
+    opciones: [
+      { valor: "core", etiqueta: "Core" },
+      { valor: "cardio", etiqueta: "Cardio" },
+      { valor: "otro", etiqueta: "Otro / sin encajar" },
+    ],
+  },
+];
+
+const ESTADO_INICIAL_PATRON = { error: null, ok: false };
+
+/**
+ * Clasificación biomecánica estructurada de UN ejercicio (columna
+ * `patron_movimiento`, migración 0051). Mientras esta columna esté vacía, el
+ * motor sigue adivinando el patrón por el nombre — cargarla acá es el primer
+ * paso para reemplazar esa heurística por dato real, ejercicio por ejercicio.
+ */
+function EditorPatronMovimiento({ ejercicio }: { ejercicio: Ejercicio }) {
+  const [state, formAction, pending] = useActionState(actualizarPatronMovimiento, ESTADO_INICIAL_PATRON);
+
+  return (
+    <form action={formAction} className="space-y-1.5">
+      <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+      <span className="text-caption block text-text-tertiary">
+        Patrón de movimiento — lo que hoy adivina el generador por el nombre
+      </span>
+      <select
+        name="patron_movimiento"
+        defaultValue={ejercicio.patronMovimiento ?? ""}
+        className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
+      >
+        <option value="">Sin clasificar (usar heurística por nombre)</option>
+        {GRUPOS_PATRON.map((grupo) => (
+          <optgroup key={grupo.etiqueta} label={grupo.etiqueta}>
+            {grupo.opciones.map((o) => (
+              <option key={o.valor} value={o.valor}>
+                {o.etiqueta}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      {state.error && <p className="text-caption text-error">{state.error}</p>}
+      {state.ok && (
+        <p className="text-caption flex items-center gap-1 text-success">
+          <Check size={12} /> Patrón guardado.
+        </p>
+      )}
+      <button
+        type="submit"
+        disabled={pending}
+        className="radius-control flex h-9 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text disabled:opacity-60"
+      >
+        {pending ? "Guardando..." : "Guardar patrón"}
+      </button>
+    </form>
+  );
+}
 
 export type ReporteFotoPendiente = {
   id: string;
@@ -951,6 +1073,10 @@ function ModalSubirFoto({
 
       <div className="mt-4 border-t border-border pt-3">
         <EditorNombre ejercicio={ejercicio} />
+      </div>
+
+      <div className="mt-4 border-t border-border pt-3">
+        <EditorPatronMovimiento ejercicio={ejercicio} />
       </div>
 
       <div className="mt-4 border-t border-border pt-3">
