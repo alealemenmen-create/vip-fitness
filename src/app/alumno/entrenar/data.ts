@@ -5,6 +5,7 @@ import { mesActualISO } from "@/lib/date";
 import { resolverTempo, type Tempo } from "@/lib/ejercicios/tempo";
 import { emparejarEjercicio } from "@/lib/ejercicios/emparejar";
 import { obtenerBiblioteca } from "@/lib/ejercicios/data";
+import { obtenerEstadoPlanMensual } from "@/lib/planes-entrenamiento-servidor";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -224,10 +225,13 @@ export async function obtenerProximoNumero(
 }
 
 export type BalanceSesionesMes = {
+  planNombre: string | null;
   diasSemana: number;
   asignadas: number;
   consumidas: number;
   balance: number;
+  pausado: boolean;
+  configurado: boolean;
 } | null;
 
 /**
@@ -246,6 +250,19 @@ export async function obtenerBalanceSesionesMes(
 ): Promise<BalanceSesionesMes> {
   const rutina = await obtenerRutinaActiva(alumnoId);
   if (!rutina) return null;
+
+  const plan = await obtenerEstadoPlanMensual(supabase as unknown as import("@supabase/supabase-js").SupabaseClient, alumnoId);
+  if (plan) {
+    return {
+      planNombre: plan.nombre,
+      diasSemana: plan.diasSemana,
+      asignadas: plan.sesionesMensuales,
+      consumidas: plan.consumidas,
+      balance: plan.restantes,
+      pausado: plan.pausado,
+      configurado: true,
+    };
+  }
 
   // Los días de la rutina y las sesiones del mes no dependen entre sí: se
   // piden juntas en vez de una después de la otra.
@@ -271,7 +288,15 @@ export async function obtenerBalanceSesionesMes(
     return dia?.tipo === "entrenamiento";
   }).length;
 
-  return { diasSemana, asignadas, consumidas, balance: asignadas - consumidas };
+  return {
+    planNombre: null,
+    diasSemana,
+    asignadas,
+    consumidas,
+    balance: asignadas - consumidas,
+    pausado: false,
+    configurado: false,
+  };
 }
 
 export type SerieRealizada = {

@@ -3,6 +3,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { createClient } from "@/lib/supabase/server";
 import { mesActualISO, ultimosNDiasISO, hoyISO, ZONA_HORARIA_VIP } from "@/lib/date";
 import { obtenerConfiguracionSupervision } from "@/lib/configuracion/supervision";
+import { resolverPlanEntrenamiento } from "@/lib/planes-entrenamiento";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -44,7 +45,7 @@ export async function obtenerIndicadores(
   const ultimos30 = ultimosNDiasISO(30);
   const desde30 = ultimos30[ultimos30.length - 1];
 
-  const [{ data: rutinas }, { data: sesionesMes }, { data: sesionesRecientes }, { data: registros }] =
+  const [{ data: rutinas }, { data: sesionesMes }, { data: sesionesRecientes }, { data: registros }, { data: perfilesPlan }] =
     await Promise.all([
       supabase
         .from("rutinas")
@@ -70,7 +71,22 @@ export async function obtenerIndicadores(
         .select("alumno_id, fecha, comidas_registradas(id, omitida)")
         .in("alumno_id", alumnoIds)
         .gte("fecha", desde7),
+      supabase
+        .from("alumno_perfil")
+        .select("user_id, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana")
+        .in("user_id", alumnoIds),
     ]);
+
+  const planPorAlumno = new Map(
+    (perfilesPlan ?? []).map((perfil) => [
+      perfil.user_id,
+      resolverPlanEntrenamiento(
+        perfil.plan_entrenamiento,
+        perfil.sesiones_mensuales,
+        perfil.dias_entrenamiento_semana
+      ),
+    ])
+  );
 
   // Días de entrenamiento por alumno → cupo mensual (días/semana × 4).
   const rutinaPorAlumno = new Map((rutinas ?? []).map((r) => [r.id, r.alumno_id]));
@@ -123,7 +139,7 @@ export async function obtenerIndicadores(
   const inicioMesMs = new Date(`${desde}T00:00:00`).getTime();
 
   for (const alumnoId of alumnoIds) {
-    const diasSemana = diasEntrenamiento.get(alumnoId) ?? 0;
+    const diasSemana = planPorAlumno.get(alumnoId)?.diasSemana ?? diasEntrenamiento.get(alumnoId) ?? 0;
 
     // Cupo prorrateado: si el mes recién empezó, o la rutina activa es más
     // nueva que el mes (alumno recién arrancó), no se le exige la cuota de

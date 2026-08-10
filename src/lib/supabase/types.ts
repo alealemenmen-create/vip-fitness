@@ -6,6 +6,7 @@
 export type Rol = "alumno" | "entrenador" | "admin";
 // 0032: sexo declarado en el registro, editable después desde "Mi perfil".
 export type Sexo = "femenino" | "masculino" | "otro";
+export type CodigoPlanEntrenamiento = "access" | "select" | "pro" | "elite";
 export type EstadoSolicitud = "pendiente" | "aceptada" | "rechazada";
 export type EstadoSesion = "en_progreso" | "completada" | "finalizada_incompleta" | "abandonada";
 // "otro" viene de 0027: documentos que no son ni rutina ni plan de comidas.
@@ -83,6 +84,10 @@ export interface Database {
           // 0032_solicitudes_registro.sql
           telefono: string | null;
           sexo: Sexo | null;
+          plan_entrenamiento: CodigoPlanEntrenamiento | null;
+          sesiones_mensuales: number | null;
+          dias_entrenamiento_semana: number | null;
+          plan_entrenamiento_pausado: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -100,6 +105,10 @@ export interface Database {
           tema_boton?: string | null;
           telefono?: string | null;
           sexo?: Sexo | null;
+          plan_entrenamiento?: CodigoPlanEntrenamiento | null;
+          sesiones_mensuales?: number | null;
+          dias_entrenamiento_semana?: number | null;
+          plan_entrenamiento_pausado?: boolean;
         };
         Update: {
           entrenador_id?: string | null;
@@ -113,6 +122,10 @@ export interface Database {
           tema_boton?: string | null;
           telefono?: string | null;
           sexo?: Sexo | null;
+          plan_entrenamiento?: CodigoPlanEntrenamiento | null;
+          sesiones_mensuales?: number | null;
+          dias_entrenamiento_semana?: number | null;
+          plan_entrenamiento_pausado?: boolean;
           updated_at?: string;
         };
         Relationships: [

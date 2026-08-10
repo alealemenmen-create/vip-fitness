@@ -9,6 +9,7 @@ import { requireRol, COOKIE_VISTA_ALUMNO } from "@/lib/auth";
 import { enviarCorreo, plantillaCredenciales } from "@/lib/email/resend";
 import { cambiarCorreoDeUsuario } from "@/lib/cuenta/correo";
 import { generarPassword } from "@/lib/cuenta/password";
+import { esCodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
 
 export type FormState = { error: string | null; ok: boolean };
 const okState: FormState = { error: null, ok: true };
@@ -429,12 +430,30 @@ export async function actualizarPerfilAlumno(
   const alumnoId = String(formData.get("alumno_id") || "");
   const objetivo = String(formData.get("objetivo") || "").trim();
   const proximoControlFecha = String(formData.get("proximo_control_fecha") || "");
+  const planEntrenamiento = String(formData.get("plan_entrenamiento") || "");
+  const sesionesTexto = String(formData.get("sesiones_mensuales") || "");
+  const diasTexto = String(formData.get("dias_entrenamiento_semana") || "");
+  if (planEntrenamiento && !esCodigoPlanEntrenamiento(planEntrenamiento)) return fail("El plan seleccionado no es válido.");
+  const sesionesMensuales = sesionesTexto ? Number(sesionesTexto) : null;
+  const diasSemana = diasTexto ? Number(diasTexto) : null;
+  if (sesionesMensuales !== null && (!Number.isInteger(sesionesMensuales) || sesionesMensuales < 1 || sesionesMensuales > 31)) {
+    return fail("Las sesiones mensuales deben estar entre 1 y 31.");
+  }
+  if (diasSemana !== null && (!Number.isInteger(diasSemana) || diasSemana < 1 || diasSemana > 7)) {
+    return fail("Los días semanales deben estar entre 1 y 7.");
+  }
 
   const { error } = await supabase
     .from("alumno_perfil")
     .update({
       objetivo: objetivo || null,
       proximo_control_fecha: proximoControlFecha || null,
+      plan_entrenamiento: planEntrenamiento && esCodigoPlanEntrenamiento(planEntrenamiento) ? planEntrenamiento : null,
+      sesiones_mensuales: planEntrenamiento ? sesionesMensuales : null,
+      dias_entrenamiento_semana: planEntrenamiento ? diasSemana : null,
+      plan_entrenamiento_pausado: planEntrenamiento
+        ? formData.get("plan_entrenamiento_pausado") === "on"
+        : false,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", alumnoId);
@@ -445,5 +464,6 @@ export async function actualizarPerfilAlumno(
 
   revalidatePath(`/admin/alumnos/${alumnoId}`);
   revalidatePath("/alumno/inicio");
+  revalidatePath("/alumno/entrenar");
   return okState;
 }

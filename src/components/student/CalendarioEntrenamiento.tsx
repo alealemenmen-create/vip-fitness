@@ -19,10 +19,12 @@ const COLOR_PUNTO: Record<EstadoNumero, string> = {
 function TiraDias({
   numeros,
   seleccionado,
+  sesionesPorSemana,
   onSeleccionar,
 }: {
   numeros: NumeroCalendario[];
   seleccionado: number;
+  sesionesPorSemana: number;
   onSeleccionar: (n: number) => void;
 }) {
   return (
@@ -45,7 +47,7 @@ function TiraDias({
             <span
               className={`text-[12px] font-semibold leading-tight ${activo ? "text-text" : "text-text-secondary"}`}
             >
-              {descanso ? <Moon size={13} className="mt-0.5" /> : n.numero}
+              {descanso ? <Moon size={13} className="mt-0.5" /> : ((n.numero - 1) % sesionesPorSemana) + 1}
             </span>
             <span
               className="h-1 w-1 rounded-full"
@@ -68,6 +70,10 @@ export function CalendarioEntrenamiento({
   proximoNumero,
   rutinaId,
   soloLectura = false,
+  sesionesPorSemana,
+  planNombre,
+  planPausado,
+  cupoAgotado,
 }: {
   numeros: NumeroCalendario[];
   pagina: number;
@@ -75,6 +81,10 @@ export function CalendarioEntrenamiento({
   proximoNumero: number;
   rutinaId: string;
   soloLectura?: boolean;
+  sesionesPorSemana: number;
+  planNombre: string | null;
+  planPausado: boolean;
+  cupoAgotado: boolean;
 }) {
   const [seleccionado, setSeleccionado] = useState(seleccionInicial);
   const actual = numeros.find((n) => n.numero === seleccionado) ?? numeros[0];
@@ -112,7 +122,7 @@ export function CalendarioEntrenamiento({
           <ChevronLeft size={18} />
         </Link>
         <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
-          Semana {pagina}
+          Semana {pagina} · {sesionesPorSemana} sesiones recomendadas
         </span>
         <Link
           href={`/alumno/entrenar?pagina=${pagina + 1}`}
@@ -123,7 +133,12 @@ export function CalendarioEntrenamiento({
         </Link>
       </div>
 
-      <TiraDias numeros={numeros} seleccionado={seleccionado} onSeleccionar={setSeleccionado} />
+      <TiraDias
+        numeros={numeros}
+        seleccionado={seleccionado}
+        sesionesPorSemana={sesionesPorSemana}
+        onSeleccionar={setSeleccionado}
+      />
 
       {/* Tarjeta principal del día. `tarjeta-modelo-oscura` la mantiene en
           oscuro también con el tema claro — ver el porqué en globals.css. */}
@@ -139,7 +154,9 @@ export function CalendarioEntrenamiento({
 
           <div className="relative">
             <p className="mb-0.5 text-[9px] tracking-[0.08em] text-text-tertiary">
-              {actual.numero === proximoNumero ? "PRÓXIMA SESIÓN" : `SESIÓN ${actual.numero}`}
+              {actual.numero === proximoNumero
+                ? `PRÓXIMA SESIÓN · SEMANA ${pagina}`
+                : `SEMANA ${pagina} · SESIÓN ${((actual.numero - 1) % sesionesPorSemana) + 1} DE ${sesionesPorSemana}`}
             </p>
             <h2 className="text-[26px] font-bold leading-none text-text">{titulo}</h2>
             <p className="mt-1 text-[11px] text-text-secondary">{subtitulo}</p>
@@ -163,7 +180,18 @@ export function CalendarioEntrenamiento({
 
         <div className="border-t border-border p-2">
           {actual.estado === "no_iniciado" ? (
-            soloLectura ? null : (
+            soloLectura ? null : planPausado || cupoAgotado ? (
+              <div className="radius-control border border-warning/40 bg-warning/10 px-3 py-3 text-center">
+                <p className="text-[11px] font-semibold text-warning">
+                  {planPausado ? "Plan pausado por tu entrenador" : "Sesiones mensuales completadas"}
+                </p>
+                <p className="mt-1 text-[9px] text-text-secondary">
+                  {planPausado
+                    ? "Tu progreso está guardado. Consulta al entrenador para reactivarlo."
+                    : "Tu cupo se renueva automáticamente el próximo mes."}
+                </p>
+              </div>
+            ) : (
               <BotonEmpezarDia actual={actual} descanso={descanso} rutinaId={rutinaId} conflicto={conflicto} />
             )
           ) : (
@@ -181,6 +209,11 @@ export function CalendarioEntrenamiento({
           )}
         </div>
       </div>
+      {planNombre && (
+        <p className="text-center text-[9px] text-text-tertiary">
+          {planNombre} · Semana {pagina} · sesión {((actual.numero - 1) % sesionesPorSemana) + 1} de {sesionesPorSemana}
+        </p>
+      )}
     </div>
   );
 }

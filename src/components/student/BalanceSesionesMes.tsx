@@ -1,4 +1,4 @@
-import { Calendar } from "lucide-react";
+import { Calendar, PauseCircle } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import type { BalanceSesionesMes as BalanceSesionesMesTipo } from "@/app/alumno/entrenar/data";
 
@@ -35,7 +35,7 @@ export function BalanceSesionesMes({
   compacta?: boolean;
 }) {
   if (!balance) return null;
-  const { consumidas, asignadas, balance: restante } = balance;
+  const { consumidas, asignadas, balance: restante, planNombre, diasSemana, pausado, configurado } = balance;
   const colorNumero = restante < 0 ? "text-error" : "text-vip";
 
   return (
@@ -59,22 +59,33 @@ export function BalanceSesionesMes({
             boxShadow: "0 0 14px color-mix(in srgb, var(--color-acento) 45%, transparent)",
           }}
         >
-          <Calendar size={compacta ? 17 : 22} className="text-vip" />
+          {pausado ? (
+            <PauseCircle size={compacta ? 17 : 22} className="text-warning" />
+          ) : (
+            <Calendar size={compacta ? 17 : 22} className="text-vip" />
+          )}
         </div>
         <div>
-          <p className="text-caption text-text-tertiary">SESIONES DEL MES</p>
+          <p className="text-caption text-text-tertiary">
+            {planNombre ? `${planNombre.toUpperCase()} · SESIONES DEL MES` : "SESIONES DEL MES"}
+          </p>
           <p className={`${compacta ? "mt-0.5 text-[18px] font-bold leading-none" : "text-h3 mt-1"} ${colorNumero}`}>
             {consumidas} <span className="text-text-tertiary">de {asignadas}</span>
           </p>
           <p className={`${compacta ? "mt-1 text-[9px]" : "text-secondary"} text-text-secondary`}>
-            {restante >= 0 ? (
+            {pausado ? (
+              <span className="font-semibold text-warning">Plan pausado · progreso conservado</span>
+            ) : restante >= 0 ? (
               <>
-                Quedan <span className="text-acento-fuerte font-semibold">{restante}</span> sesiones
+                Quedan <span className="text-acento-fuerte font-semibold">{restante}</span> sesiones · {diasSemana} recomendadas por semana
               </>
             ) : (
               `${Math.abs(restante)} de más este mes`
             )}
           </p>
+          {!configurado && (
+            <p className="mt-1 text-[8px] text-warning">Plan comercial pendiente de asignar por el entrenador</p>
+          )}
         </div>
       </div>
     </Card>

@@ -11,6 +11,7 @@ import { serializarRutinaATexto } from "@/lib/generador-rutinas/serializar";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { CambioResuelto, RevisionResuelta } from "@/lib/ai/revisarRutina";
 import type { TipoProgresionImpulso } from "@/lib/supabase/types";
+import { PLANES_ENTRENAMIENTO, type CodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
 
 /** Revisión de IA del borrador. Opcional: solo el flujo del generador la pasa
  * — desde un PDF importado no hay ficha ni brief contra qué contrastar. */
@@ -424,6 +425,7 @@ export function RutinaDraftEditor({
     })),
   }));
   const [publicando, setPublicando] = useState(false);
+  const [planCodigo, setPlanCodigo] = useState<CodigoPlanEntrenamiento | "">("");
   const [error, setError] = useState<string | null>(null);
   const [publicado, setPublicado] = useState(false);
   const [fallidos, setFallidos] = useState<{ nombre: string; error: string }[]>([]);
@@ -616,6 +618,10 @@ export function RutinaDraftEditor({
   };
 
   const publicar = async () => {
+    if (!planCodigo) {
+      setError("Selecciona primero el plan principal del alumno.");
+      return;
+    }
     setPublicando(true);
     setError(null);
 
@@ -626,7 +632,7 @@ export function RutinaDraftEditor({
     // entrenador no tenía forma de saber que había fallado, ni yo de saber por
     // qué. Cualquier fallo tiene que terminar en un mensaje en pantalla.
     try {
-      const resultado = await publicarRutinaAVariosAlumnos(alumnoIds, draft);
+      const resultado = await publicarRutinaAVariosAlumnos(alumnoIds, draft, planCodigo);
 
       if (resultado.error) {
         setError(resultado.error);
@@ -693,6 +699,33 @@ export function RutinaDraftEditor({
           value={draft.nombreRutina}
           onChange={(e) => setDraft((d) => ({ ...d, nombreRutina: e.target.value }))}
         />
+      </Card>
+
+      <Card>
+        <label className="text-caption mb-1.5 block font-semibold text-text">PLAN PRINCIPAL DEL ALUMNO</label>
+        <Select
+          value={planCodigo}
+          onChange={(e) => setPlanCodigo(e.target.value as CodigoPlanEntrenamiento | "")}
+        >
+          <option value="">Seleccionar antes de publicar</option>
+          {Object.values(PLANES_ENTRENAMIENTO).map((plan) => (
+            <option key={plan.codigo} value={plan.codigo}>
+              {plan.nombre} · {plan.sesionesMensuales} al mes · {plan.diasSemana} por semana
+            </option>
+          ))}
+        </Select>
+        <p className="text-micro mt-2 text-text-tertiary">
+          Ordena las semanas y el cupo mensual. El alumno verá el nombre del plan, nunca su precio.
+        </p>
+        {planCodigo &&
+          draft.dias.filter((dia) => dia.tipo === "entrenamiento").length !==
+            PLANES_ENTRENAMIENTO[planCodigo].diasSemana && (
+            <p className="text-caption mt-2 text-warning">
+              La rutina tiene {draft.dias.filter((dia) => dia.tipo === "entrenamiento").length} sesiones distintas,
+              pero el plan recomienda {PLANES_ENTRENAMIENTO[planCodigo].diasSemana} por semana. Se conservará la
+              secuencia y se mostrará dividida en semanas de {PLANES_ENTRENAMIENTO[planCodigo].diasSemana} sesiones.
+            </p>
+          )}
       </Card>
 
       <div className="flex items-center justify-between">

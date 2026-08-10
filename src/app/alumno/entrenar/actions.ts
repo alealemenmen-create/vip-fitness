@@ -17,6 +17,8 @@ import { resolverCumplimiento } from "@/lib/impulso-vip/motor";
 import type { ReglaImpulso } from "@/lib/impulso-vip/tipos";
 import type { DificultadPercibidaImpulso } from "@/lib/supabase/types";
 import { leerSeriesFormulario } from "@/lib/entrenamiento/leer-series-formulario";
+import { obtenerEstadoPlanMensual } from "@/lib/planes-entrenamiento-servidor";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const DIFICULTADES_VALIDAS = new Set(["muy_facil", "facil", "justo", "dificil", "fallo"]);
 type TrainingDb = ReturnType<typeof createAdminClient>;
@@ -34,7 +36,7 @@ async function crearOEntrarSesion(
 ): Promise<never> {
   const [{ data: rutinaPropia }, { data: diaPropio }] = await Promise.all([
     supabase.from("rutinas").select("id").eq("id", rutinaId).eq("alumno_id", alumnoId).eq("activa", true).maybeSingle(),
-    supabase.from("rutina_dias").select("id").eq("id", diaId).eq("rutina_id", rutinaId).maybeSingle(),
+    supabase.from("rutina_dias").select("id, tipo").eq("id", diaId).eq("rutina_id", rutinaId).maybeSingle(),
   ]);
   if (!rutinaPropia || !diaPropio) redirect("/alumno/entrenar");
 
@@ -48,6 +50,12 @@ async function crearOEntrarSesion(
 
   if (existente) {
     redirect(`/alumno/entrenar/sesion/${existente.id}`);
+  }
+
+  if (diaPropio.tipo === "entrenamiento") {
+    const plan = await obtenerEstadoPlanMensual(supabase as unknown as SupabaseClient, alumnoId);
+    if (plan?.pausado) redirect("/alumno/entrenar?plan=pausado");
+    if (plan && plan.restantes <= 0) redirect("/alumno/entrenar?plan=agotado");
   }
 
   const { data: sesion, error: errorSesion } = await supabase
@@ -201,6 +209,10 @@ export async function iniciarRutina(formData: FormData): Promise<void> {
   if (!sesionId || soloLectura) return;
 
   const supabase = createAdminClient();
+  const plan = await obtenerEstadoPlanMensual(supabase as unknown as SupabaseClient, alumnoId);
+  if (plan?.pausado || (plan && plan.restantes <= 0)) {
+    redirect(`/alumno/entrenar?plan=${plan.pausado ? "pausado" : "agotado"}`);
+  }
   await supabase
     .from("sesiones_entrenamiento")
     .update({ rutina_iniciada_en: new Date().toISOString() })
@@ -506,7 +518,8 @@ export async function reabrirSesion(formData: FormData): Promise<void> {
     .eq("alumno_id", alumnoId)
     .in("estado", ["completada", "finalizada_incompleta"]);
 
-  // Reabrir devuelve el cupo de la sesión, así que también mueve los puntos.
+  // Reabrir no elimina la recompensa ni devuelve cupo mensual: es una
+  // corrección del mismo registro, no una sesión nueva.
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/inicio");

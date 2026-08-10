@@ -15,8 +15,6 @@ import {
 } from "./data";
 import { PuntosVipGanados } from "@/components/student/PuntosVipGanados";
 
-const NUMEROS_POR_PAGINA = 7;
-
 /** Los dos accesos chicos de arriba, alineados a la derecha para que caigan
  * bajo el menú de las tres rayitas. El título de la pantalla ("Entrenamiento
  * VIP") lo pone el encabezado — ver `RUTAS_COMPACTAS` en Logo.tsx.
@@ -50,7 +48,7 @@ function AccesosEntrenar({ sesionEnProgresoId }: { sesionEnProgresoId: string | 
 export default async function EntrenarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pagina?: string; puntos?: string }>;
+  searchParams: Promise<{ pagina?: string; puntos?: string; plan?: string }>;
 }) {
   const { alumnoId: userId, soloLectura } = await requireAlumno();
   const supabase = await createClient();
@@ -88,9 +86,11 @@ export default async function EntrenarPage({
 
   // Días de la rutina y próximo número no dependen entre sí, solo de
   // rutina.id: se piden en paralelo en vez de uno después del otro.
-  const [diasRutina, proximoNumero] = await Promise.all([
+  const [diasRutina, proximoNumero, balanceSesiones, sesionEnProgresoId] = await Promise.all([
     obtenerDiasRutina(rutina.id),
     obtenerProximoNumero(supabase, userId, rutina.id),
+    balanceSesionesPromise,
+    sesionEnProgresoPromise,
   ]);
 
   if (diasRutina.length === 0) {
@@ -108,18 +108,22 @@ export default async function EntrenarPage({
     );
   }
 
-  const { pagina: paginaParam, puntos: puntosParam } = await searchParams;
+  const { pagina: paginaParam, puntos: puntosParam, plan: avisoPlan } = await searchParams;
   const puntosGanados = Math.max(0, Number(puntosParam) || 0);
+  const sesionesPorSemana = balanceSesiones?.diasSemana ?? Math.max(1, diasRutina.filter((d) => d.tipo === "entrenamiento").length);
   const pagina = paginaParam
     ? Math.max(1, Number(paginaParam) || 1)
-    : Math.max(1, Math.ceil(proximoNumero / NUMEROS_POR_PAGINA));
-  const desde = (pagina - 1) * NUMEROS_POR_PAGINA + 1;
+    : Math.max(1, Math.ceil(proximoNumero / sesionesPorSemana));
+  const desde = (pagina - 1) * sesionesPorSemana + 1;
 
-  const [numeros, sesionEnProgresoId, balanceSesiones] = await Promise.all([
-    obtenerNumerosCalendario(supabase, userId, rutina.id, diasRutina, desde, NUMEROS_POR_PAGINA),
-    sesionEnProgresoPromise,
-    balanceSesionesPromise,
-  ]);
+  const numeros = await obtenerNumerosCalendario(
+    supabase,
+    userId,
+    rutina.id,
+    diasRutina,
+    desde,
+    sesionesPorSemana
+  );
 
   const numeroEnProgreso = numeros.find((n) => n.sesionId === sesionEnProgresoId)?.numero;
   const seleccionInicial =
@@ -137,9 +141,25 @@ export default async function EntrenarPage({
   return (
     <div className="space-y-2.5 pb-6">
       <PuntosVipGanados key={puntosParam ?? "0"} puntos={puntosGanados} detalle="Entrenamiento guardado en tu progreso" />
+      {(avisoPlan === "pausado" || avisoPlan === "agotado") && (
+        <Card padding="p-3" className="border border-warning/40 bg-warning/10">
+          <p className="text-caption font-semibold text-warning">
+            {avisoPlan === "pausado" ? "Tu plan está pausado" : "Ya completaste las sesiones de este mes"}
+          </p>
+          <p className="text-micro mt-1 text-text-secondary">
+            {avisoPlan === "pausado"
+              ? "Tu rutina, registros y Puntos VIP siguen guardados. Habla con tu entrenador para reactivarlo."
+              : "El cupo se renovará automáticamente el próximo mes. Si necesitas una excepción, consulta a tu entrenador."}
+          </p>
+        </Card>
+      )}
       <AccesosEntrenar sesionEnProgresoId={sesionEnProgresoId} />
       <ImpulsoVip
-        indicador={sesionEnProgresoId ? "Sesión en curso" : `Día ${diaImpulso.numero}`}
+        indicador={
+          sesionEnProgresoId
+            ? "Sesión en curso"
+            : `Semana ${pagina} · Sesión ${((diaImpulso.numero - 1) % sesionesPorSemana) + 1} de ${sesionesPorSemana}`
+        }
         mensaje={mensajeImpulso}
       />
 
@@ -153,6 +173,10 @@ export default async function EntrenarPage({
         proximoNumero={proximoNumero}
         rutinaId={rutina.id}
         soloLectura={soloLectura}
+        sesionesPorSemana={sesionesPorSemana}
+        planNombre={balanceSesiones?.planNombre ?? null}
+        planPausado={balanceSesiones?.pausado ?? false}
+        cupoAgotado={(balanceSesiones?.balance ?? 1) <= 0}
       />
 
       <BalanceSesionesMes balance={balanceSesiones} compacta />

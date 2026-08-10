@@ -63,7 +63,7 @@ export default async function AlumnoDetallePage({
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     supabase
       .from("alumno_perfil")
-      .select("objetivo, proximo_control_fecha")
+      .select("objetivo, proximo_control_fecha, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana, plan_entrenamiento_pausado")
       .eq("user_id", alumnoId)
       .maybeSingle(),
     supabase
@@ -145,7 +145,15 @@ export default async function AlumnoDetallePage({
             </Card>
             <Card padding="p-3">
               <p className="text-[10px] mb-1 text-text-tertiary">PERFIL</p>
-              <PerfilAlumnoForm alumnoId={alumnoId} objetivo={alumnoPerfil?.objetivo ?? null} proximoControlFecha={alumnoPerfil?.proximo_control_fecha ?? null} />
+              <PerfilAlumnoForm
+                alumnoId={alumnoId}
+                objetivo={alumnoPerfil?.objetivo ?? null}
+                proximoControlFecha={alumnoPerfil?.proximo_control_fecha ?? null}
+                planEntrenamiento={alumnoPerfil?.plan_entrenamiento ?? null}
+                sesionesMensuales={alumnoPerfil?.sesiones_mensuales ?? null}
+                diasSemana={alumnoPerfil?.dias_entrenamiento_semana ?? null}
+                planPausado={alumnoPerfil?.plan_entrenamiento_pausado ?? false}
+              />
             </Card>
           </div>
           <DatosPersonalesSoloLectura datos={datosPersonales} />

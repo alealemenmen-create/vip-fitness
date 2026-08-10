@@ -19,6 +19,11 @@ import {
   type AlimentoResuelto,
 } from "@/lib/alimentos/emparejar";
 import type { TipoProgresionImpulso } from "@/lib/supabase/types";
+import {
+  esCodigoPlanEntrenamiento,
+  PLANES_ENTRENAMIENTO,
+  type CodigoPlanEntrenamiento,
+} from "@/lib/planes-entrenamiento";
 
 const TAMANO_MAXIMO_PDF = 15 * 1024 * 1024; // 15 MB
 
@@ -875,12 +880,16 @@ export type PublicarAVariosState = {
  */
 export async function publicarRutinaAVariosAlumnos(
   alumnoIds: string[],
-  datos: RutinaConProgresion
+  datos: RutinaConProgresion,
+  planCodigo: CodigoPlanEntrenamiento
 ): Promise<PublicarAVariosState> {
   const sesion = await requireRol(["entrenador", "admin"]);
 
   if (alumnoIds.length === 0) {
     return { error: "Elige al menos un alumno para asignarle la rutina.", publicados: 0, fallidos: [] };
+  }
+  if (!esCodigoPlanEntrenamiento(planCodigo)) {
+    return { error: "Selecciona el plan principal antes de publicar.", publicados: 0, fallidos: [] };
   }
 
   // Se valida UNA vez: la rutina es la misma para todos, así que repetirlo por
@@ -907,7 +916,8 @@ export async function publicarRutinaAVariosAlumnos(
       sesion.userId,
       alumnoId,
       datos,
-      biblioteca
+      biblioteca,
+      planCodigo
     );
     if (resultado.ok) {
       publicados++;
@@ -971,7 +981,8 @@ async function publicarUnaRutina(
   userId: string,
   alumnoId: string,
   datos: RutinaConProgresion,
-  biblioteca: Biblioteca
+  biblioteca: Biblioteca,
+  planCodigo: CodigoPlanEntrenamiento
 ): Promise<PublicarRutinaState> {
   const { data: rutinasPrevias } = await supabase
     .from("rutinas")
@@ -1096,6 +1107,22 @@ async function publicarUnaRutina(
     }
   }
 
+  const plan = PLANES_ENTRENAMIENTO[planCodigo];
+  const { error: errorPlan } = await supabase
+    .from("alumno_perfil")
+    .update({
+      plan_entrenamiento: plan.codigo,
+      sesiones_mensuales: plan.sesionesMensuales,
+      dias_entrenamiento_semana: plan.diasSemana,
+      plan_entrenamiento_pausado: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", alumnoId);
+  if (errorPlan) {
+    await supabase.from("rutinas").delete().eq("id", nuevaRutina.id);
+    return { error: "No se pudo asignar el plan mensual; la rutina anterior sigue activa.", ok: false };
+  }
+
   if (rutinasPrevias && rutinasPrevias.length > 0) {
     await supabase
       .from("rutinas")
@@ -1126,7 +1153,8 @@ async function publicarUnaRutina(
 
 export async function confirmarYPublicarRutina(
   alumnoId: string,
-  datos: RutinaConProgresion
+  datos: RutinaConProgresion,
+  planCodigo: CodigoPlanEntrenamiento
 ): Promise<PublicarRutinaState> {
   const sesion = await requireRol(["entrenador", "admin"]);
 
@@ -1140,7 +1168,8 @@ export async function confirmarYPublicarRutina(
   // ejercicio no está en la biblioteca sería peor que publicarla incompleta.
   const biblioteca = await obtenerBiblioteca();
 
-  const resultado = await publicarUnaRutina(supabase, sesion.userId, alumnoId, datos, biblioteca);
+  if (!esCodigoPlanEntrenamiento(planCodigo)) return { error: "Selecciona el plan principal.", ok: false };
+  const resultado = await publicarUnaRutina(supabase, sesion.userId, alumnoId, datos, biblioteca, planCodigo);
 
   revalidatePath("/alumno/entrenar");
   revalidatePath("/alumno/inicio");
