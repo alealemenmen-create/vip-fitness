@@ -30,6 +30,7 @@ import type {
   PrioridadBloque,
 } from "@/lib/generador-rutinas/tipos";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
+import type { CodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
 
 /** Lo que el alumno respondió en "Mi entrenamiento". Se muestra tal cual al
  * elegirlo: el generador ya lo usa por dentro, pero el entrenador también
@@ -40,7 +41,13 @@ type FichaAlumno = {
   molestias: string | null; lesiones: string | null; operaciones: string | null; condiciones: string | null;
   medicamentos: string | null; noDeseados: string | null; preferidos: string | null; actividades: string | null;
 };
-type Alumno = { id: string; nombre: string; telefono: string | null; objetivo: string | null; perfilCompleto: boolean; requiereRevision: boolean; dias: number | null; minutos: number | null; sinRutina: boolean; ficha: FichaAlumno };
+/** Plan de entrenamiento CONTRATADO (cobrado), asignado por el entrenador
+ * desde la ficha del alumno en /admin/alumnos — no confundir con `dias`
+ * más abajo, que es lo que el ALUMNO autoreportó en su propio cuestionario
+ * y puede no coincidir con lo que en realidad pagó. Null si todavía no se
+ * le asignó plan. */
+type PlanAlumno = { codigo: CodigoPlanEntrenamiento; nombre: string; diasSemana: number; sesionesMensuales: number };
+type Alumno = { id: string; nombre: string; telefono: string | null; objetivo: string | null; perfilCompleto: boolean; requiereRevision: boolean; dias: number | null; minutos: number | null; sinRutina: boolean; ficha: FichaAlumno; plan: PlanAlumno | null };
 type Ejercicio = { id: string; nombre: string; grupo: string; equipo: string };
 type Tecnica = { slug: string; nombre: string; tipo: "individual" | "encadenada"; nivelMinimo: string };
 
@@ -50,6 +57,43 @@ type Tecnica = { slug: string; nombre: string; tipo: "individual" | "encadenada"
  * IA), pero el entrenador la tenía invisible: para saber si a esa persona le
  * duele la rodilla o la operaron del hombro había que salir a otra pantalla.
  * Lo de salud va destacado; lo demás, en una línea de contexto. */
+/** Plan contratado (cobrado) vs. lo que el alumno autoreportó en su propia
+ * ficha — pedido explícito del entrenador: "el alumno que contrata tres días
+ * a la semana no puede terminar con veinte sesiones". Se muestra siempre,
+ * incluso si la ficha de entrenamiento todavía no está completa, porque es
+ * información de facturación, no del cuestionario. */
+function PlanContratadoAlumno({ alumno }: { alumno: Alumno }) {
+  if (!alumno.plan) {
+    return (
+      <div className="radius-control border border-warning bg-warning/10 p-2.5">
+        <p className="text-caption flex items-start gap-1.5 text-warning">
+          <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+          <span>
+            {alumno.nombre} todavía no tiene un plan de entrenamiento asignado. Asígnalo en su ficha (Alumnos) antes
+            de publicar — sin plan no hay forma de saber cuántas sesiones tiene realmente pagadas.
+          </span>
+        </p>
+      </div>
+    );
+  }
+  const discrepancia = alumno.dias !== null && alumno.dias !== alumno.plan.diasSemana;
+  return (
+    <div className={`radius-control border p-2.5 ${discrepancia ? "border-warning bg-warning/10" : "border-vip/30 bg-vip/5"}`}>
+      <p className={`text-caption flex items-center gap-1.5 font-semibold ${discrepancia ? "text-warning" : "text-vip"}`}>
+        {discrepancia && <AlertTriangle size={14} className="shrink-0" />}
+        Plan contratado: {alumno.plan.nombre} · {alumno.plan.diasSemana} días/semana · {alumno.plan.sesionesMensuales} sesiones/mes
+      </p>
+      {discrepancia && (
+        <p className="text-micro mt-1 text-text-secondary">
+          Ojo: en su ficha declaró {alumno.dias} días disponibles, pero pagó {alumno.plan.diasSemana} días/semana. El
+          generador va a usar el plan contratado — no le des más sesiones de las que tiene pagadas salvo que
+          confirmes con el alumno y lo corrijas a mano abajo.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function FichaDelAlumno({ alumno }: { alumno: Alumno }) {
   const f = alumno.ficha;
   const salud: [string, string | null][] = [
@@ -63,7 +107,7 @@ function FichaDelAlumno({ alumno }: { alumno: Alumno }) {
   const contexto = [
     f.objetivoPrincipal ? `Objetivo: ${f.objetivoPrincipal.replaceAll("_", " ")}` : null,
     f.experiencia ? `Nivel ${f.experiencia}` : null,
-    alumno.dias ? `${alumno.dias} días` : null,
+    alumno.dias ? `${alumno.dias} días declarados` : null,
     alumno.minutos ? `${alumno.minutos} min` : null,
     f.preferenciaEquipo && f.preferenciaEquipo !== "indistinto" ? `Prefiere ${f.preferenciaEquipo.replaceAll("_", " ")}` : null,
     f.cardioNivel ? `Cardio actual ${f.cardioNivel}` : null,
@@ -77,26 +121,31 @@ function FichaDelAlumno({ alumno }: { alumno: Alumno }) {
   if (!alumno.perfilCompleto) {
     const wa = linkWhatsApp(alumno.telefono ?? "");
     return (
-      <div className="radius-control border border-warning bg-surface-2 p-2.5">
-        <p className="text-caption flex items-start gap-1.5 text-warning">
-          <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-          <span>
-            {alumno.nombre} todavía no llenó “Mi entrenamiento”: no hay objetivo, nivel, lesiones ni condiciones
-            médicas registradas. Se puede generar igual, pero tanto las reglas como la revisión de IA van a trabajar a
-            ciegas.
-          </span>
-        </p>
-        {wa && (
-          <a href={wa} target="_blank" rel="noopener noreferrer" className="text-caption mt-1.5 inline-flex items-center gap-1 font-medium text-success underline">
-            <MessageCircle size={13} /> Escribirle por WhatsApp
-          </a>
-        )}
+      <div className="space-y-2">
+        <PlanContratadoAlumno alumno={alumno} />
+        <div className="radius-control border border-warning bg-surface-2 p-2.5">
+          <p className="text-caption flex items-start gap-1.5 text-warning">
+            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+            <span>
+              {alumno.nombre} todavía no llenó “Mi entrenamiento”: no hay objetivo, nivel, lesiones ni condiciones
+              médicas registradas. Se puede generar igual, pero tanto las reglas como la revisión de IA van a trabajar a
+              ciegas.
+            </span>
+          </p>
+          {wa && (
+            <a href={wa} target="_blank" rel="noopener noreferrer" className="text-caption mt-1.5 inline-flex items-center gap-1 font-medium text-success underline">
+              <MessageCircle size={13} /> Escribirle por WhatsApp
+            </a>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="radius-control border border-border bg-surface-2 p-2.5">
+    <div className="space-y-2">
+      <PlanContratadoAlumno alumno={alumno} />
+      <div className="radius-control border border-border bg-surface-2 p-2.5">
       <p className="text-micro mb-1 text-text-tertiary">FICHA DE {alumno.nombre.toUpperCase()}</p>
       {contexto.length > 0 && <p className="text-caption text-text-secondary">{contexto.join(" · ")}</p>}
       {conSalud.length > 0 && (
@@ -112,6 +161,7 @@ function FichaDelAlumno({ alumno }: { alumno: Alumno }) {
       {f.preferidos && <p className="text-caption text-text-secondary">Le gustan: {f.preferidos}</p>}
       {f.actividades && <p className="text-caption text-text-secondary">Otras actividades: {f.actividades}</p>}
       {conSalud.length === 0 && <p className="text-micro mt-1 text-text-tertiary">Sin molestias, lesiones ni condiciones declaradas.</p>}
+      </div>
     </div>
   );
 }
@@ -240,7 +290,29 @@ export function GeneradorRutinasPanel({
     if (sugerencias.objetivo) setObjetivo(sugerencias.objetivo);
     if (sugerencias.prioridad) setPrioridad(sugerencias.prioridad);
     setCategoriaCompetencia(sugerencias.categoriaCompetencia ?? "ninguna");
-    if (sugerencias.dias) setDias(sugerencias.dias);
+
+    // El plan CONTRATADO (cobrado) manda sobre lo que el alumno haya
+    // autoreportado en su propia ficha — "el alumno que contrata tres días
+    // no puede terminar con una rutina de cinco". Con varios seleccionados y
+    // planes distintos, se usa el más conservador (mínimo), mismo criterio
+    // que ya aplica `sugerirDesdeFichas` para días/minutos de la ficha.
+    const alertasPlan: string[] = [];
+    const diasPlanPresentes = elegidos.map((a) => a.plan?.diasSemana).filter((v): v is number => Boolean(v));
+    const diasPlan = diasPlanPresentes.length ? Math.min(...diasPlanPresentes) : null;
+    const sinPlan = elegidos.filter((a) => !a.plan);
+    if (diasPlan) setDias(diasPlan);
+    else if (sugerencias.dias) setDias(sugerencias.dias);
+    if (diasPlan && sugerencias.dias && sugerencias.dias !== diasPlan) {
+      alertasPlan.push(
+        `${elegidos.length === 1 ? elegidos[0].nombre : "El grupo"} declaró ${sugerencias.dias} días en su ficha, pero el plan contratado es de ${diasPlan} días/semana. Se usó el plan contratado — cambialo abajo solo si de verdad corresponden más días.`
+      );
+    }
+    if (sinPlan.length) {
+      alertasPlan.push(
+        `${sinPlan.map((a) => a.nombre).join(", ")} todavía no ${sinPlan.length === 1 ? "tiene" : "tienen"} un plan de entrenamiento asignado — asígnalo en su ficha (Alumnos) para que el generador respete su cupo real.`
+      );
+    }
+
     if (sugerencias.minutos) setMinutos(sugerencias.minutos);
     setIntensidad(sugerencias.intensidad);
     setTecnicasIntensidad(sugerencias.tecnicasIntensidad);
@@ -249,7 +321,7 @@ export function GeneradorRutinasPanel({
     setPreferidos(sugerencias.preferidos);
     setProhibidos(sugerencias.prohibidos);
     setCantidad(ejerciciosPorTiempo(sugerencias.minutos ?? minutos, sugerencias.cardio === "ninguno" ? 0 : sugerencias.cardioMinutos));
-    setAvisosFicha(sugerencias.alertas);
+    setAvisosFicha([...alertasPlan, ...sugerencias.alertas]);
     setRazonesFicha(sugerencias.razones);
   };
 

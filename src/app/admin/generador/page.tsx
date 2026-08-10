@@ -6,6 +6,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { GeneradorRutinasPanel } from "@/components/admin/GeneradorRutinasPanel";
 import { BotonRefrescarCatalogo } from "@/components/admin/BotonRefrescarCatalogo";
+import { resolverPlanEntrenamiento } from "@/lib/planes-entrenamiento";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { BookOpenCheck, Dumbbell, FileText, Users, WandSparkles } from "lucide-react";
@@ -18,8 +19,17 @@ export default async function GeneradorPage({
   await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
   const db = supabase as unknown as SupabaseClient;
-  const [{ data: filas }, { data: perfiles }, { data: rutinasActivas }, ejercicios, tecnicas] = await Promise.all([
+  const [{ data: filas }, { data: filasPlan }, { data: perfiles }, { data: rutinasActivas }, ejercicios, tecnicas] = await Promise.all([
     supabase.from("alumno_perfil").select("user_id, objetivo, telefono, perfiles!alumno_perfil_user_id_fkey(nombre)").order("created_at"),
+    // plan_entrenamiento/sesiones_mensuales/dias_entrenamiento_semana: el plan
+    // CONTRATADO (cobrado) del alumno, asignado por el entrenador desde su
+    // ficha (ver PerfilAlumnoForm) — distinto de lo que el alumno declaró en
+    // su propio cuestionario (dias_disponibles, más abajo), que es autoreporte
+    // y puede no coincidir con lo que en verdad pagó. Consulta APARTE de la
+    // de arriba a propósito: si esta falla (p. ej. la migración 0064 todavía
+    // no corrió en este entorno), no se puede llevar abajo la lista completa
+    // de alumnos — mismo criterio que ya usa admin/alumnos/data.ts.
+    supabase.from("alumno_perfil").select("user_id, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana"),
     // La ficha completa, no solo días/minutos: al elegir a la persona el
     // entrenador tiene que ver de una qué le duele, qué le operaron y qué no
     // quiere hacer — "cuando yo elija una persona, tú automáticamente buscas
@@ -39,13 +49,19 @@ export default async function GeneradorPage({
   };
   const perfilPorAlumno = new Map(((perfiles ?? []) as PerfilBreve[]).map((p) => [p.alumno_id, p]));
   const conRutinaActiva = new Set(((rutinasActivas ?? []) as { alumno_id: string }[]).map((r) => r.alumno_id));
+  const planPorAlumno = new Map((filasPlan ?? []).map((f) => [f.user_id, f]));
   const alumnos = (filas ?? []).map((f) => {
     const p = perfilPorAlumno.get(f.user_id);
     const rel = f.perfiles as unknown as { nombre: string } | null;
+    const filaPlan = planPorAlumno.get(f.user_id);
+    const plan = resolverPlanEntrenamiento(filaPlan?.plan_entrenamiento, filaPlan?.sesiones_mensuales, filaPlan?.dias_entrenamiento_semana);
     return {
       id: f.user_id, nombre: rel?.nombre ?? "Alumno", telefono: f.telefono ?? null, objetivo: f.objetivo,
       perfilCompleto: Boolean(p), requiereRevision: Boolean(p?.requiere_revision),
       dias: p?.dias_disponibles ?? null, minutos: p?.minutos_sesion ?? null,
+      // Plan contratado — null si todavía no se le asignó uno desde la ficha
+      // del entrenador (ver PerfilAlumnoForm en /admin/alumnos/[id]).
+      plan: plan ? { codigo: plan.codigo, nombre: plan.nombre, diasSemana: plan.diasSemana, sesionesMensuales: plan.sesionesMensuales } : null,
       sinRutina: !conRutinaActiva.has(f.user_id),
       ficha: {
         objetivoPrincipal: p?.objetivo_principal ?? null,
