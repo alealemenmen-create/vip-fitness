@@ -10,7 +10,7 @@ const TABS = [
   { href: "/alumno/inicio", label: "Inicio", icon: Home },
   { href: "/alumno/entrenar", label: "Entrenar", icon: Dumbbell },
   { href: "/alumno/comer", label: "Nutrición", icon: UtensilsCrossed },
-  { href: "/alumno/progreso", label: "Progreso", icon: TrendingUp },
+  { href: "/alumno/progreso", label: "Mi avance", icon: TrendingUp },
   { href: "/alumno/ranked", label: "Ranked", icon: Trophy },
 ];
 

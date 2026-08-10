@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Eye } from "lucide-react";
+import { Activity, ArrowLeft, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { entrarComoAlumno, eliminarAlumno, actualizarCorreoPerfil } from "@/app/admin/alumnos/actions";
@@ -107,93 +107,83 @@ export default async function AlumnoDetallePage({
   }
 
   return (
-    <div className="space-y-2">
-      <Link href="/admin/alumnos" className="flex items-center gap-1.5">
-        <ArrowLeft size={16} className="text-text-secondary" />
-        <h1 className="text-caption font-semibold text-text">{nombreAlumnoPublicado(perfil.nombre)}</h1>
-      </Link>
+    <div className="space-y-4 pb-4">
+      <div className="sticky top-0 z-20 -mx-4 flex items-center justify-between gap-3 border-b border-border bg-bg/95 px-4 py-3 backdrop-blur md:mx-0 md:px-0 md:py-5">
+        <Link href="/admin/alumnos" className="flex min-w-0 items-center gap-2 text-text-secondary hover:text-text">
+          <ArrowLeft size={18} className="shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-[10px] uppercase tracking-wide text-text-tertiary">Volver a alumnos</span>
+            <span className="block truncate text-base font-semibold text-text">{nombreAlumnoPublicado(perfil.nombre)}</span>
+          </span>
+        </Link>
+        <div className="flex gap-2">
+          <Link href={`/admin/alumnos/${alumnoId}/seguimiento`} className="radius-control flex h-9 shrink-0 items-center gap-1.5 border border-vip/40 px-3 text-caption font-semibold text-vip"><Activity size={14} /> <span className="hidden sm:inline">Seguimiento</span></Link>
+          <form action={entrarComoAlumno}>
+            <input type="hidden" name="alumno_id" value={alumnoId} />
+            <button type="submit" className="radius-control flex h-9 shrink-0 items-center gap-1.5 bg-vip px-3 text-caption font-semibold text-black">
+              <Eye size={14} /> <span className="hidden sm:inline">Ver portal</span>
+            </button>
+          </form>
+        </div>
+      </div>
 
       {indicador && (
-        <Card padding="p-2">
+        <Card padding="p-3">
           <p className="text-[10px] mb-1 text-text-tertiary">ESTADO DEL ALUMNO</p>
           <DetalleEstadoAlumno indicador={indicador} />
         </Card>
       )}
-
       <AlertasImpulsoVip alumnoId={alumnoId} alertas={alertasImpulso} />
-
-      <form action={entrarComoAlumno}>
-        <input type="hidden" name="alumno_id" value={alumnoId} />
-        <button
-          type="submit"
-          className="radius-control flex h-9 w-full items-center justify-center gap-1.5 bg-vip text-caption font-medium text-black"
-        >
-          <Eye size={13} /> Ver portal completo
-        </button>
-      </form>
-
-      <Card padding="p-2">
-        <p className="text-[10px] mb-1 text-text-tertiary">NOMBRE</p>
-        <NombreEditable perfilId={alumnoId} nombre={perfil.nombre} />
-      </Card>
-
-      <Card padding="p-2">
-        <p className="text-[10px] mb-1 text-text-tertiary">PERFIL</p>
-        <PerfilAlumnoForm
-          alumnoId={alumnoId}
-          objetivo={alumnoPerfil?.objetivo ?? null}
-          proximoControlFecha={alumnoPerfil?.proximo_control_fecha ?? null}
-        />
-      </Card>
-
-      <DatosPersonalesSoloLectura datos={datosPersonales} />
-
       <FichaAlumnoAdmin alumnoId={alumnoId} nombre={perfil?.nombre ?? "este alumno"} ficha={ficha} />
 
-      <NotasManager alumnoId={alumnoId} notasIniciales={notas ?? []} />
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+        <section className="space-y-3" aria-label="Perfil y planificación del alumno">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Card padding="p-3">
+              <p className="text-[10px] mb-1 text-text-tertiary">NOMBRE</p>
+              <NombreEditable perfilId={alumnoId} nombre={perfil.nombre} />
+            </Card>
+            <Card padding="p-3">
+              <p className="text-[10px] mb-1 text-text-tertiary">PERFIL</p>
+              <PerfilAlumnoForm alumnoId={alumnoId} objetivo={alumnoPerfil?.objetivo ?? null} proximoControlFecha={alumnoPerfil?.proximo_control_fecha ?? null} />
+            </Card>
+          </div>
+          <DatosPersonalesSoloLectura datos={datosPersonales} />
+          <NotasManager alumnoId={alumnoId} notasIniciales={notas ?? []} />
+        </section>
 
-      <p className="text-[10px] pt-1 text-text-tertiary">ACTIVIDAD DEL ALUMNO</p>
-      <PesoCorporalSoloLectura historial={historialPeso} />
-      <FotosSoloLectura fotos={fotos} />
-      <HistorialEntrenamiento rutinaActivaNombre={rutinaActiva?.nombre ?? null} sesiones={sesiones} />
-      {rutinaActiva && <CopiarRutinaAlumno rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />}
-      <HistorialPuntosAlumno movimientos={movimientosPuntos} />
-      <ResumenComidas resumen={resumenComidas} />
-      <SeguimientoDiarioSoloLectura seguimientos={seguimientos} />
+        <section className="space-y-3" aria-label="Actividad y acceso del alumno">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">Actividad del alumno</p>
+          <PesoCorporalSoloLectura historial={historialPeso} />
+          <FotosSoloLectura fotos={fotos} />
+          <HistorialEntrenamiento rutinaActivaNombre={rutinaActiva?.nombre ?? null} sesiones={sesiones} />
+          {rutinaActiva && <CopiarRutinaAlumno rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />}
+          <HistorialPuntosAlumno movimientos={movimientosPuntos} />
+          <ResumenComidas resumen={resumenComidas} />
+          <SeguimientoDiarioSoloLectura seguimientos={seguimientos} />
 
-      <div className="flex items-center justify-between pt-1">
-        <p className="text-[10px] text-text-tertiary">SUS DOCUMENTOS</p>
-        <Link href="/admin/documentos" className="text-[10px] font-medium text-vip underline">
-          Subir o gestionar
-        </Link>
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-[10px] text-text-tertiary">SUS DOCUMENTOS</p>
+            <Link href="/admin/documentos" className="text-[10px] font-medium text-vip underline">Subir o gestionar</Link>
+          </div>
+          <ListaDocumentos documentos={documentos} mensajeVacio="Todavía no le subiste documentos a este alumno." />
+          <CredencialesAlumno alumnoId={alumnoId} />
+          <Card padding="p-3">
+            <p className="text-[10px] mb-1 text-text-tertiary">CORREO DE ACCESO</p>
+            <CambiarCorreoForm accion={actualizarCorreoPerfil} camposOcultos={{ perfil_id: alumnoId }} />
+          </Card>
+          <Card padding="p-3">
+            <p className="text-[10px] mb-1 text-text-tertiary">ZONA DE RIESGO</p>
+            <EliminarPerfilBoton
+              accion={eliminarAlumno}
+              campoId="alumno_id"
+              valorId={alumnoId}
+              etiqueta="Eliminar alumno"
+              advertencia={`Esto borra para siempre la cuenta de ${nombreAlumnoPublicado(perfil.nombre)}: su acceso, rutinas, comidas, seguimiento, notas y ranking. No se puede deshacer.`}
+            />
+          </Card>
+        </section>
       </div>
-      <ListaDocumentos
-        documentos={documentos}
-        mensajeVacio="Todavía no le subiste documentos a este alumno."
-      />
-
-      <CredencialesAlumno alumnoId={alumnoId} />
-
-      <Card padding="p-2">
-        <p className="text-[10px] mb-1 text-text-tertiary">CORREO DE ACCESO</p>
-        <CambiarCorreoForm
-          accion={actualizarCorreoPerfil}
-          camposOcultos={{ perfil_id: alumnoId }}
-        />
-      </Card>
-
-      <Card padding="p-2">
-        <p className="text-[10px] mb-1 text-text-tertiary">ZONA DE RIESGO</p>
-        <EliminarPerfilBoton
-          accion={eliminarAlumno}
-          campoId="alumno_id"
-          valorId={alumnoId}
-          etiqueta="Eliminar alumno"
-          advertencia={`Esto borra para siempre la cuenta de ${nombreAlumnoPublicado(
-            perfil.nombre
-          )}: su acceso, rutinas, comidas, seguimiento, notas y ranking. No se puede deshacer.`}
-        />
-      </Card>
     </div>
   );
 }

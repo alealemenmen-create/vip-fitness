@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from "react";
 import { Check, ChevronRight, Info, Layers, NotebookPen, Repeat, Timer } from "lucide-react";
 import { guardarSeriesGrupo, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
@@ -17,8 +17,14 @@ import {
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { esEjercicioDeTiempo, repsObjetivo as calcularRepsObjetivo } from "@/lib/entrenamiento/reps";
 import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import {
+  guardarBorrador,
+  leerBorrador,
+  type BorradorEjercicio,
+} from "@/lib/entrenamiento/borrador";
 
 const initialState: GuardarSeriesState = { error: null };
+const suscribirSinCambios = () => () => {};
 
 /** Letras para identificar cada ejercicio del grupo — hasta 8 (giant set
  * grande), más que eso ya no tiene sentido como técnica encadenada. */
@@ -45,11 +51,9 @@ type Paso = { pos: number; numero: number };
  * `sufijoNombre` para que todos los ejercicios compartan un único <form> y
  * un único guardado (`guardarSeriesGrupo`), en vez de envíos separados.
  *
- * Deliberadamente NO tiene (todavía): respaldo local en el teléfono
- * (borrador) ni reporte de dolor — quedan pendientes de una vuelta
- * siguiente; ningún alumno pierde el guardado en el servidor por esto, solo
- * la resiliencia extra ante cortes de conexión que sí tiene la tarjeta
- * suelta.
+ * Cada ejercicio mantiene además su propio respaldo local. Así un corte de
+ * conexión, una llamada o una recarga no mezcla ni pierde los kilos de A, B
+ * o C antes de que el servidor confirme el guardado.
  */
 export const SesionGrupoCard = forwardRef<
   SesionEjercicioCardHandle,
@@ -73,6 +77,10 @@ export const SesionGrupoCard = forwardRef<
   const formRef = useRef<HTMLFormElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const enviadoRef = useRef(false);
+  const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
+  const borradoresLocales: (BorradorEjercicio | null)[] = montado
+    ? ejercicios.map((ej) => leerBorrador(sesionId, ej.sesionEjercicioId))
+    : ejercicios.map(() => null);
   const completadasRef = useRef<Set<number>[]>(
     ejercicios.map((ej) => new Set(ej.series.filter((s) => s.realizada).map((s) => s.numeroSerie)))
   );
@@ -104,8 +112,44 @@ export const SesionGrupoCard = forwardRef<
       ? (pasos.find((p) => !seriesHechas[p.pos].has(p.numero)) ?? null)
       : null;
 
+  function respaldarLocal() {
+    const form = formRef.current;
+    if (!form) return;
+    const datos = new FormData(form);
+    ejercicios.forEach((ej, pos) => {
+      const sufijo = sufijoDe(pos);
+      guardarBorrador(sesionId, ej.sesionEjercicioId, {
+        series: Array.from({ length: ej.seriesProgramadas }, (_, indice) => {
+          const numero = indice + 1;
+          return {
+            numero,
+            peso: String(datos.get(`peso_${numero}${sufijo}`) ?? ""),
+            reps: String(datos.get(`reps_${numero}${sufijo}`) ?? ""),
+            realizada: datos.get(`realizada_${numero}${sufijo}`) === "true",
+            esPesoCorporal: datos.get(`peso_corporal_${numero}${sufijo}`) === "true",
+          };
+        }),
+        nota: String(datos.get(`nota_ejercicio${sufijo}`) ?? ""),
+      });
+    });
+  }
+
   function guardarAhora() {
+    respaldarLocal();
+    enviadoRef.current = true;
     formRef.current?.requestSubmit();
+  }
+
+  function serieInicial(pos: number, numero: number) {
+    const local = borradoresLocales[pos]?.series.find((serie) => serie.numero === numero);
+    if (!local) return ejercicios[pos].series.find((serie) => serie.numeroSerie === numero);
+    return {
+      numeroSerie: numero,
+      pesoKg: local.peso ? Number(local.peso.replace(",", ".")) : null,
+      esPesoCorporal: local.esPesoCorporal,
+      repsRealizadas: local.reps ? Number(local.reps) : null,
+      realizada: local.realizada,
+    };
   }
 
   function alIniciar(pos: number) {
@@ -143,7 +187,7 @@ export const SesionGrupoCard = forwardRef<
         setSerieActiva(null);
         setMostrandoSiguiente(true);
         window.setTimeout(() => {
-          formRef.current?.requestSubmit();
+          guardarAhora();
           setMostrandoSiguiente(false);
         }, 400);
       } else {
@@ -163,11 +207,11 @@ export const SesionGrupoCard = forwardRef<
     // respuestas parciales del mismo grupo (el mismo problema corregido en la
     // tarjeta de ejercicio individual).
     filasRef.current.forEach((mapa) => mapa.forEach((handle) => handle.completarYa(false)));
-    formRef.current?.requestSubmit();
+    guardarAhora();
   }
 
   useImperativeHandle(ref, () => ({
-    guardar: () => formRef.current?.requestSubmit(),
+    guardar: guardarAhora,
   }));
 
   useEffect(() => {
@@ -340,7 +384,7 @@ export const SesionGrupoCard = forwardRef<
               ))}
             </div>
           ) : (
-            <form ref={formRef} action={formAction} className="space-y-1">
+            <form ref={formRef} action={formAction} onChange={respaldarLocal} className="space-y-1">
               <input type="hidden" name="sesion_id" value={sesionId} />
               <input type="hidden" name="cantidad_ejercicios_grupo" value={n} />
               {ejercicios.map((ej, pos) => (
@@ -355,7 +399,7 @@ export const SesionGrupoCard = forwardRef<
               {pasos.map((paso) => {
                 const ej = ejercicios[paso.pos];
                 return (
-                  <div key={`${paso.pos}-${paso.numero}`}>
+                  <div key={`${paso.pos}-${paso.numero}-${montado ? "local" : "server"}`}>
                     <div className="mb-0.5 flex items-center gap-1">
                       <span className="text-micro font-bold text-vip">{LETRAS[paso.pos]}</span>
                       <span className="text-micro truncate text-text-tertiary">{ej.nombre}</span>
@@ -373,7 +417,7 @@ export const SesionGrupoCard = forwardRef<
                         }}
                         numero={paso.numero}
                         sufijoNombre={sufijoDe(paso.pos)}
-                        inicial={ej.series.find((s) => s.numeroSerie === paso.numero)}
+                        inicial={serieInicial(paso.pos, paso.numero)}
                         repsObjetivo={objetivoRepsPorPos[paso.pos]}
                         pesoSugerido={pesoSugeridoPorPos[paso.pos]}
                         esTiempo={esTiempoPorPos[paso.pos]}
@@ -420,7 +464,7 @@ export const SesionGrupoCard = forwardRef<
                       name={`nota_ejercicio${sufijoDe(pos)}`}
                       type="text"
                       placeholder={`Nota de ${LETRAS[pos]} (opcional)`}
-                      defaultValue={ej.notaEjercicio ?? ""}
+                      defaultValue={borradoresLocales[pos]?.nota ?? ej.notaEjercicio ?? ""}
                       className="text-caption w-full min-w-0 bg-transparent text-text outline-none placeholder:text-text-tertiary"
                     />
                   </label>

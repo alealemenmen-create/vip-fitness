@@ -12,6 +12,7 @@ import type { AlimentoCatalogo } from "@/app/alumno/comer/tipos";
 import type { PlanResuelto, AlimentoResuelto } from "@/lib/alimentos/emparejar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { EstadoCoherenciaMacros } from "@/components/admin/EstadoCoherenciaMacros";
 
 const redondear = (n: number) => Math.round(n);
 
@@ -150,6 +151,14 @@ export function PlanAlimentacionEditor({
         <Total valor={redondear(plan.total.prot)} etiqueta="PROT" sufijo="g" />
         <Total valor={redondear(plan.total.carb)} etiqueta="CARB" sufijo="g" />
         <Total valor={redondear(plan.total.grasa)} etiqueta="GRASA" sufijo="g" />
+      </div>
+      <div className="mt-3">
+        <EstadoCoherenciaMacros
+          kcal={redondear(plan.total.kcal) || null}
+          proteina={redondear(plan.total.prot) || null}
+          carbohidratos={redondear(plan.total.carb) || null}
+          grasa={redondear(plan.total.grasa) || null}
+        />
       </div>
 
       {difiereDeclarado && (

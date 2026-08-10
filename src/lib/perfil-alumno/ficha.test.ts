@@ -28,7 +28,7 @@ describe("fichaCompleta", () => {
     expect(fichaCompleta({ ...completa, fechaNacimiento: null })).toBe(false);
   });
 
-  it("sin sexo no pasa: es lo que define el énfasis del motor", () => {
+  it("sin sexo no pasa: la ficha personal queda incompleta, aunque no determine el objetivo", () => {
     expect(fichaCompleta({ ...completa, sexo: null })).toBe(false);
   });
 

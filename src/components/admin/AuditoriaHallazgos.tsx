@@ -81,7 +81,18 @@ function HallazgoCard({ hallazgo }: { hallazgo: HallazgoAuditoria }) {
 
       <p className="text-caption text-text-secondary">{hallazgo.detalle}</p>
 
-      {penalizando ? (
+      {hallazgo.tipo === "rutina_activa_deficiente" ? (
+        <div className="border-t border-border pt-2">
+          <Link
+            href={`/admin/generador?alumno=${hallazgo.alumnoId}#selector-alumnos`}
+            className="block"
+          >
+            <Button type="button" size="xsAuto" className="w-full">
+              Crear reemplazo
+            </Button>
+          </Link>
+        </div>
+      ) : penalizando ? (
         <PenalizarForm hallazgo={hallazgo} onCancelar={() => setPenalizando(false)} />
       ) : (
         <div className="flex gap-2 border-t border-border pt-2">

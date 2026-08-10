@@ -175,10 +175,18 @@ function FilaAlimento({
   );
 }
 
-export function AlimentosManager({ alimentos }: { alimentos: AlimentoAdmin[] }) {
+export function AlimentosManager({
+  alimentos,
+  categoriaInicial,
+}: {
+  alimentos: AlimentoAdmin[];
+  categoriaInicial?: string;
+}) {
   const [editando, setEditando] = useState<"nuevo" | AlimentoAdmin | null>(null);
   const [busqueda, setBusqueda] = useState("");
-  const [categoriasAbiertas, setCategoriasAbiertas] = useState<Set<string>>(new Set());
+  const [categoriasAbiertas, setCategoriasAbiertas] = useState<Set<string>>(
+    () => new Set(categoriaInicial ? [categoriaInicial] : [])
+  );
 
   const filtrados = useMemo(() => {
     const q = busqueda.toLowerCase().trim();

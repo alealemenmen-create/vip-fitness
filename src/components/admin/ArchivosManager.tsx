@@ -18,6 +18,7 @@ import {
 } from "@/app/admin/archivos/actions";
 import { RutinaDraftEditor } from "@/components/admin/RutinaDraftEditor";
 import { PlanAlimentacionEditor } from "@/components/admin/PlanAlimentacionEditor";
+import { EstadoCoherenciaMacros } from "@/components/admin/EstadoCoherenciaMacros";
 import { SelectorAlumnos } from "@/components/admin/SelectorAlumnos";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { AlumnoParaAsignar } from "@/lib/documentos/tipos";
@@ -285,6 +286,7 @@ export function ArchivosManager({
   const [macrosGrasa, setMacrosGrasa] = useState("");
   const [guardandoMacros, setGuardandoMacros] = useState(false);
   const [errorMacros, setErrorMacros] = useState<string | null>(null);
+  const [avisoMacros, setAvisoMacros] = useState<string | null>(null);
   const [macrosGuardados, setMacrosGuardados] = useState(false);
 
   /** El selector de alumnos ya no vive fijo arriba de todo: aparece dentro de
@@ -377,9 +379,14 @@ export function ArchivosManager({
       setSelectorAbierto("alimentacion");
       return;
     }
-    const numero = (texto: string) => (texto.trim() === "" ? null : Math.max(0, Number(texto)));
+    const numero = (texto: string) => {
+      if (texto.trim() === "") return null;
+      const valor = Number(texto);
+      return Number.isFinite(valor) ? Math.max(0, valor) : null;
+    };
     setGuardandoMacros(true);
     setErrorMacros(null);
+    setAvisoMacros(null);
     const resultado = await guardarMacrosVariosAlumnos(Array.from(destinatarios), {
       kcalObjetivo: numero(macrosKcal),
       protObjetivo: numero(macrosProt),
@@ -391,6 +398,7 @@ export function ArchivosManager({
       setErrorMacros(resultado.error);
       return;
     }
+    setAvisoMacros(resultado.aviso ?? null);
     setMacrosGuardados(true);
     setMacrosKcal("");
     setMacrosProt("");
@@ -680,7 +688,14 @@ export function ArchivosManager({
                   <CampoMacro etiqueta="Carbohidratos" sufijo="g" valor={macrosCarb} onCambiar={setMacrosCarb} />
                   <CampoMacro etiqueta="Grasas" sufijo="g" valor={macrosGrasa} onCambiar={setMacrosGrasa} />
                 </div>
+                <EstadoCoherenciaMacros
+                  kcal={macrosKcal.trim() === "" ? null : Number(macrosKcal)}
+                  proteina={macrosProt.trim() === "" ? null : Number(macrosProt)}
+                  carbohidratos={macrosCarb.trim() === "" ? null : Number(macrosCarb)}
+                  grasa={macrosGrasa.trim() === "" ? null : Number(macrosGrasa)}
+                />
                 {errorMacros && <p className="text-caption text-error">{errorMacros}</p>}
+                {avisoMacros && <p className="text-caption text-vip">{avisoMacros}</p>}
                 <Button
                   loading={guardandoMacros}
                   disabled={!macrosKcal.trim()}

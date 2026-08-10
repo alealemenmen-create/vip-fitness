@@ -1,13 +1,13 @@
 import Link from "next/link";
+import { Bot, Dumbbell } from "lucide-react";
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { nombrePublicado } from "@/lib/nombre";
 import { crearMiPerfilAlumno } from "@/app/admin/alumnos/actions";
+import { AdminTabs } from "@/components/admin/AdminTabs";
 import { LogoutButton } from "@/components/LogoutButton";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { AdminTabs } from "@/components/admin/AdminTabs";
-import { Bot, Dumbbell } from "lucide-react";
-import { nombrePublicado } from "@/lib/nombre";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const sesion = await requireRol(["entrenador", "admin"]);
@@ -19,12 +19,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .eq("user_id", sesion.userId)
     .maybeSingle();
 
-  // Alimentos que crearon los alumnos y todavía nadie miró: pintan el punto
-  // rojo en la pestaña Alimentos. Va con `head` para traer solo el número, sin
-  // las filas. Si la migración 0030 no está corrida, la consulta falla, `count`
-  // queda en null y simplemente no hay punto.
-  // Igual que los alimentos: solo el número, y si la migración 0032 todavía no
-  // está corrida la consulta falla, queda en null y no se pinta nada.
   const [{ count: alimentosPendientes }, { count: solicitudesPendientes }] = await Promise.all([
     supabase
       .from("alimentos")
@@ -37,83 +31,96 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       .eq("estado", "pendiente"),
   ]);
 
-  return (
-    /* `fixed inset-0` + el scroll en un hijo (`.pantalla-scroll`, definida en
-       globals.css junto con `html, body { overflow: hidden }`): mismo arreglo
-       que /alumno (ver el comentario ahí). Sin esto el panel de admin quedaba
-       con la página entera trabada — el body ya no scrollea desde ese cambio
-       global, y acá no había ningún contenedor interno que lo reemplazara. */
-    /* `--escala-texto` es la misma variable que ya usa el ajuste de tamaño de
-       letra del alumno (ver globals.css: TODAS las clases text-h1..text-micro
-       están escritas como `calc(Npx * var(--escala-texto))`). Pisarla acá, más
-       específica que la del :root, achica la letra de TODO el panel de admin
-       de una sola vez —sin tocar un componente ni una clase— y las pantallas
-       quedan tan compactas como ya se ven las de /alumno. */
-    <div
-      className="fixed inset-0 flex flex-col overflow-hidden bg-bg"
-      style={{ "--escala-texto": 0.82 } as React.CSSProperties}
-    >
-      {/* Cabecera clavada: vive FUERA de `.pantalla-scroll`, como hermano flex.
-          No es `sticky` a propósito — un sticky queda confinado a su bloque
-          contenedor y basta un padding-top en el scroller para que no llegue
-          al borde y el contenido desfile por la rendija (es el bug que se
-          arregló en /alumno). Siendo hermano no scrollea nunca y el contenido
-          queda recortado por el borde del scroller, sin rendija posible. */}
-      <div className="mx-auto w-full max-w-md shrink-0 bg-bg px-4 pb-2 pt-4">
-        <Logo compact height={30} className="mb-2" corner={<ThemeToggle />} />
+  const badges = {
+    alimentosPendientes: alimentosPendientes ?? 0,
+    solicitudesPendientes: solicitudesPendientes ?? 0,
+  };
 
-        <div className="mb-2 flex items-center gap-2">
-          <div>
-            <p className="text-[9px] text-text-tertiary">PANEL</p>
-            <h1 className="text-micro font-semibold text-text">{nombrePublicado(sesion.nombre)}</h1>
+  return (
+    <div className="admin-shell fixed inset-0 flex overflow-hidden bg-bg">
+      <aside className="admin-sidebar hidden w-72 shrink-0 flex-col border-r border-border px-4 md:flex">
+        <div className="shrink-0 border-b border-border pb-4 pt-5">
+          <Logo compact height={34} corner={<ThemeToggle />} />
+          <div className="admin-profile-card mt-4 rounded-2xl p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
+              Panel del entrenador
+            </p>
+            <p className="mt-1 truncate text-sm font-semibold text-text">
+              {nombrePublicado(sesion.nombre)}
+            </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-1.5">
-          <Link
-            href="/admin/asistente"
-            className="btn-accion radius-control flex items-center justify-center gap-1.5 px-3 py-1.5 text-caption font-semibold"
-          >
-            <Bot size={14} /> Asistente VIP
-          </Link>
+        <AdminTabs variant="sidebar" {...badges} />
+
+        <div className="shrink-0 space-y-2 border-t border-border py-4">
           {miAlumnoPerfil ? (
             <Link
               href="/alumno/inicio"
-              className="radius-control flex items-center justify-center gap-1.5 border border-border px-3 py-1.5 text-caption font-medium text-vip"
+              className="flex items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-medium text-vip hover:bg-surface-2"
             >
-              <Dumbbell size={13} /> Mi entrenamiento
+              <Dumbbell size={16} /> Ver mi entrenamiento
             </Link>
           ) : (
             <form action={crearMiPerfilAlumno}>
               <button
                 type="submit"
-                className="radius-control flex h-full w-full items-center justify-center gap-1.5 border border-dashed border-border px-2 py-1.5 text-micro text-text-tertiary"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-xs text-text-secondary hover:bg-surface-2"
               >
-                <Dumbbell size={13} /> Activar alumno
+                <Dumbbell size={16} /> Activar mi perfil de alumno
               </button>
             </form>
           )}
+          <LogoutButton className="block w-full py-2 text-center text-xs text-text-tertiary hover:text-text" />
         </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-bg px-3 md:hidden">
+          <Logo compact height={20} className="!w-[118px] !rounded-lg !px-2 !py-1 min-[520px]:!w-[138px]" />
+          <div className="hidden min-w-0 flex-1 min-[470px]:block">
+            <p className="text-[8px] font-semibold uppercase leading-none tracking-[0.14em] text-text-tertiary">Entrenador</p>
+            <p className="mt-0.5 truncate text-[11px] font-semibold leading-tight text-text">{nombrePublicado(sesion.nombre)}</p>
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+              <ThemeToggle className="!h-8 !w-8" />
+              {miAlumnoPerfil ? (
+                <Link
+                  href="/alumno/inicio"
+                  aria-label="Ver mi entrenamiento"
+                  className="radius-control flex h-8 items-center gap-1.5 border border-border bg-surface px-2 text-[11px] font-medium text-vip"
+                >
+                  <Dumbbell size={14} /> <span className="hidden min-[520px]:inline">Mi rutina</span>
+                </Link>
+              ) : (
+                <form action={crearMiPerfilAlumno}>
+                  <button
+                    type="submit"
+                    aria-label="Activar mi perfil de alumno"
+                    className="radius-control flex h-8 items-center gap-1.5 border border-dashed border-border bg-surface px-2 text-[11px] text-text-secondary"
+                  >
+                    <Dumbbell size={14} /> <span className="hidden min-[520px]:inline">Activar</span>
+                  </button>
+                </form>
+              )}
+              <Link
+                href="/admin/asistente"
+                aria-label="Abrir Asistente VIP"
+                className="btn-accion radius-control flex h-8 items-center gap-1.5 px-2 text-[11px] font-semibold"
+              >
+                <Bot size={14} /> <span className="hidden min-[520px]:inline">Asistente</span>
+              </Link>
+          </div>
+        </header>
+
+        <main className="pantalla-scroll min-w-0 flex-1 px-4 pb-28 md:px-8 md:pb-10 lg:px-10">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
+          <LogoutButton className="mt-8 block w-full py-2 text-center text-xs text-text-tertiary md:hidden" />
+        </main>
       </div>
 
-      {/* SIN padding-top: los títulos de cada pestaña se clavan acá con
-          `sticky top-0` (ver TituloPestana) y un padding en este contenedor
-          les impediría llegar al borde. El aire lo pone cada título. */}
-      <div className="pantalla-scroll mx-auto w-full max-w-md px-4 pb-24">
-        {children}
-
-        <LogoutButton className="text-caption mt-8 block w-full py-2 text-center text-text-tertiary" />
-      </div>
-      {/* `fixed` y no `sticky`: en iOS Safari, con el documento scrolleando,
-          lo `fixed`/`sticky` se desengancha y se arrastra mientras dura el
-          gesto (mismo problema que se resolvió en /alumno). Acá el body ya no
-          scrollea (ver arriba), pero mantenerlo `fixed` evita que vuelva a
-          pasar si algo dentro de `.pantalla-scroll` rebota. */}
-      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-md">
-        <AdminTabs
-          alimentosPendientes={alimentosPendientes ?? 0}
-          solicitudesPendientes={solicitudesPendientes ?? 0}
-        />
+      <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
+        <AdminTabs {...badges} />
       </div>
     </div>
   );

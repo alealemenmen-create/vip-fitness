@@ -1,10 +1,9 @@
-import { AlertTriangle, Star, Users } from "lucide-react";
+import { Activity, AlertTriangle, CircleCheck, Dumbbell, Sparkles, Star, UserCog, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
-import { Card } from "@/components/ui/Card";
 import { CrearAlumnoForm } from "@/components/admin/CrearAlumnoForm";
 import { InvitarEntrenadorForm } from "@/components/admin/InvitarEntrenadorForm";
-import { ListaAlumnos } from "@/components/admin/ListaAlumnos";
+import { ListaAlumnos, type FiltroAlumnos } from "@/components/admin/ListaAlumnos";
 import { ListaEntrenadores } from "@/components/admin/ListaEntrenadores";
 import { AvisosNotasIA } from "@/components/admin/AvisosNotasIA";
 import { AvisoSolicitudes } from "@/components/admin/AvisoSolicitudes";
@@ -12,8 +11,13 @@ import { SugerenciasHoy } from "@/components/admin/SugerenciasHoy";
 import { obtenerReportes, obtenerAvisosNotasIA, type EstadoAlumno } from "./data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { TituloPestana } from "@/components/admin/TituloPestana";
+import { AdminStatCard } from "@/components/admin/AdminStatCard";
 
-export default async function AlumnosPage() {
+export default async function AlumnosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ estado?: string }>;
+}) {
   const sesion = await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
 
@@ -62,76 +66,86 @@ export default async function AlumnosPage() {
   const ORDEN: Record<EstadoAlumno, number> = { atencion: 0, normal: 1, destacado: 2 };
   reportes.sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado]);
 
-  const aRevisar = reportes.filter((r) => r.estado === "atencion").length;
+  const sinRutina = reportes.filter((r) => r.motivo === "Sin rutina activa asignada").length;
+  const aRevisar = reportes.filter(
+    (r) => r.estado === "atencion" && r.motivo !== "Sin rutina activa asignada"
+  ).length;
+  const alDia = reportes.filter((r) => r.estado === "normal").length;
   const destacados = reportes.filter((r) => r.estado === "destacado").length;
+  const query = await searchParams;
+  const filtrosValidos: FiltroAlumnos[] = ["todos", "sin_rutina", "seguimiento", "al_dia", "destacados"];
+  const filtroInicial = filtrosValidos.includes(query.estado as FiltroAlumnos)
+    ? (query.estado as FiltroAlumnos)
+    : "todos";
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-6 pb-8">
       <TituloPestana>
-        <h1 className="text-caption font-semibold text-text">Alumnos</h1>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-vip">Gestión de clientes</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-text md:text-3xl">Alumnos</h1>
+          <p className="mt-1 text-sm text-text-secondary">Seguimiento, alertas y acciones del equipo en un solo lugar.</p>
+        </div>
       </TituloPestana>
 
-      {reportes.length > 0 && (
-        <Card padding="p-1" className="leading-none">
-          <div className="grid grid-cols-3 gap-1 text-center">
-            <Resumen
-              icono={<Users size={11} />}
-              valor={reportes.length}
-              etiqueta="en total"
-              color="var(--color-text)"
-            />
-            <Resumen
-              icono={<AlertTriangle size={11} />}
-              valor={aRevisar}
-              etiqueta="para revisar"
-              color={aRevisar > 0 ? "var(--color-error)" : "var(--color-text-tertiary)"}
-            />
-            <Resumen
-              icono={<Star size={11} />}
-              valor={destacados}
-              etiqueta="para felicitar"
-              color={destacados > 0 ? "var(--color-vip)" : "var(--color-text-tertiary)"}
-            />
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5" aria-label="Resumen de alumnos">
+        <AdminStatCard href="/admin/alumnos?estado=todos#directorio-alumnos" icon={<Users size={20} />} value={reportes.length} label="Alumnos activos" detail="Ver base completa" color="#3b82f6" />
+        <AdminStatCard href="/admin/alumnos?estado=sin_rutina#directorio-alumnos" icon={<Dumbbell size={20} />} value={sinRutina} label="Sin rutina" detail="Ver pendientes de planificación" color={sinRutina > 0 ? "#ef4444" : "var(--color-text-tertiary)"} />
+        <AdminStatCard href="/admin/alumnos?estado=seguimiento#directorio-alumnos" icon={<AlertTriangle size={20} />} value={aRevisar} label="Por revisar" detail="Ver actividad o registros" color={aRevisar > 0 ? "#f59e0b" : "var(--color-text-tertiary)"} />
+        <AdminStatCard href="/admin/alumnos?estado=al_dia#directorio-alumnos" icon={<CircleCheck size={20} />} value={alDia} label="Al día" detail="Ver seguimiento estable" color="#22c55e" />
+        <AdminStatCard href="/admin/alumnos?estado=destacados#directorio-alumnos" icon={<Star size={20} />} value={destacados} label="Destacados" detail="Ver buen desempeño" color={destacados > 0 ? "#a78bfa" : "var(--color-text-tertiary)"} />
+      </section>
+
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <section id="directorio-alumnos" className="admin-panel-card order-2 min-w-0 scroll-mt-28 rounded-3xl p-4 md:p-5 xl:order-1" aria-label="Directorio de alumnos">
+          <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Activity size={18} className="text-vip" />
+                <h2 className="text-base font-semibold text-text">Directorio y seguimiento</h2>
+              </div>
+              <p className="mt-1 text-xs text-text-tertiary">Busca, filtra y entra a la ficha completa de cualquier alumno.</p>
+            </div>
+            <span className="rounded-full border border-border bg-surface-2 px-3 py-1 text-xs font-semibold text-text-secondary">
+              {reportes.length} perfiles
+            </span>
           </div>
-        </Card>
-      )}
+          <ListaAlumnos key={filtroInicial} reportes={reportes} sesionUserId={sesion.userId} filtroInicial={filtroInicial} />
+        </section>
 
-      <AvisoSolicitudes pendientes={solicitudesPendientes ?? 0} />
+        <aside className="order-1 space-y-4 xl:order-2 xl:sticky xl:top-28" aria-label="Acciones y avisos">
+          <div className="admin-panel-card rounded-3xl p-4">
+            <div className="mb-4 flex items-center gap-2">
+              <Sparkles size={17} className="text-vip" />
+              <div>
+                <h2 className="text-sm font-semibold text-text">Acciones rápidas</h2>
+                <p className="text-[11px] text-text-tertiary">Altas y solicitudes pendientes</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <CrearAlumnoForm />
+              <AvisoSolicitudes pendientes={solicitudesPendientes ?? 0} />
+            </div>
+          </div>
 
-      <SugerenciasHoy reportes={reportes} />
-
-      <CrearAlumnoForm />
-
-      <AvisosNotasIA avisos={avisosNotasIA} />
-
-      <ListaAlumnos reportes={reportes} sesionUserId={sesion.userId} />
-
-      <div className="pt-2 space-y-4">
-        <ListaEntrenadores entrenadores={entrenadores} sesionUserId={sesion.userId} />
-        <InvitarEntrenadorForm />
+          <SugerenciasHoy reportes={reportes} />
+          <AvisosNotasIA avisos={avisosNotasIA} />
+        </aside>
       </div>
-    </div>
-  );
-}
 
-function Resumen({
-  icono,
-  valor,
-  etiqueta,
-  color,
-}: {
-  icono: React.ReactNode;
-  valor: number;
-  etiqueta: string;
-  color: string;
-}) {
-  return (
-    <div className="leading-none">
-      <div className="flex items-center justify-center gap-1" style={{ color }}>
-        {icono}
-        <span className="text-caption font-bold">{valor}</span>
+      <section className="admin-panel-card rounded-3xl p-4 md:p-5" aria-label="Equipo de entrenadores">
+        <div className="mb-4 flex items-center gap-2 border-b border-border pb-4">
+          <UserCog size={18} className="text-vip" />
+          <div>
+            <h2 className="text-base font-semibold text-text">Equipo de entrenadores</h2>
+            <p className="text-xs text-text-tertiary">Accesos y colaboradores autorizados del portal.</p>
+          </div>
+        </div>
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <ListaEntrenadores entrenadores={entrenadores} sesionUserId={sesion.userId} />
+          <InvitarEntrenadorForm />
+        </div>
+      </section>
       </div>
-      <p className="mt-0.5 text-[9px] leading-none text-text-tertiary">{etiqueta}</p>
-    </div>
   );
 }

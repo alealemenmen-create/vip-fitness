@@ -9,14 +9,20 @@ import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { BarraPuntosVip } from "@/components/student/BarraPuntosVip";
 import { PUNTOS_VIP } from "@/lib/ranking/reglas";
 import { semanaActualISO } from "@/lib/date";
+import { obtenerSeguimientoIntegral } from "@/lib/seguimiento/data";
+import type { PeriodoSeguimiento } from "@/lib/seguimiento/tipos";
+import { PanelSeguimiento } from "@/components/seguimiento/PanelSeguimiento";
 
-export default async function ProgresoPage() {
+export default async function ProgresoPage({ searchParams }: { searchParams: Promise<{ periodo?: string }> }) {
   const { alumnoId, nombre, soloLectura } = await requireAlumno();
   const supabase = await createClient();
+  const periodoNumero = Number((await searchParams).periodo);
+  const periodo: PeriodoSeguimiento = periodoNumero === 14 || periodoNumero === 30 ? periodoNumero : 7;
 
-  const [historial, fotos] = await Promise.all([
+  const [historial, fotos, seguimiento] = await Promise.all([
     obtenerHistorialPeso(supabase, alumnoId),
     obtenerFotosProgreso(supabase, alumnoId),
+    obtenerSeguimientoIntegral(supabase, alumnoId, periodo),
   ]);
   // El nombre ya viene de requireAlumno(); no hace falta volver a `perfiles`.
   const frase = fraseDelDia("progreso", nombreAlumnoPublicado(nombre).split(" ")[0] ?? "");
@@ -29,6 +35,10 @@ export default async function ProgresoPage() {
 
   return (
     <div className="space-y-6 pb-8">
+      {seguimiento && <PanelSeguimiento datos={seguimiento} modo="alumno" baseHref="/alumno/progreso" imprimirHref="/alumno/progreso/imprimir" />}
+      <div className="border-t border-border pt-5">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-tertiary">Actualizar evolución</p>
+      </div>
       <MensajeMotivacional frase={frase} />
       <BarraPuntosVip
         puntos={puntosSeguimiento}

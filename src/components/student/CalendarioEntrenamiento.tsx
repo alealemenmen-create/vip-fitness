@@ -40,7 +40,7 @@ function TiraDias({
             <span
               className={`text-[8px] leading-none ${activo ? "text-acento-fuerte" : "text-text-tertiary"}`}
             >
-              {descanso ? "DESC." : "DÍA"}
+              {descanso ? "DESC." : "SESIÓN"}
             </span>
             <span
               className={`text-[12px] font-semibold leading-tight ${activo ? "text-text" : "text-text-secondary"}`}
@@ -139,7 +139,7 @@ export function CalendarioEntrenamiento({
 
           <div className="relative">
             <p className="mb-0.5 text-[9px] tracking-[0.08em] text-text-tertiary">
-              {actual.numero === proximoNumero ? "HOY TOCA" : `DÍA ${actual.numero}`}
+              {actual.numero === proximoNumero ? "PRÓXIMA SESIÓN" : `SESIÓN ${actual.numero}`}
             </p>
             <h2 className="text-[26px] font-bold leading-none text-text">{titulo}</h2>
             <p className="mt-1 text-[11px] text-text-secondary">{subtitulo}</p>

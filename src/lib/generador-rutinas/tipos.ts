@@ -14,7 +14,7 @@ export type ObjetivoEntrenamiento =
  * en sus rutinas reales ("Espalda + Hombros + Brazos + Abdomen" en un mismo
  * día) — entrena cada día. Reemplaza al viejo "bro_split" (que topaba en 2
  * grupos); ver GeneradorRutinasPanel. */
-export type Distribucion = "automatica" | "full_body" | "upper_lower" | "push_pull_legs" | "personalizada";
+export type Distribucion = "automatica" | "vip_balanceada" | "full_body" | "upper_lower" | "push_pull_legs" | "personalizada";
 export type PrioridadBloque = "fuerza" | "hipertrofia" | "cardio" | "tecnica" | "retorno" | "adherencia";
 export type AplicacionTecnicas = "automatico" | "si" | "no";
 
@@ -141,6 +141,9 @@ export type EjercicioGenerador = {
 
 export type BriefGenerador = {
   alumnoId: string;
+  /** Una rutina grupal conserva un alumno principal por compatibilidad, pero
+   * se genera y audita contra todos los perfiles indicados aquí. */
+  alumnoIds?: string[];
   objetivo: ObjetivoEntrenamiento;
   prioridad: PrioridadBloque;
   dias: number;

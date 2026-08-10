@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import { serializarRutinaATexto } from "@/lib/generador-rutinas/serializar";
 import { describirInventario } from "@/lib/gimnasio/inventario";
+import { METODO_VIP_PARA_AUDITORIA } from "@/lib/generador-rutinas/metodo-vip";
 import type {
   BriefGenerador,
   EjercicioGenerador,
@@ -80,6 +81,10 @@ export type RevisionResultado =
 
 const SISTEMA = `Eres el segundo par de ojos de un entrenador personal chileno con años de experiencia en gimnasio y culturismo. Recibes una rutina que ya generó su sistema de reglas y la auditas antes de que se publique al alumno.
 
+No aplicas un criterio genérico de internet. Auditas con este método concreto:
+
+${METODO_VIP_PARA_AUDITORIA}
+
 Tu trabajo es detectar lo que un sistema automático no puede ver: el cruce entre los ejercicios concretos de la semana y lo que la persona escribió en su ficha con sus propias palabras (molestias, lesiones, operaciones, condiciones médicas, medicamentos, ejercicios que no quiere hacer).
 
 Cómo trabajas:
@@ -87,6 +92,10 @@ Cómo trabajas:
 - Eres concreto: en vez de "cuidado con el hombro", dices qué ejercicio del día 2 es el problema y por cuál conviene cambiarlo.
 - No diagnosticas ni recomiendas tratamientos, medicamentos, dosis ni sustancias. Si algo excede lo que se resuelve ajustando ejercicios (dolor agudo, operación reciente sin alta, síntomas cardíacos), lo marcas con gravedad alta y dices que corresponde derivar a un profesional de la salud antes de entrenar eso.
 - Si la rutina está bien, lo dices sin inventar problemas. Un veredicto "aprobada" con cambios vacíos es una respuesta correcta y esperada.
+- Revisa la semana completa antes de mirar cambios aislados: frecuencia por grupo,
+  balance bíceps/tríceps, volumen directo, orden, recuperación y dosis de técnicas.
+- No elimines intensidad solo por prudencia genérica. Si el perfil es avanzado y
+  la ejecución es estable, la exigencia y cercanía al fallo son parte del método.
 - Escribes en español de Chile, tuteando, directo y breve. Sin relleno ni disclaimers largos.
 
 NORMA OBLIGATORIA — el catálogo es el gimnasio:
@@ -144,6 +153,7 @@ function describirBrief(brief: BriefGenerador): string {
     brief.grupoPrioritario ? `- Grupo prioritario: ${brief.grupoPrioritario}` : null,
     brief.enfoqueForma !== "ninguno" ? `- Enfoque de forma: ${brief.enfoqueForma}` : null,
     brief.inspiracionEstilo !== "ninguna" ? `- Inspiración de estilo: ${brief.inspiracionEstilo}` : null,
+    brief.categoriaCompetencia !== "ninguna" ? `- Referencia física/categoría validada por el entrenador: ${brief.categoriaCompetencia}` : null,
     brief.evitarSaltos ? "- Restricción: sin impacto ni saltos" : null,
     brief.obligatorios.length ? `- Ejercicios que el entrenador exige incluir: ${brief.obligatorios.join(", ")}` : null,
     brief.prohibidos.length ? `- Ejercicios que el entrenador prohibió: ${brief.prohibidos.join(", ")}` : null,

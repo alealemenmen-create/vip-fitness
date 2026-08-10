@@ -1087,6 +1087,49 @@ export interface Database {
         Relationships: [];
       };
       // 0012_plan_alimentacion.sql — meta calórica extraída del PDF con IA.
+      seguimiento_revisiones: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          entrenador_id: string;
+          desde: string;
+          hasta: string;
+          dias_periodo: 7 | 14 | 30;
+          adherencia_general: number | null;
+          resumen: Record<string, unknown>;
+          observacion: string;
+          decision_siguiente_plan: string | null;
+          creado_en: string;
+        };
+        Insert: {
+          alumno_id: string;
+          entrenador_id: string;
+          desde: string;
+          hasta: string;
+          dias_periodo: 7 | 14 | 30;
+          adherencia_general?: number | null;
+          resumen?: Record<string, unknown>;
+          observacion: string;
+          decision_siguiente_plan?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["seguimiento_revisiones"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "seguimiento_revisiones_alumno_id_fkey";
+            columns: ["alumno_id"];
+            isOneToOne: false;
+            referencedRelation: "perfiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "seguimiento_revisiones_entrenador_id_fkey";
+            columns: ["entrenador_id"];
+            isOneToOne: false;
+            referencedRelation: "perfiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       planes_alimentacion: {
         Row: {
           id: string;

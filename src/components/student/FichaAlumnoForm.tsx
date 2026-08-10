@@ -9,6 +9,7 @@ import {
   NIVELES_CARDIO,
   OBJETIVOS,
   PREFERENCIAS_EQUIPO,
+  REFERENCIAS_FISICAS,
   SEXOS,
   TEMAS_SALUD,
   sufijoTiene,
@@ -116,8 +117,11 @@ export function FichaAlumnoForm({
   }
 
   return (
-    <form action={action} className="space-y-4">
-      <Card className="space-y-3">
+    <form
+      action={action}
+      className={esAdmin ? "grid items-start gap-4 lg:grid-cols-2" : "space-y-4"}
+    >
+      <Card className="h-fit space-y-3">
         <p className="text-caption text-text-tertiary">
           {esAdmin ? "DATOS PERSONALES" : "SOBRE TI"}
         </p>
@@ -146,7 +150,7 @@ export function FichaAlumnoForm({
         </div>
       </Card>
 
-      <Card className="space-y-3">
+      <Card className="h-fit space-y-3">
         <p className="text-caption text-text-tertiary">QUÉ {esAdmin ? "BUSCA" : "BUSCAS"}</p>
         <div>
           <label className="text-micro mb-1 block text-text-tertiary">OBJETIVO PRINCIPAL</label>
@@ -162,6 +166,23 @@ export function FichaAlumnoForm({
           <Input name="objetivo_secundario" defaultValue={ficha.objetivoSecundario ?? ""} placeholder="Ej: mejorar la postura, correr 5 km" />
         </div>
         <div>
+          <label className="text-micro mb-1 block text-text-tertiary">
+            ¿QUÉ TIPO DE CUERPO {esAdmin ? "BUSCA" : "TE GUSTARÍA DESARROLLAR"}?
+          </label>
+          <Select name="categoria_competencia" defaultValue={ficha.categoriaReferencia ?? "ninguna"}>
+            {REFERENCIAS_FISICAS.map((opcion) => (
+              <option key={opcion.value} value={opcion.value}>
+                {esAdmin ? `${opcion.descripcion} — ${opcion.tecnica}` : opcion.descripcion}
+              </option>
+            ))}
+          </Select>
+          <p className="text-micro mt-1 text-text-tertiary">
+            {esAdmin
+              ? "Es una referencia visual editable: orienta el énfasis, pero el entrenador decide la programación final."
+              : "No necesitas conocer categorías de competencia. Tu entrenador revisará esta referencia contigo."}
+          </p>
+        </div>
+        <div>
           <label className="text-micro mb-1 block text-text-tertiary">EXPERIENCIA ENTRENANDO</label>
           <Select name="experiencia" defaultValue={ficha.experiencia ?? ""} required>
             <option value="">Seleccionar</option>
@@ -172,7 +193,7 @@ export function FichaAlumnoForm({
         </div>
       </Card>
 
-      <Card className="space-y-3">
+      <Card className={`h-fit space-y-3 ${esAdmin ? "lg:col-span-2" : ""}`}>
         <p className="text-caption text-text-tertiary">DISPONIBILIDAD</p>
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -214,33 +235,35 @@ export function FichaAlumnoForm({
         </div>
       </Card>
 
-      <Card className="space-y-2.5">
+      <Card className={`space-y-2.5 ${esAdmin ? "lg:col-span-2" : ""}`}>
         <p className="text-caption text-text-tertiary">SALUD</p>
         <p className="text-caption text-text-secondary">
           {esAdmin
             ? "Lo que responda acá decide qué ejercicios se descartan al armarle la rutina. Un dato omitido es un riesgo real."
             : "Esto no reemplaza una evaluación médica, pero decide qué ejercicios entran en tu rutina. Cuéntalo aunque te parezca menor."}
         </p>
-        {TEMAS_SALUD.map((t) => (
-          <PreguntaSalud
-            key={t.campo}
-            campo={t.campo}
-            pregunta={t.pregunta}
-            detalle={t.detalle}
-            ejemplo={t.ejemplo}
-            valorInicial={
-              (ficha[
-                {
-                  molestias: "molestias",
-                  lesiones_diagnosticadas: "lesionesDiagnosticadas",
-                  operaciones_previas: "operacionesPrevias",
-                  condiciones_medicas: "condicionesMedicas",
-                  medicamentos_relevantes: "medicamentosRelevantes",
-                }[t.campo] as keyof FichaAlumno
-              ] as string | null) ?? null
-            }
-          />
-        ))}
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {TEMAS_SALUD.map((t) => (
+            <PreguntaSalud
+              key={t.campo}
+              campo={t.campo}
+              pregunta={t.pregunta}
+              detalle={t.detalle}
+              ejemplo={t.ejemplo}
+              valorInicial={
+                (ficha[
+                  {
+                    molestias: "molestias",
+                    lesiones_diagnosticadas: "lesionesDiagnosticadas",
+                    operaciones_previas: "operacionesPrevias",
+                    condiciones_medicas: "condicionesMedicas",
+                    medicamentos_relevantes: "medicamentosRelevantes",
+                  }[t.campo] as keyof FichaAlumno
+                ] as string | null) ?? null
+              }
+            />
+          ))}
+        </div>
         <label className="text-caption flex gap-2 text-text-secondary">
           <input type="checkbox" name="autorizacion_medica" value="si" defaultChecked={ficha.autorizacionMedica} />
           {esAdmin ? "Tiene autorización médica, si su situación la requiere." : "Tengo autorización médica, si mi situación la requiere."}
@@ -253,22 +276,24 @@ export function FichaAlumnoForm({
         )}
       </Card>
 
-      {estado.error && <p className="text-caption text-error">{estado.error}</p>}
-      {estado.ok && modo !== "ingreso" && (
-        <p className="text-caption text-success">
-          {esAdmin ? "Ficha guardada. El generador ya la usa." : "Guardado. Tu entrenador ya lo puede ver."}
-        </p>
-      )}
+      <div className={`space-y-2 ${esAdmin ? "lg:col-span-2" : ""}`}>
+        {estado.error && <p className="text-caption text-error">{estado.error}</p>}
+        {estado.ok && modo !== "ingreso" && (
+          <p className="text-caption text-success">
+            {esAdmin ? "Ficha guardada. El generador ya la usa." : "Guardado. Tu entrenador ya lo puede ver."}
+          </p>
+        )}
 
-      <Button type="submit" loading={pending}>
-        {pending ? "Guardando…" : modo === "ingreso" ? "Guardar y entrar" : "Guardar ficha"}
-      </Button>
+        <Button type="submit" loading={pending}>
+          {pending ? "Guardando…" : modo === "ingreso" ? "Guardar y entrar" : "Guardar ficha"}
+        </Button>
 
-      {nombreAlumno && esAdmin && (
-        <p className="text-micro text-text-tertiary">
-          Estás llenando la ficha de {nombreAlumno}. Él la puede corregir después desde su app.
-        </p>
-      )}
+        {nombreAlumno && esAdmin && (
+          <p className="text-micro text-text-tertiary">
+            Estás llenando la ficha de {nombreAlumno}. Él la puede corregir después desde su app.
+          </p>
+        )}
+      </div>
     </form>
   );
 }

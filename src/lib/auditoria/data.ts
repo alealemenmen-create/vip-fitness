@@ -2,8 +2,9 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISO, sumarDiasISO } from "@/lib/date";
 import { esDuracionImposible } from "./deteccion";
+import { detectarDeficienciasRutina } from "@/lib/rutinas/validacion";
 
-export type TipoHallazgo = "sesion_duracion_imposible" | "puntos_entrenamiento_huerfanos";
+export type TipoHallazgo = "sesion_duracion_imposible" | "puntos_entrenamiento_huerfanos" | "rutina_activa_deficiente";
 
 export type HallazgoAuditoria = {
   tipo: TipoHallazgo;
@@ -40,7 +41,7 @@ export async function obtenerHallazgosPendientes(): Promise<HallazgoAuditoria[]>
   const admin = createAdminClient();
   const desde = sumarDiasISO(hoyISO(), -DIAS_VENTANA);
 
-  const [{ data: perfiles }, { data: sesiones }, { data: revisiones }] = await Promise.all([
+  const [{ data: perfiles }, { data: sesiones }, { data: revisiones }, { data: rutinasActivas }] = await Promise.all([
     admin.from("perfiles").select("id, nombre"),
     admin
       .from("sesiones_entrenamiento")
@@ -48,6 +49,10 @@ export async function obtenerHallazgosPendientes(): Promise<HallazgoAuditoria[]>
       .eq("estado", "completada")
       .gte("fecha", desde),
     admin.from("auditoria_revisiones").select("tipo, referencia_id"),
+    admin
+      .from("rutinas")
+      .select("id, alumno_id, nombre, created_at, rutina_dias(nombre, tipo, rutina_dia_ejercicios(nombre, series_programadas, grupo_muscular))")
+      .eq("activa", true),
   ]);
 
   const nombrePorAlumno = new Map((perfiles ?? []).map((p) => [p.id, p.nombre as string]));
@@ -55,6 +60,45 @@ export async function obtenerHallazgosPendientes(): Promise<HallazgoAuditoria[]>
   const yaRevisado = (tipo: TipoHallazgo, referenciaId: string) => revisado.has(`${tipo}:${referenciaId}`);
 
   const hallazgos: HallazgoAuditoria[] = [];
+
+  type RutinaActiva = {
+    id: string;
+    alumno_id: string;
+    nombre: string;
+    created_at: string;
+    rutina_dias: {
+      nombre: string;
+      tipo: string | null;
+      rutina_dia_ejercicios: {
+        nombre: string;
+        series_programadas: number;
+        grupo_muscular: string | null;
+      }[];
+    }[];
+  };
+  for (const rutina of (rutinasActivas ?? []) as unknown as RutinaActiva[]) {
+    if (yaRevisado("rutina_activa_deficiente", rutina.id)) continue;
+    const deficiencias = detectarDeficienciasRutina((rutina.rutina_dias ?? []).map((dia) => ({
+      nombre: dia.nombre,
+      tipo: dia.tipo,
+      ejercicios: (dia.rutina_dia_ejercicios ?? []).map((ejercicio) => ({
+        nombre: ejercicio.nombre,
+        series: ejercicio.series_programadas,
+        grupoMuscular: ejercicio.grupo_muscular,
+      })),
+    })));
+    if (deficiencias.length === 0) continue;
+    hallazgos.push({
+      tipo: "rutina_activa_deficiente",
+      referenciaId: rutina.id,
+      alumnoId: rutina.alumno_id,
+      alumnoNombre: nombrePorAlumno.get(rutina.alumno_id) ?? "Alumno",
+      fecha: rutina.created_at.slice(0, 10),
+      severidad: "alta",
+      titulo: `Rutina activa: ${rutina.nombre}`,
+      detalle: deficiencias.join(" "),
+    });
+  }
   const sesionesValidas = sesiones ?? [];
   const sesionIds = sesionesValidas.map((s) => s.id);
 

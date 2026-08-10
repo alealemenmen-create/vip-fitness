@@ -1,4 +1,4 @@
-import { RotateCcw, Play } from "lucide-react";
+import { Play } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
@@ -7,8 +7,9 @@ import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamie
 import { VolverAEntrenar } from "@/components/student/VolverAEntrenar";
 import { CronometroSesion } from "@/components/student/CronometroSesion";
 import { CancelarSesionBoton } from "@/components/student/CancelarSesionBoton";
+import { ReabrirSesionBoton } from "@/components/student/ReabrirSesionBoton";
 import { obtenerSesionCompleta } from "../../data";
-import { reabrirSesion, iniciarRutina } from "../../actions";
+import { iniciarRutina } from "../../actions";
 
 // El aviso de fin de descanso lo programa `programarAvisoDescanso` (Server
 // Action de esta página, ver push-actions.ts) con `after()`: el servidor
@@ -59,7 +60,7 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
           por los costados. */}
       <div className="sticky top-0 z-20 -mx-4 space-y-1.5 bg-bg px-4 pb-2 pt-1">
         <VolverAEntrenar
-          titulo={`${sesion.numeroCalendario ? `${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
+          titulo={`${sesion.numeroCalendario ? `Sesión ${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
           compacto
           accion={
             !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura && rutinaIniciada ? (
@@ -157,15 +158,7 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
       )}
 
       {sesion.estado !== "en_progreso" && !vistaSoloLectura && (
-        <form action={reabrirSesion}>
-          <input type="hidden" name="sesion_id" value={sesion.id} />
-          <button
-            type="submit"
-            className="radius-control flex h-12 w-full items-center justify-center gap-2 border border-vip text-body font-medium text-vip"
-          >
-            <RotateCcw size={18} /> Reiniciar
-          </button>
-        </form>
+        <ReabrirSesionBoton sesionId={sesion.id} />
       )}
 
     </div>

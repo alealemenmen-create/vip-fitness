@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISO, mesActualISO, semanaActualISO } from "@/lib/date";
 import { rangoDePuntos, type DesgloseSemana } from "./puntos";
+import { ordenarYPosicionar } from "./ordenar";
 
 export const TAG_RANKING = "ranking";
 const SEGUNDOS_CACHE_RANKING = 120;
@@ -114,9 +115,7 @@ const calcularRankingCacheado = unstable_cache(
       };
     });
 
-    filas.sort((a, b) => b.puntos - a.puntos || b.puntosAcumulados - a.puntosAcumulados || a.nombre.localeCompare(b.nombre));
-    filas.forEach((fila, indice) => (fila.posicion = indice + 1));
-    return filas;
+    return ordenarYPosicionar(filas);
   },
   ["progreso-vip-ranking"],
   { revalidate: SEGUNDOS_CACHE_RANKING, tags: [TAG_RANKING] }

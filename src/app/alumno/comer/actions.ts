@@ -99,6 +99,38 @@ export type ComerActionState = { error: string | null; puntos?: number };
 const ERROR_SOLO_LECTURA =
   "Estás viendo la cuenta de un alumno en modo lectura. Sal de esa vista para cargar comidas.";
 
+async function fechaRealDeComida(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  comidaId: string,
+  alumnoId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("comidas_registradas")
+    .select("registros_diarios(fecha, alumno_id)")
+    .eq("id", comidaId)
+    .maybeSingle();
+  const registro = data?.registros_diarios as { fecha: string; alumno_id: string } | null | undefined;
+  return registro?.alumno_id === alumnoId ? registro.fecha : null;
+}
+
+async function fechaRealDeAlimentoConsumido(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  alimentoConsumidoId: string,
+  alumnoId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("alimentos_consumidos")
+    .select("comidas_registradas(registros_diarios(fecha, alumno_id))")
+    .eq("id", alimentoConsumidoId)
+    .maybeSingle();
+  const comida = data?.comidas_registradas as
+    | { registros_diarios: { fecha: string; alumno_id: string } | null }
+    | null
+    | undefined;
+  const registro = comida?.registros_diarios;
+  return registro?.alumno_id === alumnoId ? registro.fecha : null;
+}
+
 /**
  * De quién es el diario que se está por tocar.
  *
@@ -186,14 +218,19 @@ export async function agregarAlimentoAHora(
 }
 
 /** Borra una comida entera (y sus alimentos, por la cascada de la FK). */
-export async function eliminarComida(comidaId: string, fecha: string): Promise<ComerActionState> {
+export async function eliminarComida(comidaId: string, fechaSolicitada: string): Promise<ComerActionState> {
+  void fechaSolicitada;
   // Fuera del try por el redirect de sesión vencida — ver `agregarAlimentoAComida`.
   const quien = await alumnoDelDiario();
   if (!quien.ok) return { error: quien.error };
 
   try {
     const supabase = await createClient();
-    // RLS ya limita el borrado a las comidas del propio alumno.
+    // La fecha también se relee del servidor. Antes el cliente podía mandar
+    // una fecha distinta: se borraba la comida correcta, pero se recalculaban
+    // los puntos de otro día y el ranking quedaba desincronizado.
+    const fecha = await fechaRealDeComida(supabase, comidaId, quien.alumnoId);
+    if (!fecha) return { error: "No encontramos esa comida en tu diario." };
     const { error } = await supabase.from("comidas_registradas").delete().eq("id", comidaId);
     if (error) return { error: "No fue posible eliminar la comida." };
 
@@ -506,10 +543,13 @@ export async function crearAlimentoPersonalizado(
   }
 }
 
-export async function quitarAlimentoDeComida(alimentoConsumidoId: string, fecha: string): Promise<void> {
+export async function quitarAlimentoDeComida(alimentoConsumidoId: string, fechaSolicitada: string): Promise<void> {
+  void fechaSolicitada;
   const quien = await alumnoDelDiario();
   if (!quien.ok) return;
   const supabase = await createClient();
+  const fecha = await fechaRealDeAlimentoConsumido(supabase, alimentoConsumidoId, quien.alumnoId);
+  if (!fecha) return;
   await supabase.from("alimentos_consumidos").delete().eq("id", alimentoConsumidoId);
   await recalcularAlimentacionDia(quien.alumnoId, fecha);
   revalidateTag(TAG_RANKING, { expire: 0 });
@@ -520,8 +560,9 @@ export async function quitarAlimentoDeComida(alimentoConsumidoId: string, fecha:
 export async function actualizarCantidadAlimento(
   alimentoConsumidoId: string,
   cantidad: number,
-  fecha: string
+  fechaSolicitada: string
 ): Promise<ComerActionState> {
+  void fechaSolicitada;
   // Faltaba el chequeo de solo-lectura que sí tienen las demás escrituras: un
   // entrenador mirando la cuenta de un alumno podía editar cantidades desde
   // esa vista. RLS lo frenaba igual, pero devolvía un error genérico en vez
@@ -533,6 +574,8 @@ export async function actualizarCantidadAlimento(
     return { error: "Ingresa una cantidad válida." };
   }
   const supabase = await createClient();
+  const fecha = await fechaRealDeAlimentoConsumido(supabase, alimentoConsumidoId, quien.alumnoId);
+  if (!fecha) return { error: "No encontramos ese alimento en tu diario." };
   const { error } = await supabase
     .from("alimentos_consumidos")
     .update({ cantidad })

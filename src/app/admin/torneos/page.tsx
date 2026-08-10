@@ -6,7 +6,9 @@ import { TorneoAdminCard } from "@/components/admin/TorneoAdminCard";
 import { TorneosCerradosGaveta } from "@/components/admin/TorneosCerradosGaveta";
 import { Card } from "@/components/ui/Card";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
-import { TituloPestana } from "@/components/admin/TituloPestana";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminStatCard } from "@/components/admin/AdminStatCard";
+import { Archive, Trophy, Users } from "lucide-react";
 
 function sumarDias(fecha: Date, dias: number): string {
   const copia = new Date(fecha);
@@ -64,13 +66,25 @@ export default async function TorneosPage({
       : null;
 
   return (
-    <div className="space-y-4">
-      <TituloPestana>
-        <h1 className="text-h2 text-text">Arena <span className="text-vip">VIP</span></h1>
-      </TituloPestana>
-      <p className="text-caption text-text-secondary">Competencias oficiales, reglas públicas y premios aportados por VIP Fitness.</p>
+    <div className="space-y-6 pb-8">
+      <AdminPageHeader
+        eyebrow="Competencias"
+        title={<>Arena <span className="text-vip">VIP</span></>}
+        description="Crea retos oficiales, define reglas públicas y administra los premios de la comunidad."
+      />
 
-      <CrearTorneoForm alumnos={alumnos} borradorIA={borradorIA} />
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3" aria-label="Resumen de Arena VIP">
+        <AdminStatCard href="/admin/torneos#torneos-activos" icon={<Trophy size={20} />} value={activos.length} label="En curso" detail="Ver competencias activas" color="#f59e0b" />
+        <AdminStatCard href="/admin/torneos#torneos-finalizados" icon={<Archive size={20} />} value={cerrados.length} label="Finalizadas" detail="Abrir historial de retos" color="#a78bfa" />
+        <AdminStatCard href="/admin/alumnos" icon={<Users size={20} />} value={alumnos.length} label="Participantes" detail="Ver alumnos disponibles" color="#3b82f6" />
+      </section>
+
+      <section id="crear-torneo" className="admin-panel-card scroll-mt-28 rounded-3xl p-4 md:p-5">
+        <CrearTorneoForm alumnos={alumnos} borradorIA={borradorIA} />
+      </section>
+
+      <span id="torneos-activos" className="block scroll-mt-28" />
+      <span id="torneos-finalizados" className="block scroll-mt-28" />
 
       {activos.length === 0 && cerrados.length === 0 ? (
         <Card>
@@ -88,7 +102,7 @@ export default async function TorneosPage({
           )}
           {/* Justo debajo de las que están en curso: cuando una prueba se
               completa y se cierra, se va para acá, plegada. */}
-          <TorneosCerradosGaveta torneos={cerrados} />
+          <div><TorneosCerradosGaveta torneos={cerrados} /></div>
         </>
       )}
     </div>

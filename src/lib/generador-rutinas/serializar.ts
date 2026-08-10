@@ -15,14 +15,17 @@ export function serializarRutinaATexto(datos: RutinaExtraida): string {
     if (dia.tipo === "descanso") {
       partes.push(dia.descripcion ? `Descanso: ${dia.descripcion}` : "Descanso");
     } else {
+      if (dia.descripcion) partes.push(dia.descripcion);
       dia.ejercicios.forEach((ej, i) => {
         let linea = `${i + 1}. ${ej.nombre} — ${ej.series}x${ej.reps}, descanso ${ej.descansoSegundos}s`;
         if (ej.tecnicaTipo) linea += ` [${ej.tecnicaTipo}${ej.tecnicaInstruccion ? `: ${ej.tecnicaInstruccion}` : ""}]`;
         partes.push(linea);
+        if (!ej.tecnicaTipo && ej.tecnicaInstruccion) partes.push(`   Indicación: ${ej.tecnicaInstruccion}`);
         if (ej.observacion) partes.push(`   Nota: ${ej.observacion}`);
       });
     }
     partes.push("");
   }
+  partes.push("—", "Alejandro Mendoza", "Entrenador · Método VIP Fitness");
   return partes.join("\n").trim();
 }

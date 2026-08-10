@@ -7,10 +7,7 @@ import { TAG_RANKING } from "@/lib/ranking/data";
 import { requireAlumno } from "@/lib/auth";
 import { hoyISO } from "@/lib/date";
 import {
-  abandonarEntrenamiento,
   calcularYRegistrarPuntosImpulso,
-  desactivarEntrenamiento,
-  eliminarMovimientosDeSesiones,
   registrarEntrenamiento,
   registrarPenalizacionDescanso,
 } from "@/lib/ranking/movimientos";
@@ -19,6 +16,7 @@ import { leerDatosCumplimiento } from "@/lib/impulso-vip/congelar";
 import { resolverCumplimiento } from "@/lib/impulso-vip/motor";
 import type { ReglaImpulso } from "@/lib/impulso-vip/tipos";
 import type { DificultadPercibidaImpulso } from "@/lib/supabase/types";
+import { leerSeriesFormulario } from "@/lib/entrenamiento/leer-series-formulario";
 
 const DIFICULTADES_VALIDAS = new Set(["muy_facil", "facil", "justo", "dificil", "fallo"]);
 
@@ -51,7 +49,17 @@ async function crearOEntrarSesion(
     .select("id")
     .single();
 
-  if (errorSesion || !sesion) redirect("/alumno/entrenar");
+  if (errorSesion || !sesion) {
+    const { data: creadaPorOtraSolicitud } = await supabase
+      .from("sesiones_entrenamiento")
+      .select("id")
+      .eq("alumno_id", alumnoId)
+      .eq("rutina_id", rutinaId)
+      .eq("numero_calendario", numero)
+      .maybeSingle();
+    if (creadaPorOtraSolicitud) redirect(`/alumno/entrenar/sesion/${creadaPorOtraSolicitud.id}`);
+    redirect("/alumno/entrenar");
+  }
 
   const { data: ejercicios } = await supabase
     .from("rutina_dia_ejercicios")
@@ -243,34 +251,9 @@ async function guardarUnEjercicio(
   )?.series_programadas;
   const cantidad = seriesAsignadas ?? Number(formData.get(`cantidad_series${sufijo}`) || 0);
 
-  const filas = [];
-  let seriesRealizadas = 0;
-
-  for (let i = 1; i <= cantidad; i++) {
-    const esPesoCorporal = formData.get(`peso_corporal_${i}${sufijo}`) === "true";
-    const realizada = formData.get(`realizada_${i}${sufijo}`) === "true";
-    const pesoRaw = formData.get(`peso_${i}${sufijo}`);
-    const repsRaw = formData.get(`reps_${i}${sufijo}`);
-
-    const peso = esPesoCorporal ? null : pesoRaw ? Number(String(pesoRaw).replace(",", ".")) : null;
-    const reps = repsRaw ? Number(repsRaw) : null;
-
-    if (peso !== null && peso < 0) return { error: "El peso no puede ser negativo." };
-    if (reps !== null && reps < 0) return { error: "Las repeticiones no pueden ser negativas." };
-    if (realizada) seriesRealizadas++;
-    // Se guarda la fila si hay algún dato cargado O si se marcó como
-    // realizada (una serie hecha sin cargar número igual cuenta).
-    if (peso === null && reps === null && !esPesoCorporal && !realizada) continue;
-
-    filas.push({
-      sesion_ejercicio_id: sesionEjercicioId,
-      numero_serie: i,
-      peso_kg: peso,
-      es_peso_corporal: esPesoCorporal,
-      reps_realizadas: reps,
-      realizada,
-    });
-  }
+  const leidas = leerSeriesFormulario(formData, sesionEjercicioId, cantidad, sufijo);
+  if (!leidas.ok) return { error: leidas.error };
+  const { filas, seriesRealizadas } = leidas;
 
   if (filas.length > 0) {
     const { error } = await supabase
@@ -325,7 +308,17 @@ export async function guardarSeries(
   formData: FormData
 ): Promise<GuardarSeriesState> {
   const sesionId = String(formData.get("sesion_id") || "");
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (!sesionId || soloLectura) return { error: "Esta sesión ya no se puede editar." };
   const supabase = await createClient();
+  const { data: sesion } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id")
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "en_progreso")
+    .maybeSingle();
+  if (!sesion) return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
 
   const resultado = await guardarUnEjercicio(supabase, formData, "");
   if (resultado.error) return resultado;
@@ -352,7 +345,17 @@ export async function guardarSeriesGrupo(
 ): Promise<GuardarSeriesState> {
   const sesionId = String(formData.get("sesion_id") || "");
   const cantidad = Number(formData.get("cantidad_ejercicios_grupo") || 0);
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (!sesionId || soloLectura) return { error: "Esta sesión ya no se puede editar." };
   const supabase = await createClient();
+  const { data: sesion } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id")
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "en_progreso")
+    .maybeSingle();
+  if (!sesion) return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
 
   for (let i = 0; i < cantidad; i++) {
     const sufijo = i === 0 ? "" : `_${i}`;
@@ -417,13 +420,14 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
   const [{ data: sesion }, { data: ejercicios }] = await Promise.all([
     supabase
       .from("sesiones_entrenamiento")
-      .select("id, fecha")
+      .select("id, fecha, estado")
       .eq("id", sesionId)
       .eq("alumno_id", alumnoId)
       .maybeSingle(),
     supabase.from("sesion_ejercicios").select("completado").eq("sesion_id", sesionId),
   ]);
   if (!sesion) redirect("/alumno/entrenar");
+  if (sesion.estado !== "en_progreso") redirect(`/alumno/entrenar/sesion/${sesionId}`);
 
   const total = ejercicios?.length ?? 0;
   const completados = ejercicios?.filter((e) => e.completado).length ?? 0;
@@ -433,7 +437,9 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
   await supabase
     .from("sesiones_entrenamiento")
     .update({ estado, hora_fin: new Date().toISOString(), comentario: comentario || null })
-    .eq("id", sesionId);
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "en_progreso");
 
   const puntos = await registrarEntrenamiento({
     alumnoId,
@@ -459,23 +465,24 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
 
 export async function reabrirSesion(formData: FormData): Promise<void> {
   const sesionId = String(formData.get("sesion_id") || "");
+  const confirmada = String(formData.get("confirmar_reapertura") || "") === "true";
   const { alumnoId, soloLectura } = await requireAlumno();
-  if (soloLectura) return;
+  if (soloLectura || !confirmada) return;
 
   const supabase = await createClient();
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
-    .select("fecha")
+    .select("estado")
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .maybeSingle();
-  if (!sesion) return;
+  if (!sesion || !["completada", "finalizada_incompleta"].includes(sesion.estado)) return;
   await supabase
     .from("sesiones_entrenamiento")
-    .update({ estado: "en_progreso", hora_fin: null })
-    .eq("id", sesionId);
-
-  await desactivarEntrenamiento(alumnoId, sesionId, sesion.fecha);
+    .update({ estado: "en_progreso", hora_fin: null, rutina_iniciada_en: null })
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .in("estado", ["completada", "finalizada_incompleta"]);
 
   // Reabrir devuelve el cupo de la sesión, así que también mueve los puntos.
   revalidateTag(TAG_RANKING, { expire: 0 });
@@ -508,8 +515,11 @@ export async function abandonarSesion(formData: FormData): Promise<void> {
     .maybeSingle();
   if (!sesion) return;
 
-  await supabase.from("sesiones_entrenamiento").update({ estado: "abandonada" }).eq("id", sesionId);
-  await abandonarEntrenamiento(alumnoId, sesionId, sesion.fecha);
+  await supabase
+    .from("sesiones_entrenamiento")
+    .update({ estado: "abandonada" })
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId);
 
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
@@ -553,7 +563,6 @@ export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
       .update({ estado: "abandonada" })
       .eq("id", sesionId)
       .eq("alumno_id", alumnoId);
-    await abandonarEntrenamiento(alumnoId, sesionId, sesion.fecha);
     revalidateTag(TAG_RANKING, { expire: 0 });
   } else {
     await supabase.from("sesiones_entrenamiento").delete().eq("id", sesionId).eq("alumno_id", alumnoId);
@@ -578,38 +587,11 @@ export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
  */
 export async function reiniciarRutina(formData: FormData): Promise<void> {
   const rutinaId = String(formData.get("rutina_id") || "");
-  const { alumnoId, soloLectura } = await requireAlumno();
+  const { soloLectura } = await requireAlumno();
   if (!rutinaId || soloLectura) return;
-
-  const supabase = await createClient();
-  const { data: rutina } = await supabase
-    .from("rutinas")
-    .select("id")
-    .eq("id", rutinaId)
-    .eq("alumno_id", alumnoId)
-    .maybeSingle();
-  if (!rutina) return;
-
-  const { data: sesiones } = await supabase
-    .from("sesiones_entrenamiento")
-    .select("id")
-    .eq("rutina_id", rutinaId)
-    .eq("alumno_id", alumnoId);
-
-  await eliminarMovimientosDeSesiones(
-    alumnoId,
-    (sesiones ?? []).map((s) => s.id)
-  );
-
-  await supabase
-    .from("sesiones_entrenamiento")
-    .delete()
-    .eq("rutina_id", rutinaId)
-    .eq("alumno_id", alumnoId);
-
-  revalidatePath("/alumno/entrenar/historial");
-  revalidatePath("/alumno/entrenar");
-  revalidatePath("/alumno/inicio");
+  // El reinicio destructivo queda inhabilitado: nunca se borra historial ni
+  // una recompensa acreditada. Para repetir un entrenamiento se avanza a la
+  // siguiente sesión del calendario.
   redirect("/alumno/entrenar/historial");
 }
 
@@ -633,6 +615,17 @@ export async function penalizarExcesoDescanso(
 ): Promise<void> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (!sesionEjercicioId || numero <= 0 || tramosExcedidos <= 0 || soloLectura) return;
+
+  // La RLS de esta consulta confirma que el ejercicio pertenece al alumno
+  // autenticado. Sin ella un cliente modificado podía crear movimientos con
+  // ids arbitrarios (siempre contra sí mismo, pero contaminando el ranking).
+  const supabase = await createClient();
+  const { data: ejercicioPropio } = await supabase
+    .from("sesion_ejercicios")
+    .select("id")
+    .eq("id", sesionEjercicioId)
+    .maybeSingle();
+  if (!ejercicioPropio) return;
 
   await registrarPenalizacionDescanso({
     alumnoId,

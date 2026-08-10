@@ -1,6 +1,7 @@
 import type {
   BriefGenerador,
   CardioModalidad,
+  CategoriaCompetencia,
   EjercicioBorrador,
   EjercicioGenerador,
   EnfoqueForma,
@@ -15,6 +16,7 @@ import type {
   TecnicaEntrenamiento,
 } from "./tipos";
 import type { NivelEjercicio } from "@/lib/ejercicios/tipos";
+import { validarSemanaVip } from "./validador-semanal";
 
 /** Heurística por nombre — no hay un campo estructurado en `ejercicios` que
  * distinga "ancho" de "grosor" (se probó con `patron_movimiento`, existe la
@@ -60,6 +62,20 @@ function coincideSubGrupoPierna(nombre: string, sub: SubGrupoPierna): boolean {
   return PALABRAS_SUBGRUPO[sub].some((p) => n.includes(p));
 }
 
+type SubGrupoBrazo = "biceps" | "triceps";
+
+/** Separación temporal sobre el catálogo actual. La base solo guarda
+ * `grupoMuscular = brazos`, pero para programar un día de brazos necesitamos
+ * garantizar que no quede, por ejemplo, con cinco curls y un solo tríceps.
+ * Cuando el catálogo tenga el músculo objetivo estructurado, esta heurística
+ * se reemplaza por ese dato sin cambiar el algoritmo de reparto. */
+function subGrupoBrazo(nombre: string): SubGrupoBrazo | null {
+  const n = normalizarNombre(nombre);
+  if (["triceps", "extension", "press frances", "press cerrado", "fondos", "patada"].some((p) => n.includes(p))) return "triceps";
+  if (["biceps", "curl", "predicador", "martillo"].some((p) => n.includes(p))) return "biceps";
+  return null;
+}
+
 /** Minúsculas y sin tildes, para comparar nombres de ejercicios sin tener que
  * listar cada variante escrita ("cajón"/"cajon"). */
 function normalizarNombre(texto: string): string {
@@ -69,6 +85,7 @@ function normalizarNombre(texto: string): string {
 const NIVEL: Record<NivelEjercicio, number> = { principiante: 0, intermedio: 1, avanzado: 2 };
 
 const NOMBRES_DIA: Record<string, string[]> = {
+  vip_balanceada: ["Pecho + Bíceps", "Espalda + Tríceps", "Hombros + Piernas", "Pecho + Espalda", "Hombros + Brazos", "Piernas + Brazos", "Especialización VIP"],
   full_body: ["Cuerpo completo A", "Cuerpo completo B", "Cuerpo completo C", "Cuerpo completo D", "Cuerpo completo E", "Cuerpo completo F"],
   upper_lower: ["Tren superior A", "Tren inferior A", "Tren superior B", "Tren inferior B", "Tren superior C", "Tren inferior C"],
   push_pull_legs: ["Empuje", "Tracción", "Piernas", "Empuje B", "Tracción B", "Piernas B"],
@@ -104,24 +121,33 @@ const GRUPOS_FULL_BODY: GrupoEntrenable[] = ["pecho", "espalda", "piernas", "hom
  * acotado a ciertas categorías (para separar tríceps/bíceps dentro de
  * "brazos" en un split empuje/tracción) o a una sub-parte de "piernas"
  * (glúteo/cuádriceps/femoral/pantorrilla). */
-type CupoDia = { grupo: GrupoEntrenable; categorias?: EjercicioGenerador["categoria"][]; subGrupoPierna?: SubGrupoPierna };
+type CupoDia = { grupo: GrupoEntrenable; categorias?: EjercicioGenerador["categoria"][]; subGrupoPierna?: SubGrupoPierna; subGrupoBrazo?: SubGrupoBrazo };
 
 function etiquetaCupo(c: CupoDia): string {
-  return c.subGrupoPierna ? NOMBRE_SUBGRUPO[c.subGrupoPierna] : NOMBRE_GRUPO[c.grupo];
+  if (c.subGrupoPierna) return NOMBRE_SUBGRUPO[c.subGrupoPierna];
+  if (c.subGrupoBrazo === "biceps") return "Bíceps";
+  if (c.subGrupoBrazo === "triceps") return "Tríceps";
+  return NOMBRE_GRUPO[c.grupo];
 }
 
 function distribucionReal(brief: BriefGenerador): Exclude<BriefGenerador["distribucion"], "automatica"> {
   if (brief.distribucion !== "automatica") return brief.distribucion;
-  if (brief.dias <= 3) return "full_body";
-  if (brief.dias === 4) return "upper_lower";
+  if (brief.dias <= 2) return "full_body";
+  if (brief.dias <= 6) return "vip_balanceada";
   return "push_pull_legs";
+}
+
+function categoriaEfectiva(brief: BriefGenerador, perfil: PerfilEntrenamiento): CategoriaCompetencia {
+  return brief.categoriaCompetencia !== "ninguna"
+    ? brief.categoriaCompetencia
+    : perfil.categoriaCompetencia ?? "ninguna";
 }
 
 /** Cupos objetivo del día — reemplaza al viejo `correspondeDia`, que hacía un
  * sort global de "todo lo que no sea pierna" y por eso podía llenar un día
  * entero solo con espalda si esos ejercicios puntuaban más alto. Ahora cada
  * grupo tiene su propio cupo garantizado dentro del día. */
-function cuposDelDia(brief: BriefGenerador, distribucion: string, indice: number): CupoDia[] {
+function cuposDelDia(brief: BriefGenerador, perfil: PerfilEntrenamiento, distribucion: string, indice: number): CupoDia[] {
   if (distribucion === "personalizada") {
     const etiquetas = brief.diaGrupos?.[indice] ?? GRUPOS_SUPERIOR.slice(0, 1);
     return etiquetas.map((etiqueta) =>
@@ -129,15 +155,64 @@ function cuposDelDia(brief: BriefGenerador, distribucion: string, indice: number
     );
   }
   if (distribucion === "full_body") return GRUPOS_FULL_BODY.map((grupo) => ({ grupo }));
+  if (distribucion === "vip_balanceada") {
+    // Plantilla base del Método VIP: normalmente dos grupos por sesión,
+    // frecuencia doble cuando los días lo permiten y una sesión de piernas
+    // que puede convivir con hombros. No es una jaula: el entrenador puede
+    // elegir personalizada, PPL, full body o upper/lower cuando corresponda.
+    const plantillaBase: CupoDia[][] = [
+      [{ grupo: "pecho" }, { grupo: "brazos", subGrupoBrazo: "biceps" }],
+      [{ grupo: "espalda" }, { grupo: "brazos", subGrupoBrazo: "triceps" }],
+      [{ grupo: "hombros" }, { grupo: "piernas" }],
+      [{ grupo: "pecho" }, { grupo: "espalda" }],
+      [{ grupo: "hombros" }, { grupo: "brazos" }],
+      [{ grupo: "piernas" }, { grupo: "brazos" }],
+    ];
+    const categoria = categoriaEfectiva(brief, perfil);
+    // La referencia visual modifica el énfasis semanal, no el objetivo del
+    // bloque. Se traduce a grupos comprensibles y nunca elimina piernas ni
+    // tren superior. Estas plantillas solo aplican al reparto VIP automático;
+    // una distribución personalizada sigue siendo exactamente la del coach.
+    const plantillaWellness: CupoDia[][] = [
+      [{ grupo: "piernas", subGrupoPierna: "gluteo" }, { grupo: "hombros" }],
+      [{ grupo: "espalda" }, { grupo: "brazos", subGrupoBrazo: "biceps" }],
+      [{ grupo: "piernas", subGrupoPierna: "cuadriceps" }, { grupo: "brazos", subGrupoBrazo: "triceps" }],
+      [{ grupo: "pecho" }, { grupo: "hombros" }],
+      [{ grupo: "piernas", subGrupoPierna: "femoral" }, { grupo: "piernas", subGrupoPierna: "gluteo" }],
+      [{ grupo: "espalda" }, { grupo: "brazos" }],
+    ];
+    const plantillaBikini: CupoDia[][] = [
+      [{ grupo: "piernas", subGrupoPierna: "gluteo" }, { grupo: "hombros" }],
+      [{ grupo: "espalda" }, { grupo: "brazos", subGrupoBrazo: "biceps" }],
+      [{ grupo: "piernas", subGrupoPierna: "cuadriceps" }, { grupo: "core" }],
+      [{ grupo: "pecho" }, { grupo: "brazos", subGrupoBrazo: "triceps" }],
+      [{ grupo: "hombros" }, { grupo: "espalda" }],
+      [{ grupo: "piernas", subGrupoPierna: "femoral" }, { grupo: "brazos" }],
+    ];
+    const plantillaSimetrica: CupoDia[][] = [
+      ...plantillaBase.slice(0, 4),
+      [{ grupo: "piernas" }, { grupo: "brazos" }],
+      [{ grupo: "hombros" }, { grupo: "espalda" }],
+    ];
+    const plantilla = categoria === "wellness"
+      ? plantillaWellness
+      : categoria === "bikini"
+        ? plantillaBikini
+      : ["classic_physique", "bodybuilding_open", "womens_physique"].includes(categoria)
+        ? plantillaSimetrica
+          : plantillaBase;
+    return plantilla[indice % plantilla.length];
+  }
   if (distribucion === "upper_lower") {
     const grupos = indice % 2 === 1 ? GRUPOS_INFERIOR : GRUPOS_SUPERIOR;
     return grupos.map((grupo) => ({ grupo }));
   }
-  // push_pull_legs: separa brazos por categoría para no mezclar tríceps en
-  // día de tracción ni bíceps en día de empuje.
+  // push_pull_legs: separa brazos por músculo objetivo para no mezclar
+  // tríceps en tracción ni bíceps en empuje. La categoría "aislamiento"
+  // por sí sola no alcanza porque contiene ejercicios de ambos músculos.
   const ciclo = indice % 3;
-  if (ciclo === 0) return [{ grupo: "pecho" }, { grupo: "hombros" }, { grupo: "brazos", categorias: ["empuje", "aislamiento"] }];
-  if (ciclo === 1) return [{ grupo: "espalda" }, { grupo: "brazos", categorias: ["traccion", "aislamiento"] }];
+  if (ciclo === 0) return [{ grupo: "pecho" }, { grupo: "hombros" }, { grupo: "brazos", subGrupoBrazo: "triceps" }];
+  if (ciclo === 1) return [{ grupo: "espalda" }, { grupo: "brazos", subGrupoBrazo: "biceps" }];
   return [{ grupo: "piernas" }, { grupo: "core" }];
 }
 
@@ -149,11 +224,16 @@ function puntaje(e: EjercicioGenerador, brief: BriefGenerador, perfil: PerfilEnt
   if (e.posicionSesion === "principal") p += 20;
   if (brief.prioridad === "fuerza" && ["barra", "smith"].includes(e.equipo)) p += 15;
   if (brief.prioridad === "adherencia" && e.complejidad === "baja") p += 15;
-  // Énfasis por sexo del alumno — nunca filtra el catálogo, solo ordena.
-  // Pedido explícito: mujeres con foco en pierna/glúteo; hombres balanceados
-  // entre tren superior y pierna (que no quede relegada a un solo día).
-  if (perfil.sexo === "femenino" && e.grupoMuscular === "piernas") p += 20;
-  if (perfil.sexo === "masculino" && ["pecho", "espalda", "hombros", "piernas"].includes(e.grupoMuscular)) p += 8;
+  // La referencia visual elegida por alumno/coach sí orienta la selección.
+  // El sexo no se usa como atajo: no suponemos que una mujer quiera bajar de
+  // peso ni que un hombre quiera descuidar el tren inferior.
+  const categoriaCompetencia = categoriaEfectiva(brief, perfil);
+  if ((categoriaCompetencia === "bikini" || categoriaCompetencia === "wellness") && e.grupoMuscular === "piernas") p += 30;
+  if (categoriaCompetencia === "wellness" && coincideSubGrupoPierna(e.nombre, "gluteo")) p += 20;
+  if (categoriaCompetencia === "bikini" && ["hombros", "espalda"].includes(e.grupoMuscular)) p += 12;
+  if (categoriaCompetencia === "mens_physique" && ["espalda", "hombros"].includes(e.grupoMuscular)) p += 30;
+  if (categoriaCompetencia === "mens_physique" && ["pecho", "brazos"].includes(e.grupoMuscular)) p += 18;
+  if (["classic_physique", "bodybuilding_open", "womens_physique"].includes(categoriaCompetencia) && ["pecho", "espalda", "hombros", "piernas"].includes(e.grupoMuscular)) p += 12;
   // Grupo rezagado que el entrenador quiere priorizar esta semana.
   if (brief.grupoPrioritario && e.grupoMuscular === brief.grupoPrioritario) p += 40;
   // Enfoque de forma: amplitud (ancho), densidad (grosor) o definición (aislados).
@@ -196,6 +276,29 @@ function ajustarRepsPorObjetivo(reps: string, objetivo: ObjetivoEntrenamiento, p
 function conRirSiCorresponde(reps: string, inspiracion: InspiracionEstilo, principal: boolean): string {
   if (inspiracion !== "cientifico_rir") return reps;
   return `${reps} (RIR ${principal ? "1-2" : "0-1"})`;
+}
+
+/** Los compuestos principales de las rutinas avanzadas reales suelen usar
+ * pirámides descendentes. Solo se aplican con intensidad alta/competitiva;
+ * los demás perfiles conservan rangos simples. */
+function repsEscalonadas(
+  reps: string,
+  series: number,
+  experiencia: NivelEjercicio,
+  intensidad: IntensidadDeseada,
+  objetivo: ObjetivoEntrenamiento,
+  principal: boolean
+): string {
+  if (
+    experiencia !== "avanzado" ||
+    intensidad === "estandar" ||
+    !principal ||
+    !["hipertrofia", "recomposicion"].includes(objetivo)
+  ) return reps;
+  if (series >= 5) return "15-12-10-8-8";
+  if (series === 4) return "15-12-10-8";
+  if (series === 3) return "12-10-8";
+  return reps;
 }
 
 function descansoPorPrioridad(prioridad: BriefGenerador["prioridad"], principal: boolean): number {
@@ -251,11 +354,47 @@ function prescripcion(
   const intensidad = brief.intensidadDeseada;
   const series = ajusteEdad(ajusteSeries(seriesPorNivel(experiencia, intensidad, principal), brief.objetivo, brief.inspiracionEstilo), perfil.edad);
   const repsBase = ajustarRepsPorObjetivo(repsPorPrioridad(brief.prioridad, principal), brief.objetivo, principal);
+  const repsPeriodizadas = repsEscalonadas(repsBase, series, experiencia, intensidad, brief.objetivo, principal);
   return {
     series,
-    reps: conRirSiCorresponde(repsBase, brief.inspiracionEstilo, principal),
-    descansoSegundos: descansoPorPrioridad(brief.prioridad, principal),
+    reps: conRirSiCorresponde(repsPeriodizadas, brief.inspiracionEstilo, principal),
+    descansoSegundos: principal && experiencia === "avanzado"
+      ? Math.max(120, descansoPorPrioridad(brief.prioridad, principal))
+      : descansoPorPrioridad(brief.prioridad, principal),
   };
+}
+
+/** Cada ejercicio sale con el recordatorio técnico que Alejandro suele
+ * escribir en sus entregas, en vez de dejar una fila muda. */
+export function indicacionTecnica(nombre: string, grupo: EjercicioGenerador["grupoMuscular"]): string {
+  const n = normalizarNombre(nombre);
+  if (/sentadilla|squat|prensa|hack|belt/.test(n)) return "Controla la bajada, mantén las rodillas alineadas y empuja con todo el pie.";
+  if (/hip thrust|puente|patada|abdu|multi hip/.test(n)) return "Mantén la pelvis estable y aprieta el glúteo arriba sin arquear la zona lumbar.";
+  if (/peso muerto|rumano|buenos dias/.test(n)) return "Lleva la cadera atrás, conserva la columna neutra y controla la fase excéntrica.";
+  if (/femoral/.test(n)) return "Fija la cadera al apoyo y controla especialmente el regreso del peso.";
+  if (/jalon|dominada|pull.?up/.test(n)) return "Lleva los codos hacia las costillas y evita balancear el torso.";
+  if (/remo/.test(n)) return "Mantén el tronco estable y termina juntando las escápulas sin tirones.";
+  if (/elevacion.*lateral|pajaro|reverse pec|face pull/.test(n)) return "Trabaja sin impulso y controla la bajada para mantener tensión en el hombro.";
+  if (/press.*hombro|press militar|shoulder press/.test(n)) return "Aprieta el abdomen, mantén los codos estables y controla la bajada.";
+  if (/press|apertura|cruce|fondos/.test(n) && grupo === "pecho") return "Fija las escápulas, controla el descenso y evita rebotar al empujar.";
+  if (/curl|predicador|martillo/.test(n)) return "Mantén los codos fijos y evita balancear el tronco.";
+  if (/triceps|extension|press frances|pushdown/.test(n)) return "Mantén los codos fijos y completa la extensión sin mover los hombros.";
+  if (grupo === "core") return "Mantén el abdomen activo y evita compensar con la zona lumbar.";
+  return "Usa un recorrido controlado, técnica limpia y sin rebotes.";
+}
+
+function activacionDelDia(cupos: CupoDia[], perfil: PerfilEntrenamiento): string {
+  const grupos = new Set(cupos.map((c) => c.grupo));
+  const piernas = grupos.has("piernas");
+  const superior = ["pecho", "espalda", "hombros", "brazos"].some((g) => grupos.has(g as GrupoEntrenable));
+  const base = piernas && superior
+    ? "Activación: 5-8 min de bicicleta y movilidad general; completa 1-2 series livianas del primer movimiento."
+    : piernas
+      ? "Activación: 5-8 min de bicicleta, movilidad de cadera/tobillo y trabajo suave de glúteos con banda."
+      : "Activación: 5 min de bicicleta o remo, movilidad escapular y 1-2 series livianas del primer movimiento.";
+  return perfil.requiereRevision
+    ? `${base} Todo debe realizarse sin dolor y respetando las restricciones confirmadas por el entrenador.`
+    : base;
 }
 
 /** Llena `cantidad` cupos repartidos entre `cupos`, garantizando que cada
@@ -277,7 +416,8 @@ function elegirPorCupos(
         (e) =>
           e.grupoMuscular === c.grupo &&
           (!c.categorias || c.categorias.includes(e.categoria)) &&
-          (!c.subGrupoPierna || coincideSubGrupoPierna(e.nombre, c.subGrupoPierna))
+          (!c.subGrupoPierna || coincideSubGrupoPierna(e.nombre, c.subGrupoPierna)) &&
+          (!c.subGrupoBrazo || subGrupoBrazo(e.nombre) === c.subGrupoBrazo)
       )
       .sort((a, b) => puntaje(b, brief, perfil, usados) - puntaje(a, brief, perfil, usados))
   );
@@ -295,7 +435,29 @@ function elegirPorCupos(
   }
 
   const elegidos: EjercicioGenerador[] = [];
-  porCupo.forEach((lista, i) => elegidos.push(...lista.slice(0, cupoAsignado[i])));
+  porCupo.forEach((lista, i) => {
+    const cantidadCupo = cupoAsignado[i];
+    const cupo = cupos[i];
+    if (cupo.grupo !== "brazos" || cupo.subGrupoBrazo || cantidadCupo < 2) {
+      elegidos.push(...lista.slice(0, cantidadCupo));
+      return;
+    }
+
+    // Un día general de brazos reparte sus espacios entre bíceps y tríceps
+    // antes de completar con ejercicios sin clasificar. Con 4 espacios quedan
+    // al menos 2+2 si el catálogo lo permite; con 2, al menos 1+1.
+    const biceps = lista.filter((e) => subGrupoBrazo(e.nombre) === "biceps");
+    const triceps = lista.filter((e) => subGrupoBrazo(e.nombre) === "triceps");
+    const seleccionados: EjercicioGenerador[] = [
+      ...biceps.slice(0, Math.floor(cantidadCupo / 2)),
+      ...triceps.slice(0, Math.floor(cantidadCupo / 2)),
+    ];
+    for (const ejercicio of lista) {
+      if (seleccionados.length >= cantidadCupo) break;
+      if (!seleccionados.some((e) => e.id === ejercicio.id)) seleccionados.push(ejercicio);
+    }
+    elegidos.push(...seleccionados);
+  });
 
   if (elegidos.length < cantidad) {
     const yaElegidos = new Set(elegidos.map((e) => e.id));
@@ -369,6 +531,18 @@ export function diaLlevaTecnica(indiceDia: number, totalDias: number, intensidad
   return Math.floor(((indiceDia + 1) * diasConTecnica) / totalDias) > Math.floor((indiceDia * diasConTecnica) / totalDias);
 }
 
+/** Dosis máxima de familias de intensidad en una sesión. Una biserie cuenta
+ * como una familia aunque marque dos ejercicios. La firma VIP es exigente,
+ * pero no acumula técnicas sin límite sobre volumen alto. */
+export function maximoTecnicasPorSesion(
+  experiencia: NivelEjercicio,
+  intensidad: BriefGenerador["intensidadDeseada"]
+): number {
+  if (experiencia === "principiante") return 1;
+  if (experiencia === "intermedio") return intensidad === "competitiva" ? 2 : 1;
+  return intensidad === "estandar" ? 1 : 2;
+}
+
 function aplicarTecnicasDelDia(
   ejercicios: EjercicioBorrador[],
   tecnicas: TecnicaEntrenamiento[],
@@ -378,6 +552,8 @@ function aplicarTecnicasDelDia(
 ) {
   const nivelMax = NIVEL[experiencia];
   const competitiva = brief.intensidadDeseada === "competitiva";
+  const maximoFamilias = maximoTecnicasPorSesion(experiencia, brief.intensidadDeseada);
+  let familiasAplicadas = 0;
   const usosEnDia = new Map<string, number>();
   // Si el entrenador marcó técnicas puntuales a mano, solo esas entran —
   // aunque el nivel del alumno permitiera otras.
@@ -403,6 +579,7 @@ function aplicarTecnicasDelDia(
     usosEnDia.set(t.slug, (usosEnDia.get(t.slug) ?? 0) + 1);
     semana.usos.set(t.slug, (semana.usos.get(t.slug) ?? 0) + 1);
     semana.ultima = t.slug;
+    familiasAplicadas += 1;
   };
 
   const noCardio = ejercicios.filter((e) => e.grupoMuscular !== "cardio");
@@ -414,21 +591,28 @@ function aplicarTecnicasDelDia(
   // volumen con superseries) la salta a propósito — va directo a la técnica
   // individual de abajo (drop-set/rest-pause), que es la que define ese estilo.
   if (nivelMax >= NIVEL.intermedio && accesorios.length >= 2 && brief.inspiracionEstilo !== "alta_intensidad") {
-    const [a, b] = accesorios.slice(-2);
-    const tecnica = disponibles("encadenada").filter((t) => competitiva || t.fatiga !== "alta")[0];
+    const tecnica = disponibles("encadenada")
+      .filter((t) => competitiva || t.fatiga !== "alta")
+      .find((t) => (t.cantidadEjercicios ?? 2) <= accesorios.length);
     if (tecnica) {
       registrar(tecnica);
-      a.tecnicaTipo = tecnica.nombre;
-      a.tecnicaInstruccion = `Enlazar sin descanso con "${b.nombre}".`;
-      a.descansoSegundos = tecnica.descansoInternoSeg;
-      b.tecnicaTipo = tecnica.nombre;
-      b.tecnicaInstruccion = `Cierra la ${tecnica.nombre.toLowerCase()} iniciada en "${a.nombre}".`;
-      b.descansoSegundos = tecnica.descansoFinalSeg;
+      const bloque = accesorios.slice(-(tecnica.cantidadEjercicios ?? 2));
+      bloque.forEach((ejercicio, indice) => {
+        const siguiente = bloque[indice + 1];
+        ejercicio.tecnicaTipo = tecnica.nombre;
+        ejercicio.tecnicaInstruccion = siguiente
+          ? `Enlaza sin descanso con "${siguiente.nombre}".`
+          : `Cierra la ${tecnica.nombre.toLowerCase()} y descansa antes de repetir el bloque.`;
+        ejercicio.descansoSegundos = siguiente ? tecnica.descansoInternoSeg : tecnica.descansoFinalSeg;
+      });
     }
   }
 
-  const ultimo = accesorios.at(-1);
-  if (ultimo && !ultimo.tecnicaTipo) {
+  // En intensidad alta/competitiva, un avanzado puede recibir una segunda
+  // familia individual sobre otro accesorio. En estándar, una biserie ya
+  // consume toda la dosis del día. Nunca se usa el compuesto principal.
+  const ultimo = [...accesorios].reverse().find((e) => !e.tecnicaTipo);
+  if (ultimo && familiasAplicadas < maximoFamilias) {
     const tecnica = disponibles("individual")[0];
     if (tecnica) {
       registrar(tecnica);
@@ -436,8 +620,16 @@ function aplicarTecnicasDelDia(
       // Siempre queda claro EN QUÉ SERIE va la técnica: el entrenador lee la
       // rutina como "nombre, series, reps, descanso y técnica —por ejemplo,
       // en la última serie es un drop set—", no como una nota suelta.
+      if (tecnica.slug === "fst-7") {
+        ultimo.series = 7;
+        ultimo.reps = "10-15";
+      }
       ultimo.tecnicaInstruccion =
-        tecnica.slug === "drop-set"
+        tecnica.slug === "fst-7"
+          ? "Remate FST-7: 7 series de 10-15 reps con 30s de descanso, técnica limpia y contracción máxima."
+          : tecnica.slug === "myo-reps"
+            ? "Última serie: llega cerca del fallo, descansa 15s y completa 3-4 mini-series de 3-5 reps."
+          : tecnica.slug === "drop-set"
           ? "Última serie: al fallo, baja el peso ~20% sin descanso y sigue hasta el fallo otra vez."
           : tecnica.slug === "rest-pause"
             ? "Última serie: al fallo, descansa 15-20s de pie y suma reps con el mismo peso."
@@ -552,17 +744,21 @@ function elegirCardio(brief: BriefGenerador, disponibles: EjercicioGenerador[], 
   }];
 }
 
-/** El tiempo de sesión dicta cuántos ejercicios entran, no un número suelto.
- *
- * Calibrado con el ejemplo del entrenador: 60 minutos alcanzan para pecho
- * (banca plana, inclinado, aperturas) + un press militar + dos de tríceps =
- * 6 ejercicios "con los descansos y todo"; con 120 minutos entran dos o tres
- * más por grupo muscular. Eso da aproximadamente un ejercicio cada 10
- * minutos de trabajo de fuerza, descontando el cardio, que ocupa su propio
- * tiempo al final. */
+/** El tiempo sugiere el tamaño de la sesión, pero no convierte una sesión
+ * larga en una colección interminable de variantes. A partir de 80 minutos,
+ * el tiempo extra sirve para calentamiento, aproximaciones, descansos y una
+ * ejecución intensa: el Método VIP limita el bloque a ocho ejercicios. */
 export function ejerciciosPorTiempo(minutosSesion: number, cardioMinutos = 0): number {
   const minutosFuerza = Math.max(20, minutosSesion - cardioMinutos);
-  return Math.min(15, Math.max(3, Math.round(minutosFuerza / 10)));
+  return Math.min(8, Math.max(3, Math.round(minutosFuerza / 10)));
+}
+
+/** En días enfocados de uno o dos grupos, más de tres ejercicios por grupo
+ * suele duplicar patrones y dispara el volumen semanal. Un día de un solo
+ * músculo puede llegar a seis; con dos músculos quedan tres y tres. */
+export function ejerciciosObjetivoDelDia(solicitados: number, cantidadGrupos: number): number {
+  if (cantidadGrupos <= 0) return 0;
+  return Math.min(solicitados, cantidadGrupos <= 2 ? 6 : 8);
 }
 
 export function generarRutinaPorReglas(
@@ -598,15 +794,24 @@ export function generarRutinaPorReglas(
   );
   const semanaTecnicas = estadoTecnicasInicial();
 
-  const obligatoriosValidos = biblioteca.filter((e) => brief.obligatorios.includes(e.id) && !prohibidos.has(e.id));
+  // Un obligatorio tiene prioridad, pero no autoridad para saltarse seguridad.
+  // Antes se reincorporaba desde la biblioteca completa y podía reintroducir
+  // un ejercicio de nivel superior o de impacto alto que ya había sido filtrado.
+  const idsCandidatos = new Set(candidatos.map((e) => e.id));
+  const obligatoriosValidos = biblioteca.filter((e) => brief.obligatorios.includes(e.id) && idsCandidatos.has(e.id));
+  const obligatoriosIncompatibles = brief.obligatorios.filter((id) => !idsCandidatos.has(id));
+  if (obligatoriosIncompatibles.length > 0) {
+    alertas.push(`${obligatoriosIncompatibles.length} ejercicio${obligatoriosIncompatibles.length === 1 ? " obligatorio es incompatible" : "s obligatorios son incompatibles"} con el nivel o los filtros elegidos y no se incluyó.`);
+  }
   candidatos = [...obligatoriosValidos, ...candidatos.filter((e) => !brief.obligatorios.includes(e.id))];
   if (candidatos.length === 0) throw new Error("No hay ejercicios compatibles con todos los filtros elegidos.");
 
   const distribucion = distribucionReal(brief);
+  const categoriaCompetencia = categoriaEfectiva(brief, perfil);
   reglasAplicadas.push(`Distribución ${distribucion.replaceAll("_", " ")}`);
   if (distribucion === "personalizada") reglasAplicadas.push("Grupos musculares por día elegidos a mano por el entrenador");
   if (brief.evitarSaltos) reglasAplicadas.push("Sin ejercicios de salto o impacto alto");
-  reglasAplicadas.push(`Sesión de ${brief.minutosSesion} min: ${brief.ejerciciosPorSesion} ejercicios de fuerza por día${brief.cardio !== "ninguno" ? ` + ${brief.cardioMinutos} min de cardio` : ""}`);
+  reglasAplicadas.push(`Sesión de ${brief.minutosSesion} min: hasta ${brief.ejerciciosPorSesion} ejercicios de fuerza por día, con máximo VIP de 3 variantes por grupo en días combinados${brief.cardio !== "ninguno" ? ` + ${brief.cardioMinutos} min de cardio` : ""}`);
   if (brief.cardio !== "ninguno") {
     const etiquetaCardio = { spinning: "bicicleta de spinning", caminadora: "caminadora", steps: "steps", funcional: "circuito funcional (rota los movimientos día a día)", indistinto: "cardio disponible en sala" }[brief.cardio];
     reglasAplicadas.push(`Cardio: ${etiquetaCardio}, al final de la sesión`);
@@ -614,8 +819,19 @@ export function generarRutinaPorReglas(
   }
   const seriesEjemplo = seriesPorNivel(experiencia, brief.intensidadDeseada, true);
   reglasAplicadas.push(`Volumen para nivel ${experiencia}: ${seriesEjemplo} series en ejercicios principales`);
-  if (perfil.sexo === "femenino") reglasAplicadas.push("Énfasis en pierna/glúteo por perfil del alumno");
-  if (perfil.sexo === "masculino") reglasAplicadas.push("Balance tren superior / pierna por perfil del alumno");
+  reglasAplicadas.push("Progresión VIP de 4 semanas: establecer cargas, sumar repeticiones, acercarse a RIR 0-1 y consolidar antes de cambiar el bloque");
+  reglasAplicadas.push("Cada sesión incluye activación específica y cada ejercicio lleva una indicación técnica breve");
+  if (categoriaCompetencia !== "ninguna") {
+    const enfoqueCategoria: Record<Exclude<CategoriaCompetencia, "ninguna">, string> = {
+      bikini: "proporción atlética y definida, con énfasis inferior y hombros/espalda equilibrados",
+      wellness: "piernas y glúteos protagonistas, manteniendo el tren superior equilibrado",
+      mens_physique: "amplitud de espalda y hombros, con pecho y brazos marcados sin omitir piernas",
+      classic_physique: "simetría y equilibrio muscular de cuerpo completo",
+      bodybuilding_open: "desarrollo muscular global, sin dejar grupos rezagados",
+      womens_physique: "desarrollo muscular fuerte, definido y equilibrado de cuerpo completo",
+    };
+    reglasAplicadas.push(`Referencia física ${categoriaCompetencia.replaceAll("_", " ")}: ${enfoqueCategoria[categoriaCompetencia]}; validada por el entrenador`);
+  }
   if (perfil.edad !== null && perfil.edad >= 60) {
     reglasAplicadas.push(`Volumen ajustado por edad (${perfil.edad} años): ${perfil.edad >= 70 ? "-2" : "-1"} series por ejercicio respecto al estándar del nivel`);
   }
@@ -663,12 +879,13 @@ export function generarRutinaPorReglas(
   const usados = new Set<string>();
   const gruposEntrenadosEnSemana = new Set<GrupoEntrenable>();
   const dias = Array.from({ length: brief.dias }, (_, indice) => {
-    const cupos = cuposDelDia(brief, distribucion, indice);
+    const cupos = cuposDelDia(brief, perfil, distribucion, indice);
     if (distribucion === "personalizada" && cupos.length === 0) {
       alertas.push(`El día ${indice + 1} no tiene ningún grupo muscular asignado; quedó sin ejercicios de fuerza (solo el cardio, si corresponde). Asígnale un grupo en "Personalizada".`);
     }
     cupos.forEach((c) => gruposEntrenadosEnSemana.add(c.grupo));
-    const elegidos = elegirPorCupos(candidatos, cupos, brief.ejerciciosPorSesion, brief, perfil, usados);
+    const cantidadDia = ejerciciosObjetivoDelDia(brief.ejerciciosPorSesion, cupos.length);
+    const elegidos = elegirPorCupos(candidatos, cupos, cantidadDia, brief, perfil, usados);
 
     cupos.forEach((c) => {
       const delGrupo = elegidos.filter(
@@ -683,6 +900,17 @@ export function generarRutinaPorReglas(
         alertas.push(`Día ${indice + 1}: solo ${delGrupo.length} ejercicio${delGrupo.length === 1 ? "" : "s"} de ${etiquetaCupo(c)} para nivel ${experiencia} — conviene al menos 3. Sube "ejercicios por sesión" o revisa cuántos grupos combinás ese día.`);
       }
     });
+
+    const cupoBrazosGeneral = cupos.find((c) => c.grupo === "brazos" && !c.subGrupoBrazo);
+    if (cupoBrazosGeneral) {
+      const brazos = elegidos.filter((e) => e.grupoMuscular === "brazos");
+      const biceps = brazos.filter((e) => subGrupoBrazo(e.nombre) === "biceps").length;
+      const triceps = brazos.filter((e) => subGrupoBrazo(e.nombre) === "triceps").length;
+      const minimoPorSubgrupo = brazos.length >= 4 ? 2 : 1;
+      if (brazos.length >= 2 && (biceps < minimoPorSubgrupo || triceps < minimoPorSubgrupo)) {
+        alertas.push(`Día ${indice + 1}: el bloque de brazos quedó desbalanceado (${biceps} de bíceps y ${triceps} de tríceps). Revisa el catálogo o aumenta los espacios del grupo.`);
+      }
+    }
 
     // Orden dentro del día: el grupo prioritario va primero (rango más
     // negativo, antes que cualquier otra cosa — "entrenar el rezagado
@@ -706,7 +934,7 @@ export function generarRutinaPorReglas(
         ...prescripcion(brief, perfil, e),
         tecnicaTipo: null,
         tecnicaInstruccion: null,
-        observacion: null,
+        observacion: indicacionTecnica(e.nombre, e.grupoMuscular),
         grupoMuscular: e.grupoMuscular,
       };
     });
@@ -735,30 +963,40 @@ export function generarRutinaPorReglas(
       });
     }
 
-    const nombreDia = distribucion === "personalizada" && cupos.length > 0
+    const nombreDia = (distribucion === "personalizada" || distribucion === "vip_balanceada") && cupos.length > 0
       ? cupos.map(etiquetaCupo).join(" + ")
       : (NOMBRES_DIA[distribucion]?.[indice] ?? `Día ${indice + 1}`);
 
-    return { numero: indice + 1, nombre: nombreDia, tipo: "entrenamiento" as const, descripcion: null, ejercicios };
+    return {
+      numero: indice + 1,
+      nombre: nombreDia,
+      tipo: "entrenamiento" as const,
+      descripcion: activacionDelDia(cupos, perfil),
+      ejercicios,
+    };
   });
 
   for (const id of brief.obligatorios) {
     if (!dias.some((d) => d.ejercicios.some((e) => e.ejercicioId === id))) alertas.push("Un ejercicio obligatorio no fue compatible con la distribución o filtros y debe revisarse.");
   }
-  if (perfil.sexo === "masculino" && brief.dias >= 4) {
-    const vecesPierna = dias.filter((d) => d.ejercicios.some((e) => e.grupoMuscular === "piernas")).length;
-    if (vecesPierna < 2) alertas.push("Esta distribución entrena pierna una sola vez en la semana; para un perfil masculino con 4+ días suele convenir 2 veces.");
-  }
   if (distribucion === "personalizada" && brief.diaGrupos && brief.diaGrupos.length < brief.dias) {
     alertas.push("Faltan grupos musculares asignados a algunos días; se usó un valor por defecto.");
   }
+
+  const validacionSemanal = validarSemanaVip(
+    { nombreRutina: "Borrador", dias, reglasAplicadas: [], alertas: [] },
+    brief,
+    perfil
+  );
+  alertas.push(...validacionSemanal.alertas);
+  reglasAplicadas.push(validacionSemanal.reglaResumen);
 
   // Resumen de por qué esta rutina no es intercambiable con la de otra
   // persona, aunque comparta nivel u objetivo — pedido explícito: "no puede
   // ser una rutina de una persona avanzada igual a otra avanzada si sus
   // objetivos son distintos".
   reglasAplicadas.push(
-    `Combinación única de esta rutina: objetivo ${brief.objetivo.replaceAll("_", " ")} · prioridad ${brief.prioridad} · nivel ${experiencia} · estilo ${brief.estiloEntrenamiento.replaceAll("_", " ")} · intensidad ${brief.intensidadDeseada}${brief.inspiracionEstilo !== "ninguna" ? ` · inspiración ${brief.inspiracionEstilo.replaceAll("_", " ")}` : ""}${perfil.sexo ? ` · perfil ${perfil.sexo}` : ""}`
+    `Combinación única de esta rutina: objetivo ${brief.objetivo.replaceAll("_", " ")} · prioridad ${brief.prioridad} · nivel ${experiencia} · estilo ${brief.estiloEntrenamiento.replaceAll("_", " ")} · intensidad ${brief.intensidadDeseada}${brief.inspiracionEstilo !== "ninguna" ? ` · inspiración ${brief.inspiracionEstilo.replaceAll("_", " ")}` : ""}${categoriaCompetencia !== "ninguna" ? ` · referencia ${categoriaCompetencia.replaceAll("_", " ")}` : ""}`
   );
 
   // Título con nivel y enfoque, no solo el objetivo — pedido explícito:

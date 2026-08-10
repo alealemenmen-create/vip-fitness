@@ -69,8 +69,9 @@ export function AnunciosManager({
         </form>
       </Card>
 
-      {borradores.length > 0 && (
-        <div className="space-y-2">
+      <div id="borradores-noticias" className="scroll-mt-28 space-y-2">
+        {borradores.length > 0 ? (
+        <>
           <p className="text-caption font-semibold text-text-tertiary">BORRADORES PENDIENTES</p>
           {borradores.map((borrador) => (
             <Card key={borrador.id} className="flex items-start justify-between gap-3 !p-3">
@@ -92,15 +93,19 @@ export function AnunciosManager({
               </div>
             </Card>
           ))}
-        </div>
-      )}
+        </>
+        ) : (
+          <Card><p className="text-body text-text-secondary">No hay borradores pendientes.</p></Card>
+        )}
+      </div>
 
+      <div id="noticias-publicadas" className="scroll-mt-28 space-y-2">
       {anuncios.length === 0 ? (
         <Card>
           <p className="text-body text-text-secondary">Todavía no publicaste ningún anuncio.</p>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <>
           {anuncios.map((a) => (
             <Card key={a.id} className="flex items-start justify-between gap-2 p-3">
               <div className="min-w-0">
@@ -119,8 +124,9 @@ export function AnunciosManager({
               </form>
             </Card>
           ))}
-        </div>
+        </>
       )}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FICHA_VACIA, TEMAS_SALUD, sufijoTiene, type FichaAlumno } from "./ficha";
+import { FICHA_VACIA, REFERENCIAS_FISICAS, TEMAS_SALUD, sufijoTiene, type FichaAlumno } from "./ficha";
 
 /** Lectura y escritura de la ficha, en un solo lugar.
  *
@@ -22,6 +22,7 @@ export async function leerFicha(db: SupabaseClient, alumnoId: string): Promise<F
     telefono: personal?.telefono ?? null,
     objetivoPrincipal: entrenamiento?.objetivo_principal ?? null,
     objetivoSecundario: entrenamiento?.objetivo_secundario ?? null,
+    categoriaReferencia: entrenamiento?.categoria_competencia ?? null,
     diasDisponibles: entrenamiento?.dias_disponibles ?? null,
     minutosSesion: entrenamiento?.minutos_sesion ?? null,
     experiencia: entrenamiento?.experiencia ?? null,
@@ -63,11 +64,15 @@ export async function guardarFicha(
   const dias = numero(formData, "dias_disponibles");
   const minutos = numero(formData, "minutos_sesion");
   const experiencia = texto(formData, "experiencia");
+  const categoria = texto(formData, "categoria_competencia") ?? "ninguna";
 
   if (!fechaNacimiento) return { error: "Falta tu fecha de nacimiento.", ok: false };
   if (!sexo) return { error: "Falta indicar el sexo.", ok: false };
   if (!objetivo) return { error: "Falta elegir el objetivo principal.", ok: false };
   if (!experiencia) return { error: "Falta indicar la experiencia entrenando.", ok: false };
+  if (!REFERENCIAS_FISICAS.some((opcion) => opcion.value === categoria)) {
+    return { error: "La referencia física seleccionada no es válida.", ok: false };
+  }
   if (dias === null || dias < 1 || dias > 7) return { error: "Los días por semana tienen que estar entre 1 y 7.", ok: false };
   if (minutos === null || minutos < 20 || minutos > 180) return { error: "Los minutos por sesión tienen que estar entre 20 y 180.", ok: false };
 
@@ -108,6 +113,7 @@ export async function guardarFicha(
       alumno_id: alumnoId,
       objetivo_principal: objetivo,
       objetivo_secundario: texto(formData, "objetivo_secundario"),
+      categoria_competencia: categoria,
       dias_disponibles: dias,
       minutos_sesion: minutos,
       experiencia,

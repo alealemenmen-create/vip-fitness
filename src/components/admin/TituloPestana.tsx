@@ -16,5 +16,9 @@
  *   borde y por esa rendija desfila el contenido al scrollear.
  */
 export function TituloPestana({ children }: { children: React.ReactNode }) {
-  return <div className="sticky top-0 z-20 -mx-4 bg-bg px-4 pb-2 pt-3">{children}</div>;
+  return (
+    <div className="sticky top-0 z-20 -mx-4 border-b border-transparent bg-bg/95 px-4 pb-3 pt-4 backdrop-blur md:mx-0 md:px-0 md:pb-4 md:pt-6">
+      {children}
+    </div>
+  );
 }

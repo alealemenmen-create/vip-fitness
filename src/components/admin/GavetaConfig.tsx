@@ -27,7 +27,10 @@ export function GavetaConfig({
       <button
         type="button"
         onClick={() => setAbierta((v) => !v)}
-        className="radius-control flex w-full items-center justify-between border border-border bg-surface px-4 py-3"
+        aria-expanded={abierta}
+        className={`radius-control flex w-full items-center justify-between border px-4 py-3.5 transition-colors ${
+          abierta ? "border-vip/40 bg-vip/5" : "border-border bg-surface hover:bg-surface-2"
+        }`}
       >
         <div className="text-left">
           <p className="text-secondary font-semibold text-text">{titulo}</p>
@@ -39,7 +42,7 @@ export function GavetaConfig({
           <ChevronDown size={18} className="shrink-0 text-text-secondary" />
         )}
       </button>
-      {abierta && <div className="space-y-3">{children}</div>}
+      {abierta && <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">{children}</div>}
     </div>
   );
 }

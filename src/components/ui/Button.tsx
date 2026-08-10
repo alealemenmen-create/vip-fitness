@@ -34,6 +34,7 @@ export function Button({
   size = "lg",
   loading = false,
   disabled = false,
+  disabledReason,
   type = "button",
   className = "",
   onClick,
@@ -44,6 +45,8 @@ export function Button({
   size?: ButtonSize;
   loading?: boolean;
   disabled?: boolean;
+  /** Explica por qué la acción todavía no está disponible. */
+  disabledReason?: string;
   type?: "button" | "submit";
   className?: string;
   onClick?: () => void;
@@ -58,7 +61,9 @@ export function Button({
       onClick={onClick}
       onPointerDown={onPointerDown}
       disabled={disabled || loading}
-      className={`radius-control flex items-center justify-center gap-2 font-medium transition-all duration-200 ease-in-out active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100 ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
+      aria-busy={loading || undefined}
+      title={disabled && !loading ? (disabledReason ?? "Completa la información necesaria para continuar") : undefined}
+      className={`radius-control flex cursor-pointer items-center justify-center gap-2 font-medium transition-all duration-200 ease-in-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
     >
       {loading && <Loader2 size={18} className="animate-spin" />}
       {children}
@@ -89,7 +94,7 @@ export function IconButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-secondary transition-all duration-200 ease-in-out active:scale-[0.94] disabled:opacity-40 ${className}`}
+      className={`flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-text-secondary transition-all duration-200 ease-in-out active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
     >
       {children}
     </button>

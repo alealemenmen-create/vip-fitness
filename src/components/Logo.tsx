@@ -21,7 +21,7 @@ const RUTAS_COMPACTAS: [ruta: string, titulo?: ReactNode][] = [
       Entrenamiento <span className="text-vip">VIP</span>
     </>,
   ],
-  ["/alumno/progreso", "Tu progreso"],
+  ["/alumno/progreso", "Mi avance"],
   [
     "/alumno/ranked",
     <>

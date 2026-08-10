@@ -14,7 +14,7 @@ export function AvisoSolicitudes({ pendientes }: { pendientes: number }) {
     return (
       <Link
         href="/admin/solicitudes"
-        className="radius-control flex items-center gap-1.5 border border-dashed border-border px-2.5 py-1.5 text-caption text-text-tertiary"
+        className="radius-control flex min-h-11 items-center gap-2 border border-dashed border-border bg-surface-2/40 px-3 text-caption text-text-secondary transition-colors hover:border-vip/35 hover:text-text"
       >
         <Link2 size={12} />
         <span className="flex-1">Link de inscripción para alumnos nuevos</span>

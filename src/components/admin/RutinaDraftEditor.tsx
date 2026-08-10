@@ -695,20 +695,6 @@ export function RutinaDraftEditor({
         />
       </Card>
 
-      {onRevisar && (
-        <RevisionIAPanel
-          revision={revision}
-          revisando={revisando}
-          error={errorRevision}
-          aplicados={aplicados}
-          onRevisar={revisar}
-          onAplicar={(i) => aplicarCambios([i])}
-          onAplicarTodos={() =>
-            aplicarCambios(revision ? revision.cambios.map((_, i) => i).filter((i) => !aplicados.has(i)) : [])
-          }
-        />
-      )}
-
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-semibold tracking-wide text-text-tertiary">{draft.dias.length} DÍAS</span>
         <button
@@ -837,6 +823,24 @@ export function RutinaDraftEditor({
       >
         <Plus size={16} /> Agregar día
       </button>
+
+      {/* El control de calidad es el paso posterior a editar la rutina. Antes
+          vivía arriba del editor: al terminar cinco o seis días había que
+          volver al inicio para encontrarlo. Ahora el orden es el real del
+          trabajo: generar → editar → analizar → confirmar. */}
+      {onRevisar && (
+        <RevisionIAPanel
+          revision={revision}
+          revisando={revisando}
+          error={errorRevision}
+          aplicados={aplicados}
+          onRevisar={revisar}
+          onAplicar={(i) => aplicarCambios([i])}
+          onAplicarTodos={() =>
+            aplicarCambios(revision ? revision.cambios.map((_, i) => i).filter((i) => !aplicados.has(i)) : [])
+          }
+        />
+      )}
 
       <Card padding="p-0" className="overflow-hidden">
         <button

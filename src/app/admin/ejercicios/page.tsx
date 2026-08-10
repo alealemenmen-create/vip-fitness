@@ -2,7 +2,9 @@ import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerBibliotecaSinCache } from "@/lib/ejercicios/data";
 import { GaleriaEjercicios, type ReporteFotoPendiente } from "@/components/admin/GaleriaEjercicios";
-import { TituloPestana } from "@/components/admin/TituloPestana";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminStatCard } from "@/components/admin/AdminStatCard";
+import { CircleAlert, Dumbbell, Images } from "lucide-react";
 
 export default async function EjerciciosAdminPage({
   searchParams,
@@ -48,15 +50,21 @@ export default async function EjerciciosAdminPage({
   }
 
   return (
-    <div className="space-y-4 pb-4">
-      <TituloPestana>
-        <p className="text-caption text-text-tertiary">GALERÍA</p>
-        <h1 className="text-h2 text-text">Galería multimedia</h1>
-      </TituloPestana>
-      <p className="text-secondary text-text-secondary">
-        Administra fotos y clips de referencia. La vista previa usa el mismo formato que verá el alumno.
-      </p>
-      <GaleriaEjercicios ejercicios={biblioteca} reportes={reportes} />
+    <div className="space-y-6 pb-8">
+      <AdminPageHeader
+        eyebrow="Ejercicios"
+        title="Galería multimedia"
+        description="Administra fotos y clips técnicos. La vista previa coincide con lo que verá el alumno en su rutina."
+      />
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3" aria-label="Resumen de ejercicios">
+        <AdminStatCard href="/admin/ejercicios#biblioteca-ejercicios" icon={<Dumbbell size={20} />} value={biblioteca.length} label="Ejercicios" detail="Ver biblioteca disponible" color="#3b82f6" />
+        <AdminStatCard href="/admin/ejercicios#biblioteca-ejercicios" icon={<Images size={20} />} value="Foto · Clip" label="Multimedia" detail="Gestionar referencias" color="#a78bfa" />
+        <AdminStatCard href="/admin/ejercicios#reportes-ejercicios" icon={<CircleAlert size={20} />} value={reportes.length} label="Reportes" detail="Revisar imágenes señaladas" color={reportes.length ? "#f59e0b" : "#22c55e"} />
+      </section>
+      <section id="biblioteca-ejercicios" className="admin-panel-card scroll-mt-28 rounded-3xl p-4 md:p-5">
+        <span id="reportes-ejercicios" className="block scroll-mt-28" />
+        <GaleriaEjercicios ejercicios={biblioteca} reportes={reportes} />
+      </section>
     </div>
   );
 }

@@ -5,7 +5,6 @@ import { requireAlumno } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { AbandonarSesionBoton } from "@/components/student/AbandonarSesionBoton";
-import { ReiniciarRutinaBoton } from "@/components/student/ReiniciarRutinaBoton";
 import { obtenerHistorialSesiones, obtenerRutinasHistorial } from "../../../data";
 import { formatFechaDiaSemana, formatoDuracion } from "@/lib/date";
 
@@ -107,11 +106,7 @@ export default async function HistorialRutinaPage({ params }: { params: Promise<
         })}
       </div>
 
-      {!soloLectura && (
-        <div className="pt-2">
-          <ReiniciarRutinaBoton rutinaId={rutina.id} cantidadSesiones={rutina.cantidadSesiones} />
-        </div>
-      )}
+      {!soloLectura && <Card><p className="text-caption text-text-secondary">Tu historial y tus Puntos VIP quedan protegidos. Para repetir el plan, continúa con la siguiente sesión desde Entrenar.</p></Card>}
     </div>
   );
 }

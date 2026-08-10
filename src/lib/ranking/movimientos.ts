@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISO, sumarDiasISO } from "@/lib/date";
-import { calcularPuntosAlimentacion, calcularPuntosEntrenamiento, calcularPuntosImpulso, PUNTOS_VIP } from "./reglas";
+import { calcularPuntosAlimentacion, calcularPuntosEntrenamiento, calcularPuntosImpulso, limitarTramosDescanso, PUNTOS_VIP } from "./reglas";
 
 /** Bono de Impulso VIP al finalizar una sesión — misma clave que
  * `entrenamiento:<sesionId>` en concepto (una fila por sesión, no por
@@ -22,7 +22,7 @@ export async function registrarImpulso({
   puntos: number;
   detalle: string;
 }) {
-  return guardarMovimiento({
+  return guardarRecompensaInmutable({
     alumnoId,
     clave: `impulso:${sesionId}`,
     categoria: "progreso",
@@ -72,14 +72,13 @@ export async function calcularYRegistrarPuntosImpulso(
     );
     if (puntos <= 0) return 0;
 
-    await registrarImpulso({
+    return await registrarImpulso({
       alumnoId,
       sesionId,
       fecha,
       puntos,
       detalle: `${evaluadas.length} ${evaluadas.length === 1 ? "meta evaluada" : "metas evaluadas"} de Impulso VIP`,
     });
-    return puntos;
   } catch {
     return 0;
   }
@@ -126,6 +125,37 @@ export async function guardarMovimiento(movimiento: Movimiento): Promise<number>
   return puntos;
 }
 
+/** La primera recompensa de una sesión queda congelada. Corregir sus datos
+ * después no puede restar ni volver a sumar puntos ya acreditados. */
+async function guardarRecompensaInmutable(movimiento: Movimiento): Promise<number> {
+  const admin = createAdminClient();
+  const puntos = Math.round(movimiento.puntos);
+  const { data: existente, error: errorLectura } = await admin
+    .from("puntos_vip_movimientos")
+    .select("id")
+    .eq("alumno_id", movimiento.alumnoId)
+    .eq("clave", movimiento.clave)
+    .maybeSingle();
+  if (errorLectura) throw new Error(`No fue posible verificar Puntos VIP: ${errorLectura.message}`);
+  if (existente) return 0;
+  const { error } = await admin.from("puntos_vip_movimientos").upsert(
+    {
+      alumno_id: movimiento.alumnoId,
+      clave: movimiento.clave,
+      categoria: movimiento.categoria,
+      puntos,
+      titulo: movimiento.titulo,
+      detalle: movimiento.detalle ?? null,
+      fecha: movimiento.fecha,
+      metadata: movimiento.metadata ?? {},
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "alumno_id,clave", ignoreDuplicates: true }
+  );
+  if (error) throw new Error(`No fue posible guardar Puntos VIP: ${error.message}`);
+  return puntos;
+}
+
 export async function registrarEntrenamiento({
   alumnoId,
   sesionId,
@@ -140,7 +170,7 @@ export async function registrarEntrenamiento({
   total: number;
 }) {
   const puntos = calcularPuntosEntrenamiento(completados, total);
-  return guardarMovimiento({
+  return guardarRecompensaInmutable({
     alumnoId,
     clave: `entrenamiento:${sesionId}`,
     categoria: "entrenamiento",
@@ -233,9 +263,11 @@ export async function registrarPenalizacionDescanso({
   tramosExcedidos: number;
   fecha: string;
 }) {
+  const tramosLimitados = limitarTramosDescanso(tramosExcedidos);
+  if (tramosLimitados <= 0) return 0;
   const puntos = -Math.min(
     PUNTOS_VIP.descansoPenalizacionMaxima,
-    tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
+    tramosLimitados * PUNTOS_VIP.descansoPenalizacionPorTramo
   );
   return guardarMovimiento({
     alumnoId,
@@ -243,9 +275,9 @@ export async function registrarPenalizacionDescanso({
     categoria: "ajuste",
     puntos,
     titulo: "Descanso excedido",
-    detalle: `Te pasaste ${tramosExcedidos * PUNTOS_VIP.descansoSegundosPorTramo}s del descanso indicado`,
+    detalle: `Te pasaste ${tramosLimitados * PUNTOS_VIP.descansoSegundosPorTramo}s${tramosLimitados < tramosExcedidos ? " o más" : ""} del descanso indicado`,
     fecha,
-    metadata: { sesionEjercicioId, numero, tramosExcedidos },
+    metadata: { sesionEjercicioId, numero, tramosExcedidos: tramosLimitados },
   });
 }
 
@@ -254,7 +286,7 @@ export async function recalcularAlimentacionDia(alumnoId: string, fecha: string)
   const [{ data: plan }, { data: registro }] = await Promise.all([
     admin
       .from("planes_alimentacion")
-      .select("kcal_objetivo")
+      .select("kcal_objetivo, prot_objetivo")
       .eq("alumno_id", alumnoId)
       .eq("activo", true)
       .order("created_at", { ascending: false })
@@ -263,7 +295,7 @@ export async function recalcularAlimentacionDia(alumnoId: string, fecha: string)
     admin
       .from("registros_diarios")
       .select(
-        "comidas_registradas(omitida, alimentos_consumidos(cantidad, alimentos(kcal, porcion_base, aprobado)))"
+        "comidas_registradas(omitida, alimentos_consumidos(cantidad, alimentos(kcal, prot, porcion_base, aprobado)))"
       )
       .eq("alumno_id", alumnoId)
       .eq("fecha", fecha)
@@ -271,10 +303,11 @@ export async function recalcularAlimentacionDia(alumnoId: string, fecha: string)
   ]);
 
   let kcal = 0;
+  let proteina = 0;
   type Comida = {
     omitida: boolean;
     alimentos_consumidos:
-      | { cantidad: number; alimentos: { kcal: number; porcion_base: number; aprobado: boolean } | null }[]
+      | { cantidad: number; alimentos: { kcal: number; prot: number; porcion_base: number; aprobado: boolean } | null }[]
       | null;
   };
   const comidas = (registro?.comidas_registradas as unknown as Comida[] | null) ?? [];
@@ -289,12 +322,20 @@ export async function recalcularAlimentacionDia(alumnoId: string, fecha: string)
       // dar siempre el 100% de su meta.
       if (!consumido.alimentos.aprobado) continue;
       kcal += (consumido.cantidad / consumido.alimentos.porcion_base) * consumido.alimentos.kcal;
+      proteina += (consumido.cantidad / consumido.alimentos.porcion_base) * consumido.alimentos.prot;
     }
   }
 
   const objetivo = plan?.kcal_objetivo ?? null;
   const diaCerrado = fecha < hoyISO();
-  const puntosCalculados = calcularPuntosAlimentacion(kcal, objetivo, diaCerrado);
+  const objetivoProteina = plan?.prot_objetivo ?? null;
+  const puntosCalculados = calcularPuntosAlimentacion(
+    kcal,
+    objetivo,
+    diaCerrado,
+    proteina,
+    objetivoProteina
+  );
   const puntosGuardados = diaCerrado ? puntosCalculados : 0;
   const porcentaje = objetivo && objetivo > 0 ? Math.round((kcal / objetivo) * 100) : null;
   const sinRegistro = diaCerrado && kcal <= 0;
@@ -318,7 +359,9 @@ export async function recalcularAlimentacionDia(alumnoId: string, fecha: string)
     fecha,
     metadata: {
       kcal: Math.round(kcal),
+      proteina: Math.round(proteina),
       objetivo,
+      objetivoProteina,
       porcentaje,
       estado: diaCerrado ? "cerrado" : "provisional",
       puntosProvisionales: diaCerrado ? null : puntosCalculados,

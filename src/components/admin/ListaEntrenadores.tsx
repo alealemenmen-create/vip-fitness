@@ -15,11 +15,10 @@ export function ListaEntrenadores({
   if (entrenadores.length === 0) return null;
 
   return (
-    <Card className="space-y-3 p-4">
-      <p className="text-caption text-text-tertiary">ENTRENADORES</p>
+    <Card padding="p-0" className="overflow-hidden border border-border">
       <div className="space-y-3">
         {entrenadores.map((entrenador) => (
-          <div key={entrenador.id} className="flex items-center justify-between gap-2 border-b border-border pb-3 last:border-0 last:pb-0">
+          <div key={entrenador.id} className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 last:border-0">
             <NombreEditable perfilId={entrenador.id} nombre={entrenador.nombre} />
             {entrenador.id === sesionUserId ? (
               <span className="text-caption text-text-tertiary">Tú</span>

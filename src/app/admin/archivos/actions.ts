@@ -10,6 +10,8 @@ import { obtenerBiblioteca } from "@/lib/ejercicios/data";
 import { emparejarEjercicio } from "@/lib/ejercicios/emparejar";
 import { rellenarTemposFaltantes } from "@/lib/ejercicios/rellenarTempos";
 import { serializarRutinaATexto } from "@/lib/generador-rutinas/serializar";
+import { reconciliarObjetivos } from "@/lib/alimentacion/objetivos";
+import { detectarDeficienciasRutina } from "@/lib/rutinas/validacion";
 import {
   resolverPlan,
   calcularAporte,
@@ -427,7 +429,7 @@ export async function recalcularAlimento(
   };
 }
 
-export type GuardarPlanState = { error: string | null; ok: boolean };
+export type GuardarPlanState = { error: string | null; ok: boolean; aviso?: string | null };
 
 /** Lo que el entrenador confirma después de revisar: ya son los números
  * finales, calculados con la tabla de alimentos del gimnasio. */
@@ -461,15 +463,26 @@ export async function guardarPlanAlimentacion(
   const entero = (n: number | null) =>
     n === null || !Number.isFinite(n) ? null : Math.max(0, Math.round(n));
 
+  const reconciliacion = reconciliarObjetivos({
+    kcalObjetivo: entero(datos.kcalObjetivo),
+    protObjetivo: entero(datos.protObjetivo),
+    carbObjetivo: entero(datos.carbObjetivo),
+    grasaObjetivo: entero(datos.grasaObjetivo),
+  });
+  if (reconciliacion.error) {
+    return { error: reconciliacion.error, ok: false };
+  }
+  const objetivos = reconciliacion.objetivos;
+
   const { data: plan, error: errorPlan } = await supabase
     .from("planes_alimentacion")
     .insert({
       alumno_id: alumnoId,
       documento_id: documentoId,
-      kcal_objetivo: entero(datos.kcalObjetivo),
-      prot_objetivo: entero(datos.protObjetivo),
-      carb_objetivo: entero(datos.carbObjetivo),
-      grasa_objetivo: entero(datos.grasaObjetivo),
+      kcal_objetivo: objetivos.kcalObjetivo,
+      prot_objetivo: objetivos.protObjetivo,
+      carb_objetivo: objetivos.carbObjetivo,
+      grasa_objetivo: objetivos.grasaObjetivo,
       created_by: sesion.userId,
     })
     .select("id")
@@ -507,10 +520,16 @@ export async function guardarPlanAlimentacion(
   revalidatePath(`/admin/alumnos/${alumnoId}`);
   revalidatePath("/alumno/comer");
   revalidatePath("/alumno/inicio");
-  return { error: null, ok: true };
+  return {
+    error: null,
+    ok: true,
+    aviso: reconciliacion.ajustado
+      ? `Carbohidratos ajustados a ${objetivos.carbObjetivo} g para que los macros coincidan con ${objetivos.kcalObjetivo} kcal.`
+      : null,
+  };
 }
 
-export type GuardarMacrosState = { error: string | null; ok: boolean };
+export type GuardarMacrosState = GuardarPlanState;
 
 export type MacrosParaGuardar = {
   kcalObjetivo: number | null;
@@ -530,8 +549,11 @@ export async function guardarMacrosVariosAlumnos(
   await requireRol(["entrenador", "admin"]);
 
   if (alumnoIds.length === 0) return { error: "Elige al menos un alumno.", ok: false };
-  if (macros.kcalObjetivo === null) return { error: "Falta la meta de calorías.", ok: false };
+  if (macros.kcalObjetivo === null || !Number.isFinite(macros.kcalObjetivo) || macros.kcalObjetivo <= 0) {
+    return { error: "Indica una meta de calorías válida y mayor que cero.", ok: false };
+  }
 
+  let aviso: string | null = null;
   for (const alumnoId of alumnoIds) {
     const resultado = await guardarPlanAlimentacion(
       alumnoId,
@@ -541,9 +563,10 @@ export async function guardarMacrosVariosAlumnos(
     if (!resultado.ok) {
       return { error: resultado.error ?? "No fue posible guardar para uno de los alumnos.", ok: false };
     }
+    aviso ??= resultado.aviso ?? null;
   }
 
-  return { error: null, ok: true };
+  return { error: null, ok: true, aviso };
 }
 
 export type AnalizarPdfState = {
@@ -916,6 +939,18 @@ function validarRutina(datos: RutinaExtraida): string | null {
         return `"${ej.nombre}" necesita un número de series válido.`;
       }
     }
+  }
+  const deficiencias = detectarDeficienciasRutina(datos.dias.map((dia) => ({
+    nombre: dia.nombre,
+    tipo: dia.tipo,
+    ejercicios: dia.ejercicios.map((ejercicio) => ({
+      nombre: ejercicio.nombre,
+      series: ejercicio.series,
+      grupoMuscular: ejercicio.grupoMuscular,
+    })),
+  })));
+  if (deficiencias.length > 0) {
+    return `La rutina necesita corrección antes de publicarse: ${deficiencias.join(" ")}`;
   }
   return null;
 }

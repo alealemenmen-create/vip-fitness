@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, CircleDot } from "lucide-react";
+import { Activity, CircleDot, Clock3, UserX } from "lucide-react";
 import { requireRol } from "@/lib/auth";
 import {
   obtenerIngresos,
@@ -9,7 +9,8 @@ import {
   type ResumenIngresoAlumno,
 } from "@/lib/ingresos/data";
 import { Card } from "@/components/ui/Card";
-import { TituloPestana } from "@/components/admin/TituloPestana";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { formatFechaDiaSemana, formatFechaHoraCorta, hoyISO, sumarDiasISO } from "@/lib/date";
 
 const COLOR_ESTADO: Record<EstadoIngresoAlumno, string> = {
@@ -63,53 +64,55 @@ export default async function IngresosPage({
   await requireRol(["entrenador", "admin"]);
   const query = await searchParams;
   const rango: RangoIngresos = query.rango === "mes" ? "mes" : "semana";
+  const filtroEstado = typeof query.estado === "string" ? query.estado : "todos";
 
   const { resumen, detalle } = await obtenerIngresos(rango);
   const activosAhora = resumen.filter((r) => r.estado === "activo_ahora").length;
   const entraronHoy = resumen.filter((r) => r.estado === "activo_ahora" || r.estado === "hoy").length;
   const sinUsar = resumen.filter((r) => r.estado === "inactivo" || r.estado === "nunca").length;
+  const resumenVisible = filtroEstado === "activo_ahora"
+    ? resumen.filter((r) => r.estado === "activo_ahora")
+    : filtroEstado === "hoy"
+      ? resumen.filter((r) => r.estado === "activo_ahora" || r.estado === "hoy")
+      : filtroEstado === "sin_novedad"
+        ? resumen.filter((r) => r.estado === "inactivo" || r.estado === "nunca")
+        : resumen;
 
   return (
-    <div className="space-y-4 pb-8">
-      <TituloPestana>
-        <Link href="/admin/configuracion" className="flex items-center gap-2">
-          <ArrowLeft size={20} className="text-text-secondary" />
-          <span className="text-h3 text-text">Ingresos a la app</span>
-        </Link>
-      </TituloPestana>
-      <p className="text-secondary text-text-secondary">
-        Quién está usando la app y quién no. Cada visita cuenta una sola vez: si un alumno la
-        abre varias veces seguidas (por ejemplo entrenando en el gimnasio), eso es UN ingreso —
-        recién cuenta como otro si pasaron 2 horas o más desde el anterior.
-      </p>
+    <div className="space-y-6 pb-8">
+      <AdminPageHeader
+        eyebrow="Seguimiento"
+        title="Ingresos a la app"
+        description="Comprueba quién está entrenando, quién ingresó recientemente y qué alumnos necesitan seguimiento."
+        backHref="/admin/configuracion"
+      />
 
-      <Card padding="p-1" className="leading-none">
-        <div className="grid grid-cols-3 gap-1 text-center">
-          <Resumen valor={activosAhora} etiqueta="en el gym ahora" />
-          <Resumen valor={entraronHoy} etiqueta="entraron hoy" />
-          <Resumen valor={sinUsar} etiqueta="sin novedad" />
-        </div>
-      </Card>
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3" aria-label="Resumen de ingresos">
+        <AdminStatCard href={`/admin/ingresos?rango=${rango}&estado=activo_ahora#por-alumno`} icon={<Activity size={20} />} value={activosAhora} label="En el gym" detail="Ver activos ahora" color="#22c55e" />
+        <AdminStatCard href={`/admin/ingresos?rango=${rango}&estado=hoy#por-alumno`} icon={<Clock3 size={20} />} value={entraronHoy} label="Entraron hoy" detail="Ver actividad del día" color="#3b82f6" />
+        <AdminStatCard href={`/admin/ingresos?rango=${rango}&estado=sin_novedad#por-alumno`} icon={<UserX size={20} />} value={sinUsar} label="Sin novedad" detail="Ver quién necesita contacto" color="#f59e0b" />
+      </section>
 
       <div className="flex gap-2">
         <TabRango rango="semana" actual={rango} etiqueta="Semana" />
         <TabRango rango="mes" actual={rango} etiqueta="Mes" />
       </div>
 
-      <div className="space-y-4">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+      <section id="por-alumno" className="max-h-[68vh] scroll-mt-28 space-y-4 overflow-y-auto pr-1">
         <p className="text-caption text-text-tertiary">
           POR ALUMNO · {rango === "semana" ? "ÚLTIMOS 7 DÍAS" : "ÚLTIMOS 30 DÍAS"}
         </p>
-        {resumen.length === 0 ? (
+        {resumenVisible.length === 0 ? (
           <Card padding="p-4">
             <p className="text-secondary text-text-tertiary">Todavía no hay alumnos activos.</p>
           </Card>
         ) : (
-          <SeccionesPorEstado resumen={resumen} />
+          <SeccionesPorEstado resumen={resumenVisible} />
         )}
-      </div>
+      </section>
 
-      <div className="space-y-3">
+      <section className="max-h-[68vh] space-y-3 overflow-y-auto pr-1 xl:sticky xl:top-28">
         <p className="text-caption text-text-tertiary">
           DETALLE CRONOLÓGICO · {rango === "semana" ? "ÚLTIMOS 7 DÍAS" : "ÚLTIMOS 30 DÍAS"}
         </p>
@@ -132,6 +135,7 @@ export default async function IngresosPage({
             </div>
           ))
         )}
+      </section>
       </div>
     </div>
   );
@@ -168,15 +172,6 @@ function SeccionesPorEstado({ resumen }: { resumen: ResumenIngresoAlumno[] }) {
         );
       })}
     </>
-  );
-}
-
-function Resumen({ valor, etiqueta }: { valor: number; etiqueta: string }) {
-  return (
-    <div className="p-2">
-      <p className="text-h3 text-text">{valor}</p>
-      <p className="text-caption text-text-tertiary">{etiqueta}</p>
-    </div>
   );
 }
 

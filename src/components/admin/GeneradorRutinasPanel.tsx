@@ -12,6 +12,8 @@ import { Card } from "@/components/ui/Card";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { linkWhatsApp } from "@/lib/generador-rutinas/whatsapp";
 import { ejerciciosPorTiempo, modalidadesCardioDisponibles } from "@/lib/generador-rutinas/motor";
+import { sugerirDesdeFichas } from "@/lib/generador-rutinas/sugerencias-perfil";
+import { etiquetaReferenciaFisica, REFERENCIAS_FISICAS } from "@/lib/perfil-alumno/ficha";
 import type {
   AplicacionTecnicas,
   AyudasErgogenicas,
@@ -34,6 +36,7 @@ import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
  * necesita verlo para saber a quién le está armando la rutina. */
 type FichaAlumno = {
   objetivoPrincipal: string | null; experiencia: string | null; cardioNivel: string | null; preferenciaEquipo: string | null;
+  categoriaReferencia: CategoriaCompetencia | null;
   molestias: string | null; lesiones: string | null; operaciones: string | null; condiciones: string | null;
   medicamentos: string | null; noDeseados: string | null; preferidos: string | null; actividades: string | null;
 };
@@ -64,6 +67,9 @@ function FichaDelAlumno({ alumno }: { alumno: Alumno }) {
     alumno.minutos ? `${alumno.minutos} min` : null,
     f.preferenciaEquipo && f.preferenciaEquipo !== "indistinto" ? `Prefiere ${f.preferenciaEquipo.replaceAll("_", " ")}` : null,
     f.cardioNivel ? `Cardio actual ${f.cardioNivel}` : null,
+    f.categoriaReferencia && f.categoriaReferencia !== "ninguna"
+      ? `Referencia: ${etiquetaReferenciaFisica(f.categoriaReferencia, true)}`
+      : null,
   ].filter(Boolean);
 
   // Sin ficha el generador arma la rutina a ciegas (nivel principiante por
@@ -146,16 +152,34 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function GeneradorRutinasPanel({ alumnos, ejercicios, tecnicas }: { alumnos: Alumno[]; ejercicios: Ejercicio[]; tecnicas: Tecnica[] }) {
+export function GeneradorRutinasPanel({
+  alumnos,
+  ejercicios,
+  tecnicas,
+  filtroInicial = "todos",
+  alumnoInicial,
+}: {
+  alumnos: Alumno[];
+  ejercicios: Ejercicio[];
+  tecnicas: Tecnica[];
+  filtroInicial?: "todos" | "sin_rutina" | "ficha_lista";
+  alumnoInicial?: string;
+}) {
   // Arranca vacío. Antes venía con el primer alumno de la lista ya marcado
   // (el primero alfabético), así que si el entrenador no miraba, generaba una
   // rutina para alguien que nunca eligió. El botón de generar ya está
   // deshabilitado sin selección.
-  const [seleccionados, setSeleccionados] = useState<Set<string>>(() => new Set());
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(
+    () => new Set(alumnoInicial ? [alumnoInicial] : [])
+  );
   const alumnosElegidos = alumnos.filter((a) => seleccionados.has(a.id));
   const primerAlumnoId = alumnosElegidos[0]?.id ?? alumnos[0]?.id ?? "";
-  const nombrePrimerAlumno = alumnosElegidos[0]?.nombre ?? null;
   const sinRutina = alumnos.filter((a) => a.sinRutina);
+  const alumnosVisibles = filtroInicial === "sin_rutina"
+    ? alumnos.filter((alumno) => alumno.sinRutina)
+    : filtroInicial === "ficha_lista"
+      ? alumnos.filter((alumno) => alumno.perfilCompleto)
+      : alumnos;
 
   const [objetivo, setObjetivo] = useState<ObjetivoEntrenamiento>("hipertrofia");
   const [prioridad, setPrioridad] = useState<PrioridadBloque>("hipertrofia");
@@ -179,6 +203,7 @@ export function GeneradorRutinasPanel({ alumnos, ejercicios, tecnicas }: { alumn
   const [abdominales, setAbdominales] = useState(false); const [evitarSaltos, setEvitarSaltos] = useState(false);
   const [obligatorios, setObligatorios] = useState<string[]>([]); const [prohibidos, setProhibidos] = useState<string[]>([]); const [preferidos, setPreferidos] = useState<string[]>([]);
   const [observaciones, setObservaciones] = useState(""); const [busqueda, setBusqueda] = useState("");
+  const [avisosFicha, setAvisosFicha] = useState<string[]>([]); const [razonesFicha, setRazonesFicha] = useState<string[]>([]);
   const [rutina, setRutina] = useState<RutinaExtraida | null>(null); const [alertas, setAlertas] = useState<string[]>([]); const [reglas, setReglas] = useState<string[]>([]); const [error, setError] = useState<string | null>(null);
   // Se guardan para la revisión de IA: necesita el mismo brief y el mismo
   // borrador contra los que se generó, no un brief reconstruido del formulario
@@ -201,20 +226,36 @@ export function GeneradorRutinasPanel({ alumnos, ejercicios, tecnicas }: { alumn
     setCantidad(ejerciciosPorTiempo(m, cardio === "ninguno" ? 0 : cardioMinutos));
   };
 
+  const aplicarSugerencias = (ids: Set<string>) => {
+    const elegidos = alumnos.filter((a) => ids.has(a.id));
+    if (!elegidos.length) {
+      setAvisosFicha([]); setRazonesFicha([]);
+      return;
+    }
+    const sugerencias = sugerirDesdeFichas(
+      elegidos.map((a) => ({ nombre: a.nombre, ...a.ficha, dias: a.dias, minutos: a.minutos })),
+      ejercicios,
+      modalidades
+    );
+    if (sugerencias.objetivo) setObjetivo(sugerencias.objetivo);
+    if (sugerencias.prioridad) setPrioridad(sugerencias.prioridad);
+    setCategoriaCompetencia(sugerencias.categoriaCompetencia ?? "ninguna");
+    if (sugerencias.dias) setDias(sugerencias.dias);
+    if (sugerencias.minutos) setMinutos(sugerencias.minutos);
+    setIntensidad(sugerencias.intensidad);
+    setTecnicasIntensidad(sugerencias.tecnicasIntensidad);
+    setCardio(sugerencias.cardio);
+    setCardioMinutos(sugerencias.cardioMinutos);
+    setPreferidos(sugerencias.preferidos);
+    setProhibidos(sugerencias.prohibidos);
+    setCantidad(ejerciciosPorTiempo(sugerencias.minutos ?? minutos, sugerencias.cardio === "ninguno" ? 0 : sugerencias.cardioMinutos));
+    setAvisosFicha(sugerencias.alertas);
+    setRazonesFicha(sugerencias.razones);
+  };
+
   const elegirAlumnos = (ids: Set<string>) => {
     setSeleccionados(ids);
-    if (ids.size === 1) {
-      const a = alumnos.find((x) => ids.has(x.id));
-      if (a?.dias) setDias(a.dias);
-      if (a?.minutos) {
-        setMinutos(a.minutos);
-        setCantidad(ejerciciosPorTiempo(a.minutos, cardio === "ninguno" ? 0 : cardioMinutos));
-      }
-      // Punto de partida, no una decisión: el objetivo declarado por el
-      // alumno en su ficha precarga el select, pero el entrenador lo puede
-      // cambiar como cualquier otro campo del brief.
-      if (a?.ficha.objetivoPrincipal) setObjetivo(a.ficha.objetivoPrincipal as ObjetivoEntrenamiento);
-    }
+    aplicarSugerencias(ids);
   };
 
   const agregarAlSeleccion = (id: string) => {
@@ -233,6 +274,7 @@ export function GeneradorRutinasPanel({ alumnos, ejercicios, tecnicas }: { alumn
     startTransition(async () => {
       const brief: BriefGenerador = {
         alumnoId: primerAlumnoId,
+        alumnoIds: [...seleccionados],
         objetivo,
         prioridad,
         dias,
@@ -269,30 +311,48 @@ export function GeneradorRutinasPanel({ alumnos, ejercicios, tecnicas }: { alumn
 
   if (rutina) return <div className="space-y-3">
     {alertas.map((a) => <Card key={a} padding="p-3" className="border border-warning"><p className="text-caption flex gap-2"><AlertTriangle size={16} />{a}</p></Card>)}
-    {seleccionados.size > 1 && <Card padding="p-3" className="border border-warning"><p className="text-caption flex gap-2"><AlertTriangle size={16} />La rutina se generó —y se revisa— con la ficha de {nombrePrimerAlumno ?? "el primer alumno seleccionado"}. Los otros {seleccionados.size - 1} la reciben igual: revisa que les calce.</p></Card>}
+    {seleccionados.size > 1 && <Card padding="p-3" className="border border-vip"><p className="text-caption flex gap-2"><CheckCircle2 size={16} className="text-success" />Rutina grupal: se analizaron los {seleccionados.size} perfiles y se calibró con el integrante que necesita mayor protección.</p></Card>}
     <Card padding="p-3"><p className="text-caption mb-2 font-semibold">Reglas aplicadas</p>{reglas.map((r) => <p key={r} className="text-caption flex gap-2 text-text-secondary"><CheckCircle2 size={14} className="text-success" />{r}</p>)}</Card>
     <RutinaDraftEditor
       alumnoIds={[...seleccionados]}
       draftInicial={rutina}
       onDescartar={() => setRutina(null)}
       ejercicios={ejercicios.map((e) => ({ id: e.id, nombre: e.nombre, grupo: e.grupo, equipo: e.equipo }))}
-      onRevisar={briefUsado ? (borrador) => revisarBorradorConIA({ alumnoId: primerAlumnoId, brief: briefUsado, rutina: borrador, reglas, borradorId }) : undefined}
+      onRevisar={briefUsado ? (borrador) => revisarBorradorConIA({ alumnoId: primerAlumnoId, alumnoIds: [...seleccionados], brief: briefUsado, rutina: borrador, reglas, borradorId }) : undefined}
     />
   </div>;
 
   const resumenEjercicios = `${obligatorios.length} obligatorios · ${preferidos.length} preferidos · ${prohibidos.length} prohibidos`;
 
-  return <div className="space-y-2">
+  return <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
+    <div className="space-y-3">
+    <div id="selector-alumnos" className="scroll-mt-28">
     <GavetaConfig titulo="1. Alumnos" subtitulo={`${seleccionados.size} seleccionado${seleccionados.size === 1 ? "" : "s"}${sinRutina.length > 0 ? ` · ${sinRutina.length} sin rutina activa` : ""}`} abiertaPorDefecto>
-      <SelectorAlumnos alumnos={alumnos} seleccionados={seleccionados} onCambiar={elegirAlumnos} />
-      <p className="text-micro text-text-tertiary">Si eliges varios, se genera una sola rutina con el perfil del primero y se asigna a todos al publicar.</p>
+      {filtroInicial !== "todos" && (
+        <div className="radius-control flex items-center justify-between gap-3 border border-vip/30 bg-vip/5 px-3 py-2">
+          <p className="text-xs font-medium text-text">
+            {filtroInicial === "sin_rutina" ? "Mostrando alumnos sin rutina" : "Mostrando alumnos con ficha lista"}
+          </p>
+          <a href="/admin/generador?alumnos=todos#selector-alumnos" className="shrink-0 text-xs font-semibold text-vip">Ver todos</a>
+        </div>
+      )}
+      <SelectorAlumnos alumnos={alumnosVisibles} seleccionados={seleccionados} onCambiar={elegirAlumnos} />
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-micro text-text-tertiary">Al seleccionar, la ficha precarga un punto de partida editable. Si eliges varios, usa el nivel y la disponibilidad compatibles con todos.</p>
+        {seleccionados.size > 0 && <button type="button" onClick={() => aplicarSugerencias(seleccionados)} className="shrink-0 text-micro font-medium text-vip underline">Reaplicar ficha</button>}
+      </div>
+      {razonesFicha.length > 0 && <div className="radius-control border border-success/30 bg-success/5 p-2"><p className="text-micro font-semibold text-success">SUGERIDO DESDE LA FICHA</p>{razonesFicha.map((r) => <p key={r} className="text-micro text-text-secondary">• {r}</p>)}</div>}
+      {avisosFicha.map((aviso) => <p key={aviso} className="text-micro flex items-start gap-1 text-warning"><AlertTriangle size={12} className="mt-0.5 shrink-0" />{aviso}</p>)}
       {alumnosElegidos.length === 1 && <FichaDelAlumno alumno={alumnosElegidos[0]} />}
       {alumnosElegidos.length > 1 && alumnosElegidos.some((a) => !a.perfilCompleto) && <p className="text-caption text-warning">Algún alumno aún no completó “Mi entrenamiento”. Puedes generar igualmente y definir los datos tú.</p>}
       {alumnosElegidos.some((a) => a.requiereRevision) && <p className="text-caption flex gap-2 text-warning"><AlertTriangle size={16} />Hay antecedentes de salud o molestias pendientes de revisión en algún alumno elegido. El sistema no diagnostica ni reemplaza tu criterio.</p>}
       {sinRutina.length > 0 && (
-        <div className="border-t border-border pt-2">
-          <p className="text-caption mb-1.5 text-text-tertiary">SIN RUTINA ACTIVA</p>
-          <div className="space-y-1">
+        <details className="rounded-xl border border-border bg-surface-2 p-2">
+          <summary className="cursor-pointer text-caption font-medium text-text-secondary">
+            {sinRutina.length} alumnos sin rutina activa
+          </summary>
+          <p className="text-micro mb-1.5 mt-2 text-text-tertiary">Agrégalos a la selección sin salir del generador.</p>
+          <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
             {sinRutina.map((a) => {
               const wa = linkWhatsApp(a.telefono ?? "");
               return (
@@ -325,9 +385,10 @@ export function GeneradorRutinasPanel({ alumnos, ejercicios, tecnicas }: { alumn
               );
             })}
           </div>
-        </div>
+        </details>
       )}
     </GavetaConfig>
+    </div>
 
     <GavetaConfig titulo="2. Objetivo" subtitulo={`${OBJETIVO_LABEL[objetivo]}${grupoPrioritario ? ` · prioriza ${grupoPrioritario}` : ""}`}>
       <Campo label="QUÉ SE BUSCA">
@@ -377,7 +438,8 @@ export function GeneradorRutinasPanel({ alumnos, ejercicios, tecnicas }: { alumn
       </Campo>
       <Campo label="DISTRIBUCIÓN">
         <Select value={distribucion} onChange={(e) => setDistribucion(e.target.value as Distribucion)}>
-          <option value="automatica">Automática (según los días)</option>
+          <option value="automatica">Automática VIP (recomendada según los días)</option>
+          <option value="vip_balanceada">VIP grupos combinados</option>
           <option value="full_body">Full body</option>
           <option value="upper_lower">Upper / lower</option>
           <option value="push_pull_legs">Push / pull / legs</option>
@@ -449,16 +511,15 @@ export function GeneradorRutinasPanel({ alumnos, ejercicios, tecnicas }: { alumn
             <option value="si">Sí</option>
           </Select>
         </Campo>
-        <Campo label="CATEGORÍA DE COMPETENCIA">
+        <Campo label="REFERENCIA FÍSICA / CATEGORÍA TÉCNICA">
           <Select value={categoriaCompetencia} onChange={(e) => setCategoriaCompetencia(e.target.value as CategoriaCompetencia)}>
-            <option value="ninguna">Ninguna</option>
-            <option value="mens_physique">Men&apos;s Physique</option>
-            <option value="classic_physique">Classic Physique</option>
-            <option value="bodybuilding_open">Bodybuilding Open</option>
-            <option value="bikini">Bikini</option>
-            <option value="wellness">Wellness</option>
-            <option value="womens_physique">Women&apos;s Physique</option>
+            {REFERENCIAS_FISICAS.map((opcion) => (
+              <option key={opcion.value} value={opcion.value}>
+                {opcion.tecnica} — {opcion.descripcion}
+              </option>
+            ))}
           </Select>
+          <p className="text-micro mt-1 text-text-tertiary">La ficha la precarga; el entrenador puede cambiarla y tiene la decisión final.</p>
         </Campo>
       </div>
       <Campo label="INSPIRACIÓN DE ESTILO (OPCIONAL)">
@@ -472,6 +533,9 @@ export function GeneradorRutinasPanel({ alumnos, ejercicios, tecnicas }: { alumn
       </Campo>
     </GavetaConfig>
 
+    </div>
+
+    <div className="space-y-3 xl:sticky xl:top-24">
     <GavetaConfig titulo="5. Cardio y reglas VIP" subtitulo={cardio === "ninguno" ? "Sin cardio" : `Cardio ${cardio} · ${cardioMinutos} min`}>
       <div className="grid grid-cols-2 gap-1.5">
         <Campo label="CARDIO">
@@ -537,7 +601,27 @@ export function GeneradorRutinasPanel({ alumnos, ejercicios, tecnicas }: { alumn
       <Textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} placeholder="Observaciones del entrenador para este bloque" rows={3} />
     </GavetaConfig>
 
+    <Card className="space-y-2 border border-vip/30 bg-vip/5 p-4">
+      <p className="text-caption font-semibold text-text">Resumen antes de generar</p>
+      <div className="grid grid-cols-2 gap-2 text-micro text-text-secondary">
+        <span>{seleccionados.size} alumno{seleccionados.size === 1 ? "" : "s"}</span>
+        <span>{dias} días · {minutos} min</span>
+        <span>{OBJETIVO_LABEL[objetivo]}</span>
+        <span>{ESTILO_LABEL[estilo]}</span>
+      </div>
+      <p className="text-micro text-text-tertiary">
+        Se creará un borrador editable. Nada llega al alumno hasta que el entrenador lo revise y publique.
+      </p>
+    </Card>
     {error && <p className="text-caption text-error">{error}</p>}
-    <Button onClick={generar} loading={pending} disabled={seleccionados.size === 0}><Sparkles size={18} />{pending ? "Aplicando reglas…" : "Generar borrador para revisar"}</Button>
+          <Button
+            onClick={generar}
+            loading={pending}
+            disabled={seleccionados.size === 0}
+            disabledReason="Selecciona al menos un alumno para generar el borrador"
+          >
+            <Sparkles size={18} />{pending ? "Aplicando reglas…" : "Generar borrador para revisar"}
+          </Button>
+    </div>
   </div>;
 }

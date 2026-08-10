@@ -2,84 +2,171 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, Salad, Trophy, Megaphone, Settings, WandSparkles } from "lucide-react";
+import {
+  Bot,
+  ClipboardList,
+  Dumbbell,
+  FileText,
+  Landmark,
+  Megaphone,
+  MoreHorizontal,
+  Salad,
+  Settings,
+  ShieldCheck,
+  Trophy,
+  Users,
+  WandSparkles,
+} from "lucide-react";
 
-// Seis pestañas es el máximo que entra cómodo en un celular angosto; si hace
-// falta agregar otra, conviene mover alguna al menú en vez de apretarlas más.
-const TABS = [
-  { href: "/admin/alumnos", label: "Alumnos", icon: Users },
-  { href: "/admin/generador", label: "Generar", icon: WandSparkles },
-  { href: "/admin/alimentos", label: "Alimentos", icon: Salad },
-  { href: "/admin/torneos", label: "Arena", icon: Trophy },
-  { href: "/admin/noticias", label: "Noticias", icon: Megaphone },
-  { href: "/admin/configuracion", label: "Config.", icon: Settings },
+type AdminTabsProps = {
+  alimentosPendientes?: number;
+  solicitudesPendientes?: number;
+  variant?: "mobile" | "sidebar";
+};
+
+const MOBILE_TABS = [
+  { href: "/admin/alumnos", label: "Alumnos", icon: Users, section: "alumnos" },
+  { href: "/admin/generador", label: "Generar", icon: WandSparkles, section: "generador" },
+  { href: "/admin/documentos", label: "Documentos", icon: FileText, section: "documentos" },
+  { href: "/admin/alimentos", label: "Alimentos", icon: Salad, section: "alimentos" },
+  { href: "/admin/configuracion", label: "Más", icon: MoreHorizontal, section: "mas" },
+] as const;
+
+const SIDEBAR_GROUPS = [
+  {
+    label: "Trabajo diario",
+    items: [
+      { href: "/admin/alumnos", label: "Alumnos", icon: Users, section: "alumnos" },
+      { href: "/admin/generador", label: "Generador de rutinas", icon: WandSparkles, section: "generador" },
+      { href: "/admin/documentos", label: "Documentos", icon: FileText, section: "documentos" },
+      { href: "/admin/ejercicios", label: "Ejercicios", icon: Dumbbell, section: "ejercicios" },
+    ],
+  },
+  {
+    label: "Seguimiento",
+    items: [
+      { href: "/admin/asistente", label: "Asistente VIP", icon: Bot, section: "asistente" },
+      { href: "/admin/alimentos", label: "Alimentos", icon: Salad, section: "alimentos" },
+      { href: "/admin/solicitudes", label: "Solicitudes", icon: ClipboardList, section: "solicitudes" },
+      { href: "/admin/ingresos", label: "Ingresos", icon: Landmark, section: "ingresos" },
+    ],
+  },
+  {
+    label: "Comunidad",
+    items: [
+      { href: "/admin/torneos", label: "Arena", icon: Trophy, section: "torneos" },
+      { href: "/admin/noticias", label: "Noticias", icon: Megaphone, section: "noticias" },
+    ],
+  },
+  {
+    label: "Sistema",
+    items: [
+      { href: "/admin/auditoria", label: "Auditoría", icon: ShieldCheck, section: "auditoria" },
+      { href: "/admin/configuracion", label: "Configuración", icon: Settings, section: "configuracion" },
+    ],
+  },
+] as const;
+
+const MORE_PREFIXES = [
+  "/admin/configuracion",
+  "/admin/ejercicios",
+  "/admin/asistente",
+  "/admin/ingresos",
+  "/admin/auditoria",
+  "/admin/torneos",
+  "/admin/noticias",
 ];
 
-/** Barra fija abajo, mismo lenguaje visual que el BottomNav del alumno
- * (íconos grandes arriba del texto, resaltado en ámbar la pestaña activa).
- *
- * `alimentosPendientes` son los alimentos que crearon los alumnos y esperan el
- * visto bueno (migración 0030): mientras haya alguno, la pestaña Alimentos
- * lleva un punto rojo. El número no se muestra — el aviso es "hay algo que
- * mirar", el detalle está en la pantalla.
- *
- * `solicitudesPendientes` hace lo mismo en Alumnos con las inscripciones que
- * llegan por el link público (migración 0032): la pantalla de solicitudes
- * cuelga de ahí, no tiene pestaña propia (seis es el máximo, ver arriba). */
+function estaActivo(pathname: string, href: string, section: string) {
+  if (section === "alumnos") {
+    return pathname.startsWith("/admin/alumnos") || pathname.startsWith("/admin/solicitudes");
+  }
+  if (section === "mas") return MORE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  return pathname.startsWith(href);
+}
+
+function pendientesDe(
+  section: string,
+  alimentosPendientes: number,
+  solicitudesPendientes: number,
+) {
+  if (section === "alimentos") return alimentosPendientes;
+  if (section === "alumnos" || section === "solicitudes") return solicitudesPendientes;
+  return 0;
+}
+
 export function AdminTabs({
   alimentosPendientes = 0,
   solicitudesPendientes = 0,
-}: {
-  alimentosPendientes?: number;
-  solicitudesPendientes?: number;
-}) {
+  variant = "mobile",
+}: AdminTabsProps) {
   const pathname = usePathname();
 
+  if (variant === "sidebar") {
+    return (
+      <nav className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto py-5" aria-label="Panel del entrenador">
+        {SIDEBAR_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
+              {group.label}
+            </p>
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = estaActivo(pathname, item.href, item.section);
+                const esperando = pendientesDe(item.section, alimentosPendientes, solicitudesPendientes);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`admin-sidebar-link flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-all ${
+                      active
+                        ? "admin-sidebar-link-active border-vip/25 font-semibold text-vip"
+                        : "border-transparent text-text-secondary hover:border-border hover:bg-surface-2 hover:text-text"
+                    }`}
+                  >
+                    <Icon size={19} strokeWidth={active ? 2.25 : 1.8} />
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {esperando > 0 && (
+                      <span className="min-w-5 rounded-full bg-error px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
+                        {esperando > 99 ? "99+" : esperando}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+    );
+  }
+
   return (
-    <div className="flex items-stretch gap-1 bg-bg px-2 pb-1 pt-4">
-      {TABS.map((tab) => {
+    <nav className="flex items-stretch gap-1 border-t border-border bg-bg/95 px-2 pb-[max(4px,env(safe-area-inset-bottom))] pt-2 backdrop-blur" aria-label="Navegación del entrenador">
+      {MOBILE_TABS.map((tab) => {
         const Icon = tab.icon;
-        // Solicitudes no tiene pestaña propia: cuelga de Alumnos, así que
-        // mientras se está ahí la pestaña resaltada sigue siendo esa.
-        const active =
-          pathname.startsWith(tab.href) ||
-          (tab.href === "/admin/alumnos" && pathname.startsWith("/admin/solicitudes"));
-        const esperando =
-          tab.href === "/admin/alimentos"
-            ? alimentosPendientes
-            : tab.href === "/admin/alumnos"
-              ? solicitudesPendientes
-              : 0;
-        const avisa = esperando > 0;
+        const active = estaActivo(pathname, tab.href, tab.section);
+        const esperando = pendientesDe(tab.section, alimentosPendientes, solicitudesPendientes);
         return (
           <Link
             key={tab.href}
             href={tab.href}
-            aria-label={avisa ? `${tab.label} — ${esperando} esperando aprobación` : undefined}
-            className={`radius-control flex flex-1 flex-col items-center gap-1 py-2 transition-colors duration-200 ease-in-out ${
+            aria-label={esperando > 0 ? `${tab.label}: ${esperando} pendientes` : tab.label}
+            className={`radius-control flex min-w-0 flex-1 flex-col items-center gap-1 py-2 transition-colors ${
               active ? "bg-surface-2 text-vip" : "text-text-tertiary"
             }`}
           >
             <span className="relative">
-              <Icon
-                size={24}
-                strokeWidth={active ? 2.25 : 1.75}
-                fill={active ? "currentColor" : "none"}
-                fillOpacity={active ? 0.16 : 0}
-                className={active ? "scale-110 transition-transform duration-200" : ""}
-              />
-              {avisa && (
-                // El borde del color de la barra despega el punto del ícono,
-                // que si no se confunde con el trazo de la hoja.
-                <span className="absolute -right-1 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-bg bg-error" />
+              <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
+              {esperando > 0 && (
+                <span className="absolute -right-1.5 -top-1 h-2.5 w-2.5 rounded-full border-2 border-bg bg-error" />
               )}
             </span>
-            <span className={`text-caption ${active ? "font-semibold text-text" : ""}`}>
-              {tab.label}
-            </span>
+            <span className={`truncate text-[10px] ${active ? "font-semibold text-text" : ""}`}>{tab.label}</span>
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }

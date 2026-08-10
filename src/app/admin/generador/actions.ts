@@ -6,6 +6,7 @@ import { calcularEdad } from "@/lib/date";
 import { obtenerBiblioteca } from "@/lib/ejercicios/data";
 import { obtenerTecnicas } from "@/lib/generador-rutinas/data";
 import { generarRutinaPorReglas } from "@/lib/generador-rutinas/motor";
+import { combinarPerfilesGrupo } from "@/lib/generador-rutinas/perfil-grupal";
 import type { BriefGenerador, EjercicioGenerador, PerfilEntrenamiento } from "@/lib/generador-rutinas/tipos";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import { revisarRutinaGenerada, type RevisionResuelta } from "@/lib/ai/revisarRutina";
@@ -97,15 +98,26 @@ export async function generarBorradorRutina(brief: BriefGenerador): Promise<Resu
   if (!brief.alumnoId || brief.dias < 1 || brief.dias > 7 || brief.ejerciciosPorSesion < 1 || brief.ejerciciosPorSesion > 15) return { ok: false, error: "Revisa los datos del brief." };
   const supabase = await createClient();
   const db = supabase as unknown as SupabaseClient;
-  const { perfil, biblioteca, tecnicas, nombreAlumno, rutinasPrevias } = await cargarContextoAlumno(db, brief.alumnoId);
+  const alumnoIds = [...new Set((brief.alumnoIds?.length ? brief.alumnoIds : [brief.alumnoId]).filter(Boolean))];
+  const contextos = await Promise.all(alumnoIds.map((id) => cargarContextoAlumno(db, id)));
+  const perfil = combinarPerfilesGrupo(contextos.map((c) => c.perfil));
+  const { biblioteca, tecnicas, nombreAlumno, rutinasPrevias } = contextos[0];
 
   try {
     const generada = generarRutinaPorReglas(perfil, brief, biblioteca, tecnicas);
+    if (contextos.length > 1) {
+      generada.reglasAplicadas.push(`Rutina grupal calibrada con ${contextos.length} perfiles: se usó el nivel menos experimentado y se unieron las restricciones de todos`);
+      const niveles = new Set(contextos.map((c) => c.perfil.experiencia));
+      if (niveles.size > 1) generada.alertas.push("El grupo tiene niveles de experiencia diferentes; la rutina se calibró con el nivel más conservador.");
+      if (contextos.some((c) => c.perfil.requiereRevision)) generada.alertas.push("Al menos un integrante del grupo tiene antecedentes pendientes de revisión.");
+    }
     // "Plan hipertrofia — Angie Avalos — v3": versión = cuántas rutinas tuvo
     // antes esta persona + 1, así el nombre solo ya dice si es la primera vez
     // o un ajuste sobre una rutina anterior — sin tener que abrir el historial.
     const version = rutinasPrevias + 1;
-    const nombreConVersion = nombreAlumno ? `${generada.nombreRutina} — ${nombreAlumno} — v${version}` : generada.nombreRutina;
+    const nombreConVersion = contextos.length > 1
+      ? `${generada.nombreRutina} — Grupo de ${contextos.length} — v${version}`
+      : nombreAlumno ? `${generada.nombreRutina} — ${nombreAlumno} — v${version}` : generada.nombreRutina;
     const rutina: RutinaExtraida = { nombreRutina: nombreConVersion, dias: generada.dias };
     const { data: guardado, error } = await db.from("borradores_generador_rutinas").insert({ alumno_id: brief.alumnoId, entrenador_id: sesion.userId, brief, perfil_snapshot: perfil, resultado: rutina, reglas_aplicadas: generada.reglasAplicadas, alertas: generada.alertas, origen: "motor_reglas" }).select("id").single();
     if (error) console.error("[generador] no se pudo guardar trazabilidad:", error);
@@ -126,6 +138,7 @@ export type ResultadoRevision = { ok: true; revision: RevisionResuelta } | { ok:
  * es el dato sensible y no puede venir del navegador. */
 export async function revisarBorradorConIA(params: {
   alumnoId: string;
+  alumnoIds?: string[];
   brief: BriefGenerador;
   rutina: RutinaExtraida;
   reglas: string[];
@@ -135,7 +148,10 @@ export async function revisarBorradorConIA(params: {
   if (!params.alumnoId || !params.rutina?.dias?.length) return { ok: false, error: "No hay una rutina que revisar." };
   const supabase = await createClient();
   const db = supabase as unknown as SupabaseClient;
-  const { perfil, biblioteca } = await cargarContextoAlumno(db, params.alumnoId);
+  const alumnoIds = [...new Set((params.alumnoIds?.length ? params.alumnoIds : [params.alumnoId]).filter(Boolean))];
+  const contextos = await Promise.all(alumnoIds.map((id) => cargarContextoAlumno(db, id)));
+  const perfil = combinarPerfilesGrupo(contextos.map((c) => c.perfil));
+  const { biblioteca } = contextos[0];
 
   const resultado = await revisarRutinaGenerada({
     rutina: params.rutina,

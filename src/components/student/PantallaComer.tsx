@@ -253,8 +253,19 @@ export function PantallaComer({
   const horas = registros[fecha] ?? horasVacias();
   const esHoy = fecha === hoy;
   const totales = sumar(horas);
-  const puntosAlimentacion = calcularPuntosAlimentacion(totales.kcal, plan?.kcalObjetivo ?? null);
-  const ayudaPuntosAlimentacion = ayudaAlimentacion(totales.kcal, plan?.kcalObjetivo ?? null);
+  const puntosAlimentacion = calcularPuntosAlimentacion(
+    totales.kcal,
+    plan?.kcalObjetivo ?? null,
+    false,
+    totales.prot,
+    plan?.protObjetivo ?? null
+  );
+  const ayudaPuntosAlimentacion = ayudaAlimentacion(
+    totales.kcal,
+    plan?.kcalObjetivo ?? null,
+    totales.prot,
+    plan?.protObjetivo ?? null
+  );
 
   const estados = useMemo(() => {
     const m: Record<string, EstadoDia> = {};

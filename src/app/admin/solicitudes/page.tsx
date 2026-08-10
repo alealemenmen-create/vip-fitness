@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { headers } from "next/headers";
-import { ArrowLeft, Inbox } from "lucide-react";
+import { CircleCheck, Clock3, Inbox, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
@@ -8,6 +8,8 @@ import { Pill } from "@/components/ui/Pill";
 import { LinkRegistro } from "@/components/admin/LinkRegistro";
 import { SolicitudCard, type SolicitudPendiente } from "@/components/admin/SolicitudCard";
 import { obtenerConfiguracionRegistro } from "@/lib/configuracion/registro";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminStatCard } from "@/components/admin/AdminStatCard";
 
 export default async function SolicitudesPage() {
   await requireRol(["entrenador", "admin"]);
@@ -67,14 +69,25 @@ export default async function SolicitudesPage() {
   const resueltas = filas.filter((s) => s.estado !== "pendiente").slice(0, 15);
 
   return (
-    <div className="space-y-4">
-      <Link href="/admin/alumnos" className="flex items-center gap-2">
-        <ArrowLeft size={20} className="text-text-secondary" />
-        <h1 className="text-h3 text-text">Solicitudes</h1>
-      </Link>
+    <div className="space-y-6 pb-8">
+      <AdminPageHeader
+        eyebrow="Admisiones"
+        title="Solicitudes de ingreso"
+        description="Verifica los datos, el comprobante y la ficha inicial antes de activar a un nuevo alumno."
+        backHref="/admin/alumnos"
+      />
 
-      <LinkRegistro url={urlRegistro} />
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3" aria-label="Resumen de solicitudes">
+        <AdminStatCard href="/admin/solicitudes#solicitudes-pendientes" icon={<Clock3 size={20} />} value={pendientes.length} label="Pendientes" detail="Ver solicitudes por revisar" color={pendientes.length ? "#f59e0b" : "#22c55e"} />
+        <AdminStatCard href="/admin/solicitudes#solicitudes-resueltas" icon={<CircleCheck size={20} />} value={resueltas.length} label="Resueltas" detail="Ver últimas decisiones" color="#22c55e" />
+        <AdminStatCard href="/admin/solicitudes#link-inscripcion" icon={<Users size={20} />} value={filas.length} label="Solicitudes" detail="Compartir link de registro" color="#3b82f6" />
+      </section>
 
+      <section id="link-inscripcion" className="admin-panel-card scroll-mt-28 rounded-3xl p-4 md:p-5">
+        <LinkRegistro url={urlRegistro} />
+      </section>
+
+      <section id="solicitudes-pendientes" className="scroll-mt-28 space-y-3">
       {pendientes.length === 0 ? (
         <Card>
           <div className="flex items-center gap-3">
@@ -96,8 +109,10 @@ export default async function SolicitudesPage() {
           ))}
         </>
       )}
+      </section>
 
-      {resueltas.length > 0 && (
+      <section id="solicitudes-resueltas" className="scroll-mt-28 space-y-3">
+      {resueltas.length > 0 ? (
         <>
           <p className="text-caption pt-4 text-text-tertiary">YA RESUELTAS</p>
           <Card>
@@ -124,7 +139,10 @@ export default async function SolicitudesPage() {
             </div>
           </Card>
         </>
+      ) : (
+        <Card><p className="text-body text-text-secondary">Todavía no hay solicitudes resueltas.</p></Card>
       )}
+      </section>
     </div>
   );
 }

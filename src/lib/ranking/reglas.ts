@@ -29,6 +29,15 @@ export const PUNTOS_VIP = {
 
 export type CumplimientoImpulso = "cumplida" | "superada" | "parcial" | "no_cumplida";
 
+export function limitarTramosDescanso(tramos: number): number {
+  const maximoTramos = Math.ceil(
+    PUNTOS_VIP.descansoPenalizacionMaxima /
+      PUNTOS_VIP.descansoPenalizacionPorTramo
+  );
+  if (!Number.isFinite(tramos)) return 0;
+  return Math.max(0, Math.min(maximoTramos, Math.floor(tramos)));
+}
+
 /** Puntos por una recomendación resuelta. Se llama una vez por cada
  * ejercicio puntuable de la sesión, y el resultado se suma y se topea en
  * `PUNTOS_VIP.impulsoMaximoPorSesion` (ver `registrarImpulso` en
@@ -65,29 +74,45 @@ export function calcularPuntosEntrenamiento(completados: number, total: number):
 export function calcularPuntosAlimentacion(
   kcal: number,
   objetivo: number | null,
-  diaCerrado = false
+  diaCerrado = false,
+  proteina: number | null = null,
+  objetivoProteina: number | null = null
 ): number {
   if (!objetivo || objetivo <= 0) return 0;
+  const puntuaProteina = objetivoProteina !== null && objetivoProteina > 0;
+  const maximoCalorias = puntuaProteina ? 200 : PUNTOS_VIP.alimentacionMaximo;
+  const maximoProteina = puntuaProteina ? PUNTOS_VIP.alimentacionMaximo - maximoCalorias : 0;
+  const puntosProteina = puntuaProteina
+    ? Math.round(maximoProteina * Math.max(0, Math.min(1, (proteina ?? 0) / objetivoProteina)))
+    : 0;
   if (!diaCerrado) {
     const avance = Math.max(0, Math.min(1, kcal / objetivo));
-    return Math.round(PUNTOS_VIP.alimentacionMaximo * avance);
+    return Math.round(maximoCalorias * avance) + puntosProteina;
   }
   if (kcal <= 0) return PUNTOS_VIP.alimentacionSinRegistro;
 
   const porcentaje = (kcal / objetivo) * 100;
-  const puntaje = Math.round(
-    PUNTOS_VIP.alimentacionMaximo * (1 - Math.abs(porcentaje - 100) / 50)
+  const puntajeCalorias = Math.round(
+    maximoCalorias * (1 - Math.abs(porcentaje - 100) / 50)
   );
   return Math.max(
     PUNTOS_VIP.alimentacionPenalizacionMaxima,
-    Math.min(PUNTOS_VIP.alimentacionMaximo, puntaje)
+    Math.min(PUNTOS_VIP.alimentacionMaximo, puntajeCalorias + puntosProteina)
   );
 }
 
-export function ayudaAlimentacion(kcal: number, objetivo: number | null): string {
+export function ayudaAlimentacion(
+  kcal: number,
+  objetivo: number | null,
+  proteina: number | null = null,
+  objetivoProteina: number | null = null
+): string {
   if (!objetivo || objetivo <= 0) return "Tu entrenador debe definir una meta de calorias para puntuar este dia";
   const porcentaje = Math.round((kcal / objetivo) * 100);
-  if (porcentaje < 100) return `${porcentaje}% de tu meta · puntos provisionales hasta cerrar el dia`;
+  const progresoProteina = objetivoProteina && objetivoProteina > 0
+    ? ` · proteína ${Math.round(((proteina ?? 0) / objetivoProteina) * 100)}%`
+    : "";
+  if (porcentaje < 100) return `${porcentaje}% de tu meta${progresoProteina} · puntos provisionales hasta cerrar el dia`;
   if (porcentaje <= 110) return "Meta alcanzada · el puntaje definitivo se confirma al cerrar el dia";
   return `${porcentaje}% de tu meta · alejarte del objetivo reduce el puntaje final`;
 }

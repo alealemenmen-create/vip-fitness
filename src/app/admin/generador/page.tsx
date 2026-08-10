@@ -2,14 +2,19 @@ import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerBiblioteca } from "@/lib/ejercicios/data";
 import { obtenerTecnicas } from "@/lib/generador-rutinas/data";
-import { TituloPestana } from "@/components/admin/TituloPestana";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { GeneradorRutinasPanel } from "@/components/admin/GeneradorRutinasPanel";
 import { BotonRefrescarCatalogo } from "@/components/admin/BotonRefrescarCatalogo";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { Dumbbell, FileText } from "lucide-react";
+import { BookOpenCheck, Dumbbell, FileText, Users, WandSparkles } from "lucide-react";
 
-export default async function GeneradorPage() {
+export default async function GeneradorPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ alumnos?: string; alumno?: string }>;
+}) {
   await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
   const db = supabase as unknown as SupabaseClient;
@@ -19,7 +24,7 @@ export default async function GeneradorPage() {
     // entrenador tiene que ver de una qué le duele, qué le operaron y qué no
     // quiere hacer — "cuando yo elija una persona, tú automáticamente buscas
     // el perfil y ves la información". Antes había que ir a mirarlo aparte.
-    db.from("perfiles_entrenamiento").select("alumno_id, dias_disponibles, minutos_sesion, requiere_revision, objetivo_principal, experiencia, cardio_nivel, preferencia_equipo, molestias, lesiones_diagnosticadas, operaciones_previas, condiciones_medicas, medicamentos_relevantes, ejercicios_no_deseados, ejercicios_preferidos, actividades_adicionales"),
+    db.from("perfiles_entrenamiento").select("alumno_id, dias_disponibles, minutos_sesion, requiere_revision, objetivo_principal, experiencia, cardio_nivel, preferencia_equipo, categoria_competencia, molestias, lesiones_diagnosticadas, operaciones_previas, condiciones_medicas, medicamentos_relevantes, ejercicios_no_deseados, ejercicios_preferidos, actividades_adicionales"),
     db.from("rutinas").select("alumno_id").eq("activa", true),
     obtenerBiblioteca(),
     obtenerTecnicas(),
@@ -27,6 +32,7 @@ export default async function GeneradorPage() {
   type PerfilBreve = {
     alumno_id: string; dias_disponibles: number | null; minutos_sesion: number | null; requiere_revision: boolean;
     objetivo_principal: string | null; experiencia: string | null; cardio_nivel: string | null; preferencia_equipo: string | null;
+    categoria_competencia: import("@/lib/generador-rutinas/tipos").CategoriaCompetencia | null;
     molestias: string | null; lesiones_diagnosticadas: string | null; operaciones_previas: string | null;
     condiciones_medicas: string | null; medicamentos_relevantes: string | null;
     ejercicios_no_deseados: string | null; ejercicios_preferidos: string | null; actividades_adicionales: string | null;
@@ -46,6 +52,7 @@ export default async function GeneradorPage() {
         experiencia: p?.experiencia ?? null,
         cardioNivel: p?.cardio_nivel ?? null,
         preferenciaEquipo: p?.preferencia_equipo ?? null,
+        categoriaReferencia: p?.categoria_competencia ?? null,
         molestias: p?.molestias ?? null,
         lesiones: p?.lesiones_diagnosticadas ?? null,
         operaciones: p?.operaciones_previas ?? null,
@@ -57,5 +64,52 @@ export default async function GeneradorPage() {
       },
     };
   }).sort((a,b) => a.nombre.localeCompare(b.nombre, "es"));
-  return <><TituloPestana><div><p className="text-caption text-vip">COPILOTO VIP</p><h1 className="text-h3 text-text">Generador de rutinas</h1><p className="text-caption text-text-secondary">Reglas VIP + ejercicios reales + aprobación del entrenador.</p></div></TituloPestana><div className="mb-4 grid grid-cols-2 gap-2"><Link href="/admin/ejercicios" className="radius-control flex items-center justify-center gap-2 border border-border bg-surface py-2 text-caption text-vip"><Dumbbell size={15} />Agregar ejercicio</Link><Link href="/admin/documentos" className="radius-control flex items-center justify-center gap-2 border border-border bg-surface py-2 text-caption text-text-secondary"><FileText size={15} />PDF y documentos</Link><div className="col-span-2"><BotonRefrescarCatalogo /></div></div><GeneradorRutinasPanel alumnos={alumnos} ejercicios={ejercicios.map((e) => ({ id: e.id, nombre: e.nombre, grupo: e.grupoMuscular, equipo: e.equipo }))} tecnicas={tecnicas.map((t) => ({ slug: t.slug, nombre: t.nombre, tipo: t.tipo, nivelMinimo: t.nivelMinimo }))} /></>;
+  const sinRutina = alumnos.filter((alumno) => alumno.sinRutina).length;
+  const fichasCompletas = alumnos.filter((alumno) => alumno.perfilCompleto).length;
+  const query = await searchParams;
+  const filtroAlumnos = query.alumnos === "sin_rutina" || query.alumnos === "ficha_lista"
+    ? query.alumnos
+    : "todos";
+
+  return (
+    <div className="space-y-6 pb-8">
+      <AdminPageHeader
+        eyebrow="Copiloto VIP"
+        title="Generador de rutinas"
+        description="Configura, revisa y aprueba rutinas con las reglas del Método VIP y ejercicios reales."
+      />
+
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Resumen del generador">
+        <AdminStatCard href="/admin/generador?alumnos=todos#selector-alumnos" icon={<Users size={20} />} value={alumnos.length} label="Alumnos" detail="Ver todos para planificar" color="#3b82f6" />
+        <AdminStatCard href="/admin/generador?alumnos=sin_rutina#selector-alumnos" icon={<WandSparkles size={20} />} value={sinRutina} label="Sin rutina" detail="Ver quiénes están pendientes" color="#ef4444" />
+        <AdminStatCard href="/admin/generador?alumnos=ficha_lista#selector-alumnos" icon={<BookOpenCheck size={20} />} value={fichasCompletas} label="Fichas listas" detail="Ver alumnos con precarga" color="#22c55e" />
+        <AdminStatCard href="/admin/ejercicios#biblioteca-ejercicios" icon={<Dumbbell size={20} />} value={ejercicios.length} label="Ejercicios" detail="Abrir catálogo disponible" color="#a78bfa" />
+      </section>
+
+      <section className="admin-panel-card rounded-3xl p-4" aria-label="Herramientas del generador">
+        <div className="mb-3">
+          <h2 className="text-sm font-semibold text-text">Herramientas rápidas</h2>
+          <p className="text-[11px] text-text-tertiary">Mantén el catálogo y los documentos cerca del proceso.</p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Link href="/admin/ejercicios" className="radius-control flex items-center justify-center gap-2 border border-[#a78bfa]/30 bg-[#a78bfa]/10 px-3 py-2.5 text-xs font-semibold text-[#a78bfa]">
+            <Dumbbell size={15} /> Agregar ejercicio
+          </Link>
+          <Link href="/admin/documentos" className="radius-control flex items-center justify-center gap-2 border border-[#3b82f6]/30 bg-[#3b82f6]/10 px-3 py-2.5 text-xs font-semibold text-[#60a5fa]">
+            <FileText size={15} /> PDF y documentos
+          </Link>
+          <div><BotonRefrescarCatalogo /></div>
+        </div>
+      </section>
+
+      <GeneradorRutinasPanel
+        key={`${filtroAlumnos}:${query.alumno ?? ""}`}
+        alumnos={alumnos}
+        filtroInicial={filtroAlumnos}
+        alumnoInicial={alumnos.some((alumno) => alumno.id === query.alumno) ? query.alumno : undefined}
+        ejercicios={ejercicios.map((e) => ({ id: e.id, nombre: e.nombre, grupo: e.grupoMuscular, equipo: e.equipo }))}
+        tecnicas={tecnicas.map((t) => ({ slug: t.slug, nombre: t.nombre, tipo: t.tipo, nivelMinimo: t.nivelMinimo }))}
+      />
+    </div>
+  );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diaLlevaTecnica, ejerciciosPorTiempo, generarRutinaPorReglas, modalidadesCardioDisponibles } from "./motor";
+import { diaLlevaTecnica, ejerciciosObjetivoDelDia, ejerciciosPorTiempo, generarRutinaPorReglas, indicacionTecnica, maximoTecnicasPorSesion, modalidadesCardioDisponibles } from "./motor";
 import type { BriefGenerador, EjercicioGenerador, PerfilEntrenamiento, TecnicaEntrenamiento } from "./tipos";
 
 const perfil: PerfilEntrenamiento = {
@@ -62,6 +62,59 @@ const base = (id: string, grupoMuscular: EjercicioGenerador["grupoMuscular"], ca
 const biblioteca = [base("pecho", "pecho", "empuje"), base("espalda", "espalda", "traccion"), base("pierna", "piernas", "pierna"), base("salto", "cardio", "cardio", { requiereSalto: true }), base("bici", "cardio", "cardio")];
 
 describe("generarRutinaPorReglas", () => {
+  it("incorpora activación e indicaciones técnicas como las rutinas reales de Alejandro", () => {
+    const r = generarRutinaPorReglas(perfil, { ...brief, cardio: "ninguno" }, biblioteca);
+    expect(r.dias.every((dia) => dia.descripcion?.startsWith("Activación:"))).toBe(true);
+    expect(r.dias.flatMap((dia) => dia.ejercicios).every((e) => Boolean(e.observacion))).toBe(true);
+    expect(indicacionTecnica("Peso muerto rumano", "piernas")).toContain("columna neutra");
+  });
+
+  it("periodiza repeticiones y descanso en compuestos avanzados de alta intensidad", () => {
+    const r = generarRutinaPorReglas(
+      { ...perfil, experiencia: "avanzado" },
+      { ...brief, dias: 1, distribucion: "personalizada", diaGrupos: [["pecho"]], ejerciciosPorSesion: 1, cardio: "ninguno", intensidadDeseada: "alta" },
+      [base("press-avanzado", "pecho", "empuje", { equipo: "barra" })]
+    );
+    expect(r.dias[0].ejercicios[0]).toMatchObject({ series: 5, reps: "15-12-10-8-8", descansoSegundos: 120 });
+  });
+
+  it("Wellness cambia el énfasis semanal sin convertir el objetivo en pérdida de grasa", () => {
+    const bibliotecaCategoria = [
+      base("press-pecho", "pecho", "empuje"),
+      base("jalon-espalda", "espalda", "traccion"),
+      base("press-hombro", "hombros", "empuje"),
+      base("curl-biceps", "brazos", "aislamiento"),
+      base("extension-triceps", "brazos", "aislamiento"),
+      base("hip thrust gluteo", "piernas", "pierna"),
+      base("sentadilla cuadriceps", "piernas", "pierna"),
+      base("curl femoral", "piernas", "pierna"),
+    ];
+    const r = generarRutinaPorReglas(
+      { ...perfil, sexo: "femenino", categoriaCompetencia: "wellness" },
+      { ...brief, objetivo: "hipertrofia", categoriaCompetencia: "wellness", dias: 5, cardio: "ninguno" },
+      bibliotecaCategoria
+    );
+    const diasPierna = r.dias.filter((dia) => dia.ejercicios.some((e) => e.grupoMuscular === "piernas"));
+    expect(diasPierna.length).toBe(3);
+    expect(r.nombreRutina).toContain("hipertrofia");
+    expect(r.reglasAplicadas.some((regla) => regla.includes("piernas y glúteos protagonistas"))).toBe(true);
+  });
+
+  it("Men's Physique orienta el tren superior sin eliminar el día de piernas", () => {
+    const bibliotecaCategoria = [
+      base("press-pecho", "pecho", "empuje"), base("jalon-espalda", "espalda", "traccion"),
+      base("press-hombro", "hombros", "empuje"), base("curl-biceps", "brazos", "aislamiento"),
+      base("extension-triceps", "brazos", "aislamiento"), base("sentadilla", "piernas", "pierna"),
+    ];
+    const r = generarRutinaPorReglas(
+      { ...perfil, sexo: "masculino", categoriaCompetencia: "mens_physique" },
+      { ...brief, categoriaCompetencia: "mens_physique", dias: 5, cardio: "ninguno" },
+      bibliotecaCategoria
+    );
+    expect(r.dias.some((dia) => dia.ejercicios.some((e) => e.grupoMuscular === "piernas"))).toBe(true);
+    expect(r.reglasAplicadas.some((regla) => regla.includes("sin omitir piernas"))).toBe(true);
+  });
+
   it("usa IDs reales, respeta prohibidos y deja cardio al final", () => {
     const r = generarRutinaPorReglas(perfil, { ...brief, prohibidos: ["espalda"] }, biblioteca);
     expect(r.dias).toHaveLength(3);
@@ -433,6 +486,76 @@ describe("generarRutinaPorReglas", () => {
     expect(principiante.alertas.some((a) => a.includes("solo 2 ejercicios de Pecho"))).toBe(false);
   });
 
+  it("un día de brazos con cuatro espacios garantiza dos bíceps y dos tríceps", () => {
+    const bibliotecaBrazos = [
+      { ...base("curl-1", "brazos", "aislamiento"), nombre: "Curl con barra" },
+      { ...base("curl-2", "brazos", "aislamiento"), nombre: "Curl martillo" },
+      { ...base("curl-3", "brazos", "aislamiento"), nombre: "Curl predicador" },
+      { ...base("triceps-1", "brazos", "aislamiento"), nombre: "Extensión de tríceps en polea" },
+      { ...base("triceps-2", "brazos", "aislamiento"), nombre: "Press francés" },
+    ];
+    const r = generarRutinaPorReglas(
+      perfil,
+      { ...brief, dias: 1, distribucion: "personalizada", diaGrupos: [["brazos"]], ejerciciosPorSesion: 4 },
+      bibliotecaBrazos
+    );
+    const nombres = r.dias[0].ejercicios.map((e) => e.nombre);
+    expect(nombres.filter((n) => n.startsWith("Curl"))).toHaveLength(2);
+    expect(nombres.filter((n) => n.includes("tríceps") || n.includes("francés"))).toHaveLength(2);
+    expect(r.alertas.some((a) => a.includes("desbalanceado"))).toBe(false);
+  });
+
+  it("un día de brazos avisa si el catálogo solo permite un ejercicio de tríceps", () => {
+    const bibliotecaBrazos = [
+      { ...base("curl-1", "brazos", "aislamiento"), nombre: "Curl con barra" },
+      { ...base("curl-2", "brazos", "aislamiento"), nombre: "Curl martillo" },
+      { ...base("curl-3", "brazos", "aislamiento"), nombre: "Curl predicador" },
+      { ...base("triceps-1", "brazos", "aislamiento"), nombre: "Extensión de tríceps en polea" },
+    ];
+    const r = generarRutinaPorReglas(
+      perfil,
+      { ...brief, dias: 1, distribucion: "personalizada", diaGrupos: [["brazos"]], ejerciciosPorSesion: 4 },
+      bibliotecaBrazos
+    );
+    expect(r.alertas.some((a) => a.includes("3 de bíceps y 1 de tríceps"))).toBe(true);
+  });
+
+  it("push usa tríceps y pull usa bíceps aunque ambos sean aislamiento", () => {
+    const bibliotecaPpl = [
+      base("pecho", "pecho", "empuje"),
+      base("hombro", "hombros", "empuje"),
+      base("espalda", "espalda", "traccion"),
+      { ...base("curl", "brazos", "aislamiento"), nombre: "Curl con barra" },
+      { ...base("triceps", "brazos", "aislamiento"), nombre: "Extensión de tríceps en polea" },
+      base("pierna", "piernas", "pierna"),
+      base("core", "core", "core"),
+    ];
+    const r = generarRutinaPorReglas(
+      perfil,
+      { ...brief, dias: 3, distribucion: "push_pull_legs", ejerciciosPorSesion: 3 },
+      bibliotecaPpl
+    );
+    expect(r.dias[0].ejercicios.some((e) => e.nombre.includes("tríceps"))).toBe(true);
+    expect(r.dias[0].ejercicios.some((e) => e.nombre.startsWith("Curl"))).toBe(false);
+    expect(r.dias[1].ejercicios.some((e) => e.nombre.startsWith("Curl"))).toBe(true);
+    expect(r.dias[1].ejercicios.some((e) => e.nombre.includes("tríceps"))).toBe(false);
+  });
+
+  it("un obligatorio no puede saltarse el nivel ni el filtro de impacto", () => {
+    const bibliotecaSegura = [
+      base("seguro", "piernas", "pierna"),
+      { ...base("avanzado", "piernas", "pierna"), nombre: "Sentadilla avanzada", nivel: "avanzado" as const },
+      { ...base("salto", "piernas", "pierna"), nombre: "Sentadilla con salto", requiereSalto: true, impacto: "alto" as const },
+    ];
+    const r = generarRutinaPorReglas(
+      { ...perfil, experiencia: "principiante" },
+      { ...brief, dias: 1, distribucion: "personalizada", diaGrupos: [["piernas"]], ejerciciosPorSesion: 3, evitarSaltos: true, obligatorios: ["avanzado", "salto"] },
+      bibliotecaSegura
+    );
+    expect(r.dias[0].ejercicios.map((e) => e.ejercicioId)).toEqual(["seguro"]);
+    expect(r.alertas.some((a) => a.includes("2 ejercicios obligatorios son incompatibles"))).toBe(true);
+  });
+
   it("el título incluye el nivel y, si hay, el grupo prioritario como enfoque", () => {
     const bibliotecaSimple = [base("full-1", "pecho", "full_body", { posicionSesion: "principal" })];
     const r = generarRutinaPorReglas(
@@ -441,6 +564,30 @@ describe("generarRutinaPorReglas", () => {
       bibliotecaSimple
     );
     expect(r.nombreRutina).toBe("Plan hipertrofia avanzado — enfoque piernas");
+  });
+
+  it("la distribución automática de cinco días usa grupos combinados VIP", () => {
+    const bibliotecaVip = [
+      base("pecho-1", "pecho", "empuje"), base("pecho-2", "pecho", "empuje"),
+      base("espalda-1", "espalda", "traccion"), base("espalda-2", "espalda", "traccion"),
+      base("hombros-1", "hombros", "empuje"), base("hombros-2", "hombros", "empuje"),
+      base("piernas-1", "piernas", "pierna"), base("piernas-2", "piernas", "pierna"),
+      { ...base("biceps-1", "brazos", "aislamiento"), nombre: "Curl con barra" },
+      { ...base("biceps-2", "brazos", "aislamiento"), nombre: "Curl martillo" },
+      { ...base("triceps-1", "brazos", "aislamiento"), nombre: "Extensión de tríceps" },
+      { ...base("triceps-2", "brazos", "aislamiento"), nombre: "Press francés" },
+    ];
+    const r = generarRutinaPorReglas(perfil, { ...brief, dias: 5, distribucion: "automatica", ejerciciosPorSesion: 4, cardio: "ninguno" }, bibliotecaVip);
+    expect(r.reglasAplicadas).toContain("Distribución vip balanceada");
+    expect(r.dias.map((d) => d.nombre)).toEqual(["Pecho + Bíceps", "Espalda + Tríceps", "Hombros + Piernas", "Pecho + Espalda", "Hombros + Brazos"]);
+    expect(r.dias[0].ejercicios.some((e) => e.nombre.startsWith("Curl"))).toBe(true);
+    expect(r.dias[1].ejercicios.some((e) => e.nombre.includes("tríceps") || e.nombre.includes("francés"))).toBe(true);
+  });
+
+  it("uno o dos días automáticos conservan full body", () => {
+    const bibliotecaSimple = [base("pecho", "pecho", "empuje"), base("espalda", "espalda", "traccion")];
+    const r = generarRutinaPorReglas(perfil, { ...brief, dias: 2, distribucion: "automatica", ejerciciosPorSesion: 2, cardio: "ninguno" }, bibliotecaSimple);
+    expect(r.reglasAplicadas).toContain("Distribución full body");
   });
 
   it("tecnicasPermitidas restringe a solo las elegidas a mano, aunque el nivel permita otras", () => {
@@ -467,17 +614,23 @@ describe("ejerciciosPorTiempo", () => {
     expect(ejerciciosPorTiempo(60)).toBe(6);
   });
 
-  it("120 minutos permiten el doble: dos o tres más por grupo muscular", () => {
-    expect(ejerciciosPorTiempo(120)).toBe(12);
+  it("120 minutos no inflan la sesión: el tiempo extra mejora descansos y ejecución", () => {
+    expect(ejerciciosPorTiempo(120)).toBe(8);
   });
 
   it("el cardio se descuenta del tiempo de fuerza", () => {
     expect(ejerciciosPorTiempo(60, 20)).toBeLessThan(ejerciciosPorTiempo(60, 0));
   });
 
-  it("nunca baja de 3 ni pasa de 15, aunque el tiempo sea extremo", () => {
+  it("nunca baja de 3 ni pasa de 8, aunque el tiempo sea extremo", () => {
     expect(ejerciciosPorTiempo(20)).toBe(3);
-    expect(ejerciciosPorTiempo(300)).toBe(15);
+    expect(ejerciciosPorTiempo(300)).toBe(8);
+  });
+
+  it("un día combinado limita a tres ejercicios por grupo aunque se pidan doce", () => {
+    expect(ejerciciosObjetivoDelDia(12, 2)).toBe(6);
+    expect(ejerciciosObjetivoDelDia(8, 1)).toBe(6);
+    expect(ejerciciosObjetivoDelDia(8, 4)).toBe(8);
   });
 });
 
@@ -535,6 +688,63 @@ describe("reparto de técnicas en la semana", () => {
     const conTecnica = r.dias.flatMap((d) => d.ejercicios).filter((e) => e.tecnicaInstruccion);
     expect(conTecnica.length).toBeGreaterThan(0);
     expect(conTecnica.every((e) => e.tecnicaInstruccion?.startsWith("Última serie:"))).toBe(true);
+  });
+
+  it("dosifica las familias de intensidad según nivel e intensidad", () => {
+    expect(maximoTecnicasPorSesion("principiante", "competitiva")).toBe(1);
+    expect(maximoTecnicasPorSesion("intermedio", "estandar")).toBe(1);
+    expect(maximoTecnicasPorSesion("intermedio", "competitiva")).toBe(2);
+    expect(maximoTecnicasPorSesion("avanzado", "alta")).toBe(2);
+  });
+
+  it("un avanzado con intensidad alta puede combinar hasta dos familias en el día", () => {
+    const tecnicasCombinables: TecnicaEntrenamiento[] = [
+      { id: "1", nombre: "Biserie", slug: "biserie", tipo: "encadenada", cantidadEjercicios: 2, nivelMinimo: "intermedio", fatiga: "media", requiereSupervision: false, descansoInternoSeg: 0, descansoFinalSeg: 90, maximoPorSesion: 1 },
+      { id: "2", nombre: "Fallo muscular", slug: "fallo-muscular", tipo: "individual", cantidadEjercicios: null, nivelMinimo: "intermedio", fatiga: "media", requiereSupervision: false, descansoInternoSeg: 0, descansoFinalSeg: 90, maximoPorSesion: 1 },
+    ];
+    const biblioteca = Array.from({ length: 5 }, (_, i) => base(`pecho-${i}`, "pecho", i === 0 ? "empuje" : "aislamiento", { posicionSesion: i === 0 ? "principal" : "accesorio" }));
+    const r = generarRutinaPorReglas(
+      { ...perfil, experiencia: "avanzado" },
+      { ...briefSemana, dias: 1, diaGrupos: [["pecho"]], ejerciciosPorSesion: 5, intensidadDeseada: "alta" },
+      biblioteca,
+      tecnicasCombinables
+    );
+    const familias = new Set(r.dias[0].ejercicios.map((e) => e.tecnicaTipo).filter(Boolean));
+    expect(familias).toEqual(new Set(["Biserie", "Fallo muscular"]));
+  });
+
+  it("FST-7 se convierte en siete series reales, no en una etiqueta decorativa", () => {
+    const tecnicaFst: TecnicaEntrenamiento[] = [
+      { id: "fst", nombre: "FST-7", slug: "fst-7", tipo: "individual", cantidadEjercicios: null, nivelMinimo: "avanzado", fatiga: "alta", requiereSupervision: true, descansoInternoSeg: 30, descansoFinalSeg: 90, maximoPorSesion: 1 },
+    ];
+    const r = generarRutinaPorReglas(
+      { ...perfil, experiencia: "avanzado" },
+      { ...briefSemana, dias: 1, diaGrupos: [["pecho"]], ejerciciosPorSesion: 3, intensidadDeseada: "competitiva" },
+      bibliotecaPecho,
+      tecnicaFst
+    );
+    const aplicado = r.dias[0].ejercicios.find((e) => e.tecnicaTipo === "FST-7");
+    expect(aplicado).toMatchObject({ series: 7, reps: "10-15" });
+    expect(aplicado?.tecnicaInstruccion).toContain("7 series");
+  });
+
+  it("un giant set avanzado enlaza cuatro ejercicios y descansa al cerrar", () => {
+    const giantSet: TecnicaEntrenamiento[] = [
+      { id: "giant", nombre: "Giant set", slug: "giant-set", tipo: "encadenada", cantidadEjercicios: 4, nivelMinimo: "avanzado", fatiga: "alta", requiereSupervision: true, descansoInternoSeg: 0, descansoFinalSeg: 120, maximoPorSesion: 1 },
+    ];
+    const bibliotecaCinco = Array.from({ length: 5 }, (_, i) =>
+      base(`pecho-giant-${i}`, "pecho", i === 0 ? "empuje" : "aislamiento", { posicionSesion: i === 0 ? "principal" : "accesorio" })
+    );
+    const r = generarRutinaPorReglas(
+      { ...perfil, experiencia: "avanzado" },
+      { ...briefSemana, dias: 1, diaGrupos: [["pecho"]], ejerciciosPorSesion: 5, intensidadDeseada: "competitiva" },
+      bibliotecaCinco,
+      giantSet
+    );
+    const bloque = r.dias[0].ejercicios.filter((e) => e.tecnicaTipo === "Giant set");
+    expect(bloque).toHaveLength(4);
+    expect(bloque.slice(0, -1).every((e) => e.descansoSegundos === 0)).toBe(true);
+    expect(bloque.at(-1)?.descansoSegundos).toBe(120);
   });
 });
 

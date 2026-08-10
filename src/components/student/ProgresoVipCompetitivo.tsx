@@ -7,6 +7,7 @@ import { BadgeRango } from "@/components/student/BadgeRango";
 import { EscalaRangos } from "@/components/student/EscalaRangos";
 import type { FilaRanking, MovimientoPuntos, PeriodoRanking } from "@/lib/ranking/data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
+import { rivalInmediatamenteSuperior } from "@/lib/ranking/ordenar";
 
 const PERIODOS: { id: PeriodoRanking; nombre: string; ayuda: string }[] = [
   { id: "semana", nombre: "Semana", ayuda: "Se renueva cada lunes" },
@@ -34,7 +35,7 @@ export function ProgresoVipCompetitivo({
   const filas = rankings[periodo];
   const propia = filas.find((fila) => fila.alumnoId === alumnoId);
 
-  const rival = propia && propia.posicion > 1 ? filas[propia.posicion - 2] ?? null : null;
+  const rival = propia ? rivalInmediatamenteSuperior(filas, propia.puntos) : null;
 
   if (!propia) {
     return <Card><p className="text-body text-text-secondary">Aún no estás participando en Progreso VIP.</p></Card>;

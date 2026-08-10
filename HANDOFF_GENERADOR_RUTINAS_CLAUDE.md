@@ -124,8 +124,8 @@ Flujo verificado que funciona: en la máquina nueva, `git fetch origin` + `git s
 
 ## Pasos inmediatos para Claude
 
-1. Confirmar con el usuario si las migraciones `0049`–`0059` corrieron en Supabase de pruebas o en producción, antes de asumir el estado de la base.
-2. Subir foto a los 6 ejercicios de cardio funcional que quedaron sin ilustración.
+1. ~~Confirmar con el usuario si las migraciones `0049`–`0059` corrieron en Supabase de pruebas o en producción~~ — **confirmado el 09/08/2026**: se verificaron una por una contra la base real de Supabase (tablas, columnas, técnicas, máquinas dadas de baja, alias) y las 9 están aplicadas.
+2. Subir foto a los 6 ejercicios de cardio funcional que quedaron sin ilustración (jumping jacks, sentadilla con salto, slam ball, wall ball, mountain climber, TRX profundo). El usuario avisó que las va a sacar el 10/08/2026, cuando esté en el gimnasio.
 3. Revisar si conviene ya el CRUD visual de técnicas (postergado de común acuerdo — el entrenador avisa si necesita técnicas fuera de las 10 cargadas).
 4. Impulsar que los alumnos completen la ficha: el bloqueo ya obliga al abrir la app, pero al cierre de la última sesión había ~56 alumnos marcados "para revisar" sin ficha completa.
 5. Pasar la prop `ejercicios` a `RutinaDraftEditor` desde `ArchivosManager`/`DocumentosManager` para que el selector de ejercicios por clic y la vista previa también estén disponibles fuera del flujo del generador (hoy solo ahí).

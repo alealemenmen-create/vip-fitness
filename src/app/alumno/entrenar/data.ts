@@ -207,15 +207,20 @@ export async function obtenerProximoNumero(
 ): Promise<number> {
   const { data } = await supabase
     .from("sesiones_entrenamiento")
-    .select("numero_calendario")
+    .select("numero_calendario, estado, rutina_iniciada_en, rutina_dias(tipo)")
     .eq("alumno_id", alumnoId)
     .eq("rutina_id", rutinaId)
     .not("numero_calendario", "is", null)
-    .order("numero_calendario", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("numero_calendario", { ascending: true })
+    .limit(500);
 
-  return (data?.numero_calendario ?? 0) + 1;
+  const sesiones = data ?? [];
+  const vistaPreviaPendiente = sesiones.find((sesion) => {
+    const dia = sesion.rutina_dias as unknown as { tipo: string } | null;
+    return sesion.estado === "en_progreso" && sesion.rutina_iniciada_en === null && dia?.tipo === "entrenamiento";
+  });
+  if (vistaPreviaPendiente?.numero_calendario) return vistaPreviaPendiente.numero_calendario;
+  return (sesiones.at(-1)?.numero_calendario ?? 0) + 1;
 }
 
 export type BalanceSesionesMes = {

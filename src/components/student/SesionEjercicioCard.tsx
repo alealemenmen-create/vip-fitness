@@ -1021,6 +1021,24 @@ export const FilaSerie = forwardRef<
   const excesoDesdeRef = useRef<number | null>(null);
   const tramosNotificadosRef = useRef(0);
   useEffect(() => {
+    const pausarAlOcultarse = () => {
+      if (document.hidden && avisadoRef.current) setExcesoPausado(true);
+    };
+    document.addEventListener("visibilitychange", pausarAlOcultarse);
+    return () => document.removeEventListener("visibilitychange", pausarAlOcultarse);
+  }, []);
+
+  function alternarPausaExceso() {
+    if (excesoPausado) {
+      // Reconstruye el origen solo con el tiempo visible ya contabilizado;
+      // nunca incorpora los minutos que el navegador estuvo oculto/dormido.
+      excesoDesdeRef.current = Date.now() - segundosExceso * 1000;
+      setExcesoPausado(false);
+    } else {
+      setExcesoPausado(true);
+    }
+  }
+  useEffect(() => {
     if (soloLectura || !activo || descansando || !avisadoRef.current || !descansoSegundos) {
       excesoDesdeRef.current = null;
       tramosNotificadosRef.current = 0;
@@ -1348,7 +1366,7 @@ export const FilaSerie = forwardRef<
         // siguiente serie (lo ya penalizado no se revierte).
         <button
           type="button"
-          onClick={() => setExcesoPausado(true)}
+          onClick={alternarPausaExceso}
           className="mt-1 text-left text-micro text-error underline decoration-dotted"
         >
           {excesoPausado
@@ -1356,8 +1374,8 @@ export const FilaSerie = forwardRef<
               ? `Detenido — perdiste ${Math.min(
                   PUNTOS_VIP.descansoPenalizacionMaxima,
                   tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
-                )} pts`
-              : "Detenido"
+                )} pts · toca para reanudar`
+              : "Detenido · toca para reanudar"
             : tramosExcedidos > 0
               ? `Te pasaste del descanso: -${Math.min(
                   PUNTOS_VIP.descansoPenalizacionMaxima,
@@ -1451,7 +1469,6 @@ export const SesionEjercicioCard = forwardRef<
   // toque — justo el caso que existe para proteger: si el teléfono descarta
   // la pestaña por memoria o se corta la conexión ANTES de tocar "Listo" de
   // nuevo, no quedaba ninguna copia de la que recuperarse.
-  const seEnvioRef = useRef(false);
 
   useEffect(() => {
     setBorrador(leerBorrador(sesionId, ejercicio.sesionEjercicioId));
@@ -1470,7 +1487,7 @@ export const SesionEjercicioCard = forwardRef<
     const form = formRef.current;
     if (!form) return;
     const datos = new FormData(form);
-    guardarBorrador(sesionId, ejercicio.sesionEjercicioId, {
+    const siguienteBorrador = {
       series: filas.map((n) => ({
         numero: n,
         peso: String(datos.get(`peso_${n}`) ?? ""),
@@ -1479,7 +1496,9 @@ export const SesionEjercicioCard = forwardRef<
         esPesoCorporal: datos.get(`peso_corporal_${n}`) === "true",
       })),
       nota: String(datos.get("nota_ejercicio") ?? ""),
-    });
+    };
+    guardarBorrador(sesionId, ejercicio.sesionEjercicioId, siguienteBorrador);
+    setBorrador({ ...siguienteBorrador, guardadoEn: 0 });
   };
 
   /**
@@ -1493,7 +1512,6 @@ export const SesionEjercicioCard = forwardRef<
    */
   const guardarAhora = () => {
     respaldarLocal();
-    seEnvioRef.current = true;
     formRef.current?.requestSubmit();
   };
 
@@ -1503,10 +1521,10 @@ export const SesionEjercicioCard = forwardRef<
   // cierto apenas se monta el componente, ANTES de mandar nada — y borraba el
   // respaldo recién restaurado sin que el servidor hubiera confirmado nada.
   useEffect(() => {
-    if (seEnvioRef.current && !pending && !state.error && borradorLeido) {
+    if (ejercicio.completado && !pending && !state.error && borradorLeido) {
       limpiarBorrador(sesionId, ejercicio.sesionEjercicioId);
     }
-  }, [pending, state.error, borradorLeido, sesionId, ejercicio.sesionEjercicioId]);
+  }, [ejercicio.completado, pending, state.error, borradorLeido, sesionId, ejercicio.sesionEjercicioId]);
 
   /** Lo guardado en la base, o el respaldo local si quedó sin sincronizar. */
   const serieInicial = (numero: number): EjercicioSesion["series"][number] | undefined => {

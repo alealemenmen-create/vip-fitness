@@ -134,7 +134,7 @@ function TarjetaNota({
         <form action={eliminarNota}>
           <input type="hidden" name="nota_id" value={nota.id} />
           <input type="hidden" name="alumno_id" value={alumnoId} />
-          <button className="text-caption flex items-center gap-1 text-error">
+          <button type="submit" className="text-caption flex items-center gap-1 text-error">
             <Trash2 size={11} /> Eliminar
           </button>
         </form>

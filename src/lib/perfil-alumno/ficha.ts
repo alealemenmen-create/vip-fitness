@@ -13,6 +13,8 @@
  * `perfiles_entrenamiento` (objetivo, disponibilidad, salud). Este módulo los
  * trata como una sola cosa, que es como los vive el alumno. */
 
+import type { CategoriaCompetencia } from "@/lib/generador-rutinas/tipos";
+
 export type FichaAlumno = {
   // alumno_perfil
   fechaNacimiento: string | null;
@@ -22,6 +24,9 @@ export type FichaAlumno = {
   // perfiles_entrenamiento
   objetivoPrincipal: string | null;
   objetivoSecundario: string | null;
+  /** Referencia visual elegida en lenguaje sencillo. El entrenador puede
+   * corregirla antes de generar y siempre conserva la decisión final. */
+  categoriaReferencia: CategoriaCompetencia | null;
   diasDisponibles: number | null;
   minutosSesion: number | null;
   experiencia: string | null;
@@ -46,6 +51,7 @@ export const FICHA_VACIA: FichaAlumno = {
   telefono: null,
   objetivoPrincipal: null,
   objetivoSecundario: null,
+  categoriaReferencia: null,
   diasDisponibles: null,
   minutosSesion: null,
   experiencia: null,
@@ -143,11 +149,65 @@ export const SEXOS = [
   { value: "otro", label: "Prefiero no decirlo" },
 ] as const;
 
+/** La persona elige por la descripción, sin necesitar conocer el nombre de
+ * una categoría de culturismo. En modo entrenador se muestran ambos nombres. */
+export const REFERENCIAS_FISICAS: ReadonlyArray<{
+  value: CategoriaCompetencia;
+  descripcion: string;
+  tecnica: string;
+}> = [
+  {
+    value: "ninguna",
+    descripcion: "No estoy seguro/a; prefiero que me oriente mi entrenador",
+    tecnica: "Sin categoría",
+  },
+  {
+    value: "bikini",
+    descripcion: "Cuerpo atlético, proporcionado y definido, sin buscar demasiado volumen",
+    tecnica: "Bikini",
+  },
+  {
+    value: "wellness",
+    descripcion: "Piernas y glúteos protagonistas, con el tren superior equilibrado",
+    tecnica: "Wellness",
+  },
+  {
+    value: "mens_physique",
+    descripcion: "Espalda y hombros más anchos, con pecho y brazos marcados",
+    tecnica: "Men's Physique",
+  },
+  {
+    value: "classic_physique",
+    descripcion: "Musculatura estética, simétrica y equilibrada en todo el cuerpo",
+    tecnica: "Classic Physique",
+  },
+  {
+    value: "bodybuilding_open",
+    descripcion: "Máximo desarrollo muscular posible en todo el cuerpo",
+    tecnica: "Bodybuilding Open",
+  },
+  {
+    value: "womens_physique",
+    descripcion: "Musculatura fuerte, definida y equilibrada en todo el cuerpo",
+    tecnica: "Women's Physique",
+  },
+];
+
+export function etiquetaReferenciaFisica(
+  categoria: CategoriaCompetencia | null | undefined,
+  incluirTecnica = false
+): string | null {
+  const opcion = REFERENCIAS_FISICAS.find((item) => item.value === categoria);
+  if (!opcion) return null;
+  return incluirTecnica ? `${opcion.descripcion} — ${opcion.tecnica}` : opcion.descripcion;
+}
+
 /** Qué falta para que la ficha se considere contestada.
  *
  * Solo se exige lo que cambia de verdad la rutina que sale del generador: sin
- * fecha de nacimiento no hay ajuste por edad, sin sexo no hay énfasis, sin
- * objetivo/días/minutos/experiencia el motor arma a ciegas. El resto (estatura,
+ * fecha de nacimiento no hay ajuste por edad; sexo es parte de la ficha, pero
+ * no se usa para suponer objetivos. Sin objetivo/días/minutos/experiencia el
+ * motor arma a ciegas. El resto (estatura,
  * preferencias, detalles) suma pero no bloquea. */
 export function camposFaltantes(ficha: FichaAlumno): string[] {
   const faltan: string[] = [];
