@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search, Copy, RefreshCcw } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search, Copy, RefreshCcw, Pencil, Check } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
@@ -443,11 +443,40 @@ function EjercicioForm({
   );
 }
 
-function VistaPreviaEstructurada({ draft }: { draft: RutinaConProgresion }) {
+/** Vista previa editable: cada tarjeta se puede abrir para editar en el
+ * lugar (reutiliza `EjercicioForm`, mismo formulario que el editor por día —
+ * sin duplicar campos ni validación) y entre cada dos ejercicios aparece un
+ * "+" para insertar uno nuevo justo ahí. Pedido explícito del entrenador:
+ * "así yo mismo, desde la visualización del ejercicio, puedo arreglar la
+ * rutina" — sin sacar el editor por día que ya existía arriba.
+ */
+function VistaPreviaEstructurada({
+  draft,
+  biblioteca,
+  onActualizarEjercicio,
+  onInsertarEjercicio,
+  onQuitarEjercicio,
+}: {
+  draft: RutinaConProgresion;
+  biblioteca?: EjercicioBiblioteca[];
+  onActualizarEjercicio: (diaIdx: number, ejIdx: number, ejercicio: Ejercicio) => void;
+  onInsertarEjercicio: (diaIdx: number, posicion: number) => void;
+  onQuitarEjercicio: (diaIdx: number, ejIdx: number) => void;
+}) {
+  // Coordenadas de la tarjeta abierta para editar, no el ejercicio en sí:
+  // así, al insertar uno nuevo, alcanza con apuntar a su posición para que
+  // aparezca ya abierto (ver `insertar` más abajo).
+  const [editando, setEditando] = useState<{ dia: number; ej: number } | null>(null);
+
+  const insertar = (diaIdx: number, posicion: number) => {
+    onInsertarEjercicio(diaIdx, posicion);
+    setEditando({ dia: diaIdx, ej: posicion });
+  };
+
   return (
     <div className="max-h-[34rem] space-y-3 overflow-y-auto pr-1">
       <p className="text-card-title font-bold text-text">{draft.nombreRutina}</p>
-      {draft.dias.map((dia) => (
+      {draft.dias.map((dia, diaIdx) => (
         <section key={dia.numero} className="radius-control overflow-hidden border border-border">
           <div className="flex items-center justify-between gap-2 bg-surface-2 px-2.5 py-2">
             <p className="text-secondary font-bold text-vip">DÍA {dia.numero} · {dia.nombre}</p>
@@ -457,38 +486,96 @@ function VistaPreviaEstructurada({ draft }: { draft: RutinaConProgresion }) {
           </div>
           {dia.descripcion && <p className="text-micro border-t border-border px-2.5 py-1.5 text-text-tertiary">{dia.descripcion}</p>}
           {dia.tipo === "entrenamiento" && (
-            <div className="space-y-1.5 border-t border-border p-2">
+            <div className="space-y-3 border-t border-border p-2 pb-4">
               {dia.ejercicios.map((ejercicio, indice) => {
                 const visual = grupoVisual(ejercicio);
                 const colorTecnica = colorTecnicaVisual(ejercicio.tecnicaTipo);
+                const abierto = editando?.dia === diaIdx && editando.ej === indice;
                 return (
-                  <div
-                    key={`${dia.numero}-${indice}-${ejercicio.nombre}`}
-                    className="radius-control border bg-surface px-2 py-1.5"
-                    style={{ borderColor: visual.color, boxShadow: `inset 3px 0 0 ${visual.color}` }}
-                  >
-                    <div className="flex min-w-0 items-center gap-1.5 pl-1">
-                      <span className="text-micro w-4 shrink-0 text-right font-semibold text-text-tertiary">{indice + 1}.</span>
-                      <strong className="text-caption min-w-0 flex-1 truncate" style={{ color: visual.color, fontWeight: 800 }}>
-                        {ejercicio.nombre}
-                      </strong>
-                      <span className="text-[9px] shrink-0 rounded-full border px-1.5 py-0.5 font-bold uppercase" style={{ color: visual.color, borderColor: visual.color }}>
-                        {visual.etiqueta}
-                      </span>
-                    </div>
-                    <p className="text-micro mt-0.5 pl-6 text-text-secondary">
-                      {ejercicio.series} series × {ejercicio.reps} reps
-                      {ejercicio.descansoSegundos !== null ? ` · ${ejercicio.descansoSegundos}s descanso` : ""}
-                    </p>
-                    {ejercicio.tecnicaTipo && (
-                      <p className="text-micro mt-0.5 pl-6 font-semibold" style={{ color: colorTecnica ?? "var(--color-vip)" }}>
-                        {ejercicio.tecnicaTipo}{ejercicio.tecnicaInstruccion ? ` · ${ejercicio.tecnicaInstruccion}` : ""}
-                      </p>
+                  <div key={`${dia.numero}-${indice}-${ejercicio.nombre}`} className="relative">
+                    {abierto ? (
+                      <div className="radius-control border border-vip/50 bg-surface-2 p-2">
+                        <div className="mb-1.5 flex items-center justify-between gap-2">
+                          <span className="text-micro font-semibold text-vip">Editando ejercicio {indice + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => setEditando(null)}
+                            className="text-micro flex items-center gap-1 font-semibold text-vip"
+                          >
+                            <Check size={13} /> Listo
+                          </button>
+                        </div>
+                        <EjercicioForm
+                          numero={indice + 1}
+                          ejercicio={ejercicio}
+                          grupoSugerido={grupoDominante(dia)}
+                          biblioteca={biblioteca}
+                          onChange={(e) => onActualizarEjercicio(diaIdx, indice, e)}
+                          onRemove={() => {
+                            onQuitarEjercicio(diaIdx, indice);
+                            setEditando(null);
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="radius-control border bg-surface px-2 py-1.5"
+                        style={{ borderColor: visual.color, boxShadow: `inset 3px 0 0 ${visual.color}` }}
+                      >
+                        <div className="flex min-w-0 items-center gap-1.5 pl-1">
+                          <span className="text-micro w-4 shrink-0 text-right font-semibold text-text-tertiary">{indice + 1}.</span>
+                          <strong className="text-caption min-w-0 flex-1 truncate" style={{ color: visual.color, fontWeight: 800 }}>
+                            {ejercicio.nombre}
+                          </strong>
+                          <span className="text-[9px] shrink-0 rounded-full border px-1.5 py-0.5 font-bold uppercase" style={{ color: visual.color, borderColor: visual.color }}>
+                            {visual.etiqueta}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setEditando({ dia: diaIdx, ej: indice })}
+                            aria-label={`Editar ${ejercicio.nombre}`}
+                            className="grid size-6 shrink-0 place-items-center rounded-full border border-border text-text-tertiary active:bg-vip active:text-black"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                        </div>
+                        <p className="text-micro mt-0.5 pl-6 text-text-secondary">
+                          {ejercicio.series} series × {ejercicio.reps} reps
+                          {ejercicio.descansoSegundos !== null ? ` · ${ejercicio.descansoSegundos}s descanso` : ""}
+                        </p>
+                        {ejercicio.tecnicaTipo && (
+                          <p className="text-micro mt-0.5 pl-6 font-semibold" style={{ color: colorTecnica ?? "var(--color-vip)" }}>
+                            {ejercicio.tecnicaTipo}{ejercicio.tecnicaInstruccion ? ` · ${ejercicio.tecnicaInstruccion}` : ""}
+                          </p>
+                        )}
+                        {ejercicio.observacion && <p className="text-micro mt-0.5 pl-6 text-text-tertiary">{ejercicio.observacion}</p>}
+                      </div>
                     )}
-                    {ejercicio.observacion && <p className="text-micro mt-0.5 pl-6 text-text-tertiary">{ejercicio.observacion}</p>}
+                    {/* Inserta uno nuevo justo entre esta tarjeta y la
+                        siguiente — pedido explícito: "una flechita... para
+                        sumar un ejercicio nuevo entre ese ejercicio y el que
+                        le sigue". */}
+                    <button
+                      type="button"
+                      onClick={() => insertar(diaIdx, indice + 1)}
+                      aria-label={`Agregar ejercicio después de ${ejercicio.nombre}`}
+                      title="Agregar ejercicio aquí"
+                      className="absolute -bottom-3.5 right-2 z-[1] grid size-7 place-items-center rounded-full border border-vip bg-surface text-vip shadow-sm active:bg-vip active:text-black"
+                    >
+                      <Plus size={14} />
+                    </button>
                   </div>
                 );
               })}
+              {dia.ejercicios.length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => insertar(diaIdx, 0)}
+                  className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-vip/50 py-2.5 text-caption font-semibold text-vip"
+                >
+                  <Plus size={14} /> Agregar el primer ejercicio del día
+                </button>
+              )}
             </div>
           )}
         </section>
@@ -579,6 +666,22 @@ export function RutinaDraftEditor({
           ? { ...dia, ejercicios: dia.ejercicios.map((e, j) => (j === ejIdx ? ejercicio : e)) }
           : dia
       ),
+    }));
+  };
+
+  /** Inserta un ejercicio vacío EN una posición puntual del día, a diferencia
+   * de `agregarEjercicio` que siempre suma al final. Lo usa el "+" de la
+   * vista previa para meter un ejercicio nuevo entre dos existentes sin tener
+   * que agregarlo al final y arrastrarlo a mano. */
+  const insertarEjercicio = (diaIdx: number, posicion: number) => {
+    setDraft((d) => ({
+      ...d,
+      dias: d.dias.map((dia, i) => {
+        if (i !== diaIdx) return dia;
+        const ejercicios = [...dia.ejercicios];
+        ejercicios.splice(posicion, 0, { ...EJERCICIO_VACIO });
+        return { ...dia, ejercicios };
+      }),
     }));
   };
 
@@ -1006,7 +1109,13 @@ export function RutinaDraftEditor({
             <p className="text-micro mb-2 text-text-tertiary">
               Vista de revisión por día y grupo muscular. El contenido completo es el que se guarda como documento del alumno.
             </p>
-            <VistaPreviaEstructurada draft={draft} />
+            <VistaPreviaEstructurada
+              draft={draft}
+              biblioteca={ejercicios}
+              onActualizarEjercicio={actualizarEjercicio}
+              onInsertarEjercicio={insertarEjercicio}
+              onQuitarEjercicio={quitarEjercicio}
+            />
           </div>
         )}
       </Card>
