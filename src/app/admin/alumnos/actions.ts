@@ -9,7 +9,7 @@ import { requireRol, COOKIE_VISTA_ALUMNO } from "@/lib/auth";
 import { enviarCorreo, plantillaCredenciales } from "@/lib/email/resend";
 import { cambiarCorreoDeUsuario } from "@/lib/cuenta/correo";
 import { generarPassword } from "@/lib/cuenta/password";
-import { esCodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
+import { esCodigoPlanEntrenamiento, PLANES_ENTRENAMIENTO } from "@/lib/planes-entrenamiento";
 
 export type FormState = { error: string | null; ok: boolean };
 const okState: FormState = { error: null, ok: true };
@@ -463,6 +463,52 @@ export async function actualizarPerfilAlumno(
   }
 
   revalidatePath(`/admin/alumnos/${alumnoId}`);
+  revalidatePath("/alumno/inicio");
+  revalidatePath("/alumno/entrenar");
+  return okState;
+}
+
+/**
+ * Corrección rápida del plan desde la lista de Alumnos, sin entrar a la
+ * ficha completa — pedido explícito: "déjame los nombres de los alumnos con
+ * su plan al ladito y un botón de editar... que yo pueda corregir estas
+ * cosas". A diferencia de `actualizarPerfilAlumno`, esta acción SOLO toca las
+ * columnas del plan: si reusara la otra con un formulario mínimo, `objetivo`
+ * y `proximo_control_fecha` quedarían pisados a null por venir vacíos.
+ */
+export async function actualizarPlanRapido(
+  _prevState: FormState,
+  formData: FormData
+): Promise<FormState> {
+  await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+
+  const alumnoId = String(formData.get("alumno_id") || "");
+  const planEntrenamiento = String(formData.get("plan_entrenamiento") || "");
+  if (!alumnoId) return fail("Falta el alumno.");
+  if (planEntrenamiento && !esCodigoPlanEntrenamiento(planEntrenamiento)) {
+    return fail("El plan seleccionado no es válido.");
+  }
+
+  const plan = planEntrenamiento && esCodigoPlanEntrenamiento(planEntrenamiento)
+    ? PLANES_ENTRENAMIENTO[planEntrenamiento]
+    : null;
+
+  const { error } = await supabase
+    .from("alumno_perfil")
+    .update({
+      plan_entrenamiento: plan?.codigo ?? null,
+      sesiones_mensuales: plan?.sesionesMensuales ?? null,
+      dias_entrenamiento_semana: plan?.diasSemana ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", alumnoId);
+
+  if (error) return fail("No fue posible guardar el plan. Revisa tu conexión e intenta nuevamente.");
+
+  revalidatePath("/admin/alumnos");
+  revalidatePath(`/admin/alumnos/${alumnoId}`);
+  revalidatePath("/admin/generador");
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
   return okState;

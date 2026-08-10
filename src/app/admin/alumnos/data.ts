@@ -3,7 +3,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { createClient } from "@/lib/supabase/server";
 import { mesActualISO, ultimosNDiasISO, hoyISO, ZONA_HORARIA_VIP } from "@/lib/date";
 import { obtenerConfiguracionSupervision } from "@/lib/configuracion/supervision";
-import { resolverPlanEntrenamiento } from "@/lib/planes-entrenamiento";
+import { resolverPlanEntrenamiento, type CodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -21,6 +21,13 @@ export type IndicadorAlumno = {
   diasSinEntrenar: number | null;
   /** Frase corta que explica por qué está en ese estado. */
   motivo: string;
+  /** Plan de entrenamiento CONTRATADO (cobrado), asignado por el entrenador
+   * en la ficha del alumno — no confundir con lo que el alumno declaró en su
+   * propio cuestionario (`perfiles_entrenamiento.dias_disponibles`), que es
+   * autoreporte y puede no coincidir. Null si todavía no se le asignó plan. */
+  planCodigo: CodigoPlanEntrenamiento | null;
+  planDiasSemana: number | null;
+  planSesionesMensuales: number | null;
 };
 
 const DIAS_VENTANA_COMIDAS = 7;
@@ -139,7 +146,8 @@ export async function obtenerIndicadores(
   const inicioMesMs = new Date(`${desde}T00:00:00`).getTime();
 
   for (const alumnoId of alumnoIds) {
-    const diasSemana = planPorAlumno.get(alumnoId)?.diasSemana ?? diasEntrenamiento.get(alumnoId) ?? 0;
+    const plan = planPorAlumno.get(alumnoId);
+    const diasSemana = plan?.diasSemana ?? diasEntrenamiento.get(alumnoId) ?? 0;
 
     // Cupo prorrateado: si el mes recién empezó, o la rutina activa es más
     // nueva que el mes (alumno recién arrancó), no se le exige la cuota de
@@ -204,6 +212,9 @@ export async function obtenerIndicadores(
       diasConComida,
       diasSinEntrenar,
       motivo,
+      planCodigo: plan?.codigo ?? null,
+      planDiasSemana: plan?.diasSemana ?? null,
+      planSesionesMensuales: plan?.sesionesMensuales ?? null,
     });
   }
 

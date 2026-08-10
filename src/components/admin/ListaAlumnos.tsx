@@ -1,23 +1,32 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useActionState, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  Check,
   ChevronLeft,
   ChevronRight,
   CircleCheck,
   Dumbbell,
   LayoutList,
+  Pencil,
   Search,
   Star,
   Users,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { TarjetaReporteAlumno } from "./TarjetaReporteAlumno";
+import { actualizarPlanRapido, type FormState } from "@/app/admin/alumnos/actions";
+import { PLANES_ENTRENAMIENTO } from "@/lib/planes-entrenamiento";
 import type { ReporteAlumno } from "@/app/admin/alumnos/data";
 
 export type FiltroAlumnos = "todos" | "sin_rutina" | "seguimiento" | "al_dia" | "destacados";
+
+/** Clasificación por plan CONTRATADO (días/semana), no por lo que el alumno
+ * declaró en su ficha — pedido explícito: poder ubicar rápido a quiénes
+ * pagan 3, 4 o 5 días semanales sin tener que abrir cada perfil. */
+type FiltroPlan = "todos" | 3 | 4 | 5 | "sin_plan";
 
 const SIN_RUTINA = "Sin rutina activa asignada";
 
@@ -42,6 +51,87 @@ function estadoVisual(reporte: ReporteAlumno) {
   return { etiqueta: "Al día", clase: "border-success/25 bg-success/10 text-success", Icon: CircleCheck };
 }
 
+const ESTADO_INICIAL_PLAN: FormState = { error: null, ok: false };
+
+/**
+ * Corregir el plan sin salir de la lista ni entrar a la ficha completa —
+ * pedido explícito del entrenador para revisar de un tirón el backfill
+ * automático (rutina activa → plan asumido) y arreglar los casos donde
+ * asumió Access y en realidad era Select, o cualquier otro ajuste.
+ * `stopPropagation` en todo el bloque: la fila entera es clicable (navega a
+ * la ficha), así que sin esto cualquier clic acá adentro also dispararía esa
+ * navegación.
+ */
+function EditorPlanRapido({ reporte }: { reporte: ReporteAlumno }) {
+  const [abierto, setAbierto] = useState(false);
+  const [state, formAction, pending] = useActionState(actualizarPlanRapido, ESTADO_INICIAL_PLAN);
+
+  if (state.ok && abierto) {
+    // Se cierra solo apenas confirma el guardado — sin esto quedaba abierto
+    // mostrando el mismo valor hasta que el entrenador lo cerrara a mano.
+    setAbierto(false);
+  }
+
+  if (!abierto) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setAbierto(true);
+        }}
+        className={`ml-1 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${
+          reporte.planCodigo
+            ? "border-border bg-surface-2 text-text-secondary"
+            : "border-warning/25 bg-warning/10 text-warning"
+        }`}
+      >
+        {reporte.planCodigo ? `${reporte.planDiasSemana} días/sem` : "Sin plan"}
+        <Pencil size={9} />
+      </button>
+    );
+  }
+
+  return (
+    <form
+      action={formAction}
+      onClick={(e) => e.stopPropagation()}
+      className="ml-1 inline-flex items-center gap-1"
+    >
+      <input type="hidden" name="alumno_id" value={reporte.alumnoId} />
+      <select
+        name="plan_entrenamiento"
+        defaultValue={reporte.planCodigo ?? ""}
+        className="radius-control border border-vip/40 bg-surface-2 px-1.5 py-1 text-[10px] text-text"
+      >
+        <option value="">Sin plan</option>
+        {Object.values(PLANES_ENTRENAMIENTO).map((plan) => (
+          <option key={plan.codigo} value={plan.codigo}>
+            {plan.nombre} · {plan.diasSemana}d
+          </option>
+        ))}
+      </select>
+      <button type="submit" disabled={pending} aria-label="Guardar plan" className="grid size-6 place-items-center rounded-full bg-vip text-black disabled:opacity-60">
+        <Check size={12} />
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setAbierto(false);
+        }}
+        aria-label="Cancelar"
+        className="text-[10px] text-text-tertiary"
+      >
+        ✕
+      </button>
+      {state.error && <span className="text-[10px] text-error">{state.error}</span>}
+    </form>
+  );
+}
+
 export function ListaAlumnos({
   reportes,
   sesionUserId,
@@ -51,9 +141,11 @@ export function ListaAlumnos({
   sesionUserId: string;
   filtroInicial?: FiltroAlumnos;
 }) {
+  const router = useRouter();
   const [vista, setVista] = useState<"compacta" | "detallada">("compacta");
   const [busqueda, setBusqueda] = useState("");
   const [filtro, setFiltro] = useState<FiltroAlumnos>(filtroInicial);
+  const [filtroPlan, setFiltroPlan] = useState<FiltroPlan>("todos");
   const [pagina, setPagina] = useState(1);
 
   const conteos = useMemo(
@@ -67,16 +159,29 @@ export function ListaAlumnos({
     [reportes]
   );
 
+  const conteosPlan = useMemo(
+    () => ({
+      todos: reportes.length,
+      3: reportes.filter((r) => r.planDiasSemana === 3).length,
+      4: reportes.filter((r) => r.planDiasSemana === 4).length,
+      5: reportes.filter((r) => r.planDiasSemana === 5).length,
+      sin_plan: reportes.filter((r) => r.planCodigo === null).length,
+    }),
+    [reportes]
+  );
+
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLocaleLowerCase("es");
     return reportes.filter(
       (reporte) =>
         pertenece(reporte, filtro) &&
+        (filtroPlan === "todos" ||
+          (filtroPlan === "sin_plan" ? reporte.planCodigo === null : reporte.planDiasSemana === filtroPlan)) &&
         (!q ||
           reporte.nombre.toLocaleLowerCase("es").includes(q) ||
           reporte.objetivo?.toLocaleLowerCase("es").includes(q))
     );
-  }, [reportes, busqueda, filtro]);
+  }, [reportes, busqueda, filtro, filtroPlan]);
 
   const porPagina = vista === "compacta" ? 16 : 8;
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / porPagina));
@@ -85,6 +190,11 @@ export function ListaAlumnos({
 
   const cambiarFiltro = (nuevo: FiltroAlumnos) => {
     setFiltro(nuevo);
+    setPagina(1);
+  };
+
+  const cambiarFiltroPlan = (nuevo: FiltroPlan) => {
+    setFiltroPlan(nuevo);
     setPagina(1);
   };
 
@@ -124,6 +234,39 @@ export function ListaAlumnos({
               {etiqueta}
               <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activo ? "bg-black/15" : "bg-surface"}`}>
                 {conteos[id]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Clasificación por plan CONTRATADO (días/semana), aparte del estado
+          de arriba — pedido explícito: ubicar rápido a quiénes pagan 3, 4 o
+          5 días semanales (Access/Select · Pro · Élite) sin abrir cada ficha. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-text-tertiary">Plan contratado</span>
+        {(
+          [
+            { id: "todos" as const, etiqueta: "Todos" },
+            { id: 3 as const, etiqueta: "3 días · 12/mes" },
+            { id: 4 as const, etiqueta: "4 días · 16/mes" },
+            { id: 5 as const, etiqueta: "5 días · 20/mes" },
+            { id: "sin_plan" as const, etiqueta: "Sin plan asignado" },
+          ]
+        ).map(({ id, etiqueta }) => {
+          const activo = filtroPlan === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => cambiarFiltroPlan(id)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
+                activo ? "border-vip bg-vip text-black" : "border-border bg-surface-2 text-text-secondary hover:border-vip/40"
+              }`}
+            >
+              {etiqueta}
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activo ? "bg-black/15" : "bg-surface"}`}>
+                {conteosPlan[id]}
               </span>
             </button>
           );
@@ -182,9 +325,16 @@ export function ListaAlumnos({
         <p className="text-xs text-text-tertiary">
           Mostrando <span className="font-semibold text-text">{visibles.length}</span> de {filtrados.length}
         </p>
-        {filtro !== "todos" && (
-          <button type="button" onClick={() => cambiarFiltro("todos")} className="text-xs font-medium text-vip">
-            Limpiar filtro
+        {(filtro !== "todos" || filtroPlan !== "todos") && (
+          <button
+            type="button"
+            onClick={() => {
+              cambiarFiltro("todos");
+              cambiarFiltroPlan("todos");
+            }}
+            className="text-xs font-medium text-vip"
+          >
+            Limpiar filtros
           </button>
         )}
       </div>
@@ -206,10 +356,15 @@ export function ListaAlumnos({
             {visibles.map((reporte) => {
               const visual = estadoVisual(reporte);
               return (
-                <Link
+                <div
                   key={reporte.alumnoId}
-                  href={`/admin/alumnos/${reporte.alumnoId}`}
-                  className="group grid gap-2 px-4 py-3.5 transition-colors hover:bg-surface-2 md:grid-cols-[minmax(180px,1fr)_minmax(220px,1.35fr)_150px_24px] md:items-center md:gap-4"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => router.push(`/admin/alumnos/${reporte.alumnoId}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") router.push(`/admin/alumnos/${reporte.alumnoId}`);
+                  }}
+                  className="group grid cursor-pointer gap-2 px-4 py-3.5 transition-colors hover:bg-surface-2 md:grid-cols-[minmax(180px,1fr)_minmax(220px,1.35fr)_150px_24px] md:items-center md:gap-4"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-vip/10 text-xs font-bold text-vip">
@@ -230,6 +385,7 @@ export function ListaAlumnos({
                     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${visual.clase}`}>
                       <visual.Icon size={11} /> {visual.etiqueta}
                     </span>
+                    <EditorPlanRapido reporte={reporte} />
                     <p className="mt-1 truncate text-xs text-text-secondary md:mt-0">{reporte.motivo}</p>
                   </div>
 
@@ -244,7 +400,7 @@ export function ListaAlumnos({
                     <span className="text-text-tertiary md:block">{reporte.pctSesiones}% del mes</span>
                   </div>
                   <ChevronRight size={16} className="hidden text-text-tertiary transition-transform group-hover:translate-x-0.5 md:block" />
-                </Link>
+                </div>
               );
             })}
           </div>
