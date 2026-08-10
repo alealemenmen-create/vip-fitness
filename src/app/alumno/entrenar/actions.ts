@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { requireAlumno } from "@/lib/auth";
 import { hoyISO } from "@/lib/date";
@@ -19,18 +19,25 @@ import type { DificultadPercibidaImpulso } from "@/lib/supabase/types";
 import { leerSeriesFormulario } from "@/lib/entrenamiento/leer-series-formulario";
 
 const DIFICULTADES_VALIDAS = new Set(["muy_facil", "facil", "justo", "dificil", "fallo"]);
+type TrainingDb = ReturnType<typeof createAdminClient>;
 
 /** Encuentra la sesión existente de este día o la crea, y redirige ahí.
  * Compartido por `iniciarSesion` (chequea primero si hay OTRO día
  * bloqueando) y `cancelarYEmpezarOtroDia` (ya canceló ese otro día, así que
  * entra directo sin repetir el chequeo). */
 async function crearOEntrarSesion(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: TrainingDb,
   alumnoId: string,
   diaId: string,
   rutinaId: string,
   numero: number
 ): Promise<never> {
+  const [{ data: rutinaPropia }, { data: diaPropio }] = await Promise.all([
+    supabase.from("rutinas").select("id").eq("id", rutinaId).eq("alumno_id", alumnoId).eq("activa", true).maybeSingle(),
+    supabase.from("rutina_dias").select("id").eq("id", diaId).eq("rutina_id", rutinaId).maybeSingle(),
+  ]);
+  if (!rutinaPropia || !diaPropio) redirect("/alumno/entrenar");
+
   const { data: existente } = await supabase
     .from("sesiones_entrenamiento")
     .select("id")
@@ -108,7 +115,7 @@ export async function iniciarSesion(formData: FormData): Promise<void> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura) redirect("/alumno/entrenar");
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Solo bloquea si hay una rutina EMPEZADA DE VERDAD (cronómetro corriendo,
   // o un día de descanso, que no tiene ese segundo paso) — una sesión creada
@@ -157,7 +164,7 @@ export async function cancelarYEmpezarOtroDia(formData: FormData): Promise<void>
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura) redirect("/alumno/entrenar");
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
@@ -193,7 +200,7 @@ export async function iniciarRutina(formData: FormData): Promise<void> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (!sesionId || soloLectura) return;
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   await supabase
     .from("sesiones_entrenamiento")
     .update({ rutina_iniciada_en: new Date().toISOString() })
@@ -220,9 +227,10 @@ export type GuardarSeriesState = { error: string | null };
  * que sus campos choquen entre sí.
  */
 async function guardarUnEjercicio(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: TrainingDb,
   formData: FormData,
-  sufijo: string
+  sufijo: string,
+  sesionId: string
 ): Promise<{ error: string | null }> {
   const sesionEjercicioId = String(formData.get(`sesion_ejercicio_id${sufijo}`) || "");
   const notaEjercicio = String(formData.get(`nota_ejercicio${sufijo}`) || "").trim();
@@ -245,7 +253,9 @@ async function guardarUnEjercicio(
     .from("sesion_ejercicios")
     .select("rutina_dia_ejercicios(series_programadas)")
     .eq("id", sesionEjercicioId)
+    .eq("sesion_id", sesionId)
     .maybeSingle();
+  if (!asignacion) return { error: "El ejercicio no pertenece a esta sesión." };
   const seriesAsignadas = (
     asignacion?.rutina_dia_ejercicios as { series_programadas: number } | null | undefined
   )?.series_programadas;
@@ -310,7 +320,7 @@ export async function guardarSeries(
   const sesionId = String(formData.get("sesion_id") || "");
   const { alumnoId, soloLectura } = await requireAlumno();
   if (!sesionId || soloLectura) return { error: "Esta sesión ya no se puede editar." };
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
     .select("id")
@@ -320,7 +330,7 @@ export async function guardarSeries(
     .maybeSingle();
   if (!sesion) return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
 
-  const resultado = await guardarUnEjercicio(supabase, formData, "");
+  const resultado = await guardarUnEjercicio(supabase, formData, "", sesionId);
   if (resultado.error) return resultado;
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
@@ -347,7 +357,7 @@ export async function guardarSeriesGrupo(
   const cantidad = Number(formData.get("cantidad_ejercicios_grupo") || 0);
   const { alumnoId, soloLectura } = await requireAlumno();
   if (!sesionId || soloLectura) return { error: "Esta sesión ya no se puede editar." };
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
     .select("id")
@@ -359,7 +369,7 @@ export async function guardarSeriesGrupo(
 
   for (let i = 0; i < cantidad; i++) {
     const sufijo = i === 0 ? "" : `_${i}`;
-    const resultado = await guardarUnEjercicio(supabase, formData, sufijo);
+    const resultado = await guardarUnEjercicio(supabase, formData, sufijo, sesionId);
     if (resultado.error) return resultado;
   }
 
@@ -374,7 +384,7 @@ export async function guardarSeriesGrupo(
  * parcial o no cumplida. Regla E nunca se evalúa (`resolverCumplimiento`
  * devuelve null), así que nunca queda con un cumplimiento asignado. */
 async function resolverCumplimientoImpulso(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: TrainingDb,
   sesionEjercicioId: string,
   filas: { numero_serie: number; peso_kg: number | null; es_peso_corporal: boolean; reps_realizadas: number | null; realizada: boolean }[]
 ): Promise<void> {
@@ -416,11 +426,11 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura) redirect("/alumno/entrenar");
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const [{ data: sesion }, { data: ejercicios }] = await Promise.all([
     supabase
       .from("sesiones_entrenamiento")
-      .select("id, fecha, estado")
+      .select("id, fecha, estado, rutina_iniciada_en")
       .eq("id", sesionId)
       .eq("alumno_id", alumnoId)
       .maybeSingle(),
@@ -431,15 +441,27 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
 
   const total = ejercicios?.length ?? 0;
   const completados = ejercicios?.filter((e) => e.completado).length ?? 0;
+  // Una sesión con ejercicios solo puede cerrar y puntuar si pasó por la
+  // acción «Iniciar rutina». Evita fabricar una sesión terminada llamando
+  // directamente a esta Server Action.
+  if (total > 0 && !sesion.rutina_iniciada_en) {
+    redirect(`/alumno/entrenar/sesion/${sesionId}?aviso=debes-iniciar`);
+  }
   // total === 0 pasa en días de descanso (sin ejercicios) — cuentan como completados.
   const estado = completados === total ? "completada" : "finalizada_incompleta";
 
-  await supabase
+  const { data: sesionCerrada } = await supabase
     .from("sesiones_entrenamiento")
     .update({ estado, hora_fin: new Date().toISOString(), comentario: comentario || null })
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
-    .eq("estado", "en_progreso");
+    .eq("estado", "en_progreso")
+    .select("id")
+    .maybeSingle();
+
+  // Cierre atómico: si otra petición ya la finalizó, no se vuelve a ejecutar
+  // ninguna lógica de recompensas ni se muestra un premio inexistente.
+  if (!sesionCerrada) redirect(`/alumno/entrenar/sesion/${sesionId}`);
 
   const puntos = await registrarEntrenamiento({
     alumnoId,
@@ -469,7 +491,7 @@ export async function reabrirSesion(formData: FormData): Promise<void> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura || !confirmada) return;
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
     .select("estado")
@@ -506,7 +528,7 @@ export async function abandonarSesion(formData: FormData): Promise<void> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura) return;
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
     .select("fecha")
@@ -540,7 +562,7 @@ export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (!sesionId || soloLectura) redirect("/alumno/entrenar");
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
     .select("id, estado, fecha")
@@ -616,16 +638,20 @@ export async function penalizarExcesoDescanso(
   const { alumnoId, soloLectura } = await requireAlumno();
   if (!sesionEjercicioId || numero <= 0 || tramosExcedidos <= 0 || soloLectura) return;
 
-  // La RLS de esta consulta confirma que el ejercicio pertenece al alumno
+  // La relación con la sesión confirma que el ejercicio pertenece al alumno
   // autenticado. Sin ella un cliente modificado podía crear movimientos con
   // ids arbitrarios (siempre contra sí mismo, pero contaminando el ranking).
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: ejercicioPropio } = await supabase
     .from("sesion_ejercicios")
-    .select("id")
+    .select("id, sesiones_entrenamiento!inner(alumno_id, estado), rutina_dia_ejercicios(series_programadas)")
     .eq("id", sesionEjercicioId)
+    .eq("sesiones_entrenamiento.alumno_id", alumnoId)
+    .eq("sesiones_entrenamiento.estado", "en_progreso")
     .maybeSingle();
   if (!ejercicioPropio) return;
+  const asignacion = ejercicioPropio.rutina_dia_ejercicios as unknown as { series_programadas: number } | null;
+  if (!asignacion || numero > asignacion.series_programadas) return;
 
   await registrarPenalizacionDescanso({
     alumnoId,
