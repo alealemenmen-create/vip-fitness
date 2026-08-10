@@ -4,6 +4,7 @@ import {
   obtenerBibliotecaDocumentos,
   obtenerAlumnosParaAsignar,
 } from "@/lib/documentos/data";
+import { obtenerBiblioteca } from "@/lib/ejercicios/data";
 import { DocumentosManager } from "@/components/admin/DocumentosManager";
 import { ArchivosManager } from "@/components/admin/ArchivosManager";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -20,9 +21,10 @@ export default async function DocumentosPage() {
   await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
 
-  const [documentos, alumnos] = await Promise.all([
+  const [documentos, alumnos, ejercicios] = await Promise.all([
     obtenerBibliotecaDocumentos(supabase),
     obtenerAlumnosParaAsignar(supabase),
+    obtenerBiblioteca(),
   ]);
 
   return (
@@ -41,7 +43,11 @@ export default async function DocumentosPage() {
 
       <section id="nueva-carga" className="admin-panel-card scroll-mt-28 space-y-3 rounded-3xl p-4 md:p-5">
         <p className="text-caption font-semibold text-text-tertiary">NUEVA CARGA</p>
-        <ArchivosManager documentos={[]} alumnos={alumnos} />
+        <ArchivosManager
+          documentos={[]}
+          alumnos={alumnos}
+          ejercicios={ejercicios.map((e) => ({ id: e.id, nombre: e.nombre, grupo: e.grupoMuscular, equipo: e.equipo }))}
+        />
       </section>
 
       <section id="biblioteca-documentos" className="admin-panel-card scroll-mt-28 space-y-3 rounded-3xl p-4 md:p-5">

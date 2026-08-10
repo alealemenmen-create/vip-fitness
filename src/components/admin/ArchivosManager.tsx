@@ -16,7 +16,7 @@ import {
   type SubirAVariosState,
   type AnalizarPlanState,
 } from "@/app/admin/archivos/actions";
-import { RutinaDraftEditor } from "@/components/admin/RutinaDraftEditor";
+import { RutinaDraftEditor, type EjercicioBiblioteca } from "@/components/admin/RutinaDraftEditor";
 import { PlanAlimentacionEditor } from "@/components/admin/PlanAlimentacionEditor";
 import { EstadoCoherenciaMacros } from "@/components/admin/EstadoCoherenciaMacros";
 import { SelectorAlumnos } from "@/components/admin/SelectorAlumnos";
@@ -226,10 +226,15 @@ export function ArchivosManager({
   alumnoId,
   documentos,
   alumnos,
+  ejercicios,
 }: {
   alumnoId?: string;
   documentos: Documento[];
   alumnos: AlumnoParaAsignar[];
+  /** Biblioteca real para elegir ejercicios tocando en vez de escribiendo en
+   * `RutinaDraftEditor`. Opcional — sin esto, el nombre sigue siendo texto
+   * libre (compatibilidad con llamadores que todavía no la pasan). */
+  ejercicios?: EjercicioBiblioteca[];
 }) {
   const router = useRouter();
   const documentosRutina = documentos.filter((d) => d.tipo === "rutina");
@@ -619,6 +624,7 @@ export function ArchivosManager({
           // los dos casos el trabajo con ESTA rutina terminó, así que el
           // cuadro de carga vuelve a aparecer para la siguiente.
           onDescartar={reiniciarFlujoRutina}
+          ejercicios={ejercicios}
         />
       )}
 
