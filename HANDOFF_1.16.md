@@ -108,3 +108,60 @@ autorización expresa. `main` despliega solo a producción.
 Feedback explícito, a no olvidar: *"siento que todas las ideas son mías y no me
 ayudas"*. Corresponde proponer, no solo ejecutar. Y verificar con clic real
 antes de decir que algo anda.
+
+---
+
+# Adenda — decisiones y bugs reportados al cierre
+
+## Bugs reportados probando con un alumno real (Alejandro José Arroyave)
+
+**Sin verificar todavía en el código. Son reportes del entrenador, no
+diagnósticos.**
+
+1. **Fotos de progreso — no se puede poner la fecha real.** Cuando el alumno
+   sube fotos "de antes" desde la galería privada, no tiene dónde indicar la
+   fecha en que fueron tomadas: quedan con la fecha de subida. Subió dos y
+   **las dos quedaron con la misma fecha**.
+2. **Fotos — no sumaron puntos.** Al subir esas dos fotos no se le acreditó
+   nada. Revisar `registrarFoto` / `recalcularFotoSemana` en
+   `lib/ranking/movimientos.ts`: puede estar ligado al bug de fecha (si las dos
+   caen en la misma semana, la segunda no suma — habría que confirmar si eso
+   es correcto o no).
+3. **"Continuar" manda a la sesión equivocada.** El alumno estaba ejecutando la
+   **sesión 6**; volvió a Inicio, tocó "Continuar" y lo mandó a la **sesión 7**.
+   Pedido explícito: *"siempre tiene que estar sobrepuesta la rutina que se
+   está ejecutando"* — el botón debe retomar la sesión EN CURSO, no la
+   siguiente del plan. **Le pasa con varios alumnos**, no es un caso aislado.
+
+## Modelo de brazos (decisión del entrenador, confirmarla antes de codear)
+
+Lo que hoy existe mezcla subgrupos con enfoques. Como lo quiere él:
+
+- **Subgrupos de brazo, solo tres**: bíceps · tríceps · **antebrazo**.
+- **Enfoque** (dentro de cada subgrupo, NO es un subgrupo):
+  - Bíceps: cabeza larga · cabeza corta · braquial
+  - Tríceps: cabeza larga · lateral · medial
+- Lo que aparezca como "supino neutro", "polea sobre cabeza" o "compuesto" no
+  es subgrupo: es enfoque, o sobra.
+- **Antebrazo no existe todavía** como grupo con ejercicios cargados.
+
+## Cerrado, no volver a tocar
+
+- **Karin**: resuelto por el entrenador con la pantalla nueva de otorgar puntos.
+- **Penalización por descanso excedido**: se queda como está. No es un bug —
+  le sirve para que los alumnos no se eternicen entre series y para controlar
+  el tiempo en sala. Yo la había marcado como sospechosa; él la confirmó.
+
+## Prioridad actualizada (palabras del entrenador)
+
+**Importantes**: guardar el progreso al armar · reordenar ejercicios ·
+achicar los cuadros para el celular · zoom de tamaño · micrófono (si no es
+complejo) · rutinas generadas por alumno para reabrir y editar · contador de
+consumo y saldo (si no es complicado) · conocimiento de culturismo sin
+colapsar la pantalla · arreglar los subgrupos de brazo.
+
+**Después**: auditoría del generador.
+
+**No las recordaba / no les ve el sentido todavía** — explicadas, esperando su
+decisión de si valen la pena: unificar las tres puertas en pestañas;
+plantillas y duplicar la semana anterior; los tres perfiles de entrenador.
