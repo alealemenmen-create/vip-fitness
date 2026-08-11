@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   Salad,
   Settings,
+  Sparkles,
   ShieldCheck,
   Trophy,
   Users,
@@ -49,6 +50,7 @@ const SIDEBAR_GROUPS = [
       { href: "/admin/generador", label: "Generador de rutinas", icon: WandSparkles, section: "generador" },
       { href: "/admin/documentos", label: "Documentos", icon: FileText, section: "documentos" },
       { href: "/admin/ejercicios", label: "Ejercicios", icon: Dumbbell, section: "ejercicios" },
+      { href: "/admin/puntos", label: "Otorgar puntos", icon: Sparkles, section: "puntos" },
     ],
   },
   {
@@ -78,6 +80,7 @@ const SIDEBAR_GROUPS = [
 
 const MORE_PREFIXES = [
   "/admin/configuracion",
+  "/admin/puntos",
   "/admin/ejercicios",
   "/admin/asistente",
   "/admin/ingresos",
