@@ -26,13 +26,24 @@ export function FinalizarEntrenamiento({
   const pendientes = total - completados;
   const pct = total > 0 ? Math.round((completados / total) * 100) : 0;
   const puntos = calcularPuntosEntrenamiento(completados, total);
+  // Reportado por varios alumnos: "mucho protocolo para finalizar". Las dos
+  // pantallas de confirmación tienen sentido cuando quedan ejercicios sin
+  // hacer (ahí sí hay algo que se pierde si finaliza por error), pero con
+  // TODO completado no hay nada que arriesgar — preguntar dos veces ahí solo
+  // frena a quien ya terminó. Sin quedar en cero confirmaciones: sigue
+  // habiendo una sola pantalla antes de acreditar los puntos, y además queda
+  // "Corregir registro" (ReabrirSesionBoton) por si se tocó de más.
+  const abrir = () => {
+    setAbierto(true);
+    setUltimaConfirmacion(pendientes <= 0);
+  };
 
   if (!abierto) {
     if (compacto && !esDescanso) {
       return (
         <button
           type="button"
-          onClick={() => setAbierto(true)}
+          onClick={abrir}
           className="boton-finalizar-celebracion group flex min-h-[72px] w-full items-center gap-3 rounded-[20px] px-4 text-left text-black active:scale-[0.985]"
         >
           <span className="grid size-11 shrink-0 place-items-center rounded-full bg-black/15 ring-1 ring-black/15">
@@ -52,7 +63,7 @@ export function FinalizarEntrenamiento({
     }
 
     return (
-      <Button variant="accion" size={compacto ? "xs" : "lg"} onClick={() => setAbierto(true)} className="w-full">
+      <Button variant="accion" size={compacto ? "xs" : "lg"} onClick={abrir} className="w-full">
         {esDescanso ? "Marcar día como completado" : `Finalizar y sumar +${puntos} pts`}
       </Button>
     );

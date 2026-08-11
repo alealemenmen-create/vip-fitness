@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AlertTriangle, ArrowLeft, Check, ChevronDown, Coffee, PencilRuler, Search, SlidersHorizontal } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -8,6 +8,11 @@ import { Input, Select } from "@/components/ui/Input";
 import { RutinaDraftEditor, type TecnicaOpcion } from "@/components/admin/RutinaDraftEditor";
 import { generarBorradorRutina } from "@/app/admin/generador/actions";
 import { briefDesdeNivel, NIVELES_ARMADO, type NivelArmado } from "@/lib/generador-rutinas/niveles-armado";
+import {
+  guardarAsistenteArmado,
+  leerAsistenteArmado,
+  limpiarAsistenteArmado,
+} from "@/lib/generador-rutinas/asistente-armado-local";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { PatronMovimiento } from "@/lib/rutinas/patrones";
 import type { CodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
@@ -96,6 +101,26 @@ const NIVELES: NivelArmado[] = ["principiante", "intermedio", "avanzado", "olymp
 
 type GrupoPlan = "pecho" | "espalda" | "piernas" | "hombros" | "biceps" | "triceps" | "core";
 type SesionPlan = { grupos: GrupoPlan[]; focos: string[]; ejerciciosPorGrupo: Partial<Record<GrupoPlan, number>>; descansoDespues: boolean; tipoDescanso: string };
+
+/** Todo lo que hace falta para retomar el asistente exactamente donde quedó
+ * (ver `asistente-armado-local.ts`). `busqueda`, `error` y `pendiente` quedan
+ * afuera a propósito: son ruido de la sesión de edición, no del avance. */
+type EstadoAsistente = {
+  seleccionados: string[];
+  nivel: NivelArmado;
+  dias: number;
+  minutos: number;
+  rutina: RutinaExtraida | null;
+  alertas: string[];
+  seleccionando: boolean;
+  disenandoEstructura: boolean;
+  sesionesPlan: SesionPlan[];
+  sesionActiva: number;
+  configuracionManual: boolean;
+  seriesManuales: number;
+  repeticionesManuales: string;
+  ejerciciosPlaneadosPorDia: Record<number, Record<string, number>>;
+};
 
 const RECOMENDACION_NIVEL: Record<NivelArmado, { series: number; bases: string; accesorios: string }> = {
   principiante: { series: 2, bases: "10-12", accesorios: "12-15" },
@@ -188,6 +213,107 @@ export function ArmarRutinaPanel({
   const [repeticionesManuales, setRepeticionesManuales] = useState("8-12");
   const [ejerciciosPlaneadosPorDia, setEjerciciosPlaneadosPorDia] = useState<Record<number, Record<string, number>>>({});
   const [pendiente, iniciar] = useTransition();
+
+  // ── Guardado automático del asistente (steps 1 a 4) ───────────────────
+  // Reportado por el entrenador: a mitad del asistente —elegir alumno, nivel,
+  // diseñar la estructura— si se iba a otra pestaña (Documentos, Alimentos,
+  // Alumnos...) y volvía, todo se borraba y tenía que empezar de nuevo. Este
+  // componente se desmonta con la ruta, así que el estado de React se pierde
+  // con él. Se restaura solo, sin preguntar (a diferencia del borrador de la
+  // mesa de trabajo): acá no hay ambigüedad de "¿esto es lo que estaba
+  // armando o algo nuevo?", es la misma pantalla un momento después.
+  const yaMontoAsistente = useRef(false);
+
+  useEffect(() => {
+    // Diferido un tick: `localStorage` no existe en el servidor y el primer
+    // render tiene que salir igual en servidor y cliente para no desajustar
+    // la hidratación (mismo patrón que ZoomPanel/ThemeToggle).
+    const id = window.setTimeout(() => {
+      const guardado = leerAsistenteArmado<EstadoAsistente>();
+      if (!guardado) return;
+      setSeleccionados(new Set(guardado.seleccionados));
+      setNivel(guardado.nivel);
+      setDias(guardado.dias);
+      setMinutos(guardado.minutos);
+      setRutina(guardado.rutina);
+      setAlertas(guardado.alertas);
+      setSeleccionando(guardado.seleccionando);
+      setDisenandoEstructura(guardado.disenandoEstructura);
+      setSesionesPlan(guardado.sesionesPlan);
+      setSesionActiva(guardado.sesionActiva);
+      setConfiguracionManual(guardado.configuracionManual);
+      setSeriesManuales(guardado.seriesManuales);
+      setRepeticionesManuales(guardado.repeticionesManuales);
+      setEjerciciosPlaneadosPorDia(guardado.ejerciciosPlaneadosPorDia);
+    }, 0);
+    return () => window.clearTimeout(id);
+    // Solo al montar.
+  }, []);
+
+  useEffect(() => {
+    // El primer render no debe pisar lo guardado con el estado inicial vacío
+    // antes de que el efecto de arriba alcance a leerlo.
+    if (!yaMontoAsistente.current) {
+      yaMontoAsistente.current = true;
+      return;
+    }
+    guardarAsistenteArmado<EstadoAsistente>({
+      seleccionados: [...seleccionados],
+      nivel,
+      dias,
+      minutos,
+      rutina,
+      alertas,
+      seleccionando,
+      disenandoEstructura,
+      sesionesPlan,
+      sesionActiva,
+      configuracionManual,
+      seriesManuales,
+      repeticionesManuales,
+      ejerciciosPlaneadosPorDia,
+    });
+  }, [
+    seleccionados,
+    nivel,
+    dias,
+    minutos,
+    rutina,
+    alertas,
+    seleccionando,
+    disenandoEstructura,
+    sesionesPlan,
+    sesionActiva,
+    configuracionManual,
+    seriesManuales,
+    repeticionesManuales,
+    ejerciciosPlaneadosPorDia,
+  ]);
+
+  /** "Descartar" en la mesa de trabajo y "Cargar otra rutina" después de
+   * publicar usan el mismo botón: las dos veces el entrenador terminó con
+   * este borrador. Reinicia TODO el asistente, no solo `rutina` — si no, la
+   * próxima vez volvía a aparecer el alumno viejo pre-marcado. */
+  const reiniciarAsistente = () => {
+    setSeleccionados(new Set());
+    setNivel("intermedio");
+    setDias(3);
+    setMinutos(60);
+    setBusqueda("");
+    setRutina(null);
+    setAlertas([]);
+    setError(null);
+    setSeleccionando(true);
+    setMostrarFicha(false);
+    setDisenandoEstructura(false);
+    setSesionesPlan(sesionesIniciales(3));
+    setSesionActiva(0);
+    setConfiguracionManual(false);
+    setSeriesManuales(3);
+    setRepeticionesManuales("8-12");
+    setEjerciciosPlaneadosPorDia({});
+    limpiarAsistenteArmado();
+  };
 
   // La misma rutina puede ir a varias personas: el motor ya lo soporta con
   // `alumnoIds`. Para los datos que hay que mostrar (ficha, plan) se usa el
@@ -284,6 +410,10 @@ export function ArmarRutinaPanel({
           <button type="button" onClick={() => { setRutina(null); setDisenandoEstructura(true); }} className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-[#8fb7d8]">
             <ArrowLeft size={13} /> Atrás
           </button>
+          {/* Este botón vuelve a "Diseñar estructura" (sigue siendo el mismo
+              alumno, se sigue armando). El reinicio completo es solo en
+              `onDescartar`, más abajo, donde el entrenador de verdad terminó
+              con esta rutina. */}
           <PencilRuler size={13} className="shrink-0 text-vip" />
           <p className="text-caption min-w-0 flex-1 truncate font-semibold text-text">
             {elegidos.length === 1 ? alumno.nombre : `${elegidos.length} alumnos`} · {NIVELES_ARMADO[nivel].etiqueta}
@@ -320,7 +450,7 @@ export function ArmarRutinaPanel({
           mesaDeTrabajo
           alumnoIds={[...seleccionados]}
           draftInicial={rutina}
-          onDescartar={() => setRutina(null)}
+          onDescartar={reiniciarAsistente}
           ejercicios={ejercicios}
           tecnicas={tecnicas}
           planInicial={planComun}

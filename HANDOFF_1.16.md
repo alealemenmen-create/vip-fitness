@@ -8,19 +8,65 @@ Continúa el 1.15 (misma sesión, tramo posterior). Leer los dos.
 
 ## Punto de regreso
 
-- `main` a la par con `origin/main` en commits, pero **local va adelante y sin
-  subir**. Último commit **subido**: `ee374c1`.
-- Commits locales sin push: `488142b` (los 3 bugs + 7 funciones de la sesión
-  del 11/08) y uno más encima con 6 bugs de lógica encontrados en una
-  auditoría de código posterior (ver «Auditoría de lógica» más abajo).
-- Producción al día y sin tocar. **Ninguna migración aplicada** (falta correr
-  `0065_saldo_y_consumo_ia.sql`).
-- `tsc` limpio · **279 pruebas** (28 archivos, +2 de la auditoría) · eslint 0
-  errores en todo lo tocado. Quedan 3 errores viejos en
-  `SesionEjercicioCard.tsx` (`setState` en un efecto), no tocados.
+- `main` **subido hasta `1375904`** (los 3 bugs + 7 funciones del 11/08 más la
+  auditoría de lógica de 6 bugs). Producción tiene todo eso desplegado.
+- **Migración `0065_saldo_y_consumo_ia.sql` corrida por Alejandro.** El panel
+  de saldo de IA ya puede usarse — falta cargar el saldo inicial a mano en
+  Configuración si todavía no se hizo.
+- Hay trabajo NUEVO local sin commitear: persistencia del asistente de
+  "Armar rutina" y menos protocolo para finalizar un entrenamiento (ver
+  «Sesión del 11/08, tercer tramo» más abajo).
+- `tsc` limpio · **286 pruebas** (29 archivos) · eslint 0 errores en todo lo
+  tocado. Quedan 3 errores viejos en `SesionEjercicioCard.tsx` (`setState` en
+  un efecto), no tocados.
 - Leer también la ADENDA al final: ahí están los bugs reportados con un alumno
   real y las decisiones de última hora, que son el punto de partida real.
 - Locales sin subir, intactos: `Rutinas Alejandro/`, `respaldo-cloud-ia-2026-08-09.bundle`, `tmp/`.
+
+## Sesión del 11/08, tercer tramo — dos pedidos nuevos de Alejandro
+
+**1. "Armar rutina" se borraba al cambiar de pestaña.** Reportado: elegir
+alumno, avanzar por los pasos (nivel, estructura semanal) y si en el medio se
+iba a Documentos/Alimentos/Alumnos/cualquier otro lado, todo se perdía al
+volver — tenía que empezar de nuevo. Causa: `ArmarRutinaPanel` es un árbol de
+estado de React sin persistencia propia; Next.js lo desmonta al cambiar de
+ruta. El borrador de la mesa de trabajo (`borrador-local.ts`, ya existía) no
+alcanzaba a ayudar porque ni siquiera llegaba a montarse: `ArmarRutinaPanel`
+volvía a mostrar el paso 1 antes de llegar ahí.
+
+Nuevo módulo `src/lib/generador-rutinas/asistente-armado-local.ts`: guarda
+TODO el asistente (alumno elegido, nivel, estructura semanal, la rutina en
+armado) en una sola clave de `localStorage`, **se restaura solo, sin
+preguntar** — a diferencia de la mesa de trabajo, acá no hay ambigüedad de "¿o
+esto es otra rutina?": es la misma pantalla, mismo entrenador, cambió de
+pestaña un momento. Vence a las 24 horas. `onDescartar` (el botón "Descartar"
+de la mesa de trabajo y "Cargar otra rutina" después de publicar) ahora
+reinicia el asistente completo, no solo la rutina — si no, la próxima vez
+volvía a aparecer el alumno viejo pre-marcado. **Verificado con clic real**:
+elegido alumno + nivel Avanzado + estructura con Piernas+Hombros en sesión 3,
+navegado a Documentos y de vuelta → quedó exactamente ahí. Descartar también
+verificado: vuelve limpio al paso 1.
+
+**2. "Mucho protocolo para finalizar" — alumnos reales no terminaban la
+sesión.** Diagnóstico en el código (`FinalizarEntrenamiento.tsx`): finalizar
+pedía DOS pantallas de confirmación seguidas ("¿Seguro que quieres
+finalizar?" → "Última confirmación" con formulario) antes de acreditar los
+puntos, incluso con el 100% de los ejercicios ya hechos. El progreso de cada
+ejercicio YA se autoguarda solo (no es eso lo que se perdía — confirmado
+leyendo `SesionEjercicios.tsx`). Corregido: con cero ejercicios pendientes
+salta directo a la única pantalla real (comentario opcional + confirmar), sin
+la pregunta redundante de en medio. Con ejercicios pendientes sigue
+preguntando las dos veces, que ahí sí evita perder trabajo por error. No
+queda en cero confirmaciones a propósito, y además ya existía
+`ReabrirSesionBoton` ("Corregir registro") para deshacer un toque
+equivocado sin perder ni duplicar puntos — es lo que cubre el "que se guarde
+por error, déjame retroceder" del pedido.
+**Verificado con clic real el camino que NO cambió** (con ejercicios
+pendientes, sigue preguntando dos veces — sin regresión). **El camino nuevo
+(100% completado, una sola pantalla) se verificó por lectura de código, no
+con clic real**: automatizar el llenado de las 30 series de una sesión de 10
+ejercicios para forzar el 100% resultó poco práctico en esta sesión de
+trabajo — probarlo con un toque real antes de darlo por cerrado del todo.
 
 ## Auditoría de lógica del 11/08 (segundo tramo) — 6 bugs encontrados y corregidos
 
