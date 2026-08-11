@@ -14,7 +14,7 @@ import { ConfiguracionAsistenteVip } from "@/components/admin/ConfiguracionAsist
 import { GavetaConfig } from "@/components/admin/GavetaConfig";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
-import { Bot, ChevronRight, Images, LogIn, Megaphone, ShieldAlert, Trophy } from "lucide-react";
+import { Bot, ChevronRight, Images, LogIn, Megaphone, ShieldAlert, Sparkles, Trophy } from "lucide-react";
 import { obtenerNovedades } from "@/lib/novedades";
 import { Novedades } from "@/components/admin/Novedades";
 import { obtenerHallazgosPendientes } from "@/lib/auditoria/data";
@@ -94,6 +94,19 @@ export default async function ConfiguracionAdminPage() {
                 ? "Nadie en el gimnasio ahora"
                 : `${activosAhora} ${activosAhora === 1 ? "alumno" : "alumnos"} en el gimnasio ahora`}
             </span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
+        </Card>
+      </Link>
+      {/* En el celular esta pantalla es "Más", y es la única puerta a las
+          secciones que no entran en la barra de abajo. Sin esta tarjeta,
+          Otorgar puntos solo se alcanzaba escribiendo la URL. */}
+      <Link href="/admin/puntos" className="block h-full">
+        <Card className="flex h-full items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-vip/15 text-vip"><Sparkles size={20} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="text-secondary block font-semibold text-text">Otorgar puntos</span>
+            <span className="text-caption block text-text-tertiary">Reponer puntos perdidos por una falla o premiar algo puntual</span>
           </span>
           <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
         </Card>
