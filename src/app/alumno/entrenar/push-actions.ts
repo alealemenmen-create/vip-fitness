@@ -91,10 +91,17 @@ async function enviarPush(
  *
  * El texto cambia según lo que dejó hecho, porque no es lo mismo pedirle que
  * cierre algo que ya terminó que pedirle que vuelva a mitad de camino.
+ *
+ * **La espera NO puede pasar de `maxDuration`** (300s en la página de sesión,
+ * ver `sesion/[id]/page.tsx`): `after()` corre dentro de la misma invocación,
+ * así que una espera más larga la corta la plataforma y el aviso no sale
+ * nunca. Por eso 240s y no los 12 minutos que parecerían más razonables —
+ * subir el techo es un cambio de plataforma, no de este archivo. Quedan 60s
+ * de margen para las dos consultas y el envío.
  */
 export async function programarAvisoSesionSinCerrar(
   sesionId: string,
-  minutos = 12
+  segundos = 240
 ): Promise<void> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura || !sesionId) return;
@@ -108,7 +115,7 @@ export async function programarAvisoSesionSinCerrar(
   if (!suscripciones || suscripciones.length === 0) return;
 
   after(async () => {
-    await esperar(minutos * 60 * 1000);
+    await esperar(segundos * 1000);
 
     // La sesión tiene que seguir abierta Y seguir siendo de este alumno.
     const { data: sesion } = await admin
