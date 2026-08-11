@@ -1593,9 +1593,11 @@ export interface Database {
           creado_en: string;
         };
         Insert: {
+          id?: string;
           titulo: string;
           resumen: string;
           categoria?: "arreglo" | "mejora" | "funcion_nueva";
+          creado_en?: string;
         };
         Update: {
           titulo?: string;

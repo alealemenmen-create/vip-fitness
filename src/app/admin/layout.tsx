@@ -12,22 +12,27 @@ import { LogoutButton } from "@/components/LogoutButton";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ZoomPanel } from "@/components/admin/ZoomPanel";
-import { AlternarPanelLateral } from "@/components/admin/AlternarPanelLateral";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const sesion = await requireRol(["entrenador", "admin"]);
-  // El primer acceso al panel confirma que el despliegue de producción logró
-  // servir la app y lo agrega al historial antes de calcular las novedades.
-  await registrarDespliegueActual();
   const supabase = await createClient();
 
-  const { data: miAlumnoPerfil } = await supabase
+  // El registro de la versión debe terminar antes de leer las novedades, pero
+  // puede correr en paralelo con el resto de consultas del layout.
+  const registroDespliegue = registrarDespliegueActual();
+  const miAlumnoPerfilPromise = supabase
     .from("alumno_perfil")
     .select("user_id")
     .eq("user_id", sesion.userId)
     .maybeSingle();
 
-  const [{ count: alimentosPendientes }, { count: solicitudesPendientes }, novedades] = await Promise.all([
+  const [
+    { data: miAlumnoPerfil },
+    { count: alimentosPendientes },
+    { count: solicitudesPendientes },
+    novedades,
+  ] = await Promise.all([
+    miAlumnoPerfilPromise,
     supabase
       .from("alimentos")
       .select("id", { count: "exact", head: true })
@@ -40,7 +45,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     // Solo las fechas: es lo único que necesita el contador de "sin ver" de
     // la navegación (ver `lib/novedades-vistas-local.ts`), y no vale la pena
     // mandar título/resumen de todas al cliente en cada carga del panel.
-    obtenerNovedades(10),
+    registroDespliegue.then(() => obtenerNovedades(10)),
   ]);
 
   const badges = {
@@ -51,11 +56,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="admin-shell fixed inset-0 flex overflow-hidden bg-bg">
-      {/* Solo se dibuja cuando la barra está oculta (lo decide el CSS con
-          `data-panel-admin`); es la única forma de volver a abrirla. */}
-      <AlternarPanelLateral modo="abrir" />
-
-      <aside className="admin-sidebar hidden w-72 shrink-0 flex-col overflow-y-auto border-r border-border px-4 md:flex">
+      <aside className="admin-sidebar hidden w-72 shrink-0 flex-col border-r border-border px-4 md:flex">
         <div className="shrink-0 border-b border-border pb-4 pt-5">
           <Logo
             compact
@@ -64,7 +65,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <span className="flex items-center gap-1.5">
                 <ZoomPanel />
                 <ThemeToggle />
-                <AlternarPanelLateral modo="cerrar" />
               </span>
             }
           />

@@ -102,7 +102,9 @@ export function patronMovimiento(nombre: string, grupoMuscular: string | null | 
     if (/frontal/.test(n)) return "hombro_anterior";
   }
 
-  if (["brazos", "brazo", "biceps", "triceps"].includes(grupo) || /biceps|triceps|curl/.test(n)) {
+  // "Curl" también describe la flexión de rodilla. El grupo explícito
+  // `piernas` manda para que "curl femoral" no se clasifique como bíceps.
+  if (["brazos", "brazo", "biceps", "triceps"].includes(grupo) || (grupo !== "piernas" && /biceps|triceps|curl/.test(n))) {
     if (grupo === "triceps" || /triceps|extension|press frances|press cerrado|fondos|patada|pushdown/.test(n)) {
       if (/sobre.*cabeza|por encima|tras nuca|overhead|copa|frances/.test(n)) return "triceps_sobre_cabeza";
       if (/fondos|press cerrado/.test(n)) return "triceps_compuesto";

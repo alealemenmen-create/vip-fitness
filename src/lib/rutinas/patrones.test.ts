@@ -11,4 +11,8 @@ describe("patronMovimiento por grupo muscular explícito", () => {
     expect(patronMovimiento("Flexión con barra", "Bíceps")).toBe("biceps_supinado");
     expect(patronMovimiento("Martillo alternado", "BICEPS")).toBe("biceps_neutro");
   });
+
+  it("no confunde el curl femoral con un ejercicio de bíceps", () => {
+    expect(patronMovimiento("Curl femoral", "piernas")).toBe("pierna_flexion_rodilla");
+  });
 });

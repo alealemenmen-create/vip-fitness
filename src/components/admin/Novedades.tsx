@@ -9,10 +9,9 @@ const ESTILO_CATEGORIA: Record<Novedad["categoria"], { icono: React.ReactNode; e
   funcion_nueva: { icono: <Plus size={13} />, etiqueta: "Función nueva", color: "var(--color-success)" },
 };
 
-/** Lista de novedades de la app, de más reciente a más vieja — para que el
- * entrenador lleve el control de qué fue cambiando sin tener que preguntar
- * cada vez. Se agregan a mano después de cada cambio real (ver
- * `lib/novedades.ts`); esto solo las muestra. */
+/** Lista de novedades de la app, de más reciente a más vieja. Los despliegues
+ * de producción se registran automáticamente; las explicaciones manuales
+ * anteriores siguen apareciendo en la misma lista. */
 export function Novedades({ novedades }: { novedades: Novedad[] }) {
   if (novedades.length === 0) {
     return (

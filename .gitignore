@@ -27,6 +27,11 @@
 *.pem
 .claude/scheduled_tasks.lock
 
+# Material privado entregado por el entrenador para calibrar el Motor VIP 2.0.
+# Puede contener nombres, antecedentes o documentos de alumnos y nunca debe
+# subirse al repositorio.
+/datos-locales/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

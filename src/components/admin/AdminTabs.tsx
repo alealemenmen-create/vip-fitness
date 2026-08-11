@@ -21,6 +21,7 @@ import {
   Users,
   WandSparkles,
   PencilRuler,
+  FlaskConical,
 } from "lucide-react";
 import { contarNovedadesSinVer } from "@/lib/novedades-vistas-local";
 
@@ -55,6 +56,7 @@ const SIDEBAR_GROUPS = [
       // afinar cada detalle antes de generar.
       { href: "/admin/armar-rutina", label: "Armar rutina", icon: PencilRuler, section: "armar-rutina" },
       { href: "/admin/generador", label: "Generador de rutinas", icon: WandSparkles, section: "generador" },
+      { href: "/admin/generador-v2", label: "Generador 2.0 · Lab", icon: FlaskConical, section: "generador-v2" },
       { href: "/admin/documentos", label: "Documentos", icon: FileText, section: "documentos" },
       // Reabrir lo ya hecho: con 68 alumnos, la mayoría de las rutinas nuevas
       // son una variación de la anterior de esa misma persona.
@@ -107,7 +109,7 @@ function estaActivo(pathname: string, href: string, section: string) {
     return pathname.startsWith("/admin/alumnos") || pathname.startsWith("/admin/solicitudes");
   }
   if (section === "mas") return MORE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-  return pathname.startsWith(href);
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function pendientesDe(

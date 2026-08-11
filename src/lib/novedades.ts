@@ -10,15 +10,17 @@ export type Novedad = {
 };
 
 /** Últimas novedades de la app para el entrenador — ver migración 0045.
- * Se agregan a mano (vía script) después de cada cambio real que se sube a
- * producción; esto solo lee y muestra. */
-export async function obtenerNovedades(limite = 40): Promise<Novedad[]> {
+ * Las entradas nuevas de producción se registran desde `novedades-deploy.ts`;
+ * esta consulta mezcla ese historial automático con las explicaciones
+ * manuales anteriores. */
+export async function obtenerNovedades(limite?: number): Promise<Novedad[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let consulta = supabase
     .from("registro_cambios")
     .select("id, titulo, resumen, categoria, creado_en")
-    .order("creado_en", { ascending: false })
-    .limit(limite);
+    .order("creado_en", { ascending: false });
+  if (limite !== undefined) consulta = consulta.limit(limite);
+  const { data, error } = await consulta;
 
   // Degrada con gracia si la migración 0045 todavía no corrió — mismo
   // criterio que el resto de Impulso VIP.

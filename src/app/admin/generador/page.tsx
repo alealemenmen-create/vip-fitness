@@ -7,7 +7,7 @@ import { ArmarRutinaPanel, type AlumnoArmado } from "@/components/admin/ArmarRut
 import { resolverPlanEntrenamiento } from "@/lib/planes-entrenamiento";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { Dumbbell, FileText, History, WandSparkles } from "lucide-react";
+import { Dumbbell, FileText, FlaskConical, History, WandSparkles } from "lucide-react";
 
 /** La revisión con IA es la operación más larga de toda la app: audita la
  * semana completa contra la ficha del alumno y puede tardar minutos. Sin este
@@ -117,6 +117,15 @@ export default async function GeneradorPage({
         <h1 className="text-lg font-bold text-text">Armar rutina</h1>
         <p className="text-micro text-text-tertiary">Elige al alumno y empieza. Las reglas trabajan mientras tú decides.</p>
       </header>
+
+      <nav className="inline-flex rounded-xl border border-border bg-surface p-1" aria-label="Versiones del generador">
+        <span aria-current="page" className="flex items-center gap-2 rounded-lg bg-vip px-3 py-2 text-sm font-bold text-white">
+          <WandSparkles size={16} /> Actual
+        </span>
+        <Link href="/admin/generador-v2" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-text-secondary hover:text-text">
+          <FlaskConical size={16} /> Generador 2.0
+        </Link>
+      </nav>
 
       <ArmarRutinaPanel
         alumnos={alumnosArmado}
