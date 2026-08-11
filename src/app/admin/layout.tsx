@@ -5,14 +5,20 @@ import { createClient } from "@/lib/supabase/server";
 import { nombrePublicado } from "@/lib/nombre";
 import { crearMiPerfilAlumno } from "@/app/admin/alumnos/actions";
 import { obtenerNovedades } from "@/lib/novedades";
+import { registrarDespliegueActual } from "@/lib/novedades-deploy";
 import { AdminTabs } from "@/components/admin/AdminTabs";
+import { AvisoNuevaActualizacion } from "@/components/admin/AvisoNuevaActualizacion";
 import { LogoutButton } from "@/components/LogoutButton";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ZoomPanel } from "@/components/admin/ZoomPanel";
+import { AlternarPanelLateral } from "@/components/admin/AlternarPanelLateral";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const sesion = await requireRol(["entrenador", "admin"]);
+  // El primer acceso al panel confirma que el despliegue de producción logró
+  // servir la app y lo agrega al historial antes de calcular las novedades.
+  await registrarDespliegueActual();
   const supabase = await createClient();
 
   const { data: miAlumnoPerfil } = await supabase
@@ -45,7 +51,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="admin-shell fixed inset-0 flex overflow-hidden bg-bg">
-      <aside className="admin-sidebar hidden w-72 shrink-0 flex-col border-r border-border px-4 md:flex">
+      {/* Solo se dibuja cuando la barra está oculta (lo decide el CSS con
+          `data-panel-admin`); es la única forma de volver a abrirla. */}
+      <AlternarPanelLateral modo="abrir" />
+
+      <aside className="admin-sidebar hidden w-72 shrink-0 flex-col overflow-y-auto border-r border-border px-4 md:flex">
         <div className="shrink-0 border-b border-border pb-4 pt-5">
           <Logo
             compact
@@ -54,6 +64,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <span className="flex items-center gap-1.5">
                 <ZoomPanel />
                 <ThemeToggle />
+                <AlternarPanelLateral modo="cerrar" />
               </span>
             }
           />
@@ -142,6 +153,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
         <AdminTabs {...badges} />
       </div>
+
+      <AvisoNuevaActualizacion novedad={novedades[0] ?? null} />
     </div>
   );
 }

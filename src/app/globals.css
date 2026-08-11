@@ -138,6 +138,47 @@ body {
     radial-gradient(circle at 24% 115%, color-mix(in srgb, var(--color-acento) 5%, transparent), transparent 30%),
     var(--color-bg);
 }
+/* Mostrar/ocultar la barra lateral del panel del entrenador (ver
+   AlternarPanelLateral.tsx). El atributo lo escribe ese componente en el
+   <html>; acá solo se traduce a qué se ve. */
+@media (min-width: 768px) {
+  :root[data-panel-admin="oculto"] .admin-sidebar {
+    display: none;
+  }
+}
+.boton-mostrar-panel-lateral {
+  display: none;
+}
+/* El botón para volver a abrirla aparece solo cuando está cerrada. Flotante y
+   arriba a la izquierda, que es de donde salió la barra: queda claro qué va a
+   pasar al tocarlo. En el celular vertical no se muestra nunca — ahí manda la
+   barra de abajo, no la lateral. */
+@media (min-width: 768px) {
+  :root[data-panel-admin="oculto"] .boton-mostrar-panel-lateral {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid color-mix(in srgb, var(--color-vip) 35%, var(--color-border));
+    border-radius: 11px;
+    background: var(--color-surface);
+    color: var(--color-vip);
+    box-shadow: 0 10px 24px -16px rgba(0, 0, 0, 0.8);
+  }
+}
+/* Con la barra cerrada, el contenido arranca donde estaba el botón: sin esto
+   el botón flotante tapaba el título de la pantalla. */
+@media (min-width: 768px) {
+  :root[data-panel-admin="oculto"] .admin-shell main {
+    padding-left: 56px;
+  }
+}
+
 .admin-sidebar {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 96%, var(--color-vip)) 0%, var(--color-surface) 44%, color-mix(in srgb, var(--color-bg) 82%, var(--color-surface)) 100%);
