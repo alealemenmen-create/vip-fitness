@@ -1,9 +1,8 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
 import { SesionGrupoCard } from "@/components/student/SesionGrupoCard";
@@ -104,20 +103,34 @@ export function SesionEjercicios({
   const handles = useRef(new Map<string, SesionEjercicioCardHandle>());
   const ejercicioActivoId = calcularActivo(ejercicios);
   const grupos = agruparPorTecnica(ejercicios);
-  const [guardado, setGuardado] = useState(false);
   const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
   const indiceActivo = Math.max(
     0,
     grupos.findIndex((grupo) => grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId))
   );
   const [indiceVisible, setIndiceVisible] = useState(indiceActivo);
+  // Con 8-10 ejercicios la tira no entra entera y hay que desplazarla. Se
+  // centra sola en el que se está mirando: si no, al entrar a mitad de sesión
+  // el casillero activo quedaba fuera de la parte visible.
+  const pistaRef = useRef<HTMLDivElement>(null);
+  const casilleroActivoRef = useRef<HTMLButtonElement>(null);
 
-  // Se conserva la tarjeta actual después de guardar: el próximo paso se
-  // indica iluminando “Siguiente”, en vez de mover la pantalla sin avisar.
-  const guardarTodo = () => {
+  useEffect(() => {
+    casilleroActivoRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [indiceVisible]);
+
+  /**
+   * Cambiar de ejercicio guarda lo que haya cargado en el que se deja.
+   *
+   * Solo se monta la tarjeta que se está mirando, así que moverse la desmonta:
+   * sin esto, unos kilos escritos y no confirmados con "Listo" solo quedaban
+   * en el respaldo del teléfono. Ahora cada movimiento por la barra los manda
+   * también al servidor — y ese es el reemplazo real del botón "Guardar" que
+   * se sacó, sin pedirle al alumno que se acuerde de nada.
+   */
+  const irA = (indice: number) => {
     handles.current.forEach((handle) => handle.guardar());
-    setGuardado(true);
-    window.setTimeout(() => setGuardado(false), 2500);
+    setIndiceVisible(indice);
   };
 
   const avanzarDesdeEncuesta = (grupo: EjercicioSesion[]) => {
@@ -166,40 +179,72 @@ export function SesionEjercicios({
   const grupoVisible = grupos[indiceVisible] ?? grupos[0];
   const tituloVisible = grupoVisible?.map((ej) => ej.nombre).join(" + ") ?? "Entrenamiento";
 
+  /* Los puntitos de antes decían "vas por el 3 de 7" pero no cuál era cada
+     uno, así que para revisar un ejercicio había que ir tocando Siguiente a
+     ciegas. Ahora en el medio va la rutina entera —un casillero por ejercicio,
+     numerado— y el que se está mirando lleva borde violeta. Anterior y
+     Siguiente se achicaron a solo la flecha y se corrieron a los extremos:
+     ese ancho es justo el que necesitaba la fila de casilleros. */
   const navegacion = grupoVisible ? (
     <nav className="navegacion-modo-enfocado navegacion-modo-enfocado-fija" aria-label="Navegar por los ejercicios">
       <button
         type="button"
-        onClick={() => setIndiceVisible((indice) => Math.max(0, indice - 1))}
+        onClick={() => irA(Math.max(0, indiceVisible - 1))}
         disabled={indiceVisible === 0}
-        className="boton-navegacion-ejercicio"
+        className="boton-navegacion-ejercicio boton-navegacion-atras"
+        aria-label="Ejercicio anterior"
+        title="Ejercicio anterior"
       >
-        <ChevronLeft size={18} /> Anterior
+        <ChevronLeft size={17} strokeWidth={3} />
+        <ChevronLeft size={17} strokeWidth={3} className="-ml-2.5" />
       </button>
 
-      <div className="flex items-center justify-center gap-1.5" aria-label={`Ejercicio ${indiceVisible + 1} de ${grupos.length}`}>
+      <div
+        ref={pistaRef}
+        className="tira-ejercicios-rutina"
+        aria-label={`Ejercicio ${indiceVisible + 1} de ${grupos.length}`}
+      >
         {grupos.map((grupo, indice) => (
           <button
             key={grupo[0].sesionEjercicioId}
             type="button"
-            onClick={() => setIndiceVisible(indice)}
-            className="punto-rutina"
+            ref={indice === indiceVisible ? casilleroActivoRef : undefined}
+            onClick={() => irA(indice)}
+            className="casillero-ejercicio-rutina"
             data-activo={indice === indiceVisible}
             data-completo={grupo.every((ej) => ej.completado)}
-            aria-label={`Ir al ejercicio ${indice + 1}`}
+            aria-label={`Ir al ejercicio ${indice + 1}: ${grupo.map((ej) => ej.nombre).join(" + ")}`}
             aria-current={indice === indiceVisible ? "step" : undefined}
-          />
+            data-encurso={indice === indiceActivo}
+          >
+            {indice === indiceActivo ? (
+              /* El ejercicio que toca AHORA no lleva número: lleva las dos
+                 flechitas corriendo hacia adelante, que es lo que se ve de
+                 lejos con el celular apoyado en el piso. */
+              <span className="flechas-ejercicio-en-curso" aria-hidden="true">
+                <ChevronRight size={11} strokeWidth={3.5} />
+                <ChevronRight size={11} strokeWidth={3.5} />
+              </span>
+            ) : grupo.every((ej) => ej.completado) ? (
+              <Check size={13} strokeWidth={3.5} />
+            ) : (
+              indice + 1
+            )}
+          </button>
         ))}
       </div>
 
       <button
         type="button"
-        onClick={() => setIndiceVisible((indice) => Math.min(grupos.length - 1, indice + 1))}
+        onClick={() => irA(Math.min(grupos.length - 1, indiceVisible + 1))}
         disabled={indiceVisible === grupos.length - 1}
-        className="boton-navegacion-ejercicio"
+        className="boton-navegacion-ejercicio boton-navegacion-adelante"
         data-recomendado={grupoVisible.every((ej) => ej.completado) ? "true" : "false"}
+        aria-label="Ejercicio siguiente"
+        title="Ejercicio siguiente"
       >
-        Siguiente <ChevronRight size={18} />
+        <ChevronRight size={17} strokeWidth={3} />
+        <ChevronRight size={17} strokeWidth={3} className="-ml-2.5" />
       </button>
     </nav>
   ) : null;
@@ -234,10 +279,12 @@ export function SesionEjercicios({
 
       {!soloLectura && (
         <>
+          {/* "Guardar" suelto ya no existe: guardar y completar el ejercicio
+              eran dos toques para una sola intención, y el segundo casi nunca
+              llegaba. Ahora "Completar y guardar" (dentro de cada tarjeta)
+              hace las dos cosas, y las series se siguen guardando solas al
+              terminar cada descanso. */}
           <div className="flex flex-col gap-2">
-            <Button variant="secondary" size="xs" onClick={guardarTodo} className="w-[120px] px-2">
-              <Check size={14} strokeWidth={3} /> {guardado ? "Guardado" : "Guardar"}
-            </Button>
             {indiceVisible === grupos.length - 1 && (
               <FinalizarEntrenamiento sesionId={sesionId} completados={completados} total={total} compacto />
             )}

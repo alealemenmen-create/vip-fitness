@@ -76,6 +76,74 @@ async function enviarPush(
 }
 
 /**
+ * Programa el recordatorio de "dejaste el entrenamiento sin cerrar".
+ *
+ * Es el arreglo del problema más caro del panel del alumno: se van a Ranked, a
+ * Nutrición o directamente cierran la app, la sesión queda `en_progreso` para
+ * siempre, no suma puntos y encima le tapa el paso a la siguiente. Dentro de la
+ * app ya avisa `SalidaGuiadaSesion`; esto cubre lo que la app no puede — al
+ * alumno que ya no la tiene abierta.
+ *
+ * Diferencia importante con el aviso de descanso: acá **se vuelve a mirar la
+ * base antes de mandar nada**. Si mientras tanto cerró la sesión (o la
+ * abandonó, o la canceló), el aviso no sale. Nunca llega un "complétala"
+ * de una rutina que ya está completa.
+ *
+ * El texto cambia según lo que dejó hecho, porque no es lo mismo pedirle que
+ * cierre algo que ya terminó que pedirle que vuelva a mitad de camino.
+ */
+export async function programarAvisoSesionSinCerrar(
+  sesionId: string,
+  minutos = 12
+): Promise<void> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura || !sesionId) return;
+  if (!vapidListo()) return;
+
+  const admin = createAdminClient();
+  const { data: suscripciones } = await admin
+    .from("push_suscripciones")
+    .select("endpoint, p256dh, auth")
+    .eq("alumno_id", alumnoId);
+  if (!suscripciones || suscripciones.length === 0) return;
+
+  after(async () => {
+    await esperar(minutos * 60 * 1000);
+
+    // La sesión tiene que seguir abierta Y seguir siendo de este alumno.
+    const { data: sesion } = await admin
+      .from("sesiones_entrenamiento")
+      .select("id, estado")
+      .eq("id", sesionId)
+      .eq("alumno_id", alumnoId)
+      .eq("estado", "en_progreso")
+      .maybeSingle();
+    if (!sesion) return;
+
+    const { data: ejercicios } = await admin
+      .from("sesion_ejercicios")
+      .select("completado")
+      .eq("sesion_id", sesionId);
+    const total = ejercicios?.length ?? 0;
+    const completados = ejercicios?.filter((e) => e.completado).length ?? 0;
+    // Sin nada hecho no se molesta a nadie: lo más probable es que haya
+    // abierto el día para mirarlo, no que haya entrenado y se le olvidara.
+    if (completados === 0) return;
+
+    const termino = total > 0 && completados >= total;
+    const payload = {
+      title: termino ? "Terminaste tu rutina" : "Dejaste tu entrenamiento a medias",
+      body: termino
+        ? "Te falta cerrarla para que se sumen tus Puntos VIP."
+        : `Llevas ${completados} de ${total} ejercicios. Ciérrala para no perder el registro.`,
+      tag: `sesion-sin-cerrar-${sesionId}`,
+      url: `/alumno/entrenar/sesion/${sesionId}`,
+    };
+    await Promise.all(suscripciones.map((sub) => enviarPush(admin, sub, payload)));
+  });
+}
+
+/**
  * Programa el aviso de "se acabó el descanso" para dentro de `segundos`.
  *
  * Por qué esto y no un `setInterval` en el navegador: iOS suspende la

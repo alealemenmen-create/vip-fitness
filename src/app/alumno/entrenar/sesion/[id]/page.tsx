@@ -7,6 +7,8 @@ import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamie
 import { VolverAEntrenar } from "@/components/student/VolverAEntrenar";
 import { CronometroSesion } from "@/components/student/CronometroSesion";
 import { CancelarSesionBoton } from "@/components/student/CancelarSesionBoton";
+import { SalidaGuiadaSesion } from "@/components/student/SalidaGuiadaSesion";
+import { CierreAutomaticoSesion } from "@/components/student/CierreAutomaticoSesion";
 import { ReabrirSesionBoton } from "@/components/student/ReabrirSesionBoton";
 import { obtenerSesionCompleta } from "../../data";
 import { iniciarRutina } from "../../actions";
@@ -155,6 +157,18 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
           total={total}
           esDescanso={esDescanso}
         />
+      )}
+
+      {/* Solo con la rutina realmente arrancada: si todavía está en "Iniciar
+          rutina" no hay nada que cerrar y preguntar al salir sería ruido. */}
+      {!esDescanso && !sesionSoloLectura && rutinaIniciada && (
+        <>
+          <SalidaGuiadaSesion sesionId={sesion.id} completados={completados} total={total} />
+          {/* Todo hecho: el cierre aparece solo, sin buscarlo. */}
+          {total > 0 && completados >= total && (
+            <CierreAutomaticoSesion sesionId={sesion.id} total={total} />
+          )}
+        </>
       )}
 
       {sesion.estado !== "en_progreso" && !vistaSoloLectura && (

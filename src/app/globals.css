@@ -913,49 +913,99 @@ input[type="date"]::-webkit-date-and-time-value {
   font-weight: 800;
 }
 .navegacion-modo-enfocado {
+  /* Las flechas ocupan lo mínimo y se van a los extremos; todo el ancho que
+     sobra es para la tira de ejercicios del medio. */
   display: grid;
-  grid-template-columns: minmax(82px, 1fr) auto minmax(82px, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .navegacion-modo-enfocado-fija {
   position: fixed;
   left: 50%;
-  /* La barra inferior trae 16px de aire ANTES de los íconos. Entrar 12px en
-     ese aire deja solo 4px visuales entre ambos controles, sin tapar los
-     íconos y sin depender de si aparece el enlace de entrenador o del área
-     segura del iPhone. */
-  bottom: calc(var(--alto-nav-alumno, 82px) - 12px);
+  /* Reportado: "el cuadro negro está muy sobre los íconos". Antes entraba
+     12px dentro del aire de la barra inferior y quedaba montado encima. Ahora
+     apoya 2px POR ENCIMA de ella: se lee como una segunda barra de la misma
+     familia, no como un parche pegado arriba. */
+  bottom: calc(var(--alto-nav-alumno, 82px) + 2px);
   z-index: 39;
   width: min(calc(100% - 24px), 416px);
-  padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 15px;
-  background: rgba(5, 5, 7, 0.9);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(16px);
+  /* Más baja: era un bloque grueso encima de los íconos. */
+  padding: 3px 5px;
+  /* Mismo lenguaje visual que .panel-aero-inferior (la barra de íconos): el
+     mismo tinte VIP abajo, el mismo degradado oscuro y el mismo desenfoque.
+     Con el negro plano de antes eran dos materiales distintos peleándose. */
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 18% 100%, color-mix(in srgb, var(--color-vip) 13%, transparent), transparent 58%),
+    linear-gradient(180deg, rgba(24, 25, 30, 0.78), rgba(8, 9, 12, 0.9));
+  box-shadow:
+    0 10px 26px -18px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(20px) saturate(145%);
+  backdrop-filter: blur(20px) saturate(145%);
   transform: translateX(-50%);
 }
+/* Doble flecha fluorescente a cada extremo: violeta para volver, verde VIP
+   para avanzar. Se pidieron "más llamativas" — el glow es lo que las hace
+   encontrables de un vistazo con el celular en el piso, sin leer nada. */
 .boton-navegacion-ejercicio {
   display: flex;
-  min-height: 34px;
+  min-height: 32px;
+  width: 38px;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  gap: 3px;
   border: 1px solid var(--color-border);
-  border-radius: 11px;
+  border-radius: 12px;
   color: var(--color-text);
   background: var(--color-surface);
   font-size: calc(12px * var(--escala-texto));
   font-weight: 700;
-  transition: border-color 160ms ease, color 160ms ease, opacity 160ms ease;
+  transition: border-color 160ms ease, color 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
+}
+.boton-navegacion-atras:not(:disabled) {
+  border-color: rgba(160, 90, 255, 0.55);
+  color: #c39bff;
+  background: color-mix(in srgb, #7c3cff 14%, var(--color-surface));
+  box-shadow: 0 0 14px rgba(124, 60, 255, 0.32);
+}
+.boton-navegacion-atras:not(:disabled) svg {
+  filter: drop-shadow(0 0 6px rgba(160, 90, 255, 0.85));
+  animation: deslizar-flechas-atras 1.6s ease-in-out infinite;
+}
+.boton-navegacion-adelante:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-vip) 55%, transparent);
+  color: var(--color-vip);
+  background: color-mix(in srgb, var(--color-vip) 12%, var(--color-surface));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-vip) 32%, transparent);
+}
+.boton-navegacion-adelante:not(:disabled) svg {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-vip) 85%, transparent));
+  animation: deslizar-flechas-adelante 1.6s ease-in-out infinite;
+}
+/* La segunda flecha sale un pelo después que la primera: leen como una sola
+   corriendo hacia el lado, no como dos parpadeando juntas. */
+.boton-navegacion-ejercicio svg:last-child {
+  animation-delay: 160ms;
+}
+@keyframes deslizar-flechas-adelante {
+  0%, 100% { transform: translateX(-1.5px); opacity: 0.66; }
+  50% { transform: translateX(1.5px); opacity: 1; }
+}
+@keyframes deslizar-flechas-atras {
+  0%, 100% { transform: translateX(1.5px); opacity: 0.66; }
+  50% { transform: translateX(-1.5px); opacity: 1; }
 }
 .boton-navegacion-ejercicio:not(:disabled):active {
-  border-color: var(--color-vip);
-  color: var(--color-vip);
+  transform: scale(0.94);
 }
 .boton-navegacion-ejercicio:disabled {
-  opacity: 0.32;
+  opacity: 0.26;
+}
+.boton-navegacion-ejercicio:disabled svg {
+  animation: none;
 }
 .boton-finalizar-celebracion {
   position: relative;
@@ -981,20 +1031,110 @@ input[type="date"]::-webkit-date-and-time-value {
   0%, 48% { transform: translateX(-180%) rotate(18deg); }
   72%, 100% { transform: translateX(650%) rotate(18deg); }
 }
-.punto-rutina {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--color-border);
-  transition: width 180ms ease, background 180ms ease, box-shadow 180ms ease;
+.franja-sesion-sin-cerrar {
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 38%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-warning) 9%, transparent);
 }
-.punto-rutina[data-completo="true"] {
-  background: color-mix(in srgb, var(--color-vip) 60%, var(--color-border));
+
+/* Recordatorio de sesión abierta al volver de otra app. Va POR ENCIMA de la
+   barra de navegación de ejercicios y no bloquea nada: es un aviso, no una
+   decisión. */
+.aviso-sesion-abierta {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--alto-nav-alumno, 82px) + 52px);
+  z-index: 41;
+  width: min(calc(100% - 24px), 416px);
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(24, 25, 30, 0.94), rgba(8, 9, 12, 0.96));
+  box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.8);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  transform: translateX(-50%);
 }
-.punto-rutina[data-activo="true"] {
-  width: 20px;
-  background: var(--color-vip);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--color-vip) 55%, transparent);
+
+/* La rutina entera dentro de la barra: un casillero por ejercicio, en orden.
+   Se desplaza sola cuando no entran todos (ver el scrollIntoView del
+   componente); la barra de scroll se esconde porque acá el gesto es táctil. */
+.tira-ejercicios-rutina {
+  display: flex;
+  align-items: center;
+  /* `safe center`: con pocos ejercicios la tira queda centrada entre las dos
+     flechas; con muchos, se desborda y se desplaza SIN comerse el primero
+     (que es lo que hace un `center` a secas cuando el contenido no entra). */
+  justify-content: safe center;
+  /* La separación se adapta al ancho libre: con tres ejercicios quedan bien
+     despegados, con diez se juntan lo justo para que entren igual. */
+  gap: clamp(4px, 1.8vw, 11px);
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+  padding: 2px 4px;
+}
+.tira-ejercicios-rutina::-webkit-scrollbar {
+  display: none;
+}
+.casillero-ejercicio-rutina {
+  display: grid;
+  place-items: center;
+  /* Se reparten el ancho libre en vez de tener un tamaño fijo: una rutina de
+     tres ejercicios muestra tres casilleros grandes y separados; una de diez,
+     diez chicos que entran igual. El tope de 40px evita que con dos queden
+     como dos botones enormes, y el piso de 24px que con muchos el número se
+     recorte en un teléfono angosto. */
+  flex: 1 1 0;
+  min-width: 24px;
+  max-width: 40px;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface-2);
+  color: var(--color-text-tertiary);
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+.casillero-ejercicio-rutina[data-completo="true"] {
+  border-color: color-mix(in srgb, var(--color-vip) 45%, transparent);
+  color: var(--color-vip);
+  background: color-mix(in srgb, var(--color-vip) 12%, var(--color-surface-2));
+}
+/* El que se está mirando: borde violeta, el mismo acento que ya usa el modo
+   enfocado para "estás acá" (--focus-violet). Se distingue del verde de
+   "hecho" — un ejercicio puede estar activo y hecho a la vez. */
+.casillero-ejercicio-rutina[data-activo="true"] {
+  border-color: #7c3cff;
+  color: #fff;
+  background: color-mix(in srgb, #7c3cff 26%, var(--color-surface-2));
+  box-shadow: 0 0 0 1px #7c3cff, 0 0 12px rgba(124, 60, 255, 0.5);
+}
+/* El ejercicio que toca ahora, esté o no siendo mirado: ámbar, el color que
+   el modo enfocado reserva para "el próximo paso es este". */
+.casillero-ejercicio-rutina[data-encurso="true"] {
+  border-color: #f5a623;
+  color: #ffd88a;
+  background: color-mix(in srgb, #f5a623 18%, var(--color-surface-2));
+}
+.casillero-ejercicio-rutina[data-encurso="true"][data-activo="true"] {
+  box-shadow: 0 0 0 1px #f5a623, 0 0 14px rgba(245, 166, 35, 0.55);
+}
+.flechas-ejercicio-en-curso {
+  display: flex;
+  align-items: center;
+  color: #ffd88a;
+}
+.flechas-ejercicio-en-curso svg {
+  filter: drop-shadow(0 0 5px rgba(245, 166, 35, 0.9));
+  animation: deslizar-flechas-adelante 1.4s ease-in-out infinite;
+}
+.flechas-ejercicio-en-curso svg:last-child {
+  margin-left: -5px;
+  animation-delay: 140ms;
 }
 
 /* Paleta y composición de la proyección aprobada: negro profundo, violeta
@@ -1104,7 +1244,9 @@ input[type="date"]::-webkit-date-and-time-value {
   background: #1d1c22;
 }
 .tarjeta-ejercicio-enfocada .fila-serie-contenido .campo-serie-plano input {
-  font-size: calc(16px * var(--escala-texto));
+  /* 14 y no 16: con tres dígitos de kilos (o "100" repeticiones) el número se
+     salía del recuadro en teléfonos angostos y quedaba tapado. */
+  font-size: calc(14px * var(--escala-texto));
   text-align: center;
 }
 .tarjeta-ejercicio-enfocada .fila-serie-contenido .boton-descanso {
@@ -1130,10 +1272,66 @@ input[type="date"]::-webkit-date-and-time-value {
   border-color: rgba(59, 210, 127, 0.4);
   background: rgba(59, 210, 127, 0.1);
 }
-.boton-completar-ejercicio[data-recomendado="true"] {
+/* "Completar y guardar" — un solo botón para las dos cosas (antes había que
+   tocar este y además "Guardar", y nadie tocaba el segundo). Va en ámbar
+   lleno, el color que esta pantalla reserva para el próximo paso: con el
+   borde verde translúcido de antes se perdía entre las filas de series. */
+.boton-completar-ejercicio {
   color: #211400;
-  border-color: transparent;
+  border: 1px solid transparent;
+  /* Letra chica y sin cortes: en teléfonos angostos "Completar y guardar"
+     con el cuerpo anterior se partía o se salía del botón. */
+  font-size: calc(12.5px * var(--escala-texto));
+  letter-spacing: 0.01em;
   background: linear-gradient(135deg, #f7a819, #ffcb58);
+  box-shadow: 0 0 22px rgba(245, 166, 35, 0.34);
+  transition: transform 140ms ease, box-shadow 180ms ease;
+  animation: pulso-paso-guiado 2.2s ease-in-out infinite;
+}
+/* Acceso chico para reabrir la encuesta saltada. Discreto a propósito: vive
+   entre las acciones secundarias del ejercicio (Nota / Alguna molestia) y no
+   compite con "Completar y guardar". */
+.boton-encuesta-pendiente {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px dashed color-mix(in srgb, var(--color-vip) 42%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-vip) 7%, transparent);
+  color: var(--color-text-secondary);
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 600;
+}
+.disco-impulso-parpadeo {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-vip);
+  color: #000;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  animation: latido-disco-impulso 1.7s ease-in-out infinite;
+}
+@keyframes latido-disco-impulso {
+  0%, 100% { opacity: 0.55; box-shadow: 0 0 0 rgba(190, 242, 50, 0); }
+  50% { opacity: 1; box-shadow: 0 0 12px color-mix(in srgb, var(--color-vip) 70%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .disco-impulso-parpadeo { animation: none; opacity: 1; }
+}
+
+.panel-cerrar-incompleto {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+}
+.boton-completar-ejercicio:active {
+  transform: scale(0.985);
+}
+.boton-completar-ejercicio[data-recomendado="true"] {
   box-shadow: 0 0 24px rgba(245, 166, 35, 0.4);
   animation: pulso-paso-guiado 1.8s ease-in-out infinite;
 }
@@ -1345,7 +1543,7 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   border: 0;
   outline: none;
   color: var(--color-text);
-  font-size: calc(15px * var(--escala-texto));
+  font-size: calc(14px * var(--escala-texto));
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -2135,7 +2333,9 @@ input[type="number"] {
   width: calc(100% - 8px);
   margin-top: 4px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 28px;
+  /* Mismo redondeo que la barra de navegación de ejercicios: con 28px el
+     encabezado se leía como una píldora y las dos piezas no combinaban. */
+  border-radius: 20px;
   background:
     radial-gradient(circle at 24% 0%, color-mix(in srgb, var(--color-vip) 13%, transparent), transparent 48%),
     linear-gradient(180deg, rgba(24, 25, 30, 0.74), rgba(8, 9, 12, 0.88));

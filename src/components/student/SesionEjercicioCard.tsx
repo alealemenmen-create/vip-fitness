@@ -180,7 +180,6 @@ export function CuadroFotoReferencia({
       ejercicioId={ejercicioId}
       posicionX={destacado ? fotoPanoramaX : fotoCuadradaX}
       posicionY={destacado ? fotoPanoramaY : fotoCuadradaY}
-      usarRecorte={!!fotoMiniaturaUrl}
       tamano={tamano}
       compacto={compacto}
       destacado={destacado}
@@ -320,7 +319,6 @@ function FotoReferenciaAmpliable({
   ejercicioId,
   posicionX,
   posicionY,
-  usarRecorte,
   tamano,
   compacto = false,
   destacado = false,
@@ -343,7 +341,6 @@ function FotoReferenciaAmpliable({
   ejercicioId?: string | null;
   posicionX: number;
   posicionY: number;
-  usarRecorte: boolean;
   tamano: React.CSSProperties;
   compacto?: boolean;
   destacado?: boolean;
@@ -356,6 +353,19 @@ function FotoReferenciaAmpliable({
     { error: null, ok: false }
   );
   const srcAmpliada = srcCompleta ?? src;
+  /**
+   * La foto grande de la tarjeta va con la ORIGINAL, no con la miniatura.
+   *
+   * `src` es el recorte cuadrado que genera el servidor, y ese recorte ya
+   * viene con la persona cortada (cabeza o piernas, según la foto). Mostrarlo
+   * con `object-contain` la deja entera dentro del recuadro… pero entera
+   * dentro de un recorte que ya estaba mal: se veía la persona cortada Y con
+   * franjas a los costados. La original no tiene ese problema.
+   *
+   * Las miniaturas chicas (la de la fila y la de 44px) siguen usando el
+   * recorte: ahí sí conviene, pesa menos y se ve a ese tamaño.
+   */
+  const srcPrincipal = destacado ? srcAmpliada : src;
 
   return (
     <>
@@ -374,28 +384,32 @@ function FotoReferenciaAmpliable({
         }
         style={tamano}
       >
-        {destacado && (
-          <Image
-            src={src}
-            alt=""
-            aria-hidden
-            fill
-            sizes="(max-width: 640px) calc(100vw - 56px), 520px"
-            className="scale-110 object-cover opacity-45 blur-xl"
-            style={{ objectPosition: `${posicionX}% ${posicionY}%` }}
-          />
-        )}
+        {/* Relleno borroso detrás de la foto: la misma imagen ampliada y
+            desenfocada, tapando lo que sobra a los costados. Sin esto quedaban
+            dos franjas grises que se leían como un error de la foto. Va con
+            opacidad alta a propósito — tiene que parecer una continuación del
+            fondo del gimnasio, no un borde. */}
         <Image
-          src={src}
+          src={srcPrincipal}
+          alt=""
+          aria-hidden
+          fill
+          sizes={destacado ? "(max-width: 640px) calc(100vw - 56px), 520px" : compacto ? "44px" : "116px"}
+          className="scale-125 object-cover opacity-80 blur-2xl"
+          style={{ objectPosition: `${posicionX}% ${posicionY}%` }}
+        />
+        <Image
+          src={srcPrincipal}
           alt={`Foto de referencia de ${nombre}`}
           fill
           sizes={destacado ? "(max-width: 640px) calc(100vw - 56px), 520px" : compacto ? "44px" : "116px"}
-          // object-center y no object-top: a diferencia de la foto de grupo
-          // muscular (que se recorta desde arriba), estas fotos ya vienen
-          // recortadas y centradas en el servidor. Anclarlas arriba cortaba la
-          // mitad de abajo de la persona en cuadros más anchos que altos.
-          className={destacado ? "z-[1] object-contain object-center" : usarRecorte ? "object-cover" : "object-contain object-center"}
-          style={!destacado && usarRecorte ? { objectPosition: `${posicionX}% ${posicionY}%` } : undefined}
+          // Siempre `object-contain`: la persona del instructivo tiene que
+          // entrar ENTERA en el cuadro. Con `object-cover` (lo que hacían las
+          // fotos con miniatura recortada) el recorte automático le cortaba la
+          // cabeza o los pies según la proporción del cuadro, y se veía mal.
+          // Lo que sobra a los costados lo tapa el relleno borroso de atrás,
+          // así que el cuadro sigue viéndose lleno.
+          className="z-[1] object-contain object-center"
         />
         {destacado && videoCloudflareListo && (
           <VideoCloudflareAutomatico
@@ -603,6 +617,13 @@ export function SelectorDificultad({
   nombreCampo?: string;
 }) {
   const [valor, setValor] = useState(valorInicial ?? "");
+  // "Ahora no" cierra la encuesta sin responder. Sin esta salida el modal era
+  // una trampa: ocupaba la pantalla entera, no tenía ningún botón de cerrar y
+  // el alumno que solo quería mirar el ejercicio quedaba obligado a inventar
+  // una respuesta para poder seguir.
+  const [omitido, setOmitido] = useState(false);
+  /** La volvió a abrir a mano desde el botoncito de abajo. */
+  const [reabierto, setReabierto] = useState(false);
   const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
 
   if (disabled) return null;
@@ -610,7 +631,25 @@ export function SelectorDificultad({
   return (
     <>
       <input type="hidden" name={nombreCampo} value={valor} />
-      {montado && forzarModal && !valor
+      {/* Saltear la encuesta no la pierde para siempre: mientras el ejercicio
+          esté terminado y sin responder queda este acceso chico, con el disco
+          VIP parpadeando, para volver a abrirla cuando el alumno quiera. Es
+          también la única forma de responderla de un ejercicio que se terminó
+          en otro momento. */}
+      {!valor && (
+        <button
+          type="button"
+          onClick={() => {
+            setOmitido(false);
+            setReabierto(true);
+          }}
+          className="boton-encuesta-pendiente flex w-full items-center justify-center gap-1.5"
+        >
+          <span className="disco-impulso-parpadeo">VIP</span>
+          ¿Cómo te fue en este ejercicio?
+        </button>
+      )}
+      {montado && (forzarModal || reabierto) && !valor && !omitido
         ? createPortal(
             <div className="fixed inset-0 z-[70] grid place-items-center bg-black/80 px-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="titulo-impulso-vip">
               <div className="w-full max-w-sm overflow-hidden rounded-[28px] border border-vip/30 bg-[#0b0c0e] shadow-[0_24px_80px_rgba(0,0,0,.72)]">
@@ -635,6 +674,13 @@ export function SelectorDificultad({
                       {op.etiqueta}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => setOmitido(true)}
+                    className="min-h-11 rounded-2xl text-sm font-semibold text-text-tertiary underline"
+                  >
+                    Ahora no
+                  </button>
                 </div>
               </div>
             </div>,
@@ -1433,6 +1479,20 @@ export const SesionEjercicioCard = forwardRef<
   // Solo el descanso de esta serie corre — arrancar el de otra la pausa sola.
   const [serieActivaNumero, setSerieActivaNumero] = useState<number | null>(null);
   const [mostrandoSiguiente, setMostrandoSiguiente] = useState(false);
+  /**
+   * ¿Se terminó este ejercicio recién, acá, en esta pantalla? Solo entonces se
+   * abre sola la encuesta de dificultad.
+   *
+   * Antes bastaba con que el ejercicio estuviera completo y sin responder para
+   * que el modal se plantara encima: al navegar con Anterior/Siguiente para
+   * repasar lo hecho, cada ejercicio terminado en otro momento (o respondido
+   * con "Ahora no") volvía a tapar la pantalla. Arranca en `false` en cada
+   * montaje, que es exactamente lo que se quiere: navegar nunca la dispara.
+   */
+  const [recienCompletado, setRecienCompletado] = useState(false);
+  /** Pidió cerrar el ejercicio con series sin hacer: se le muestra qué implica
+   * antes de hacerlo. */
+  const [confirmandoIncompleto, setConfirmandoIncompleto] = useState(false);
   const filasRef = useRef(new Map<number, FilaSerieHandle>());
   /** Nodo DOM de cada fila de serie, para centrarla en pantalla al terminar
    * la anterior — no confundir con `filasRef` (el handle imperativo de cada
@@ -1542,6 +1602,21 @@ export const SesionEjercicioCard = forwardRef<
   };
 
   function marcarEjercicioListo() {
+    // Cerrar un ejercicio al que le faltan series NO es gratis: `completarYa`
+    // marca las pendientes como hechas, así que el ejercicio cuenta entero
+    // para los puntos y esas series quedan sin kilos ni repeticiones. Se
+    // avisa antes, con el número exacto, y se deja seguir igual: es un aviso,
+    // no un candado.
+    const faltan = ejercicio.seriesProgramadas - seriesHechas.size;
+    if (faltan > 0 && !confirmandoIncompleto) {
+      setConfirmandoIncompleto(true);
+      return;
+    }
+    setConfirmandoIncompleto(false);
+    cerrarEjercicio();
+  }
+
+  function cerrarEjercicio() {
     // Fuerza todas las series pendientes como hechas y salta al siguiente
     // ejercicio, sin esperar los descansos — el botón cuadrado de "listo".
     // Antes cada fila enviaba el formulario por separado. En un ejercicio de
@@ -1550,6 +1625,7 @@ export const SesionEjercicioCard = forwardRef<
     // y checks desaparecieran hasta recargar la app. Se actualizan todas las
     // filas primero y se envía una única fotografía coherente del formulario.
     filasRef.current.forEach((handle) => handle.completarYa(false));
+    setRecienCompletado(true);
     guardarAhora();
   }
 
@@ -1593,6 +1669,7 @@ export const SesionEjercicioCard = forwardRef<
     setSeriesHechas((prev) => new Set(prev).add(numero));
     if (!enviadoRef.current && completadasRef.current.size === ejercicio.seriesProgramadas) {
       enviadoRef.current = true;
+      setRecienCompletado(true);
       // Nadie va a arrancar una serie más de este ejercicio — sin esto, la
       // última fila se quedaba "activa" para siempre (nada vuelve a llamar
       // onIniciar), y si el alumno se quedaba parado en la pantalla sin
@@ -1881,15 +1958,50 @@ export const SesionEjercicioCard = forwardRef<
             </div>
           ))}
 
-          {!ejercicio.completado && (
-            <button
-              type="button"
-              onClick={marcarEjercicioListo}
-              data-recomendado={seriesHechas.size === ejercicio.seriesProgramadas ? "true" : "false"}
-              className="boton-completar-ejercicio flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-vip/50 bg-transparent text-secondary font-semibold text-vip"
-            >
-              <Check size={14} strokeWidth={3} /> Marcar ejercicio como completado
-            </button>
+          {/* Con TODAS las series marcadas el ejercicio ya se cierra solo: el
+              guardado automático manda `seriesRealizadas === cantidad` y el
+              servidor pone `completado` (ver guardarSeries). Dejar el botón
+              ahí daba a entender lo contrario — que faltaba un paso a mano —
+              así que desaparece apenas deja de tener sentido. Sigue estando
+              mientras falten series, que es su uso real: saltarse los
+              descansos y dar el ejercicio por terminado. */}
+          {!ejercicio.completado && seriesHechas.size < ejercicio.seriesProgramadas && (
+            confirmandoIncompleto ? (
+              <div className="panel-cerrar-incompleto space-y-2">
+                <p className="text-caption font-semibold text-warning">
+                  Te faltan {ejercicio.seriesProgramadas - seriesHechas.size} de{" "}
+                  {ejercicio.seriesProgramadas} series
+                </p>
+                <p className="text-micro text-text-secondary">
+                  Si cierras el ejercicio ahora, esas series quedan marcadas como hechas y sin kilos
+                  ni repeticiones registradas. Tu entrenador lo va a ver así.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmandoIncompleto(false)}
+                    className="text-caption h-10 flex-1 rounded-[12px] border border-vip/60 font-bold text-vip"
+                  >
+                    Sigo entrenando
+                  </button>
+                  <button
+                    type="button"
+                    onClick={marcarEjercicioListo}
+                    className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text-secondary"
+                  >
+                    Cerrar igual
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={marcarEjercicioListo}
+                className="boton-completar-ejercicio flex h-11 w-full items-center justify-center gap-2 rounded-[14px] font-bold"
+              >
+                <Check size={14} strokeWidth={3.5} /> Completar y guardar
+              </button>
+            )
           )}
 
           {/* Se pregunta una sola vez, cuando ya se hicieron todas las
@@ -1899,7 +2011,7 @@ export const SesionEjercicioCard = forwardRef<
             valorInicial={ejercicio.dificultadPercibida}
             disabled={seriesHechas.size < ejercicio.seriesProgramadas}
             onGuardar={guardarAhora}
-            forzarModal={modoEnfocado}
+            forzarModal={modoEnfocado && recienCompletado}
             onResponder={onDificultadRespondida}
           />
 

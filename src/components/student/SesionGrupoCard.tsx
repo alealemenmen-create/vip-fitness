@@ -92,6 +92,10 @@ export const SesionGrupoCard = forwardRef<
   );
   const [serieActiva, setSerieActiva] = useState<{ pos: number; numero: number } | null>(null);
   const [mostrandoSiguiente, setMostrandoSiguiente] = useState(false);
+  /** Igual que en `SesionEjercicioCard`: la encuesta se abre sola solamente si
+   * el grupo se terminó recién acá. Navegar con Anterior/Siguiente hasta una
+   * biserie ya hecha no la vuelve a disparar. */
+  const [recienCompletado, setRecienCompletado] = useState(false);
   const filasRef = useRef<Map<number, FilaSerieHandle>[]>(ejercicios.map(() => new Map()));
   const filaNodoRef = useRef<Map<number, HTMLDivElement>[]>(ejercicios.map(() => new Map()));
 
@@ -181,6 +185,7 @@ export const SesionGrupoCard = forwardRef<
       const totalPasos = ejercicios.reduce((acc, e) => acc + e.seriesProgramadas, 0);
       if (!enviadoRef.current && totalHecho === totalPasos) {
         enviadoRef.current = true;
+        setRecienCompletado(true);
         // Ver el mismo fix en SesionEjercicioCard: sin esto, la última fila
         // se quedaba "activa" para siempre y el contador de exceso de
         // descanso seguía corriendo sobre una serie ya terminada.
@@ -207,6 +212,7 @@ export const SesionGrupoCard = forwardRef<
     // respuestas parciales del mismo grupo (el mismo problema corregido en la
     // tarjeta de ejercicio individual).
     filasRef.current.forEach((mapa) => mapa.forEach((handle) => handle.completarYa(false)));
+    setRecienCompletado(true);
     guardarAhora();
   }
 
@@ -249,9 +255,10 @@ export const SesionGrupoCard = forwardRef<
   const todasLasSeriesHechas = ejercicios.every(
     (ej, pos) => seriesHechas[pos].size >= ej.seriesProgramadas
   );
-  const encuestaPendiente = todasLasSeriesHechas
-    ? ejercicios.findIndex((_, pos) => !encuestasRespondidas.has(pos))
-    : -1;
+  const encuestaPendiente =
+    todasLasSeriesHechas && recienCompletado
+      ? ejercicios.findIndex((_, pos) => !encuestasRespondidas.has(pos))
+      : -1;
 
   function alResponderEncuesta(pos: number) {
     const proximo = new Set(encuestasRespondidas).add(pos);

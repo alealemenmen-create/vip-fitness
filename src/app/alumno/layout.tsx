@@ -20,6 +20,7 @@ import { hoyISO } from "@/lib/date";
 import { obtenerCelebracionTorneoHoy } from "@/lib/torneos/data";
 import { BottomNav } from "@/components/student/BottomNav";
 import { BarraInferiorFija } from "@/components/student/BarraInferiorFija";
+import { AvisoSesionSinCerrar } from "@/components/student/AvisoSesionSinCerrar";
 import { MenuAlumno } from "@/components/student/MenuAlumno";
 import { CampanaNoticias } from "@/components/student/CampanaNoticias";
 import { AplicarTemaBotonGuardado } from "@/components/student/AplicarTemaBotonGuardado";
@@ -144,6 +145,7 @@ export default async function AlumnoLayout({ children }: { children: React.React
       {/* SIN padding-top: las cabeceras secundarias sticky se anclan en top-0
           de este contenedor, que ya comienza físicamente debajo del logo. */}
       <div className="pantalla-scroll mx-auto w-full max-w-md px-4 pb-24">
+        {sesionEnProgresoId && <AvisoSesionSinCerrar sesionId={sesionEnProgresoId} />}
         {children}
       </div>
       {/* z-40: por encima de las cabeceras fijas (z-30) y de cualquier tarjeta.
