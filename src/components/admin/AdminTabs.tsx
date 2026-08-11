@@ -16,6 +16,7 @@ import {
   Trophy,
   Users,
   WandSparkles,
+  PencilRuler,
 } from "lucide-react";
 
 type AdminTabsProps = {
@@ -26,7 +27,11 @@ type AdminTabsProps = {
 
 const MOBILE_TABS = [
   { href: "/admin/alumnos", label: "Alumnos", icon: Users, section: "alumnos" },
-  { href: "/admin/generador", label: "Generar", icon: WandSparkles, section: "generador" },
+  // En el celular la barra de abajo tiene cinco lugares y son los que el
+  // entrenador toca todo el día: acá va la herramienta manual, que es la que
+  // usa para armar. Al generador con cuestionario se llega desde "Más" o
+  // desde el menú lateral en pantalla grande.
+  { href: "/admin/armar-rutina", label: "Armar", icon: PencilRuler, section: "armar-rutina" },
   { href: "/admin/documentos", label: "Documentos", icon: FileText, section: "documentos" },
   { href: "/admin/alimentos", label: "Alimentos", icon: Salad, section: "alimentos" },
   { href: "/admin/configuracion", label: "Más", icon: MoreHorizontal, section: "mas" },
@@ -37,6 +42,10 @@ const SIDEBAR_GROUPS = [
     label: "Trabajo diario",
     items: [
       { href: "/admin/alumnos", label: "Alumnos", icon: Users, section: "alumnos" },
+      // Primero la herramienta manual: es la puerta que el entrenador usa a
+      // diario. El generador con cuestionario queda debajo, para cuando quiera
+      // afinar cada detalle antes de generar.
+      { href: "/admin/armar-rutina", label: "Armar rutina", icon: PencilRuler, section: "armar-rutina" },
       { href: "/admin/generador", label: "Generador de rutinas", icon: WandSparkles, section: "generador" },
       { href: "/admin/documentos", label: "Documentos", icon: FileText, section: "documentos" },
       { href: "/admin/ejercicios", label: "Ejercicios", icon: Dumbbell, section: "ejercicios" },
@@ -69,6 +78,10 @@ const SIDEBAR_GROUPS = [
 
 const MORE_PREFIXES = [
   "/admin/configuracion",
+  // El generador con cuestionario salió de la barra de abajo para dejarle el
+  // lugar a "Armar": en el celular se llega por "Más", así que tiene que
+  // marcar esa pestaña como activa.
+  "/admin/generador",
   "/admin/ejercicios",
   "/admin/asistente",
   "/admin/ingresos",
