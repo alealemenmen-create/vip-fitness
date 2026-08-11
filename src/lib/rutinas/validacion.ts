@@ -43,7 +43,15 @@ export function subgrupoBrazo(ejercicio: EjercicioAuditable): "biceps" | "tricep
   const patron = patronDe(ejercicio);
   if (patron.startsWith("triceps_")) return "triceps";
   if (patron.startsWith("biceps_")) return "biceps";
-  const texto = `${normalizar(ejercicio.grupoMuscular)} ${normalizar(ejercicio.nombre)}`;
+  // La heurística por nombre SOLO vale dentro de brazos. Aplicada a todo el
+  // catálogo contaba como tríceps la "Extensión de cuádriceps", los "Fondos
+  // en paralelas" (pecho) y la "Patada de glúteo", y como bíceps el "Curl
+  // femoral". Con eso el validador reportaba 32 series de tríceps en rutinas
+  // que no tenían ni la mitad, y bloqueaba la publicación por un volumen que
+  // no existía. Reportado por el entrenador: "me decía que tríceps tenía 32
+  // series y realmente no era así".
+  if (normalizar(ejercicio.grupoMuscular) !== "brazos") return null;
+  const texto = normalizar(ejercicio.nombre);
   if (["triceps", "extension", "press frances", "press cerrado", "fondos", "patada"].some((p) => texto.includes(p))) return "triceps";
   if (["biceps", "curl", "predicador", "martillo"].some((p) => texto.includes(p))) return "biceps";
   return null;

@@ -20,6 +20,33 @@ describe("validación crítica de rutinas", () => {
     expect(errores.join(" ")).toContain("remo");
   });
 
+  it("no cuenta como tríceps las extensiones de pierna, los fondos de pecho ni las patadas de glúteo", () => {
+    // El caso real que bloqueó al entrenador: el validador reportaba 32 series
+    // de tríceps en una rutina que apenas tenía brazos, porque la heurística
+    // por nombre ("extension", "fondos", "patada") se aplicaba a TODO el
+    // catálogo y no solo a los ejercicios de brazos.
+    const dias = [
+      {
+        nombre: "Piernas",
+        ejercicios: [
+          { nombre: "Extensión de cuádriceps", series: 8, grupoMuscular: "piernas" },
+          { nombre: "Patada de glúteo en polea", series: 8, grupoMuscular: "piernas" },
+          { nombre: "Curl femoral", series: 8, grupoMuscular: "piernas" },
+        ],
+      },
+      {
+        nombre: "Pecho",
+        ejercicios: [
+          { nombre: "Press de banca", series: 4, grupoMuscular: "pecho" },
+          { nombre: "Fondos en paralelas", series: 8, grupoMuscular: "pecho" },
+        ],
+      },
+    ];
+    const errores = detectarDeficienciasRutina(dias).join(" ");
+    expect(errores).not.toContain("tríceps");
+    expect(errores).not.toContain("bíceps");
+  });
+
   it("reconoce overhead y sobre la cabeza como el mismo patrón de tríceps", () => {
     const errores = detectarDeficienciasRutina([{ nombre: "Espalda + Tríceps", ejercicios: [
       { nombre: "Extensión de tríceps sobre la cabeza", series: 3, grupoMuscular: "brazos" },
