@@ -92,17 +92,25 @@ function EspacioVacio({ id, etiqueta }: { id: string; etiqueta: string }) {
             {formatoKB(tamanos.original)} → {formatoKB(tamanos.final)}
           </p>
         )}
-        <input
-          name="fecha_foto"
-          type="date"
-          defaultValue={hoyISO()}
-          max={hoyISO()}
-          className="radius-control w-full border border-border bg-surface-2 px-2 py-2 text-caption text-text outline-none focus:border-vip"
-        />
+        {/* Rotulado a propósito: sin la pregunta, el campo parecía decoración
+            y las fotos "de antes" quedaban todas con la fecha de subida. */}
+        <label className="block">
+          <span className="text-caption text-text-tertiary">¿Qué día te sacaste esta foto?</span>
+          <input
+            name="fecha_foto"
+            type="date"
+            defaultValue={hoyISO()}
+            max={hoyISO()}
+            className="radius-control mt-1 w-full border border-border bg-surface-2 px-2 py-2 text-caption text-text outline-none focus:border-vip"
+          />
+        </label>
         {state.error && <p className="text-caption text-error">{state.error}</p>}
-        {state.ok && state.puntos && (
-          <p className="text-caption text-center font-semibold text-vip">+{state.puntos} Puntos VIP</p>
+        {state.ok && state.aviso && (
+          <p className="text-caption text-center text-text-secondary">{state.aviso}</p>
         )}
+        {state.ok && state.puntos ? (
+          <p className="text-caption text-center font-semibold text-vip">+{state.puntos} Puntos VIP</p>
+        ) : null}
         <BotonSubir deshabilitado={comprimiendo || !archivoListo} />
       </form>
     </div>

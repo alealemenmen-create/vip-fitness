@@ -581,7 +581,7 @@ export type AnalizarPdfState = {
 };
 
 export async function analizarRutinaPdf(storagePath: string): Promise<AnalizarPdfState> {
-  await requireRol(["entrenador", "admin"]);
+  const sesion = await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
 
   const { data: archivo, error: errorDescarga } = await supabase.storage
@@ -595,7 +595,9 @@ export async function analizarRutinaPdf(storagePath: string): Promise<AnalizarPd
   const bytes = Buffer.from(await archivo.arrayBuffer());
   const base64 = bytes.toString("base64");
 
-  const resultado = await extraerRutinaDesdePdf(base64, tipoDeLaRuta(storagePath));
+  // El tercer argumento es solo para el contador de consumo: leer un PDF
+  // cuesta plata y hasta ahora no quedaba anotado en ninguna parte.
+  const resultado = await extraerRutinaDesdePdf(base64, tipoDeLaRuta(storagePath), sesion.userId);
 
   if (!resultado.ok) {
     return { error: resultado.error, datos: null };

@@ -7,6 +7,7 @@ import { serializarRutinaATexto } from "@/lib/generador-rutinas/serializar";
 import { describirInventario } from "@/lib/gimnasio/inventario";
 import { METODO_VIP_PARA_AUDITORIA } from "@/lib/generador-rutinas/metodo-vip";
 import { detectarDeficienciasRutina } from "@/lib/rutinas/validacion";
+import { registrarUsoIA } from "@/lib/ai/consumo";
 import type {
   BriefGenerador,
   EjercicioGenerador,
@@ -206,6 +207,9 @@ export async function revisarRutinaGenerada(params: {
   brief: BriefGenerador;
   biblioteca: EjercicioGenerador[];
   reglasAplicadas: string[];
+  /** Quién la disparó, para el contador de consumo. Opcional: sin esto la
+   * revisión funciona igual, solo no queda anotado el gasto. */
+  entrenadorId?: string;
 }): Promise<RevisionResultado> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -286,6 +290,19 @@ Revisa esta rutina para esta persona en particular y responde con el veredicto, 
     console.info(
       `[revisarRutina] cache_write=${response.usage.cache_creation_input_tokens ?? 0} cache_read=${response.usage.cache_read_input_tokens ?? 0} entrada_sin_cachear=${response.usage.input_tokens} salida=${response.usage.output_tokens}`
     );
+
+    // Es la llamada más cara de la app (~US$0,24) y hasta ahora no figuraba en
+    // el contador de consumo, que por eso mostraba una fracción del gasto
+    // real. Va antes de los `return` de error: la llamada ya se pagó aunque el
+    // resultado no sirva.
+    if (params.entrenadorId) {
+      await registrarUsoIA({
+        usuarioId: params.entrenadorId,
+        herramienta: "revision_rutina",
+        modelo: "claude-opus-5",
+        uso: response.usage,
+      });
+    }
 
     if (response.stop_reason === "refusal") {
       return { ok: false, error: "La IA no pudo revisar esta rutina. Puedes publicarla igual o ajustarla a mano." };

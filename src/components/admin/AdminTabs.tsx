@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Dumbbell,
   FileText,
+  History,
   Landmark,
   Megaphone,
   MoreHorizontal,
@@ -49,6 +50,9 @@ const SIDEBAR_GROUPS = [
       { href: "/admin/armar-rutina", label: "Armar rutina", icon: PencilRuler, section: "armar-rutina" },
       { href: "/admin/generador", label: "Generador de rutinas", icon: WandSparkles, section: "generador" },
       { href: "/admin/documentos", label: "Documentos", icon: FileText, section: "documentos" },
+      // Reabrir lo ya hecho: con 68 alumnos, la mayoría de las rutinas nuevas
+      // son una variación de la anterior de esa misma persona.
+      { href: "/admin/rutinas-generadas", label: "Rutinas hechas", icon: History, section: "rutinas-generadas" },
       { href: "/admin/ejercicios", label: "Ejercicios", icon: Dumbbell, section: "ejercicios" },
       { href: "/admin/puntos", label: "Otorgar puntos", icon: Sparkles, section: "puntos" },
     ],
@@ -81,6 +85,7 @@ const SIDEBAR_GROUPS = [
 const MORE_PREFIXES = [
   "/admin/configuracion",
   "/admin/puntos",
+  "/admin/rutinas-generadas",
   "/admin/ejercicios",
   "/admin/asistente",
   "/admin/ingresos",

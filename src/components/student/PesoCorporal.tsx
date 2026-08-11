@@ -87,11 +87,14 @@ export function PesoCorporal({
             </div>
             <Input name="observacion" placeholder="Observación (opcional)" />
             {state.error && <p className="text-caption text-error">{state.error}</p>}
-            {state.ok && state.puntos && (
+            {state.ok && state.aviso && (
+              <p className="text-caption text-text-secondary">{state.aviso}</p>
+            )}
+            {state.ok && state.puntos ? (
               <p className="text-caption font-semibold text-vip">
                 +{state.puntos} Puntos VIP por tu seguimiento semanal
               </p>
-            )}
+            ) : null}
             <Button type="submit" variant="outline" loading={pending}>
               {pending ? "Guardando…" : "Guardar peso"}
             </Button>

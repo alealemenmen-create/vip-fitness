@@ -1,12 +1,13 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search, Copy, RefreshCcw, Pencil, Check, AlertTriangle, CircleCheckBig, WandSparkles } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { publicarRutinaAVariosAlumnos } from "@/app/admin/archivos/actions";
 import { RevisionIAPanel } from "@/components/admin/RevisionIAPanel";
+import { BotonDictado } from "@/components/admin/BotonDictado";
 import { serializarRutinaATexto } from "@/lib/generador-rutinas/serializar";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { CambioResuelto, RevisionResuelta } from "@/lib/ai/revisarRutina";
@@ -15,6 +16,13 @@ import { PLANES_ENTRENAMIENTO, type CodigoPlanEntrenamiento } from "@/lib/planes
 import { esBaseEstructural, patronMovimiento, prioridadEstructural, type PatronMovimiento } from "@/lib/rutinas/patrones";
 import { detectarHallazgosRutina, type HallazgoRutina } from "@/lib/rutinas/validacion";
 import { NIVELES_ARMADO, type NivelArmado } from "@/lib/generador-rutinas/niveles-armado";
+import {
+  guardarBorradorArmado,
+  leerBorradorArmado,
+  limpiarBorradorArmado,
+  haceCuanto,
+  type BorradorArmado,
+} from "@/lib/generador-rutinas/borrador-local";
 
 /** Revisión de IA del borrador. Opcional: solo el flujo del generador la pasa
  * — desde un PDF importado no hay ficha ni brief contra qué contrastar. */
@@ -667,7 +675,15 @@ function EjercicioForm({
         </div>
       )}
 
-      <div className="mt-1.5 grid grid-cols-[minmax(54px,.7fr)_minmax(108px,1.5fr)_minmax(70px,1fr)] gap-1.5 pl-[22px] max-[350px]:grid-cols-[52px_minmax(104px,1.35fr)_minmax(68px,1fr)] max-[350px]:gap-1">
+      {/* Reportado en el teléfono: "series/repeticiones/descanso se ven
+          apretados y no se alcanza a leer el número completo". Dos cambios,
+          los dos para ganar ancho real: la fila ya no lleva la sangría de
+          22px que la alineaba con el nombre (esos 22px eran justo lo que
+          faltaba), y las columnas son fracciones del ancho disponible en vez
+          de anchos mínimos en píxeles que en 360px se comían entre ellos. La
+          caja además es más alta y con letra más grande — es un campo que se
+          toca con el dedo y se lee de reojo mientras se habla con el alumno. */}
+      <div className="mt-1.5 grid grid-cols-[1fr_1.35fr_1fr] gap-1.5">
         <label className="min-w-0 text-[10px] text-text-tertiary">
           <span className="mb-1 block">Series</span>
           <Input
@@ -676,7 +692,7 @@ function EjercicioForm({
             min="1"
             value={ejercicio.series}
             onChange={(e) => onChange({ ...ejercicio, series: Number(e.target.value) })}
-            className="!h-9 !min-w-0 !px-1 !py-1 !text-sm text-center font-mono tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="!h-10 !min-w-0 !px-1 !py-1 !text-[15px] text-center font-mono tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
         </label>
         <label className="min-w-0 text-[10px] text-text-tertiary">
@@ -685,7 +701,7 @@ function EjercicioForm({
             value={ejercicio.reps}
             inputMode="text"
             onChange={(e) => onChange({ ...ejercicio, reps: e.target.value })}
-            className="!h-9 !min-w-0 !px-1 !py-1 !text-sm text-center font-mono tabular-nums"
+            className="!h-10 !min-w-0 !px-1 !py-1 !text-[15px] text-center font-mono tabular-nums"
           />
         </label>
         <label className="min-w-0 text-[10px] text-text-tertiary">
@@ -701,7 +717,7 @@ function EjercicioForm({
                 descansoSegundos: e.target.value ? Number(e.target.value) : null,
               })
             }
-            className="!h-9 !min-w-0 !px-1 !py-1 !text-sm text-center font-mono tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="!h-10 !min-w-0 !px-1 !py-1 !text-[15px] text-center font-mono tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
         </label>
       </div>
@@ -789,21 +805,47 @@ function EjercicioForm({
               ejecución para ejercicios sueltos que no tienen ninguna técnica
               con nombre — con la condición vieja, esa instrucción quedaba
               guardada pero invisible en este editor. */}
-          <Textarea
-            value={ejercicio.tecnicaInstruccion ?? ""}
-            onChange={(e) =>
-              onChange({ ...ejercicio, tecnicaInstruccion: e.target.value || null })
-            }
-            placeholder="Instrucción de la técnica"
-            rows={2}
-            className="py-1.5"
-          />
-          <Input
-            value={ejercicio.observacion ?? ""}
-            onChange={(e) => onChange({ ...ejercicio, observacion: e.target.value || null })}
-            placeholder="Observación"
-            className="py-1.5"
-          />
+          {/* Los dos campos libres del ejercicio son los únicos donde se
+              escribe de verdad — por eso el micrófono va acá y no en cada
+              casilla numérica. Lo dictado se suma a lo escrito, ver
+              BotonDictado. */}
+          <div className="flex items-start gap-1.5">
+            <Textarea
+              value={ejercicio.tecnicaInstruccion ?? ""}
+              onChange={(e) =>
+                onChange({ ...ejercicio, tecnicaInstruccion: e.target.value || null })
+              }
+              placeholder="Instrucción de la técnica"
+              rows={2}
+              className="flex-1 py-1.5"
+            />
+            <BotonDictado
+              etiqueta="Dictar la instrucción"
+              onTexto={(texto) =>
+                onChange({
+                  ...ejercicio,
+                  tecnicaInstruccion: [ejercicio.tecnicaInstruccion, texto].filter(Boolean).join(" "),
+                })
+              }
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Input
+              value={ejercicio.observacion ?? ""}
+              onChange={(e) => onChange({ ...ejercicio, observacion: e.target.value || null })}
+              placeholder="Observación"
+              className="flex-1 py-1.5"
+            />
+            <BotonDictado
+              etiqueta="Dictar la observación"
+              onTexto={(texto) =>
+                onChange({
+                  ...ejercicio,
+                  observacion: [ejercicio.observacion, texto].filter(Boolean).join(" "),
+                })
+              }
+            />
+          </div>
 
           {/* Impulso VIP: encendido por defecto (ver DEFAULTS_PROGRESION) —
               se apaga puntualmente acá para el ejercicio que no corresponda. */}
@@ -873,6 +915,7 @@ export function VistaPreviaEstructurada({
   onActualizarEjercicio,
   onInsertarEjercicio,
   onQuitarEjercicio,
+  onMoverEjercicio,
   expandida = false,
   onAgregarDia,
   onQuitarDia,
@@ -892,6 +935,9 @@ export function VistaPreviaEstructurada({
   onActualizarEjercicio: (diaIdx: number, ejIdx: number, ejercicio: Ejercicio) => void;
   onInsertarEjercicio: (diaIdx: number, posicion: number) => void;
   onQuitarEjercicio: (diaIdx: number, ejIdx: number) => void;
+  /** Sube o baja un ejercicio dentro del día. Opcional: sin esto no aparecen
+   * las flechas y la vista funciona igual que antes. */
+  onMoverEjercicio?: (diaIdx: number, ejIdx: number, direccion: -1 | 1) => void;
   /** Modo mesa de trabajo (herramienta de armado manual): sin la caja con
    * scroll propio, para que la rutina se lea entera y a lo ancho de la
    * pantalla. Dentro del generador sigue siendo una vista previa contenida. */
@@ -1218,6 +1264,31 @@ export function VistaPreviaEstructurada({
                           <span className="text-[9px] shrink-0 text-text-secondary">
                             {ejercicio.series}×{ejercicio.reps} · {ejercicio.descansoSegundos ?? 0}s
                           </span>
+                          {/* Reordenar sin borrar: dos flechas apiladas para
+                              que ocupen el alto de la fila y no su ancho, que
+                              en el teléfono es lo que escasea. */}
+                          {onMoverEjercicio && (
+                            <span className="flex shrink-0 flex-col">
+                              <button
+                                type="button"
+                                onClick={() => onMoverEjercicio(diaIdx, indice, -1)}
+                                disabled={indice === 0}
+                                aria-label={`Subir ${ejercicio.nombre}`}
+                                className="grid h-[13px] w-6 place-items-center rounded-t border border-b-0 border-border text-text-tertiary disabled:opacity-25 active:bg-[#2f6fa8] active:text-white"
+                              >
+                                <ChevronUp size={11} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onMoverEjercicio(diaIdx, indice, 1)}
+                                disabled={indice === dia.ejercicios.length - 1}
+                                aria-label={`Bajar ${ejercicio.nombre}`}
+                                className="grid h-[13px] w-6 place-items-center rounded-b border border-border text-text-tertiary disabled:opacity-25 active:bg-[#2f6fa8] active:text-white"
+                              >
+                                <ChevronDown size={11} />
+                              </button>
+                            </span>
+                          )}
                           <button
                             type="button"
                             onClick={() => setEditando({ dia: diaIdx, ej: indice })}
@@ -1431,6 +1502,48 @@ export function RutinaDraftEditor({
   const [errorRevision, setErrorRevision] = useState<string | null>(null);
   const [aplicados, setAplicados] = useState<Set<number>>(() => new Set());
   const [diaActivo, setDiaActivo] = useState(0);
+
+  // ── Guardado automático del armado ────────────────────────────────────
+  // Pedido del entrenador, primero de su lista: "guardar el progreso al
+  // armar". Ver `lib/generador-rutinas/borrador-local.ts` para el porqué.
+  const [recuperable, setRecuperable] = useState<BorradorArmado<RutinaConProgresion> | null>(null);
+  const [guardadoEn, setGuardadoEn] = useState<number | null>(null);
+  // El primer render no debe pisar el borrador guardado con el `draftInicial`
+  // recién montado: si lo hiciera, el aviso de recuperación aparecería
+  // apuntando a un borrador que ya se sobrescribió solo.
+  const yaMonto = useRef(false);
+
+  useEffect(() => {
+    // Diferido un tick (mismo patrón que ThemeToggle): `localStorage` no
+    // existe en el servidor, y marcar el estado dentro del cuerpo del efecto
+    // encadena un render de más sobre un componente ya pesado.
+    const id = window.setTimeout(() => {
+      const guardado = leerBorradorArmado<RutinaConProgresion>(alumnoIds);
+      if (guardado) setRecuperable(guardado);
+    }, 0);
+    return () => window.clearTimeout(id);
+    // Solo al montar: es una pregunta de "¿retomás lo de antes?", no algo que
+    // deba re-evaluarse mientras se trabaja.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const totalEjercicios = draft.dias.reduce((total, dia) => total + dia.ejercicios.length, 0);
+
+  useEffect(() => {
+    if (!yaMonto.current) {
+      yaMonto.current = true;
+      return;
+    }
+    if (publicado) return;
+    // Debounce: escribir en cada tecla del campo de repeticiones serializaría
+    // la rutina entera decenas de veces por minuto sin ganar nada.
+    const id = setTimeout(() => {
+      guardarBorradorArmado(alumnoIds, draft, totalEjercicios);
+      setGuardadoEn(Date.now());
+    }, 800);
+    return () => clearTimeout(id);
+  }, [draft, alumnoIds, totalEjercicios, publicado]);
+
   const hallazgosEstructura = useMemo(
     () => detectarHallazgosRutina(draft.dias.map((dia) => ({
       nombre: dia.nombre,
@@ -1559,6 +1672,24 @@ export function RutinaDraftEditor({
       dias: d.dias.map((dia, i) =>
         i === diaIdx ? { ...dia, ejercicios: dia.ejercicios.filter((_, j) => j !== ejIdx) } : dia
       ),
+    }));
+  };
+
+  /** Sube o baja un ejercicio dentro de su día. Pedido del entrenador: el
+   * orden importa (lo pesado primero, el accesorio después) y hasta ahora la
+   * única forma de corregirlo era borrar y volver a elegir. Renumera `orden`
+   * al terminar, que es lo que consume la publicación. */
+  const moverEjercicio = (diaIdx: number, ejIdx: number, direccion: -1 | 1) => {
+    setDraft((d) => ({
+      ...d,
+      dias: d.dias.map((dia, i) => {
+        if (i !== diaIdx) return dia;
+        const destino = ejIdx + direccion;
+        if (destino < 0 || destino >= dia.ejercicios.length) return dia;
+        const ejercicios = [...dia.ejercicios];
+        [ejercicios[ejIdx], ejercicios[destino]] = [ejercicios[destino], ejercicios[ejIdx]];
+        return { ...dia, ejercicios: ejercicios.map((e, orden) => ({ ...e, orden: orden + 1 })) };
+      }),
     }));
   };
 
@@ -1973,6 +2104,11 @@ export function RutinaDraftEditor({
         return;
       }
       setPublicado(true);
+      // La rutina ya está en la cuenta del alumno: el respaldo local dejó de
+      // tener sentido y, si quedara, la próxima vez ofrecería retomar algo ya
+      // publicado (ver la regla de precedencia en borrador-local.ts).
+      limpiarBorradorArmado(alumnoIds);
+      setRecuperable(null);
     } catch (e) {
       const detalle = e instanceof Error ? e.message : "error inesperado";
       const esVersionAnterior = /failed to find server action|was not found on the server/i.test(detalle);
@@ -2021,6 +2157,38 @@ export function RutinaDraftEditor({
 
   return (
     <div className={mesaDeTrabajo ? "space-y-2" : "space-y-4"}>
+      {/* Trabajo sin publicar de una sesión anterior. No se restaura solo: el
+          entrenador puede haber abierto esta pantalla justamente para armar
+          otra cosa, y pisarle lo que tiene en pantalla sería peor que
+          perderlo. Se pregunta una vez y se decide. */}
+      {recuperable && (
+        <div className="radius-control flex flex-wrap items-center gap-2 border border-[#6f9bc6] bg-[#19232e] px-2.5 py-2">
+          <p className="text-caption min-w-0 flex-1 text-[#cfe2f3]">
+            Tenías una rutina a medio armar ({recuperable.ejercicios}{" "}
+            {recuperable.ejercicios === 1 ? "ejercicio" : "ejercicios"}, {haceCuanto(recuperable.guardadoEn)}).
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(recuperable.rutina);
+              setRecuperable(null);
+            }}
+            className="radius-control shrink-0 border border-[#6f9bc6] px-2.5 py-1 text-[11px] font-semibold text-[#9fc4e3]"
+          >
+            Retomarla
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              limpiarBorradorArmado(alumnoIds);
+              setRecuperable(null);
+            }}
+            className="shrink-0 text-[11px] font-semibold text-text-tertiary"
+          >
+            Descartar
+          </button>
+        </div>
+      )}
       {mesaDeTrabajo ? (
         <details className="radius-control border border-border bg-surface">
           <summary className="cursor-pointer px-2.5 py-2 text-caption font-semibold text-text-secondary">
@@ -2248,6 +2416,7 @@ export function RutinaDraftEditor({
           onActualizarEjercicio={actualizarEjercicio}
           onInsertarEjercicio={insertarEjercicio}
           onQuitarEjercicio={quitarEjercicio}
+          onMoverEjercicio={moverEjercicio}
           expandida
           onAgregarDia={agregarDia}
           onQuitarDia={quitarDia}
@@ -2283,6 +2452,7 @@ export function RutinaDraftEditor({
               onActualizarEjercicio={actualizarEjercicio}
               onInsertarEjercicio={insertarEjercicio}
               onQuitarEjercicio={quitarEjercicio}
+              onMoverEjercicio={moverEjercicio}
               expandida={mesaDeTrabajo}
               onAgregarDia={mesaDeTrabajo ? agregarDia : undefined}
               onQuitarDia={mesaDeTrabajo ? quitarDia : undefined}
@@ -2345,6 +2515,14 @@ export function RutinaDraftEditor({
           Descartar
         </Button>
       </div>
+      {/* Que el guardado automático se vea: sin esto, "se guarda solo" es una
+          promesa que el entrenador no tiene cómo comprobar, y va a seguir con
+          el miedo a cerrar la pestaña que tenía antes. */}
+      {guardadoEn !== null && (
+        <p className="text-micro text-center text-text-tertiary">
+          Guardado en este dispositivo {haceCuanto(guardadoEn)} · se borra al publicar
+        </p>
+      )}
     </div>
   );
 }

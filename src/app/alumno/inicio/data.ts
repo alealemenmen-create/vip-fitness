@@ -6,6 +6,7 @@ import {
   obtenerRutinaActiva,
   type GrupoMuscular,
 } from "@/app/alumno/entrenar/data";
+import { elegirSesionDeHoy } from "@/lib/entrenamiento/sesion-actual";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -117,17 +118,25 @@ export async function obtenerEstadoEntrenamientoHoy(
   // entrenar/data.ts, "número de calendario falso"): se toma la sesión más
   // reciente de la rutina activa, y solo cuenta como "de hoy" si sigue en
   // progreso o si efectivamente se hizo hoy.
+  //
+  // "Más reciente" NO es la de mayor número: si el alumno está ejecutando la
+  // sesión 6 y existe una 7 creada como vista previa (tocar "Ver
+  // entrenamiento" ya inserta la fila en `en_progreso`, ver
+  // `obtenerSesionEnProgreso`), ordenar por número mandaba "Continuar" a la 7
+  // y lo sacaba del entrenamiento que tenía andando. La que se está
+  // ejecutando manda siempre.
   const hoy = hoyISO();
-  const { data: sesion } = await supabase
+  const { data: sesiones } = await supabase
     .from("sesiones_entrenamiento")
-    .select("id, fecha, estado")
+    .select("id, fecha, estado, rutina_iniciada_en, rutina_dias(tipo)")
     .eq("alumno_id", alumnoId)
     .eq("rutina_id", rutina.id)
     .order("numero_calendario", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(20);
 
-  if (!sesion || (sesion.estado !== "en_progreso" && sesion.fecha !== hoy)) {
+  const sesion = elegirSesionDeHoy(sesiones ?? [], hoy);
+
+  if (!sesion) {
     return { tipo: "sin_dia_elegido" };
   }
 
@@ -188,7 +197,7 @@ export async function obtenerResumenEntrenamientoDias(
     obtenerDiasRutina(rutina.id),
     supabase
       .from("sesiones_entrenamiento")
-      .select("id, numero_calendario, estado")
+      .select("id, numero_calendario, estado, rutina_iniciada_en")
       .eq("alumno_id", alumnoId)
       .eq("rutina_id", rutina.id)
       .not("numero_calendario", "is", null)
@@ -201,11 +210,23 @@ export async function obtenerResumenEntrenamientoDias(
 
   // El día actual es la sesión en curso si la hay; si la última ya se
   // finalizó, el actual es el número siguiente (todavía sin sesión).
+  //
+  // Mismo criterio que el botón Continuar (ver `elegirSesionDeHoy`): manda la
+  // que se está ejecutando de verdad, no la de número más alto. Una fila
+  // creada por "Ver entrenamiento" existe en `en_progreso` sin haberse
+  // arrancado, y hacía que el anillo "hoy" saltara al día siguiente.
+  const enCurso = (sesiones ?? []).filter((s) => {
+    if (s.estado !== "en_progreso") return false;
+    const dia = diasRutina[(s.numero_calendario! - 1) % n];
+    return dia?.tipo === "descanso" || s.rutina_iniciada_en != null;
+  });
   const ultimaSesion = sesiones?.[0];
   const numeroActual =
-    ultimaSesion && ultimaSesion.estado === "en_progreso"
-      ? ultimaSesion.numero_calendario!
-      : (ultimaSesion?.numero_calendario ?? 0) + 1;
+    enCurso.length > 0
+      ? enCurso[enCurso.length - 1].numero_calendario!
+      : ultimaSesion && ultimaSesion.estado === "en_progreso"
+        ? ultimaSesion.numero_calendario!
+        : (ultimaSesion?.numero_calendario ?? 0) + 1;
   const posicionHoy = (numeroActual - 1) % n;
 
   // Solo interesa la sesión más reciente por posición — como vienen

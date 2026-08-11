@@ -190,6 +190,38 @@ export async function actualizarConfiguracionAsistente(
   return { ok: true, mensaje: "Límite del Asistente VIP guardado." };
 }
 
+/**
+ * Carga el saldo de IA a mano.
+ *
+ * A mano porque no hay alternativa: la API de Anthropic informa el costo de
+ * cada llamada, pero no el saldo de la cuenta. El entrenador escribe cuánto
+ * cargó y la fecha queda anclada al momento de guardar — desde ahí se
+ * descuenta lo gastado (ver `lib/asistente/saldo.ts`).
+ */
+export async function cargarSaldoIA(
+  _prev: ConfiguracionState,
+  formData: FormData
+): Promise<ConfiguracionState> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+  const saldo = Number(formData.get("saldo"));
+  if (!Number.isFinite(saldo) || saldo < 0 || saldo > 100_000) {
+    return { ok: false, mensaje: "El saldo debe ser un monto en dólares entre 0 y 100.000." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("configuracion_gimnasio")
+    .update({
+      saldo_ia_cargado_usd: Math.round(saldo * 100) / 100,
+      saldo_ia_cargado_en: new Date().toISOString(),
+      updated_by: sesion.userId,
+      updated_at: new Date().toISOString(),
+    } as never)
+    .eq("id", true);
+  if (error) return { ok: false, mensaje: "No se pudo guardar. Aplica primero la migración 0065." };
+  revalidatePath("/admin/configuracion");
+  return { ok: true, mensaje: "Saldo cargado. El consumo se descuenta desde ahora." };
+}
+
 export async function generarReconocimientosAhora(
   _prev: ConfiguracionState,
   _formData: FormData

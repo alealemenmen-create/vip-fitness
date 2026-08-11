@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fechaEnVentanaValida, hoyISO, sumarDiasISO } from "./date";
+import { fechaEnVentanaValida, fechaPasadaValida, hoyISO, sumarDiasISO } from "./date";
 
 describe("fechaEnVentanaValida", () => {
   it("acepta hoy y ayer", () => {
@@ -23,5 +23,26 @@ describe("fechaEnVentanaValida", () => {
     expect(fechaEnVentanaValida("no es una fecha")).toBe(false);
     expect(fechaEnVentanaValida("2026-8-5")).toBe(false);
     expect(fechaEnVentanaValida("05-08-2026")).toBe(false);
+  });
+});
+
+describe("fechaPasadaValida", () => {
+  it("acepta hoy y fechas viejas — es la fecha real de una foto de antes", () => {
+    expect(fechaPasadaValida(hoyISO())).toBe(true);
+    expect(fechaPasadaValida(sumarDiasISO(hoyISO(), -30))).toBe(true);
+    expect(fechaPasadaValida(sumarDiasISO(hoyISO(), -700))).toBe(true);
+  });
+
+  it("rechaza el futuro", () => {
+    expect(fechaPasadaValida(sumarDiasISO(hoyISO(), 1))).toBe(false);
+  });
+
+  it("rechaza lo absurdamente viejo", () => {
+    expect(fechaPasadaValida(sumarDiasISO(hoyISO(), -365 * 11))).toBe(false);
+  });
+
+  it("rechaza texto que no es una fecha ISO válida", () => {
+    expect(fechaPasadaValida("")).toBe(false);
+    expect(fechaPasadaValida("2026-8-5")).toBe(false);
   });
 });

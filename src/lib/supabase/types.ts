@@ -357,7 +357,20 @@ export interface Database {
         Row: {
           id: string;
           usuario_id: string;
-          herramienta: "atencion" | "nutricion" | "entrenamiento" | "progreso" | "noticia" | "alumno" | "eliminar_datos";
+          // 0065_saldo_y_consumo_ia.sql suma las tres últimas: hasta entonces
+          // la revisión de rutinas, la lectura de PDF y los retos gastaban sin
+          // quedar registrados en ningún lado.
+          herramienta:
+            | "atencion"
+            | "nutricion"
+            | "entrenamiento"
+            | "progreso"
+            | "noticia"
+            | "alumno"
+            | "eliminar_datos"
+            | "revision_rutina"
+            | "extraccion_documento"
+            | "reto";
           modelo: string;
           tokens_entrada: number;
           tokens_salida: number;
@@ -366,7 +379,20 @@ export interface Database {
         };
         Insert: {
           usuario_id: string;
-          herramienta: "atencion" | "nutricion" | "entrenamiento" | "progreso" | "noticia" | "alumno" | "eliminar_datos";
+          // 0065_saldo_y_consumo_ia.sql suma las tres últimas: hasta entonces
+          // la revisión de rutinas, la lectura de PDF y los retos gastaban sin
+          // quedar registrados en ningún lado.
+          herramienta:
+            | "atencion"
+            | "nutricion"
+            | "entrenamiento"
+            | "progreso"
+            | "noticia"
+            | "alumno"
+            | "eliminar_datos"
+            | "revision_rutina"
+            | "extraccion_documento"
+            | "reto";
           modelo: string;
           tokens_entrada?: number;
           tokens_salida?: number;

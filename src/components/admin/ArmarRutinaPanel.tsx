@@ -120,8 +120,17 @@ const GRUPOS_PLAN: { id: GrupoPlan; nombre: string; color: string; focos: string
   { id: "espalda", nombre: "Espalda", color: "#728fb8", focos: ["Amplitud", "Densidad", "Lumbar", "Trapecio"] },
   { id: "piernas", nombre: "Piernas", color: "#78a27c", focos: ["Glúteos", "Cuádriceps", "Femoral", "Aductor", "Abductor", "Pantorrilla"] },
   { id: "hombros", nombre: "Hombros", color: "#b99a62", focos: ["Anterior", "Lateral", "Posterior", "Press vertical"] },
-  { id: "biceps", nombre: "Bíceps", color: "#6fa4a0", focos: ["Supino", "Neutro", "Braquial / antebrazo"] },
-  { id: "triceps", nombre: "Tríceps", color: "#9a84b9", focos: ["Polea", "Sobre cabeza", "Compuesto"] },
+  // Modelo de brazos definido por el entrenador: los SUBGRUPOS son bíceps,
+  // tríceps y antebrazo; lo de adentro son ENFOQUES (qué cabeza del músculo
+  // se busca), no subgrupos. Lo que había antes mezclaba las dos cosas y
+  // metía además implementos ("Polea") y formas de ejecución ("Compuesto"),
+  // que no son ni una cosa ni la otra.
+  //
+  // Antebrazo NO figura acá todavía a propósito: no hay un solo ejercicio de
+  // antebrazo cargado en la biblioteca, así que ofrecerlo daría un día vacío.
+  // Entra en cuanto se carguen los ejercicios — ver el handoff.
+  { id: "biceps", nombre: "Bíceps", color: "#6fa4a0", focos: ["Cabeza larga", "Cabeza corta", "Braquial"] },
+  { id: "triceps", nombre: "Tríceps", color: "#9a84b9", focos: ["Cabeza larga", "Cabeza lateral", "Cabeza medial"] },
   { id: "core", nombre: "Core", color: "#b77f97", focos: ["Abdominal", "Oblicuos", "Estabilidad", "Lumbar"] },
 ];
 
@@ -336,7 +345,11 @@ export function ArmarRutinaPanel({
       const ejerciciosPorGrupo = { ...sesion.ejerciciosPorGrupo };
       if (quitando) delete ejerciciosPorGrupo[grupo];
       else ejerciciosPorGrupo[grupo] = cantidadSugerida(grupos.length, grupo);
-      return { ...sesion, grupos, ejerciciosPorGrupo };
+      // Al sacar el grupo se van también sus enfoques: si no, quedaban
+      // guardados invisibles y reaparecían en la descripción del día.
+      const nombreGrupo = GRUPOS_PLAN.find((item) => item.id === grupo)?.nombre ?? grupo;
+      const focos = quitando ? sesion.focos.filter((foco) => !foco.startsWith(`${nombreGrupo} · `)) : sesion.focos;
+      return { ...sesion, grupos, ejerciciosPorGrupo, focos };
     }));
     const alternarFoco = (foco: string) => setSesionesPlan((previas) => previas.map((sesion, indice) => {
       if (indice !== sesionActiva) return sesion;
@@ -344,7 +357,12 @@ export function ArmarRutinaPanel({
       return { ...sesion, focos };
     }));
     const gruposActivos = GRUPOS_PLAN.filter((grupo) => actual.grupos.includes(grupo.id));
-    const focosDisponibles = gruposActivos.flatMap((grupo) => grupo.focos);
+    // El enfoque se guarda calificado por su grupo ("Bíceps · Cabeza larga").
+    // Sin eso, "Cabeza larga" de bíceps y de tríceps serían el mismo botón:
+    // marcar uno marcaría los dos y la descripción del día quedaría ambigua.
+    const focosDisponibles = gruposActivos.flatMap((grupo) =>
+      grupo.focos.map((foco) => ({ id: `${grupo.nombre} · ${foco}`, etiqueta: foco, color: grupo.color }))
+    );
     return (
       <div className="space-y-3 rounded-2xl border border-[#303846] bg-[#151922] p-3 text-[#f4f7fb]">
         <div className="flex items-center justify-between gap-2 border-b border-[#303846] pb-2">
@@ -399,7 +417,9 @@ export function ArmarRutinaPanel({
             <p className="text-micro mb-2 text-[#a9bdd0]">SUBGRUPOS Y ENFOQUES · opcional</p>
             <div className="flex flex-wrap gap-1.5">
               {focosDisponibles.map((foco) => (
-                <button key={foco} type="button" onClick={() => alternarFoco(foco)} className={`radius-control border px-2 py-1.5 text-micro ${actual.focos.includes(foco) ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] bg-[#151922] text-[#a8b2c1]"}`}>{foco}</button>
+                <button key={foco.id} type="button" onClick={() => alternarFoco(foco.id)} className={`radius-control flex items-center gap-1.5 border px-2 py-1.5 text-micro ${actual.focos.includes(foco.id) ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] bg-[#151922] text-[#a8b2c1]"}`}>
+                  <span className="size-1.5 rounded-full" style={{ backgroundColor: foco.color }} />{foco.etiqueta}
+                </button>
               ))}
             </div>
           </div>

@@ -7,7 +7,7 @@ import { ArmarRutinaPanel, type AlumnoArmado } from "@/components/admin/ArmarRut
 import { resolverPlanEntrenamiento } from "@/lib/planes-entrenamiento";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { Dumbbell, FileText, WandSparkles } from "lucide-react";
+import { Dumbbell, FileText, History, WandSparkles } from "lucide-react";
 
 /** La revisión con IA es la operación más larga de toda la app: audita la
  * semana completa contra la ficha del alumno y puede tardar minutos. Sin este
@@ -133,12 +133,17 @@ export default async function GeneradorPage({
         }))}
       />
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <Link href="/admin/ejercicios" className="radius-control flex items-center justify-center gap-1.5 border border-border px-2 py-2 text-caption font-semibold text-text-secondary">
           <Dumbbell size={14} className="text-[#a78bfa]" /> Biblioteca
         </Link>
         <Link href="/admin/documentos" className="radius-control flex items-center justify-center gap-1.5 border border-border px-2 py-2 text-caption font-semibold text-text-secondary">
           <FileText size={14} className="text-[#60a5fa]" /> Importar PDF
+        </Link>
+        {/* Cuarta forma de llegar a una rutina, y la más barata: partir de una
+            que ya se le armó a esa misma persona. */}
+        <Link href="/admin/rutinas-generadas" className="radius-control flex items-center justify-center gap-1.5 border border-border px-2 py-2 text-caption font-semibold text-text-secondary">
+          <History size={14} className="text-[#f5c26b]" /> Rutinas hechas
         </Link>
       </div>
 

@@ -140,6 +140,26 @@ export function fechaEnVentanaValida(fechaISO: string): boolean {
   return fechaISO === hoy || fechaISO === sumarDiasISO(hoy, -1);
 }
 
+/** Años hacia atrás que se aceptan al fechar una foto vieja. */
+const ANOS_MAXIMOS_ATRAS = 10;
+
+/**
+ * Ventana más ancha, para el dato que describe CUÁNDO pasó algo y no cobra
+ * puntos por sí solo: la fecha real de una foto "de antes" que el alumno sube
+ * desde la galería de su teléfono. Acepta hoy y cualquier día anterior
+ * razonable; nunca el futuro.
+ *
+ * El límite de puntos NO vive acá: quien fecha una foto vieja la guarda con su
+ * fecha real pero no recibe recompensa (ver `subirFotoProgreso`), así que esta
+ * ventana no reabre el agujero que cerró `fechaEnVentanaValida`.
+ */
+export function fechaPasadaValida(fechaISO: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaISO)) return false;
+  const hoy = hoyISO();
+  if (fechaISO > hoy) return false;
+  return fechaISO >= sumarDiasISO(hoy, -365 * ANOS_MAXIMOS_ATRAS);
+}
+
 export type DiaTira = { fecha: string; letra: string; dia: number; esHoy: boolean };
 
 /** Ventana de días alrededor de `centroISO`, para una tira que se arrastra de

@@ -8,6 +8,7 @@ import { AdminTabs } from "@/components/admin/AdminTabs";
 import { LogoutButton } from "@/components/LogoutButton";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ZoomPanel } from "@/components/admin/ZoomPanel";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const sesion = await requireRol(["entrenador", "admin"]);
@@ -40,7 +41,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="admin-shell fixed inset-0 flex overflow-hidden bg-bg">
       <aside className="admin-sidebar hidden w-72 shrink-0 flex-col border-r border-border px-4 md:flex">
         <div className="shrink-0 border-b border-border pb-4 pt-5">
-          <Logo compact height={34} corner={<ThemeToggle />} />
+          <Logo
+            compact
+            height={34}
+            corner={
+              <span className="flex items-center gap-1.5">
+                <ZoomPanel />
+                <ThemeToggle />
+              </span>
+            }
+          />
           <div className="admin-profile-card mt-4 rounded-2xl p-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
               Panel del entrenador
@@ -83,6 +93,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <p className="mt-0.5 truncate text-[11px] font-semibold leading-tight text-text">{nombrePublicado(sesion.nombre)}</p>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
+              {/* Achicar la pantalla: es en el celular donde el entrenador
+                  pelea por el espacio, así que va acá y no en la barra lateral
+                  de escritorio. */}
+              <ZoomPanel className="!h-8" />
               <ThemeToggle className="!h-8 !w-8" />
               {miAlumnoPerfil ? (
                 <Link

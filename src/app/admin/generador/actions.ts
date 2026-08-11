@@ -144,7 +144,7 @@ export async function revisarBorradorConIA(params: {
   reglas: string[];
   borradorId: string | null;
 }): Promise<ResultadoRevision> {
-  await requireRol(["entrenador", "admin"]);
+  const sesion = await requireRol(["entrenador", "admin"]);
   if (!params.alumnoId || !params.rutina?.dias?.length) return { ok: false, error: "No hay una rutina que revisar." };
   const supabase = await createClient();
   const db = supabase as unknown as SupabaseClient;
@@ -159,6 +159,9 @@ export async function revisarBorradorConIA(params: {
     brief: params.brief,
     biblioteca,
     reglasAplicadas: params.reglas,
+    // Para el contador de consumo: la revisión es lo más caro que corre la
+    // app y quien la dispara es siempre el entrenador que está en pantalla.
+    entrenadorId: sesion.userId,
   });
   if (!resultado.ok) return resultado;
 

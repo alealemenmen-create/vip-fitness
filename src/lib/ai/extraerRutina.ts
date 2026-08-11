@@ -2,6 +2,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { registrarUsoIA } from "@/lib/ai/consumo";
 
 const GRUPOS_MUSCULARES = [
   "pecho",
@@ -112,7 +113,10 @@ export async function extraerRutinaDesdePdf(
   pdfBase64: string,
   /** Un .txt se manda como documento de texto plano; mandarlo como PDF hace
    * que la API lo rechace. */
-  mediaType: "application/pdf" | "text/plain" = "application/pdf"
+  mediaType: "application/pdf" | "text/plain" = "application/pdf",
+  /** Quién la disparó, para el contador de consumo. Opcional: sin esto la
+   * extracción funciona igual, solo no queda anotado el gasto. */
+  entrenadorId?: string
 ): Promise<ExtraccionResultado> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -158,6 +162,17 @@ export async function extraerRutinaDesdePdf(
         },
       ],
     });
+
+    // Antes de los `return` de error: el PDF ya se pagó aunque no se haya
+    // podido leer.
+    if (entrenadorId) {
+      await registrarUsoIA({
+        usuarioId: entrenadorId,
+        herramienta: "extraccion_documento",
+        modelo: "claude-sonnet-5",
+        uso: response.usage,
+      });
+    }
 
     if (response.stop_reason === "refusal") {
       return { ok: false, error: "No fue posible analizar este PDF." };

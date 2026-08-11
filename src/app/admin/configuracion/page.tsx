@@ -11,10 +11,12 @@ import { Card } from "@/components/ui/Card";
 import { cambiarMiCorreo } from "./actions";
 import { obtenerConfiguracionAsistenteVip } from "@/lib/asistente/configuracion";
 import { ConfiguracionAsistenteVip } from "@/components/admin/ConfiguracionAsistenteVip";
+import { obtenerSaldoIA } from "@/lib/asistente/saldo";
+import { SaldoIAPanel } from "@/components/admin/SaldoIAPanel";
 import { GavetaConfig } from "@/components/admin/GavetaConfig";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
-import { Bot, ChevronRight, Images, LogIn, Megaphone, ShieldAlert, Sparkles, Trophy } from "lucide-react";
+import { Bot, ChevronRight, FileText, Images, LogIn, Megaphone, ShieldAlert, Sparkles, Trophy } from "lucide-react";
 import { obtenerNovedades } from "@/lib/novedades";
 import { Novedades } from "@/components/admin/Novedades";
 import { obtenerHallazgosPendientes } from "@/lib/auditoria/data";
@@ -22,6 +24,12 @@ import { obtenerIngresos } from "@/lib/ingresos/data";
 
 export default async function ConfiguracionAdminPage() {
   await requireRol(["entrenador", "admin"]);
+  // El saldo va aparte del `Promise.all`, no adentro: sumarlo como noveno
+  // elemento hacía que TypeScript perdiera la inferencia de la tupla y tratara
+  // todo el resultado como `any[]` (el build lo rechaza aunque `tsc --noEmit`
+  // lo dejara pasar). Arranca igual antes de esperar al grupo, así que no
+  // agrega ni un milisegundo de espera.
+  const saldoPromesa = obtenerSaldoIA();
   const [config, supervision, registro, asistente, novedades, hallazgos, { resumen: ingresos }] =
     await Promise.all([
       obtenerConfiguracionReconocimientos(),
@@ -32,6 +40,7 @@ export default async function ConfiguracionAdminPage() {
       obtenerHallazgosPendientes(),
       obtenerIngresos("semana"),
     ]);
+  const saldoIA = await saldoPromesa;
   const activosAhora = ingresos.filter((r) => r.estado === "activo_ahora").length;
 
   return (
@@ -111,6 +120,18 @@ export default async function ConfiguracionAdminPage() {
           <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
         </Card>
       </Link>
+      {/* Mismo motivo que la tarjeta de arriba: en el celular esta es la única
+          puerta a lo que no entra en la barra de abajo. */}
+      <Link href="/admin/rutinas-generadas" className="block h-full">
+        <Card className="flex h-full items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-vip/15 text-vip"><FileText size={20} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="text-secondary block font-semibold text-text">Rutinas hechas</span>
+            <span className="text-caption block text-text-tertiary">Abrir una rutina que ya le armaste, cambiarla y volver a publicarla</span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
+        </Card>
+      </Link>
       <Link href="/admin/asistente" className="block h-full">
         <Card className="flex h-full items-center gap-3 p-4">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-vip/15 text-vip"><Bot size={20} /></span>
@@ -163,6 +184,12 @@ export default async function ConfiguracionAdminPage() {
       </GavetaConfig>
       <GavetaConfig titulo="Asistente VIP" subtitulo="El chat de IA para los alumnos">
         <ConfiguracionAsistenteVip config={asistente} />
+      </GavetaConfig>
+      {/* Aparte del Asistente VIP: esto cuenta TODO lo que usa IA, no solo el
+          chat — la revisión de rutinas es lo más caro y no figuraba en ningún
+          lado. */}
+      <GavetaConfig titulo="Saldo y consumo de IA" subtitulo="Cuánto queda y en qué se está yendo">
+        <SaldoIAPanel saldo={saldoIA} />
       </GavetaConfig>
       <GavetaConfig titulo="Reconocimientos semanales" subtitulo="Felicitaciones automáticas por IA">
         <ConfiguracionReconocimientos config={config} supervision={supervision} />

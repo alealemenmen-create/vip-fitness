@@ -342,6 +342,11 @@ input[type="date"]::-webkit-date-and-time-value {
   parte de los alumnos son personas mayores: el pellizco para hacer zoom está
   bloqueado en celular (ver `viewport` en layout.tsx), y esta es la única forma
   de agrandar la letra sin descuadrar la pantalla.
+
+  La misma variable sirve para lo contrario. El entrenador arma rutinas de 30
+  ejercicios desde el teléfono y pidió poder ACHICAR para que entre más de un
+  vistazo (ver ZoomPanel.tsx, junto al toggle claro/oscuro del panel). Por eso
+  el rango va de 0.75 a 1.3 y no de 1 para arriba.
 */
 :root {
   --escala-texto: 1;

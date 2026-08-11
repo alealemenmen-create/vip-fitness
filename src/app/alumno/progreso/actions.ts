@@ -6,7 +6,7 @@ import { requireAlumno } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import convertirHeic from "heic-convert";
 import sharp from "sharp";
-import { fechaEnVentanaValida, hoyISO } from "@/lib/date";
+import { fechaEnVentanaValida, fechaPasadaValida, hoyISO } from "@/lib/date";
 import {
   recalcularFotoSemana,
   recalcularPesoSemana,
@@ -14,7 +14,7 @@ import {
   registrarPeso,
 } from "@/lib/ranking/movimientos";
 
-export type FormState = { error: string | null; ok: boolean; puntos?: number };
+export type FormState = { error: string | null; ok: boolean; puntos?: number; aviso?: string };
 const okState: FormState = { error: null, ok: true };
 
 function fail(mensaje: string): FormState {
@@ -73,6 +73,11 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
   revalidatePath("/alumno/inicio");
+  // `registrarPeso` devuelve el delta real (ver `guardarMovimientoConDelta`):
+  // el segundo peso de la misma semana no acredita nada y hay que decirlo.
+  if (!puntos) {
+    return { ...okState, aviso: "Peso guardado. Ya tenías la recompensa de peso de esta semana." };
+  }
   return { ...okState, puntos };
 }
 
@@ -109,8 +114,13 @@ export async function subirFotoProgreso(
   const fechaFoto = String(formData.get("fecha_foto") || "") || hoyISO();
 
   if (!archivo || archivo.size === 0) return fail("Selecciona una foto.");
-  if (!fechaEnVentanaValida(fechaFoto)) {
-    return fail("Solo puedes subir una foto de hoy o de ayer.");
+  // A diferencia del peso, una foto SÍ puede ser vieja: el alumno sube las
+  // "de antes" desde la galería del teléfono y la fecha que importa es la del
+  // día en que se la sacó, no la de la subida (reportado por el entrenador:
+  // las dos fotos le quedaban con la misma fecha). Solo se rechaza el futuro
+  // y lo absurdamente viejo.
+  if (!fechaPasadaValida(fechaFoto)) {
+    return fail("Elige una fecha real, de hoy o anterior.");
   }
 
   const extensionArchivo = archivo.name.split(".").pop()?.toLowerCase() || "";
@@ -179,10 +189,23 @@ export async function subirFotoProgreso(
 
   if (errorInsert) return fail("La foto se subió, pero no fue posible registrarla.");
 
+  // La recompensa es de la semana en curso y una sola por semana (clave
+  // `foto:<lunes>`, ver `registrarFoto`). Fechar una foto vieja guarda la
+  // fecha real —que es lo que se pedía— pero no fabrica recompensas de
+  // semanas pasadas. Se avisa el porqué: antes la foto entraba en silencio
+  // sin puntos y parecía que el sistema no había registrado nada.
+  if (!fechaEnVentanaValida(fechaFoto)) {
+    revalidatePath("/alumno/progreso");
+    return { ...okState, aviso: "Foto guardada con su fecha real. Los Puntos VIP son solo por la foto de la semana en curso." };
+  }
+
   const puntos = await registrarFoto(alumnoId, fechaFoto);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
   revalidatePath("/alumno/inicio");
+  if (!puntos) {
+    return { ...okState, aviso: "Foto guardada. Ya tenías la recompensa de foto de esta semana." };
+  }
   return { ...okState, puntos };
 }
 

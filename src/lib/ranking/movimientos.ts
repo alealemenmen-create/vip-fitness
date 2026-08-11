@@ -125,6 +125,29 @@ export async function guardarMovimiento(movimiento: Movimiento): Promise<number>
   return puntos;
 }
 
+/**
+ * Igual que `guardarMovimiento`, pero devuelve lo que REALMENTE cambió el
+ * saldo, no lo que vale la recompensa.
+ *
+ * Las recompensas semanales van con clave `<tipo>:<lunes>`: la segunda foto
+ * de la misma semana hace upsert sobre la misma fila y el total del alumno no
+ * se mueve. `guardarMovimiento` igual devolvía los puntos completos, así que
+ * la pantalla anunciaba "+X Puntos VIP" que nunca se acreditaron — reportado
+ * por el entrenador como "subió dos fotos y no sumaron puntos". Devolver el
+ * delta permite decir la verdad en la interfaz.
+ */
+async function guardarMovimientoConDelta(movimiento: Movimiento): Promise<number> {
+  const admin = createAdminClient();
+  const { data: existente } = await admin
+    .from("puntos_vip_movimientos")
+    .select("puntos")
+    .eq("alumno_id", movimiento.alumnoId)
+    .eq("clave", movimiento.clave)
+    .maybeSingle();
+  const puntos = await guardarMovimiento(movimiento);
+  return puntos - (existente?.puntos ?? 0);
+}
+
 /** La primera recompensa de una sesión queda congelada. Corregir sus datos
  * después no puede restar ni volver a sumar puntos ya acreditados. */
 async function guardarRecompensaInmutable(movimiento: Movimiento): Promise<number> {
@@ -401,7 +424,7 @@ export async function registrarIngresoDiario(alumnoId: string, fecha = hoyISO())
 }
 
 export async function registrarPeso(alumnoId: string, fecha: string) {
-  return guardarMovimiento({
+  return guardarMovimientoConDelta({
     alumnoId,
     clave: `peso:${lunesDe(fecha)}`,
     categoria: "progreso",
@@ -436,7 +459,7 @@ export async function recalcularPesoSemana(alumnoId: string, fecha: string) {
 }
 
 export async function registrarFoto(alumnoId: string, fecha: string) {
-  return guardarMovimiento({
+  return guardarMovimientoConDelta({
     alumnoId,
     clave: `foto:${lunesDe(fecha)}`,
     categoria: "progreso",
