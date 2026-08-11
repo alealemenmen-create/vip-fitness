@@ -96,6 +96,8 @@ export const SesionGrupoCard = forwardRef<
    * el grupo se terminó recién acá. Navegar con Anterior/Siguiente hasta una
    * biserie ya hecha no la vuelve a disparar. */
   const [recienCompletado, setRecienCompletado] = useState(false);
+  /** Pidió cerrar el grupo con series sin hacer: se le muestra qué implica. */
+  const [confirmandoIncompleto, setConfirmandoIncompleto] = useState(false);
   const filasRef = useRef<Map<number, FilaSerieHandle>[]>(ejercicios.map(() => new Map()));
   const filaNodoRef = useRef<Map<number, HTMLDivElement>[]>(ejercicios.map(() => new Map()));
 
@@ -207,7 +209,23 @@ export const SesionGrupoCard = forwardRef<
     };
   }
 
+  /** Series del grupo que todavía no se hicieron: lo que se daría por hecho
+   * sin haberse hecho si se cierra ahora. */
+  const seriesFaltantes = ejercicios.reduce(
+    (acc, ej, pos) => acc + Math.max(0, ej.seriesProgramadas - seriesHechas[pos].size),
+    0
+  );
+
   function marcarGrupoListo() {
+    // Mismo aviso que en la tarjeta de ejercicio suelto: cerrar con series
+    // pendientes las marca como hechas y el grupo puntúa entero. Sin esto la
+    // biserie era la puerta de atrás — el único camino que cerraba sin decir
+    // nada.
+    if (seriesFaltantes > 0 && !confirmandoIncompleto) {
+      setConfirmandoIncompleto(true);
+      return;
+    }
+    setConfirmandoIncompleto(false);
     // Un solo envío después de actualizar todas las filas evita carreras entre
     // respuestas parciales del mismo grupo (el mismo problema corregido en la
     // tarjeta de ejercicio individual).
@@ -445,15 +463,43 @@ export const SesionGrupoCard = forwardRef<
                 );
               })}
 
-              {!completoTodo && (
-                <button
-                  type="button"
-                  onClick={marcarGrupoListo}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-vip/50 bg-transparent text-secondary font-semibold text-vip"
-                >
-                  <Check size={14} strokeWidth={3} /> Marcar {etiquetaGrupo.toLowerCase()} como completada
-                </button>
-              )}
+              {!completoTodo &&
+                (confirmandoIncompleto ? (
+                  <div className="panel-cerrar-incompleto space-y-2">
+                    <p className="text-caption font-semibold text-warning">
+                      Te faltan {seriesFaltantes}{" "}
+                      {seriesFaltantes === 1 ? "serie" : "series"} de esta {etiquetaGrupo.toLowerCase()}
+                    </p>
+                    <p className="text-micro text-text-secondary">
+                      Si la cierras ahora, esas series quedan marcadas como hechas y sin kilos ni
+                      repeticiones registradas. Tu entrenador lo va a ver así.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmandoIncompleto(false)}
+                        className="text-caption h-10 flex-1 rounded-[12px] border border-vip/60 font-bold text-vip"
+                      >
+                        Sigo entrenando
+                      </button>
+                      <button
+                        type="button"
+                        onClick={marcarGrupoListo}
+                        className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text-secondary"
+                      >
+                        Cerrar igual
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={marcarGrupoListo}
+                    className="boton-completar-ejercicio flex h-11 w-full items-center justify-center gap-2 rounded-[14px] font-bold"
+                  >
+                    <Check size={14} strokeWidth={3.5} /> Completar y guardar {etiquetaGrupo.toLowerCase()}
+                  </button>
+                ))}
 
               {ejercicios.map((ej, pos) => (
                 <div key={ej.sesionEjercicioId}>
