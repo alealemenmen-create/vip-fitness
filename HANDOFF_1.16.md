@@ -8,15 +8,28 @@ Continúa el 1.15 (misma sesión, tramo posterior). Leer los dos.
 
 ## Punto de regreso
 
+- **`main` subido hasta `1b15cd0` — al día con `origin/main`, nada pendiente
+  de push.** Para seguir en otra máquina: `git pull` y listo, no hace falta
+  nada más de git.
 - **Migración `0065_saldo_y_consumo_ia.sql` corrida por Alejandro.** El panel
   de saldo de IA ya puede usarse — falta cargar el saldo inicial a mano en
   Configuración si todavía no se hizo.
 - `tsc` limpio · **291 pruebas** (30 archivos) · eslint 0 errores en todo lo
   tocado. Quedan 3 errores viejos en `SesionEjercicioCard.tsx` (`setState` en
   un efecto), no tocados.
+- **Único pendiente de verificación real** (ver «cuarto y tercer tramo» abajo
+  para el detalle): confirmar con un toque real en el celular que finalizar
+  una sesión con el 100% de los ejercicios hechos salta directo a una sola
+  pantalla de confirmación. Se verificó por lectura de código y con la sesión
+  incompleta (esa sí con clic real, sin regresión); lo que falta es forzar el
+  100% de una sesión real y tocar "Finalizar".
 - Leer también la ADENDA al final: ahí están los bugs reportados con un alumno
   real y las decisiones de última hora, que son el punto de partida real.
 - Locales sin subir, intactos: `Rutinas Alejandro/`, `respaldo-cloud-ia-2026-08-09.bundle`, `tmp/`.
+  **Ojo si vas a seguir en otra PC**: estos tres son solo de esta máquina —
+  no viajan con `git pull`. `Rutinas Alejandro/` y el bundle son respaldos
+  locales; si hacen falta en la otra máquina, hay que copiarlos aparte
+  (no están en el repo a propósito).
 
 ## Sesión del 11/08, cuarto tramo — sección de Actualizaciones con aviso
 
