@@ -40,6 +40,12 @@ const DiaExtraidoSchema = z.object({
 
 const RutinaExtraidaSchema = z.object({
   nombreRutina: z.string(),
+  metodoGeneracion: z.object({
+    nivel: z.string(),
+    inspiracion: z.string(),
+    organizacion: z.string(),
+    generadoAutomaticamente: z.boolean(),
+  }).optional(),
   dias: z.array(DiaExtraidoSchema),
 });
 

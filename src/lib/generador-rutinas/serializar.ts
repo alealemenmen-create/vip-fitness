@@ -10,6 +10,14 @@ import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
  * cliente para la vista previa en RutinaDraftEditor, antes de confirmar. */
 export function serializarRutinaATexto(datos: RutinaExtraida): string {
   const partes = [datos.nombreRutina || "Rutina de entrenamiento", ""];
+  if (datos.metodoGeneracion) {
+    partes.push(
+      `Nivel: ${datos.metodoGeneracion.nivel}`,
+      `Inspiración: ${datos.metodoGeneracion.inspiracion}`,
+      `Organización: ${datos.metodoGeneracion.organizacion}`,
+      ""
+    );
+  }
   for (const dia of datos.dias) {
     partes.push(`Día ${dia.numero} — ${dia.nombre}`);
     if (dia.tipo === "descanso") {

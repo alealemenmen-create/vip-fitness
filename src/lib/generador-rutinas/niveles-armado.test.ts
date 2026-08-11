@@ -124,4 +124,12 @@ describe("niveles de armado manual", () => {
     expect(brief.minutosSesion).toBe(90);
     expect(brief.alumnoId).toBe("x");
   });
+
+  it("ofrece la escala completa de nivel solicitada por el entrenador", () => {
+    expect(["principiante", "intermedio", "avanzado", "olympia", "profesional"].map((nivel) =>
+      NIVELES_ARMADO[nivel as keyof typeof NIVELES_ARMADO].etiqueta
+    )).toEqual(["Principiante", "Intermedio", "Avanzado", "Olympia", "Profesional"]);
+    expect(NIVELES_ARMADO.principiante.brief.tecnicasIntensidad).toBe("no");
+    expect(NIVELES_ARMADO.olympia.brief.intensidadDeseada).toBe("competitiva");
+  });
 });

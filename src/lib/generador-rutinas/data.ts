@@ -9,6 +9,7 @@ type FilaTecnica = {
   id: string;
   nombre: string;
   slug: string;
+  descripcion: string | null;
   tipo: "individual" | "encadenada";
   cantidad_ejercicios: number | null;
   nivel_minimo: TecnicaEntrenamiento["nivelMinimo"];
@@ -28,7 +29,7 @@ async function leerTecnicas(): Promise<TecnicaEntrenamiento[]> {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("tecnicas_entrenamiento")
-    .select("id, nombre, slug, tipo, cantidad_ejercicios, nivel_minimo, fatiga, requiere_supervision, descanso_interno_seg, descanso_final_seg, maximo_por_sesion")
+    .select("id, nombre, slug, descripcion, tipo, cantidad_ejercicios, nivel_minimo, fatiga, requiere_supervision, descanso_interno_seg, descanso_final_seg, maximo_por_sesion")
     .eq("activa", true)
     .order("nombre");
 
@@ -36,6 +37,7 @@ async function leerTecnicas(): Promise<TecnicaEntrenamiento[]> {
     id: f.id,
     nombre: f.nombre,
     slug: f.slug,
+    descripcion: f.descripcion,
     tipo: f.tipo,
     cantidadEjercicios: f.cantidad_ejercicios,
     nivelMinimo: f.nivel_minimo,

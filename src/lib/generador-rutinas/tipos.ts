@@ -120,6 +120,7 @@ export type TecnicaEntrenamiento = {
   id: string;
   nombre: string;
   slug: string;
+  descripcion?: string | null;
   tipo: "individual" | "encadenada";
   cantidadEjercicios: number | null;
   nivelMinimo: NivelEjercicio;

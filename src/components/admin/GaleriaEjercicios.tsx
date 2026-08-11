@@ -1312,6 +1312,27 @@ const EQUIPOS: { valor: string; etiqueta: string }[] = [
 
 function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?: string; onCerrar: () => void }) {
   const [state, formAction, pending] = useActionState(crearEjercicioNuevo, ESTADO_INICIAL_CREAR);
+  const [grupoNuevo, setGrupoNuevo] = useState("");
+  const patronesVisibles = useMemo(() => {
+    const etiquetasPorGrupo: Record<string, string[]> = {
+      pecho: ["Pecho"],
+      espalda: ["Espalda"],
+      piernas: ["Pierna"],
+      hombros: ["Hombros"],
+      brazos: ["Bíceps", "Tríceps"],
+      core: ["Otros"],
+      cardio: ["Otros"],
+    };
+    const etiquetas = etiquetasPorGrupo[grupoNuevo] ?? [];
+    return GRUPOS_PATRON
+      .filter((grupo) => etiquetas.includes(grupo.etiqueta))
+      .map((grupo) => ({
+        ...grupo,
+        opciones: grupo.etiqueta === "Otros"
+          ? grupo.opciones.filter((opcion) => opcion.valor === grupoNuevo || opcion.valor === "otro")
+          : grupo.opciones,
+      }));
+  }, [grupoNuevo]);
   const {
     archivoElegido,
     previa,
@@ -1423,7 +1444,8 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
           <select
             name="grupo_muscular"
             required
-            defaultValue=""
+            value={grupoNuevo}
+            onChange={(evento) => setGrupoNuevo(evento.target.value)}
             className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
           >
             <option value="" disabled>
@@ -1435,6 +1457,35 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
               </option>
             ))}
           </select>
+        </label>
+
+        <label className="block">
+          <span className="text-caption mb-1 block text-text-tertiary">
+            Tipo de movimiento — evita ejercicios repetidos o grupos incompletos
+          </span>
+          <select
+            name="patron_movimiento"
+            required
+            disabled={!grupoNuevo}
+            defaultValue=""
+            className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
+          >
+            <option value="" disabled>
+              {grupoNuevo ? "Elegir…" : "Primero elige el grupo muscular"}
+            </option>
+            {patronesVisibles.map((grupo) => (
+              <optgroup key={grupo.etiqueta} label={grupo.etiqueta}>
+                {grupo.opciones.map((opcion) => (
+                  <option key={opcion.valor} value={opcion.valor}>
+                    {opcion.etiqueta}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <span className="text-micro mt-1 block text-text-tertiary">
+            Este dato llega directamente a Armar rutina y alimenta el Semáforo VIP.
+          </span>
         </label>
 
         <label className="block">

@@ -102,15 +102,15 @@ export function patronMovimiento(nombre: string, grupoMuscular: string | null | 
     if (/frontal/.test(n)) return "hombro_anterior";
   }
 
-  if (grupo === "brazos" || grupo === "brazo" || /biceps|triceps|curl/.test(n)) {
-    if (/triceps|extension|press frances|press cerrado|fondos|patada|pushdown/.test(n)) {
+  if (["brazos", "brazo", "biceps", "triceps"].includes(grupo) || /biceps|triceps|curl/.test(n)) {
+    if (grupo === "triceps" || /triceps|extension|press frances|press cerrado|fondos|patada|pushdown/.test(n)) {
       if (/sobre.*cabeza|por encima|tras nuca|overhead|copa|frances/.test(n)) return "triceps_sobre_cabeza";
       if (/fondos|press cerrado/.test(n)) return "triceps_compuesto";
       return "triceps_polea_abajo";
     }
     if (/martillo|hammer/.test(n)) return "biceps_neutro";
     if (/polea alta|predicador|scott|inclinado/.test(n)) return "biceps_hombro_flexionado";
-    if (/curl|biceps/.test(n)) return "biceps_supinado";
+    if (grupo === "biceps" || /curl|biceps/.test(n)) return "biceps_supinado";
   }
 
   if (grupo === "piernas" || grupo === "pierna") {

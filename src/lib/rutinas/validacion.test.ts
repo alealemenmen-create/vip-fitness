@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectarDeficienciasRutina } from "./validacion";
+import { detectarDeficienciasRutina, detectarHallazgosRutina } from "./validacion";
 
 describe("validación crítica de rutinas", () => {
   it("bloquea un día de pecho compuesto solo por aperturas y cruces", () => {
@@ -59,6 +59,29 @@ describe("validación crítica de rutinas", () => {
       { nombre: "Sentadilla", series: 12, grupoMuscular: "piernas" },
       { nombre: "Prensa", series: 12, grupoMuscular: "piernas" },
       { nombre: "Extensión", series: 12, grupoMuscular: "piernas" },
+    ] }]);
+    expect(errores).toEqual([]);
+  });
+
+  it("ubica el error en la sesión y los ejercicios que deben corregirse", () => {
+    const hallazgos = detectarHallazgosRutina([{ nombre: "Espalda", ejercicios: [
+      { nombre: "Jalón cerrado", series: 4, grupoMuscular: "espalda" },
+      { nombre: "Jalón neutro", series: 4, grupoMuscular: "espalda" },
+      { nombre: "Hiperextensiones", series: 3, grupoMuscular: "espalda" },
+    ] }]);
+    expect(hallazgos[0]).toMatchObject({
+      diaIndice: 0,
+      grupoSugerido: "espalda",
+      patronSugerido: "espalda_remo_horizontal",
+    });
+    expect(hallazgos[0].ejercicioIndices).toEqual([0, 1, 2]);
+  });
+
+  it("prefiere el patrón guardado en la galería sobre el nombre", () => {
+    const errores = detectarDeficienciasRutina([{ nombre: "Pecho", ejercicios: [
+      { nombre: "Máquina VIP A", series: 4, grupoMuscular: "pecho", patronMovimiento: "pecho_press_horizontal" },
+      { nombre: "Máquina VIP B", series: 4, grupoMuscular: "pecho", patronMovimiento: "pecho_press_inclinado" },
+      { nombre: "Máquina VIP C", series: 3, grupoMuscular: "pecho", patronMovimiento: "pecho_aislamiento" },
     ] }]);
     expect(errores).toEqual([]);
   });

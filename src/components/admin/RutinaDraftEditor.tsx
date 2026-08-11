@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search, Copy, RefreshCcw, Pencil, Check } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search, Copy, RefreshCcw, Pencil, Check, AlertTriangle, CircleCheckBig, WandSparkles } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
@@ -12,7 +12,9 @@ import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { CambioResuelto, RevisionResuelta } from "@/lib/ai/revisarRutina";
 import type { TipoProgresionImpulso } from "@/lib/supabase/types";
 import { PLANES_ENTRENAMIENTO, type CodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
-import { patronMovimiento } from "@/lib/rutinas/patrones";
+import { esBaseEstructural, patronMovimiento, prioridadEstructural, type PatronMovimiento } from "@/lib/rutinas/patrones";
+import { detectarHallazgosRutina, type HallazgoRutina } from "@/lib/rutinas/validacion";
+import { NIVELES_ARMADO, type NivelArmado } from "@/lib/generador-rutinas/niveles-armado";
 
 /** Revisión de IA del borrador. Opcional: solo el flujo del generador la pasa
  * — desde un PDF importado no hay ficha ni brief contra qué contrastar. */
@@ -24,7 +26,13 @@ export type RevisarRutinaFn = (
  * sobre el ejercicio y se me dé una lista para elegir, no que tenga que
  * escribir"). Opcional: si no llega (otros llamadores de este editor que
  * todavía no la pasan), el nombre sigue siendo un campo de texto libre. */
-export type EjercicioBiblioteca = { id: string; nombre: string; grupo: string; equipo: string };
+export type EjercicioBiblioteca = {
+  id: string;
+  nombre: string;
+  grupo: string;
+  equipo: string;
+  patronMovimiento?: PatronMovimiento | null;
+};
 
 type EjercicioExtraido = RutinaExtraida["dias"][number]["ejercicios"][number];
 
@@ -39,6 +47,9 @@ type ConfigProgresionBorrador = {
   tipoProgresion?: TipoProgresionImpulso;
   incrementoKg?: number;
   requiereAutorizacion?: boolean;
+  /** Se copia desde la galería al elegir el ejercicio. No se muestra al
+   * alumno; permite validar por biomecánica sin adivinar por el nombre. */
+  patronMovimiento?: PatronMovimiento | null;
 };
 
 type Ejercicio = EjercicioExtraido & ConfigProgresionBorrador;
@@ -90,21 +101,99 @@ const GRUPOS_MUSCULARES: { value: NonNullable<Ejercicio["grupoMuscular"]>; label
 const LABEL_GRUPO = new Map(GRUPOS_MUSCULARES.map((g) => [g.value, g.label]));
 
 type GrupoVisual = { etiqueta: string; color: string };
+type ObjetivoAutomatico = "pecho" | "espalda" | "piernas" | "hombros" | "biceps" | "triceps" | "core" | "cardio";
+type EstiloAutomatico = "balance_vip" | "clasica" | "intensiva" | "ppl" | "arnold" | "powerbuilding" | "olympia";
+type AlcanceAutomatico = "grupo" | "sesion" | "rutina";
+type OrganizacionAutomatica = "por_grupos" | "alternado" | "biseries";
+type ConfigAutomatico = {
+  diaIndice: number;
+  alcance: AlcanceAutomatico;
+  objetivo: ObjetivoAutomatico;
+  estilo: EstiloAutomatico;
+  organizacion: OrganizacionAutomatica;
+  incluirCore: boolean;
+  incluirCardio: boolean;
+};
+
+const ETIQUETA_OBJETIVO: Record<ObjetivoAutomatico, string> = {
+  pecho: "Pecho", espalda: "Espalda", piernas: "Piernas", hombros: "Hombros",
+  biceps: "Bíceps", triceps: "Tríceps", core: "Core", cardio: "Cardio",
+};
+const ETIQUETA_ESTILO: Record<EstiloAutomatico, string> = {
+  balance_vip: "Balance VIP", clasica: "Clásica / Bro split", intensiva: "Alta intensidad",
+  ppl: "Push Pull Legs", arnold: "Arnold split", powerbuilding: "Powerbuilding", olympia: "Olympia prep",
+};
+const ETIQUETA_ORGANIZACION: Record<OrganizacionAutomatica, string> = {
+  por_grupos: "Por grupos", alternado: "Alternado", biseries: "Biseries agonista–antagonista",
+};
+
+export function objetivosMuscularesDia(dia: Pick<Dia, "nombre" | "descripcion" | "ejercicios">): ObjetivoAutomatico[] {
+  const texto = `${dia.nombre} ${dia.descripcion ?? ""}`.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  const objetivos = new Set<ObjetivoAutomatico>();
+  const menciones: { objetivo: ObjetivoAutomatico; indice: number }[] = [
+    { objetivo: "pecho", indice: texto.search(/pecho/) },
+    { objetivo: "espalda", indice: texto.search(/espalda/) },
+    { objetivo: "piernas", indice: texto.search(/pierna|glute|cuadr|femoral|aductor|abductor|pantorr/) },
+    { objetivo: "hombros", indice: texto.search(/hombro|deltoide/) },
+    { objetivo: "biceps", indice: texto.search(/biceps|braquial/) },
+    { objetivo: "triceps", indice: texto.search(/triceps/) },
+    { objetivo: "core", indice: texto.search(/core|abdominal|oblicuo/) },
+    { objetivo: "cardio", indice: texto.search(/cardio|aerob/) },
+  ];
+  menciones.filter((item) => item.indice >= 0).sort((a, b) => a.indice - b.indice).forEach((item) => objetivos.add(item.objetivo));
+  for (const ejercicio of dia.ejercicios) {
+    const patron = ejercicio.patronMovimiento ?? patronMovimiento(ejercicio.nombre, ejercicio.grupoMuscular);
+    if (patron.startsWith("biceps_")) objetivos.add("biceps");
+    else if (patron.startsWith("triceps_")) objetivos.add("triceps");
+    else if (patron.startsWith("pecho_")) objetivos.add("pecho");
+    else if (patron.startsWith("espalda_")) objetivos.add("espalda");
+    else if (patron.startsWith("pierna_")) objetivos.add("piernas");
+    else if (patron.startsWith("hombro_")) objetivos.add("hombros");
+    else if (patron === "core") objetivos.add("core");
+    else if (patron === "cardio") objetivos.add("cardio");
+  }
+  return [...objetivos];
+}
+
+function objetivoDePatron(patron: PatronMovimiento): ObjetivoAutomatico | null {
+  if (patron.startsWith("biceps_")) return "biceps";
+  if (patron.startsWith("triceps_")) return "triceps";
+  if (patron.startsWith("pecho_")) return "pecho";
+  if (patron.startsWith("espalda_")) return "espalda";
+  if (patron.startsWith("pierna_")) return "piernas";
+  if (patron.startsWith("hombro_")) return "hombros";
+  if (patron === "core" || patron === "cardio") return patron;
+  return null;
+}
+
+export function opcionesBibliotecaParaObjetivo(
+  biblioteca: EjercicioBiblioteca[],
+  objetivo: ObjetivoAutomatico
+): { ejercicio: EjercicioBiblioteca; patron: PatronMovimiento }[] {
+  return biblioteca
+    .map((ejercicio) => ({
+      ejercicio,
+      patron: ejercicio.patronMovimiento ?? patronMovimiento(ejercicio.nombre, ejercicio.grupo),
+    }))
+    .filter((item) => objetivoDePatron(item.patron) === objetivo);
+}
 
 /** Colores de lectura del borrador. Bíceps y tríceps se separan aunque la
  * base todavía los guarde juntos como `brazos`. */
 function grupoVisual(ejercicio: Pick<Ejercicio, "nombre" | "grupoMuscular">): GrupoVisual {
-  const patron = patronMovimiento(ejercicio.nombre, ejercicio.grupoMuscular);
-  if (patron.startsWith("biceps_")) return { etiqueta: "Bíceps", color: "#06b6d4" };
-  if (patron.startsWith("triceps_")) return { etiqueta: "Tríceps", color: "#a855f7" };
+  const patron = "patronMovimiento" in ejercicio && ejercicio.patronMovimiento
+    ? ejercicio.patronMovimiento as PatronMovimiento
+    : patronMovimiento(ejercicio.nombre, ejercicio.grupoMuscular);
+  if (patron.startsWith("biceps_")) return { etiqueta: "Bíceps", color: "#6fa4a0" };
+  if (patron.startsWith("triceps_")) return { etiqueta: "Tríceps", color: "#9a84b9" };
   const grupos: Record<NonNullable<Ejercicio["grupoMuscular"]>, GrupoVisual> = {
-    pecho: { etiqueta: "Pecho", color: "#ef4444" },
-    espalda: { etiqueta: "Espalda", color: "#3b82f6" },
-    piernas: { etiqueta: "Piernas", color: "#22c55e" },
-    hombros: { etiqueta: "Hombros", color: "#f59e0b" },
-    brazos: { etiqueta: "Brazos", color: "#8b5cf6" },
-    core: { etiqueta: "Core", color: "#ec4899" },
-    cardio: { etiqueta: "Cardio", color: "#14b8a6" },
+    pecho: { etiqueta: "Pecho", color: "#c9787f" },
+    espalda: { etiqueta: "Espalda", color: "#728fb8" },
+    piernas: { etiqueta: "Piernas", color: "#78a27c" },
+    hombros: { etiqueta: "Hombros", color: "#b99a62" },
+    brazos: { etiqueta: "Brazos", color: "#8f86a7" },
+    core: { etiqueta: "Core", color: "#b77f97" },
+    cardio: { etiqueta: "Cardio", color: "#76a98a" },
   };
   return ejercicio.grupoMuscular ? grupos[ejercicio.grupoMuscular] : { etiqueta: "Ejercicio", color: "#94a3b8" };
 }
@@ -146,6 +235,22 @@ function grupoDominante(dia: Dia): string | null {
   return mejor;
 }
 
+function gruposPlanificados(dia: Dia): string[] {
+  const texto = `${dia.nombre} ${dia.descripcion ?? ""}`.toLowerCase();
+  const grupos = new Set<string>();
+  if (texto.includes("pecho")) grupos.add("pecho");
+  if (texto.includes("espalda")) grupos.add("espalda");
+  if (/pierna|glúte|glute|cuádr|cuadr|femoral|aductor|abductor|pantorr/.test(texto)) grupos.add("piernas");
+  if (/hombro|deltoide/.test(texto)) grupos.add("hombros");
+  if (/bíceps|biceps|tríceps|triceps|brazo/.test(texto)) grupos.add("brazos");
+  if (/core|abdominal|oblicuo/.test(texto)) grupos.add("core");
+  if (grupos.size === 0) {
+    const dominante = grupoDominante(dia);
+    if (dominante) grupos.add(dominante);
+  }
+  return [...grupos];
+}
+
 /** Una fila por ejercicio, no una ficha.
  *
  * Antes se dibujaban los 7 campos apilados siempre: con una rutina de 7 días y
@@ -158,26 +263,30 @@ function grupoDominante(dia: Dia): string | null {
  * lista para elegir, por grupo muscular". Vive aparte de EjercicioForm para
  * no inflar ese componente con la lógica de filtro/búsqueda. */
 function SelectorEjercicioInline({
-  grupoSugerido,
+  gruposSugeridos,
   biblioteca,
   onElegir,
   onCerrar,
 }: {
-  grupoSugerido: string | null;
+  gruposSugeridos: string[];
   biblioteca: EjercicioBiblioteca[];
   onElegir: (e: EjercicioBiblioteca) => void;
   onCerrar: () => void;
 }) {
   const [busqueda, setBusqueda] = useState("");
-  const [soloGrupo, setSoloGrupo] = useState(Boolean(grupoSugerido));
+  const [grupoFiltro, setGrupoFiltro] = useState(gruposSugeridos.length > 0 ? "__plan__" : "");
+  const gruposDisponibles = useMemo(
+    () => Array.from(new Set(biblioteca.map((ejercicio) => ejercicio.grupo))).sort(),
+    [biblioteca]
+  );
 
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return biblioteca
-      .filter((e) => !soloGrupo || !grupoSugerido || e.grupo === grupoSugerido)
+      .filter((e) => !grupoFiltro || (grupoFiltro === "__plan__" ? gruposSugeridos.includes(e.grupo) : e.grupo === grupoFiltro))
       .filter((e) => !q || `${e.nombre} ${e.grupo} ${e.equipo}`.toLowerCase().includes(q))
       .slice(0, 40);
-  }, [biblioteca, busqueda, soloGrupo, grupoSugerido]);
+  }, [biblioteca, busqueda, grupoFiltro, gruposSugeridos]);
 
   return (
     <div className="radius-control mt-1.5 border border-vip bg-surface-2 p-2">
@@ -194,12 +303,30 @@ function SelectorEjercicioInline({
           Cancelar
         </button>
       </div>
-      {grupoSugerido && (
-        <label className="text-micro mb-1.5 flex items-center gap-1.5 text-text-tertiary">
-          <input type="checkbox" checked={soloGrupo} onChange={(e) => setSoloGrupo(e.target.checked)} />
-          Solo {grupoSugerido}
-        </label>
-      )}
+      <div className="mb-1.5 flex gap-1 overflow-x-auto pb-0.5">
+        {gruposSugeridos.length > 0 && (
+          <button type="button" onClick={() => setGrupoFiltro("__plan__")} className={`radius-control shrink-0 border px-2 py-1 text-[9px] font-semibold ${grupoFiltro === "__plan__" ? "border-[#c7a25c] text-[#c7a25c]" : "border-border text-text-tertiary"}`}>
+            Esta sesión
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setGrupoFiltro("")}
+          className={`radius-control shrink-0 border px-2 py-1 text-[9px] font-semibold ${!grupoFiltro ? "border-[#c7a25c] text-[#c7a25c]" : "border-border text-text-tertiary"}`}
+        >
+          Todos
+        </button>
+        {gruposDisponibles.map((grupo) => (
+          <button
+            key={grupo}
+            type="button"
+            onClick={() => setGrupoFiltro(grupo)}
+            className={`radius-control shrink-0 border px-2 py-1 text-[9px] font-semibold capitalize ${grupoFiltro === grupo ? "border-vip text-vip" : "border-border text-text-tertiary"}`}
+          >
+            {grupo}
+          </button>
+        ))}
+      </div>
       <div className="max-h-48 space-y-1 overflow-y-auto">
         {visibles.length === 0 && <p className="text-micro px-1 py-2 text-text-tertiary">Sin resultados.</p>}
         {visibles.map((e) => (
@@ -210,7 +337,7 @@ function SelectorEjercicioInline({
             className="radius-control flex w-full items-center justify-between gap-2 bg-surface px-2 py-1.5 text-left active:bg-vip active:text-black"
           >
             <span className="text-caption truncate">{e.nombre}</span>
-            <span className="text-micro shrink-0 text-text-tertiary">{e.grupo}</span>
+            <span className="text-micro shrink-0 text-text-tertiary">{e.grupo} · {e.equipo}</span>
           </button>
         ))}
       </div>
@@ -228,6 +355,88 @@ function SelectorEjercicioInline({
  * Las ENCADENADAS no se guardan en un solo ejercicio: unen a varios seguidos.
  * Por eso al elegir una, el trabajo lo hace el día (`onEncadenar`), que
  * etiqueta los N ejercicios y crea los que falten para completarla. */
+const EXPLICACION_TECNICA: Record<string, string> = {
+  "Biserie": "Dos ejercicios seguidos; descansa solamente al completar ambos.",
+  "Superserie": "Dos ejercicios seguidos, normalmente agonista-antagonista o dos patrones complementarios.",
+  "Triserie": "Tres ejercicios seguidos; descansa al cerrar el bloque completo.",
+  "Circuito": "Completa todos los ejercicios en orden y descansa al terminar la vuelta.",
+  "Giant set": "Cuatro ejercicios encadenados para un mismo bloque muscular.",
+  "Drop set": "En la última serie baja la carga y continúa sin descanso.",
+  "Rest-pause": "Llega cerca del fallo, pausa brevemente y completa repeticiones adicionales.",
+  "Fallo muscular": "Lleva la serie indicada hasta no poder completar otra repetición limpia.",
+  "Tempo controlado": "Respeta una velocidad definida en cada fase de la repetición.",
+  "Isometria": "Mantén la posición indicada durante el tiempo pautado.",
+  "Cluster set": "Divide una serie pesada en bloques cortos con pausas internas.",
+  "FST-7": "Realiza siete series de aislamiento con pausas cortas como remate localizado.",
+  "Myo-reps": "Haz una serie de activación y luego mini-series con pausas breves.",
+};
+
+function explicacionTecnica(tecnica: TecnicaOpcion): string | null {
+  return tecnica.descripcion ?? EXPLICACION_TECNICA[tecnica.nombre] ?? null;
+}
+
+/** Fórmula de arranque para no obligar al entrenador a completar tres campos
+ * cada vez que elige un ejercicio nuevo. No toca un ejercicio que ya estaba
+ * configurado: solo propone valores al llenar una fila vacía y todo sigue
+ * siendo editable. El patrón biomecánico manda sobre el nombre visible. */
+function prescripcionInicial(
+  patron: PatronMovimiento,
+  nivel: NivelArmado
+): Pick<Ejercicio, "series" | "reps" | "descansoSegundos"> {
+  if (patron === "cardio") return { series: 1, reps: "10-20 min", descansoSegundos: 0 };
+
+  const base = esBaseEstructural(patron);
+  if (nivel === "senior" || nivel === "principiante") {
+    return base
+      ? { series: 3, reps: "10-12", descansoSegundos: 120 }
+      : { series: 2, reps: "12-15", descansoSegundos: 75 };
+  }
+  if (nivel === "competitivo" || nivel === "olympia") {
+    return base
+      ? { series: 5, reps: "15-12-10-8-8", descansoSegundos: 120 }
+      : { series: 4, reps: "10-15", descansoSegundos: 60 };
+  }
+  if (nivel === "profesional") {
+    return base
+      ? { series: 5, reps: "6-10", descansoSegundos: 150 }
+      : { series: 4, reps: "8-12", descansoSegundos: 75 };
+  }
+  if (nivel === "avanzado") {
+    return base
+      ? { series: 4, reps: "6-10", descansoSegundos: 120 }
+      : { series: 4, reps: "10-15", descansoSegundos: 75 };
+  }
+  return base
+    ? { series: 4, reps: "8-12", descansoSegundos: 90 }
+    : { series: 3, reps: "10-15", descansoSegundos: 60 };
+}
+
+function prescripcionAutomatica(patron: PatronMovimiento, nivel: NivelArmado, estilo: EstiloAutomatico) {
+  const base = prescripcionInicial(patron, nivel);
+  if (estilo === "powerbuilding") {
+    return esBaseEstructural(patron)
+      ? { series: 5, reps: "4-6", descansoSegundos: 180 }
+      : { series: 3, reps: "8-12", descansoSegundos: 90 };
+  }
+  if (estilo === "intensiva" && !esBaseEstructural(patron)) {
+    return { ...base, series: Math.max(3, base.series), descansoSegundos: Math.min(75, base.descansoSegundos ?? 75) };
+  }
+  return base;
+}
+
+function formatoTecnica(tecnica: TecnicaOpcion): string {
+  const partes = tecnica.tipo === "encadenada"
+    ? [`${tecnica.cantidadEjercicios ?? 2} ejercicios`, `${tecnica.descansoInternoSeg ?? 0}s entre ejercicios`]
+    : ["1 ejercicio"];
+  if (tecnica.tipo === "individual" && (tecnica.descansoInternoSeg ?? 0) > 0) {
+    partes.push(`${tecnica.descansoInternoSeg}s de pausa interna`);
+  }
+  partes.push(`${tecnica.descansoFinalSeg ?? 90}s al terminar`);
+  if (tecnica.fatiga) partes.push(`fatiga ${tecnica.fatiga}`);
+  if (tecnica.requiereSupervision) partes.push("supervisión");
+  return partes.join(" · ");
+}
+
 function SelectorTecnica({
   valor,
   tecnicas,
@@ -238,8 +447,8 @@ function SelectorTecnica({
   valor: string | null;
   tecnicas: TecnicaOpcion[];
   onLimpiar: () => void;
-  onIndividual: (nombre: string) => void;
-  onEncadenar?: (nombre: string, cantidad: number) => void;
+  onIndividual: (tecnica: TecnicaOpcion) => void;
+  onEncadenar?: (tecnica: TecnicaOpcion) => void;
 }) {
   const individuales = tecnicas.filter((t) => t.tipo === "individual");
   const encadenadas = tecnicas.filter((t) => t.tipo === "encadenada");
@@ -253,10 +462,9 @@ function SelectorTecnica({
   const elegir = (nombre: string) => {
     if (!nombre) return onLimpiar();
     const tecnica = tecnicas.find((t) => t.nombre === nombre);
-    if (!tecnica) return onIndividual(nombre);
-    const cantidad = tecnica.cantidadEjercicios ?? 2;
-    if (tecnica.tipo === "encadenada" && onEncadenar) return onEncadenar(tecnica.nombre, cantidad);
-    onIndividual(tecnica.nombre);
+    if (!tecnica) return;
+    if (tecnica.tipo === "encadenada" && onEncadenar) return onEncadenar(tecnica);
+    onIndividual(tecnica);
   };
 
   return (
@@ -266,18 +474,26 @@ function SelectorTecnica({
         <optgroup label="Individuales (este ejercicio solo)">
           {individuales.map((t) => (
             <option key={t.nombre} value={t.nombre}>
-              {t.nombre}
+              {t.nombre} · {formatoTecnica(t)}
             </option>
           ))}
         </optgroup>
         <optgroup label="Encadenadas (unen varios ejercicios)">
           {encadenadas.map((t) => (
             <option key={t.nombre} value={t.nombre}>
-              {t.nombre} — {t.cantidadEjercicios ?? 2} ejercicios
+              {t.nombre} · {formatoTecnica(t)}
             </option>
           ))}
         </optgroup>
       </Select>
+      {conocida && (
+        <div className="mt-1">
+          <p className="text-micro text-vip">{formatoTecnica(tecnicas.find((t) => t.nombre === nombreBase)!)}</p>
+          {explicacionTecnica(tecnicas.find((t) => t.nombre === nombreBase)!) && (
+            <p className="text-micro text-text-tertiary">{explicacionTecnica(tecnicas.find((t) => t.nombre === nombreBase)!)}</p>
+          )}
+        </div>
+      )}
       {valor && !conocida && (
         // Rutina vieja o texto escrito a mano: se respeta tal cual, no se
         // pisa en silencio con una técnica de la lista.
@@ -296,23 +512,29 @@ function SelectorTecnica({
  * que decide cuántos ejercicios encadena: biserie 2, triserie 3, giant set 4. */
 export type TecnicaOpcion = {
   nombre: string;
+  descripcion?: string | null;
   tipo: "individual" | "encadenada";
   cantidadEjercicios: number | null;
+  descansoInternoSeg?: number;
+  descansoFinalSeg?: number;
+  fatiga?: "baja" | "media" | "alta";
+  requiereSupervision?: boolean;
 };
 
 function EjercicioForm({
   numero,
   ejercicio,
-  grupoSugerido,
+  gruposSugeridos,
   biblioteca,
   tecnicas,
   onChange,
   onRemove,
   onEncadenar,
+  nivelArmado = "estandar",
 }: {
   numero: number;
   ejercicio: Ejercicio;
-  grupoSugerido: string | null;
+  gruposSugeridos: string[];
   biblioteca?: EjercicioBiblioteca[];
   /** Las técnicas reales del gimnasio. Sin esto el campo sigue siendo texto
    * libre, que es como funcionaba antes. */
@@ -322,22 +544,24 @@ function EjercicioForm({
   /** Elegir una técnica encadenada no es un dato de ESTE ejercicio: une a
    * varios seguidos. Lo resuelve el día, que es quien los conoce a todos. */
   onEncadenar?: (nombre: string, cantidad: number) => void;
+  nivelArmado?: NivelArmado;
 }) {
   // El resumen útil queda siempre visible. Técnica, observación y progresión
   // empiezan cerradas para que una rutina de 30 ejercicios no obligue a
   // recorrer una página interminable.
   const [ampliado, setAmpliado] = useState(false);
   const [eligiendo, setEligiendo] = useState(false);
+  const [eligiendoTecnica, setEligiendoTecnica] = useState(false);
   const colorTecnica = colorTecnicaVisual(ejercicio.tecnicaTipo);
   const visual = grupoVisual(ejercicio);
 
   return (
     <div
-      className="radius-control border px-2 py-1.5"
+      className="border-b bg-surface/40 px-2 py-2"
       style={{
-        borderColor: visual.color,
+        borderColor: "#30343a",
         boxShadow: colorTecnica
-          ? `inset 3px 0 0 ${visual.color}, 0 0 0 1px ${colorTecnica}`
+          ? `inset 3px 0 0 ${visual.color}, inset 0 -1px 0 ${colorTecnica}`
           : `inset 3px 0 0 ${visual.color}`,
       }}
     >
@@ -347,7 +571,7 @@ function EjercicioForm({
           <button
             type="button"
             onClick={() => setEligiendo((v) => !v)}
-            className="radius-control min-w-0 flex-1 truncate border border-border bg-surface-2 px-2.5 py-2 text-left text-secondary font-bold"
+            className="min-w-0 flex-1 truncate border-0 bg-transparent px-1 py-1 text-left text-secondary font-bold"
             style={{ fontWeight: 700, color: visual.color }}
           >
             {ejercicio.nombre || <span className="text-text-tertiary">Toca para elegir ejercicio…</span>}
@@ -368,15 +592,20 @@ function EjercicioForm({
 
       {biblioteca && eligiendo && (
         <SelectorEjercicioInline
-          grupoSugerido={ejercicio.grupoMuscular ?? grupoSugerido}
+          gruposSugeridos={ejercicio.grupoMuscular ? [ejercicio.grupoMuscular] : gruposSugeridos}
           biblioteca={biblioteca}
           onCerrar={() => setEligiendo(false)}
           onElegir={(elegido) => {
+            const nuevoPatron = elegido.patronMovimiento ?? patronMovimiento(elegido.nombre, elegido.grupo);
+            const estabaVacio = !ejercicio.nombre.trim() && !ejercicio.ejercicioId;
+            const propuesta = estabaVacio ? prescripcionInicial(nuevoPatron, nivelArmado) : null;
             onChange({
               ...ejercicio,
+              ...(propuesta ?? {}),
               nombre: elegido.nombre,
               ejercicioId: elegido.id,
               grupoMuscular: (elegido.grupo as Ejercicio["grupoMuscular"]) ?? ejercicio.grupoMuscular,
+              patronMovimiento: nuevoPatron,
             });
             setEligiendo(false);
           }}
@@ -394,43 +623,87 @@ function EjercicioForm({
         </div>
       )}
 
-      <div className="mt-1 flex items-center gap-1 pl-[22px]">
-        <label className="text-caption shrink-0 text-text-tertiary">Series</label>
-        <Input
-          type="number"
-          min="1"
-          value={ejercicio.series}
-          onChange={(e) => onChange({ ...ejercicio, series: Number(e.target.value) })}
-          className="w-12 px-1.5 py-1 text-center"
-        />
-        <label className="text-caption shrink-0 text-text-tertiary">Reps</label>
-        <Input
-          value={ejercicio.reps}
-          onChange={(e) => onChange({ ...ejercicio, reps: e.target.value })}
-          className="w-16 px-1.5 py-1 text-center"
-        />
-        <label className="text-caption shrink-0 text-text-tertiary">Desc.</label>
-        <Input
-          type="number"
-          min="0"
-          value={ejercicio.descansoSegundos ?? ""}
-          onChange={(e) =>
-            onChange({
-              ...ejercicio,
-              descansoSegundos: e.target.value ? Number(e.target.value) : null,
-            })
-          }
-          className="w-14 px-1.5 py-1 text-center"
-        />
+      <div className="mt-1.5 grid grid-cols-[minmax(54px,.7fr)_minmax(108px,1.5fr)_minmax(70px,1fr)] gap-1.5 pl-[22px] max-[350px]:grid-cols-[52px_minmax(104px,1.35fr)_minmax(68px,1fr)] max-[350px]:gap-1">
+        <label className="min-w-0 text-[10px] text-text-tertiary">
+          <span className="mb-1 block">Series</span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min="1"
+            value={ejercicio.series}
+            onChange={(e) => onChange({ ...ejercicio, series: Number(e.target.value) })}
+            className="!h-9 !min-w-0 !px-1 !py-1 !text-sm text-center font-mono tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+        </label>
+        <label className="min-w-0 text-[10px] text-text-tertiary">
+          <span className="mb-1 block">Repeticiones</span>
+          <Input
+            value={ejercicio.reps}
+            inputMode="text"
+            onChange={(e) => onChange({ ...ejercicio, reps: e.target.value })}
+            className="!h-9 !min-w-0 !px-1 !py-1 !text-sm text-center font-mono tabular-nums"
+          />
+        </label>
+        <label className="min-w-0 text-[10px] text-text-tertiary">
+          <span className="mb-1 block truncate">Descanso (s)</span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            value={ejercicio.descansoSegundos ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...ejercicio,
+                descansoSegundos: e.target.value ? Number(e.target.value) : null,
+              })
+            }
+            className="!h-9 !min-w-0 !px-1 !py-1 !text-sm text-center font-mono tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+        </label>
+      </div>
+      <div className="mt-1.5 flex items-center gap-1.5 pl-[22px]">
+        {tecnicas && tecnicas.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setEligiendoTecnica((v) => !v)}
+            className={`radius-control shrink-0 border px-2 py-1.5 text-[10px] font-semibold ${
+              ejercicio.tecnicaTipo ? "border-vip/40 text-vip" : "border-border text-text-tertiary"
+            }`}
+          >
+            {ejercicio.tecnicaTipo || "+ Técnica"}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setAmpliado((v) => !v)}
           aria-label={ampliado ? "Ocultar detalles" : "Más detalles"}
-          className="ml-auto shrink-0 p-1 text-text-tertiary"
+          className="ml-auto flex shrink-0 items-center gap-1 py-1 text-[10px] text-text-tertiary"
         >
-          {ampliado ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          Detalles {ampliado ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
       </div>
+
+      {eligiendoTecnica && tecnicas && tecnicas.length > 0 && (
+        <div className="mt-1.5 border-t border-border pt-1.5 pl-[22px]">
+          <SelectorTecnica
+            valor={ejercicio.tecnicaTipo}
+            tecnicas={tecnicas}
+            onLimpiar={() => onChange({ ...ejercicio, tecnicaTipo: null, tecnicaInstruccion: null })}
+            onIndividual={(tecnica) => {
+              onChange({
+                ...ejercicio,
+                tecnicaTipo: tecnica.nombre,
+                descansoSegundos: tecnica.descansoFinalSeg ?? ejercicio.descansoSegundos,
+              });
+              setEligiendoTecnica(false);
+            }}
+            onEncadenar={(tecnica) => {
+              onEncadenar?.(tecnica.nombre, tecnica.cantidadEjercicios ?? 2);
+              setEligiendoTecnica(false);
+            }}
+          />
+        </div>
+      )}
 
       {ampliado && (
         <div className="mt-2 space-y-1.5 pl-[22px]">
@@ -456,8 +729,8 @@ function EjercicioForm({
               valor={ejercicio.tecnicaTipo}
               tecnicas={tecnicas}
               onLimpiar={() => onChange({ ...ejercicio, tecnicaTipo: null })}
-              onIndividual={(nombre) => onChange({ ...ejercicio, tecnicaTipo: nombre })}
-              onEncadenar={onEncadenar}
+              onIndividual={(tecnica) => onChange({ ...ejercicio, tecnicaTipo: tecnica.nombre, descansoSegundos: tecnica.descansoFinalSeg ?? ejercicio.descansoSegundos })}
+              onEncadenar={(tecnica) => onEncadenar?.(tecnica.nombre, tecnica.cantidadEjercicios ?? 2)}
             />
           ) : (
             <Input
@@ -563,6 +836,11 @@ export function VistaPreviaEstructurada({
   onEncadenar,
   onInsertarDescanso,
   onAplicarAGrupo,
+  onGenerarAutomatico,
+  hallazgos = [],
+  diaActivo = 0,
+  onCambiarDia,
+  nivelArmado = "estandar",
 }: {
   draft: RutinaConProgresion;
   biblioteca?: EjercicioBiblioteca[];
@@ -582,29 +860,85 @@ export function VistaPreviaEstructurada({
   onInsertarDescanso?: (posicion: number) => void;
   /** Series o descanso de todo un grupo del día, de un toque. */
   onAplicarAGrupo?: (diaIdx: number, etiqueta: string, campo: "series" | "descansoSegundos", valor: number) => void;
+  /** Varita VIP: completa desde la biblioteca un músculo, la sesión o toda la rutina. */
+  onGenerarAutomatico?: (config: ConfigAutomatico) => void;
+  /** Semáforo calculado en vivo por la mesa de armado. */
+  hallazgos?: HallazgoRutina[];
+  /** En la mesa manual se muestra una sola sesión para evitar el scroll. */
+  diaActivo?: number;
+  onCambiarDia?: (diaIdx: number) => void;
+  nivelArmado?: NivelArmado;
 }) {
   // Coordenadas de la tarjeta abierta para editar, no el ejercicio en sí:
   // así, al insertar uno nuevo, alcanza con apuntar a su posición para que
   // aparezca ya abierto (ver `insertar` más abajo).
   const [editando, setEditando] = useState<{ dia: number; ej: number } | null>(null);
+  const [varitaDia, setVaritaDia] = useState<number | null>(null);
+  const [alcanceAutomatico, setAlcanceAutomatico] = useState<AlcanceAutomatico>("grupo");
+  const [estiloAutomatico, setEstiloAutomatico] = useState<EstiloAutomatico>("balance_vip");
+  const [organizacionAutomatica, setOrganizacionAutomatica] = useState<OrganizacionAutomatica>("por_grupos");
+  const [objetivoAutomatico, setObjetivoAutomatico] = useState<ObjetivoAutomatico>("pecho");
+  const [incluirCore, setIncluirCore] = useState(false);
+  const [incluirCardio, setIncluirCardio] = useState(false);
 
   const insertar = (diaIdx: number, posicion: number) => {
     onInsertarEjercicio(diaIdx, posicion);
     setEditando({ dia: diaIdx, ej: posicion });
   };
 
+  const indicesVisibles = expandida
+    ? [Math.min(Math.max(0, diaActivo), Math.max(0, draft.dias.length - 1))]
+    : draft.dias.map((_, indice) => indice);
+
   return (
-    <div className={expandida ? "space-y-4" : "max-h-[34rem] space-y-3 overflow-y-auto pr-1"}>
-      <p className="text-card-title font-bold text-text">{draft.nombreRutina}</p>
-      {draft.dias.map((dia, diaIdx) => (
+    <div className={expandida ? "space-y-2" : "max-h-[34rem] space-y-3 overflow-y-auto pr-1"}>
+      {!expandida && <p className="text-card-title font-bold text-text">{draft.nombreRutina}</p>}
+      {expandida && draft.dias.length > 1 && (
+        <div className="flex gap-1 overflow-x-auto pb-1">
+          {draft.dias.map((dia, indice) => {
+            const errores = hallazgos.filter((hallazgo) => hallazgo.diaIndice === indice && hallazgo.severidad === "error").length;
+            return (
+              <button
+                key={`${dia.numero}-${indice}`}
+                type="button"
+                onClick={() => onCambiarDia?.(indice)}
+                aria-pressed={diaActivo === indice}
+                className={`radius-control flex shrink-0 items-center gap-1 border px-2 py-1.5 text-[10px] font-semibold ${
+                  diaActivo === indice ? "border-[#4f83b7] bg-[#dbeafe] text-[#214f7d]" : "border-[#c4d1df] bg-[#f7fafc] text-[#53657a]"
+                }`}
+              >
+                <span className={`size-1.5 rounded-full ${errores ? "bg-error" : "bg-success"}`} />
+                S{indice + 1} · {dia.nombre || "Sin nombre"}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {indicesVisibles.map((diaIdx) => {
+        const dia = draft.dias[diaIdx];
+        const objetivosDia = objetivosMuscularesDia(dia).filter((objetivo) => objetivo !== "core" && objetivo !== "cardio");
+        return (
         <Fragment key={`${dia.numero}-${dia.nombre}`}>
-        <section className="radius-control overflow-hidden border border-border">
-          <div className="flex items-center justify-between gap-2 bg-surface-2 px-2.5 py-2">
-            <p className="text-secondary font-bold text-vip">DÍA {dia.numero} · {dia.nombre}</p>
+        <section id={`rutina-dia-${diaIdx}`} className={`scroll-mt-24 overflow-hidden ${expandida ? "" : "radius-control border border-border"}`}>
+          <div className={`flex items-center justify-between gap-2 px-1 py-1.5 ${expandida ? "border-b border-border" : "bg-surface-2"}`}>
+            <p className="text-caption truncate font-bold text-[#6f9bc6]">SESIÓN {dia.numero} · {dia.nombre}</p>
             <div className="flex shrink-0 items-center gap-2">
               <span className="text-micro text-text-tertiary">
                 {dia.tipo === "descanso" ? "Descanso" : `${dia.ejercicios.length} ejercicios`}
               </span>
+              {onGenerarAutomatico && dia.tipo === "entrenamiento" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setObjetivoAutomatico(objetivosDia[0] ?? "pecho");
+                    setVaritaDia((actual) => actual === diaIdx ? null : diaIdx);
+                  }}
+                  aria-label={`Generar ejercicios automáticamente para ${dia.nombre}`}
+                  className="flex items-center gap-1 rounded-lg border border-[#8fb3d9] bg-[#e8f1fb] px-2 py-1 text-[10px] font-semibold text-[#255b91]"
+                >
+                  <WandSparkles size={12} /> Generar
+                </button>
+              )}
               {onQuitarDia && draft.dias.length > 1 && (
                 <button
                   type="button"
@@ -622,7 +956,11 @@ export function VistaPreviaEstructurada({
               abrir ejercicio por ejercicio. Los valores son los que se usan de
               verdad en sala; el que quiera otro sigue teniendo el lápiz. */}
           {onAplicarAGrupo && dia.tipo === "entrenamiento" && dia.ejercicios.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 border-t border-border bg-surface px-2.5 py-1.5">
+            <details className="border-b border-border">
+              <summary className="cursor-pointer px-1 py-1.5 text-[10px] font-semibold text-text-tertiary">
+                Ajustes rápidos por grupo
+              </summary>
+              <div className="flex flex-wrap items-center gap-1.5 px-1 pb-2">
               {Array.from(new Set(dia.ejercicios.map((e) => grupoVisual(e).etiqueta))).map((etiqueta) => {
                 const color = dia.ejercicios.map(grupoVisual).find((v) => v.etiqueta === etiqueta)?.color;
                 return (
@@ -666,25 +1004,87 @@ export function VistaPreviaEstructurada({
                   </div>
                 );
               })}
-            </div>
+              </div>
+            </details>
           )}
           {dia.descripcion && <p className="text-micro border-t border-border px-2.5 py-1.5 text-text-tertiary">{dia.descripcion}</p>}
+          {onGenerarAutomatico && varitaDia === diaIdx && dia.tipo === "entrenamiento" && (
+            <div className="space-y-3 border-b border-[#c9d5e2] bg-[#eef3f7] px-2.5 py-3 text-[#142033]">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-caption font-semibold text-[#142033]">Varita VIP</p>
+                <p className="text-[10px] text-[#617187]">Nivel: {NIVELES_ARMADO[nivelArmado].etiqueta}</p>
+              </div>
+              <div>
+                <p className="mb-1 text-[9px] font-semibold uppercase text-[#617187]">Qué quieres completar</p>
+                <div className="grid grid-cols-3 gap-1">
+                  {([ ["grupo", "Un músculo"], ["sesion", "Esta sesión"], ["rutina", "Rutina completa"] ] as const).map(([valor, etiqueta]) => (
+                    <button key={valor} type="button" onClick={() => setAlcanceAutomatico(valor)} aria-pressed={alcanceAutomatico === valor} className={`radius-control border px-1 py-2 text-[10px] font-semibold ${alcanceAutomatico === valor ? "border-[#4f83b7] bg-[#dbeafe] text-[#214f7d]" : "border-[#c4d1df] bg-white text-[#53657a]"}`}>
+                      {etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {alcanceAutomatico === "grupo" && (
+                <label className="block">
+                  <span className="mb-1 block text-[9px] font-semibold uppercase text-[#617187]">Grupo muscular</span>
+                  <select value={objetivoAutomatico} onChange={(evento) => setObjetivoAutomatico(evento.target.value as ObjetivoAutomatico)} className="radius-control w-full border border-[#c4d1df] bg-white px-2 py-2 text-caption text-[#142033]">
+                    {(objetivosDia.length > 0 ? objetivosDia : ["pecho", "espalda", "piernas", "hombros", "biceps", "triceps"] as ObjetivoAutomatico[]).map((objetivo) => <option key={objetivo} value={objetivo}>{ETIQUETA_OBJETIVO[objetivo]}</option>)}
+                  </select>
+                </label>
+              )}
+              <div>
+                <p className="mb-1 text-[9px] font-semibold uppercase text-[#617187]">Inspiración · 3–4 ejercicios por músculo</p>
+                <select value={estiloAutomatico} onChange={(evento) => setEstiloAutomatico(evento.target.value as EstiloAutomatico)} className="radius-control w-full border border-[#c4d1df] bg-white px-2 py-2 text-caption text-[#142033]">
+                  <option value="balance_vip">Balance VIP · 3</option>
+                  <option value="clasica">Clásica / Bro split · 4</option>
+                  <option value="intensiva">Alta intensidad · 4</option>
+                  <option value="ppl">Push Pull Legs · 3</option>
+                  <option value="arnold">Arnold split · 4</option>
+                  <option value="powerbuilding">Powerbuilding · 3</option>
+                  <option value="olympia">Olympia prep · 4</option>
+                </select>
+              </div>
+              {alcanceAutomatico !== "grupo" && (
+                <div>
+                  <p className="mb-1 text-[9px] font-semibold uppercase text-[#617187]">Orden de los ejercicios</p>
+                  <div className="grid grid-cols-3 gap-1">
+                    {([ ["por_grupos", "Por grupos"], ["alternado", "Alternado"], ["biseries", "Biseries"] ] as const).map(([valor, etiqueta]) => (
+                      <button key={valor} type="button" onClick={() => setOrganizacionAutomatica(valor)} aria-pressed={organizacionAutomatica === valor} className={`radius-control border px-1 py-2 text-[10px] font-semibold ${organizacionAutomatica === valor ? "border-[#4f83b7] bg-[#dbeafe] text-[#214f7d]" : "border-[#c4d1df] bg-white text-[#53657a]"}`}>
+                        {etiqueta}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                <label className="text-caption flex items-center gap-1.5 text-[#40536a]"><input type="checkbox" checked={incluirCore} onChange={(evento) => setIncluirCore(evento.target.checked)} /> Core {alcanceAutomatico === "rutina" ? "2×/sem" : "al final"}</label>
+                <label className="text-caption flex items-center gap-1.5 text-[#40536a]"><input type="checkbox" checked={incluirCardio} onChange={(evento) => setIncluirCardio(evento.target.checked)} /> Cardio {alcanceAutomatico === "rutina" ? "2×/sem" : "al final"}</label>
+              </div>
+              <Button size="xs" className="w-full !bg-[#2f6fa8] !text-white" onClick={() => {
+                onGenerarAutomatico({ diaIndice: diaIdx, alcance: alcanceAutomatico, objetivo: objetivoAutomatico, estilo: estiloAutomatico, organizacion: organizacionAutomatica, incluirCore, incluirCardio });
+                setVaritaDia(null);
+              }}>
+                <WandSparkles size={14} /> Generar borrador
+              </Button>
+            </div>
+          )}
           {dia.tipo === "entrenamiento" && (
-            <div className="space-y-3 border-t border-border p-2 pb-4">
+            <div className="divide-y divide-border">
               {dia.ejercicios.map((ejercicio, indice) => {
                 const visual = grupoVisual(ejercicio);
                 const colorTecnica = colorTecnicaVisual(ejercicio.tecnicaTipo);
                 const abierto = editando?.dia === diaIdx && editando.ej === indice;
+                const conError = hallazgos.some((hallazgo) => hallazgo.diaIndice === diaIdx && hallazgo.ejercicioIndices.includes(indice));
                 return (
                   <div key={`${dia.numero}-${indice}-${ejercicio.nombre}`} className="relative">
                     {abierto ? (
-                      <div className="radius-control border border-vip/50 bg-surface-2 p-2">
+                      <div className="radius-control border border-[#8fb3d9] bg-[#eef3f7] p-2">
                         <div className="mb-1.5 flex items-center justify-between gap-2">
-                          <span className="text-micro font-semibold text-vip">Editando ejercicio {indice + 1}</span>
+                          <span className="text-micro font-semibold text-[#2f6fa8]">Editando ejercicio {indice + 1}</span>
                           <button
                             type="button"
                             onClick={() => setEditando(null)}
-                            className="text-micro flex items-center gap-1 font-semibold text-vip"
+                            className="text-micro flex items-center gap-1 font-semibold text-[#2f6fa8]"
                           >
                             <Check size={13} /> Listo
                           </button>
@@ -692,13 +1092,14 @@ export function VistaPreviaEstructurada({
                         <EjercicioForm
                           numero={indice + 1}
                           ejercicio={ejercicio}
-                          grupoSugerido={grupoDominante(dia)}
+                          gruposSugeridos={gruposPlanificados(dia)}
                           biblioteca={biblioteca}
                           tecnicas={tecnicas}
                           onEncadenar={
                             onEncadenar ? (nombre, cantidad) => onEncadenar(diaIdx, indice, nombre, cantidad) : undefined
                           }
                           onChange={(e) => onActualizarEjercicio(diaIdx, indice, e)}
+                          nivelArmado={nivelArmado}
                           onRemove={() => {
                             onQuitarEjercicio(diaIdx, indice);
                             setEditando(null);
@@ -707,36 +1108,31 @@ export function VistaPreviaEstructurada({
                       </div>
                     ) : (
                       <div
-                        className="radius-control border bg-surface px-2 py-1.5"
-                        style={{ borderColor: visual.color, boxShadow: `inset 3px 0 0 ${visual.color}` }}
+                        className={`relative bg-surface py-2 pl-2 pr-0.5 ${conError ? "bg-error/5" : ""}`}
+                        style={{ boxShadow: `inset 3px 0 0 ${conError ? "var(--color-error)" : visual.color}` }}
                       >
                         <div className="flex min-w-0 items-center gap-1.5 pl-1">
                           <span className="text-micro w-4 shrink-0 text-right font-semibold text-text-tertiary">{indice + 1}.</span>
                           <strong className="text-caption min-w-0 flex-1 truncate" style={{ color: visual.color, fontWeight: 800 }}>
                             {ejercicio.nombre}
                           </strong>
-                          <span className="text-[9px] shrink-0 rounded-full border px-1.5 py-0.5 font-bold uppercase" style={{ color: visual.color, borderColor: visual.color }}>
-                            {visual.etiqueta}
+                          <span className="text-[9px] shrink-0 text-text-secondary">
+                            {ejercicio.series}×{ejercicio.reps} · {ejercicio.descansoSegundos ?? 0}s
                           </span>
                           <button
                             type="button"
                             onClick={() => setEditando({ dia: diaIdx, ej: indice })}
                             aria-label={`Editar ${ejercicio.nombre}`}
-                            className="grid size-6 shrink-0 place-items-center rounded-full border border-border text-text-tertiary active:bg-vip active:text-black"
+                            className="grid size-6 shrink-0 place-items-center rounded-full border border-border text-text-tertiary active:bg-[#2f6fa8] active:text-white"
                           >
                             <Pencil size={12} />
                           </button>
                         </div>
-                        <p className="text-micro mt-0.5 pl-6 text-text-secondary">
-                          {ejercicio.series} series × {ejercicio.reps} reps
-                          {ejercicio.descansoSegundos !== null ? ` · ${ejercicio.descansoSegundos}s descanso` : ""}
-                        </p>
                         {ejercicio.tecnicaTipo && (
-                          <p className="text-micro mt-0.5 pl-6 font-semibold" style={{ color: colorTecnica ?? "var(--color-vip)" }}>
-                            {ejercicio.tecnicaTipo}{ejercicio.tecnicaInstruccion ? ` · ${ejercicio.tecnicaInstruccion}` : ""}
+                          <p className="text-[10px] mt-0.5 truncate pl-6 font-semibold" style={{ color: colorTecnica ?? "var(--color-vip)" }}>
+                            {ejercicio.tecnicaTipo}
                           </p>
                         )}
-                        {ejercicio.observacion && <p className="text-micro mt-0.5 pl-6 text-text-tertiary">{ejercicio.observacion}</p>}
                       </div>
                     )}
                     {/* Inserta uno nuevo justo entre esta tarjeta y la
@@ -748,9 +1144,9 @@ export function VistaPreviaEstructurada({
                       onClick={() => insertar(diaIdx, indice + 1)}
                       aria-label={`Agregar ejercicio después de ${ejercicio.nombre}`}
                       title="Agregar ejercicio aquí"
-                      className="absolute -bottom-3.5 right-2 z-[1] grid size-7 place-items-center rounded-full border border-vip bg-surface text-vip shadow-sm active:bg-vip active:text-black"
+                      className="absolute -bottom-2.5 right-2 z-[1] grid size-5 place-items-center rounded-full border border-[#6f9bc6] bg-surface text-[#4f83b7] shadow-sm active:bg-[#2f6fa8] active:text-white"
                     >
-                      <Plus size={14} />
+                      <Plus size={11} />
                     </button>
                   </div>
                 );
@@ -759,9 +1155,18 @@ export function VistaPreviaEstructurada({
                 <button
                   type="button"
                   onClick={() => insertar(diaIdx, 0)}
-                  className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-vip/50 py-2.5 text-caption font-semibold text-vip"
+                  className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-[#8fb3d9] bg-[#eef3f7] py-2.5 text-caption font-semibold text-[#2f6fa8]"
                 >
                   <Plus size={14} /> Agregar el primer ejercicio del día
+                </button>
+              )}
+              {dia.ejercicios.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => insertar(diaIdx, dia.ejercicios.length)}
+                  className="flex w-full items-center justify-center gap-1 py-2.5 text-caption font-semibold text-[#4f83b7]"
+                >
+                  <Plus size={13} /> Añadir ejercicio
                 </button>
               )}
             </div>
@@ -779,17 +1184,67 @@ export function VistaPreviaEstructurada({
           </button>
         )}
         </Fragment>
-      ))}
+      );})}
       {onAgregarDia && (
         <button
           type="button"
           onClick={onAgregarDia}
-          className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-vip/50 py-3 text-caption font-semibold text-vip"
+          className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-[#8fb3d9] bg-[#eef3f7] py-3 text-caption font-semibold text-[#2f6fa8]"
         >
           <Plus size={15} /> Agregar otro día
         </button>
       )}
       <p className="text-caption text-right font-semibold text-text-secondary">— Alejandro Mendoza · Método VIP Fitness</p>
+    </div>
+  );
+}
+
+function SemaforoCalidad({
+  hallazgos,
+  onIr,
+}: {
+  hallazgos: HallazgoRutina[];
+  onIr: (hallazgo: HallazgoRutina) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const errores = hallazgos.filter((hallazgo) => hallazgo.severidad === "error");
+
+  return (
+    <div className={`sticky top-2 z-20 overflow-hidden rounded-xl border shadow-lg backdrop-blur ${
+      errores.length > 0 ? "border-[#e4a1a8] bg-[#fff4f5]" : "border-[#9bcdb8] bg-[#effaf5]"
+    }`}>
+      <button
+        type="button"
+        onClick={() => setAbierto((valor) => !valor)}
+        className="flex w-full items-center gap-2 px-2.5 py-2 text-left"
+        aria-expanded={abierto}
+      >
+        {errores.length > 0 ? <AlertTriangle size={15} className="shrink-0 text-error" /> : <CircleCheckBig size={15} className="shrink-0 text-success" />}
+        <span className="text-caption min-w-0 flex-1 truncate font-bold text-[#20344a]">
+          Semáforo VIP · {errores.length > 0 ? `${errores.length} ${errores.length === 1 ? "ajuste pendiente" : "ajustes pendientes"}` : "lista para publicar"}
+        </span>
+        <span className={`text-micro font-semibold ${errores.length > 0 ? "text-error" : "text-success"}`}>
+          {abierto ? "Ocultar" : errores.length > 0 ? "Ver" : "Correcta"}
+        </span>
+      </button>
+      {abierto && errores.length > 0 && (
+        <div className="max-h-40 space-y-1 overflow-y-auto border-t border-[#e6bdc1] p-2">
+          {errores.map((hallazgo, indice) => (
+            <button
+              key={`${hallazgo.codigo}-${hallazgo.diaIndice ?? "semana"}-${indice}`}
+              type="button"
+              onClick={() => onIr(hallazgo)}
+              className="radius-control flex w-full gap-2 border border-[#efd1d4] bg-white px-2 py-1.5 text-left"
+            >
+              <span className="text-[10px] mt-0.5 shrink-0 font-bold text-error">
+                {hallazgo.diaIndice === null ? "SEMANA" : `S${hallazgo.diaIndice + 1}`}
+              </span>
+              <span className="text-micro line-clamp-2 flex-1 text-[#5d5260]">{hallazgo.mensaje}</span>
+              {hallazgo.diaIndice !== null && <span className="text-micro shrink-0 font-semibold text-[#2f6fa8]">Ir</span>}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -807,6 +1262,8 @@ export function RutinaDraftEditor({
   onRevisar,
   mesaDeTrabajo = false,
   tecnicas,
+  planInicial,
+  nivelArmado = "estandar",
 }: {
   /** Herramienta de armado manual: la vista previa deja de ser una vista y
    * pasa a ser la mesa de trabajo — a lo ancho, siempre abierta y con los
@@ -818,6 +1275,11 @@ export function RutinaDraftEditor({
   /** Técnicas reales del gimnasio. Si no llegan, el campo de técnica sigue
    * siendo texto libre como antes — ninguna pantalla se rompe por no pasarlas. */
   tecnicas?: TecnicaOpcion[];
+  /** En armado manual se hereda del alumno; solo se pregunta si el grupo
+   * seleccionado mezcla planes distintos o no tiene uno asignado. */
+  planInicial?: CodigoPlanEntrenamiento;
+  /** Ajusta únicamente las fórmulas sugeridas al elegir una fila vacía. */
+  nivelArmado?: NivelArmado;
   alumnoIds: string[];
   draftInicial: RutinaExtraida;
   onDescartar: () => void;
@@ -829,6 +1291,7 @@ export function RutinaDraftEditor({
    * igual que siempre para las rutinas importadas de PDF. */
   onRevisar?: RevisarRutinaFn;
 }) {
+  const patronPorEjercicio = new Map((ejercicios ?? []).map((ejercicio) => [ejercicio.id, ejercicio.patronMovimiento ?? null]));
   // `draftInicial` viene de la extracción por IA (`RutinaExtraida` plano,
   // sin config de progresión — eso nunca lo decide la IA). Se completan acá
   // los defaults de Impulso VIP por ejercicio, para que quede prendido de
@@ -836,13 +1299,23 @@ export function RutinaDraftEditor({
   // verdad al publicar (ver DEFAULTS_PROGRESION más arriba).
   const [draft, setDraft] = useState<RutinaConProgresion>(() => ({
     ...draftInicial,
+    metodoGeneracion: draftInicial.metodoGeneracion ?? {
+      nivel: NIVELES_ARMADO[nivelArmado].etiqueta,
+      inspiracion: "Armado manual VIP",
+      organizacion: "Definida por el entrenador",
+      generadoAutomaticamente: false,
+    },
     dias: draftInicial.dias.map((dia) => ({
       ...dia,
-      ejercicios: dia.ejercicios.map((ej) => ({ ...DEFAULTS_PROGRESION, ...ej })),
+      ejercicios: dia.ejercicios.map((ej) => ({
+        ...DEFAULTS_PROGRESION,
+        ...ej,
+        patronMovimiento: ej.ejercicioId ? patronPorEjercicio.get(ej.ejercicioId) ?? patronMovimiento(ej.nombre, ej.grupoMuscular) : patronMovimiento(ej.nombre, ej.grupoMuscular),
+      })),
     })),
   }));
   const [publicando, setPublicando] = useState(false);
-  const [planCodigo, setPlanCodigo] = useState<CodigoPlanEntrenamiento | "">("");
+  const [planCodigo, setPlanCodigo] = useState<CodigoPlanEntrenamiento | "">(planInicial ?? "");
   const [error, setError] = useState<string | null>(null);
   const [versionDesactualizada, setVersionDesactualizada] = useState(false);
   const [respaldoCopiado, setRespaldoCopiado] = useState(false);
@@ -854,6 +1327,38 @@ export function RutinaDraftEditor({
   const [revisando, setRevisando] = useState(false);
   const [errorRevision, setErrorRevision] = useState<string | null>(null);
   const [aplicados, setAplicados] = useState<Set<number>>(() => new Set());
+  const [diaActivo, setDiaActivo] = useState(0);
+  const hallazgosEstructura = useMemo(
+    () => detectarHallazgosRutina(draft.dias.map((dia) => ({
+      nombre: dia.nombre,
+      tipo: dia.tipo,
+      ejercicios: dia.ejercicios.map((ejercicio) => ({
+        nombre: ejercicio.nombre,
+        series: ejercicio.series,
+        grupoMuscular: ejercicio.grupoMuscular,
+        patronMovimiento: ejercicio.patronMovimiento,
+      })),
+    }))),
+    [draft]
+  );
+  const hallazgos: HallazgoRutina[] = planCodigo
+    ? hallazgosEstructura
+    : [{
+        codigo: "plan_sin_elegir",
+        mensaje: "Selecciona el plan principal antes de publicar.",
+        severidad: "error",
+        diaIndice: null,
+        ejercicioIndices: [],
+      }, ...hallazgosEstructura];
+  const erroresCalidad = hallazgos.filter((hallazgo) => hallazgo.severidad === "error");
+
+  const irAHallazgo = (hallazgo: HallazgoRutina) => {
+    if (hallazgo.diaIndice === null) return;
+    setDiaActivo(hallazgo.diaIndice);
+    requestAnimationFrame(() => {
+      document.getElementById(`rutina-dia-${hallazgo.diaIndice}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
   // Mismo texto que se guarda como documento del alumno al publicar (ver
   // guardarRutinaComoDocumento en archivos/actions.ts) — pedido explícito:
   // "permíteme verlo antes de llevarlo al alumno y yo confirmarlo".
@@ -913,6 +1418,9 @@ export function RutinaDraftEditor({
    * biblioteca. Es lo que pidió: al elegir la técnica, que aparezcan los
    * espacios de ejercicio que esa técnica necesita. */
   const encadenarTecnica = (diaIdx: number, ejIdx: number, nombre: string, cantidad: number) => {
+    const formato = tecnicas?.find((tecnica) => tecnica.nombre === nombre);
+    const descansoInterno = formato?.descansoInternoSeg ?? 0;
+    const descansoFinal = formato?.descansoFinalSeg ?? 90;
     setDraft((d) => ({
       ...d,
       dias: d.dias.map((dia, i) => {
@@ -923,6 +1431,9 @@ export function RutinaDraftEditor({
           ejercicios[ejIdx + paso] = {
             ...ejercicios[ejIdx + paso],
             tecnicaTipo: `${nombre} (${paso + 1}/${cantidad})`,
+            // El formato vive en el catálogo: una biserie/triserie queda
+            // correctamente armada con un toque, no solo coloreada.
+            descansoSegundos: paso === cantidad - 1 ? descansoFinal : descansoInterno,
           };
         }
         return { ...dia, ejercicios: ejercicios.map((e, orden) => ({ ...e, orden: orden + 1 })) };
@@ -1117,7 +1628,151 @@ export function RutinaDraftEditor({
     }));
   };
 
+  /** Varita VIP: no inventa ejercicios ni reemplaza el trabajo del entrenador.
+   * Completa hasta 3–4 opciones por músculo usando exclusivamente la biblioteca,
+   * diversidad de patrones y la prescripción del nivel elegido. */
+  const generarAutomaticamente = (config: ConfigAutomatico) => {
+    const biblioteca = ejercicios ?? [];
+    if (biblioteca.length === 0) {
+      setError("La biblioteca de ejercicios está vacía. Agrega ejercicios a la galería antes de usar la Varita VIP.");
+      return;
+    }
+    setError(null);
+    const advertenciasCobertura: string[] = [];
+    const actual = draft;
+    const siguiente = (() => {
+      const indicesEntrenamiento = actual.dias
+        .map((dia, indice) => dia.tipo === "entrenamiento" ? indice : -1)
+        .filter((indice) => indice >= 0);
+      const indicesObjetivo = config.alcance === "rutina" ? indicesEntrenamiento : [config.diaIndice];
+      const indicesRemate = config.alcance === "rutina" ? indicesObjetivo.slice(-2) : indicesObjetivo;
+      const cantidadPrincipal = ["balance_vip", "ppl", "powerbuilding"].includes(config.estilo) ? 3 : 4;
+
+      const diasNuevos = actual.dias.map((dia, diaIndice) => {
+        if (!indicesObjetivo.includes(diaIndice) || dia.tipo !== "entrenamiento") return dia;
+        const principales = config.alcance === "grupo"
+          ? [config.objetivo]
+          : objetivosMuscularesDia(dia).filter((objetivo) => objetivo !== "core" && objetivo !== "cardio");
+        const objetivos = [...principales];
+        if (config.incluirCore && indicesRemate.includes(diaIndice) && !objetivos.includes("core")) objetivos.push("core");
+        if (config.incluirCardio && indicesRemate.includes(diaIndice) && !objetivos.includes("cardio")) objetivos.push("cardio");
+
+        const ejerciciosDia = [...dia.ejercicios];
+        const porObjetivo = new Map<ObjetivoAutomatico, Ejercicio[]>(objetivos.map((objetivo) => [objetivo, []]));
+        const fueraDelPlan: Ejercicio[] = [];
+        for (const ejercicio of ejerciciosDia) {
+          const patron = ejercicio.patronMovimiento ?? patronMovimiento(ejercicio.nombre, ejercicio.grupoMuscular);
+          const objetivo = objetivoDePatron(patron);
+          if (objetivo && porObjetivo.has(objetivo)) porObjetivo.get(objetivo)?.push(ejercicio);
+          else fueraDelPlan.push(ejercicio);
+        }
+        for (const objetivo of objetivos) {
+          const cantidadDeseada = objetivo === "core" || objetivo === "cardio" ? 1 : cantidadPrincipal;
+          const existentes = porObjetivo.get(objetivo)?.length ?? 0;
+          const faltan = Math.max(0, cantidadDeseada - existentes);
+          if (faltan === 0) continue;
+
+          const nombresUsados = new Set(ejerciciosDia.map((ejercicio) => ejercicio.nombre.trim().toLowerCase()));
+          const candidatos = opcionesBibliotecaParaObjetivo(biblioteca, objetivo)
+            .filter((item) => !nombresUsados.has(item.ejercicio.nombre.trim().toLowerCase()))
+            .sort((a, b) => {
+              const prioridad = prioridadEstructural(a.patron) - prioridadEstructural(b.patron);
+              if (prioridad !== 0) return prioridad;
+              return config.estilo === "olympia"
+                ? b.ejercicio.nombre.localeCompare(a.ejercicio.nombre, "es")
+                : a.ejercicio.nombre.localeCompare(b.ejercicio.nombre, "es");
+            });
+
+          // Primero un representante de cada patrón; solo después se repite.
+          const patronesElegidos = new Set<PatronMovimiento>();
+          const diversos = candidatos.filter((item) => {
+            if (patronesElegidos.has(item.patron)) return false;
+            patronesElegidos.add(item.patron);
+            return true;
+          });
+          const resto = candidatos.filter((item) => !diversos.includes(item));
+          const elegidos = [...diversos, ...resto].slice(0, faltan);
+          if (existentes + elegidos.length < cantidadDeseada) {
+            advertenciasCobertura.push(
+              `${dia.nombre}: la biblioteca solo permite ${existentes + elegidos.length}/${cantidadDeseada} ejercicios de ${ETIQUETA_OBJETIVO[objetivo]}.`
+            );
+          }
+
+          elegidos.forEach((item, indice) => {
+            const ultimoDelGrupo = indice === elegidos.length - 1;
+            const tecnica = nivelArmado !== "senior" && nivelArmado !== "principiante" && ultimoDelGrupo
+              ? config.estilo === "intensiva" ? "Fallo muscular" : config.estilo === "olympia" ? "Drop set" : null
+              : null;
+            porObjetivo.get(objetivo)?.push({
+              ...EJERCICIO_VACIO,
+              ...prescripcionAutomatica(item.patron, nivelArmado, config.estilo),
+              orden: 0,
+              nombre: item.ejercicio.nombre,
+              ejercicioId: item.ejercicio.id,
+              grupoMuscular: (objetivo === "biceps" || objetivo === "triceps" ? "brazos" : objetivo) as Ejercicio["grupoMuscular"],
+              patronMovimiento: item.patron,
+              tecnicaTipo: tecnica,
+              tecnicaInstruccion: tecnica === "Fallo muscular"
+                ? "Última serie al fallo técnico, sin perder la ejecución."
+                : tecnica === "Drop set" ? "Última serie con una reducción de carga controlada." : null,
+            });
+          });
+        }
+
+        const objetivosPrincipales = objetivos.filter((objetivo) => objetivo !== "core" && objetivo !== "cardio");
+        const remates = objetivos.filter((objetivo) => objetivo === "core" || objetivo === "cardio");
+        let ordenados: Ejercicio[] = [];
+        if (config.alcance === "grupo" || config.organizacion === "por_grupos" || objetivosPrincipales.length < 2) {
+          ordenados = objetivosPrincipales.flatMap((objetivo) => porObjetivo.get(objetivo) ?? []);
+        } else if (config.organizacion === "alternado") {
+          const maximo = Math.max(0, ...objetivosPrincipales.map((objetivo) => porObjetivo.get(objetivo)?.length ?? 0));
+          for (let posicion = 0; posicion < maximo; posicion++) {
+            for (const objetivo of objetivosPrincipales) {
+              const ejercicio = porObjetivo.get(objetivo)?.[posicion];
+              if (ejercicio) ordenados.push(ejercicio);
+            }
+          }
+        } else {
+          const [primero, segundo, ...restantes] = objetivosPrincipales;
+          const bloqueA = porObjetivo.get(primero) ?? [];
+          const bloqueB = porObjetivo.get(segundo) ?? [];
+          const maximo = Math.max(bloqueA.length, bloqueB.length);
+          for (let posicion = 0; posicion < maximo; posicion++) {
+            const ejercicioA = bloqueA[posicion];
+            const ejercicioB = bloqueB[posicion];
+            if (ejercicioA && ejercicioB) {
+              ordenados.push({ ...ejercicioA, tecnicaTipo: "Biserie (1/2)", tecnicaInstruccion: `Enlaza sin descanso con ${ejercicioB.nombre}.`, descansoSegundos: 0 });
+              ordenados.push({ ...ejercicioB, tecnicaTipo: "Biserie (2/2)", tecnicaInstruccion: "Cierra la biserie y descansa antes de repetir.", descansoSegundos: Math.max(60, ejercicioB.descansoSegundos ?? 90) });
+            } else if (ejercicioA) ordenados.push(ejercicioA);
+            else if (ejercicioB) ordenados.push(ejercicioB);
+          }
+          ordenados.push(...restantes.flatMap((objetivo) => porObjetivo.get(objetivo) ?? []));
+        }
+        ordenados.push(...remates.flatMap((objetivo) => porObjetivo.get(objetivo) ?? []), ...fueraDelPlan);
+        return { ...dia, ejercicios: ordenados.map((ejercicio, indice) => ({ ...ejercicio, orden: indice + 1 })) };
+      });
+      return {
+        ...actual,
+        metodoGeneracion: {
+          nivel: NIVELES_ARMADO[nivelArmado].etiqueta,
+          inspiracion: ETIQUETA_ESTILO[config.estilo],
+          organizacion: ETIQUETA_ORGANIZACION[config.organizacion],
+          generadoAutomaticamente: true,
+        },
+        dias: diasNuevos,
+      };
+    })();
+    setDraft(siguiente);
+    if (advertenciasCobertura.length > 0) {
+      setError(`Generación incompleta. ${advertenciasCobertura.join(" ")} Agrega o reclasifica ejercicios en la biblioteca.`);
+    }
+  };
+
   const publicar = async () => {
+    if (erroresCalidad.length > 0) {
+      setError(`Corrige los ${erroresCalidad.length} ajustes del Semáforo VIP antes de publicar.`);
+      return;
+    }
     if (!planCodigo) {
       setError("Selecciona primero el plan principal del alumno.");
       return;
@@ -1197,41 +1852,75 @@ export function RutinaDraftEditor({
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <label className="text-caption mb-1.5 block text-text-tertiary">NOMBRE DE LA RUTINA</label>
-        <Input
-          value={draft.nombreRutina}
-          onChange={(e) => setDraft((d) => ({ ...d, nombreRutina: e.target.value }))}
-        />
-      </Card>
-
-      <Card>
-        <label className="text-caption mb-1.5 block font-semibold text-text">PLAN PRINCIPAL DEL ALUMNO</label>
-        <Select
-          value={planCodigo}
-          onChange={(e) => setPlanCodigo(e.target.value as CodigoPlanEntrenamiento | "")}
-        >
-          <option value="">Seleccionar antes de publicar</option>
-          {Object.values(PLANES_ENTRENAMIENTO).map((plan) => (
-            <option key={plan.codigo} value={plan.codigo}>
-              {plan.nombre} · {plan.sesionesMensuales} al mes · {plan.diasSemana} por semana
-            </option>
-          ))}
-        </Select>
-        <p className="text-micro mt-2 text-text-tertiary">
-          Ordena las semanas y el cupo mensual. El alumno verá el nombre del plan, nunca su precio.
-        </p>
-        {planCodigo &&
-          draft.dias.filter((dia) => dia.tipo === "entrenamiento").length !==
-            PLANES_ENTRENAMIENTO[planCodigo].diasSemana && (
-            <p className="text-caption mt-2 text-warning">
-              La rutina tiene {draft.dias.filter((dia) => dia.tipo === "entrenamiento").length} sesiones distintas,
-              pero el plan recomienda {PLANES_ENTRENAMIENTO[planCodigo].diasSemana} por semana. Se conservará la
-              secuencia y se mostrará dividida en semanas de {PLANES_ENTRENAMIENTO[planCodigo].diasSemana} sesiones.
+    <div className={mesaDeTrabajo ? "space-y-2" : "space-y-4"}>
+      {mesaDeTrabajo ? (
+        <details className="radius-control border border-border bg-surface">
+          <summary className="cursor-pointer px-2.5 py-2 text-caption font-semibold text-text-secondary">
+            {draft.nombreRutina} · {planCodigo ? PLANES_ENTRENAMIENTO[planCodigo].nombre : "Elegir plan"}
+          </summary>
+          <div className="grid gap-1.5 border-t border-border p-2 sm:grid-cols-2">
+            <label className="min-w-0">
+              <span className="text-[9px] mb-0.5 block font-semibold uppercase text-text-tertiary">Rutina</span>
+              <Input
+                value={draft.nombreRutina}
+                onChange={(e) => setDraft((d) => ({ ...d, nombreRutina: e.target.value }))}
+                className="py-1.5"
+              />
+            </label>
+            <label className="min-w-0">
+              <span className="text-[9px] mb-0.5 block font-semibold uppercase text-text-tertiary">Plan principal</span>
+              <Select
+                value={planCodigo}
+                onChange={(e) => setPlanCodigo(e.target.value as CodigoPlanEntrenamiento | "")}
+                className="py-1.5"
+              >
+                <option value="">Elegir plan…</option>
+                {Object.values(PLANES_ENTRENAMIENTO).map((plan) => (
+                  <option key={plan.codigo} value={plan.codigo}>
+                    {plan.nombre} · {plan.sesionesMensuales}/mes · {plan.diasSemana}/semana
+                  </option>
+                ))}
+              </Select>
+            </label>
+          </div>
+        </details>
+      ) : (
+        <>
+          <Card>
+            <label className="text-caption mb-1.5 block text-text-tertiary">NOMBRE DE LA RUTINA</label>
+            <Input
+              value={draft.nombreRutina}
+              onChange={(e) => setDraft((d) => ({ ...d, nombreRutina: e.target.value }))}
+            />
+          </Card>
+          <Card>
+            <label className="text-caption mb-1.5 block font-semibold text-text">PLAN PRINCIPAL DEL ALUMNO</label>
+            <Select
+              value={planCodigo}
+              onChange={(e) => setPlanCodigo(e.target.value as CodigoPlanEntrenamiento | "")}
+            >
+              <option value="">Seleccionar antes de publicar</option>
+              {Object.values(PLANES_ENTRENAMIENTO).map((plan) => (
+                <option key={plan.codigo} value={plan.codigo}>
+                  {plan.nombre} · {plan.sesionesMensuales} al mes · {plan.diasSemana} por semana
+                </option>
+              ))}
+            </Select>
+            <p className="text-micro mt-2 text-text-tertiary">
+              Ordena las semanas y el cupo mensual. El alumno verá el nombre del plan, nunca su precio.
             </p>
-          )}
-      </Card>
+            {planCodigo &&
+              draft.dias.filter((dia) => dia.tipo === "entrenamiento").length !==
+                PLANES_ENTRENAMIENTO[planCodigo].diasSemana && (
+                <p className="text-caption mt-2 text-warning">
+                  La rutina tiene {draft.dias.filter((dia) => dia.tipo === "entrenamiento").length} sesiones distintas,
+                  pero el plan recomienda {PLANES_ENTRENAMIENTO[planCodigo].diasSemana} por semana. Se conservará la
+                  secuencia y se mostrará dividida en semanas de {PLANES_ENTRENAMIENTO[planCodigo].diasSemana} sesiones.
+                </p>
+              )}
+          </Card>
+        </>
+      )}
 
       {!mesaDeTrabajo && (
         <div className="flex items-center justify-between">
@@ -1333,7 +2022,7 @@ export function RutinaDraftEditor({
                         key={ejIdx}
                         numero={ejIdx + 1}
                         ejercicio={ej}
-                        grupoSugerido={grupoDominante(dia)}
+                        gruposSugeridos={gruposPlanificados(dia)}
                         biblioteca={ejercicios}
                         onChange={(e) => actualizarEjercicio(diaIdx, ejIdx, e)}
                         onRemove={() => quitarEjercicio(diaIdx, ejIdx)}
@@ -1384,21 +2073,41 @@ export function RutinaDraftEditor({
         />
       )}
 
-      <Card padding="p-0" className="overflow-hidden">
+      {mesaDeTrabajo ? (
+        <VistaPreviaEstructurada
+          draft={draft}
+          biblioteca={ejercicios}
+          onActualizarEjercicio={actualizarEjercicio}
+          onInsertarEjercicio={insertarEjercicio}
+          onQuitarEjercicio={quitarEjercicio}
+          expandida
+          onAgregarDia={agregarDia}
+          onQuitarDia={quitarDia}
+          tecnicas={tecnicas}
+          onEncadenar={encadenarTecnica}
+          onInsertarDescanso={insertarDescanso}
+          onAplicarAGrupo={aplicarAGrupo}
+          onGenerarAutomatico={generarAutomaticamente}
+          hallazgos={hallazgosEstructura}
+          diaActivo={diaActivo}
+          onCambiarDia={setDiaActivo}
+          nivelArmado={nivelArmado}
+        />
+      ) : <Card padding="p-0" className="overflow-hidden">
         <button
           type="button"
           onClick={() => setMostrarPreview((v) => !v)}
           aria-expanded={mostrarPreview}
           className="flex w-full items-center justify-between px-3 py-2.5 text-left"
         >
-          <span className="text-secondary font-medium text-text">Vista previa del documento</span>
+          <span className="text-secondary font-medium text-text">{mesaDeTrabajo ? "Mesa de armado" : "Vista previa del documento"}</span>
           {mostrarPreview ? <ChevronUp size={16} className="text-text-secondary" /> : <ChevronDown size={16} className="text-text-secondary" />}
         </button>
         {mostrarPreview && (
-          <div className="border-t border-border p-3">
-            <p className="text-micro mb-2 text-text-tertiary">
+          <div className={`border-t border-border ${mesaDeTrabajo ? "p-2" : "p-3"}`}>
+            {!mesaDeTrabajo && <p className="text-micro mb-2 text-text-tertiary">
               Vista de revisión por día y grupo muscular. El contenido completo es el que se guarda como documento del alumno.
-            </p>
+            </p>}
             <VistaPreviaEstructurada
               draft={draft}
               biblioteca={ejercicios}
@@ -1412,10 +2121,17 @@ export function RutinaDraftEditor({
               onEncadenar={encadenarTecnica}
               onInsertarDescanso={mesaDeTrabajo ? insertarDescanso : undefined}
               onAplicarAGrupo={mesaDeTrabajo ? aplicarAGrupo : undefined}
+              onGenerarAutomatico={mesaDeTrabajo ? generarAutomaticamente : undefined}
+              hallazgos={hallazgosEstructura}
+              diaActivo={diaActivo}
+              onCambiarDia={setDiaActivo}
+              nivelArmado={nivelArmado}
             />
           </div>
         )}
-      </Card>
+      </Card>}
+
+      <SemaforoCalidad hallazgos={hallazgos} onIr={irAHallazgo} />
 
       {error && (
         <div className="space-y-2">
@@ -1444,11 +2160,18 @@ export function RutinaDraftEditor({
         </div>
       )}
 
-      <div className="flex gap-2">
-        <Button onClick={publicar} loading={publicando} className="flex-1">
-          {publicando ? "Publicando…" : "Confirmar y asignar rutina"}
+      <div className="flex gap-2 border-t border-border pt-2">
+        <Button
+          onClick={publicar}
+          loading={publicando}
+          disabled={erroresCalidad.length > 0}
+          disabledReason={`Corrige ${erroresCalidad.length} ${erroresCalidad.length === 1 ? "ajuste" : "ajustes"} del Semáforo VIP`}
+          size={mesaDeTrabajo ? "xs" : "lg"}
+          className="flex-1"
+        >
+          {publicando ? "Publicando…" : mesaDeTrabajo ? "Asignar rutina" : "Confirmar y asignar rutina"}
         </Button>
-        <Button variant="secondary" size="lg" onClick={onDescartar} className="w-auto px-6">
+        <Button variant="secondary" size={mesaDeTrabajo ? "xsAuto" : "lg"} onClick={onDescartar} className={mesaDeTrabajo ? "" : "w-auto px-6"}>
           Descartar
         </Button>
       </div>

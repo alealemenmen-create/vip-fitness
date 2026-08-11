@@ -5,6 +5,12 @@ describe("serializarRutinaATexto", () => {
   it("firma los documentos generados con Alejandro Mendoza y el Método VIP", () => {
     const texto = serializarRutinaATexto({
       nombreRutina: "Rutina de prueba",
+      metodoGeneracion: {
+        nivel: "Intermedio",
+        inspiracion: "Arnold split",
+        organizacion: "Biseries agonista–antagonista",
+        generadoAutomaticamente: true,
+      },
       dias: [
         {
           numero: 1,
@@ -31,5 +37,8 @@ describe("serializarRutinaATexto", () => {
     expect(texto).toContain("Alejandro Mendoza");
     expect(texto).toContain("Entrenador · Método VIP Fitness");
     expect(texto).toContain("Press de pecho");
+    expect(texto).toContain("Nivel: Intermedio");
+    expect(texto).toContain("Inspiración: Arnold split");
+    expect(texto).toContain("Organización: Biseries agonista–antagonista");
   });
 });

@@ -46,7 +46,7 @@ export default async function DocumentosPage() {
         <ArchivosManager
           documentos={[]}
           alumnos={alumnos}
-          ejercicios={ejercicios.map((e) => ({ id: e.id, nombre: e.nombre, grupo: e.grupoMuscular, equipo: e.equipo }))}
+          ejercicios={ejercicios.map((e) => ({ id: e.id, nombre: e.nombre, grupo: e.grupoMuscular, equipo: e.equipo, patronMovimiento: e.patronMovimiento }))}
         />
       </section>
 

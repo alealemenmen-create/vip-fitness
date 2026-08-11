@@ -38,6 +38,7 @@ type EjercicioConProgresion = RutinaExtraida["dias"][number]["ejercicios"][numbe
   tipoProgresion?: TipoProgresionImpulso;
   incrementoKg?: number;
   requiereAutorizacion?: boolean;
+  patronMovimiento?: import("@/lib/rutinas/patrones").PatronMovimiento | null;
 };
 type RutinaConProgresion = Omit<RutinaExtraida, "dias"> & {
   dias: (Omit<RutinaExtraida["dias"][number], "ejercicios"> & { ejercicios: EjercicioConProgresion[] })[];
@@ -892,11 +893,6 @@ export async function publicarRutinaAVariosAlumnos(
     return { error: "Selecciona el plan principal antes de publicar.", publicados: 0, fallidos: [] };
   }
 
-  // Se valida UNA vez: la rutina es la misma para todos, así que repetirlo por
-  // alumno solo gasta tiempo.
-  const invalida = validarRutina(datos);
-  if (invalida) return { error: invalida, publicados: 0, fallidos: [] };
-
   const supabase = await createClient();
 
   // La biblioteca también se carga una sola vez, no una por alumno.
@@ -904,6 +900,12 @@ export async function publicarRutinaAVariosAlumnos(
     obtenerBiblioteca(),
     supabase.from("perfiles").select("id, nombre").in("id", alumnoIds),
   ]);
+
+  // Se valida UNA vez y usando el patrón confiable de la biblioteca. El dato
+  // que llega del cliente sirve para respuesta inmediata, pero el servidor no
+  // confía en él para decidir si una rutina puede publicarse.
+  const invalida = validarRutina(datos, biblioteca);
+  if (invalida) return { error: invalida, publicados: 0, fallidos: [] };
 
   const nombrePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
 
@@ -936,7 +938,8 @@ export async function publicarRutinaAVariosAlumnos(
 }
 
 /** Revisa la rutina antes de tocar la base. Devuelve el error o null. */
-function validarRutina(datos: RutinaExtraida): string | null {
+function validarRutina(datos: RutinaExtraida, biblioteca?: Biblioteca): string | null {
+  const patronPorId = new Map((biblioteca ?? []).map((ejercicio) => [ejercicio.id, ejercicio.patronMovimiento]));
   if (!datos.dias.length) return "La rutina no tiene días para publicar.";
   for (const dia of datos.dias) {
     if (!dia.nombre.trim()) return "Todos los días necesitan un nombre.";
@@ -957,6 +960,7 @@ function validarRutina(datos: RutinaExtraida): string | null {
       nombre: ejercicio.nombre,
       series: ejercicio.series,
       grupoMuscular: ejercicio.grupoMuscular,
+      patronMovimiento: ejercicio.ejercicioId ? patronPorId.get(ejercicio.ejercicioId) ?? null : null,
     })),
   })));
   if (deficiencias.length > 0) {

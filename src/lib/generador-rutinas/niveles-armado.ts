@@ -12,7 +12,16 @@ import type { BriefGenerador } from "./tipos";
  * se le pasa al mismo `generarRutinaPorReglas` de siempre. Todo lo que el
  * motor ya garantiza (cupos por grupo, biblioteca real, topes de volumen
  * semanal, filtros de nivel y de impacto) sigue valiendo igual. */
-export type NivelArmado = "competitivo" | "estandar" | "senior";
+export type NivelArmado =
+  | "principiante"
+  | "intermedio"
+  | "avanzado"
+  | "olympia"
+  | "profesional"
+  // Compatibilidad con borradores y pruebas anteriores.
+  | "competitivo"
+  | "estandar"
+  | "senior";
 
 /** Campos que decide el nivel. El resto del brief lo completa
  * `briefDesdeNivel` con lo que viene del alumno (días, minutos, alumnoId). */
@@ -36,6 +45,51 @@ type PresetNivel = {
 };
 
 export const NIVELES_ARMADO: Record<NivelArmado, PresetNivel> = {
+  principiante: {
+    etiqueta: "Principiante",
+    descripcion: "Aprendizaje técnico, volumen corto y sin técnicas de intensidad automáticas.",
+    brief: {
+      objetivo: "hipertrofia", prioridad: "retorno", intensidadDeseada: "estandar", tecnicasIntensidad: "no",
+      estiloEntrenamiento: "vieja_escuela", inspiracionEstilo: "ninguna", ejerciciosPorSesion: 4,
+      evitarSaltos: true, abdominales: true, cardio: "ninguno", cardioMinutos: 0,
+    },
+  },
+  intermedio: {
+    etiqueta: "Intermedio",
+    descripcion: "Base de hipertrofia equilibrada con progresión y técnicas solo cuando corresponden.",
+    brief: {
+      objetivo: "hipertrofia", prioridad: "hipertrofia", intensidadDeseada: "estandar", tecnicasIntensidad: "automatico",
+      estiloEntrenamiento: "hibrido", inspiracionEstilo: "ninguna", ejerciciosPorSesion: 6,
+      evitarSaltos: false, abdominales: true, cardio: "ninguno", cardioMinutos: 0,
+    },
+  },
+  avanzado: {
+    etiqueta: "Avanzado",
+    descripcion: "Más densidad, selección técnica amplia y recursos de intensidad controlados.",
+    brief: {
+      objetivo: "hipertrofia", prioridad: "hipertrofia", intensidadDeseada: "alta", tecnicasIntensidad: "si",
+      estiloEntrenamiento: "hibrido", inspiracionEstilo: "alta_intensidad", ejerciciosPorSesion: 7,
+      evitarSaltos: false, abdominales: true, cardio: "ninguno", cardioMinutos: 0,
+    },
+  },
+  olympia: {
+    etiqueta: "Olympia",
+    descripcion: "Preparación competitiva: volumen alto, variedad de patrones y finalizadores avanzados.",
+    brief: {
+      objetivo: "hipertrofia", prioridad: "hipertrofia", intensidadDeseada: "competitiva", tecnicasIntensidad: "si",
+      estiloEntrenamiento: "hibrido", inspiracionEstilo: "volumen_tradicional", ejerciciosPorSesion: 8,
+      evitarSaltos: false, abdominales: true, cardio: "ninguno", cardioMinutos: 0,
+    },
+  },
+  profesional: {
+    etiqueta: "Profesional",
+    descripcion: "Alta exigencia con balance entre tensión, volumen y recuperación del atleta.",
+    brief: {
+      objetivo: "hipertrofia", prioridad: "fuerza", intensidadDeseada: "competitiva", tecnicasIntensidad: "si",
+      estiloEntrenamiento: "hibrido", inspiracionEstilo: "hibrido_tension", ejerciciosPorSesion: 8,
+      evitarSaltos: false, abdominales: true, cardio: "ninguno", cardioMinutos: 0,
+    },
+  },
   competitivo: {
     etiqueta: "Competitivo / Olympia",
     descripcion:

@@ -68,7 +68,7 @@ export default async function ArmarRutinaPage() {
         requiereRevision: Boolean(p?.requiere_revision),
         dias: p?.dias_disponibles ?? null,
         minutos: p?.minutos_sesion ?? null,
-        plan: plan ? { nombre: plan.nombre, diasSemana: plan.diasSemana } : null,
+        plan: plan ? { codigo: plan.codigo, nombre: plan.nombre, diasSemana: plan.diasSemana } : null,
         // Lo que el alumno escribió en "Mi entrenamiento". El motor no puede
         // leer texto libre, pero el entrenador sí — y tiene que tenerlo
         // delante MIENTRAS arma, no después.
@@ -94,11 +94,22 @@ export default async function ArmarRutinaPage() {
       <h1 className="text-secondary font-bold text-text">Armar rutina</h1>
       <ArmarRutinaPanel
         alumnos={alumnos}
-        ejercicios={ejercicios.map((e) => ({ id: e.id, nombre: e.nombre, grupo: e.grupoMuscular, equipo: e.equipo }))}
+        ejercicios={ejercicios.map((e) => ({
+          id: e.id,
+          nombre: e.nombre,
+          grupo: e.grupoMuscular,
+          equipo: e.equipo,
+          patronMovimiento: e.patronMovimiento,
+        }))}
         tecnicas={tecnicas.map((t) => ({
           nombre: t.nombre,
+          descripcion: t.descripcion,
           tipo: t.tipo,
           cantidadEjercicios: t.cantidadEjercicios,
+          descansoInternoSeg: t.descansoInternoSeg,
+          descansoFinalSeg: t.descansoFinalSeg,
+          fatiga: t.fatiga,
+          requiereSupervision: t.requiereSupervision,
         }))}
       />
     </div>

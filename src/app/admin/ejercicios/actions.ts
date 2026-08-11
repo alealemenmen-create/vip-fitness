@@ -90,6 +90,7 @@ export async function refrescarCatalogo(): Promise<{ ok: boolean }> {
   revalidateTag(TAG_BIBLIOTECA_EJERCICIOS, { expire: 0 });
   revalidateTag(TAG_TECNICAS_ENTRENAMIENTO, { expire: 0 });
   revalidatePath("/admin/generador");
+  revalidatePath("/admin/armar-rutina");
   revalidatePath("/admin/ejercicios");
   revalidatePath("/alumno/entrenar");
   return { ok: true };
@@ -101,6 +102,7 @@ function avisarCambios() {
   // aparecer para los alumnos, por el cacheo de `obtenerBiblioteca`.
   revalidateTag(TAG_BIBLIOTECA_EJERCICIOS, { expire: 0 });
   revalidatePath("/admin/ejercicios");
+  revalidatePath("/admin/armar-rutina");
   revalidatePath("/alumno/entrenar");
   revalidatePath("/alumno/entrenar/[id]", "page");
 }
@@ -303,6 +305,7 @@ export async function crearEjercicioNuevo(
   const grupoMuscular = String(formData.get("grupo_muscular") || "") as GrupoMuscular;
   const categoria = String(formData.get("categoria") || "") as CategoriaEjercicio;
   const equipo = String(formData.get("equipo") || "") as EquipoEjercicio;
+  const patronMovimiento = String(formData.get("patron_movimiento") || "");
   const archivo = formData.get("foto") as File | null;
   const fotoUrl = String(formData.get("foto_url") || "").trim();
   const miniaturaUrlSubida = String(formData.get("foto_miniatura_url_subida") || "").trim();
@@ -320,6 +323,9 @@ export async function crearEjercicioNuevo(
   if (!grupoMuscular) return { error: "Elegí el grupo muscular.", ok: false };
   if (!categoria) return { error: "Elegí la categoría.", ok: false };
   if (!equipo) return { error: "Elegí el equipo.", ok: false };
+  if (!PATRONES_MOVIMIENTO_VALIDOS.includes(patronMovimiento as (typeof PATRONES_MOVIMIENTO_VALIDOS)[number])) {
+    return { error: "Elegí el tipo de movimiento.", ok: false };
+  }
 
   let slug = generarSlug(nombre);
   if (!slug) return { error: "Ese nombre no sirve para generar un identificador único.", ok: false };
@@ -341,6 +347,7 @@ export async function crearEjercicioNuevo(
       grupo_muscular: grupoMuscular,
       categoria,
       equipo,
+      patron_movimiento: patronMovimiento,
       nivel: "intermedio" as NivelEjercicio,
     })
     .select("id")
