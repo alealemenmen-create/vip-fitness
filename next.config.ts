@@ -5,7 +5,12 @@ const nextConfig: NextConfig = {
   // que Next detecte cuando un celular sigue abierto con el JavaScript del
   // despliegue anterior y fuerce una navegación completa antes de mezclar
   // ambas versiones. En local queda undefined y no cambia el desarrollo.
-  deploymentId: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.NEXT_DEPLOYMENT_ID,
+  // Se recorta a 12: Vercel rechaza el despliegue entero si el deploymentId
+  // pasa de 32 caracteres, y un SHA de git tiene 40 ("must be 32 characters
+  // or less"). El build compilaba bien y recién fallaba al publicar, así que
+  // producción quedó 8 horas servida por un despliegue viejo sin que se
+  // notara. 12 caracteres siguen siendo únicos de sobra (git abrevia en 7).
+  deploymentId: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? process.env.NEXT_DEPLOYMENT_ID,
   // Temporal (medición de rendimiento): permite compilar a una carpeta aparte
   // para no chocar con el servidor de desarrollo que tiene tomado .next.
   ...(process.env.VIP_DIST_DIR ? { distDir: process.env.VIP_DIST_DIR } : {}),
