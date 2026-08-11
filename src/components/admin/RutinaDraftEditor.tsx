@@ -136,6 +136,13 @@ type ProgramaVip = {
   tecnicas: string[];
 };
 
+export type ConfiguracionArmado = {
+  manual: boolean;
+  seriesPorEjercicio: number;
+  repeticiones: string;
+  ejerciciosPorSesion: Record<number, Record<string, number>>;
+};
+
 /** Programas originales VIP. La referencia externa aporta la idea de un
  * catálogo por objetivos y fases; las fórmulas, nombres y reglas son propias.
  * Cada programa sigue usando la biblioteca real del gimnasio. */
@@ -878,6 +885,7 @@ export function VistaPreviaEstructurada({
   diaActivo = 0,
   onCambiarDia,
   nivelArmado = "estandar",
+  configuracionArmado,
 }: {
   draft: RutinaConProgresion;
   biblioteca?: EjercicioBiblioteca[];
@@ -905,6 +913,7 @@ export function VistaPreviaEstructurada({
   diaActivo?: number;
   onCambiarDia?: (diaIdx: number) => void;
   nivelArmado?: NivelArmado;
+  configuracionArmado?: ConfiguracionArmado;
 }) {
   // Coordenadas de la tarjeta abierta para editar, no el ejercicio en sí:
   // así, al insertar uno nuevo, alcanza con apuntar a su posición para que
@@ -928,6 +937,21 @@ export function VistaPreviaEstructurada({
     setEstiloAutomatico(programaId);
     setOrganizacionAutomatica(programa.organizacion);
     setTecnicasAutomaticas(programa.tecnicas.filter((nombre) => (tecnicas ?? []).some((tecnica) => tecnica.nombre === nombre)));
+  };
+
+  const alternarTecnicaAutomatica = (tecnica: TecnicaOpcion) => {
+    const activa = tecnicasAutomaticas.includes(tecnica.nombre);
+    setTecnicasAutomaticas((actuales) => {
+      if (activa) return actuales.filter((nombre) => nombre !== tecnica.nombre);
+      if (tecnica.tipo === "encadenada") {
+        const nombresEncadenados = new Set((tecnicas ?? []).filter((item) => item.tipo === "encadenada").map((item) => item.nombre));
+        return [...actuales.filter((nombre) => !nombresEncadenados.has(nombre)), tecnica.nombre];
+      }
+      return [...actuales, tecnica.nombre];
+    });
+    if (!activa && tecnica.tipo === "encadenada") {
+      setOrganizacionAutomatica(/biserie|superserie/i.test(tecnica.nombre) ? "biseries" : "por_grupos");
+    }
   };
 
   const insertar = (diaIdx: number, posicion: number) => {
@@ -1065,6 +1089,13 @@ export function VistaPreviaEstructurada({
                 <p className="text-caption font-semibold text-white">Varita VIP</p>
                 <p className="text-[10px] text-[#a8b2c1]">Nivel: {NIVELES_ARMADO[nivelArmado].etiqueta}</p>
               </div>
+              {configuracionArmado && (
+                <div className="grid grid-cols-2 gap-1 rounded-lg border border-[#394352] bg-[#1d222c] p-2 text-[9px] text-[#aeb8c6]">
+                  <span><strong className="block text-[#eef2f7]">Volumen</strong>{configuracionArmado.manual ? "Manual" : "Recomendado"} · {configuracionArmado.seriesPorEjercicio} series</span>
+                  <span><strong className="block text-[#eef2f7]">Repeticiones</strong>{configuracionArmado.repeticiones}</span>
+                  <span className="col-span-2"><strong className="text-[#eef2f7]">Esta sesión: </strong>{Object.entries(configuracionArmado.ejerciciosPorSesion[diaIdx] ?? {}).map(([grupo, cantidad]) => `${ETIQUETA_OBJETIVO[grupo as ObjetivoAutomatico] ?? grupo} ${cantidad}`).join(" · ") || "sin cantidades predefinidas"}</span>
+                </div>
+              )}
               <div>
                 <p className="mb-1 text-[9px] font-semibold uppercase text-[#a8b2c1]">Qué quieres completar</p>
                 <div className="grid grid-cols-3 gap-1">
@@ -1106,11 +1137,11 @@ export function VistaPreviaEstructurada({
               <details className="radius-control border border-[#394352] bg-[#1d222c]">
                 <summary className="cursor-pointer px-2 py-2 text-caption font-semibold text-[#d9dfe8]">Técnicas de intensidad · {tecnicasAutomaticas.length ? `${tecnicasAutomaticas.length} elegidas` : "ninguna"}</summary>
                 <div className="flex flex-wrap gap-1.5 border-t border-[#303846] p-2">
-                  {(tecnicas ?? []).filter((tecnica) => tecnica.tipo === "individual").map((tecnica) => {
+                  {(tecnicas ?? []).map((tecnica) => {
                     const activa = tecnicasAutomaticas.includes(tecnica.nombre);
-                    return <button key={tecnica.nombre} type="button" aria-pressed={activa} onClick={() => setTecnicasAutomaticas((actuales) => activa ? actuales.filter((nombre) => nombre !== tecnica.nombre) : [...actuales, tecnica.nombre])} className={`radius-control border px-2 py-1.5 text-[10px] font-semibold ${activa ? "border-[#75a99a] bg-[#203c36] text-[#d9fff2]" : "border-[#394352] bg-[#151922] text-[#aeb8c6]"}`}>{tecnica.nombre}</button>;
+                    return <button key={tecnica.nombre} type="button" aria-pressed={activa} onClick={() => alternarTecnicaAutomatica(tecnica)} className={`radius-control border px-2 py-1.5 text-[10px] font-semibold ${activa ? "border-[#75a99a] bg-[#203c36] text-[#d9fff2]" : "border-[#394352] bg-[#151922] text-[#aeb8c6]"}`}>{tecnica.nombre}{tecnica.tipo === "encadenada" ? ` · ${tecnica.cantidadEjercicios ?? 2}` : ""}</button>;
                   })}
-                  <p className="w-full text-[9px] text-[#8f9aaa]">Las biseries se eligen arriba en “Orden”; aquí eliges drop set, fallo, rest-pause y las demás técnicas individuales.</p>
+                  <p className="w-full text-[9px] text-[#8f9aaa]">Biserie y superserie unen 2 ejercicios; triserie 3; giant set 4. Solo una técnica encadenada puede mandar por bloque.</p>
                 </div>
               </details>
               <div className="grid grid-cols-2 gap-2">
@@ -1133,6 +1164,7 @@ export function VistaPreviaEstructurada({
               }}>
                 <WandSparkles size={14} /> Generar borrador
               </Button>
+              <button type="button" onClick={() => setVaritaDia(null)} className="flex w-full items-center justify-center gap-1 text-[10px] font-semibold text-[#9fb4c8]"><ChevronRight size={12} className="rotate-180" /> Atrás</button>
             </div>
           )}
           {dia.tipo === "entrenamiento" && (
@@ -1331,6 +1363,7 @@ export function RutinaDraftEditor({
   tecnicas,
   planInicial,
   nivelArmado = "estandar",
+  configuracionArmado,
 }: {
   /** Herramienta de armado manual: la vista previa deja de ser una vista y
    * pasa a ser la mesa de trabajo — a lo ancho, siempre abierta y con los
@@ -1347,6 +1380,9 @@ export function RutinaDraftEditor({
   planInicial?: CodigoPlanEntrenamiento;
   /** Ajusta únicamente las fórmulas sugeridas al elegir una fila vacía. */
   nivelArmado?: NivelArmado;
+  /** Decisiones tomadas en los pasos anteriores; la Varita las consume sin
+   * volver a preguntarlas. */
+  configuracionArmado?: ConfiguracionArmado;
   alumnoIds: string[];
   draftInicial: RutinaExtraida;
   onDescartar: () => void;
@@ -1714,6 +1750,9 @@ export function RutinaDraftEditor({
       const indicesObjetivo = config.alcance === "rutina" ? indicesEntrenamiento : [config.diaIndice];
       const indicesRemate = config.alcance === "rutina" ? indicesObjetivo.slice(-2) : indicesObjetivo;
       const cantidadPrincipal = ["balance_vip", "nueva_escuela", "heavy_duty", "ppl", "powerbuilding"].includes(config.estilo) ? 3 : 4;
+      const tecnicasElegidas = (tecnicas ?? []).filter((tecnica) => config.tecnicasPermitidas.includes(tecnica.nombre));
+      const tecnicasIndividuales = tecnicasElegidas.filter((tecnica) => tecnica.tipo === "individual");
+      const tecnicaEncadenada = tecnicasElegidas.find((tecnica) => tecnica.tipo === "encadenada") ?? null;
 
       const crearCardio = (modalidad: Exclude<CardioAutomatico, "ninguno">, minutos: number, posicion: "inicio" | "final"): Ejercicio | null => {
         const candidatos = opcionesBibliotecaParaObjetivo(biblioteca, "cardio");
@@ -1758,7 +1797,8 @@ export function RutinaDraftEditor({
           else fueraDelPlan.push(ejercicio);
         }
         for (const objetivo of objetivos) {
-          const cantidadDeseada = objetivo === "core" || objetivo === "cardio" ? 1 : cantidadPrincipal;
+          const cantidadPlanificada = configuracionArmado?.ejerciciosPorSesion[diaIndice]?.[objetivo];
+          const cantidadDeseada = objetivo === "core" || objetivo === "cardio" ? 1 : cantidadPlanificada ?? cantidadPrincipal;
           const existentes = porObjetivo.get(objetivo)?.length ?? 0;
           const faltan = Math.max(0, cantidadDeseada - existentes);
           if (faltan === 0) continue;
@@ -1791,13 +1831,16 @@ export function RutinaDraftEditor({
 
           elegidos.forEach((item, indice) => {
             const ultimoDelGrupo = indice === elegidos.length - 1;
-            const tecnica = nivelArmado !== "senior" && nivelArmado !== "principiante" && ultimoDelGrupo && config.tecnicasPermitidas.length > 0
-              ? config.tecnicasPermitidas[objetivos.indexOf(objetivo) % config.tecnicasPermitidas.length]
+            const tecnica = nivelArmado !== "senior" && nivelArmado !== "principiante" && ultimoDelGrupo && tecnicasIndividuales.length > 0
+              ? tecnicasIndividuales[objetivos.indexOf(objetivo) % tecnicasIndividuales.length].nombre
               : null;
             const tecnicaCatalogo = tecnica ? (tecnicas ?? []).find((itemTecnica) => itemTecnica.nombre === tecnica) : null;
+            const prescripcion = configuracionArmado?.manual
+              ? { ...prescripcionAutomatica(item.patron, nivelArmado, config.estilo), series: configuracionArmado.seriesPorEjercicio, reps: configuracionArmado.repeticiones }
+              : prescripcionAutomatica(item.patron, nivelArmado, config.estilo);
             porObjetivo.get(objetivo)?.push({
               ...EJERCICIO_VACIO,
-              ...prescripcionAutomatica(item.patron, nivelArmado, config.estilo),
+              ...prescripcion,
               orden: 0,
               nombre: item.ejercicio.nombre,
               ejercicioId: item.ejercicio.id,
@@ -1811,6 +1854,29 @@ export function RutinaDraftEditor({
 
         const objetivosPrincipales = objetivos.filter((objetivo) => objetivo !== "core" && objetivo !== "cardio");
         const remates = objetivos.filter((objetivo) => objetivo === "core" || objetivo === "cardio");
+        const encadenadaEntreGrupos = Boolean(tecnicaEncadenada && /biserie|superserie/i.test(tecnicaEncadenada.nombre) && objetivosPrincipales.length >= 2 && config.organizacion === "biseries");
+        if (tecnicaEncadenada && !encadenadaEntreGrupos) {
+          const cantidadBloque = Math.max(2, tecnicaEncadenada.cantidadEjercicios ?? 2);
+          for (const objetivo of objetivosPrincipales) {
+            const bloque = porObjetivo.get(objetivo) ?? [];
+            if (bloque.length < cantidadBloque) {
+              advertenciasCobertura.push(`${dia.nombre}: ${tecnicaEncadenada.nombre} necesita ${cantidadBloque} ejercicios de ${ETIQUETA_OBJETIVO[objetivo]}; hay ${bloque.length}.`);
+              continue;
+            }
+            porObjetivo.set(objetivo, bloque.map((ejercicio, indice) => {
+              const posicion = indice % cantidadBloque;
+              const perteneceABloqueCompleto = indice - posicion + cantidadBloque <= bloque.length;
+              if (!perteneceABloqueCompleto) return ejercicio;
+              const cierra = posicion === cantidadBloque - 1;
+              return {
+                ...ejercicio,
+                tecnicaTipo: `${tecnicaEncadenada.nombre} (${posicion + 1}/${cantidadBloque})${ejercicio.tecnicaTipo ? ` · ${ejercicio.tecnicaTipo}` : ""}`,
+                tecnicaInstruccion: cierra ? `Cierra ${tecnicaEncadenada.nombre.toLowerCase()} y descansa antes de repetir.` : `Continúa sin descanso con ${bloque[indice + 1].nombre}.`,
+                descansoSegundos: cierra ? Math.max(60, tecnicaEncadenada.descansoFinalSeg ?? ejercicio.descansoSegundos ?? 90) : 0,
+              };
+            }));
+          }
+        }
         let ordenados: Ejercicio[] = [];
         if (config.alcance === "grupo" || config.organizacion === "por_grupos" || objetivosPrincipales.length < 2) {
           ordenados = objetivosPrincipales.flatMap((objetivo) => porObjetivo.get(objetivo) ?? []);
@@ -1835,8 +1901,9 @@ export function RutinaDraftEditor({
               const tecnicaB = ejercicioB.tecnicaTipo ? ` · ${ejercicioB.tecnicaTipo}` : "";
               const instruccionA = ejercicioA.tecnicaInstruccion ? ` ${ejercicioA.tecnicaInstruccion}` : "";
               const instruccionB = ejercicioB.tecnicaInstruccion ? ` ${ejercicioB.tecnicaInstruccion}` : "";
-              ordenados.push({ ...ejercicioA, tecnicaTipo: `Biserie (1/2)${tecnicaA}`, tecnicaInstruccion: `Enlaza sin descanso con ${ejercicioB.nombre}.${instruccionA}`, descansoSegundos: 0 });
-              ordenados.push({ ...ejercicioB, tecnicaTipo: `Biserie (2/2)${tecnicaB}`, tecnicaInstruccion: `Cierra la biserie y descansa antes de repetir.${instruccionB}`, descansoSegundos: Math.max(60, ejercicioB.descansoSegundos ?? 90) });
+              const nombreEncadenada = tecnicaEncadenada?.nombre ?? "Biserie";
+              ordenados.push({ ...ejercicioA, tecnicaTipo: `${nombreEncadenada} (1/2)${tecnicaA}`, tecnicaInstruccion: `Enlaza sin descanso con ${ejercicioB.nombre}.${instruccionA}`, descansoSegundos: 0 });
+              ordenados.push({ ...ejercicioB, tecnicaTipo: `${nombreEncadenada} (2/2)${tecnicaB}`, tecnicaInstruccion: `Cierra ${nombreEncadenada.toLowerCase()} y descansa antes de repetir.${instruccionB}`, descansoSegundos: Math.max(60, tecnicaEncadenada?.descansoFinalSeg ?? ejercicioB.descansoSegundos ?? 90) });
             } else if (ejercicioA) ordenados.push(ejercicioA);
             else if (ejercicioB) ordenados.push(ejercicioB);
           }
@@ -2193,6 +2260,7 @@ export function RutinaDraftEditor({
           diaActivo={diaActivo}
           onCambiarDia={setDiaActivo}
           nivelArmado={nivelArmado}
+          configuracionArmado={configuracionArmado}
         />
       ) : <Card padding="p-0" className="overflow-hidden">
         <button
@@ -2227,6 +2295,7 @@ export function RutinaDraftEditor({
               diaActivo={diaActivo}
               onCambiarDia={setDiaActivo}
               nivelArmado={nivelArmado}
+              configuracionArmado={configuracionArmado}
             />
           </div>
         )}

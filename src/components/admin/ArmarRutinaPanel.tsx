@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { AlertTriangle, Check, ChevronDown, Coffee, PencilRuler, Search, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, ChevronDown, Coffee, PencilRuler, Search, SlidersHorizontal } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
@@ -11,6 +11,7 @@ import { briefDesdeNivel, NIVELES_ARMADO, type NivelArmado } from "@/lib/generad
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { PatronMovimiento } from "@/lib/rutinas/patrones";
 import type { CodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
+import Link from "next/link";
 
 export type AlumnoArmado = {
   id: string;
@@ -94,7 +95,25 @@ const DIAS = [1, 2, 3, 4, 5, 6, 7];
 const NIVELES: NivelArmado[] = ["principiante", "intermedio", "avanzado", "olympia", "profesional"];
 
 type GrupoPlan = "pecho" | "espalda" | "piernas" | "hombros" | "biceps" | "triceps" | "core";
-type SesionPlan = { grupos: GrupoPlan[]; focos: string[]; descansoDespues: boolean; tipoDescanso: string };
+type SesionPlan = { grupos: GrupoPlan[]; focos: string[]; ejerciciosPorGrupo: Partial<Record<GrupoPlan, number>>; descansoDespues: boolean; tipoDescanso: string };
+
+const RECOMENDACION_NIVEL: Record<NivelArmado, { series: number; bases: string; accesorios: string }> = {
+  principiante: { series: 2, bases: "10-12", accesorios: "12-15" },
+  intermedio: { series: 3, bases: "8-12", accesorios: "10-15" },
+  avanzado: { series: 4, bases: "6-10", accesorios: "10-15" },
+  olympia: { series: 4, bases: "6-12", accesorios: "10-20" },
+  profesional: { series: 4, bases: "5-10", accesorios: "8-15" },
+  competitivo: { series: 4, bases: "6-12", accesorios: "10-20" },
+  estandar: { series: 3, bases: "8-12", accesorios: "10-15" },
+  senior: { series: 2, bases: "10-12", accesorios: "12-15" },
+};
+
+function cantidadSugerida(gruposEnSesion: number, grupo: GrupoPlan): number {
+  if (grupo === "core") return 1;
+  if (gruposEnSesion <= 1) return 4;
+  if (gruposEnSesion === 2) return 3;
+  return 2;
+}
 
 const GRUPOS_PLAN: { id: GrupoPlan; nombre: string; color: string; focos: string[] }[] = [
   { id: "pecho", nombre: "Pecho", color: "#c9787f", focos: ["Superior", "Medio", "Inferior", "Aislamiento"] },
@@ -116,7 +135,13 @@ function sesionesIniciales(cantidad: number): SesionPlan[] {
     6: [["pecho", "biceps"], ["espalda", "triceps"], ["piernas", "hombros"], ["pecho", "espalda"], ["hombros", "biceps", "triceps"], ["piernas"]],
     7: [["pecho"], ["espalda"], ["piernas"], ["hombros"], ["biceps", "triceps"], ["pecho", "espalda"], ["piernas"]],
   };
-  return (plantillas[cantidad] ?? plantillas[3]).map((grupos) => ({ grupos, focos: [], descansoDespues: false, tipoDescanso: "Descanso total" }));
+  return (plantillas[cantidad] ?? plantillas[3]).map((grupos) => ({
+    grupos,
+    focos: [],
+    ejerciciosPorGrupo: Object.fromEntries(grupos.map((grupo) => [grupo, cantidadSugerida(grupos.length, grupo)])),
+    descansoDespues: false,
+    tipoDescanso: "Descanso total",
+  }));
 }
 
 /** Herramienta de armado manual: el entrenador elige alumno y nivel, el motor
@@ -149,6 +174,10 @@ export function ArmarRutinaPanel({
   const [disenandoEstructura, setDisenandoEstructura] = useState(false);
   const [sesionesPlan, setSesionesPlan] = useState<SesionPlan[]>(() => sesionesIniciales(3));
   const [sesionActiva, setSesionActiva] = useState(0);
+  const [configuracionManual, setConfiguracionManual] = useState(false);
+  const [seriesManuales, setSeriesManuales] = useState(3);
+  const [repeticionesManuales, setRepeticionesManuales] = useState("8-12");
+  const [ejerciciosPlaneadosPorDia, setEjerciciosPlaneadosPorDia] = useState<Record<number, Record<string, number>>>({});
   const [pendiente, iniciar] = useTransition();
 
   // La misma rutina puede ir a varias personas: el motor ya lo soporta con
@@ -206,8 +235,10 @@ export function ArmarRutinaPanel({
   const crearDesdeEstructura = () => {
     if (!alumno || sesionesPlan.some((sesion) => sesion.grupos.length === 0)) return;
     const diasRutina: RutinaExtraida["dias"] = [];
+    const cantidadesPorDia: Record<number, Record<string, number>> = {};
     sesionesPlan.forEach((sesion, indice) => {
       const etiquetas = sesion.grupos.map((grupo) => GRUPOS_PLAN.find((item) => item.id === grupo)?.nombre ?? grupo);
+      cantidadesPorDia[diasRutina.length] = Object.fromEntries(sesion.grupos.map((grupo) => [grupo, sesion.ejerciciosPorGrupo[grupo] ?? cantidadSugerida(sesion.grupos.length, grupo)]));
       diasRutina.push({
         numero: diasRutina.length + 1,
         nombre: etiquetas.join(" + "),
@@ -229,6 +260,7 @@ export function ArmarRutinaPanel({
       nombreRutina: `Rutina de ${elegidos.length === 1 ? alumno.nombre : `${elegidos.length} alumnos`}`,
       dias: diasRutina,
     });
+    setEjerciciosPlaneadosPorDia(cantidadesPorDia);
     setDisenandoEstructura(false);
   };
 
@@ -240,6 +272,9 @@ export function ArmarRutinaPanel({
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-2">
+          <button type="button" onClick={() => { setRutina(null); setDisenandoEstructura(true); }} className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-[#8fb7d8]">
+            <ArrowLeft size={13} /> Atrás
+          </button>
           <PencilRuler size={13} className="shrink-0 text-vip" />
           <p className="text-caption min-w-0 flex-1 truncate font-semibold text-text">
             {elegidos.length === 1 ? alumno.nombre : `${elegidos.length} alumnos`} · {NIVELES_ARMADO[nivel].etiqueta}
@@ -281,6 +316,12 @@ export function ArmarRutinaPanel({
           tecnicas={tecnicas}
           planInicial={planComun}
           nivelArmado={nivel}
+          configuracionArmado={{
+            manual: configuracionManual,
+            seriesPorEjercicio: configuracionManual ? seriesManuales : RECOMENDACION_NIVEL[nivel].series,
+            repeticiones: configuracionManual ? repeticionesManuales : RECOMENDACION_NIVEL[nivel].bases,
+            ejerciciosPorSesion: ejerciciosPlaneadosPorDia,
+          }}
         />
       </div>
     );
@@ -290,8 +331,12 @@ export function ArmarRutinaPanel({
     const actual = sesionesPlan[sesionActiva];
     const alternarGrupo = (grupo: GrupoPlan) => setSesionesPlan((previas) => previas.map((sesion, indice) => {
       if (indice !== sesionActiva) return sesion;
-      const grupos = sesion.grupos.includes(grupo) ? sesion.grupos.filter((item) => item !== grupo) : [...sesion.grupos, grupo];
-      return { ...sesion, grupos };
+      const quitando = sesion.grupos.includes(grupo);
+      const grupos = quitando ? sesion.grupos.filter((item) => item !== grupo) : [...sesion.grupos, grupo];
+      const ejerciciosPorGrupo = { ...sesion.ejerciciosPorGrupo };
+      if (quitando) delete ejerciciosPorGrupo[grupo];
+      else ejerciciosPorGrupo[grupo] = cantidadSugerida(grupos.length, grupo);
+      return { ...sesion, grupos, ejerciciosPorGrupo };
     }));
     const alternarFoco = (foco: string) => setSesionesPlan((previas) => previas.map((sesion, indice) => {
       if (indice !== sesionActiva) return sesion;
@@ -307,7 +352,7 @@ export function ArmarRutinaPanel({
             <p className="text-caption truncate font-semibold">{elegidos.length === 1 ? alumno.nombre : `${elegidos.length} alumnos`}</p>
             <p className="text-micro text-[#a8b2c1]">Paso 2 de 4 · estructura semanal</p>
           </div>
-          <button type="button" onClick={() => setDisenandoEstructura(false)} className="text-micro font-semibold text-[#8fb7d8]">Volver</button>
+          <button type="button" onClick={() => setDisenandoEstructura(false)} className="flex items-center gap-1 text-micro font-semibold text-[#8fb7d8]"><ArrowLeft size={13} /> Atrás</button>
         </div>
 
         <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -331,6 +376,23 @@ export function ArmarRutinaPanel({
             })}
           </div>
         </div>
+
+        {gruposActivos.length > 0 && (
+          <div className="space-y-1.5 rounded-xl border border-[#394352] bg-[#1d222c] p-2.5">
+            <p className="text-micro text-[#a8b2c1]">EJERCICIOS POR MÚSCULO</p>
+            {gruposActivos.map((grupo) => (
+              <label key={grupo.id} className="flex items-center justify-between gap-3 text-caption text-[#d9dfe8]">
+                <span className="flex items-center gap-2"><span className="size-2 rounded-full" style={{ backgroundColor: grupo.color }} />{grupo.nombre}</span>
+                <span className="flex items-center gap-1">
+                  <button type="button" aria-label={`Quitar un ejercicio de ${grupo.nombre}`} onClick={() => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, ejerciciosPorGrupo: { ...sesion.ejerciciosPorGrupo, [grupo.id]: Math.max(1, (sesion.ejerciciosPorGrupo[grupo.id] ?? 1) - 1) } } : sesion))} className="grid size-7 place-items-center rounded-lg border border-[#465263] bg-[#151922]">−</button>
+                  <input type="number" min={1} max={6} value={actual.ejerciciosPorGrupo[grupo.id] ?? cantidadSugerida(actual.grupos.length, grupo.id)} onChange={(evento) => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, ejerciciosPorGrupo: { ...sesion.ejerciciosPorGrupo, [grupo.id]: Math.min(6, Math.max(1, Number(evento.target.value) || 1)) } } : sesion))} className="h-7 w-10 rounded-lg border border-[#465263] bg-[#151922] text-center text-caption text-white" />
+                  <button type="button" aria-label={`Agregar un ejercicio de ${grupo.nombre}`} onClick={() => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, ejerciciosPorGrupo: { ...sesion.ejerciciosPorGrupo, [grupo.id]: Math.min(6, (sesion.ejerciciosPorGrupo[grupo.id] ?? 1) + 1) } } : sesion))} className="grid size-7 place-items-center rounded-lg border border-[#465263] bg-[#151922]">+</button>
+                </span>
+              </label>
+            ))}
+            <p className="text-[9px] text-[#8f9aaa]">Total estimado: {gruposActivos.reduce((total, grupo) => total + (actual.ejerciciosPorGrupo[grupo.id] ?? 0), 0)} ejercicios · {(configuracionManual ? seriesManuales : RECOMENDACION_NIVEL[nivel].series) * gruposActivos.reduce((total, grupo) => total + (actual.ejerciciosPorGrupo[grupo.id] ?? 0), 0)} series.</p>
+          </div>
+        )}
 
         {focosDisponibles.length > 0 && (
           <div className="border-l-2 border-[#6f9bc6] bg-[#1c2733] p-2.5">
@@ -371,7 +433,10 @@ export function ArmarRutinaPanel({
     <div className="space-y-2">
       {(seleccionando || seleccionados.size === 0) ? <Card padding="p-3" className="space-y-2">
         <div>
-          <p className="text-secondary font-medium text-text">1. ¿Para quién?</p>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <p className="text-secondary font-medium text-text">1. ¿Para quién?</p>
+            <Link href="/admin" className="flex items-center gap-1 text-micro font-semibold text-[#8fb7d8]"><ArrowLeft size={13} /> Atrás</Link>
+          </div>
           <div className="relative mt-2">
             <Search size={16} className="absolute left-3 top-3.5 text-text-tertiary" />
             <Input
@@ -442,16 +507,47 @@ export function ArmarRutinaPanel({
 
       {!seleccionando && seleccionados.size > 0 && <Card padding="p-3" className="space-y-3">
         <div>
-          <p className="text-caption font-semibold text-text">¿Cómo quieres comenzar?</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-caption font-semibold text-text">¿Cómo quieres comenzar?</p>
+            <button type="button" onClick={() => setSeleccionando(true)} className="flex items-center gap-1 text-micro font-semibold text-[#8fb7d8]"><ArrowLeft size={13} /> Atrás</button>
+          </div>
           <p className="text-micro mt-0.5 text-text-tertiary">Manual manda. La base VIP es solo un punto de partida editable.</p>
         </div>
         <label className="block">
           <span className="text-micro mb-1 block text-text-tertiary">NIVEL DEL ALUMNO</span>
-          <Select value={nivel} onChange={(evento) => setNivel(evento.target.value as NivelArmado)} className="py-2">
+          <Select value={nivel} onChange={(evento) => {
+            const nuevoNivel = evento.target.value as NivelArmado;
+            setNivel(nuevoNivel);
+            if (!configuracionManual) {
+              setSeriesManuales(RECOMENDACION_NIVEL[nuevoNivel].series);
+              setRepeticionesManuales(RECOMENDACION_NIVEL[nuevoNivel].bases);
+            }
+          }} className="py-2">
             {NIVELES.map((opcion) => <option key={opcion} value={opcion}>{NIVELES_ARMADO[opcion].etiqueta}</option>)}
           </Select>
           <span className="text-micro mt-1 block text-text-tertiary">{NIVELES_ARMADO[nivel].descripcion}</span>
         </label>
+
+        <div className="radius-control border border-[#394352] bg-[#151922] p-2.5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-caption font-semibold text-[#eef2f7]">Volumen recomendado por sesión</p>
+              <p className="mt-0.5 text-[10px] text-[#a8b2c1]">{RECOMENDACION_NIVEL[nivel].series} series por ejercicio · bases {RECOMENDACION_NIVEL[nivel].bases} reps · accesorios {RECOMENDACION_NIVEL[nivel].accesorios} reps</p>
+            </div>
+            <label className="flex shrink-0 items-center gap-1.5 text-[10px] font-semibold text-[#c8d0dc]"><input type="checkbox" checked={configuracionManual} onChange={(evento) => setConfiguracionManual(evento.target.checked)} /> Manual</label>
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-1 text-center text-[9px] text-[#9eabbc]">
+            <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">1 músculo</strong>4 ejercicios · {RECOMENDACION_NIVEL[nivel].series * 4} series</div>
+            <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">2 músculos</strong>3 + 3 ejercicios · {RECOMENDACION_NIVEL[nivel].series * 6} series</div>
+            <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">3 músculos</strong>2 + 2 + 2 · {RECOMENDACION_NIVEL[nivel].series * 6} series</div>
+          </div>
+          {configuracionManual && (
+            <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#303846] pt-2">
+              <label className="text-[9px] uppercase text-[#a8b2c1]">Series por ejercicio<input type="number" min={1} max={10} value={seriesManuales} onChange={(evento) => setSeriesManuales(Math.min(10, Math.max(1, Number(evento.target.value) || 1)))} className="mt-1 w-full rounded-lg border border-[#465263] bg-[#1d222c] px-2 py-2 text-caption text-white" /></label>
+              <label className="text-[9px] uppercase text-[#a8b2c1]">Repeticiones<input value={repeticionesManuales} onChange={(evento) => setRepeticionesManuales(evento.target.value)} placeholder="Ej. 8-12" className="mt-1 w-full rounded-lg border border-[#465263] bg-[#1d222c] px-2 py-2 text-caption text-white" /></label>
+            </div>
+          )}
+        </div>
 
         <details className="radius-control border border-border">
           <summary className="flex cursor-pointer items-center gap-2 px-2.5 py-2 text-caption font-semibold text-text-secondary">
