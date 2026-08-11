@@ -4,8 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import { AlertTriangle, PencilRuler, Search } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input, Select } from "@/components/ui/Input";
-import { RutinaDraftEditor } from "@/components/admin/RutinaDraftEditor";
+import { Input } from "@/components/ui/Input";
+import { RutinaDraftEditor, type TecnicaOpcion } from "@/components/admin/RutinaDraftEditor";
 import { generarBorradorRutina } from "@/app/admin/generador/actions";
 import { briefDesdeNivel, NIVELES_ARMADO, type NivelArmado } from "@/lib/generador-rutinas/niveles-armado";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
@@ -21,9 +21,74 @@ export type AlumnoArmado = {
   /** Plan CONTRATADO. Manda sobre el autoreporte: el que paga tres días no
    * puede terminar con una rutina de cinco. */
   plan: { nombre: string; diasSemana: number } | null;
+  /** Lo que el alumno escribió en "Mi entrenamiento". */
+  ficha: {
+    experiencia: string | null;
+    equipo: string | null;
+    molestias: string | null;
+    lesiones: string | null;
+    operaciones: string | null;
+    condiciones: string | null;
+    noDeseados: string | null;
+    preferidos: string | null;
+  };
 };
 
+/** La ficha del alumno, delante del entrenador MIENTRAS arma — no antes.
+ *
+ * El motor de reglas no puede leer "me molesta la rodilla al bajar escaleras":
+ * es texto libre, no una columna. Y la auditoría de IA que sí lo lee tarda dos
+ * minutos y llega al final. El que puede actuar sobre eso en el momento es el
+ * entrenador, y para eso tiene que estar viéndolo mientras elige ejercicios.
+ *
+ * Lo delicado (molestias, lesiones, operaciones, condiciones) va en amarillo y
+ * primero. Lo demás es contexto. */
+function FichaDelAlumno({ alumno, compacta = false }: { alumno: AlumnoArmado; compacta?: boolean }) {
+  const f = alumno.ficha;
+  const cuidados = [
+    f.molestias ? { titulo: "Molestias", texto: f.molestias } : null,
+    f.lesiones ? { titulo: "Lesiones", texto: f.lesiones } : null,
+    f.operaciones ? { titulo: "Operaciones", texto: f.operaciones } : null,
+    f.condiciones ? { titulo: "Condiciones médicas", texto: f.condiciones } : null,
+    f.noDeseados ? { titulo: "No quiere hacer", texto: f.noDeseados } : null,
+  ].filter((x): x is { titulo: string; texto: string } => x !== null);
+
+  const contexto = [
+    f.experiencia ? `Nivel ${f.experiencia}` : null,
+    f.equipo ? `Prefiere ${f.equipo}` : null,
+    f.preferidos ? `Le gustan: ${f.preferidos}` : null,
+  ].filter(Boolean);
+
+  const sinFicha = cuidados.length === 0 && contexto.length === 0;
+
+  return (
+    <div className={compacta ? "radius-control border border-border bg-surface-2 p-2" : "space-y-1.5"}>
+      {sinFicha ? (
+        <p className="text-micro text-text-tertiary">
+          {alumno.nombre} todavía no completó “Mi entrenamiento”. Armá con tu criterio: no hay antecedentes cargados
+          que revisar.
+        </p>
+      ) : (
+        <>
+          {cuidados.length > 0 && (
+            <div className="radius-control border border-warning/40 bg-warning/5 p-2">
+              <p className="text-micro font-semibold text-warning">TENER EN CUENTA AL ELEGIR EJERCICIOS</p>
+              {cuidados.map((c) => (
+                <p key={c.titulo} className="text-micro mt-0.5 text-text-secondary">
+                  <strong className="text-text">{c.titulo}:</strong> {c.texto}
+                </p>
+              ))}
+            </div>
+          )}
+          {contexto.length > 0 && <p className="text-micro text-text-tertiary">{contexto.join(" · ")}</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
 const MINUTOS = [30, 45, 60, 75, 90, 120];
+const DIAS = [1, 2, 3, 4, 5, 6, 7];
 const NIVELES: NivelArmado[] = ["estandar", "competitivo", "senior"];
 
 /** Herramienta de armado manual: el entrenador elige alumno y nivel, el motor
@@ -37,9 +102,11 @@ const NIVELES: NivelArmado[] = ["estandar", "competitivo", "senior"];
 export function ArmarRutinaPanel({
   alumnos,
   ejercicios,
+  tecnicas,
 }: {
   alumnos: AlumnoArmado[];
   ejercicios: { id: string; nombre: string; grupo: string; equipo: string }[];
+  tecnicas: TecnicaOpcion[];
 }) {
   const [alumnoId, setAlumnoId] = useState("");
   const [nivel, setNivel] = useState<NivelArmado>("estandar");
@@ -79,18 +146,17 @@ export function ArmarRutinaPanel({
   };
 
   if (rutina && alumno) {
+    // Una sola línea, no una tarjeta con instrucciones: una vez que la base
+    // está armada, el alto de la pantalla es para la rutina.
     return (
-      <div className="space-y-3">
-        <Card padding="p-3" className="border border-vip/30 bg-vip/5">
-          <p className="text-caption flex items-center gap-2 font-medium text-text">
-            <PencilRuler size={16} className="text-vip" />
-            Base lista para {alumno.nombre} · {NIVELES_ARMADO[nivel].etiqueta}
-          </p>
-          <p className="text-micro mt-1 text-text-tertiary">
-            De acá en adelante la armás vos: tocá el lápiz de cualquier ejercicio para cambiarlo, el “+” para insertar
-            uno entre dos, y los botones de abajo para sumar o quitar días. Nada llega al alumno hasta que confirmes.
-          </p>
-        </Card>
+      <div className="space-y-2">
+        <p className="text-micro flex items-center gap-1.5 text-text-tertiary">
+          <PencilRuler size={13} className="shrink-0 text-vip" />
+          {alumno.nombre} · {NIVELES_ARMADO[nivel].etiqueta}
+        </p>
+        {/* La ficha queda arriba de la mesa de trabajo, no en la pantalla
+            anterior: sirve mientras se eligen los ejercicios. */}
+        <FichaDelAlumno alumno={alumno} compacta />
         {alertas.map((a) => (
           <Card key={a} padding="p-3" className="border border-warning">
             <p className="text-caption flex gap-2">
@@ -105,6 +171,7 @@ export function ArmarRutinaPanel({
           draftInicial={rutina}
           onDescartar={() => setRutina(null)}
           ejercicios={ejercicios}
+          tecnicas={tecnicas}
         />
       </div>
     );
@@ -151,6 +218,7 @@ export function ArmarRutinaPanel({
             desde Alumnos para que respete el cupo que paga.
           </p>
         )}
+        {alumno && <FichaDelAlumno alumno={alumno} />}
         {alumno?.requiereRevision && (
           <p className="text-caption flex items-start gap-1.5 text-warning">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
@@ -182,28 +250,43 @@ export function ArmarRutinaPanel({
           })}
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <label className="block">
-            <span className="text-micro text-text-tertiary">DÍAS POR SEMANA</span>
-            <Input
-              type="number"
-              min={1}
-              max={7}
-              value={dias}
-              onChange={(e) => setDias(Number(e.target.value))}
-              aria-label="Días por semana"
-            />
-          </label>
-          <label className="block">
-            <span className="text-micro text-text-tertiary">MINUTOS POR SESIÓN</span>
-            <Select value={minutos} onChange={(e) => setMinutos(Number(e.target.value))} aria-label="Minutos por sesión">
-              {MINUTOS.map((m) => (
-                <option key={m} value={m}>
-                  {m} min
-                </option>
-              ))}
-            </Select>
-          </label>
+        {/* Botones, no campos de escribir: es un toque en el celular en vez
+            de abrir el teclado. "Que yo no tenga que escribir mucho". */}
+        <div>
+          <p className="text-micro text-text-tertiary">DÍAS POR SEMANA</p>
+          <div className="mt-1 flex gap-1">
+            {DIAS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDias(d)}
+                aria-pressed={dias === d}
+                className={`radius-control flex-1 py-2 text-caption font-semibold ${
+                  dias === d ? "bg-vip text-black" : "bg-surface-2 text-text-secondary"
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-micro text-text-tertiary">MINUTOS POR SESIÓN</p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {MINUTOS.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMinutos(m)}
+                aria-pressed={minutos === m}
+                className={`radius-control flex-1 py-2 text-caption font-semibold ${
+                  minutos === m ? "bg-vip text-black" : "bg-surface-2 text-text-secondary"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
         </div>
         {alumno?.plan && dias !== alumno.plan.diasSemana && (
           <p className="text-caption text-warning">

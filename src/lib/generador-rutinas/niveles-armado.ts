@@ -46,10 +46,12 @@ export const NIVELES_ARMADO: Record<NivelArmado, PresetNivel> = {
       intensidadDeseada: "competitiva",
       tecnicasIntensidad: "si",
       estiloEntrenamiento: "hibrido",
-      // Máquinas y poleas de alta estabilidad: es el enfoque que más se
-      // repite hoy en preparación de competencia, y el que mejor tolera el
-      // volumen alto sin castigar articulaciones.
-      inspiracionEstilo: "hibrido_tension",
+      // Volumen tradicional, no híbrido de tensión: en el motor esta
+      // inspiración intenta una SEGUNDA técnica encadenada sobre los
+      // accesorios que quedaron sueltos (ver `intentarEncadenada` en
+      // motor.ts). Es lo que separa una sesión exigente de una sesión larga:
+      // más biseries y triseries reales, no solo más ejercicios sueltos.
+      inspiracionEstilo: "volumen_tradicional",
       ejerciciosPorSesion: 8,
       evitarSaltos: false,
       abdominales: true,

@@ -1,8 +1,8 @@
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerBiblioteca } from "@/lib/ejercicios/data";
+import { obtenerTecnicas } from "@/lib/generador-rutinas/data";
 import { resolverPlanEntrenamiento } from "@/lib/planes-entrenamiento";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { ArmarRutinaPanel, type AlumnoArmado } from "@/components/admin/ArmarRutinaPanel";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -21,14 +21,17 @@ export default async function ArmarRutinaPage() {
   const supabase = await createClient();
   const db = supabase as unknown as SupabaseClient;
 
-  const [{ data: filas }, { data: filasPlan }, { data: perfiles }, ejercicios] = await Promise.all([
+  const [{ data: filas }, { data: filasPlan }, { data: perfiles }, ejercicios, tecnicas] = await Promise.all([
     supabase.from("alumno_perfil").select("user_id, perfiles!alumno_perfil_user_id_fkey(nombre)").order("created_at"),
     // Consulta aparte, mismo criterio que el generador: si las columnas del
     // plan fallan en algún entorno, no puede llevarse abajo la lista entera
     // de alumnos.
     supabase.from("alumno_perfil").select("user_id, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana"),
-    db.from("perfiles_entrenamiento").select("alumno_id, dias_disponibles, minutos_sesion, requiere_revision"),
+    db.from("perfiles_entrenamiento").select("alumno_id, dias_disponibles, minutos_sesion, requiere_revision, experiencia, preferencia_equipo, molestias, lesiones_diagnosticadas, operaciones_previas, condiciones_medicas, ejercicios_no_deseados, ejercicios_preferidos"),
     obtenerBiblioteca(),
+    // Las técnicas reales del gimnasio: son las que ofrece el selector de
+    // técnica de cada ejercicio, incluidas las encadenadas con su cantidad.
+    obtenerTecnicas(),
   ]);
 
   type PerfilBreve = {
@@ -36,6 +39,14 @@ export default async function ArmarRutinaPage() {
     dias_disponibles: number | null;
     minutos_sesion: number | null;
     requiere_revision: boolean;
+    experiencia: string | null;
+    preferencia_equipo: string | null;
+    molestias: string | null;
+    lesiones_diagnosticadas: string | null;
+    operaciones_previas: string | null;
+    condiciones_medicas: string | null;
+    ejercicios_no_deseados: string | null;
+    ejercicios_preferidos: string | null;
   };
   const perfilPorAlumno = new Map(((perfiles ?? []) as PerfilBreve[]).map((p) => [p.alumno_id, p]));
   const planPorAlumno = new Map((filasPlan ?? []).map((f) => [f.user_id, f]));
@@ -58,20 +69,37 @@ export default async function ArmarRutinaPage() {
         dias: p?.dias_disponibles ?? null,
         minutos: p?.minutos_sesion ?? null,
         plan: plan ? { nombre: plan.nombre, diasSemana: plan.diasSemana } : null,
+        // Lo que el alumno escribió en "Mi entrenamiento". El motor no puede
+        // leer texto libre, pero el entrenador sí — y tiene que tenerlo
+        // delante MIENTRAS arma, no después.
+        ficha: {
+          experiencia: p?.experiencia ?? null,
+          equipo: p?.preferencia_equipo ?? null,
+          molestias: p?.molestias ?? null,
+          lesiones: p?.lesiones_diagnosticadas ?? null,
+          operaciones: p?.operaciones_previas ?? null,
+          condiciones: p?.condiciones_medicas ?? null,
+          noDeseados: p?.ejercicios_no_deseados ?? null,
+          preferidos: p?.ejercicios_preferidos ?? null,
+        },
       };
     })
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
+  // Sin encabezado grande ni bajada explicativa a propósito: en el celular ese
+  // bloque se comía media pantalla, y esta herramienta necesita el alto para la
+  // rutina, que es donde está el trabajo real.
   return (
-    <div className="space-y-4">
-      <AdminPageHeader
-        eyebrow="Copiloto VIP"
-        title="Armar rutina a mano"
-        description="Elegí el alumno y la exigencia, y el motor te deja una base. El resto lo armás vos sobre la rutina, con los mismos ejercicios reales de la sala."
-      />
+    <div className="space-y-2">
+      <h1 className="text-secondary font-bold text-text">Armar rutina</h1>
       <ArmarRutinaPanel
         alumnos={alumnos}
         ejercicios={ejercicios.map((e) => ({ id: e.id, nombre: e.nombre, grupo: e.grupoMuscular, equipo: e.equipo }))}
+        tecnicas={tecnicas.map((t) => ({
+          nombre: t.nombre,
+          tipo: t.tipo,
+          cantidadEjercicios: t.cantidadEjercicios,
+        }))}
       />
     </div>
   );

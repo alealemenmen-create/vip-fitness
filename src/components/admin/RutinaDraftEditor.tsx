@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search, Copy, RefreshCcw, Pencil, Check } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
@@ -218,20 +218,110 @@ function SelectorEjercicioInline({
   );
 }
 
+/** Elegir la técnica de una lista real en vez de escribirla a mano.
+ *
+ * Antes esto era un campo de texto libre con el placeholder "Biserie (1/2)":
+ * el entrenador tenía que acordarse del nombre exacto Y de la numeración. Una
+ * técnica mal tipeada no la reconocía nadie — ni el color de la vista previa
+ * ni la auditoría de IA.
+ *
+ * Las ENCADENADAS no se guardan en un solo ejercicio: unen a varios seguidos.
+ * Por eso al elegir una, el trabajo lo hace el día (`onEncadenar`), que
+ * etiqueta los N ejercicios y crea los que falten para completarla. */
+function SelectorTecnica({
+  valor,
+  tecnicas,
+  onLimpiar,
+  onIndividual,
+  onEncadenar,
+}: {
+  valor: string | null;
+  tecnicas: TecnicaOpcion[];
+  onLimpiar: () => void;
+  onIndividual: (nombre: string) => void;
+  onEncadenar?: (nombre: string, cantidad: number) => void;
+}) {
+  const individuales = tecnicas.filter((t) => t.tipo === "individual");
+  const encadenadas = tecnicas.filter((t) => t.tipo === "encadenada");
+
+  // El valor guardado de una encadenada trae la numeración ("Biserie (1/2)"),
+  // así que para reconocerla en la lista hay que comparar contra la parte de
+  // adelante, no contra el texto completo.
+  const nombreBase = valor?.replace(/\s*\(\d+\/\d+\)\s*$/, "") ?? "";
+  const conocida = tecnicas.some((t) => t.nombre === nombreBase);
+
+  const elegir = (nombre: string) => {
+    if (!nombre) return onLimpiar();
+    const tecnica = tecnicas.find((t) => t.nombre === nombre);
+    if (!tecnica) return onIndividual(nombre);
+    const cantidad = tecnica.cantidadEjercicios ?? 2;
+    if (tecnica.tipo === "encadenada" && onEncadenar) return onEncadenar(tecnica.nombre, cantidad);
+    onIndividual(tecnica.nombre);
+  };
+
+  return (
+    <div>
+      <Select value={conocida ? nombreBase : ""} onChange={(e) => elegir(e.target.value)} className="py-1.5">
+        <option value="">Sin técnica especial</option>
+        <optgroup label="Individuales (este ejercicio solo)">
+          {individuales.map((t) => (
+            <option key={t.nombre} value={t.nombre}>
+              {t.nombre}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Encadenadas (unen varios ejercicios)">
+          {encadenadas.map((t) => (
+            <option key={t.nombre} value={t.nombre}>
+              {t.nombre} — {t.cantidadEjercicios ?? 2} ejercicios
+            </option>
+          ))}
+        </optgroup>
+      </Select>
+      {valor && !conocida && (
+        // Rutina vieja o texto escrito a mano: se respeta tal cual, no se
+        // pisa en silencio con una técnica de la lista.
+        <p className="text-micro mt-1 text-text-tertiary">
+          Cargada a mano: <strong className="text-text-secondary">{valor}</strong>.{" "}
+          <button type="button" onClick={onLimpiar} className="font-medium text-vip underline">
+            Quitar
+          </button>
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Una técnica real de `tecnicas_entrenamiento`. `cantidadEjercicios` es lo
+ * que decide cuántos ejercicios encadena: biserie 2, triserie 3, giant set 4. */
+export type TecnicaOpcion = {
+  nombre: string;
+  tipo: "individual" | "encadenada";
+  cantidadEjercicios: number | null;
+};
+
 function EjercicioForm({
   numero,
   ejercicio,
   grupoSugerido,
   biblioteca,
+  tecnicas,
   onChange,
   onRemove,
+  onEncadenar,
 }: {
   numero: number;
   ejercicio: Ejercicio;
   grupoSugerido: string | null;
   biblioteca?: EjercicioBiblioteca[];
+  /** Las técnicas reales del gimnasio. Sin esto el campo sigue siendo texto
+   * libre, que es como funcionaba antes. */
+  tecnicas?: TecnicaOpcion[];
   onChange: (e: Ejercicio) => void;
   onRemove: () => void;
+  /** Elegir una técnica encadenada no es un dato de ESTE ejercicio: une a
+   * varios seguidos. Lo resuelve el día, que es quien los conoce a todos. */
+  onEncadenar?: (nombre: string, cantidad: number) => void;
 }) {
   // El resumen útil queda siempre visible. Técnica, observación y progresión
   // empiezan cerradas para que una rutina de 30 ejercicios no obligue a
@@ -361,12 +451,22 @@ function EjercicioForm({
               </option>
             ))}
           </Select>
-          <Input
-            value={ejercicio.tecnicaTipo ?? ""}
-            onChange={(e) => onChange({ ...ejercicio, tecnicaTipo: e.target.value || null })}
-            placeholder="Técnica especial (ej: Biserie (1/2))"
-            className="py-1.5"
-          />
+          {tecnicas && tecnicas.length > 0 ? (
+            <SelectorTecnica
+              valor={ejercicio.tecnicaTipo}
+              tecnicas={tecnicas}
+              onLimpiar={() => onChange({ ...ejercicio, tecnicaTipo: null })}
+              onIndividual={(nombre) => onChange({ ...ejercicio, tecnicaTipo: nombre })}
+              onEncadenar={onEncadenar}
+            />
+          ) : (
+            <Input
+              value={ejercicio.tecnicaTipo ?? ""}
+              onChange={(e) => onChange({ ...ejercicio, tecnicaTipo: e.target.value || null })}
+              placeholder="Técnica especial (ej: Biserie (1/2))"
+              className="py-1.5"
+            />
+          )}
           {/* Antes solo aparecía con "Técnica especial" cargado (biserie,
               triserie...). La IA ahora también escribe acá una instrucción de
               ejecución para ejercicios sueltos que no tienen ninguna técnica
@@ -459,6 +559,9 @@ export function VistaPreviaEstructurada({
   expandida = false,
   onAgregarDia,
   onQuitarDia,
+  tecnicas,
+  onEncadenar,
+  onInsertarDescanso,
 }: {
   draft: RutinaConProgresion;
   biblioteca?: EjercicioBiblioteca[];
@@ -472,6 +575,10 @@ export function VistaPreviaEstructurada({
   /** Solo en modo expandido: agregar y quitar días desde la misma vista. */
   onAgregarDia?: () => void;
   onQuitarDia?: (diaIdx: number) => void;
+  tecnicas?: TecnicaOpcion[];
+  onEncadenar?: (diaIdx: number, ejIdx: number, nombre: string, cantidad: number) => void;
+  /** Mete un día de descanso en esa posición de la semana. */
+  onInsertarDescanso?: (posicion: number) => void;
 }) {
   // Coordenadas de la tarjeta abierta para editar, no el ejercicio en sí:
   // así, al insertar uno nuevo, alcanza con apuntar a su posición para que
@@ -487,7 +594,8 @@ export function VistaPreviaEstructurada({
     <div className={expandida ? "space-y-4" : "max-h-[34rem] space-y-3 overflow-y-auto pr-1"}>
       <p className="text-card-title font-bold text-text">{draft.nombreRutina}</p>
       {draft.dias.map((dia, diaIdx) => (
-        <section key={dia.numero} className="radius-control overflow-hidden border border-border">
+        <Fragment key={`${dia.numero}-${dia.nombre}`}>
+        <section className="radius-control overflow-hidden border border-border">
           <div className="flex items-center justify-between gap-2 bg-surface-2 px-2.5 py-2">
             <p className="text-secondary font-bold text-vip">DÍA {dia.numero} · {dia.nombre}</p>
             <div className="flex shrink-0 items-center gap-2">
@@ -533,6 +641,10 @@ export function VistaPreviaEstructurada({
                           ejercicio={ejercicio}
                           grupoSugerido={grupoDominante(dia)}
                           biblioteca={biblioteca}
+                          tecnicas={tecnicas}
+                          onEncadenar={
+                            onEncadenar ? (nombre, cantidad) => onEncadenar(diaIdx, indice, nombre, cantidad) : undefined
+                          }
                           onChange={(e) => onActualizarEjercicio(diaIdx, indice, e)}
                           onRemove={() => {
                             onQuitarEjercicio(diaIdx, indice);
@@ -602,6 +714,18 @@ export function VistaPreviaEstructurada({
             </div>
           )}
         </section>
+        {/* Descanso EN ESTE PUNTO de la semana, no al final: entre el día 1 y
+            el 2, o entre el 3 y el 4, donde el entrenador lo necesite. */}
+        {onInsertarDescanso && (
+          <button
+            type="button"
+            onClick={() => onInsertarDescanso(diaIdx + 1)}
+            className="text-micro flex w-full items-center justify-center gap-1.5 py-1 font-medium text-text-tertiary"
+          >
+            <Plus size={12} /> Descanso después del día {dia.numero}
+          </button>
+        )}
+        </Fragment>
       ))}
       {onAgregarDia && (
         <button
@@ -629,6 +753,7 @@ export function RutinaDraftEditor({
   ejercicios,
   onRevisar,
   mesaDeTrabajo = false,
+  tecnicas,
 }: {
   /** Herramienta de armado manual: la vista previa deja de ser una vista y
    * pasa a ser la mesa de trabajo — a lo ancho, siempre abierta y con los
@@ -637,6 +762,9 @@ export function RutinaDraftEditor({
    * trabajo dos veces. Todo lo demás —publicar, plan del alumno, revisión con
    * IA— es exactamente el mismo camino que ya usa el generador. */
   mesaDeTrabajo?: boolean;
+  /** Técnicas reales del gimnasio. Si no llegan, el campo de técnica sigue
+   * siendo texto libre como antes — ninguna pantalla se rompe por no pasarlas. */
+  tecnicas?: TecnicaOpcion[];
   alumnoIds: string[];
   draftInicial: RutinaExtraida;
   onDescartar: () => void;
@@ -721,6 +849,30 @@ export function RutinaDraftEditor({
         const ejercicios = [...dia.ejercicios];
         ejercicios.splice(posicion, 0, { ...EJERCICIO_VACIO });
         return { ...dia, ejercicios };
+      }),
+    }));
+  };
+
+  /** Aplica una técnica encadenada a partir de un ejercicio: etiqueta los
+   * `cantidad` ejercicios seguidos con la numeración que espera el resto de la
+   * app ("Biserie (1/2)", "Biserie (2/2)") y, si no hay suficientes por
+   * delante, crea los que falten vacíos para que el entrenador los elija de la
+   * biblioteca. Es lo que pidió: al elegir la técnica, que aparezcan los
+   * espacios de ejercicio que esa técnica necesita. */
+  const encadenarTecnica = (diaIdx: number, ejIdx: number, nombre: string, cantidad: number) => {
+    setDraft((d) => ({
+      ...d,
+      dias: d.dias.map((dia, i) => {
+        if (i !== diaIdx) return dia;
+        const ejercicios = [...dia.ejercicios];
+        while (ejercicios.length < ejIdx + cantidad) ejercicios.push({ ...EJERCICIO_VACIO });
+        for (let paso = 0; paso < cantidad; paso++) {
+          ejercicios[ejIdx + paso] = {
+            ...ejercicios[ejIdx + paso],
+            tecnicaTipo: `${nombre} (${paso + 1}/${cantidad})`,
+          };
+        }
+        return { ...dia, ejercicios: ejercicios.map((e, orden) => ({ ...e, orden: orden + 1 })) };
       }),
     }));
   };
@@ -869,6 +1021,25 @@ export function RutinaDraftEditor({
         },
       ],
     }));
+  };
+
+  /** Mete un día de descanso en una posición concreta de la semana — entre el
+   * 1 y el 2, o entre el 3 y el 4, donde el entrenador lo quiera. El tipo
+   * "descanso" ya existía en el modelo y la vista previa ya sabía dibujarlo;
+   * lo único que faltaba era poder agregarlo. Los días se renumeran solos para
+   * que el alumno vea la semana corrida. */
+  const insertarDescanso = (posicion: number) => {
+    setDraft((d) => {
+      const dias = [...d.dias];
+      dias.splice(posicion, 0, {
+        numero: posicion + 1,
+        nombre: "Descanso",
+        tipo: "descanso",
+        descripcion: null,
+        ejercicios: [],
+      });
+      return { ...d, dias: dias.map((dia, i) => ({ ...dia, numero: i + 1 })) };
+    });
   };
 
   const publicar = async () => {
@@ -1162,6 +1333,9 @@ export function RutinaDraftEditor({
               expandida={mesaDeTrabajo}
               onAgregarDia={mesaDeTrabajo ? agregarDia : undefined}
               onQuitarDia={mesaDeTrabajo ? quitarDia : undefined}
+              tecnicas={tecnicas}
+              onEncadenar={encadenarTecnica}
+              onInsertarDescanso={mesaDeTrabajo ? insertarDescanso : undefined}
             />
           </div>
         )}
