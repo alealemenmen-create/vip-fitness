@@ -108,7 +108,7 @@ export function ArmarRutinaPanel({
   ejercicios: { id: string; nombre: string; grupo: string; equipo: string }[];
   tecnicas: TecnicaOpcion[];
 }) {
-  const [alumnoId, setAlumnoId] = useState("");
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const [nivel, setNivel] = useState<NivelArmado>("estandar");
   const [dias, setDias] = useState(3);
   const [minutos, setMinutos] = useState(60);
@@ -118,26 +118,42 @@ export function ArmarRutinaPanel({
   const [error, setError] = useState<string | null>(null);
   const [pendiente, iniciar] = useTransition();
 
-  const alumno = alumnos.find((a) => a.id === alumnoId) ?? null;
+  // La misma rutina puede ir a varias personas: el motor ya lo soporta con
+  // `alumnoIds`. Para los datos que hay que mostrar (ficha, plan) se usa el
+  // primero, y los dias se calibran con el plan MAS CHICO del grupo.
+  const elegidos = alumnos.filter((a) => seleccionados.has(a.id));
+  const alumno = elegidos[0] ?? null;
   const visibles = useMemo(
     () => alumnos.filter((a) => a.nombre.toLowerCase().includes(busqueda.toLowerCase())),
     [alumnos, busqueda]
   );
 
-  const elegir = (id: string) => {
-    setAlumnoId(id);
-    const elegido = alumnos.find((a) => a.id === id);
-    if (!elegido) return;
-    // El plan contratado gana sobre el autoreporte de la ficha; si no tiene
-    // plan asignado, se cae a lo que declaró el alumno y, si tampoco hay, a 3.
-    setDias(elegido.plan?.diasSemana ?? elegido.dias ?? 3);
-    setMinutos(elegido.minutos ?? 60);
+  /** Marca o desmarca. Con varios elegidos, los días y minutos se calibran con
+   * el MÁS CONSERVADOR del grupo: si uno paga 3 días y otro 5, la rutina sale
+   * de 3 — nadie termina entrenando más de lo que contrató. */
+  const alternar = (id: string) => {
+    // Actualización funcional, no con una copia del estado de arriba: dos
+    // toques rápidos leían el mismo valor viejo y el segundo pisaba al
+    // primero. Se veía marcado uno solo aunque hubieras tocado dos.
+    setSeleccionados((previos) => {
+      const copia = new Set(previos);
+      if (copia.has(id)) copia.delete(id);
+      else copia.add(id);
+
+      const grupo = alumnos.filter((a) => copia.has(a.id));
+      if (grupo.length > 0) {
+        setDias(Math.min(...grupo.map((a) => a.plan?.diasSemana ?? a.dias ?? 3)));
+        setMinutos(Math.min(...grupo.map((a) => a.minutos ?? 60)));
+      }
+      return copia;
+    });
   };
 
   const armar = () => {
     setError(null);
     iniciar(async () => {
-      const brief = briefDesdeNivel(nivel, { alumnoId, alumnoIds: [alumnoId], dias, minutosSesion: minutos });
+      const ids = [...seleccionados];
+      const brief = briefDesdeNivel(nivel, { alumnoId: ids[0], alumnoIds: ids, dias, minutosSesion: minutos });
       const r = await generarBorradorRutina(brief);
       if (!r.ok) return setError(r.error);
       setRutina(r.rutina);
@@ -152,11 +168,19 @@ export function ArmarRutinaPanel({
       <div className="space-y-2">
         <p className="text-micro flex items-center gap-1.5 text-text-tertiary">
           <PencilRuler size={13} className="shrink-0 text-vip" />
-          {alumno.nombre} · {NIVELES_ARMADO[nivel].etiqueta}
+          {elegidos.length === 1 ? alumno.nombre : `${elegidos.length} alumnos`} ·{" "}
+          {NIVELES_ARMADO[nivel].etiqueta}
         </p>
         {/* La ficha queda arriba de la mesa de trabajo, no en la pantalla
-            anterior: sirve mientras se eligen los ejercicios. */}
-        <FichaDelAlumno alumno={alumno} compacta />
+            anterior: sirve mientras se eligen los ejercicios. Con varios
+            alumnos se muestran TODAS: la rutina es una sola, pero los
+            antecedentes son de cada uno y hay que respetarlos a todos. */}
+        {elegidos.map((a) => (
+          <div key={a.id}>
+            {elegidos.length > 1 && <p className="text-micro font-semibold text-text-secondary">{a.nombre}</p>}
+            <FichaDelAlumno alumno={a} compacta />
+          </div>
+        ))}
         {alertas.map((a) => (
           <Card key={a} padding="p-3" className="border border-warning">
             <p className="text-caption flex gap-2">
@@ -167,7 +191,7 @@ export function ArmarRutinaPanel({
         ))}
         <RutinaDraftEditor
           mesaDeTrabajo
-          alumnoIds={[alumno.id]}
+          alumnoIds={[...seleccionados]}
           draftInicial={rutina}
           onDescartar={() => setRutina(null)}
           ejercicios={ejercicios}
@@ -196,9 +220,9 @@ export function ArmarRutinaPanel({
               <button
                 key={a.id}
                 type="button"
-                onClick={() => elegir(a.id)}
+                onClick={() => alternar(a.id)}
                 className={`radius-control flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left ${
-                  a.id === alumnoId ? "bg-vip text-black" : "bg-surface-2 text-text-secondary"
+                  seleccionados.has(a.id) ? "bg-vip text-black" : "bg-surface-2 text-text-secondary"
                 }`}
               >
                 <span className="text-caption min-w-0 flex-1 truncate font-medium">{a.nombre}</span>
@@ -299,8 +323,8 @@ export function ArmarRutinaPanel({
       <Button
         onClick={armar}
         loading={pendiente}
-        disabled={!alumnoId}
-        disabledReason="Elegí un alumno para armar la base"
+        disabled={seleccionados.size === 0}
+        disabledReason="Elegí al menos un alumno para armar la base"
       >
         <PencilRuler size={18} />
         {pendiente ? "Armando la base…" : "Armar la base y empezar a editar"}
