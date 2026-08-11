@@ -9,7 +9,7 @@ import { BotonRefrescarCatalogo } from "@/components/admin/BotonRefrescarCatalog
 import { resolverPlanEntrenamiento } from "@/lib/planes-entrenamiento";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { BookOpenCheck, Dumbbell, FileText, Users, WandSparkles } from "lucide-react";
+import { BookOpenCheck, Dumbbell, FileText, PencilRuler, Users, WandSparkles } from "lucide-react";
 
 /** La revisión con IA es la operación más larga de toda la app: audita la
  * semana completa contra la ficha del alumno y puede tardar minutos. Sin este
@@ -102,6 +102,29 @@ export default async function GeneradorPage({
         title="Generador de rutinas"
         description="Configura, revisa y aprueba rutinas con las reglas del Método VIP y ejercicios reales."
       />
+
+      {/* Las tres formas de llegar a una rutina, juntas y arriba de todo:
+          armarla a mano, subir un PDF, o el cuestionario completo de esta
+          misma pantalla. Antes la herramienta manual solo existía si sabías
+          la URL, y ponerla en la barra del celular dejaba al generador sin
+          lugar — el sitio correcto es acá, dentro del generador. */}
+      <section className="grid gap-2 sm:grid-cols-3" aria-label="Cómo querés armar la rutina">
+        <Link
+          href="/admin/armar-rutina"
+          className="radius-control flex items-center justify-center gap-2 border border-vip/40 bg-vip/10 px-3 py-3 text-xs font-semibold text-vip"
+        >
+          <PencilRuler size={15} /> Armar a mano
+        </Link>
+        <Link
+          href="/admin/documentos"
+          className="radius-control flex items-center justify-center gap-2 border border-[#3b82f6]/30 bg-[#3b82f6]/10 px-3 py-3 text-xs font-semibold text-[#60a5fa]"
+        >
+          <FileText size={15} /> Subir un documento
+        </Link>
+        <span className="radius-control flex items-center justify-center gap-2 border border-border bg-surface-2 px-3 py-3 text-xs font-semibold text-text-tertiary">
+          <WandSparkles size={15} /> Con cuestionario (estás acá)
+        </span>
+      </section>
 
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Resumen del generador">
         <AdminStatCard href="/admin/generador?alumnos=todos#selector-alumnos" icon={<Users size={20} />} value={alumnos.length} label="Alumnos" detail="Ver todos para planificar" color="#3b82f6" />

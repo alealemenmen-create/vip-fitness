@@ -27,11 +27,11 @@ type AdminTabsProps = {
 
 const MOBILE_TABS = [
   { href: "/admin/alumnos", label: "Alumnos", icon: Users, section: "alumnos" },
-  // En el celular la barra de abajo tiene cinco lugares y son los que el
-  // entrenador toca todo el día: acá va la herramienta manual, que es la que
-  // usa para armar. Al generador con cuestionario se llega desde "Más" o
-  // desde el menú lateral en pantalla grande.
-  { href: "/admin/armar-rutina", label: "Armar", icon: PencilRuler, section: "armar-rutina" },
+  // El generador se queda acá. Sacarlo para meter la herramienta manual lo
+  // dejaba inalcanzable desde el celular: "Más" apunta a Configuración, no a
+  // un índice. Armar rutina va a vivir como pestaña DENTRO del generador, que
+  // es lo que corresponde — no compitiendo por este lugar.
+  { href: "/admin/generador", label: "Generar", icon: WandSparkles, section: "generador" },
   { href: "/admin/documentos", label: "Documentos", icon: FileText, section: "documentos" },
   { href: "/admin/alimentos", label: "Alimentos", icon: Salad, section: "alimentos" },
   { href: "/admin/configuracion", label: "Más", icon: MoreHorizontal, section: "mas" },
@@ -78,10 +78,6 @@ const SIDEBAR_GROUPS = [
 
 const MORE_PREFIXES = [
   "/admin/configuracion",
-  // El generador con cuestionario salió de la barra de abajo para dejarle el
-  // lugar a "Armar": en el celular se llega por "Más", así que tiene que
-  // marcar esa pestaña como activa.
-  "/admin/generador",
   "/admin/ejercicios",
   "/admin/asistente",
   "/admin/ingresos",
