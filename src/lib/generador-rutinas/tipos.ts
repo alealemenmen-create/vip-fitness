@@ -169,6 +169,16 @@ export type BriefGenerador = {
    * "el tiempo que el entrenador elige dicta la cantidad de ejercicio".
    * Se puede corregir a mano, pero arranca calculada. */
   ejerciciosPorSesion: number;
+  /** Tope de ejercicios POR DÍA para un grupo (o sub-grupo) puntual —
+   * "máximo 3 de pecho", "máximo 2 de bíceps". Opcional y por clave: lo que
+   * no está acá no tiene tope y se reparte como siempre. Los espacios que
+   * libera un tope se los llevan los otros grupos del mismo día, así la
+   * sesión no queda corta. Un tope de sub-grupo (bíceps, glúteo) convive con
+   * el de su grupo padre (brazos, piernas): mandan los dos, gana el más
+   * chico. No confundir con el tope de SERIES semanales de
+   * `ajustarVolumenCritico` — ese cuida el volumen acumulado de la semana,
+   * este la cantidad de ejercicios de un día. */
+  limitesPorGrupo?: Partial<Record<EtiquetaDia, number>> | null;
   cardio: CardioModalidad;
   cardioMinutos: number;
   /** Solo para `cardio: "funcional"`: ids de los movimientos funcionales que

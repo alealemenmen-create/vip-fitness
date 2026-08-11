@@ -142,6 +142,14 @@ function etiquetaCupo(c: CupoDia): string {
   return NOMBRE_GRUPO[c.grupo];
 }
 
+/** Nombre legible de cualquier etiqueta de día (grupo o sub-grupo) — lo usan
+ * los topes por grupo, que se configuran con esa misma lista. */
+function nombreEtiquetaDia(etiqueta: EtiquetaDia): string {
+  if (esSubGrupoPierna(etiqueta)) return NOMBRE_SUBGRUPO[etiqueta];
+  if (esSubGrupoBrazo(etiqueta)) return etiqueta === "biceps" ? "Bíceps" : "Tríceps";
+  return NOMBRE_GRUPO[etiqueta];
+}
+
 function distribucionReal(brief: BriefGenerador): Exclude<BriefGenerador["distribucion"], "automatica"> {
   if (brief.distribucion !== "automatica") return brief.distribucion;
   if (brief.dias <= 2) return "full_body";
@@ -497,6 +505,96 @@ function seleccionarDiversos(
   return elegidos;
 }
 
+/** Claves de tope que le aplican a un cupo: la del grupo y, si el cupo está
+ * acotado a una sub-parte, también la del sub-grupo. Un cupo de bíceps
+ * responde tanto al tope de "biceps" como al de "brazos". */
+function clavesLimiteCupo(cupo: CupoDia): EtiquetaDia[] {
+  const claves: EtiquetaDia[] = [cupo.grupo];
+  if (cupo.subGrupoPierna) claves.push(cupo.subGrupoPierna);
+  if (cupo.subGrupoBrazo) claves.push(cupo.subGrupoBrazo);
+  return claves;
+}
+
+/** Mismo criterio pero para un ejercicio suelto (cuando se rellena con
+ * sobrantes, fuera del reparto por cupos): el sub-grupo se deduce por nombre,
+ * igual que en el resto del motor. Un ejercicio de pierna puede matchear más
+ * de un sub-grupo (una sentadilla sumo pega en glúteo y cuádriceps); en ese
+ * caso cuenta en los dos, que es lo conservador. */
+function clavesLimiteEjercicio(e: EjercicioGenerador): EtiquetaDia[] {
+  if (e.grupoMuscular === "cardio") return [];
+  const claves: EtiquetaDia[] = [e.grupoMuscular];
+  if (e.grupoMuscular === "brazos") {
+    const sub = subGrupoBrazo(e.nombre);
+    if (sub) claves.push(sub);
+  }
+  if (e.grupoMuscular === "piernas") {
+    claves.push(...SUBGRUPOS_PIERNA.filter((sub) => coincideSubGrupoPierna(e.nombre, sub)));
+  }
+  return claves;
+}
+
+export function limitesDelBrief(brief: BriefGenerador): Partial<Record<EtiquetaDia, number>> {
+  return brief.limitesPorGrupo ?? {};
+}
+
+/** Recorta el reparto del día para que ningún grupo pase su tope de
+ * ejercicios, y le pasa los espacios liberados a los grupos que sí tienen
+ * lugar — pedido del entrenador: "poder decir cuántos de pecho, cuántos de
+ * espalda". No inventa ejercicios: un cupo solo recibe espacios extra si
+ * todavía le quedan candidatos reales en la biblioteca. Si todos los grupos
+ * del día están topados, el día queda con menos ejercicios que los pedidos y
+ * el generador lo avisa. */
+function repartirConLimites(
+  cupoAsignado: number[],
+  cupos: CupoDia[],
+  disponibles: number[],
+  cantidad: number,
+  limites: Partial<Record<EtiquetaDia, number>>
+): void {
+  const entradas = Object.entries(limites) as Array<[EtiquetaDia, number]>;
+  if (entradas.length === 0) return;
+  const indicesDe = (clave: EtiquetaDia) =>
+    cupos.map((c, i) => (clavesLimiteCupo(c).includes(clave) ? i : -1)).filter((i) => i >= 0);
+  const sumaDe = (clave: EtiquetaDia) => indicesDe(clave).reduce((s, i) => s + cupoAsignado[i], 0);
+
+  // 1. Bajar lo que se pasó del tope, empezando siempre por el cupo con más
+  //    espacios asignados para no dejar a ninguno en cero mientras otro del
+  //    mismo grupo conserva tres.
+  let huboRecorte = true;
+  while (huboRecorte) {
+    huboRecorte = false;
+    for (const [clave, tope] of entradas) {
+      const indices = indicesDe(clave);
+      if (indices.length === 0) continue;
+      while (sumaDe(clave) > tope) {
+        const objetivo = indices.filter((i) => cupoAsignado[i] > 0).sort((a, b) => cupoAsignado[b] - cupoAsignado[a])[0];
+        if (objetivo === undefined) break;
+        cupoAsignado[objetivo] -= 1;
+        huboRecorte = true;
+      }
+    }
+  }
+
+  // 2. Repartir lo liberado entre los cupos que todavía tienen lugar y
+  //    candidatos, priorizando a los que más biblioteca disponible tienen.
+  const tieneLugar = (i: number) =>
+    cupoAsignado[i] < disponibles[i] &&
+    clavesLimiteCupo(cupos[i]).every((clave) => {
+      const tope = limites[clave];
+      return tope === undefined || sumaDe(clave) + 1 <= tope;
+    });
+  let total = cupoAsignado.reduce((s, n) => s + n, 0);
+  while (total < cantidad) {
+    const objetivo = cupos
+      .map((_, i) => i)
+      .filter(tieneLugar)
+      .sort((a, b) => disponibles[b] - cupoAsignado[b] - (disponibles[a] - cupoAsignado[a]))[0];
+    if (objetivo === undefined) break;
+    cupoAsignado[objetivo] += 1;
+    total += 1;
+  }
+}
+
 /** Llena `cantidad` cupos repartidos entre `cupos`, garantizando que cada
  * grupo objetivo aparezca (cuota mínima) antes de rellenar con lo que sobre.
  * Esto es lo que evita que un día "tren superior" termine siendo solo
@@ -534,6 +632,19 @@ function elegirPorCupos(
     restante--;
   }
 
+  const limites = limitesDelBrief(brief);
+  repartirConLimites(cupoAsignado, cupos, porCupo.map((l) => l.length), cantidad, limites);
+
+  /** Guard para los pasos que eligen ejercicios sueltos, fuera del reparto por
+   * cupos (relleno de un día de brazos general, sobrantes del final): ahí no
+   * hay cupo que consultar, así que el tope se mide contra lo ya elegido. */
+  const cabeEnLimites = (e: EjercicioGenerador, seleccion: EjercicioGenerador[]) =>
+    clavesLimiteEjercicio(e).every((clave) => {
+      const tope = limites[clave];
+      if (tope === undefined) return true;
+      return seleccion.filter((x) => clavesLimiteEjercicio(x).includes(clave)).length < tope;
+    });
+
   const elegidos: EjercicioGenerador[] = [];
   porCupo.forEach((lista, i) => {
     const cantidadCupo = cupoAsignado[i];
@@ -548,13 +659,18 @@ function elegirPorCupos(
     // al menos 2+2 si el catálogo lo permite; con 2, al menos 1+1.
     const biceps = lista.filter((e) => subGrupoBrazo(e.nombre) === "biceps");
     const triceps = lista.filter((e) => subGrupoBrazo(e.nombre) === "triceps");
+    // Un tope de bíceps o de tríceps también recorta acá, donde el reparto es
+    // interno al cupo de brazos y no lo ve `repartirConLimites`.
+    const mitad = Math.floor(cantidadCupo / 2);
     const seleccionados: EjercicioGenerador[] = [
-      ...seleccionarDiversos(biceps, Math.floor(cantidadCupo / 2), { ...cupo, subGrupoBrazo: "biceps" }, brief),
-      ...seleccionarDiversos(triceps, Math.floor(cantidadCupo / 2), { ...cupo, subGrupoBrazo: "triceps" }, brief),
+      ...seleccionarDiversos(biceps, Math.min(mitad, limites.biceps ?? mitad), { ...cupo, subGrupoBrazo: "biceps" }, brief),
+      ...seleccionarDiversos(triceps, Math.min(mitad, limites.triceps ?? mitad), { ...cupo, subGrupoBrazo: "triceps" }, brief),
     ];
     for (const ejercicio of lista) {
       if (seleccionados.length >= cantidadCupo) break;
-      if (!seleccionados.some((e) => e.id === ejercicio.id)) seleccionados.push(ejercicio);
+      if (seleccionados.some((e) => e.id === ejercicio.id)) continue;
+      if (!cabeEnLimites(ejercicio, [...elegidos, ...seleccionados])) continue;
+      seleccionados.push(ejercicio);
     }
     elegidos.push(...seleccionados);
   });
@@ -564,7 +680,12 @@ function elegirPorCupos(
     const sobrantes = porCupo.flat().filter((e) => !yaElegidos.has(e.id));
     for (const e of sobrantes) {
       if (elegidos.length >= cantidad) break;
-      if (!elegidos.some((x) => x.id === e.id)) elegidos.push(e);
+      if (elegidos.some((x) => x.id === e.id)) continue;
+      // El relleno del final no puede pisar un tope: antes completaba el día
+      // con lo que hubiera y podía dejar 4 de pecho aunque el entrenador
+      // hubiera pedido máximo 2.
+      if (!cabeEnLimites(e, elegidos)) continue;
+      elegidos.push(e);
     }
   }
   return elegidos;
@@ -1094,6 +1215,14 @@ export function generarRutinaPorReglas(
     }
   }
 
+  const limitesActivos = limitesDelBrief(brief);
+  const clavesConTope = (Object.keys(limitesActivos) as EtiquetaDia[]).filter((c) => limitesActivos[c] !== undefined);
+  if (clavesConTope.length > 0) {
+    reglasAplicadas.push(
+      `Tope de ejercicios por día definido a mano: ${clavesConTope.map((c) => `${nombreEtiquetaDia(c)} máx. ${limitesActivos[c]}`).join(" · ")}`
+    );
+  }
+
   const usados = new Set<string>();
   const gruposEntrenadosEnSemana = new Set<GrupoEntrenable>();
   const dias = Array.from({ length: brief.dias }, (_, indice) => {
@@ -1104,6 +1233,14 @@ export function generarRutinaPorReglas(
     cupos.forEach((c) => gruposEntrenadosEnSemana.add(c.grupo));
     const cantidadDia = ejerciciosObjetivoDelDia(brief.ejerciciosPorSesion, cupos.length);
     const elegidos = elegirPorCupos(candidatos, cupos, cantidadDia, brief, perfil, usados);
+    // Los topes son del entrenador, así que no se "arreglan" solos: si por
+    // respetarlos el día quedó más corto de lo pedido, se avisa y él decide
+    // (subir un tope, sumar otro grupo al día o dejarlo así a propósito).
+    if (elegidos.length < cantidadDia && cupos.some((c) => clavesLimiteCupo(c).some((clave) => limitesActivos[clave] !== undefined))) {
+      alertas.push(
+        `Día ${indice + 1}: quedó con ${elegidos.length} ejercicio${elegidos.length === 1 ? "" : "s"} en vez de ${cantidadDia} porque los topes por grupo que pusiste no dejan lugar para más. Sube un tope o agrega otro grupo a ese día si querés completarlo.`
+      );
+    }
 
     cupos.forEach((c) => {
       const delGrupo = elegidos.filter(
@@ -1114,7 +1251,9 @@ export function generarRutinaPorReglas(
       // grupo muscular, a menos que sea principiante". Solo aplica en días
       // enfocados (pocos grupos objetivo) — en full body/PPL con muchos
       // grupos combinados, 1-2 por grupo es normal y no es esto.
-      else if (cupos.length <= 2 && delGrupo.length < 3 && experiencia !== "principiante") {
+      // Si el propio entrenador le puso un tope a ese grupo, no tiene sentido
+      // avisarle que quedaron pocos: es exactamente lo que pidió.
+      else if (cupos.length <= 2 && delGrupo.length < 3 && experiencia !== "principiante" && !clavesLimiteCupo(c).some((clave) => limitesActivos[clave] !== undefined)) {
         alertas.push(`Día ${indice + 1}: solo ${delGrupo.length} ejercicio${delGrupo.length === 1 ? "" : "s"} de ${etiquetaCupo(c)} para nivel ${experiencia} — conviene al menos 3. Sube "ejercicios por sesión" o revisa cuántos grupos combinás ese día.`);
       }
     });

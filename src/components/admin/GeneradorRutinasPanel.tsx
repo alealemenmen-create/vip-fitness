@@ -7,6 +7,7 @@ import { RutinaDraftEditor } from "@/components/admin/RutinaDraftEditor";
 import { GavetaConfig } from "@/components/admin/GavetaConfig";
 import { SelectorAlumnos } from "@/components/admin/SelectorAlumnos";
 import { SelectorGruposDia } from "@/components/admin/SelectorGruposDia";
+import { LimitesPorGrupo } from "@/components/admin/LimitesPorGrupo";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Select, Textarea } from "@/components/ui/Input";
@@ -239,6 +240,7 @@ export function GeneradorRutinasPanel({
   const [estilo, setEstilo] = useState<EstiloEntrenamiento>("hibrido");
   const [distribucion, setDistribucion] = useState<Distribucion>("automatica");
   const [diaGrupos, setDiaGrupos] = useState<EtiquetaDia[][]>([]);
+  const [limitesPorGrupo, setLimitesPorGrupo] = useState<Partial<Record<EtiquetaDia, number>>>({});
   const [intensidad, setIntensidad] = useState<IntensidadDeseada>("estandar");
   const [inspiracionEstilo, setInspiracionEstilo] = useState<InspiracionEstilo>("ninguna");
   const [tecnicasIntensidad, setTecnicasIntensidad] = useState<AplicacionTecnicas>("automatico");
@@ -356,6 +358,7 @@ export function GeneradorRutinasPanel({
         grupoPrioritario: grupoPrioritario || null,
         enfoqueForma,
         ejerciciosPorSesion: cantidad,
+        limitesPorGrupo: Object.keys(limitesPorGrupo).length > 0 ? limitesPorGrupo : null,
         cardio,
         cardioMinutos,
         cardioEjercicios,
@@ -395,6 +398,8 @@ export function GeneradorRutinasPanel({
   </div>;
 
   const resumenEjercicios = `${obligatorios.length} obligatorios · ${preferidos.length} preferidos · ${prohibidos.length} prohibidos`;
+  const cantidadLimites = Object.keys(limitesPorGrupo).length;
+  const resumenLimites = cantidadLimites > 0 ? `${cantidadLimites} grupo${cantidadLimites === 1 ? "" : "s"} topado${cantidadLimites === 1 ? "" : "s"}` : "";
 
   return <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
     <div className="space-y-3">
@@ -535,6 +540,9 @@ export function GeneradorRutinasPanel({
         {cantidad !== sugeridos && <button type="button" onClick={() => setCantidad(sugeridos)} className="ml-1 font-medium text-vip underline">Usar {sugeridos}</button>}
       </p>
       {distribucion === "personalizada" && <SelectorGruposDia dias={dias} valor={diaGrupos} onChange={setDiaGrupos} />}
+      <Campo label={`TOPE DE EJERCICIOS POR GRUPO (OPCIONAL${resumenLimites ? ` — ${resumenLimites}` : ""})`}>
+        <LimitesPorGrupo valor={limitesPorGrupo} onChange={setLimitesPorGrupo} />
+      </Campo>
     </GavetaConfig>
 
     <GavetaConfig titulo="4. Nivel y calibración de volumen" subtitulo={`Intensidad ${intensidad} · técnicas ${tecnicasIntensidad}${inspiracionEstilo !== "ninguna" ? ` · ${INSPIRACION_LABEL[inspiracionEstilo]}` : ""}`}>

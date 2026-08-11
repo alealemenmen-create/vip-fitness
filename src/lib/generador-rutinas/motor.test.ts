@@ -679,6 +679,74 @@ describe("generarRutinaPorReglas", () => {
     expect(r.alertas.some((a) => a.includes("3 de bíceps y 1 de tríceps"))).toBe(true);
   });
 
+  it("respeta el tope de ejercicios por grupo y le pasa los espacios liberados al otro grupo del día", () => {
+    const bibliotecaMixta = [
+      { ...base("press-banca", "pecho", "empuje"), nombre: "Press de banca" },
+      { ...base("press-inclinado", "pecho", "empuje"), nombre: "Press inclinado con mancuernas" },
+      { ...base("aperturas", "pecho", "aislamiento"), nombre: "Aperturas en polea" },
+      { ...base("fondos", "pecho", "empuje"), nombre: "Fondos en paralelas" },
+      { ...base("jalon", "espalda", "traccion"), nombre: "Jalón al pecho" },
+      { ...base("remo", "espalda", "traccion"), nombre: "Remo en polea baja" },
+      { ...base("pullover", "espalda", "traccion"), nombre: "Pullover en polea alta" },
+      { ...base("dominadas", "espalda", "traccion"), nombre: "Dominadas" },
+    ];
+    const briefDia: BriefGenerador = {
+      ...brief,
+      dias: 1,
+      distribucion: "personalizada",
+      diaGrupos: [["pecho", "espalda"]],
+      ejerciciosPorSesion: 6,
+      cardio: "ninguno",
+    };
+    const sinTope = generarRutinaPorReglas(perfil, briefDia, bibliotecaMixta);
+    const conTope = generarRutinaPorReglas(perfil, { ...briefDia, limitesPorGrupo: { pecho: 2 } }, bibliotecaMixta);
+    const contar = (r: typeof sinTope, grupo: string) => r.dias[0].ejercicios.filter((e) => e.grupoMuscular === grupo).length;
+
+    expect(contar(sinTope, "pecho")).toBe(3);
+    expect(contar(conTope, "pecho")).toBe(2);
+    // El día no se achica: los 2 espacios que soltó pecho se los lleva espalda.
+    expect(conTope.dias[0].ejercicios).toHaveLength(6);
+    expect(contar(conTope, "espalda")).toBe(4);
+    expect(conTope.reglasAplicadas.some((r) => r.includes("Pecho máx. 2"))).toBe(true);
+  });
+
+  it("el tope de un sub-grupo recorta dentro de su grupo padre", () => {
+    const bibliotecaBrazos = [
+      { ...base("curl-1", "brazos", "aislamiento"), nombre: "Curl con barra" },
+      { ...base("curl-2", "brazos", "aislamiento"), nombre: "Curl martillo" },
+      { ...base("curl-3", "brazos", "aislamiento"), nombre: "Curl predicador" },
+      { ...base("triceps-1", "brazos", "aislamiento"), nombre: "Extensión de tríceps en polea" },
+      { ...base("triceps-2", "brazos", "aislamiento"), nombre: "Press francés" },
+      { ...base("triceps-3", "brazos", "aislamiento"), nombre: "Fondos de tríceps" },
+    ];
+    const r = generarRutinaPorReglas(
+      perfil,
+      { ...brief, dias: 1, distribucion: "personalizada", diaGrupos: [["brazos"]], ejerciciosPorSesion: 4, cardio: "ninguno", limitesPorGrupo: { biceps: 1 } },
+      bibliotecaBrazos
+    );
+    const nombres = r.dias[0].ejercicios.map((e) => e.nombre);
+    expect(nombres.filter((n) => n.startsWith("Curl"))).toHaveLength(1);
+    // El resto del día lo completa tríceps, no queda corto por el tope.
+    expect(nombres).toHaveLength(4);
+  });
+
+  it("avisa cuando los topes dejan el día más corto de lo pedido, y no reclama por 'pocos ejercicios' de un grupo topado", () => {
+    const bibliotecaPecho = [
+      { ...base("press-banca", "pecho", "empuje"), nombre: "Press de banca" },
+      { ...base("press-inclinado", "pecho", "empuje"), nombre: "Press inclinado con mancuernas" },
+      { ...base("aperturas", "pecho", "aislamiento"), nombre: "Aperturas en polea" },
+      { ...base("fondos", "pecho", "empuje"), nombre: "Fondos en paralelas" },
+    ];
+    const r = generarRutinaPorReglas(
+      perfil,
+      { ...brief, dias: 1, distribucion: "personalizada", diaGrupos: [["pecho"]], ejerciciosPorSesion: 4, cardio: "ninguno", limitesPorGrupo: { pecho: 2 } },
+      bibliotecaPecho
+    );
+    expect(r.dias[0].ejercicios).toHaveLength(2);
+    expect(r.alertas.some((a) => a.includes("los topes por grupo que pusiste no dejan lugar"))).toBe(true);
+    expect(r.alertas.some((a) => a.includes("solo 2 ejercicios de Pecho"))).toBe(false);
+  });
+
   it("push usa tríceps y pull usa bíceps aunque ambos sean aislamiento", () => {
     const bibliotecaPpl = [
       base("pecho", "pecho", "empuje"),

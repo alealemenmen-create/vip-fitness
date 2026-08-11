@@ -168,6 +168,11 @@ function describirBrief(brief: BriefGenerador): string {
     `- Distribución: ${brief.distribucion}`,
     `- Días: ${brief.dias}, ${brief.ejerciciosPorSesion} ejercicios por sesión, ${brief.minutosSesion} min`,
     brief.grupoPrioritario ? `- Grupo prioritario: ${brief.grupoPrioritario}` : null,
+    // Sin esto la IA podía marcar como deficiencia ("poco volumen de pecho")
+    // justo lo que el entrenador pidió a propósito con un tope.
+    brief.limitesPorGrupo && Object.keys(brief.limitesPorGrupo).length
+      ? `- Topes de ejercicios por día que fijó el entrenador a propósito (no son deficiencias): ${Object.entries(brief.limitesPorGrupo).map(([g, n]) => `${g} máx. ${n}`).join(", ")}`
+      : null,
     brief.enfoqueForma !== "ninguno" ? `- Enfoque de forma: ${brief.enfoqueForma}` : null,
     brief.inspiracionEstilo !== "ninguna" ? `- Inspiración de estilo: ${brief.inspiracionEstilo}` : null,
     brief.categoriaCompetencia !== "ninguna" ? `- Referencia física/categoría validada por el entrenador: ${brief.categoriaCompetencia}` : null,
