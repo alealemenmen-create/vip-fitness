@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bell,
   Bot,
   ClipboardList,
   Dumbbell,
@@ -20,10 +22,14 @@ import {
   WandSparkles,
   PencilRuler,
 } from "lucide-react";
+import { contarNovedadesSinVer } from "@/lib/novedades-vistas-local";
 
 type AdminTabsProps = {
   alimentosPendientes?: number;
   solicitudesPendientes?: number;
+  /** Fechas (`creado_en`) de las últimas novedades — de acá sale cuántas
+   * están sin ver, comparando contra lo último visto en este dispositivo. */
+  novedadesFechas?: string[];
   variant?: "mobile" | "sidebar";
 };
 
@@ -77,6 +83,7 @@ const SIDEBAR_GROUPS = [
     label: "Sistema",
     items: [
       { href: "/admin/auditoria", label: "Auditoría", icon: ShieldCheck, section: "auditoria" },
+      { href: "/admin/novedades", label: "Actualizaciones", icon: Bell, section: "novedades" },
       { href: "/admin/configuracion", label: "Configuración", icon: Settings, section: "configuracion" },
     ],
   },
@@ -92,6 +99,7 @@ const MORE_PREFIXES = [
   "/admin/auditoria",
   "/admin/torneos",
   "/admin/noticias",
+  "/admin/novedades",
 ];
 
 function estaActivo(pathname: string, href: string, section: string) {
@@ -106,18 +114,35 @@ function pendientesDe(
   section: string,
   alimentosPendientes: number,
   solicitudesPendientes: number,
+  novedadesSinVer: number,
 ) {
   if (section === "alimentos") return alimentosPendientes;
   if (section === "alumnos" || section === "solicitudes") return solicitudesPendientes;
+  // En el celular, "Actualizaciones" no tiene lugar propio en la barra: se
+  // llega por "Más", así que ahí es donde tiene que verse el aviso.
+  if (section === "novedades" || section === "mas") return novedadesSinVer;
   return 0;
 }
 
 export function AdminTabs({
   alimentosPendientes = 0,
   solicitudesPendientes = 0,
+  novedadesFechas = [],
   variant = "mobile",
 }: AdminTabsProps) {
   const pathname = usePathname();
+  const [novedadesSinVer, setNovedadesSinVer] = useState(0);
+
+  // Diferido un tick: `localStorage` no existe en el servidor y el primer
+  // render tiene que salir igual en servidor y cliente para no desajustar la
+  // hidratación (mismo patrón que ZoomPanel/ThemeToggle).
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setNovedadesSinVer(contarNovedadesSinVer(novedadesFechas));
+    }, 0);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [novedadesFechas.join(",")]);
 
   if (variant === "sidebar") {
     return (
@@ -131,7 +156,7 @@ export function AdminTabs({
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const active = estaActivo(pathname, item.href, item.section);
-                const esperando = pendientesDe(item.section, alimentosPendientes, solicitudesPendientes);
+                const esperando = pendientesDe(item.section, alimentosPendientes, solicitudesPendientes, novedadesSinVer);
                 return (
                   <Link
                     key={item.href}
@@ -164,7 +189,7 @@ export function AdminTabs({
       {MOBILE_TABS.map((tab) => {
         const Icon = tab.icon;
         const active = estaActivo(pathname, tab.href, tab.section);
-        const esperando = pendientesDe(tab.section, alimentosPendientes, solicitudesPendientes);
+        const esperando = pendientesDe(tab.section, alimentosPendientes, solicitudesPendientes, novedadesSinVer);
         return (
           <Link
             key={tab.href}

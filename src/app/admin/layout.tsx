@@ -4,6 +4,7 @@ import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { nombrePublicado } from "@/lib/nombre";
 import { crearMiPerfilAlumno } from "@/app/admin/alumnos/actions";
+import { obtenerNovedades } from "@/lib/novedades";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { LogoutButton } from "@/components/LogoutButton";
 import { Logo } from "@/components/Logo";
@@ -20,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .eq("user_id", sesion.userId)
     .maybeSingle();
 
-  const [{ count: alimentosPendientes }, { count: solicitudesPendientes }] = await Promise.all([
+  const [{ count: alimentosPendientes }, { count: solicitudesPendientes }, novedades] = await Promise.all([
     supabase
       .from("alimentos")
       .select("id", { count: "exact", head: true })
@@ -30,11 +31,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       .from("solicitudes_registro")
       .select("id", { count: "exact", head: true })
       .eq("estado", "pendiente"),
+    // Solo las fechas: es lo único que necesita el contador de "sin ver" de
+    // la navegación (ver `lib/novedades-vistas-local.ts`), y no vale la pena
+    // mandar título/resumen de todas al cliente en cada carga del panel.
+    obtenerNovedades(10),
   ]);
 
   const badges = {
     alimentosPendientes: alimentosPendientes ?? 0,
     solicitudesPendientes: solicitudesPendientes ?? 0,
+    novedadesFechas: novedades.map((n) => n.creadoEn),
   };
 
   return (

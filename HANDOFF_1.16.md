@@ -8,20 +8,38 @@ Continúa el 1.15 (misma sesión, tramo posterior). Leer los dos.
 
 ## Punto de regreso
 
-- `main` **subido hasta `1375904`** (los 3 bugs + 7 funciones del 11/08 más la
-  auditoría de lógica de 6 bugs). Producción tiene todo eso desplegado.
 - **Migración `0065_saldo_y_consumo_ia.sql` corrida por Alejandro.** El panel
   de saldo de IA ya puede usarse — falta cargar el saldo inicial a mano en
   Configuración si todavía no se hizo.
-- Hay trabajo NUEVO local sin commitear: persistencia del asistente de
-  "Armar rutina" y menos protocolo para finalizar un entrenamiento (ver
-  «Sesión del 11/08, tercer tramo» más abajo).
-- `tsc` limpio · **286 pruebas** (29 archivos) · eslint 0 errores en todo lo
+- `tsc` limpio · **291 pruebas** (30 archivos) · eslint 0 errores en todo lo
   tocado. Quedan 3 errores viejos en `SesionEjercicioCard.tsx` (`setState` en
   un efecto), no tocados.
 - Leer también la ADENDA al final: ahí están los bugs reportados con un alumno
   real y las decisiones de última hora, que son el punto de partida real.
 - Locales sin subir, intactos: `Rutinas Alejandro/`, `respaldo-cloud-ia-2026-08-09.bundle`, `tmp/`.
+
+## Sesión del 11/08, cuarto tramo — sección de Actualizaciones con aviso
+
+Pedido: "una nueva sección en Más con el registro de actualizaciones, y que me
+notifique cuando llega una nueva". El registro YA EXISTÍA (`registro_cambios`,
+migración 0045, `lib/novedades.ts`) pero estaba enterrado en una gaveta
+plegada dentro de Configuración, sin ninguna forma de saber si había algo
+nuevo sin leer.
+
+- Promovida a página propia: `/admin/novedades`, con su lugar en el menú
+  lateral (grupo Sistema) y en "Más" del celular. Sacada la gaveta de
+  Configuración; en su lugar queda una tarjeta de acceso rápido, igual que
+  "Otorgar puntos" y "Rutinas hechas".
+- Aviso: `lib/novedades-vistas-local.ts` guarda en el dispositivo la fecha de
+  la última novedad vista (no hay entrenador con sesión en dos aparatos en
+  este gimnasio, así que no hizo falta tocar la base). `AdminTabs` muestra un
+  número en "Actualizaciones" (y en "Más" del celular, que es por donde se
+  llega ahí) con cuántas hay sin ver; se apaga solo al entrar a la página.
+  **Verificado con clic real**: con nada visto mostró "10", entré a la
+  página y al volver ya no mostraba nada.
+- La tabla ya tenía datos reales (10 entradas, la más vieja del 05/08): quien
+  siga escribiendo ahí a mano después de cada cambio real que se suba, sigue
+  igual — esto solo cambia dónde se ve y agrega el aviso.
 
 ## Sesión del 11/08, tercer tramo — dos pedidos nuevos de Alejandro
 

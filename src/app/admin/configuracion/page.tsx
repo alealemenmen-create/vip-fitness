@@ -16,9 +16,7 @@ import { SaldoIAPanel } from "@/components/admin/SaldoIAPanel";
 import { GavetaConfig } from "@/components/admin/GavetaConfig";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
-import { Bot, ChevronRight, FileText, Images, LogIn, Megaphone, ShieldAlert, Sparkles, Trophy } from "lucide-react";
-import { obtenerNovedades } from "@/lib/novedades";
-import { Novedades } from "@/components/admin/Novedades";
+import { Bell, Bot, ChevronRight, FileText, Images, LogIn, Megaphone, ShieldAlert, Sparkles, Trophy } from "lucide-react";
 import { obtenerHallazgosPendientes } from "@/lib/auditoria/data";
 import { obtenerIngresos } from "@/lib/ingresos/data";
 
@@ -30,13 +28,12 @@ export default async function ConfiguracionAdminPage() {
   // lo dejara pasar). Arranca igual antes de esperar al grupo, así que no
   // agrega ni un milisegundo de espera.
   const saldoPromesa = obtenerSaldoIA();
-  const [config, supervision, registro, asistente, novedades, hallazgos, { resumen: ingresos }] =
+  const [config, supervision, registro, asistente, hallazgos, { resumen: ingresos }] =
     await Promise.all([
       obtenerConfiguracionReconocimientos(),
       obtenerConfiguracionSupervision(),
       obtenerConfiguracionRegistro(),
       obtenerConfiguracionAsistenteVip(),
-      obtenerNovedades(),
       obtenerHallazgosPendientes(),
       obtenerIngresos("semana"),
     ]);
@@ -162,6 +159,20 @@ export default async function ConfiguracionAdminPage() {
           <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
         </Card>
       </Link>
+      {/* Antes vivía adentro de una gaveta plegada de acá abajo, sin ninguna
+          forma de saber si había algo nuevo sin leer. Pedido explícito: una
+          sección propia, con aviso — el contador de "sin ver" vive en la
+          navegación (AdminTabs), no acá. */}
+      <Link href="/admin/novedades" className="block h-full">
+        <Card className="flex h-full items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#38bdf8]/15 text-[#38bdf8]"><Bell size={20} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="text-secondary block font-semibold text-text">Actualizaciones</span>
+            <span className="text-caption block text-text-tertiary">Qué se arregló o se agregó en la app, en orden</span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
+        </Card>
+      </Link>
       </div>
       </section>
       <section className="space-y-3">
@@ -193,9 +204,6 @@ export default async function ConfiguracionAdminPage() {
       </GavetaConfig>
       <GavetaConfig titulo="Reconocimientos semanales" subtitulo="Felicitaciones automáticas por IA">
         <ConfiguracionReconocimientos config={config} supervision={supervision} />
-      </GavetaConfig>
-      <GavetaConfig titulo="Novedades de la app" subtitulo="Qué se arregló o se agregó, en orden">
-        <Novedades novedades={novedades} />
       </GavetaConfig>
       </section>
     </div>
