@@ -13,7 +13,7 @@ export function serializarRutinaATexto(datos: RutinaExtraida): string {
   if (datos.metodoGeneracion) {
     partes.push(
       `Nivel: ${datos.metodoGeneracion.nivel}`,
-      `Inspiración: ${datos.metodoGeneracion.inspiracion}`,
+      `Programa VIP: ${datos.metodoGeneracion.inspiracion}`,
       `Organización: ${datos.metodoGeneracion.organizacion}`,
       ""
     );

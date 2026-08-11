@@ -38,7 +38,7 @@ describe("serializarRutinaATexto", () => {
     expect(texto).toContain("Entrenador · Método VIP Fitness");
     expect(texto).toContain("Press de pecho");
     expect(texto).toContain("Nivel: Intermedio");
-    expect(texto).toContain("Inspiración: Arnold split");
+    expect(texto).toContain("Programa VIP: Arnold split");
     expect(texto).toContain("Organización: Biseries agonista–antagonista");
   });
 });

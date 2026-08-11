@@ -102,9 +102,10 @@ const LABEL_GRUPO = new Map(GRUPOS_MUSCULARES.map((g) => [g.value, g.label]));
 
 type GrupoVisual = { etiqueta: string; color: string };
 type ObjetivoAutomatico = "pecho" | "espalda" | "piernas" | "hombros" | "biceps" | "triceps" | "core" | "cardio";
-type EstiloAutomatico = "balance_vip" | "clasica" | "intensiva" | "ppl" | "arnold" | "powerbuilding" | "olympia";
+type EstiloAutomatico = "balance_vip" | "clasica" | "arnold" | "nueva_escuela" | "heavy_duty" | "sulek" | "cbum" | "ppl" | "powerbuilding" | "olympia";
 type AlcanceAutomatico = "grupo" | "sesion" | "rutina";
 type OrganizacionAutomatica = "por_grupos" | "alternado" | "biseries";
+type CardioAutomatico = "ninguno" | "bicicleta" | "spinning";
 type ConfigAutomatico = {
   diaIndice: number;
   alcance: AlcanceAutomatico;
@@ -112,20 +113,48 @@ type ConfigAutomatico = {
   estilo: EstiloAutomatico;
   organizacion: OrganizacionAutomatica;
   incluirCore: boolean;
-  incluirCardio: boolean;
+  tecnicasPermitidas: string[];
+  cardioInicio: CardioAutomatico;
+  cardioInicioMinutos: number;
+  cardioFinal: CardioAutomatico;
+  cardioFinalMinutos: number;
 };
 
 const ETIQUETA_OBJETIVO: Record<ObjetivoAutomatico, string> = {
   pecho: "Pecho", espalda: "Espalda", piernas: "Piernas", hombros: "Hombros",
   biceps: "Bíceps", triceps: "Tríceps", core: "Core", cardio: "Cardio",
 };
-const ETIQUETA_ESTILO: Record<EstiloAutomatico, string> = {
-  balance_vip: "Balance VIP", clasica: "Clásica / Bro split", intensiva: "Alta intensidad",
-  ppl: "Push Pull Legs", arnold: "Arnold split", powerbuilding: "Powerbuilding", olympia: "Olympia prep",
-};
 const ETIQUETA_ORGANIZACION: Record<OrganizacionAutomatica, string> = {
   por_grupos: "Por grupos", alternado: "Alternado", biseries: "Biseries agonista–antagonista",
 };
+
+type ProgramaVip = {
+  nombre: string;
+  descripcion: string;
+  niveles: NivelArmado[];
+  organizacion: OrganizacionAutomatica;
+  tecnicas: string[];
+};
+
+/** Programas originales VIP. La referencia externa aporta la idea de un
+ * catálogo por objetivos y fases; las fórmulas, nombres y reglas son propias.
+ * Cada programa sigue usando la biblioteca real del gimnasio. */
+const PROGRAMAS_VIP: Record<EstiloAutomatico, ProgramaVip> = {
+  balance_vip: { nombre: "Base VIP", descripcion: "Hipertrofia equilibrada y progresión clara.", niveles: ["principiante", "intermedio", "avanzado", "olympia", "profesional", "estandar", "competitivo", "senior"], organizacion: "por_grupos", tecnicas: [] },
+  ppl: { nombre: "Fundamentos PPL", descripcion: "Empuje, tracción y piernas con dificultad adaptada.", niveles: ["principiante", "intermedio", "avanzado", "olympia", "profesional", "estandar", "competitivo"], organizacion: "por_grupos", tecnicas: [] },
+  clasica: { nombre: "Volumen Clásico", descripcion: "Trabajo culturista por grupos y accesorios de alto volumen.", niveles: ["intermedio", "avanzado", "olympia", "profesional", "estandar", "competitivo"], organizacion: "por_grupos", tecnicas: ["Drop set"] },
+  arnold: { nombre: "Doble Frecuencia", descripcion: "Parejas musculares, volumen alto y rotación semanal.", niveles: ["intermedio", "avanzado", "olympia", "profesional", "competitivo"], organizacion: "biseries", tecnicas: ["Drop set"] },
+  nueva_escuela: { nombre: "Tensión Inteligente", descripcion: "RIR, ejecución controlada y volumen recuperable.", niveles: ["intermedio", "avanzado", "olympia", "profesional", "estandar", "competitivo"], organizacion: "por_grupos", tecnicas: ["Tempo controlado", "Rest-pause"] },
+  heavy_duty: { nombre: "Intensidad Esencial", descripcion: "Menos series, máxima intención y fallo dosificado.", niveles: ["avanzado", "olympia", "profesional", "competitivo"], organizacion: "por_grupos", tecnicas: ["Fallo muscular", "Rest-pause"] },
+  sulek: { nombre: "Volumen Libre VIP", descripcion: "Sesiones densas, accesorios abundantes y remates intensos.", niveles: ["avanzado", "olympia", "profesional", "competitivo"], organizacion: "alternado", tecnicas: ["Drop set", "Fallo muscular"] },
+  cbum: { nombre: "Escultura Moderna", descripcion: "Balance estético, frecuencia y detalle competitivo.", niveles: ["avanzado", "olympia", "profesional", "competitivo"], organizacion: "alternado", tecnicas: ["Drop set", "Rest-pause"] },
+  powerbuilding: { nombre: "Hierro Híbrido", descripcion: "Fuerza en bases y volumen culturista en accesorios.", niveles: ["intermedio", "avanzado", "olympia", "profesional", "estandar", "competitivo"], organizacion: "por_grupos", tecnicas: ["Cluster set"] },
+  olympia: { nombre: "Camino a Tarima", descripcion: "Volumen competitivo, biseries y finalizadores avanzados.", niveles: ["olympia", "profesional", "competitivo"], organizacion: "biseries", tecnicas: ["FST-7", "Drop set"] },
+};
+
+function programasParaNivel(nivel: NivelArmado): [EstiloAutomatico, ProgramaVip][] {
+  return (Object.entries(PROGRAMAS_VIP) as [EstiloAutomatico, ProgramaVip][]).filter(([, programa]) => programa.niveles.includes(nivel));
+}
 
 export function objetivosMuscularesDia(dia: Pick<Dia, "nombre" | "descripcion" | "ejercicios">): ObjetivoAutomatico[] {
   const texto = `${dia.nombre} ${dia.descripcion ?? ""}`.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
@@ -418,8 +447,16 @@ function prescripcionAutomatica(patron: PatronMovimiento, nivel: NivelArmado, es
       ? { series: 5, reps: "4-6", descansoSegundos: 180 }
       : { series: 3, reps: "8-12", descansoSegundos: 90 };
   }
-  if (estilo === "intensiva" && !esBaseEstructural(patron)) {
-    return { ...base, series: Math.max(3, base.series), descansoSegundos: Math.min(75, base.descansoSegundos ?? 75) };
+  if (estilo === "heavy_duty") {
+    return esBaseEstructural(patron)
+      ? { series: Math.max(3, base.series - 1), reps: "6-10", descansoSegundos: 150 }
+      : { series: Math.max(2, base.series - 1), reps: "8-12", descansoSegundos: 90 };
+  }
+  if (estilo === "nueva_escuela") {
+    return { ...base, reps: esBaseEstructural(patron) ? "6-10 · RIR 1-2" : "10-15 · RIR 1", descansoSegundos: Math.max(75, base.descansoSegundos ?? 75) };
+  }
+  if ((estilo === "arnold" || estilo === "sulek" || estilo === "clasica") && !esBaseEstructural(patron)) {
+    return { ...base, series: Math.max(4, base.series), descansoSegundos: Math.min(75, base.descansoSegundos ?? 75) };
   }
   return base;
 }
@@ -879,7 +916,19 @@ export function VistaPreviaEstructurada({
   const [organizacionAutomatica, setOrganizacionAutomatica] = useState<OrganizacionAutomatica>("por_grupos");
   const [objetivoAutomatico, setObjetivoAutomatico] = useState<ObjetivoAutomatico>("pecho");
   const [incluirCore, setIncluirCore] = useState(false);
-  const [incluirCardio, setIncluirCardio] = useState(false);
+  const [tecnicasAutomaticas, setTecnicasAutomaticas] = useState<string[]>([]);
+  const [cardioInicio, setCardioInicio] = useState<CardioAutomatico>("ninguno");
+  const [cardioInicioMinutos, setCardioInicioMinutos] = useState(10);
+  const [cardioFinal, setCardioFinal] = useState<CardioAutomatico>("ninguno");
+  const [cardioFinalMinutos, setCardioFinalMinutos] = useState(15);
+  const programasDisponibles = programasParaNivel(nivelArmado);
+
+  const elegirPrograma = (programaId: EstiloAutomatico) => {
+    const programa = PROGRAMAS_VIP[programaId];
+    setEstiloAutomatico(programaId);
+    setOrganizacionAutomatica(programa.organizacion);
+    setTecnicasAutomaticas(programa.tecnicas.filter((nombre) => (tecnicas ?? []).some((tecnica) => tecnica.nombre === nombre)));
+  };
 
   const insertar = (diaIdx: number, posicion: number) => {
     onInsertarEjercicio(diaIdx, posicion);
@@ -904,7 +953,7 @@ export function VistaPreviaEstructurada({
                 onClick={() => onCambiarDia?.(indice)}
                 aria-pressed={diaActivo === indice}
                 className={`radius-control flex shrink-0 items-center gap-1 border px-2 py-1.5 text-[10px] font-semibold ${
-                  diaActivo === indice ? "border-[#4f83b7] bg-[#dbeafe] text-[#214f7d]" : "border-[#c4d1df] bg-[#f7fafc] text-[#53657a]"
+                  diaActivo === indice ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] bg-[#1d222c] text-[#b9c2cf]"
                 }`}
               >
                 <span className={`size-1.5 rounded-full ${errores ? "bg-error" : "bg-success"}`} />
@@ -931,10 +980,12 @@ export function VistaPreviaEstructurada({
                   type="button"
                   onClick={() => {
                     setObjetivoAutomatico(objetivosDia[0] ?? "pecho");
+                    const programaActualDisponible = programasDisponibles.some(([id]) => id === estiloAutomatico);
+                    if (!programaActualDisponible && programasDisponibles[0]) elegirPrograma(programasDisponibles[0][0]);
                     setVaritaDia((actual) => actual === diaIdx ? null : diaIdx);
                   }}
                   aria-label={`Generar ejercicios automáticamente para ${dia.nombre}`}
-                  className="flex items-center gap-1 rounded-lg border border-[#8fb3d9] bg-[#e8f1fb] px-2 py-1 text-[10px] font-semibold text-[#255b91]"
+                  className="flex items-center gap-1 rounded-lg border border-[#587c9c] bg-[#203246] px-2 py-1 text-[10px] font-semibold text-[#cde7ff]"
                 >
                   <WandSparkles size={12} /> Generar
                 </button>
@@ -1009,16 +1060,16 @@ export function VistaPreviaEstructurada({
           )}
           {dia.descripcion && <p className="text-micro border-t border-border px-2.5 py-1.5 text-text-tertiary">{dia.descripcion}</p>}
           {onGenerarAutomatico && varitaDia === diaIdx && dia.tipo === "entrenamiento" && (
-            <div className="space-y-3 border-b border-[#c9d5e2] bg-[#eef3f7] px-2.5 py-3 text-[#142033]">
+            <div className="space-y-3 border-b border-[#303846] bg-[#151922] px-2.5 py-3 text-[#f4f7fb]">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-caption font-semibold text-[#142033]">Varita VIP</p>
-                <p className="text-[10px] text-[#617187]">Nivel: {NIVELES_ARMADO[nivelArmado].etiqueta}</p>
+                <p className="text-caption font-semibold text-white">Varita VIP</p>
+                <p className="text-[10px] text-[#a8b2c1]">Nivel: {NIVELES_ARMADO[nivelArmado].etiqueta}</p>
               </div>
               <div>
-                <p className="mb-1 text-[9px] font-semibold uppercase text-[#617187]">Qué quieres completar</p>
+                <p className="mb-1 text-[9px] font-semibold uppercase text-[#a8b2c1]">Qué quieres completar</p>
                 <div className="grid grid-cols-3 gap-1">
                   {([ ["grupo", "Un músculo"], ["sesion", "Esta sesión"], ["rutina", "Rutina completa"] ] as const).map(([valor, etiqueta]) => (
-                    <button key={valor} type="button" onClick={() => setAlcanceAutomatico(valor)} aria-pressed={alcanceAutomatico === valor} className={`radius-control border px-1 py-2 text-[10px] font-semibold ${alcanceAutomatico === valor ? "border-[#4f83b7] bg-[#dbeafe] text-[#214f7d]" : "border-[#c4d1df] bg-white text-[#53657a]"}`}>
+                    <button key={valor} type="button" onClick={() => setAlcanceAutomatico(valor)} aria-pressed={alcanceAutomatico === valor} className={`radius-control border px-1 py-2 text-[10px] font-semibold ${alcanceAutomatico === valor ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] bg-[#1d222c] text-[#b9c2cf]"}`}>
                       {etiqueta}
                     </button>
                   ))}
@@ -1026,42 +1077,58 @@ export function VistaPreviaEstructurada({
               </div>
               {alcanceAutomatico === "grupo" && (
                 <label className="block">
-                  <span className="mb-1 block text-[9px] font-semibold uppercase text-[#617187]">Grupo muscular</span>
-                  <select value={objetivoAutomatico} onChange={(evento) => setObjetivoAutomatico(evento.target.value as ObjetivoAutomatico)} className="radius-control w-full border border-[#c4d1df] bg-white px-2 py-2 text-caption text-[#142033]">
+                  <span className="mb-1 block text-[9px] font-semibold uppercase text-[#a8b2c1]">Grupo muscular</span>
+                  <select value={objetivoAutomatico} onChange={(evento) => setObjetivoAutomatico(evento.target.value as ObjetivoAutomatico)} className="radius-control w-full border border-[#394352] bg-[#1d222c] px-2 py-2 text-caption text-white">
                     {(objetivosDia.length > 0 ? objetivosDia : ["pecho", "espalda", "piernas", "hombros", "biceps", "triceps"] as ObjetivoAutomatico[]).map((objetivo) => <option key={objetivo} value={objetivo}>{ETIQUETA_OBJETIVO[objetivo]}</option>)}
                   </select>
                 </label>
               )}
               <div>
-                <p className="mb-1 text-[9px] font-semibold uppercase text-[#617187]">Inspiración · 3–4 ejercicios por músculo</p>
-                <select value={estiloAutomatico} onChange={(evento) => setEstiloAutomatico(evento.target.value as EstiloAutomatico)} className="radius-control w-full border border-[#c4d1df] bg-white px-2 py-2 text-caption text-[#142033]">
-                  <option value="balance_vip">Balance VIP · 3</option>
-                  <option value="clasica">Clásica / Bro split · 4</option>
-                  <option value="intensiva">Alta intensidad · 4</option>
-                  <option value="ppl">Push Pull Legs · 3</option>
-                  <option value="arnold">Arnold split · 4</option>
-                  <option value="powerbuilding">Powerbuilding · 3</option>
-                  <option value="olympia">Olympia prep · 4</option>
+                <p className="mb-1 text-[9px] font-semibold uppercase text-[#a8b2c1]">Programa VIP · compatible con {NIVELES_ARMADO[nivelArmado].etiqueta}</p>
+                <select value={estiloAutomatico} onChange={(evento) => elegirPrograma(evento.target.value as EstiloAutomatico)} className="radius-control w-full border border-[#394352] bg-[#1d222c] px-2 py-2 text-caption text-white">
+                  {programasDisponibles.map(([valor, programa]) => <option key={valor} value={valor}>{programa.nombre}</option>)}
                 </select>
+                <p className="mt-1 text-[9px] text-[#9eabbc]">{PROGRAMAS_VIP[estiloAutomatico].descripcion}</p>
               </div>
               {alcanceAutomatico !== "grupo" && (
                 <div>
-                  <p className="mb-1 text-[9px] font-semibold uppercase text-[#617187]">Orden de los ejercicios</p>
+                  <p className="mb-1 text-[9px] font-semibold uppercase text-[#a8b2c1]">Orden de los ejercicios</p>
                   <div className="grid grid-cols-3 gap-1">
-                    {([ ["por_grupos", "Por grupos"], ["alternado", "Alternado"], ["biseries", "Biseries"] ] as const).map(([valor, etiqueta]) => (
-                      <button key={valor} type="button" onClick={() => setOrganizacionAutomatica(valor)} aria-pressed={organizacionAutomatica === valor} className={`radius-control border px-1 py-2 text-[10px] font-semibold ${organizacionAutomatica === valor ? "border-[#4f83b7] bg-[#dbeafe] text-[#214f7d]" : "border-[#c4d1df] bg-white text-[#53657a]"}`}>
+                    {([ ["por_grupos", "Por grupos"], ["alternado", "Alternado"], ["biseries", "Biseries A/A"] ] as const).map(([valor, etiqueta]) => (
+                      <button key={valor} type="button" onClick={() => setOrganizacionAutomatica(valor)} aria-pressed={organizacionAutomatica === valor} title={valor === "biseries" ? "Biseries agonista-antagonista: un ejercicio de cada grupo, sin descanso entre ambos" : undefined} className={`radius-control border px-1 py-2 text-[10px] font-semibold ${organizacionAutomatica === valor ? "border-[#9b8bc7] bg-[#352d4b] text-[#eee7ff]" : "border-[#394352] bg-[#1d222c] text-[#b9c2cf]"}`}>
                         {etiqueta}
                       </button>
                     ))}
                   </div>
+                  {organizacionAutomatica === "biseries" && <p className="mt-1 text-[9px] text-[#b9aecf]">Une dos grupos como biserie agonista-antagonista y descansa al cerrar cada pareja.</p>}
                 </div>
               )}
-              <div className="flex flex-wrap gap-x-4 gap-y-2">
-                <label className="text-caption flex items-center gap-1.5 text-[#40536a]"><input type="checkbox" checked={incluirCore} onChange={(evento) => setIncluirCore(evento.target.checked)} /> Core {alcanceAutomatico === "rutina" ? "2×/sem" : "al final"}</label>
-                <label className="text-caption flex items-center gap-1.5 text-[#40536a]"><input type="checkbox" checked={incluirCardio} onChange={(evento) => setIncluirCardio(evento.target.checked)} /> Cardio {alcanceAutomatico === "rutina" ? "2×/sem" : "al final"}</label>
+              <details className="radius-control border border-[#394352] bg-[#1d222c]">
+                <summary className="cursor-pointer px-2 py-2 text-caption font-semibold text-[#d9dfe8]">Técnicas de intensidad · {tecnicasAutomaticas.length ? `${tecnicasAutomaticas.length} elegidas` : "ninguna"}</summary>
+                <div className="flex flex-wrap gap-1.5 border-t border-[#303846] p-2">
+                  {(tecnicas ?? []).filter((tecnica) => tecnica.tipo === "individual").map((tecnica) => {
+                    const activa = tecnicasAutomaticas.includes(tecnica.nombre);
+                    return <button key={tecnica.nombre} type="button" aria-pressed={activa} onClick={() => setTecnicasAutomaticas((actuales) => activa ? actuales.filter((nombre) => nombre !== tecnica.nombre) : [...actuales, tecnica.nombre])} className={`radius-control border px-2 py-1.5 text-[10px] font-semibold ${activa ? "border-[#75a99a] bg-[#203c36] text-[#d9fff2]" : "border-[#394352] bg-[#151922] text-[#aeb8c6]"}`}>{tecnica.nombre}</button>;
+                  })}
+                  <p className="w-full text-[9px] text-[#8f9aaa]">Las biseries se eligen arriba en “Orden”; aquí eliges drop set, fallo, rest-pause y las demás técnicas individuales.</p>
+                </div>
+              </details>
+              <div className="grid grid-cols-2 gap-2">
+                {([ ["inicio", cardioInicio, setCardioInicio, cardioInicioMinutos, setCardioInicioMinutos], ["final", cardioFinal, setCardioFinal, cardioFinalMinutos, setCardioFinalMinutos] ] as const).map(([posicion, modalidad, cambiarModalidad, minutos, cambiarMinutos]) => (
+                  <div key={posicion} className="radius-control border border-[#394352] bg-[#1d222c] p-2">
+                    <p className="mb-1 text-[9px] font-semibold uppercase text-[#a8b2c1]">Cardio al {posicion}</p>
+                    <select value={modalidad} onChange={(evento) => cambiarModalidad(evento.target.value as CardioAutomatico)} className="w-full rounded-md border border-[#465263] bg-[#151922] px-1.5 py-1.5 text-[10px] text-white">
+                      <option value="ninguno">Ninguno</option><option value="bicicleta">Bicicleta</option><option value="spinning">Spinning</option>
+                    </select>
+                    {modalidad !== "ninguno" && <label className="mt-1 flex items-center justify-between gap-1 text-[9px] text-[#a8b2c1]">Minutos <input type="number" min={3} max={60} value={minutos} onChange={(evento) => cambiarMinutos(Math.min(60, Math.max(3, Number(evento.target.value) || 3)))} className="w-14 rounded-md border border-[#465263] bg-[#151922] px-1.5 py-1 text-right text-[10px] text-white" /></label>}
+                  </div>
+                ))}
               </div>
-              <Button size="xs" className="w-full !bg-[#2f6fa8] !text-white" onClick={() => {
-                onGenerarAutomatico({ diaIndice: diaIdx, alcance: alcanceAutomatico, objetivo: objetivoAutomatico, estilo: estiloAutomatico, organizacion: organizacionAutomatica, incluirCore, incluirCardio });
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                <label className="text-caption flex items-center gap-1.5 text-[#c8d0dc]"><input type="checkbox" checked={incluirCore} onChange={(evento) => setIncluirCore(evento.target.checked)} /> Core {alcanceAutomatico === "rutina" ? "2×/sem" : "al final"}</label>
+              </div>
+              <Button size="xs" className="w-full !bg-[#466f91] !text-white" onClick={() => {
+                onGenerarAutomatico({ diaIndice: diaIdx, alcance: alcanceAutomatico, objetivo: objetivoAutomatico, estilo: estiloAutomatico, organizacion: organizacionAutomatica, incluirCore, tecnicasPermitidas: tecnicasAutomaticas, cardioInicio, cardioInicioMinutos, cardioFinal, cardioFinalMinutos });
                 setVaritaDia(null);
               }}>
                 <WandSparkles size={14} /> Generar borrador
@@ -1078,13 +1145,13 @@ export function VistaPreviaEstructurada({
                 return (
                   <div key={`${dia.numero}-${indice}-${ejercicio.nombre}`} className="relative">
                     {abierto ? (
-                      <div className="radius-control border border-[#8fb3d9] bg-[#eef3f7] p-2">
+                      <div className="radius-control border border-[#455363] bg-[#191e27] p-2">
                         <div className="mb-1.5 flex items-center justify-between gap-2">
-                          <span className="text-micro font-semibold text-[#2f6fa8]">Editando ejercicio {indice + 1}</span>
+                          <span className="text-micro font-semibold text-[#8fb7d8]">Editando ejercicio {indice + 1}</span>
                           <button
                             type="button"
                             onClick={() => setEditando(null)}
-                            className="text-micro flex items-center gap-1 font-semibold text-[#2f6fa8]"
+                            className="text-micro flex items-center gap-1 font-semibold text-[#8fb7d8]"
                           >
                             <Check size={13} /> Listo
                           </button>
@@ -1155,7 +1222,7 @@ export function VistaPreviaEstructurada({
                 <button
                   type="button"
                   onClick={() => insertar(diaIdx, 0)}
-                  className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-[#8fb3d9] bg-[#eef3f7] py-2.5 text-caption font-semibold text-[#2f6fa8]"
+                  className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-[#587c9c] bg-[#19232e] py-2.5 text-caption font-semibold text-[#9fc4e3]"
                 >
                   <Plus size={14} /> Agregar el primer ejercicio del día
                 </button>
@@ -1189,7 +1256,7 @@ export function VistaPreviaEstructurada({
         <button
           type="button"
           onClick={onAgregarDia}
-          className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-[#8fb3d9] bg-[#eef3f7] py-3 text-caption font-semibold text-[#2f6fa8]"
+          className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-[#587c9c] bg-[#19232e] py-3 text-caption font-semibold text-[#9fc4e3]"
         >
           <Plus size={15} /> Agregar otro día
         </button>
@@ -1211,7 +1278,7 @@ function SemaforoCalidad({
 
   return (
     <div className={`sticky top-2 z-20 overflow-hidden rounded-xl border shadow-lg backdrop-blur ${
-      errores.length > 0 ? "border-[#e4a1a8] bg-[#fff4f5]" : "border-[#9bcdb8] bg-[#effaf5]"
+      errores.length > 0 ? "border-[#75434a] bg-[#251a1e]" : "border-[#3e695a] bg-[#182620]"
     }`}>
       <button
         type="button"
@@ -1220,7 +1287,7 @@ function SemaforoCalidad({
         aria-expanded={abierto}
       >
         {errores.length > 0 ? <AlertTriangle size={15} className="shrink-0 text-error" /> : <CircleCheckBig size={15} className="shrink-0 text-success" />}
-        <span className="text-caption min-w-0 flex-1 truncate font-bold text-[#20344a]">
+        <span className="text-caption min-w-0 flex-1 truncate font-bold text-[#eef2f7]">
           Semáforo VIP · {errores.length > 0 ? `${errores.length} ${errores.length === 1 ? "ajuste pendiente" : "ajustes pendientes"}` : "lista para publicar"}
         </span>
         <span className={`text-micro font-semibold ${errores.length > 0 ? "text-error" : "text-success"}`}>
@@ -1228,13 +1295,13 @@ function SemaforoCalidad({
         </span>
       </button>
       {abierto && errores.length > 0 && (
-        <div className="max-h-40 space-y-1 overflow-y-auto border-t border-[#e6bdc1] p-2">
+        <div className="max-h-40 space-y-1 overflow-y-auto border-t border-[#55343a] p-2">
           {errores.map((hallazgo, indice) => (
             <button
               key={`${hallazgo.codigo}-${hallazgo.diaIndice ?? "semana"}-${indice}`}
               type="button"
               onClick={() => onIr(hallazgo)}
-              className="radius-control flex w-full gap-2 border border-[#efd1d4] bg-white px-2 py-1.5 text-left"
+              className="radius-control flex w-full gap-2 border border-[#633c43] bg-[#1d171a] px-2 py-1.5 text-left"
             >
               <span className="text-[10px] mt-0.5 shrink-0 font-bold text-error">
                 {hallazgo.diaIndice === null ? "SEMANA" : `S${hallazgo.diaIndice + 1}`}
@@ -1646,7 +1713,32 @@ export function RutinaDraftEditor({
         .filter((indice) => indice >= 0);
       const indicesObjetivo = config.alcance === "rutina" ? indicesEntrenamiento : [config.diaIndice];
       const indicesRemate = config.alcance === "rutina" ? indicesObjetivo.slice(-2) : indicesObjetivo;
-      const cantidadPrincipal = ["balance_vip", "ppl", "powerbuilding"].includes(config.estilo) ? 3 : 4;
+      const cantidadPrincipal = ["balance_vip", "nueva_escuela", "heavy_duty", "ppl", "powerbuilding"].includes(config.estilo) ? 3 : 4;
+
+      const crearCardio = (modalidad: Exclude<CardioAutomatico, "ninguno">, minutos: number, posicion: "inicio" | "final"): Ejercicio | null => {
+        const candidatos = opcionesBibliotecaParaObjetivo(biblioteca, "cardio");
+        const normalizar = (valor: string) => valor.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+        const elegido = modalidad === "spinning"
+          ? candidatos.find(({ ejercicio }) => /spinning/.test(normalizar(ejercicio.nombre)))
+          : candidatos.find(({ ejercicio }) => /bicicleta|bike/.test(normalizar(ejercicio.nombre)) && !/spinning/.test(normalizar(ejercicio.nombre)))
+            ?? candidatos.find(({ ejercicio }) => /bicicleta|bike/.test(normalizar(ejercicio.nombre)));
+        if (!elegido) {
+          advertenciasCobertura.push(`No existe ${modalidad === "spinning" ? "spinning" : "bicicleta"} clasificada como cardio en la biblioteca.`);
+          return null;
+        }
+        return {
+          ...EJERCICIO_VACIO,
+          orden: 0,
+          nombre: elegido.ejercicio.nombre,
+          ejercicioId: elegido.ejercicio.id,
+          grupoMuscular: "cardio",
+          patronMovimiento: "cardio",
+          series: 1,
+          reps: `${minutos} min`,
+          descansoSegundos: 0,
+          observacion: `Cardio al ${posicion} · ${minutos} minutos.`,
+        };
+      };
 
       const diasNuevos = actual.dias.map((dia, diaIndice) => {
         if (!indicesObjetivo.includes(diaIndice) || dia.tipo !== "entrenamiento") return dia;
@@ -1655,7 +1747,6 @@ export function RutinaDraftEditor({
           : objetivosMuscularesDia(dia).filter((objetivo) => objetivo !== "core" && objetivo !== "cardio");
         const objetivos = [...principales];
         if (config.incluirCore && indicesRemate.includes(diaIndice) && !objetivos.includes("core")) objetivos.push("core");
-        if (config.incluirCardio && indicesRemate.includes(diaIndice) && !objetivos.includes("cardio")) objetivos.push("cardio");
 
         const ejerciciosDia = [...dia.ejercicios];
         const porObjetivo = new Map<ObjetivoAutomatico, Ejercicio[]>(objetivos.map((objetivo) => [objetivo, []]));
@@ -1700,9 +1791,10 @@ export function RutinaDraftEditor({
 
           elegidos.forEach((item, indice) => {
             const ultimoDelGrupo = indice === elegidos.length - 1;
-            const tecnica = nivelArmado !== "senior" && nivelArmado !== "principiante" && ultimoDelGrupo
-              ? config.estilo === "intensiva" ? "Fallo muscular" : config.estilo === "olympia" ? "Drop set" : null
+            const tecnica = nivelArmado !== "senior" && nivelArmado !== "principiante" && ultimoDelGrupo && config.tecnicasPermitidas.length > 0
+              ? config.tecnicasPermitidas[objetivos.indexOf(objetivo) % config.tecnicasPermitidas.length]
               : null;
+            const tecnicaCatalogo = tecnica ? (tecnicas ?? []).find((itemTecnica) => itemTecnica.nombre === tecnica) : null;
             porObjetivo.get(objetivo)?.push({
               ...EJERCICIO_VACIO,
               ...prescripcionAutomatica(item.patron, nivelArmado, config.estilo),
@@ -1712,9 +1804,7 @@ export function RutinaDraftEditor({
               grupoMuscular: (objetivo === "biceps" || objetivo === "triceps" ? "brazos" : objetivo) as Ejercicio["grupoMuscular"],
               patronMovimiento: item.patron,
               tecnicaTipo: tecnica,
-              tecnicaInstruccion: tecnica === "Fallo muscular"
-                ? "Última serie al fallo técnico, sin perder la ejecución."
-                : tecnica === "Drop set" ? "Última serie con una reducción de carga controlada." : null,
+              tecnicaInstruccion: tecnicaCatalogo ? explicacionTecnica(tecnicaCatalogo) : null,
             });
           });
         }
@@ -1741,21 +1831,32 @@ export function RutinaDraftEditor({
             const ejercicioA = bloqueA[posicion];
             const ejercicioB = bloqueB[posicion];
             if (ejercicioA && ejercicioB) {
-              ordenados.push({ ...ejercicioA, tecnicaTipo: "Biserie (1/2)", tecnicaInstruccion: `Enlaza sin descanso con ${ejercicioB.nombre}.`, descansoSegundos: 0 });
-              ordenados.push({ ...ejercicioB, tecnicaTipo: "Biserie (2/2)", tecnicaInstruccion: "Cierra la biserie y descansa antes de repetir.", descansoSegundos: Math.max(60, ejercicioB.descansoSegundos ?? 90) });
+              const tecnicaA = ejercicioA.tecnicaTipo ? ` · ${ejercicioA.tecnicaTipo}` : "";
+              const tecnicaB = ejercicioB.tecnicaTipo ? ` · ${ejercicioB.tecnicaTipo}` : "";
+              const instruccionA = ejercicioA.tecnicaInstruccion ? ` ${ejercicioA.tecnicaInstruccion}` : "";
+              const instruccionB = ejercicioB.tecnicaInstruccion ? ` ${ejercicioB.tecnicaInstruccion}` : "";
+              ordenados.push({ ...ejercicioA, tecnicaTipo: `Biserie (1/2)${tecnicaA}`, tecnicaInstruccion: `Enlaza sin descanso con ${ejercicioB.nombre}.${instruccionA}`, descansoSegundos: 0 });
+              ordenados.push({ ...ejercicioB, tecnicaTipo: `Biserie (2/2)${tecnicaB}`, tecnicaInstruccion: `Cierra la biserie y descansa antes de repetir.${instruccionB}`, descansoSegundos: Math.max(60, ejercicioB.descansoSegundos ?? 90) });
             } else if (ejercicioA) ordenados.push(ejercicioA);
             else if (ejercicioB) ordenados.push(ejercicioB);
           }
           ordenados.push(...restantes.flatMap((objetivo) => porObjetivo.get(objetivo) ?? []));
         }
         ordenados.push(...remates.flatMap((objetivo) => porObjetivo.get(objetivo) ?? []), ...fueraDelPlan);
+        if (config.cardioInicio !== "ninguno" || config.cardioFinal !== "ninguno") {
+          ordenados = ordenados.filter((ejercicio) => ejercicio.grupoMuscular !== "cardio");
+          const inicial = config.cardioInicio === "ninguno" ? null : crearCardio(config.cardioInicio, config.cardioInicioMinutos, "inicio");
+          const final = config.cardioFinal === "ninguno" ? null : crearCardio(config.cardioFinal, config.cardioFinalMinutos, "final");
+          if (inicial) ordenados.unshift(inicial);
+          if (final) ordenados.push(final);
+        }
         return { ...dia, ejercicios: ordenados.map((ejercicio, indice) => ({ ...ejercicio, orden: indice + 1 })) };
       });
       return {
         ...actual,
         metodoGeneracion: {
           nivel: NIVELES_ARMADO[nivelArmado].etiqueta,
-          inspiracion: ETIQUETA_ESTILO[config.estilo],
+          inspiracion: PROGRAMAS_VIP[config.estilo].nombre,
           organizacion: ETIQUETA_ORGANIZACION[config.organizacion],
           generadoAutomaticamente: true,
         },

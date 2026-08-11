@@ -301,30 +301,30 @@ export function ArmarRutinaPanel({
     const gruposActivos = GRUPOS_PLAN.filter((grupo) => actual.grupos.includes(grupo.id));
     const focosDisponibles = gruposActivos.flatMap((grupo) => grupo.focos);
     return (
-      <div className="space-y-3 rounded-2xl border border-[#c8d5e3] bg-[#eef3f7] p-3 text-[#142033]">
-        <div className="flex items-center justify-between gap-2 border-b border-[#c9d5e2] pb-2">
+      <div className="space-y-3 rounded-2xl border border-[#303846] bg-[#151922] p-3 text-[#f4f7fb]">
+        <div className="flex items-center justify-between gap-2 border-b border-[#303846] pb-2">
           <div className="min-w-0">
             <p className="text-caption truncate font-semibold">{elegidos.length === 1 ? alumno.nombre : `${elegidos.length} alumnos`}</p>
-            <p className="text-micro text-[#617187]">Paso 2 de 4 · estructura semanal</p>
+            <p className="text-micro text-[#a8b2c1]">Paso 2 de 4 · estructura semanal</p>
           </div>
-          <button type="button" onClick={() => setDisenandoEstructura(false)} className="text-micro font-semibold text-[#2f6fa8]">Volver</button>
+          <button type="button" onClick={() => setDisenandoEstructura(false)} className="text-micro font-semibold text-[#8fb7d8]">Volver</button>
         </div>
 
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           {sesionesPlan.map((sesion, indice) => (
-            <button key={indice} type="button" onClick={() => setSesionActiva(indice)} className={`radius-control shrink-0 border px-3 py-2 text-micro font-semibold ${sesionActiva === indice ? "border-[#4f83b7] bg-[#dbeafe] text-[#214f7d]" : "border-[#c4d1df] bg-white text-[#53657a]"}`}>
+            <button key={indice} type="button" onClick={() => setSesionActiva(indice)} className={`radius-control shrink-0 border px-3 py-2 text-micro font-semibold ${sesionActiva === indice ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] bg-[#1d222c] text-[#b9c2cf]"}`}>
               S{indice + 1} {sesion.grupos.length > 0 ? `· ${sesion.grupos.length}` : ""}
             </button>
           ))}
         </div>
 
         <div>
-          <p className="text-micro mb-2 text-[#617187]">GRUPOS PRINCIPALES · SESIÓN {sesionActiva + 1}</p>
+          <p className="text-micro mb-2 text-[#a8b2c1]">GRUPOS PRINCIPALES · SESIÓN {sesionActiva + 1}</p>
           <div className="flex flex-wrap gap-1.5">
             {GRUPOS_PLAN.map((grupo) => {
               const activo = actual.grupos.includes(grupo.id);
               return (
-                <button key={grupo.id} type="button" onClick={() => alternarGrupo(grupo.id)} className={`radius-control flex items-center gap-1.5 border px-2.5 py-2 text-caption ${activo ? "border-[#4f83b7] bg-[#dbeafe] text-[#214f7d]" : "border-[#c4d1df] bg-white text-[#53657a]"}`}>
+                <button key={grupo.id} type="button" onClick={() => alternarGrupo(grupo.id)} className={`radius-control flex items-center gap-1.5 border px-2.5 py-2 text-caption ${activo ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] bg-[#1d222c] text-[#c1c9d5]"}`}>
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: grupo.color }} /> {grupo.nombre}
                 </button>
               );
@@ -333,33 +333,33 @@ export function ArmarRutinaPanel({
         </div>
 
         {focosDisponibles.length > 0 && (
-          <div className="border-l-2 border-[#6f9bc6] bg-[#e3edf7] p-2.5">
-            <p className="text-micro mb-2 text-[#526b83]">SUBGRUPOS Y ENFOQUES · opcional</p>
+          <div className="border-l-2 border-[#6f9bc6] bg-[#1c2733] p-2.5">
+            <p className="text-micro mb-2 text-[#a9bdd0]">SUBGRUPOS Y ENFOQUES · opcional</p>
             <div className="flex flex-wrap gap-1.5">
               {focosDisponibles.map((foco) => (
-                <button key={foco} type="button" onClick={() => alternarFoco(foco)} className={`radius-control border px-2 py-1.5 text-micro ${actual.focos.includes(foco) ? "border-[#4f83b7] bg-white text-[#214f7d]" : "border-[#b9cadd] bg-[#f8fafc] text-[#617187]"}`}>{foco}</button>
+                <button key={foco} type="button" onClick={() => alternarFoco(foco)} className={`radius-control border px-2 py-1.5 text-micro ${actual.focos.includes(foco) ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] bg-[#151922] text-[#a8b2c1]"}`}>{foco}</button>
               ))}
             </div>
           </div>
         )}
 
         {sesionActiva < sesionesPlan.length - 1 && (
-          <div className="radius-control border border-[#bdd5ce] bg-[#e7f1ee] p-2.5">
-            <label className="flex cursor-pointer items-center gap-2 text-caption text-[#365f56]">
+          <div className="radius-control border border-[#3e5c54] bg-[#1d2d29] p-2.5">
+            <label className="flex cursor-pointer items-center gap-2 text-caption text-[#c4e3da]">
               <input type="checkbox" checked={actual.descansoDespues} onChange={(evento) => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, descansoDespues: evento.target.checked } : sesion))} />
               <Coffee size={14} className="text-[#76a98a]" /> Insertar descanso después de esta sesión
             </label>
             {actual.descansoDespues && (
-              <select value={actual.tipoDescanso} onChange={(evento) => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, tipoDescanso: evento.target.value } : sesion))} className="mt-2 w-full rounded-lg border border-[#bdd5ce] bg-white px-2 py-2 text-caption text-[#284d45]">
+              <select value={actual.tipoDescanso} onChange={(evento) => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, tipoDescanso: evento.target.value } : sesion))} className="mt-2 w-full rounded-lg border border-[#46645c] bg-[#151922] px-2 py-2 text-caption text-[#d8eee8]">
                 <option>Descanso total</option><option>Recuperación activa</option><option>Movilidad o cardio ligero</option>
               </select>
             )}
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-2 border-t border-[#c9d5e2] pt-3">
-          <p className="text-micro text-[#617187]">{sesionesPlan.length} sesiones · {sesionesPlan.filter((sesion) => sesion.descansoDespues).length} descansos</p>
-          <Button size="xs" onClick={crearDesdeEstructura} disabled={sesionesPlan.some((sesion) => sesion.grupos.length === 0)} disabledReason="Elige al menos un grupo en cada sesión" className="!bg-[#2f6fa8] !text-white">
+        <div className="flex items-center justify-between gap-2 border-t border-[#303846] pt-3">
+          <p className="text-micro text-[#a8b2c1]">{sesionesPlan.length} sesiones · {sesionesPlan.filter((sesion) => sesion.descansoDespues).length} descansos</p>
+          <Button size="xs" onClick={crearDesdeEstructura} disabled={sesionesPlan.some((sesion) => sesion.grupos.length === 0)} disabledReason="Elige al menos un grupo en cada sesión" className="!bg-[#466f91] !text-white">
             Elegir ejercicios
           </Button>
         </div>
