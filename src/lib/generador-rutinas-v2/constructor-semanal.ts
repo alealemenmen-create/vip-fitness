@@ -2,6 +2,11 @@ import type { CategoriaEjercicio, EquipoEjercicio, NivelEjercicio } from "@/lib/
 import { esBaseEstructural, prioridadEstructural, type PatronMovimiento } from "@/lib/rutinas/patrones";
 import type { ResultadoMotorDosisV2 } from "@/lib/generador-rutinas-v2/dosis";
 import {
+  auditarCompatibilidadDivisionVipV2,
+  seleccionarOpcionDivisionVipV2,
+  type OpcionDivisionVipV2,
+} from "@/lib/generador-rutinas-v2/divisiones";
+import {
   GRUPOS_DOSIS_V2,
   type EntrevistaVipV2,
   type GrupoDosisV2,
@@ -9,7 +14,7 @@ import {
   type ObjetivoVipV2,
 } from "@/lib/generador-rutinas-v2/tipos";
 
-export const VERSION_CONSTRUCTOR_SEMANAL_VIP_2 = 2 as const;
+export const VERSION_CONSTRUCTOR_SEMANAL_VIP_2 = 3 as const;
 
 export type EjercicioConstructorV2 = {
   id: string;
@@ -80,17 +85,7 @@ export type ResultadoConstructorSemanalV2 = {
 
 type BloqueGrupo = { grupo: GrupoDosisV2; series: number };
 
-export type DiaDivisionVipV2 = {
-  nombre: string;
-  grupos: readonly GrupoDosisV2[];
-  brazo?: "biceps" | "triceps" | "ambos";
-};
-
-export type DivisionSemanalVipV2 = {
-  familia: "cuerpo_completo" | "superior_inferior" | "culturismo_clasico" | "wellness" | "empuje_traccion_piernas";
-  fundamento: string;
-  dias: readonly DiaDivisionVipV2[];
-};
+export type DivisionSemanalVipV2 = OpcionDivisionVipV2;
 
 const ORDEN_GRUPO: Record<GrupoDosisV2, number> = {
   cuadriceps: 0,
@@ -218,105 +213,22 @@ function repartirSeries(total: number, frecuencia: number, maximoPorSesion: numb
   return resultado.filter(Boolean);
 }
 
-const TODOS_LOS_GRUPOS: readonly GrupoDosisV2[] = [
-  "cuadriceps", "gluteos", "femorales", "pecho", "espalda", "hombros", "brazos", "pantorrillas", "core",
-];
-const GRUPOS_SUPERIORES: readonly GrupoDosisV2[] = ["pecho", "espalda", "hombros", "brazos"];
-const GRUPOS_INFERIORES: readonly GrupoDosisV2[] = ["cuadriceps", "gluteos", "femorales", "pantorrillas", "core"];
-const DIVISIONES_INFERIOR_PRIORITARIO = new Set<EntrevistaVipV2["competencia"]["division"]>([
-  "wellness", "bikini", "figure", "fitness", "fit_model",
-]);
-
-/**
- * La división semanal se decide antes que la dosis y los ejercicios. Esta es
- * una regla de programación: evita crear parejas musculares accidentales solo
- * porque dos bloques caben en el mismo día.
- */
 export function seleccionarDivisionSemanalVipV2(
   entrevista: EntrevistaVipV2,
   diasSolicitados: number,
 ): DivisionSemanalVipV2 {
-  const dias = Math.min(7, Math.max(1, diasSolicitados));
-  const letras = ["A", "B", "C", "D", "E", "F", "G"];
-
-  if (dias <= 3) {
-    return {
-      familia: "cuerpo_completo",
-      fundamento: "La baja frecuencia semanal se organiza como cuerpo completo para repetir patrones sin abandonar grupos musculares.",
-      dias: Array.from({ length: dias }, (_, indice) => ({ nombre: `Cuerpo completo ${letras[indice]}`, grupos: TODOS_LOS_GRUPOS })),
-    };
-  }
-
-  if (dias === 4) {
-    return {
-      familia: "superior_inferior",
-      fundamento: "Dos exposiciones superiores y dos inferiores alternadas conservan frecuencia y recuperación.",
-      dias: [
-        { nombre: "Tren superior A", grupos: GRUPOS_SUPERIORES, brazo: "ambos" },
-        { nombre: "Tren inferior A · cuádriceps", grupos: GRUPOS_INFERIORES },
-        { nombre: "Tren superior B", grupos: GRUPOS_SUPERIORES, brazo: "ambos" },
-        { nombre: "Tren inferior B · cadena posterior", grupos: ["gluteos", "femorales", "cuadriceps", "pantorrillas", "core"] },
-      ],
-    };
-  }
-
-  const division = entrevista.competencia.division;
-  const inferiorPrioritario = entrevista.competencia.compite === "si"
-    && division !== null
-    && DIVISIONES_INFERIOR_PRIORITARIO.has(division);
-
-  if (dias === 5 && inferiorPrioritario) {
-    return {
-      familia: "wellness",
-      fundamento: "Tres sesiones inferiores y dos superiores replican la estructura observada en los planes Wellness/Bikini, con 48 horas entre estímulos inferiores dominantes.",
-      dias: [
-        { nombre: "Inferior A · cuádriceps y glúteos", grupos: ["cuadriceps", "gluteos", "femorales", "pantorrillas", "core"] },
-        { nombre: "Tren superior A · amplitud", grupos: ["espalda", "hombros", "pecho", "brazos"], brazo: "ambos" },
-        { nombre: "Inferior B · cadena posterior", grupos: ["gluteos", "femorales", "cuadriceps", "pantorrillas", "core"] },
-        { nombre: "Tren superior B · densidad", grupos: ["espalda", "hombros", "pecho", "brazos"], brazo: "ambos" },
-        { nombre: "Inferior C · global", grupos: ["gluteos", "cuadriceps", "femorales", "pantorrillas", "core"] },
-      ],
-    };
-  }
-
-  if (dias === 5) {
-    return {
-      familia: "culturismo_clasico",
-      fundamento: "La semana separa empuje, tracción y tren inferior; la segunda exposición de cada zona se programa sin mezclar grupos grandes incompatibles.",
-      dias: [
-        { nombre: "Empuje · pecho, hombros y tríceps", grupos: ["pecho", "hombros", "brazos"], brazo: "triceps" },
-        { nombre: "Tracción · espalda y bíceps", grupos: ["espalda", "brazos"], brazo: "biceps" },
-        { nombre: "Inferior A · cuádriceps", grupos: ["cuadriceps", "gluteos", "femorales", "pantorrillas", "core"] },
-        { nombre: "Torso clásico", grupos: ["pecho", "espalda", "hombros", "brazos"], brazo: "ambos" },
-        { nombre: "Inferior B · cadena posterior", grupos: ["gluteos", "femorales", "cuadriceps", "pantorrillas", "core"] },
-      ],
-    };
-  }
-
-  const diasPpl: DiaDivisionVipV2[] = [
-    { nombre: "Empuje A", grupos: ["pecho", "hombros", "brazos"], brazo: "triceps" },
-    { nombre: "Tracción A", grupos: ["espalda", "brazos"], brazo: "biceps" },
-    { nombre: "Piernas A · cuádriceps", grupos: GRUPOS_INFERIORES },
-    { nombre: "Empuje B", grupos: ["pecho", "hombros", "brazos"], brazo: "triceps" },
-    { nombre: "Tracción B", grupos: ["espalda", "brazos"], brazo: "biceps" },
-    { nombre: "Piernas B · cadena posterior", grupos: ["gluteos", "femorales", "cuadriceps", "pantorrillas", "core"] },
-  ];
-  if (dias === 7) diasPpl.push({ nombre: "Accesorios · brazos, pantorrillas y core", grupos: ["brazos", "pantorrillas", "core"], brazo: "ambos" });
-  return {
-    familia: "empuje_traccion_piernas",
-    fundamento: "Dos ciclos de empuje, tracción y piernas ordenan seis sesiones; el séptimo día, si se solicita, queda limitado a accesorios de baja interferencia.",
-    dias: diasPpl,
-  };
+  return seleccionarOpcionDivisionVipV2(entrevista, Math.min(7, Math.max(1, diasSolicitados)));
 }
 
 function distribuirBloques(
   dosis: ResultadoMotorDosisV2,
   division: DivisionSemanalVipV2,
-): BloqueGrupo[][] {
+): { bloques: BloqueGrupo[][]; gruposSinCupo: GrupoDosisV2[] } {
   const dias = dosis.estructura.diasRecomendados ?? 0;
   const capacidad = dosis.estructura.capacidadSeriesTrabajoPorSesion ?? Number.POSITIVE_INFINITY;
   const bloques = Array.from({ length: dias }, () => [] as BloqueGrupo[]);
   const carga = Array.from({ length: dias }, () => 0);
+  const gruposSinCupo: GrupoDosisV2[] = [];
 
   for (const grupo of [...dosis.dosisPorGrupo].sort((a, b) => b.seriesDirectasSemanales.objetivo - a.seriesDirectasSemanales.objetivo || ORDEN_GRUPO[a.grupo] - ORDEN_GRUPO[b.grupo])) {
     const partes = repartirSeries(grupo.seriesDirectasSemanales.objetivo, grupo.frecuenciaSemanal, grupo.maximoPorSesion);
@@ -349,14 +261,18 @@ function distribuirBloques(
           .map((dia, indice) => dia.grupos.includes(grupo.grupo) ? indice : -1)
           .filter((indice) => indice >= 0)
           .sort((a, b) => carga[a] - carga[b])[0];
-        mejorDia = respaldo ?? 0;
+        if (respaldo === undefined) {
+          gruposSinCupo.push(grupo.grupo);
+          continue;
+        }
+        mejorDia = respaldo;
       }
       bloques[mejorDia].push({ grupo: grupo.grupo, series });
       carga[mejorDia] += series;
       usados.add(mejorDia);
     }
   }
-  return bloques;
+  return { bloques, gruposSinCupo: [...new Set(gruposSinCupo)] };
 }
 
 function seriesPorEjercicio(total: number, ejerciciosDisponibles = 3): number[] {
@@ -452,9 +368,13 @@ export function construirSemanaVipV2(
   for (const lista of porGrupo.values()) lista.sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
   const division = seleccionarDivisionSemanalVipV2(entrevista, dosis.estructura.diasRecomendados ?? 0);
-  const bloquesPorDia = distribuirBloques(dosis, division);
+  const distribucion = distribuirBloques(dosis, division);
+  const bloquesPorDia = distribucion.bloques;
   const usadosSemana = new Set<string>();
   const alertas: string[] = [];
+  for (const grupo of distribucion.gruposSinCupo) {
+    alertas.push(`${NOMBRE_GRUPO[grupo]}: la división ${division.nombre} no autoriza suficientes sesiones para su frecuencia. El motor no improvisó otra combinación.`);
+  }
   const objetivo = entrevista.objetivo.principal ?? "salud";
   const descansoCompuesto = descansoMedio(dosis.intensidad.descansoCompuestosSegundos, 120);
   const descansoAislamiento = descansoMedio(dosis.intensidad.descansoAislamientosSegundos, 75);
@@ -546,6 +466,8 @@ export function construirSemanaVipV2(
       cumple,
     };
   });
+  const violacionesDivision = auditarCompatibilidadDivisionVipV2(bloquesPorDia, division);
+  for (const violacion of violacionesDivision) alertas.push(`División semanal: ${violacion}`);
   const minutosPermitidos = dosis.estructura.minutosPorSesion;
   const maximoProgramado = Math.max(0, ...dias.map((dia) => dia.minutosEstimados));
   if (minutosPermitidos !== null && maximoProgramado > minutosPermitidos) {
@@ -561,7 +483,9 @@ export function construirSemanaVipV2(
       : ["La semana respeta la dosis calculada y queda pendiente de revisión del entrenador."],
     alertas: [...new Set(alertas)],
     reglasAplicadas: [
-      `La división ${division.familia.replaceAll("_", " ")} se decide antes de distribuir la dosis: ${division.fundamento}`,
+      `La división elegida es ${division.nombre} (${division.familia.replaceAll("_", " ")}): ${division.fundamento}`,
+      `Descanso sugerido: ${division.descansosSugeridos}`,
+      "Ningún bloque puede salir de los grupos autorizados por la división; si falta un cupo, el motor se detiene y alerta.",
       "La dosis directa se distribuye dentro de días muscularmente compatibles antes de elegir ejercicios.",
       "El orden de cada sesión respeta el enfoque del día y coloca patrones estructurales antes que aislamientos.",
       "Cada ejercicio pasa filtros de equipo, nivel, supervisión, impacto y preferencias declaradas.",

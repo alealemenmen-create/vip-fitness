@@ -51,6 +51,7 @@ export type EstadoFuncion = "sin_responder" | "sin_limitacion" | "limitado" | "r
 export type TendenciaRendimiento = "sin_datos" | "mejora" | "estable" | "retroceso";
 export type NivelRecuperacion = 1 | 2 | 3 | 4 | 5;
 export type ModoDistribucionDiasV2 = "recomendada" | "manual";
+export type ModoDivisionSemanalV2 = "recomendada" | "manual";
 export type GrupoDosisV2 = "pecho" | "espalda" | "hombros" | "brazos" | "cuadriceps" | "femorales" | "gluteos" | "pantorrillas" | "core";
 
 export type PerfilActualParaV2 = {
@@ -147,6 +148,8 @@ export type EntrevistaVipV2 = {
   };
   recursos: {
     modoDistribucionDias: ModoDistribucionDiasV2;
+    modoDivisionSemanal: ModoDivisionSemanalV2;
+    divisionSemanalId: string | null;
     diasReales: number | null;
     minutosSesion: number | null;
     equipo: "sin_responder" | "gimnasio_completo" | "maquinas" | "peso_libre" | "casa" | "adaptado";
@@ -241,7 +244,7 @@ export function crearEntrevistaVipV2(alumnoId: string): EntrevistaVipV2 {
       adherenciaPorcentaje: null,
     },
     recuperacion: { sueno: null, energia: null, estres: null, doms: null, apetito: null, actividadConcurrente: "" },
-    recursos: { modoDistribucionDias: "recomendada", diasReales: null, minutosSesion: null, equipo: "sin_responder", supervision: "sin_responder", accesibilidad: "" },
+    recursos: { modoDistribucionDias: "recomendada", modoDivisionSemanal: "recomendada", divisionSemanalId: null, diasReales: null, minutosSesion: null, equipo: "sin_responder", supervision: "sin_responder", accesibilidad: "" },
     preferencias: { ejerciciosPreferidos: "", ejerciciosNoDeseados: "", toleranciaSesionLarga: "sin_responder", estiloComoInfluencia: "ninguna" },
     medicion: { metricas: [], revisionCadaSemanas: null },
   };

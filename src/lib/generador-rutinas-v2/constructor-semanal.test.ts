@@ -129,11 +129,11 @@ describe("Constructor Semanal Inteligente VIP 2.0", () => {
     expect(semana.dias.every((dia) => dia.ejercicios.length > 0)).toBe(true);
     expect(semana.auditoria.seriesProgramadas).toBe(semana.auditoria.seriesObjetivo);
     expect(semana.dias.map((dia) => dia.nombre)).toEqual([
-      "Empuje · pecho, hombros y tríceps",
-      "Tracción · espalda y bíceps",
-      "Inferior A · cuádriceps",
-      "Torso clásico",
-      "Inferior B · cadena posterior",
+      "Pecho + tríceps",
+      "Espalda + bíceps",
+      "Cuádriceps + aductores",
+      "Hombros + brazos",
+      "Femoral + glúteos + abductores",
     ]);
 
     const gruposInferiores = new Set(["cuadriceps", "femorales", "gluteos", "pantorrillas"]);
@@ -143,8 +143,8 @@ describe("Constructor Semanal Inteligente VIP 2.0", () => {
     for (const dia of [semana.dias[2], semana.dias[4]]) {
       expect(dia.enfoque.some((grupo) => ["pecho", "espalda"].includes(grupo))).toBe(false);
     }
-    expect(semana.reglasAplicadas.join(" ")).toContain("decide antes de distribuir la dosis");
-    expect(semana.dias[0].enfoque).toEqual(expect.arrayContaining(["pecho", "hombros", "brazos"]));
+    expect(semana.reglasAplicadas.join(" ")).toContain("antes de elegir ejercicios");
+    expect(semana.dias[0].enfoque).toEqual(expect.arrayContaining(["pecho", "brazos"]));
     expect(semana.dias[1].enfoque).toEqual(expect.arrayContaining(["espalda", "brazos"]));
     expect(semana.dias[0].ejercicios.filter((item) => item.grupoDosis === "brazos").every((item) => item.patron.startsWith("triceps"))).toBe(true);
     expect(semana.dias[1].ejercicios.filter((item) => item.grupoDosis === "brazos").every((item) => item.patron.startsWith("biceps"))).toBe(true);
@@ -165,16 +165,16 @@ describe("Constructor Semanal Inteligente VIP 2.0", () => {
     const division = seleccionarDivisionSemanalVipV2(entrevista, 5);
     const semana = construirSemanaVipV2(entrevista, calcularDosisVipV2(entrevista), catalogoCompleto());
 
-    expect(division.familia).toBe("wellness");
+    expect(division.categoria).toBe("wellness");
     expect(semana.dias.map((dia) => dia.nombre)).toEqual([
-      "Inferior A · cuádriceps y glúteos",
-      "Tren superior A · amplitud",
-      "Inferior B · cadena posterior",
-      "Tren superior B · densidad",
-      "Inferior C · global",
+      "Glúteos + cuádriceps",
+      "Espalda + hombros",
+      "Femoral + glúteos",
+      "Tren superior completo",
+      "Cuádriceps + glúteos",
     ]);
-    expect(semana.dias.filter((dia) => dia.nombre.startsWith("Inferior"))).toHaveLength(3);
-    expect(semana.dias.filter((dia) => dia.nombre.startsWith("Tren superior"))).toHaveLength(2);
+    expect(division.dias.filter((dia) => dia.grupos.includes("gluteos"))).toHaveLength(3);
+    expect(division.dias.filter((dia) => dia.grupos.includes("espalda"))).toHaveLength(2);
     expect(semana.auditoria.porGrupo.every((grupo) => grupo.cumple)).toBe(true);
   });
 

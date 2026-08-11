@@ -6,6 +6,7 @@ import { Activity, AlertTriangle, ArrowDown, CheckCircle2, ChevronLeft, ChevronR
 import { calcularDosisVipV2 } from "@/lib/generador-rutinas-v2/dosis";
 import { evaluarEntrevistaVipV2 } from "@/lib/generador-rutinas-v2/entrevista";
 import { construirSemanaVipV2, type EjercicioConstructorV2 } from "@/lib/generador-rutinas-v2/constructor-semanal";
+import { opcionesDivisionSemanalVipV2, seleccionarOpcionDivisionVipV2 } from "@/lib/generador-rutinas-v2/divisiones";
 import { ConstructorSemanalV2Preview } from "@/components/admin/ConstructorSemanalV2Preview";
 import { MesaEdicionV2 } from "@/components/admin/MesaEdicionV2";
 import {
@@ -133,6 +134,8 @@ function cargarLocal(alumnoId: string, fallback: EntrevistaVipV2): EntrevistaVip
         ...fallback.recursos,
         ...parsed.recursos,
         modoDistribucionDias: parsed.recursos?.modoDistribucionDias ?? "recomendada",
+        modoDivisionSemanal: parsed.recursos?.modoDivisionSemanal ?? "recomendada",
+        divisionSemanalId: parsed.recursos?.divisionSemanalId ?? null,
       },
     };
   } catch {
@@ -154,6 +157,10 @@ export function GeneradorRutinasV2Panel({ alumnos, catalogo }: Props) {
   if (!entrevista || !alumno) {
     return <div className="rounded-2xl border border-border bg-surface p-6 text-sm text-text-secondary">No hay alumnos disponibles para iniciar una entrevista.</div>;
   }
+
+  const diasParaDivision = dosis?.estructura.diasRecomendados ?? entrevista.recursos.diasReales ?? 3;
+  const opcionesDivision = opcionesDivisionSemanalVipV2(entrevista, diasParaDivision);
+  const divisionActiva = seleccionarOpcionDivisionVipV2(entrevista, diasParaDivision);
 
   const elegirAlumno = (nuevoId: string) => {
     const elegido = alumnos.find((item) => item.id === nuevoId);
@@ -281,7 +288,7 @@ export function GeneradorRutinasV2Panel({ alumnos, catalogo }: Props) {
                 </div>
                 <label><span className={ETIQUETA}>¿Qué no queremos sacrificar?</span><textarea className={`${CAMPO} min-h-20`} value={entrevista.objetivo.noSacrificar} onChange={(event) => setEntrevista({ ...entrevista, objetivo: { ...entrevista.objetivo, noSacrificar: event.target.value } })} placeholder="Ej: mantener fuerza, salud articular, deporte paralelo o tiempo familiar" /></label>
                 {entrevista.competencia.compite === "si" ? <div className="rounded-2xl border border-vip/20 bg-vip/5 p-4"><h3 className="mb-4 font-bold text-text">Rama competitiva</h3><div className="grid gap-4 sm:grid-cols-2">
-                  <label><span className={ETIQUETA}>División</span><select className={CAMPO} value={entrevista.competencia.division ?? ""} onChange={(event) => setEntrevista({ ...entrevista, competencia: { ...entrevista.competencia, division: event.target.value as EntrevistaVipV2["competencia"]["division"] || null } })}><option value="">Seleccionar</option>{DIVISIONES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                  <label><span className={ETIQUETA}>División</span><select className={CAMPO} value={entrevista.competencia.division ?? ""} onChange={(event) => setEntrevista({ ...entrevista, competencia: { ...entrevista.competencia, division: event.target.value as EntrevistaVipV2["competencia"]["division"] || null }, recursos: { ...entrevista.recursos, modoDivisionSemanal: "recomendada", divisionSemanalId: null } })}><option value="">Seleccionar</option>{DIVISIONES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
                   <label><span className={ETIQUETA}>Fase</span><select className={CAMPO} value={entrevista.competencia.fase ?? ""} onChange={(event) => setEntrevista({ ...entrevista, competencia: { ...entrevista.competencia, fase: event.target.value as EntrevistaVipV2["competencia"]["fase"] || null } })}><option value="">Seleccionar</option><option value="fuera_temporada">Fuera de temporada</option><option value="preparacion_general">Preparación general</option><option value="preparacion_especifica">Preparación específica</option><option value="puesta_a_punto">Puesta a punto</option><option value="post_competencia">Postcompetencia</option></select></label>
                   <label><span className={ETIQUETA}>Fecha del evento</span><input className={CAMPO} type="date" value={entrevista.competencia.fechaEvento ?? ""} onChange={(event) => setEntrevista({ ...entrevista, competencia: { ...entrevista.competencia, fechaEvento: event.target.value || null } })} /></label>
                   <label><span className={ETIQUETA}>Puntos débiles</span><input className={CAMPO} value={entrevista.competencia.puntosDebiles} onChange={(event) => setEntrevista({ ...entrevista, competencia: { ...entrevista.competencia, puntosDebiles: event.target.value } })} /></label>
@@ -310,7 +317,7 @@ export function GeneradorRutinasV2Panel({ alumnos, catalogo }: Props) {
               <div className="space-y-5">
                 <div><h2 className="text-lg font-bold text-text">¿Con qué contamos y cómo sabremos si funciona?</h2><p className="mt-1 text-sm text-text-secondary">Tiempo, equipo y seguimiento son restricciones reales del programa.</p></div>
                 <fieldset>
-                  <legend className={ETIQUETA}>Distribución semanal</legend>
+                  <legend className={ETIQUETA}>Cantidad de días</legend>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {([
                       ["recomendada", "Usar recomendación del motor", "El motor elige los días según nivel, recuperación y contexto."],
@@ -332,13 +339,48 @@ export function GeneradorRutinasV2Panel({ alumnos, catalogo }: Props) {
                   </p>
                 </fieldset>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label><span className={ETIQUETA}>{(entrevista.recursos.modoDistribucionDias ?? "recomendada") === "manual" ? "Días que quieres programar" : "Días reales disponibles"}</span><input className={CAMPO} type="number" min={1} max={7} value={entrevista.recursos.diasReales ?? ""} onChange={(event) => setEntrevista({ ...entrevista, recursos: { ...entrevista.recursos, diasReales: event.target.value ? Number(event.target.value) : null } })} /></label>
+                  <label><span className={ETIQUETA}>{(entrevista.recursos.modoDistribucionDias ?? "recomendada") === "manual" ? "Días que quieres programar" : "Días reales disponibles"}</span><input className={CAMPO} type="number" min={1} max={7} value={entrevista.recursos.diasReales ?? ""} onChange={(event) => setEntrevista({ ...entrevista, recursos: { ...entrevista.recursos, diasReales: event.target.value ? Number(event.target.value) : null, modoDivisionSemanal: "recomendada", divisionSemanalId: null } })} /></label>
                   <label><span className={ETIQUETA}>Minutos reales por sesión</span><input className={CAMPO} type="number" min={20} max={180} value={entrevista.recursos.minutosSesion ?? ""} onChange={(event) => setEntrevista({ ...entrevista, recursos: { ...entrevista.recursos, minutosSesion: event.target.value ? Number(event.target.value) : null } })} /></label>
                   <label><span className={ETIQUETA}>Equipo</span><select className={CAMPO} value={entrevista.recursos.equipo} onChange={(event) => setEntrevista({ ...entrevista, recursos: { ...entrevista.recursos, equipo: event.target.value as EntrevistaVipV2["recursos"]["equipo"] } })}><option value="sin_responder">Sin responder</option><option value="gimnasio_completo">Gimnasio completo</option><option value="maquinas">Principalmente máquinas</option><option value="peso_libre">Principalmente peso libre</option><option value="casa">Casa</option><option value="adaptado">Equipo adaptado</option></select></label>
                   <label><span className={ETIQUETA}>Supervisión</span><select className={CAMPO} value={entrevista.recursos.supervision} onChange={(event) => setEntrevista({ ...entrevista, recursos: { ...entrevista.recursos, supervision: event.target.value as EntrevistaVipV2["recursos"]["supervision"] } })}><option value="sin_responder">Sin responder</option><option value="siempre">Siempre supervisado</option><option value="parcial">Supervisión parcial</option><option value="sin_supervision">Entrena sin supervisión</option></select></label>
                   <label><span className={ETIQUETA}>Influencia metodológica</span><select className={CAMPO} value={entrevista.preferencias.estiloComoInfluencia} onChange={(event) => setEntrevista({ ...entrevista, preferencias: { ...entrevista.preferencias, estiloComoInfluencia: event.target.value as EntrevistaVipV2["preferencias"]["estiloComoInfluencia"] } })}><option value="ninguna">Sin influencia</option><option value="hit">HIT / alta intensidad</option><option value="volumen_clasico">Volumen clásico</option><option value="hibrido">Híbrido</option><option value="rir_autoregulado">RIR / autorregulado</option></select></label>
                   <label><span className={ETIQUETA}>Revisar cada cuántas semanas</span><input className={CAMPO} type="number" min={1} max={12} value={entrevista.medicion.revisionCadaSemanas ?? ""} onChange={(event) => setEntrevista({ ...entrevista, medicion: { ...entrevista.medicion, revisionCadaSemanas: event.target.value ? Number(event.target.value) : null } })} /></label>
                 </div>
+                <fieldset className="rounded-2xl border border-vip/20 bg-vip/5 p-4">
+                  <legend className="px-1 text-sm font-bold text-text">División semanal: la regla principal</legend>
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                    <p className="max-w-2xl text-xs leading-relaxed text-text-secondary">
+                      Elige una arquitectura válida para {diasParaDivision} días. La dosis, la frecuencia y los ejercicios se acomodan después a esta secuencia; el motor no puede inventar combinaciones fuera de ella.
+                    </p>
+                    <button type="button" onClick={() => setEntrevista({ ...entrevista, recursos: { ...entrevista.recursos, modoDivisionSemanal: "recomendada", divisionSemanalId: null } })} className="rounded-lg border border-vip/30 bg-surface px-3 py-1.5 text-xs font-bold text-vip hover:bg-vip/10">
+                      Usar recomendada
+                    </button>
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    {opcionesDivision.map((opcion, indice) => {
+                      const activa = divisionActiva.id === opcion.id;
+                      return (
+                        <button
+                          key={opcion.id}
+                          type="button"
+                          aria-pressed={activa}
+                          onClick={() => setEntrevista({ ...entrevista, recursos: { ...entrevista.recursos, modoDivisionSemanal: "manual", divisionSemanalId: opcion.id } })}
+                          className={`rounded-xl border p-3 text-left transition ${activa ? "border-vip bg-surface ring-2 ring-vip/15" : "border-border bg-bg hover:border-vip/40"}`}
+                        >
+                          <span className="flex items-center justify-between gap-2">
+                            <span className={`text-sm font-bold ${activa ? "text-vip" : "text-text"}`}>{opcion.nombre}</span>
+                            {indice === 0 ? <span className="shrink-0 rounded-full bg-vip/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-vip">Recomendada</span> : null}
+                          </span>
+                          <span className="mt-1 block text-xs leading-relaxed text-text-secondary">{opcion.descripcion}</span>
+                          <ol className="mt-3 space-y-1.5">
+                            {opcion.dias.map((dia, diaIndice) => <li key={`${opcion.id}-${diaIndice}`} className="flex gap-2 text-xs text-text-secondary"><span className="font-bold text-vip">{diaIndice + 1}.</span><span>{dia.nombre}</span></li>)}
+                          </ol>
+                          <span className="mt-3 block border-t border-border pt-2 text-[11px] leading-relaxed text-text-tertiary">Descanso sugerido: {opcion.descansosSugeridos}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
                 <fieldset><legend className={ETIQUETA}>Métricas de revisión</legend><div className="flex flex-wrap gap-2">{(["carga", "repeticiones", "rir", "perimetros", "rendimiento", "dolor", "fatiga", "asistencia"] as const).map((metrica) => { const activa = entrevista.medicion.metricas.includes(metrica); return <button key={metrica} type="button" aria-pressed={activa} onClick={() => setEntrevista({ ...entrevista, medicion: { ...entrevista.medicion, metricas: activa ? entrevista.medicion.metricas.filter((item) => item !== metrica) : [...entrevista.medicion.metricas, metrica] } })} className={`rounded-full border px-3 py-1.5 text-sm capitalize ${activa ? "border-vip bg-vip/10 font-semibold text-vip" : "border-border text-text-secondary"}`}>{metrica}</button>; })}</div></fieldset>
               </div>
             ) : null}

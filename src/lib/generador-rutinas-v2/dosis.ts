@@ -1,4 +1,5 @@
 import { evaluarEntrevistaVipV2 } from "@/lib/generador-rutinas-v2/entrevista";
+import { seleccionarOpcionDivisionVipV2 } from "@/lib/generador-rutinas-v2/divisiones";
 import {
   GRUPOS_DOSIS_V2,
   type DivisionCompetitivaV2,
@@ -344,9 +345,11 @@ export function calcularDosisVipV2(entrevista: EntrevistaVipV2): ResultadoMotorD
   }
 
   const tieneHistorial = entrevista.dosisReciente.estadoHistorial === "con_historial";
+  const esWheelchair = entrevista.competencia.compite === "si" && entrevista.competencia.division === "mens_wheelchair";
   const preservarAccesorios = dias >= 4
     && ["hipertrofia", "recomposicion", "competencia"].includes(entrevista.objetivo.principal);
   const objetivosSinPresupuesto = Object.fromEntries(GRUPOS_DOSIS_V2.map((grupo) => {
+    if (esWheelchair && ["cuadriceps", "femorales", "gluteos", "pantorrillas"].includes(grupo)) return [grupo, 0];
     const actual = tieneHistorial ? entrevista.dosisReciente.seriesPorGrupo[grupo] : null;
     let objetivo = actual !== null
       ? Math.round(actual * factor)
@@ -373,6 +376,7 @@ export function calcularDosisVipV2(entrevista: EntrevistaVipV2): ResultadoMotorD
     avanzado: 9,
     elite_profesional: 10,
   };
+  const divisionSemanal = seleccionarOpcionDivisionVipV2(entrevista, dias);
   const dosisPorGrupo: DosisGrupoV2[] = GRUPOS_DOSIS_V2.map((grupo) => {
     const objetivo = objetivos[grupo];
     const actual = tieneHistorial ? entrevista.dosisReciente.seriesPorGrupo[grupo] : null;
@@ -388,7 +392,8 @@ export function calcularDosisVipV2(entrevista: EntrevistaVipV2): ResultadoMotorD
     // ordenar tríceps con empuje y bíceps con tracción sin aumentar volumen.
     if (dias >= 4 && objetivo >= 2 && (grupo === "hombros" || grupo === "brazos")) frecuencia = 2;
     if (dias >= 3 && objetivo > maximoSesion * 2) frecuencia = 3;
-    frecuencia = Math.min(dias, frecuencia);
+    const cuposDivision = divisionSemanal.dias.filter((dia) => dia.grupos.includes(grupo)).length;
+    frecuencia = Math.min(dias, cuposDivision, frecuencia);
     const maximoPorSesion = frecuencia === 0 ? 0 : Math.min(maximoSesion, Math.ceil(objetivo / frecuencia) + 1);
     const maximoPorHistorial = actual !== null && actual > 0 ? Math.ceil(actual * 1.2) : MAXIMO_AUTOMATICO[nivel];
     return {
