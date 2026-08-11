@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, ShieldAlert, Spark
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ProgresoRevisionIA } from "@/components/admin/ProgresoRevisionIA";
 import type { CambioResuelto, RevisionResuelta } from "@/lib/ai/revisarRutina";
 
 /** Lo que la IA opina de la rutina que armó el motor, antes de publicarla.
@@ -97,9 +98,13 @@ export function RevisionIAPanel({
           </div>
         </div>
         {error && <p className="text-caption mt-2 text-error">{error}</p>}
-        <Button onClick={onRevisar} loading={revisando} variant="secondary" className="mt-3 w-full">
-          {revisando ? "Analizando la rutina…" : "Analizar esta rutina"}
-        </Button>
+        {revisando ? (
+          <ProgresoRevisionIA />
+        ) : (
+          <Button onClick={onRevisar} variant="secondary" className="mt-3 w-full">
+            Analizar esta rutina
+          </Button>
+        )}
       </Card>
     );
   }
@@ -196,14 +201,17 @@ export function RevisionIAPanel({
 
           {error && <p className="text-caption text-error">{error}</p>}
 
-          <button
-            type="button"
-            onClick={onRevisar}
-            disabled={revisando}
-            className="text-caption font-medium text-vip underline disabled:opacity-40"
-          >
-            {revisando ? "Analizando…" : "Volver a analizar con los cambios actuales"}
-          </button>
+          {revisando ? (
+            <ProgresoRevisionIA />
+          ) : (
+            <button
+              type="button"
+              onClick={onRevisar}
+              className="text-caption font-medium text-vip underline"
+            >
+              Volver a analizar con los cambios actuales
+            </button>
+          )}
         </div>
       )}
     </Card>

@@ -11,6 +11,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { BookOpenCheck, Dumbbell, FileText, Users, WandSparkles } from "lucide-react";
 
+/** La revisión con IA es la operación más larga de toda la app: audita la
+ * semana completa contra la ficha del alumno y puede tardar minutos. Sin este
+ * tope, la Server Action se corta con el límite por defecto de la plataforma y
+ * el entrenador ve un error genérico en vez de la revisión. Va en la página, no
+ * en `actions.ts`: según los docs de esta versión de Next, `maxDuration` a
+ * nivel de página gobierna todas las Server Actions que se usen en ella. */
+export const maxDuration = 300;
+
 export default async function GeneradorPage({
   searchParams,
 }: {

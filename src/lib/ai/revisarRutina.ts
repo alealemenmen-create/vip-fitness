@@ -216,6 +216,25 @@ export async function revisarRutinaGenerada(params: {
   const client = new Anthropic({ apiKey });
   const barrerasDeterministas = detectarDeficienciasRutina(rutina.dias);
 
+  // Lo que NO cambia entre una revisión y otra (inventario de la sala y los
+  // 121 ejercicios del catálogo) va en el bloque de sistema, con marca de
+  // caché. La caché de Anthropic funciona por PREFIJO: lo estable tiene que ir
+  // primero. Antes esto viajaba al final del mensaje del usuario, después de
+  // la ficha y la rutina —que sí cambian siempre—, así que no se cacheaba
+  // nunca y cada revisión pagaba el catálogo entero de nuevo.
+  //
+  // Esto ahorra COSTO, no tiempo: medido contra la base real, la segunda
+  // revisión leyó los 8.849 tokens de caché y aun así tardó lo mismo (118 s
+  // vs 137 s). La latencia la manda la SALIDA (6.500-8.600 tokens de
+  // auditoría), no la entrada. Si hay que acelerarla de verdad, la palanca
+  // es cuánto texto se le pide generar, no cuánto se le manda.
+  const contextoEstable = `MAQUINARIA Y EQUIPO DE LA SALA
+${describirInventario()}
+
+CATÁLOGO DE EJERCICIOS DE VIP FITNESS — los únicos que existen
+Si algo no aparece en esta lista, el gimnasio no lo tiene. No lo nombres.
+${describirCatalogo(biblioteca)}`;
+
   const mensaje = `FICHA DEL ALUMNO (la llenó él mismo desde su cuenta)
 ${describirPerfil(perfil) || "- Sin datos registrados."}
 
@@ -232,13 +251,6 @@ ${barrerasDeterministas.map((r) => `- ${r}`).join("\n") || "- Ninguna; igualment
 RUTINA GENERADA (el número al inicio de cada línea es el "orden" dentro del día)
 ${serializarRutinaATexto(rutina)}
 
-MAQUINARIA Y EQUIPO DE LA SALA
-${describirInventario()}
-
-CATÁLOGO DE EJERCICIOS DE VIP FITNESS — los únicos que existen
-Si algo no aparece en esta lista, el gimnasio no lo tiene. No lo nombres.
-${describirCatalogo(biblioteca)}
-
 Revisa esta rutina para esta persona en particular y responde con el veredicto, los hallazgos y los cambios concretos.`;
 
   try {
@@ -246,10 +258,34 @@ Revisa esta rutina para esta persona en particular y responde con el veredicto, 
       model: "claude-opus-5",
       max_tokens: 16000,
       thinking: { type: "adaptive" },
-      system: SISTEMA,
-      output_config: { effort: "high", format: zodOutputFormat(RevisionSchema) },
+      // Dos bloques, ambos estables entre revisiones. La marca de caché va en
+      // el último: cachea todo lo anterior de una (método + catálogo).
+      system: [
+        { type: "text", text: SISTEMA },
+        // TTL de 1 hora, no el de 5 minutos por defecto: medido en vivo, la
+        // caché se vencía entre una revisión y la siguiente y volvía a
+        // escribirse entera (cache_read=0 en la tercera llamada). El
+        // entrenador arma rutinas de a tandas, con minutos entre una y otra,
+        // así que con 5 minutos casi nunca pegaba. Escribir con 1 h cuesta el
+        // doble, así que conviene a partir de la tercera revisión dentro de
+        // la misma hora — que es el uso normal.
+        { type: "text", text: contextoEstable, cache_control: { type: "ephemeral", ttl: "1h" } },
+      ],
+      // "medium" en vez de "high": es la palanca principal de latencia y en
+      // este modelo rinde muy parecido para una auditoría. Las barreras
+      // deterministas (`detectarDeficienciasRutina`) siguen corriendo igual,
+      // así que la seguridad no depende de este número. Subirlo de nuevo es
+      // cambiar esta palabra.
+      output_config: { effort: "medium", format: zodOutputFormat(RevisionSchema) },
       messages: [{ role: "user", content: mensaje }],
     });
+
+    // Sin esto no hay forma de saber si la caché está funcionando: si
+    // `cache_read` queda en 0 revisión tras revisión, algo volvió a meter
+    // contenido variable antes del catálogo y se perdió el ahorro.
+    console.info(
+      `[revisarRutina] cache_write=${response.usage.cache_creation_input_tokens ?? 0} cache_read=${response.usage.cache_read_input_tokens ?? 0} entrada_sin_cachear=${response.usage.input_tokens} salida=${response.usage.output_tokens}`
+    );
 
     if (response.stop_reason === "refusal") {
       return { ok: false, error: "La IA no pudo revisar esta rutina. Puedes publicarla igual o ajustarla a mano." };
