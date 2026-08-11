@@ -450,18 +450,28 @@ function EjercicioForm({
  * "así yo mismo, desde la visualización del ejercicio, puedo arreglar la
  * rutina" — sin sacar el editor por día que ya existía arriba.
  */
-function VistaPreviaEstructurada({
+export function VistaPreviaEstructurada({
   draft,
   biblioteca,
   onActualizarEjercicio,
   onInsertarEjercicio,
   onQuitarEjercicio,
+  expandida = false,
+  onAgregarDia,
+  onQuitarDia,
 }: {
   draft: RutinaConProgresion;
   biblioteca?: EjercicioBiblioteca[];
   onActualizarEjercicio: (diaIdx: number, ejIdx: number, ejercicio: Ejercicio) => void;
   onInsertarEjercicio: (diaIdx: number, posicion: number) => void;
   onQuitarEjercicio: (diaIdx: number, ejIdx: number) => void;
+  /** Modo mesa de trabajo (herramienta de armado manual): sin la caja con
+   * scroll propio, para que la rutina se lea entera y a lo ancho de la
+   * pantalla. Dentro del generador sigue siendo una vista previa contenida. */
+  expandida?: boolean;
+  /** Solo en modo expandido: agregar y quitar días desde la misma vista. */
+  onAgregarDia?: () => void;
+  onQuitarDia?: (diaIdx: number) => void;
 }) {
   // Coordenadas de la tarjeta abierta para editar, no el ejercicio en sí:
   // así, al insertar uno nuevo, alcanza con apuntar a su posición para que
@@ -474,15 +484,28 @@ function VistaPreviaEstructurada({
   };
 
   return (
-    <div className="max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+    <div className={expandida ? "space-y-4" : "max-h-[34rem] space-y-3 overflow-y-auto pr-1"}>
       <p className="text-card-title font-bold text-text">{draft.nombreRutina}</p>
       {draft.dias.map((dia, diaIdx) => (
         <section key={dia.numero} className="radius-control overflow-hidden border border-border">
           <div className="flex items-center justify-between gap-2 bg-surface-2 px-2.5 py-2">
             <p className="text-secondary font-bold text-vip">DÍA {dia.numero} · {dia.nombre}</p>
-            <span className="text-micro shrink-0 text-text-tertiary">
-              {dia.tipo === "descanso" ? "Descanso" : `${dia.ejercicios.length} ejercicios`}
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="text-micro text-text-tertiary">
+                {dia.tipo === "descanso" ? "Descanso" : `${dia.ejercicios.length} ejercicios`}
+              </span>
+              {onQuitarDia && draft.dias.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => onQuitarDia(diaIdx)}
+                  aria-label={`Quitar el día ${dia.numero}`}
+                  title="Quitar este día"
+                  className="grid size-6 place-items-center rounded-full border border-border text-text-tertiary active:bg-error active:text-white"
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
+            </div>
           </div>
           {dia.descripcion && <p className="text-micro border-t border-border px-2.5 py-1.5 text-text-tertiary">{dia.descripcion}</p>}
           {dia.tipo === "entrenamiento" && (
@@ -580,6 +603,15 @@ function VistaPreviaEstructurada({
           )}
         </section>
       ))}
+      {onAgregarDia && (
+        <button
+          type="button"
+          onClick={onAgregarDia}
+          className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-vip/50 py-3 text-caption font-semibold text-vip"
+        >
+          <Plus size={15} /> Agregar otro día
+        </button>
+      )}
       <p className="text-caption text-right font-semibold text-text-secondary">— Alejandro Mendoza · Método VIP Fitness</p>
     </div>
   );
@@ -596,7 +628,15 @@ export function RutinaDraftEditor({
   onDescartar,
   ejercicios,
   onRevisar,
+  mesaDeTrabajo = false,
 }: {
+  /** Herramienta de armado manual: la vista previa deja de ser una vista y
+   * pasa a ser la mesa de trabajo — a lo ancho, siempre abierta y con los
+   * botones de agregar y quitar día adentro. Se esconde el editor por día
+   * (la lista de tarjetas colapsables), porque en este modo sería el mismo
+   * trabajo dos veces. Todo lo demás —publicar, plan del alumno, revisión con
+   * IA— es exactamente el mismo camino que ya usa el generador. */
+  mesaDeTrabajo?: boolean;
   alumnoIds: string[];
   draftInicial: RutinaExtraida;
   onDescartar: () => void;
@@ -947,18 +987,20 @@ export function RutinaDraftEditor({
           )}
       </Card>
 
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold tracking-wide text-text-tertiary">{draft.dias.length} DÍAS</span>
-        <button
-          type="button"
-          onClick={() => setDiasAbiertos(todosAbiertos ? new Set() : new Set(draft.dias.map((_, i) => i)))}
-          className="text-caption font-medium text-vip underline"
-        >
-          {todosAbiertos ? "Colapsar todo" : "Expandir todo"}
-        </button>
-      </div>
+      {!mesaDeTrabajo && (
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold tracking-wide text-text-tertiary">{draft.dias.length} DÍAS</span>
+          <button
+            type="button"
+            onClick={() => setDiasAbiertos(todosAbiertos ? new Set() : new Set(draft.dias.map((_, i) => i)))}
+            className="text-caption font-medium text-vip underline"
+          >
+            {todosAbiertos ? "Colapsar todo" : "Expandir todo"}
+          </button>
+        </div>
+      )}
 
-      {draft.dias.map((dia, diaIdx) => {
+      {!mesaDeTrabajo && draft.dias.map((dia, diaIdx) => {
         const abierto = diasAbiertos.has(diaIdx);
         return (
           <Card key={diaIdx} padding="p-0" className="overflow-hidden">
@@ -1066,15 +1108,17 @@ export function RutinaDraftEditor({
         );
       })}
 
-      <button
-        onClick={() => {
-          agregarDia();
-          setDiasAbiertos((s) => new Set(s).add(draft.dias.length));
-        }}
-        className="text-secondary radius-control flex w-full items-center justify-center gap-1 border border-border py-3 text-text-tertiary"
-      >
-        <Plus size={16} /> Agregar día
-      </button>
+      {!mesaDeTrabajo && (
+        <button
+          onClick={() => {
+            agregarDia();
+            setDiasAbiertos((s) => new Set(s).add(draft.dias.length));
+          }}
+          className="text-secondary radius-control flex w-full items-center justify-center gap-1 border border-border py-3 text-text-tertiary"
+        >
+          <Plus size={16} /> Agregar día
+        </button>
+      )}
 
       {/* El control de calidad es el paso posterior a editar la rutina. Antes
           vivía arriba del editor: al terminar cinco o seis días había que
@@ -1115,6 +1159,9 @@ export function RutinaDraftEditor({
               onActualizarEjercicio={actualizarEjercicio}
               onInsertarEjercicio={insertarEjercicio}
               onQuitarEjercicio={quitarEjercicio}
+              expandida={mesaDeTrabajo}
+              onAgregarDia={mesaDeTrabajo ? agregarDia : undefined}
+              onQuitarDia={mesaDeTrabajo ? quitarDia : undefined}
             />
           </div>
         )}
