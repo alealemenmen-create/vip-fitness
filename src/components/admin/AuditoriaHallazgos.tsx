@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Search } from "lucide-react";
+import { AlertTriangle, ListChecks, Search } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
@@ -11,8 +11,11 @@ import { descartarHallazgo, penalizarHallazgo, type FormState } from "@/app/admi
 import type { HallazgoAuditoria } from "@/lib/auditoria/data";
 
 const SEVERIDAD_LABEL: Record<HallazgoAuditoria["severidad"], { texto: string; tone: "error" | "neutral" }> = {
-  alta: { texto: "Sospecha alta", tone: "error" },
-  media: { texto: "Para revisar", tone: "neutral" },
+  alta: { texto: "Revisar pronto", tone: "error" },
+  // "Sospecha" acusaba de algo que casi nunca pasó: la app es nueva y la
+  // mayoría de estos avisos son de gente aprendiendo a usarla, no de gente
+  // haciendo trampa. El panel informa, no imputa.
+  media: { texto: "Solo para mirar", tone: "neutral" },
 };
 
 const initialState: FormState = { error: null, ok: false };
@@ -138,15 +141,55 @@ export function AuditoriaHallazgos({ hallazgos }: { hallazgos: HallazgoAuditoria
     );
   }
 
+  // Las rutinas deficientes NO se pueden descartar (a propósito: se corrigen
+  // reemplazándolas, ver `registrarRevision`). Mezcladas con el resto hacían
+  // que la lista nunca pudiera llegar a cero — con 36 de ellas encima, lo que
+  // sí requiere una decisión rápida quedaba enterrado y el panel se volvía
+  // algo que no se abre. Van aparte y plegadas.
+  const paraDecidir = hallazgos.filter((h) => h.tipo !== "rutina_activa_deficiente");
+  const rutinasPorRehacer = hallazgos.filter((h) => h.tipo === "rutina_activa_deficiente");
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1.5 text-caption text-text-tertiary">
-        <AlertTriangle size={14} />
-        {hallazgos.length} {hallazgos.length === 1 ? "hallazgo pendiente" : "hallazgos pendientes"}
-      </div>
-      {hallazgos.map((h) => (
-        <HallazgoCard key={`${h.tipo}:${h.referenciaId}`} hallazgo={h} />
-      ))}
+    <div className="space-y-4">
+      <section className="space-y-2">
+        <div className="flex items-center gap-1.5 text-caption text-text-tertiary">
+          <AlertTriangle size={14} />
+          {paraDecidir.length === 0
+            ? "Nada pendiente de decisión"
+            : `${paraDecidir.length} ${paraDecidir.length === 1 ? "hallazgo espera" : "hallazgos esperan"} tu decisión`}
+        </div>
+        {paraDecidir.length === 0 ? (
+          <Card padding="p-4" className="flex flex-col items-center gap-2 text-center">
+            <Search size={24} className="text-text-tertiary" />
+            <p className="text-caption text-text-secondary">
+              Nada que descartar ni penalizar en los últimos 90 días.
+            </p>
+          </Card>
+        ) : (
+          paraDecidir.map((h) => <HallazgoCard key={`${h.tipo}:${h.referenciaId}`} hallazgo={h} />)
+        )}
+      </section>
+
+      {rutinasPorRehacer.length > 0 && (
+        <details className="space-y-2">
+          <summary className="text-caption cursor-pointer text-text-tertiary">
+            <span className="inline-flex items-center gap-1.5">
+              <ListChecks size={14} />
+              {rutinasPorRehacer.length} rutinas activas con observaciones · no se descartan, se
+              reemplazan
+            </span>
+          </summary>
+          <p className="text-micro mb-2 mt-2 text-text-tertiary">
+            Estas no son sospechas sobre el alumno: son avisos sobre cómo quedó armada su rutina.
+            Solo desaparecen cuando publicas una nueva para esa persona.
+          </p>
+          <div className="space-y-2">
+            {rutinasPorRehacer.map((h) => (
+              <HallazgoCard key={`${h.tipo}:${h.referenciaId}`} hallazgo={h} />
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

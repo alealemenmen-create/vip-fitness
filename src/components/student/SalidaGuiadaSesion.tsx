@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { finalizarSesion } from "@/app/alumno/entrenar/actions";
 import { programarAvisoSesionSinCerrar } from "@/app/alumno/entrenar/push-actions";
 import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
+import { hayDescansoVencido } from "@/lib/entrenamiento/descanso";
 
 /**
  * Nadie cierra la rutina.
@@ -43,6 +44,9 @@ export function SalidaGuiadaSesion({
   const [destino, setDestino] = useState<string | null>(null);
   /** Se fue a otra pestaña/app y volvió: aviso suave, sin bloquear nada. */
   const [volvio, setVolvio] = useState(false);
+  /** Además tenía un descanso corriendo cuando se fue. Cambia el mensaje: no
+   * es lo mismo "seguí donde lo dejaste" que "el reloj corrió sin vos". */
+  const [descansoCorrio, setDescansoCorrio] = useState(false);
   /** Ya decidió salir: deja pasar la próxima navegación sin volver a preguntar. */
   const permitidoRef = useRef(false);
   /** El recordatorio push se programa una sola vez por visita: cada llamada
@@ -117,7 +121,10 @@ export function SalidaGuiadaSesion({
         programarAviso();
         return;
       }
-      if (salioEn && Date.now() - salioEn > 120_000) setVolvio(true);
+      if (salioEn && Date.now() - salioEn > 120_000) {
+        setDescansoCorrio(hayDescansoVencido(sesionId));
+        setVolvio(true);
+      }
       salioEn = 0;
     };
     document.addEventListener("visibilitychange", alCambiarVisibilidad);
@@ -128,7 +135,7 @@ export function SalidaGuiadaSesion({
       window.removeEventListener("popstate", alVolver);
       window.removeEventListener("beforeunload", alCerrar);
     };
-  }, [programarAviso]);
+  }, [programarAviso, sesionId]);
 
   const salir = () => {
     permitidoRef.current = true;
@@ -145,11 +152,20 @@ export function SalidaGuiadaSesion({
     if (!volvio) return null;
     return createPortal(
       <div className="aviso-sesion-abierta" role="status">
-        <p className="text-caption font-semibold text-warning">Tu entrenamiento sigue abierto</p>
+        <p className="text-caption font-semibold text-warning">
+          {descansoCorrio ? "Tu descanso siguió corriendo" : "Tu entrenamiento sigue abierto"}
+        </p>
+        {/* Decir "nada se perdió" mientras el contador de exceso descontaba
+            puntos por ese mismo rato era mentirle en la cara. La penalización
+            se queda como está —es lo que hace que el alumno vuelva y no se
+            enfríe— pero el aviso ahora dice lo que de verdad pasó, y le
+            recuerda dónde está el botón para frenarla. */}
         <p className="text-micro mt-0.5 text-text-secondary">
-          {completa
-            ? `Terminaste los ${total} ejercicios. Ciérralo para cobrar tus +${puntos} pts.`
-            : `Llevas ${completados} de ${total}. Nada se perdió — sigue donde lo dejaste.`}
+          {descansoCorrio
+            ? "Mientras no estabas el reloj no se detuvo. Toca “toca para frenar”, sobre la serie en curso, para parar el descuento."
+            : completa
+              ? `Terminaste los ${total} ejercicios. Ciérralo para cobrar tus +${puntos} pts.`
+              : `Llevas ${completados} de ${total}. Sigue donde lo dejaste.`}
         </p>
         <button
           type="button"

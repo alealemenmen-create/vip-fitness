@@ -167,7 +167,8 @@ export async function obtenerHallazgosPendientes(): Promise<HallazgoAuditoria[]>
         detalle:
           `${vacias} de ${totalSeries} series quedaron marcadas como hechas pero sin kilos ni repeticiones. ` +
           `Pasa al cerrar un ejercicio con "Completar y guardar" teniendo series pendientes: la sesión puntúa igual. ` +
-          `Puede ser prisa legítima o trabajo que no se hizo — decide tú.`,
+          `Hasta el 11/08/2026 la app no avisaba nada al hacerlo, así que lo anterior a esa fecha es casi seguro ` +
+          `que no se entendía el botón. Mira sobre todo si sigue pasando después.`,
       });
     }
 
@@ -185,9 +186,17 @@ export async function obtenerHallazgosPendientes(): Promise<HallazgoAuditoria[]>
         alumnoId: sesion.alumno_id,
         alumnoNombre: nombrePorAlumno.get(sesion.alumno_id) ?? "Alumno",
         fecha: sesion.fecha,
-        severidad: "alta",
+        // Bajado de "alta" a "media" por lo que se ve en los datos reales: la
+        // app es nueva y la mayoría de estos casos es gente que entrenó SIN
+        // el teléfono y despues abrió la sesión para dejarla registrada. Eso
+        // no es hacer trampa, y tratarlo como "sospecha alta" acusaba de algo
+        // que no pasó — además de enterrar lo que sí hay que mirar.
+        severidad: "media",
         titulo: `#${sesion.numero_calendario ?? "?"} · ${totalSeries} series en ${minutos} min`,
-        detalle: `La sesión completa duró ${minutos} minuto${minutos === 1 ? "" : "s"} para ${totalSeries} series — insuficiente para ejecutarlas y cargarlas de verdad.`,
+        detalle:
+          `La sesión quedó registrada en ${minutos} minuto${minutos === 1 ? "" : "s"} para ${totalSeries} series. ` +
+          `Lo más probable es que haya entrenado sin la app y cargado todo al final. ` +
+          `Solo vale la pena mirarlo si se repite seguido en la misma persona.`,
       });
     }
   }

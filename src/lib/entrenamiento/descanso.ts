@@ -56,6 +56,31 @@ export function leerDescanso(
   }
 }
 
+/**
+ * ¿Hay algún descanso de esta sesión que ya se pasó de hora?
+ *
+ * Sirve para decirle la verdad al alumno cuando vuelve de otra app: si tenía
+ * un descanso corriendo, siguió corriendo sin él y el contador de exceso está
+ * descontando puntos. Se recorre `localStorage` porque el descanso está
+ * guardado por serie y acá no se sabe cuál estaba activa — son unas pocas
+ * claves por sesión, no vale la pena un índice aparte.
+ */
+export function hayDescansoVencido(sesionId: string): boolean {
+  try {
+    const prefijo = `vip:descanso:${sesionId}:`;
+    const ahora = Date.now();
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith(prefijo)) continue;
+      const finEn = Number(localStorage.getItem(k));
+      if (Number.isFinite(finEn) && finEn <= ahora) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function limpiarDescanso(
   sesionId: string,
   sesionEjercicioId: string,
