@@ -54,10 +54,10 @@ describe("elegirSesionDeHoy", () => {
     expect(elegirSesionDeHoy(sesiones, HOY)?.id).toBe("s8");
   });
 
-  it("con dos arrancadas gana la de número más bajo (la que quedó atrás)", () => {
+  it("con dos arrancadas de verdad, gana la más recién creada — mismo criterio que obtenerSesionEnProgreso", () => {
     const sesiones = [
-      sesion({ id: "s7", rutina_iniciada_en: "2026-08-11T12:00:00Z" }),
-      sesion({ id: "s6", rutina_iniciada_en: "2026-08-11T10:00:00Z" }),
+      sesion({ id: "s7", rutina_iniciada_en: "2026-08-11T12:00:00Z", hora_inicio: "2026-08-11T09:00:00Z" }),
+      sesion({ id: "s6", rutina_iniciada_en: "2026-08-11T10:00:00Z", hora_inicio: "2026-08-11T11:00:00Z" }),
     ];
     expect(elegirSesionDeHoy(sesiones, HOY)?.id).toBe("s6");
   });

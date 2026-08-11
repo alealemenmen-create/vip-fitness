@@ -470,25 +470,47 @@ export async function registrarFoto(alumnoId: string, fecha: string) {
   });
 }
 
+/** Al borrar una foto, revisa si la semana debe conservar su recompensa.
+ *
+ * Una foto vieja (fechada fuera de la ventana válida) nunca pasa por
+ * `registrarFoto`, así que su semana puede no tener movimiento — o tenerlo en
+ * 0 — aunque queden fotos en `fotos_progreso` para esos días. Antes esta
+ * función miraba solo "¿queda alguna foto en la semana?" y si la había,
+ * volvía a poner los 100 puntos completos sin importar si esa semana los
+ * había ganado alguna vez: borrar una foto vieja fabricaba puntos
+ * retroactivos de semanas de hace meses (bug encontrado con datos reales).
+ * Ahora solo se CONSERVA una recompensa que ya existía — nunca se CREA una
+ * nueva acá; crearla es trabajo exclusivo de `registrarFoto` en el momento
+ * de subir. */
 export async function recalcularFotoSemana(alumnoId: string, fecha: string) {
   const admin = createAdminClient();
   const lunes = lunesDe(fecha);
   const domingo = sumarDiasISO(lunes, 6);
-  const { data } = await admin
-    .from("fotos_progreso")
-    .select("id")
-    .eq("alumno_id", alumnoId)
-    .gte("fecha_foto", lunes)
-    .lte("fecha_foto", domingo)
-    .limit(1)
-    .maybeSingle();
+  const [{ data: foto }, { data: existente }] = await Promise.all([
+    admin
+      .from("fotos_progreso")
+      .select("id")
+      .eq("alumno_id", alumnoId)
+      .gte("fecha_foto", lunes)
+      .lte("fecha_foto", domingo)
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("puntos_vip_movimientos")
+      .select("puntos")
+      .eq("alumno_id", alumnoId)
+      .eq("clave", `foto:${lunes}`)
+      .maybeSingle(),
+  ]);
+  const yaGanada = (existente?.puntos ?? 0) > 0;
+  const mantener = Boolean(foto) && yaGanada;
   return guardarMovimiento({
     alumnoId,
     clave: `foto:${lunes}`,
     categoria: "progreso",
-    puntos: data ? PUNTOS_VIP.fotoSemanal : 0,
-    titulo: data ? "Foto de progreso" : "Foto de progreso eliminada",
-    detalle: data ? "Seguimiento visual de la semana" : "Sube una foto para recuperar esta recompensa",
+    puntos: mantener ? PUNTOS_VIP.fotoSemanal : 0,
+    titulo: mantener ? "Foto de progreso" : "Foto de progreso eliminada",
+    detalle: mantener ? "Seguimiento visual de la semana" : "Sube una foto para recuperar esta recompensa",
     fecha,
   });
 }

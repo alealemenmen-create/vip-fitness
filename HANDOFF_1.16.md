@@ -8,18 +8,87 @@ Continúa el 1.15 (misma sesión, tramo posterior). Leer los dos.
 
 ## Punto de regreso
 
-- `main` a la par con `origin/main`. Último commit **subido**: `ee374c1`.
-- **Hay trabajo local SIN COMMITEAR** (toda la sesión del 11/08). Ver esa
-  sección: son 3 bugs arreglados y 7 funciones nuevas, más una migración
-  escrita y sin correr.
-- Producción al día y sin tocar. **Ninguna migración aplicada.**
-- `tsc` limpio · **277 pruebas** (28 archivos) · build OK con **42 rutas**.
-- eslint: 0 errores en todo lo tocado. Quedan 3 errores viejos en
-  `src/components/student/SesionEjercicioCard.tsx` (`setState` dentro de un
-  efecto), que ya estaban y no se tocaron en esta sesión.
+- `main` a la par con `origin/main` en commits, pero **local va adelante y sin
+  subir**. Último commit **subido**: `ee374c1`.
+- Commits locales sin push: `488142b` (los 3 bugs + 7 funciones de la sesión
+  del 11/08) y uno más encima con 6 bugs de lógica encontrados en una
+  auditoría de código posterior (ver «Auditoría de lógica» más abajo).
+- Producción al día y sin tocar. **Ninguna migración aplicada** (falta correr
+  `0065_saldo_y_consumo_ia.sql`).
+- `tsc` limpio · **279 pruebas** (28 archivos, +2 de la auditoría) · eslint 0
+  errores en todo lo tocado. Quedan 3 errores viejos en
+  `SesionEjercicioCard.tsx` (`setState` en un efecto), no tocados.
 - Leer también la ADENDA al final: ahí están los bugs reportados con un alumno
   real y las decisiones de última hora, que son el punto de partida real.
 - Locales sin subir, intactos: `Rutinas Alejandro/`, `respaldo-cloud-ia-2026-08-09.bundle`, `tmp/`.
+
+## Auditoría de lógica del 11/08 (segundo tramo) — 6 bugs encontrados y corregidos
+
+Pedido explícito: "haz una prueba completa de lógica y funcionalidad correcta
+y consigue cualquier tipo de problemas… luego preséntalo y resuelve". Se
+repartió la revisión del commit `488142b` entre 5 agentes en paralelo (uno por
+área: sesión activa, puntos por foto/peso, borrador y reordenar, consumo de
+IA, rutinas-hechas/zoom/navegación), más pruebas en vivo con la cuenta de
+prueba `1@1.com` (alumno "Entrenador Prueba", datos descartables — no se tocó
+ningún alumno real). Los 6 hallazgos reales, ya corregidos:
+
+1. **Borrar una foto vieja fabricaba puntos retroactivos.** `recalcularFotoSemana`
+   (`lib/ranking/movimientos.ts`) solo miraba "¿queda alguna foto en la
+   semana?" y si la había, reponía los 100 puntos completos sin importar si
+   esa semana los había ganado alguna vez. **Reproducido en vivo**: subir dos
+   fotos viejas de la misma semana (sin puntos, correcto) y borrar una
+   fabricaba +100 puntos de una semana de meses atrás. Ahora solo se
+   CONSERVA una recompensa que ya existía (fila con puntos > 0 antes de
+   borrar); nunca se crea una nueva ahí — eso es trabajo exclusivo de
+   `registrarFoto` al subir. Reverificado en vivo tras el fix: ya no fabrica.
+2. **Reordenar un ejercicio mientras se edita otro los mezclaba.** El editor
+   abierto (`RutinaDraftEditor.tsx`) se identifica por posición (índice), no
+   por el ejercicio. Mover con las flechas nuevas un ejercicio vecino al que
+   está abierto para editar hacía que el formulario, sin avisar, pasara a
+   editar el ejercicio que quedó en ese índice tras el intercambio. Las
+   flechas ahora también corrigen `editando` cuando el swap afecta a la fila
+   abierta.
+3. **Desempate inconsistente entre "Continuar" y el resto de la app** si
+   llegan a coexistir dos sesiones `en_progreso` genuinas (posible vía
+   `cancelarYEmpezarOtroDia`, que no cancela la sesión vieja si ya tiene
+   progreso). `elegirSesionDeHoy` desempataba por número de calendario más
+   bajo; `obtenerSesionEnProgreso`/`iniciarSesion` por `hora_inicio` más
+   reciente — podían apuntar a sesiones distintas. Unificado a `hora_inicio`
+   en los tres lugares (se agregó esa columna a las consultas que faltaban).
+4. **El contador de costo de IA subestimaba la llamada más cara.**
+   `revisarRutinaGenerada` pide caché de **1 hora** (cuesta 2x la entrada) a
+   propósito, pero `calcularCostoUsd` siempre aplicaba la tarifa de caché de
+   **5 minutos** (1.25x) porque solo miraba el total plano
+   `cache_creation_input_tokens`, no el desglose `cache_creation` del SDK.
+   Corregido: usa `ephemeral_1h_input_tokens` / `ephemeral_5m_input_tokens`
+   cuando están disponibles.
+5. **Los "~US$0,24" citados en el handoff 1.15 y en el panel no cuadran con
+   la fórmula actual** (da ~US$0,71 con los mismos números de ejemplo — la
+   prueba vieja tenía un rango tan ancho que no lo detectaba). Dejado
+   anotado en el test, sin inventar una cifra nueva: **falta reconciliar
+   contra una factura real de Anthropic** antes de confiar en el panel de
+   saldo para decisiones de negocio.
+6. **El zoom del panel del entrenador (75/85/100%) y el tamaño de letra del
+   alumno (100/115/130%) comparten variable CSS y clave de `localStorage`
+   con rangos incompatibles.** Si el entrenador achica a 75% y entra a "Mi
+   rutina", la vista de alumno queda achicada de verdad pero el selector de
+   letra del alumno mostraba "Normal" — mentía sobre el estado real (y al
+   revés). Ahora ambos muestran el porcentaje REAL aunque esté fuera de su
+   propio rango, y el primer toque del panel del entrenador vuelve a
+   "Normal" en vez de partir de un punto que no existe en su lista.
+   **Reverificado en vivo tras el fix.**
+
+Dos sospechas sin confirmar por ejecución, anotadas pero NO tocadas (no está
+probado que sean reales): aviso duplicado de puntos si dos subidas de
+foto/peso caen exactamente al mismo tiempo (el `unique` de la tabla evita que
+el total se infle, así que como mucho sería un mensaje duplicado en pantalla);
+`obtenerSaldoIA` trae todas las filas de `asistente_uso_ia` sin `.limit()`,
+riesgo de subcontar si algún día supera el tope de filas de PostgREST.
+
+**No verificado por falta de acceso**: el bug original de "Continuar" con dos
+sesiones `en_progreso` genuinas a la vez requiere forzar ese estado a mano
+(no se pudo disparar solo con la UI en la cuenta de prueba) — la corrección es
+por code review, no por repro en vivo.
 
 ## Lo que se hizo después del 1.15
 

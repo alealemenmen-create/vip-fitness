@@ -16,11 +16,20 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 
 /** Precio por millón de tokens, en dólares. De la tabla pública de Anthropic.
- * Si cambian, se cambian acá y todo el contador se corrige de una. */
-const PRECIOS_USD: Record<string, { entrada: number; salida: number; escrituraCache: number; lecturaCache: number }> = {
-  "claude-opus-5": { entrada: 15, salida: 75, escrituraCache: 18.75, lecturaCache: 1.5 },
-  "claude-sonnet-5": { entrada: 3, salida: 15, escrituraCache: 3.75, lecturaCache: 0.3 },
-  "claude-haiku-4-5-20251001": { entrada: 1, salida: 5, escrituraCache: 1.25, lecturaCache: 0.1 },
+ * Si cambian, se cambian acá y todo el contador se corrige de una.
+ *
+ * Escribir caché tiene DOS tarifas según el TTL pedido, no una: 5 minutos
+ * cuesta 1.25x la entrada normal, 1 hora cuesta el doble (2x). `revisarRutina`
+ * pide `ttl: "1h"` a propósito (ver su comentario) porque es la llamada más
+ * cara de la app — si acá se le aplicara la tarifa de 5 minutos, el contador
+ * subestimaría justo esa llamada, que es la que existe para no subestimar. */
+const PRECIOS_USD: Record<
+  string,
+  { entrada: number; salida: number; escrituraCache5m: number; escrituraCache1h: number; lecturaCache: number }
+> = {
+  "claude-opus-5": { entrada: 15, salida: 75, escrituraCache5m: 18.75, escrituraCache1h: 30, lecturaCache: 1.5 },
+  "claude-sonnet-5": { entrada: 3, salida: 15, escrituraCache5m: 3.75, escrituraCache1h: 6, lecturaCache: 0.3 },
+  "claude-haiku-4-5-20251001": { entrada: 1, salida: 5, escrituraCache5m: 1.25, escrituraCache1h: 2, lecturaCache: 0.1 },
 };
 
 /** Modelo desconocido: se cobra como Sonnet en vez de como 0. Un contador que
@@ -33,6 +42,11 @@ export type UsoTokens = {
   output_tokens: number;
   cache_creation_input_tokens?: number | null;
   cache_read_input_tokens?: number | null;
+  /** Desglose por TTL del SDK (`response.usage.cache_creation`). Si no viene
+   * (llamador viejo, o el SDK no lo entregó), se asume todo a 5 minutos —
+   * es la tarifa más barata de las dos, así que ante la duda no se cobra de
+   * más, pero tampoco es el caso real de `revisarRutinaGenerada`. */
+  cache_creation?: { ephemeral_1h_input_tokens: number; ephemeral_5m_input_tokens: number } | null;
 };
 
 /**
@@ -42,10 +56,17 @@ export type UsoTokens = {
  */
 export function calcularCostoUsd(modelo: string, uso: UsoTokens): number {
   const precio = PRECIOS_USD[modelo] ?? PRECIO_POR_DEFECTO;
+  const totalCache = uso.cache_creation_input_tokens ?? 0;
+  const cache1h = uso.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+  // Sin desglose, se asume 5 minutos entero (ver comentario del tipo). Con
+  // desglose, `ephemeral_5m` debería alcanzar para el resto, pero se resta
+  // del total real por si el SDK redondeara distinto entre los dos campos.
+  const cache5m = uso.cache_creation ? Math.max(0, totalCache - cache1h) : totalCache;
   return (
     (uso.input_tokens / 1_000_000) * precio.entrada +
     (uso.output_tokens / 1_000_000) * precio.salida +
-    ((uso.cache_creation_input_tokens ?? 0) / 1_000_000) * precio.escrituraCache +
+    (cache5m / 1_000_000) * precio.escrituraCache5m +
+    (cache1h / 1_000_000) * precio.escrituraCache1h +
     ((uso.cache_read_input_tokens ?? 0) / 1_000_000) * precio.lecturaCache
   );
 }

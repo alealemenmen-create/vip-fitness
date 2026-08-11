@@ -22,12 +22,15 @@ import { ZoomOut } from "lucide-react";
 const ESCALAS = [1, 0.85, 0.75] as const;
 type Escala = (typeof ESCALAS)[number];
 
-function normalizar(valor: number): Escala {
-  return (ESCALAS.find((escala) => escala === valor) ?? 1) as Escala;
-}
-
 export function ZoomPanel({ className = "" }: { className?: string }) {
-  const [escala, setEscala] = useState<Escala>(1);
+  // Valor real de `--escala-texto`, no acotado a los tres tamaños de este
+  // panel: el selector de tamaño de letra del alumno (MenuAlumno.tsx) escribe
+  // la misma variable y la misma clave de localStorage con su propio rango
+  // (100/115/130%). Antes acá se forzaba cualquier valor ajeno a 100%, así
+  // que si el entrenador entraba a "Mi rutina" con la letra agrandada, este
+  // botón decía "100%" mintiendo sobre el tamaño real (bug encontrado en
+  // revisión de código).
+  const [escala, setEscala] = useState(1);
 
   // Igual que ThemeToggle: el valor real lo dejó el script inline de
   // layout.tsx sobre <html> antes del primer paint. Leerlo en el render daría
@@ -37,13 +40,18 @@ export function ZoomPanel({ className = "" }: { className?: string }) {
       const actual = parseFloat(
         document.documentElement.style.getPropertyValue("--escala-texto") || "1"
       );
-      setEscala(normalizar(actual));
+      setEscala(actual || 1);
     }, 0);
     return () => window.clearTimeout(id);
   }, []);
 
   const ciclar = () => {
-    const siguiente = ESCALAS[(ESCALAS.indexOf(escala) + 1) % ESCALAS.length];
+    // Si el valor actual no es uno de los tres de este panel (por ejemplo,
+    // quedó en 115%/130% por el tamaño de letra del alumno), el primer toque
+    // lo trae de vuelta a "Normal" en vez de partir de un punto que no existe
+    // en esta lista.
+    const indiceActual = ESCALAS.indexOf(escala as Escala);
+    const siguiente = indiceActual === -1 ? ESCALAS[0] : ESCALAS[(indiceActual + 1) % ESCALAS.length];
     setEscala(siguiente);
     document.documentElement.style.setProperty("--escala-texto", String(siguiente));
     document.documentElement.setAttribute("data-escala-texto", String(siguiente));

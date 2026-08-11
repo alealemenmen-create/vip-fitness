@@ -36,16 +36,52 @@ describe("calcularCostoUsd", () => {
     expect(leer).toBeLessThan(escribir);
   });
 
-  it("una revisión real de rutina da del orden de los US$0,24 medidos en vivo", () => {
-    // Números de la medición del handoff 1.15, llamada 1.
+  it("con los tokens de la medición del handoff 1.15 (llamada 1), da ~US$0,71 a los precios actuales", () => {
+    // El handoff citó "~US$0,24" para esta misma medición, pero esa cifra no
+    // sale de esta fórmula con estos números (da ~US$0,71, casi 3x más) — el
+    // rango viejo de esta prueba (0.15 a 0.9) era tan ancho que no lo
+    // detectaba. O el precio de Opus en `PRECIOS_USD` está desactualizado, o
+    // el "~US$0,24" del handoff/paneles quedó viejo: falta reconciliar contra
+    // una factura real de Anthropic antes de confiar en el panel de saldo.
     const costo = calcularCostoUsd("claude-opus-5", {
       input_tokens: 3636,
       output_tokens: 6556,
       cache_creation_input_tokens: 8849,
       cache_read_input_tokens: 0,
     });
-    expect(costo).toBeGreaterThan(0.15);
-    expect(costo).toBeLessThan(0.9);
+    expect(costo).toBeCloseTo(0.71215875, 6);
+  });
+
+  it("la escritura de caché de 1 hora cuesta más que la de 5 minutos, mismo total de tokens", () => {
+    // `revisarRutinaGenerada` pide `ttl: "1h"` a propósito (ver su
+    // comentario): sin este desglose, esa llamada —la más cara de la app— se
+    // cobraba a la tarifa de 5 minutos, más barata, y el contador la
+    // subestimaba justo a ella.
+    const con5m = calcularCostoUsd("claude-opus-5", {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_creation_input_tokens: 10_000,
+      cache_creation: { ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 10_000 },
+    });
+    const con1h = calcularCostoUsd("claude-opus-5", {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_creation_input_tokens: 10_000,
+      cache_creation: { ephemeral_1h_input_tokens: 10_000, ephemeral_5m_input_tokens: 0 },
+    });
+    expect(con1h).toBeGreaterThan(con5m);
+    // 1h = 2x entrada, 5m = 1.25x entrada — la razón entre ambos es fija.
+    expect(con1h).toBeCloseTo(con5m * (2 / 1.25), 6);
+  });
+
+  it("sin el desglose de 1h/5m del SDK, se asume todo a la tarifa más barata (5 min)", () => {
+    const uso = { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 10_000 };
+    const sinDesglose = calcularCostoUsd("claude-opus-5", uso);
+    const con5mExplicito = calcularCostoUsd("claude-opus-5", {
+      ...uso,
+      cache_creation: { ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 10_000 },
+    });
+    expect(sinDesglose).toBeCloseTo(con5mExplicito, 6);
   });
 
   it("un modelo desconocido se cobra como Sonnet, nunca como gratis", () => {

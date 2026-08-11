@@ -1271,7 +1271,21 @@ export function VistaPreviaEstructurada({
                             <span className="flex shrink-0 flex-col">
                               <button
                                 type="button"
-                                onClick={() => onMoverEjercicio(diaIdx, indice, -1)}
+                                onClick={() => {
+                                  onMoverEjercicio(diaIdx, indice, -1);
+                                  // La tarjeta abierta se identifica por posición (ver
+                                  // comentario en `editando` más arriba). Si esta flecha
+                                  // intercambia justo con la fila que está abierta para
+                                  // editar, el ejercicio que se estaba editando se mudó a
+                                  // `indice` — sin esto, el formulario seguía apuntando a
+                                  // la posición vieja y terminaba editando el ejercicio
+                                  // equivocado (bug encontrado en revisión de código).
+                                  setEditando((actual) =>
+                                    actual && actual.dia === diaIdx && actual.ej === indice - 1
+                                      ? { dia: diaIdx, ej: indice }
+                                      : actual
+                                  );
+                                }}
                                 disabled={indice === 0}
                                 aria-label={`Subir ${ejercicio.nombre}`}
                                 className="grid h-[13px] w-6 place-items-center rounded-t border border-b-0 border-border text-text-tertiary disabled:opacity-25 active:bg-[#2f6fa8] active:text-white"
@@ -1280,7 +1294,14 @@ export function VistaPreviaEstructurada({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => onMoverEjercicio(diaIdx, indice, 1)}
+                                onClick={() => {
+                                  onMoverEjercicio(diaIdx, indice, 1);
+                                  setEditando((actual) =>
+                                    actual && actual.dia === diaIdx && actual.ej === indice + 1
+                                      ? { dia: diaIdx, ej: indice }
+                                      : actual
+                                  );
+                                }}
                                 disabled={indice === dia.ejercicios.length - 1}
                                 aria-label={`Bajar ${ejercicio.nombre}`}
                                 className="grid h-[13px] w-6 place-items-center rounded-b border border-border text-text-tertiary disabled:opacity-25 active:bg-[#2f6fa8] active:text-white"

@@ -128,7 +128,7 @@ export async function obtenerEstadoEntrenamientoHoy(
   const hoy = hoyISO();
   const { data: sesiones } = await supabase
     .from("sesiones_entrenamiento")
-    .select("id, fecha, estado, rutina_iniciada_en, rutina_dias(tipo)")
+    .select("id, fecha, estado, rutina_iniciada_en, hora_inicio, rutina_dias(tipo)")
     .eq("alumno_id", alumnoId)
     .eq("rutina_id", rutina.id)
     .order("numero_calendario", { ascending: false })
@@ -197,7 +197,7 @@ export async function obtenerResumenEntrenamientoDias(
     obtenerDiasRutina(rutina.id),
     supabase
       .from("sesiones_entrenamiento")
-      .select("id, numero_calendario, estado, rutina_iniciada_en")
+      .select("id, numero_calendario, estado, rutina_iniciada_en, hora_inicio")
       .eq("alumno_id", alumnoId)
       .eq("rutina_id", rutina.id)
       .not("numero_calendario", "is", null)
@@ -214,7 +214,11 @@ export async function obtenerResumenEntrenamientoDias(
   // Mismo criterio que el botón Continuar (ver `elegirSesionDeHoy`): manda la
   // que se está ejecutando de verdad, no la de número más alto. Una fila
   // creada por "Ver entrenamiento" existe en `en_progreso` sin haberse
-  // arrancado, y hacía que el anillo "hoy" saltara al día siguiente.
+  // arrancado, y hacía que el anillo "hoy" saltara al día siguiente. Si
+  // hubiera más de una arrancada a la vez, el desempate es por la más
+  // recién creada (`hora_inicio`), igual que `elegirSesionDeHoy` y
+  // `obtenerSesionEnProgreso` — antes desempataba por número más bajo y
+  // los tres podían apuntar a sesiones distintas.
   const enCurso = (sesiones ?? []).filter((s) => {
     if (s.estado !== "en_progreso") return false;
     const dia = diasRutina[(s.numero_calendario! - 1) % n];
@@ -223,7 +227,9 @@ export async function obtenerResumenEntrenamientoDias(
   const ultimaSesion = sesiones?.[0];
   const numeroActual =
     enCurso.length > 0
-      ? enCurso[enCurso.length - 1].numero_calendario!
+      ? enCurso.reduce((masReciente, actual) =>
+          (actual.hora_inicio ?? "") > (masReciente.hora_inicio ?? "") ? actual : masReciente
+        ).numero_calendario!
       : ultimaSesion && ultimaSesion.estado === "en_progreso"
         ? ultimaSesion.numero_calendario!
         : (ultimaSesion?.numero_calendario ?? 0) + 1;

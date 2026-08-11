@@ -20,6 +20,12 @@ export type SesionCandidata = {
   estado: string;
   rutina_iniciada_en?: string | null;
   rutina_dias?: unknown;
+  /** Igual que en `obtenerSesionEnProgreso` (entrenar/data.ts): desempata por
+   * la más recién CREADA, no por número — dos sesiones `en_progreso` de
+   * verdad al mismo tiempo son un estado excepcional, pero si llega a pasar
+   * las dos funciones tienen que elegir la misma o "Continuar" en Inicio y el
+   * reenganche automático de Entrenar apuntan a sesiones distintas. */
+  hora_inicio?: string | null;
 };
 
 /** Un día de descanso no tiene el segundo paso de "Iniciar rutina": se
@@ -45,9 +51,11 @@ export function elegirSesionDeHoy<T extends SesionCandidata>(
 ): T | null {
   const ejecutandose = sesiones.filter(estaEjecutandose);
   if (ejecutandose.length > 0) {
-    // Si por algún motivo hubiera más de una arrancada, gana la de número más
-    // bajo: es la que quedó atrás en la rotación y hay que terminar primero.
-    return ejecutandose[ejecutandose.length - 1];
+    // Si por algún motivo hubiera más de una arrancada, gana la más
+    // recientemente creada (mismo criterio que `obtenerSesionEnProgreso`).
+    return ejecutandose.reduce((masReciente, actual) =>
+      (actual.hora_inicio ?? "") > (masReciente.hora_inicio ?? "") ? actual : masReciente
+    );
   }
 
   const ultima = sesiones[0];

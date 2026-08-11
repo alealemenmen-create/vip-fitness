@@ -38,7 +38,15 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
   const [abierto, setAbierto] = useState(false);
   const [claro, setClaro] = useState(false);
   const [temaBoton, setTemaBoton] = useState<TemaBoton>("espejo");
-  const [escala, setEscala] = useState<Escala>(1);
+  // Valor real de `--escala-texto`, no acotado a los tres tamaños de este
+  // menú: el panel de zoom del entrenador (ZoomPanel.tsx) escribe la misma
+  // variable y la misma clave de localStorage con su propio rango (75/85/100%).
+  // Forzar acá cualquier valor ajeno a "Normal" hacía que este selector
+  // mintiera sobre el tamaño real que se estaba viendo (bug encontrado en
+  // revisión de código). Con el valor real, si vino del panel del entrenador
+  // ninguna de las tres opciones queda marcada — correcto: ninguna es la que
+  // está activa.
+  const [escala, setEscala] = useState<number>(1);
   const [montado, setMontado] = useState(false);
 
   // El botón vive dentro de un contenedor con transform (esquina del logo),
@@ -60,7 +68,7 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
     const e = parseFloat(
       document.documentElement.style.getPropertyValue("--escala-texto") || "1"
     );
-    setEscala(e === 1.15 || e === 1.3 ? e : 1);
+    setEscala(e || 1);
     setAbierto(true);
   };
 
