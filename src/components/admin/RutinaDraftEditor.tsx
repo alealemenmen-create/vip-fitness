@@ -562,6 +562,7 @@ export function VistaPreviaEstructurada({
   tecnicas,
   onEncadenar,
   onInsertarDescanso,
+  onAplicarAGrupo,
 }: {
   draft: RutinaConProgresion;
   biblioteca?: EjercicioBiblioteca[];
@@ -579,6 +580,8 @@ export function VistaPreviaEstructurada({
   onEncadenar?: (diaIdx: number, ejIdx: number, nombre: string, cantidad: number) => void;
   /** Mete un día de descanso en esa posición de la semana. */
   onInsertarDescanso?: (posicion: number) => void;
+  /** Series o descanso de todo un grupo del día, de un toque. */
+  onAplicarAGrupo?: (diaIdx: number, etiqueta: string, campo: "series" | "descansoSegundos", valor: number) => void;
 }) {
   // Coordenadas de la tarjeta abierta para editar, no el ejercicio en sí:
   // así, al insertar uno nuevo, alcanza con apuntar a su posición para que
@@ -615,6 +618,56 @@ export function VistaPreviaEstructurada({
               )}
             </div>
           </div>
+          {/* Series y descanso de todo un grupo del día, de un toque, en vez de
+              abrir ejercicio por ejercicio. Los valores son los que se usan de
+              verdad en sala; el que quiera otro sigue teniendo el lápiz. */}
+          {onAplicarAGrupo && dia.tipo === "entrenamiento" && dia.ejercicios.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-border bg-surface px-2.5 py-1.5">
+              {Array.from(new Set(dia.ejercicios.map((e) => grupoVisual(e).etiqueta))).map((etiqueta) => {
+                const color = dia.ejercicios.map(grupoVisual).find((v) => v.etiqueta === etiqueta)?.color;
+                return (
+                  <div key={etiqueta} className="flex items-center gap-1">
+                    <span className="text-[9px] font-bold uppercase" style={{ color }}>
+                      {etiqueta}
+                    </span>
+                    <select
+                      aria-label={`Series de todo ${etiqueta} en el día ${dia.numero}`}
+                      defaultValue=""
+                      onChange={(e) => {
+                        if (e.target.value) onAplicarAGrupo(diaIdx, etiqueta, "series", Number(e.target.value));
+                        e.target.value = "";
+                      }}
+                      className="radius-control border border-border bg-surface-2 px-1 py-0.5 text-[10px] text-text-secondary"
+                    >
+                      <option value="">series…</option>
+                      {[2, 3, 4, 5, 6].map((s) => (
+                        <option key={s} value={s}>
+                          {s} series
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label={`Descanso de todo ${etiqueta} en el día ${dia.numero}`}
+                      defaultValue=""
+                      onChange={(e) => {
+                        if (e.target.value)
+                          onAplicarAGrupo(diaIdx, etiqueta, "descansoSegundos", Number(e.target.value));
+                        e.target.value = "";
+                      }}
+                      className="radius-control border border-border bg-surface-2 px-1 py-0.5 text-[10px] text-text-secondary"
+                    >
+                      <option value="">descanso…</option>
+                      {[30, 45, 60, 90, 120, 150, 180].map((s) => (
+                        <option key={s} value={s}>
+                          {s}s
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {dia.descripcion && <p className="text-micro border-t border-border px-2.5 py-1.5 text-text-tertiary">{dia.descripcion}</p>}
           {dia.tipo === "entrenamiento" && (
             <div className="space-y-3 border-t border-border p-2 pb-4">
@@ -1042,6 +1095,28 @@ export function RutinaDraftEditor({
     });
   };
 
+  /** Cambia series o descanso de TODOS los ejercicios de un grupo dentro de un
+   * día, de un toque. Pedido textual: "en el día de pecho, un botón general de
+   * descanso para el músculo de pecho... me estás poniendo a editar muchos
+   * campos, quiero todo mucho más fácil". Agrupa por la etiqueta visual, así
+   * que bíceps y tríceps se tocan por separado aunque la base los guarde
+   * juntos como "brazos". */
+  const aplicarAGrupo = (diaIdx: number, etiqueta: string, campo: "series" | "descansoSegundos", valor: number) => {
+    setDraft((d) => ({
+      ...d,
+      dias: d.dias.map((dia, i) =>
+        i !== diaIdx
+          ? dia
+          : {
+              ...dia,
+              ejercicios: dia.ejercicios.map((e) =>
+                grupoVisual(e).etiqueta === etiqueta ? { ...e, [campo]: valor } : e
+              ),
+            }
+      ),
+    }));
+  };
+
   const publicar = async () => {
     if (!planCodigo) {
       setError("Selecciona primero el plan principal del alumno.");
@@ -1336,6 +1411,7 @@ export function RutinaDraftEditor({
               tecnicas={tecnicas}
               onEncadenar={encadenarTecnica}
               onInsertarDescanso={mesaDeTrabajo ? insertarDescanso : undefined}
+              onAplicarAGrupo={mesaDeTrabajo ? aplicarAGrupo : undefined}
             />
           </div>
         )}
