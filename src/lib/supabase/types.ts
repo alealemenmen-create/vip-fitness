@@ -1608,7 +1608,12 @@ export interface Database {
       auditoria_revisiones: {
         Row: {
           id: string;
-          tipo: "sesion_duracion_imposible" | "puntos_entrenamiento_huerfanos";
+          // 0066_auditoria_tipos_hallazgo.sql amplió el check.
+          tipo:
+            | "sesion_duracion_imposible"
+            | "puntos_entrenamiento_huerfanos"
+            | "rutina_activa_deficiente"
+            | "series_sin_registro";
           referencia_id: string;
           alumno_id: string;
           estado: "descartado" | "penalizado";
@@ -1618,7 +1623,12 @@ export interface Database {
           creado_en: string;
         };
         Insert: {
-          tipo: "sesion_duracion_imposible" | "puntos_entrenamiento_huerfanos";
+          // 0066_auditoria_tipos_hallazgo.sql amplió el check.
+          tipo:
+            | "sesion_duracion_imposible"
+            | "puntos_entrenamiento_huerfanos"
+            | "rutina_activa_deficiente"
+            | "series_sin_registro";
           referencia_id: string;
           alumno_id: string;
           estado: "descartado" | "penalizado";

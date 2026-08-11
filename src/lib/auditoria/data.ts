@@ -4,7 +4,11 @@ import { hoyISO, sumarDiasISO } from "@/lib/date";
 import { esDuracionImposible } from "./deteccion";
 import { detectarDeficienciasRutina } from "@/lib/rutinas/validacion";
 
-export type TipoHallazgo = "sesion_duracion_imposible" | "puntos_entrenamiento_huerfanos" | "rutina_activa_deficiente";
+export type TipoHallazgo =
+  | "sesion_duracion_imposible"
+  | "puntos_entrenamiento_huerfanos"
+  | "rutina_activa_deficiente"
+  | "series_sin_registro";
 
 export type HallazgoAuditoria = {
   tipo: TipoHallazgo;
@@ -112,12 +116,14 @@ export async function obtenerHallazgosPendientes(): Promise<HallazgoAuditoria[]>
     // `.range()` no lo puede pisar) — con ~2000 series en 90 días hace falta
     // paginar, si no la mitad de las series queda sin contar en silencio.
     // Ambos problemas se detectaron recién probando contra datos reales.
+    /** Series dadas por hechas sin un solo dato cargado, por sesión. */
+    const seriesSinRegistroPorSesion = new Map<string, number>();
     const TAM_PAGINA = 1000;
     let desdeOffset = 0;
     while (true) {
       const { data: pagina } = await admin
         .from("series_realizadas")
-        .select("sesion_ejercicio_id, sesion_ejercicios!inner(sesion_id)")
+        .select("sesion_ejercicio_id, realizada, peso_kg, reps_realizadas, sesion_ejercicios!inner(sesion_id)")
         .in("sesion_ejercicios.sesion_id", sesionIds)
         .range(desdeOffset, desdeOffset + TAM_PAGINA - 1);
 
@@ -125,10 +131,44 @@ export async function obtenerHallazgosPendientes(): Promise<HallazgoAuditoria[]>
         const sesionId = (s.sesion_ejercicios as unknown as { sesion_id: string } | null)?.sesion_id;
         if (!sesionId) continue;
         totalSeriesPorSesion.set(sesionId, (totalSeriesPorSesion.get(sesionId) ?? 0) + 1);
+        // Marcada como hecha y COMPLETAMENTE vacía. Se exigen las dos cosas
+        // vacías a propósito: un ejercicio de peso corporal no lleva kilos
+        // pero sí repeticiones, y uno de tiempo tampoco lleva kilos — pedir
+        // solo "sin kilos" los marcaría a todos por igual. Sin kilos Y sin
+        // repeticiones no es un caso legítimo de ningún tipo de ejercicio:
+        // es una serie que se cerró sin hacerse.
+        if (s.realizada && s.peso_kg === null && s.reps_realizadas === null) {
+          seriesSinRegistroPorSesion.set(sesionId, (seriesSinRegistroPorSesion.get(sesionId) ?? 0) + 1);
+        }
       }
 
       if (!pagina || pagina.length < TAM_PAGINA) break;
       desdeOffset += TAM_PAGINA;
+    }
+
+    // Umbral de 3: una serie suelta sin cargar es despiste, y marcarlo por
+    // eso llenaría el panel de ruido hasta volverlo inútil. Tres o más ya es
+    // un patrón — normalmente un ejercicio entero cerrado de golpe.
+    const MINIMO_SERIES_SIN_REGISTRO = 3;
+    for (const sesion of sesionesValidas) {
+      const vacias = seriesSinRegistroPorSesion.get(sesion.id) ?? 0;
+      if (vacias < MINIMO_SERIES_SIN_REGISTRO) continue;
+      if (yaRevisado("series_sin_registro", sesion.id)) continue;
+
+      const totalSeries = totalSeriesPorSesion.get(sesion.id) ?? 0;
+      hallazgos.push({
+        tipo: "series_sin_registro",
+        referenciaId: sesion.id,
+        alumnoId: sesion.alumno_id,
+        alumnoNombre: nombrePorAlumno.get(sesion.alumno_id) ?? "Alumno",
+        fecha: sesion.fecha,
+        severidad: "media",
+        titulo: `#${sesion.numero_calendario ?? "?"} · ${vacias} series sin registro`,
+        detalle:
+          `${vacias} de ${totalSeries} series quedaron marcadas como hechas pero sin kilos ni repeticiones. ` +
+          `Pasa al cerrar un ejercicio con "Completar y guardar" teniendo series pendientes: la sesión puntúa igual. ` +
+          `Puede ser prisa legítima o trabajo que no se hizo — decide tú.`,
+      });
     }
 
     for (const sesion of sesionesValidas) {
