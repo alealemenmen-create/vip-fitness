@@ -4,9 +4,11 @@ Continúa el 1.15 (misma sesión, tramo posterior). Leer los dos.
 
 ## Punto de regreso
 
-- `main` a la par con `origin/main`. Último commit: `cae81af`.
+- `main` a la par con `origin/main`. Último commit: `25d8851`.
 - Producción al día. Sin cambios en la base de datos, ninguna migración aplicada.
-- `tsc` limpio · eslint limpio · **242 pruebas**.
+- `tsc` limpio · eslint limpio · **251 pruebas** · build con 41 rutas.
+- Leer también la ADENDA al final: ahí están los bugs reportados con un alumno
+  real y las decisiones de última hora, que son el punto de partida real.
 - Locales sin subir, intactos: `Rutinas Alejandro/`, `respaldo-cloud-ia-2026-08-09.bundle`, `tmp/`.
 
 ## Lo que se hizo después del 1.15
