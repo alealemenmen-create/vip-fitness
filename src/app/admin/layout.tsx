@@ -109,7 +109,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-bg px-3 md:hidden">
+        {/* Mismo material que la cabecera del alumno (`panel-aero-superior`):
+            placa flotante translúcida con tinte VIP y desenfoque, en vez de la
+            franja plana con borde que había acá. Solo cambia el aspecto — el
+            contenido y lo que hace cada botón queda igual.
+            Ojo: las reglas de Espejo están limitadas a `.shell-alumno`, así que
+            el panel del entrenador se queda siempre con el tema VIP aunque el
+            alumno elija el modo compacto. */}
+        <header className="panel-aero-superior imprimir-oculto z-30 flex h-14 shrink-0 items-center gap-2 px-3 md:hidden">
           <Logo compact height={20} className="!w-[118px] !rounded-lg !px-2 !py-1 min-[520px]:!w-[138px]" />
           <div className="hidden min-w-0 flex-1 min-[470px]:block">
             <p className="text-[8px] font-semibold uppercase leading-none tracking-[0.14em] text-text-tertiary">Entrenador</p>
@@ -156,7 +163,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </main>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
+      {/* Igual que la barra del alumno: flotante, redondeada y con el mismo
+          tinte VIP abajo, en vez de una franja pegada al borde inferior. */}
+      <div className="panel-aero-inferior franja-segura-inferior fixed inset-x-0 bottom-0 z-40 md:hidden">
         <AdminTabs {...badges} />
       </div>
 
