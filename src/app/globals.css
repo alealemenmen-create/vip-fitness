@@ -553,7 +553,8 @@ input[type="date"]::-webkit-date-and-time-value {
   antes del primer paint igual que el tema claro/oscuro):
   - "espejo" (por defecto): espejo negro con acento ámbar.
   - "vip": degradado ámbar sólido de la marca.
-  - "femenino": degradado rosa-lila.
+  - "masculino" (Steel Fit): acero y grafito, serio.
+  - "femenino" (Lady Fit): degradado rosa-lila.
 */
 :root {
   --btn-bg: linear-gradient(155deg, #060606 0%, #1d1d20 50%, #060606 100%);
@@ -567,6 +568,9 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 :root[data-tema-boton="vip"] {
   --logo-plate-bg: linear-gradient(135deg, #ffc247 0%, #ffa100 55%, #f08a00 100%);
+}
+:root[data-tema-boton="masculino"] {
+  --logo-plate-bg: linear-gradient(135deg, #6f93b3 0%, #4f6478 55%, #232a35 100%);
 }
 :root[data-tema-boton="femenino"] {
   --logo-plate-bg: linear-gradient(135deg, #ff8ac0 0%, #e685e0 55%, #b388ff 100%);
@@ -603,18 +607,42 @@ input[type="date"]::-webkit-date-and-time-value {
   display: block;
 }
 /*
-  "VIP" y "Lady" no son solo el color del botón: reemplazan el acento ámbar
-  de TODA la app (--color-vip alimenta text-vip/bg-vip/border-vip vía el
-  @theme inline de abajo, más los estilos inline que usan var(--color-vip)),
-  y además le sacan el "espejo negro" a los paneles premium (mensaje del día,
-  Ranked, ejercicio activo) reemplazándolo por vidrio del color del tema.
-  "Espejo" es el look original — no se toca nada.
+  "VIP", "Steel Fit" y "Lady" no son solo el color del botón: reemplazan el
+  acento ámbar de TODA la app (--color-vip alimenta text-vip/bg-vip/border-vip
+  vía el @theme inline de abajo, más los estilos inline que usan
+  var(--color-vip)), y además le sacan el "espejo negro" a los paneles premium
+  (mensaje del día, Ranked, ejercicio activo) reemplazándolo por vidrio del
+  color del tema. "Espejo" es el look original — no se toca nada.
 */
 :root[data-tema-boton="vip"] {
   --btn-bg: linear-gradient(135deg, #ffc247 0%, #ffa100 55%, #ff8a00 100%);
   --btn-color: #000000;
   --btn-border: rgba(0, 0, 0, 0.15);
   --color-vip: #ffb700;
+}
+/* Steel Fit: acero y grafito. Pedido explícito de Alejandro — "colores
+   masculinos, de señor más serio" — como contraparte de Lady Fit, con el
+   mismo nivel de identidad propia (paleta entera, no solo el botón) pero
+   frío y sobrio en vez de cálido y pastel. No se toca --cristal-azul: el
+   tinte de las placas de vidrio del admin YA es azul acero por defecto (ver
+   más abajo), así que Steel Fit hereda ese tinte sin pisarlo. */
+:root[data-tema-boton="masculino"] {
+  --color-bg: #12161c;
+  --color-surface: #1b212a;
+  --color-surface-2: #232a35;
+  --color-surface-highlight: #f4f7fa;
+  --color-border: #37424f;
+  --color-text: #f2f5f8;
+  --color-text-secondary: #a9b4c0;
+  --color-text-tertiary: #78838f;
+  --color-vip: #6f93b3;
+  --color-acento: #4f6478;
+  --color-acento-fuerte: #8fb4d9;
+  --color-acento-suave: rgba(111, 147, 179, 0.18);
+  --btn-bg: linear-gradient(135deg, #6f93b3 0%, #4f6478 55%, #232a35 100%);
+  --btn-color: #f4f7fa;
+  --btn-border: rgba(143, 180, 217, 0.35);
+  --logo-plate-bg: linear-gradient(135deg, #6f93b3 0%, #4f6478 55%, #232a35 100%);
 }
 :root[data-tema-boton="femenino"] {
   --color-bg: #21171e;
@@ -658,7 +686,29 @@ input[type="date"]::-webkit-date-and-time-value {
   --color-warning: #b88735;
 }
 
-.marca-lady-fit {
+/* Steel Fit en claro: gris azulado frío, no el mismo blanco cálido de Lady
+   Fit — sigue leyéndose serio con el fondo invertido. */
+:root[data-theme="light"][data-tema-boton="masculino"] {
+  color-scheme: light;
+  --color-bg: #f2f5f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #e6ecf1;
+  --color-surface-highlight: #1a222c;
+  --color-border: #d6dee6;
+  --color-text: #1a222c;
+  --color-text-secondary: #57626d;
+  --color-text-tertiary: #838d96;
+  --color-vip: #3d5a75;
+  --color-acento: #2f4356;
+  --color-acento-fuerte: #24333f;
+  --color-acento-suave: rgba(61, 90, 117, 0.16);
+  --color-error: #c8434f;
+  --color-success: #2f8f5b;
+  --color-warning: #b3831f;
+}
+
+.marca-lady-fit,
+.marca-steel-fit {
   display: none;
 }
 
@@ -671,6 +721,16 @@ input[type="date"]::-webkit-date-and-time-value {
     rgba(38, 26, 4, 0.95) 100%
   ) !important;
   border-color: rgba(255, 183, 0, 0.5) !important;
+}
+[data-tema-boton="masculino"] .mensaje-dia,
+[data-tema-boton="masculino"] .panel-vip-espejo {
+  background: linear-gradient(
+    120deg,
+    rgba(111, 147, 179, 0.24) 0%,
+    rgba(16, 20, 26, 0.95) 45%,
+    rgba(16, 20, 26, 0.95) 100%
+  ) !important;
+  border-color: rgba(111, 147, 179, 0.5) !important;
 }
 [data-tema-boton="femenino"] .mensaje-dia,
 [data-tema-boton="femenino"] .panel-vip-espejo {
@@ -3150,6 +3210,125 @@ input[type="number"] {
 
 :root[data-theme="light"][data-tema-boton="femenino"] .fondo-menu-alumno {
   background: rgba(58, 38, 51, 0.3);
+}
+
+/* -------------------------------------------------------------------------
+   STEEL FIT
+   Misma capa exclusivamente visual que Lady Fit, en acero y grafito en vez
+   de rosa-lila. Todos los elementos siguen siendo los mismos componentes,
+   enlaces, formularios y Server Actions del portal VIP.
+   ---------------------------------------------------------------------- */
+:root[data-tema-boton="masculino"] .shell-alumno {
+  background:
+    radial-gradient(circle at 8% 2%, rgba(111, 147, 179, 0.16), transparent 30%),
+    radial-gradient(circle at 94% 38%, rgba(55, 66, 79, 0.2), transparent 34%),
+    var(--color-bg);
+}
+
+:root[data-theme="light"][data-tema-boton="masculino"] .shell-alumno {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(111, 147, 179, 0.2), transparent 31%),
+    radial-gradient(circle at 96% 42%, rgba(55, 66, 79, 0.14), transparent 35%),
+    linear-gradient(180deg, #fbfcfd 0%, #f2f5f8 38%, #eef2f5 100%);
+}
+
+:root[data-tema-boton="masculino"] .shell-alumno .placa-logo-aero .logo-espejo,
+:root[data-tema-boton="masculino"] .shell-alumno .placa-logo-aero .logo-vip-lady {
+  display: none;
+}
+
+:root[data-tema-boton="masculino"] .shell-alumno .marca-steel-fit {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text);
+  text-align: center;
+  line-height: 1;
+  letter-spacing: 0.13em;
+}
+
+:root[data-tema-boton="masculino"] .shell-alumno .marca-steel-fit strong {
+  font-size: calc(20px * var(--escala-texto));
+  font-weight: 760;
+}
+
+:root[data-tema-boton="masculino"] .shell-alumno .marca-steel-fit small {
+  margin-top: 5px;
+  color: var(--color-text-secondary);
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 650;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+:root[data-theme="light"][data-tema-boton="masculino"] .panel-aero-superior {
+  border-color: rgba(61, 90, 117, 0.2);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(111, 147, 179, 0.2), transparent 48%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(233, 239, 244, 0.8));
+  box-shadow:
+    0 18px 42px -34px rgba(20, 28, 36, 0.56),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="light"][data-tema-boton="masculino"] .panel-aero-inferior {
+  border-color: rgba(61, 90, 117, 0.2);
+  background:
+    radial-gradient(circle at 18% 100%, rgba(111, 147, 179, 0.17), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(228, 235, 241, 0.9));
+  box-shadow:
+    0 -18px 42px -34px rgba(20, 28, 36, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+:root[data-theme="light"][data-tema-boton="masculino"] .item-navegacion-aero-activo {
+  border-color: rgba(61, 90, 117, 0.2);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(111, 147, 179, 0.2), transparent 72%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.94), rgba(224, 232, 238, 0.7));
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    0 10px 26px -20px rgba(20, 28, 36, 0.58);
+}
+
+:root[data-theme="light"][data-tema-boton="masculino"] .shell-alumno .radius-card {
+  box-shadow:
+    0 18px 44px -38px rgba(20, 28, 36, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+:root[data-theme="light"][data-tema-boton="masculino"] .shell-alumno .bg-surface.radius-card,
+:root[data-theme="light"][data-tema-boton="masculino"] .shell-alumno .radius-card.bg-surface {
+  border: 1px solid rgba(111, 147, 179, 0.2);
+}
+
+:root[data-theme="light"][data-tema-boton="masculino"] .mensaje-dia,
+:root[data-theme="light"][data-tema-boton="masculino"] .panel-vip-espejo {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(111, 147, 179, 0.2), transparent 44%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(228, 235, 241, 0.88)) !important;
+  border-color: rgba(61, 90, 117, 0.3) !important;
+  color: var(--color-text);
+  box-shadow: 0 18px 42px -34px rgba(20, 28, 36, 0.5);
+}
+
+:root[data-theme="light"][data-tema-boton="masculino"] .panel-vip-espejo-borde {
+  border-color: rgba(111, 147, 179, 0.5);
+  box-shadow: 0 0 0 1px rgba(111, 147, 179, 0.12);
+}
+
+:root[data-theme="light"][data-tema-boton="masculino"] .panel-menu-alumno {
+  border-left: 1px solid rgba(61, 90, 117, 0.2);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(111, 147, 179, 0.18), transparent 34%),
+    #fbfcfd;
+  box-shadow: -22px 0 55px rgba(20, 28, 36, 0.16);
+}
+
+:root[data-theme="light"][data-tema-boton="masculino"] .fondo-menu-alumno {
+  background: rgba(20, 28, 36, 0.3);
 }
 
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {

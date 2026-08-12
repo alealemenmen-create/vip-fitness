@@ -24,6 +24,7 @@ export function AplicarTemaBotonGuardado({
     if (
       temaGuardado !== "espejo" &&
       temaGuardado !== "vip" &&
+      temaGuardado !== "masculino" &&
       temaGuardado !== "femenino"
     ) {
       return;
@@ -32,6 +33,8 @@ export function AplicarTemaBotonGuardado({
     // En un dispositivo nuevo (o en uno que ya usaba el antiguo Lady solo de
     // botones) puede no existir todavía una preferencia de luminosidad. Lady
     // Fit arranca clara sin pisar una elección oscura guardada expresamente.
+    // Steel Fit NO entra acá a propósito: "serio" es oscuro/grafito, así que
+    // arranca con lo que ya tenía el dispositivo (igual que VIP y Espejo).
     if (temaGuardado === "femenino" && localStorage.getItem("vip-theme") === null) {
       document.documentElement.setAttribute("data-theme", "light");
       localStorage.setItem("vip-theme", "light");

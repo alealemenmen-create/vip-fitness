@@ -70,7 +70,7 @@ const THEME_INIT_SCRIPT = `
     var t = localStorage.getItem("vip-theme");
     if (t === "light") document.documentElement.setAttribute("data-theme", "light");
     var b = localStorage.getItem("vip-tema-boton");
-    if (b === "vip" || b === "femenino") {
+    if (b === "vip" || b === "masculino" || b === "femenino") {
       document.documentElement.setAttribute("data-tema-boton", b);
     } else if (b !== "espejo") {
       // Nadie eligió tema de botón todavía en este dispositivo: el default

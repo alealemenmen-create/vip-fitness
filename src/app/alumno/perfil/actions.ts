@@ -96,7 +96,7 @@ export async function guardarDatosPersonales(
 export async function guardarTemaBoton(tema: string): Promise<void> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura) return;
-  if (tema !== "espejo" && tema !== "vip" && tema !== "femenino") return;
+  if (tema !== "espejo" && tema !== "vip" && tema !== "masculino" && tema !== "femenino") return;
 
   const supabase = await createClient();
   const { error } = await supabase

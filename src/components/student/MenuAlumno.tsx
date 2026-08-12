@@ -7,9 +7,13 @@ import { Settings, X, UserCog, FileText, Sun, Moon, LogOut, Sparkles, Type, Bot,
 import { logout } from "@/app/actions";
 import { guardarTemaBoton } from "@/app/alumno/perfil/actions";
 
-type TemaBoton = "espejo" | "vip" | "femenino";
+type TemaBoton = "espejo" | "vip" | "masculino" | "femenino";
 const TEMAS_BOTON: { valor: TemaBoton; texto: string; muestra: string }[] = [
   { valor: "vip", texto: "VIP", muestra: "linear-gradient(135deg, #ffc247, #ff8a00)" },
+  // Entre VIP y Lady Fit a propósito: mismo trato "identidad completa" que
+  // Lady Fit (wordmark propio en vez del logo, paleta entera propia — ver
+  // STEEL FIT en globals.css), pero con acero/grafito en vez de rosa-lila.
+  { valor: "masculino", texto: "Steel Fit", muestra: "linear-gradient(135deg, #6f93b3, #37424f)" },
   { valor: "femenino", texto: "Lady Fit", muestra: "linear-gradient(135deg, #d99aaa, #b8a6c9)" },
   { valor: "espejo", texto: "Espejo", muestra: "linear-gradient(135deg, #060606, #1d1d20)" },
 ];
@@ -259,12 +263,14 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
                 <p className="text-caption mb-2 flex items-center gap-2 text-text-tertiary">
                   <Sparkles size={16} className="text-vip" /> MODO VISUAL
                 </p>
-                <div className="flex gap-2">
+                {/* Grilla 2×2, igual que el zoom de arriba: con los cuatro
+                    temas en una sola fila "Steel Fit" quedaba apretado. */}
+                <div className="grid grid-cols-2 gap-2">
                   {TEMAS_BOTON.map((t) => (
                     <button
                       key={t.valor}
                       onClick={() => elegirTemaBoton(t.valor)}
-                      className="radius-control flex flex-1 flex-col items-center gap-1.5 py-2.5 text-caption font-medium transition-colors duration-200 ease-in-out"
+                      className="radius-control flex flex-col items-center gap-1.5 py-2.5 text-caption font-medium transition-colors duration-200 ease-in-out"
                       style={{
                         background: "var(--color-surface-2)",
                         border:

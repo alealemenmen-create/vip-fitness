@@ -112,6 +112,10 @@ export function Logo({
     >
       {corner && <div className="absolute right-3 top-1/2 -translate-y-1/2">{corner}</div>}
       <span className="titulo-espejo-compacto text-h3 font-semibold text-text">Portal VIP</span>
+      <span className="marca-steel-fit" aria-label="Steel Fit by VIP Fitness">
+        <strong>STEEL FIT</strong>
+        <small>by VIP Fitness</small>
+      </span>
       <span className="marca-lady-fit" aria-label="Lady Fit by VIP Fitness">
         <strong>LADY FIT</strong>
         <small>by VIP Fitness</small>
