@@ -75,3 +75,40 @@ export function semanaDelNumero(numero: number, sesionesPorSemana: number): numb
   if (sesionesPorSemana < 1) return 1;
   return Math.max(1, Math.ceil(numero / sesionesPorSemana));
 }
+
+/**
+ * Un mes de entrenamiento son cuatro semanas.
+ *
+ * Es la misma cuenta con la que el plan calcula las sesiones mensuales
+ * (`días/semana × 4`, ver `obtenerBalanceSesionesMes`), así que el "de 12" que
+ * ve el alumno coincide con lo que tiene contratado.
+ *
+ * Ojo: es un bloque de cuatro semanas de SU rutina, no el mes del calendario.
+ * Si entrena más lento, su semana 4 puede caer en el mes siguiente. El balance
+ * mensual sigue contando por mes calendario, que es lo correcto para el cobro;
+ * esto es para que el alumno se ubique.
+ */
+export const SEMANAS_POR_MES = 4;
+
+export function sesionesPorMes(sesionesPorSemana: number): number {
+  return Math.max(1, sesionesPorSemana) * SEMANAS_POR_MES;
+}
+
+/**
+ * El número corrido de la sesión dentro del mes: 1..12 en una rutina de 3
+ * días, 1..20 en una de 5.
+ *
+ * Pedido de Alejandro: que el alumno vea "sesión 8 de 12" y no "sesión 2",
+ * porque "sesión 2" solo le dice dónde está parado dentro de la semana y no
+ * cuánto lleva del mes.
+ */
+export function sesionDelMes(numero: number, sesionesPorSemana: number): number {
+  const total = sesionesPorMes(sesionesPorSemana);
+  return ((Math.max(1, numero) - 1) % total) + 1;
+}
+
+/** La semana dentro del mes: 1..4, y vuelve a 1. `semanaDelNumero` sigue
+ * creciendo sin techo porque es lo que usa la navegación (?pagina=N). */
+export function semanaDelMes(semanaAbsoluta: number): number {
+  return ((Math.max(1, semanaAbsoluta) - 1) % SEMANAS_POR_MES) + 1;
+}

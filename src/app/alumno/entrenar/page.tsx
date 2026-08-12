@@ -14,7 +14,15 @@ import {
   obtenerSesionEnProgreso,
 } from "./data";
 import { PuntosVipGanados } from "@/components/student/PuntosVipGanados";
-import { descansosDespuesDe, diasQueNumeran, semanaDelNumero, sesionDeLaSemana } from "@/lib/entrenamiento/ciclo-sesiones";
+import {
+  SEMANAS_POR_MES,
+  descansosDespuesDe,
+  diasQueNumeran,
+  semanaDelMes,
+  semanaDelNumero,
+  sesionDelMes,
+  sesionesPorMes,
+} from "@/lib/entrenamiento/ciclo-sesiones";
 
 /** Los dos accesos chicos de arriba, alineados a la derecha para que caigan
  * bajo el menú de las tres rayitas. El título de la pantalla ("Entrenamiento
@@ -192,7 +200,7 @@ export default async function EntrenarPage({
         indicador={
           sesionEnProgresoId
             ? "Sesión en curso"
-            : `Semana ${pagina} · Sesión ${sesionDeLaSemana(diaImpulso.numero, sesionesPorSemana)} de ${sesionesPorSemana}`
+            : `Semana ${semanaDelMes(pagina)} de ${SEMANAS_POR_MES} · Sesión ${sesionDelMes(diaImpulso.numero, sesionesPorSemana)} de ${sesionesPorMes(sesionesPorSemana)}`
         }
         mensaje={mensajeImpulso}
       />

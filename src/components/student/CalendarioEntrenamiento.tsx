@@ -7,7 +7,12 @@ import { ChevronLeft, ChevronRight, Moon, Check, AlertTriangle } from "lucide-re
 import { iniciarSesion, cancelarYEmpezarOtroDia } from "@/app/alumno/entrenar/actions";
 import type { NumeroCalendario, EstadoNumero } from "@/app/alumno/entrenar/data";
 import { FotoDiaEntrenamiento, ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
-import { sesionDeLaSemana } from "@/lib/entrenamiento/ciclo-sesiones";
+import {
+  SEMANAS_POR_MES,
+  semanaDelMes,
+  sesionDelMes,
+  sesionesPorMes,
+} from "@/lib/entrenamiento/ciclo-sesiones";
 
 const COLOR_PUNTO: Record<EstadoNumero, string> = {
   no_iniciado: "transparent",
@@ -56,7 +61,9 @@ function TiraDias({
               <span
                 className={`text-[12px] font-semibold leading-tight ${activo ? "text-text" : "text-text-secondary"}`}
               >
-                {descanso ? <Moon size={13} className="mt-0.5" /> : sesionDeLaSemana(n.numero, sesionesPorSemana)}
+                {/* El número del MES, no el de la semana: en la semana 2 se
+                    ven 4, 5 y 6, que es como el alumno cuenta lo que lleva. */}
+                {descanso ? <Moon size={13} className="mt-0.5" /> : sesionDelMes(n.numero, sesionesPorSemana)}
               </span>
               <span
                 className="h-1 w-1 rounded-full"
@@ -145,8 +152,12 @@ export function CalendarioEntrenamiento({
         >
           <ChevronLeft size={18} />
         </Link>
+        {/* "Semana 3 de 4 · 9 de 12 sesiones" en vez de "Semana 3": el alumno
+            necesita ubicarse en el mes, no solo en la semana suelta. Pedido de
+            Alejandro. */}
         <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
-          Semana {pagina} · {sesionesPorSemana} sesiones recomendadas
+          Semana {semanaDelMes(pagina)} de {SEMANAS_POR_MES} ·{" "}
+          {sesionDelMes(actual.numero, sesionesPorSemana)} de {sesionesPorMes(sesionesPorSemana)} sesiones
         </span>
         <Link
           href={`/alumno/entrenar?pagina=${pagina + 1}`}
@@ -180,8 +191,8 @@ export function CalendarioEntrenamiento({
           <div className="relative">
             <p className="mb-0.5 text-[9px] tracking-[0.08em] text-text-tertiary">
               {actual.numero === proximoNumero
-                ? `PRÓXIMA SESIÓN · SEMANA ${pagina}`
-                : `SEMANA ${pagina} · SESIÓN ${sesionDeLaSemana(actual.numero, sesionesPorSemana)} DE ${sesionesPorSemana}`}
+                ? `PRÓXIMA SESIÓN · SEMANA ${semanaDelMes(pagina)} DE ${SEMANAS_POR_MES}`
+                : `SEMANA ${semanaDelMes(pagina)} · SESIÓN ${sesionDelMes(actual.numero, sesionesPorSemana)} DE ${sesionesPorMes(sesionesPorSemana)}`}
             </p>
             <h2 className="text-[26px] font-bold leading-none text-text">{titulo}</h2>
             <p className="mt-1 text-[11px] text-text-secondary">{subtitulo}</p>
@@ -236,7 +247,8 @@ export function CalendarioEntrenamiento({
       </div>
       {planNombre && (
         <p className="text-center text-[9px] text-text-tertiary">
-          {planNombre} · Semana {pagina} · sesión {sesionDeLaSemana(actual.numero, sesionesPorSemana)} de {sesionesPorSemana}
+          {planNombre} · Semana {semanaDelMes(pagina)} de {SEMANAS_POR_MES} · sesión{" "}
+          {sesionDelMes(actual.numero, sesionesPorSemana)} de {sesionesPorMes(sesionesPorSemana)}
         </p>
       )}
     </div>

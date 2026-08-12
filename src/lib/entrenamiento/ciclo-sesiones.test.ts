@@ -3,8 +3,11 @@ import {
   descansosDespuesDe,
   diaDelNumero,
   diasQueNumeran,
+  semanaDelMes,
   semanaDelNumero,
   sesionDeLaSemana,
+  sesionDelMes,
+  sesionesPorMes,
 } from "./ciclo-sesiones";
 
 /** La rutina real que reportó el desfase: 4 entrenamientos y un descanso en
@@ -101,5 +104,39 @@ describe("numeración que ve el alumno", () => {
     expect(semanaDelNumero(1, 4)).toBe(1);
     expect(semanaDelNumero(4, 4)).toBe(1);
     expect(semanaDelNumero(5, 4)).toBe(2);
+  });
+});
+
+describe("el mes que ve el alumno", () => {
+  it("una rutina de 3 dias son 12 sesiones al mes", () => {
+    expect(sesionesPorMes(3)).toBe(12);
+    expect(sesionesPorMes(5)).toBe(20);
+  });
+
+  it("el caso exacto que pidio Alejandro: 12 sesiones repartidas de a 3", () => {
+    // Semana 1 hace las primeras tres, semana 2 las siguientes tres, y así
+    // hasta completar las doce.
+    const porSemana = [1, 2, 3, 4].map((semana) =>
+      [1, 2, 3].map((i) => sesionDelMes((semana - 1) * 3 + i, 3))
+    );
+    expect(porSemana).toEqual([
+      [1, 2, 3],
+      [4, 5, 6],
+      [7, 8, 9],
+      [10, 11, 12],
+    ]);
+  });
+
+  it("terminadas las doce, el mes vuelve a empezar", () => {
+    expect(sesionDelMes(12, 3)).toBe(12);
+    expect(sesionDelMes(13, 3)).toBe(1);
+    expect(semanaDelMes(4)).toBe(4);
+    expect(semanaDelMes(5)).toBe(1);
+    expect(semanaDelMes(9)).toBe(1);
+  });
+
+  it("la semana del mes nunca pasa de 4 ni baja de 1", () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 8].map(semanaDelMes)).toEqual([1, 2, 3, 4, 1, 2, 3, 4]);
+    expect(semanaDelMes(0)).toBe(1);
   });
 });
