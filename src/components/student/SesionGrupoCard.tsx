@@ -483,7 +483,7 @@ export const SesionGrupoCard = forwardRef<
                       <button
                         type="button"
                         onClick={() => setConfirmandoIncompleto(false)}
-                        className="text-caption h-10 flex-1 rounded-[12px] border border-vip/60 font-bold text-vip"
+                        className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text"
                       >
                         Sigo entrenando
                       </button>

@@ -1353,17 +1353,49 @@ input[type="date"]::-webkit-date-and-time-value {
   /* Mismo lenguaje visual que .panel-aero-inferior (la barra de íconos): el
      mismo tinte VIP abajo, el mismo degradado oscuro y el mismo desenfoque.
      Con el negro plano de antes eran dos materiales distintos peleándose. */
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 20px;
+  /* Pedido de Alejandro: "ilumina más, entre morado y dorado". Toma los
+     mismos dos colores que ya usan las flechas de atrás (violeta) y adelante
+     (dorado VIP) — la barra entera queda como el punto medio entre las dos,
+     en vez de un tercer color inventado. */
   background:
-    radial-gradient(circle at 18% 100%, color-mix(in srgb, var(--color-vip) 13%, transparent), transparent 58%),
+    radial-gradient(circle at 12% 30%, color-mix(in srgb, #7c3cff 30%, transparent), transparent 62%),
+    radial-gradient(circle at 88% 100%, color-mix(in srgb, var(--color-vip) 30%, transparent), transparent 62%),
     linear-gradient(180deg, rgba(24, 25, 30, 0.78), rgba(8, 9, 12, 0.9));
   box-shadow:
     0 10px 26px -18px rgba(0, 0, 0, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    0 0 20px -4px color-mix(in srgb, #7c3cff 55%, transparent),
+    0 0 20px -4px color-mix(in srgb, var(--color-vip) 55%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   -webkit-backdrop-filter: blur(20px) saturate(145%);
   backdrop-filter: blur(20px) saturate(145%);
   transform: translateX(-50%);
+  animation: iluminacion-navegacion-ejercicio 2.6s ease-in-out infinite;
+}
+/* Respiración lenta, no un parpadeo duro: "llamativa" pero sin competir con
+   el único aviso que sí tiene que parpadear en la app (sesión sin cerrar,
+   ver .punto-sesion-sin-cerrar). */
+@keyframes iluminacion-navegacion-ejercicio {
+  0%, 100% {
+    box-shadow:
+      0 10px 26px -18px rgba(0, 0, 0, 0.7),
+      0 0 20px -4px color-mix(in srgb, #7c3cff 55%, transparent),
+      0 0 20px -4px color-mix(in srgb, var(--color-vip) 55%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 10px 26px -18px rgba(0, 0, 0, 0.7),
+      0 0 30px -2px color-mix(in srgb, #7c3cff 75%, transparent),
+      0 0 30px -2px color-mix(in srgb, var(--color-vip) 75%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .navegacion-modo-enfocado-fija {
+    animation: none;
+  }
 }
 /* Doble flecha fluorescente a cada extremo: violeta para volver, verde VIP
    para avanzar. Se pidieron "más llamativas" — el glow es lo que las hace
@@ -1540,6 +1572,13 @@ input[type="date"]::-webkit-date-and-time-value {
   scrollbar-width: none;
   scroll-behavior: smooth;
   padding: 2px 4px;
+  /* Con zoom Grande o rutinas largas, la tira no entra entera (ver el
+     comentario en SesionEjercicios.tsx) y hay que deslizarla. Sin esto el
+     último casillero cortaba en seco justo contra la flecha, como si la
+     rutina terminara ahí — el desvanecido avisa que sigue de largo. Se pinta
+     siempre, entre o no entre todo: si no hace falta, no se nota. */
+  mask-image: linear-gradient(to right, transparent, black 10px, black calc(100% - 10px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 10px, black calc(100% - 10px), transparent);
 }
 .tira-ejercicios-rutina::-webkit-scrollbar {
   display: none;
@@ -2446,6 +2485,49 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
 @media (prefers-reduced-motion: reduce) {
   .animate-visor-fondo,
   .animate-visor-foto {
+    animation: none;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   AVISO DEL ICONO DE TÉCNICA (SesionEjercicioCard)
+
+   Reemplaza el modal que se abría solo al pasar el ejercicio a activo.
+   Ahora solo el botón "!" parpadea unas vueltas con una etiqueta al lado y
+   se esconde a los 4s (ver `avisoTecnica` en el componente) — el alumno
+   decide si lo toca, nada le tapa la pantalla.
+   ---------------------------------------------------------------------- */
+.parpadeo-icono-tecnica {
+  animation: parpadeo-icono-tecnica 0.8s ease-in-out 4;
+}
+@keyframes parpadeo-icono-tecnica {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-vip) 60%, transparent);
+  }
+  50% {
+    opacity: 0.4;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-vip) 35%, transparent);
+  }
+}
+.aviso-etiqueta-tecnica {
+  animation: aparecer-etiqueta-tecnica 0.25s ease-out;
+}
+@keyframes aparecer-etiqueta-tecnica {
+  0% {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .parpadeo-icono-tecnica {
+    animation: none;
+  }
+  .aviso-etiqueta-tecnica {
     animation: none;
   }
 }

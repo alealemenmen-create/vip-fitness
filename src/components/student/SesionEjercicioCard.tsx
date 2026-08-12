@@ -1475,17 +1475,21 @@ export const SesionEjercicioCard = forwardRef<
     recomendacionAprobada && !recomendacionAprobada.esPesoCorporal ? recomendacionAprobada.pesoSugeridoKg : null;
   const grupoTecnica = resolverGrupoTecnica(ejercicio.tecnicaTipo);
   // Pantalla "cargada", pedido de Alejandro: la técnica ya no vive siempre
-  // abierta. Un botoncito de info la muestra/esconde a pedido — pero la
-  // primera vez que este ejercicio pasa a ser el activo (le toca ahora) se
-  // abre sola, para que el alumno la vea sí o sí antes de poder cerrarla.
-  // `avisoAutomaticoRef` evita que se vuelva a abrir sola en cada render
-  // mientras sigue activo, o si el alumno ya la cerró a mano.
+  // abierta. Un botoncito de info la muestra/esconde a pedido. Antes se
+  // abría sola el modal completo al pasar el ejercicio a activo; Alejandro
+  // pidió sacar eso — ahora solo el botón "!" parpadea con una etiqueta al
+  // lado unos segundos y se esconde, sin tapar la pantalla ni animación de
+  // impacto. `avisoAutomaticoRef` evita que se repita en cada render
+  // mientras el ejercicio sigue activo.
   const [mostrarTecnica, setMostrarTecnica] = useState(false);
+  const [avisoTecnica, setAvisoTecnica] = useState(false);
   const avisoAutomaticoRef = useRef(false);
   useEffect(() => {
     if (activo && tecnica && !avisoAutomaticoRef.current) {
       avisoAutomaticoRef.current = true;
-      setMostrarTecnica(true);
+      setAvisoTecnica(true);
+      const id = window.setTimeout(() => setAvisoTecnica(false), 4000);
+      return () => window.clearTimeout(id);
     }
     // `tecnica` es un objeto nuevo en cada render (lo arma `resolverTecnica`
     // sin memo): depender de él directo dispararía el efecto todo el tiempo.
@@ -1877,17 +1881,38 @@ export const SesionEjercicioCard = forwardRef<
               en modo enfocado, a diferencia del botón que tenía antes en la
               cabecera (que quedaba oculto en modo enfocado y no había forma
               de reabrir la técnica una vez cerrada). Abre el modal completo,
-              nunca cierra desde acá — cerrar es cosa del modal mismo. */}
+              nunca cierra desde acá — cerrar es cosa del modal mismo.
+
+              Al pasar el ejercicio a activo, `avisoTecnica` lo hace parpadear
+              con la etiqueta "Técnica sugerida" al lado unos segundos (ver el
+              efecto más arriba) — nada se abre solo, el alumno decide si
+              toca. Tocar el botón apaga el aviso igual que si se hubiera
+              esperado a que se esconda solo. */}
           {tecnica && (
-            <button
-              type="button"
-              onClick={() => setMostrarTecnica(true)}
-              aria-haspopup="dialog"
-              aria-label="Ver técnica sugerida"
-              className="absolute bottom-1.5 left-1.5 z-[4] flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-vip backdrop-blur-sm active:scale-95"
-            >
-              <AlertCircle size={16} strokeWidth={2.5} />
-            </button>
+            <div className="absolute bottom-1.5 left-1.5 z-[4] flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setMostrarTecnica(true);
+                  setAvisoTecnica(false);
+                }}
+                aria-haspopup="dialog"
+                aria-label="Ver técnica sugerida"
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/60 text-vip backdrop-blur-sm active:scale-95 ${
+                  avisoTecnica ? "parpadeo-icono-tecnica" : ""
+                }`}
+              >
+                <AlertCircle size={16} strokeWidth={2.5} />
+              </button>
+              {avisoTecnica && (
+                <span
+                  aria-hidden
+                  className="aviso-etiqueta-tecnica whitespace-nowrap rounded-full bg-black/60 px-2 py-1 text-[11px] font-semibold text-vip backdrop-blur-sm"
+                >
+                  Técnica sugerida
+                </span>
+              )}
+            </div>
           )}
         </div>
         </div>
@@ -1900,11 +1925,11 @@ export const SesionEjercicioCard = forwardRef<
             `resolverTecnica` arriba.
 
             Ya no vive siempre abierta (pantalla cargada, pedido de
-            Alejandro): el botón "!" sobrepuesto en la foto la abre a pedido,
-            y se abre sola una vez cuando el ejercicio pasa a activo (ver el
-            efecto más arriba) — que la vea sí o sí antes de poder cerrarla.
-            Modal completo y no una cajita en la tarjeta: así el texto nunca
-            queda cortado ni apretado, entre en la pantalla que entre.
+            Alejandro): el botón "!" sobrepuesto en la foto la abre a pedido.
+            Ya no se abre sola — eso quedó reemplazado por el parpadeo del
+            botón (ver el efecto más arriba). Modal completo y no una cajita
+            en la tarjeta: así el texto nunca queda cortado ni apretado, entre
+            en la pantalla que entre.
 
             A propósito FUERA del `{!expandido ? ... : ...}` de más abajo: el
             botón "!" que la abre vive en la foto, que se ve tanto plegada
@@ -2144,7 +2169,7 @@ export const SesionEjercicioCard = forwardRef<
                   <button
                     type="button"
                     onClick={() => setConfirmandoIncompleto(false)}
-                    className="text-caption h-10 flex-1 rounded-[12px] border border-vip/60 font-bold text-vip"
+                    className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text"
                   >
                     Sigo entrenando
                   </button>
