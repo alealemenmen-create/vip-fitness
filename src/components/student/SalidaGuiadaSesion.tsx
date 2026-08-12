@@ -9,6 +9,7 @@ import { finalizarSesion } from "@/app/alumno/entrenar/actions";
 import { programarAvisoSesionSinCerrar } from "@/app/alumno/entrenar/push-actions";
 import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 import { hayDescansoVencido } from "@/lib/entrenamiento/descanso";
+import { BotonFinalizarSesion } from "@/components/student/BotonFinalizarSesion";
 
 /**
  * Nadie cierra la rutina.
@@ -212,9 +213,9 @@ export function SalidaGuiadaSesion({
           {!sinTocar && (
             <form action={finalizarSesion}>
               <input type="hidden" name="sesion_id" value={sesionId} />
-              <Button type="submit" variant={completa ? "accion" : "primary"} size="sm" className="w-full">
+              <BotonFinalizarSesion variant={completa ? "accion" : "primary"} size="sm" className="w-full">
                 {completa ? `Cerrar y sumar +${puntos} pts` : `Finalizar así (+${puntos} pts)`}
-              </Button>
+              </BotonFinalizarSesion>
             </form>
           )}
           <Button type="button" variant="secondary" size="sm" className="w-full" onClick={() => setDestino(null)}>

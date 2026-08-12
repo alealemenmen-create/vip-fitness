@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Trophy } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { BotonFinalizarSesion } from "@/components/student/BotonFinalizarSesion";
 import { finalizarSesion } from "@/app/alumno/entrenar/actions";
 import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 
@@ -49,9 +49,9 @@ export function CierreAutomaticoSesion({
         </div>
         <form action={finalizarSesion} className="space-y-2">
           <input type="hidden" name="sesion_id" value={sesionId} />
-          <Button type="submit" variant="accion" size="lg" className="w-full">
+          <BotonFinalizarSesion variant="accion" size="lg" className="w-full">
             Cerrar y sumar +{puntos} pts
-          </Button>
+          </BotonFinalizarSesion>
         </form>
         <button
           type="button"

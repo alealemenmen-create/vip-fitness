@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
 import { finalizarSesion } from "@/app/alumno/entrenar/actions";
+import { BotonFinalizarSesion } from "@/components/student/BotonFinalizarSesion";
 import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 
 export function FinalizarEntrenamiento({
@@ -117,9 +118,9 @@ export function FinalizarEntrenamiento({
           placeholder={esDescanso ? "¿Qué hiciste hoy? (opcional)" : "Comentario opcional"}
         />
         <div className="flex gap-2">
-          <Button type="submit" variant="primary" size="sm" className="flex-1">
+          <BotonFinalizarSesion variant="primary" size="sm" className="flex-1">
             {puntos > 0 ? `Confirmar +${puntos} pts` : "Confirmar"}
-          </Button>
+          </BotonFinalizarSesion>
           <Button
             type="button"
             variant="secondary"
