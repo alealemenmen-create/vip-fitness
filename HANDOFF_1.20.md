@@ -1,31 +1,27 @@
 # HANDOFF 1.20
 
-Continúa el 1.19. Cubre el tramo del **12/08** que terminó con push a `main` y
-deja **un trabajo pendiente definido con precisión: técnica aplicada a series
-puntuales**, con la migración de base de datos ya escrita y sin correr.
+Continúa el 1.19. Cubre el tramo del **12/08**, que cerró **sin pendientes de
+código**: se puso al día toda la deuda de migraciones y se terminó de punta a
+punta la técnica aplicada a series puntuales.
 
 ## Punto de regreso
 
-- Rama **`main`**. Último commit: **`56e5672`** — *"feat(armar-rutina): copiar
-  rutina a varios alumnos, ajustes rapidos por semana, tecnica en tira y
-  deshacer"*.
-- **`56e5672` YA ESTÁ PUSHEADO.** `main` despliega a producción, así que todo
-  lo listado en "Lo que ya está terminado" está en vivo.
-- Sin commitear en el árbol, y **creado en esta sesión**:
-  - `supabase/migrations/0073_tecnica_por_serie.sql` (nuevo)
-  - `HANDOFF_1.20.md` (este archivo)
+- Rama **`main`**.
 - Sin trackear y **sin tocar** (venían de antes, no los creó ninguna sesión de
   Claude, no se sabe qué son — preguntar a Alejandro antes de borrar):
   `Rutinas Alejandro/`, `respaldo-cloud-ia-2026-08-09.bundle`, `tmp/`.
 
-### Migraciones pendientes de correr en Supabase
+### Migraciones: ya no queda ninguna pendiente
 
-Arrastradas del 1.19 y sin novedad: **`0067`**, **`0068`**, **`0072`**.
+`0067`, `0068`, `0072` y `0073` se corrieron todas en Supabase el 12/08. La
+deuda que venía arrastrándose desde el 1.18 quedó saldada.
 
-**`0073_tecnica_por_serie.sql` YA SE CORRIÓ** en Supabase el 12/08 ("Success.
-No rows returned"), antes de que existiera código que la use. La columna está
-en la base, en `NULL` en todas las filas, y la app se comporta igual que antes
-— es lo esperado.
+**Trampa que costó un intento fallido:** la `0072` ya se había corrido a medias
+en algún momento, así que el reintento moría con `42710: policy ... already
+exists`. Postgres **no tiene `create policy if not exists`**, así que toda
+migración que cree políticas necesita un `drop policy if exists` delante de
+cada `create` — como ya hacía la `0067`. Se corrigió la `0072` con ese patrón y
+entró limpia. **Escribir así las próximas.**
 
 ## Lo que ya está terminado (en `56e5672`, en producción)
 
@@ -63,7 +59,7 @@ código.
    lugares: `SesionEjercicioCard.tsx` (ejercicio suelto) y `SesionGrupoCard.tsx`
    (superseries y circuitos). **Ya está hecho: no volver a implementarlo.**
 
-## Pendiente principal: técnica por serie puntual
+## Terminado: técnica por serie puntual
 
 ### Qué pidió Alejandro, textual
 
@@ -72,26 +68,15 @@ código.
 > tiene que ser tan grande"
 
 Y sobre el tamaño: *"los botones de las series que acabas de hacer fueron
-enormes, no están acorde con el tamaño"*. **Los numeritos van chicos**, al lado
-de la técnica elegida, no como una fila de botones grandes.
+enormes, no están acorde con el tamaño"*. Por eso los numeritos son cuadraditos
+de 20px al lado de la técnica, no una fila de botones.
 
-Lo que hoy existe es "última serie / todas las series" resuelto de la peor
-forma posible: no existe. La técnica se aplica siempre a todo el ejercicio.
+### La base: `0073_tecnica_por_serie.sql`
 
-### Por qué no se hizo en la sesión anterior
+Agrega `rutina_dia_ejercicios.tecnica_series int[]`:
 
-No es un cambio de tamaño de botón. `tecnica_tipo` es **un solo valor por
-ejercicio** en la base y en todos los caminos que lo leen. Guardarlo por serie
-requiere una migración y tocar la pantalla de entrenar del alumno. Se separó a
-propósito del resto, que era UI de bajo riesgo.
-
-### La migración ya está escrita
-
-`supabase/migrations/0073_tecnica_por_serie.sql`. Agrega
-`rutina_dia_ejercicios.tecnica_series int[]`:
-
-- **`NULL` = todas las series.** Es el default y es lo que tienen todas las
-  filas existentes, así que ninguna rutina publicada cambia. No hay backfill.
+- **`NULL` = todas las series.** Es lo que tienen todas las filas anteriores a
+  la migración, así que ninguna rutina publicada cambió. No hubo backfill.
 - `'{4}'` = la técnica va solo en la serie 4.
 - Un CHECK (vía la función inmutable `vip_tecnica_series_valida`, porque un
   CHECK no admite subconsultas y hay que mirar `series_programadas` de la misma
@@ -106,44 +91,57 @@ agregaría un join a la consulta más caliente de la app (la pantalla de
 entrenar) a cambio de nada. Si algún día hacen falta varias, la columna se
 migra a esa tabla sin drama.
 
-**Ojo con las técnicas encadenadas.** Superserie, biserie, triserie, circuito y
-giant set encadenan **ejercicios entre sí**, no series adentro de un ejercicio.
-Para ellas `tecnica_series` debe quedar en `NULL` y el editor **no** debe
-ofrecer los numeritos. El CHECK no lo puede impedir (habría que parsear texto
-libre dentro de un CHECK), así que es responsabilidad del editor. Cómo se
-detectan: `resolverGrupoTecnica()` en
-`src/lib/entrenamiento/tecnica-grupo.ts` devuelve no-null justo para esas.
+### La regla que atraviesa todo el módulo
 
-### Qué falta tocar en el código (relevado, no adivinado)
+**`null` significa "todas las series", no "ninguna".** Cualquier función de
+`src/lib/entrenamiento/tecnica-series.ts` tiene que devolver, con `null`,
+exactamente lo que devolvía antes de que la columna existiera. Ese módulo es el
+único lugar donde vive esta lógica, y tiene 11 pruebas en
+`tecnica-series.test.ts`.
 
-1. **Correr la migración** en Supabase.
-2. **`src/lib/supabase/types.ts:591-637`** — agregar `tecnica_series` a Row e
-   Insert de `rutina_dia_ejercicios`. Sin esto no compila nada de lo demás.
-3. **Editor — `src/components/admin/RutinaDraftEditor.tsx`.** Los numeritos,
-   chicos, al lado de la técnica ya elegida. Solo cuando la técnica **no** es
-   encadenada. El tipo `Ejercicio` vive en ese mismo archivo.
-4. **Guardado — `src/app/admin/archivos/actions.ts:1058-1083`.** Es el **único**
-   punto de la app que inserta filas en `rutina_dia_ejercicios` (verificado con
-   grep sobre todo `src/`): ahí se arma el objeto con `tecnica_tipo` y ahí hay
-   que sumar `tecnica_series`. Cuidado con la línea 1064, que ya advierte que
-   uno de los campos del objeto **no** es columna de la tabla.
-5. **Lecturas que ya traen `tecnica_tipo` y necesitan traer el nuevo campo:**
-   - `src/app/alumno/entrenar/data.ts:438` (`columnasPrograma`), tipo en `:482`,
-     mapeo a `tecnicaTipo` en `:633` — este es el que importa, es lo que ve el
-     alumno.
-   - `src/app/admin/rutinas-generadas/actions.ts:72, 103, 127`
-   - `src/app/admin/alumnos/rutinaTexto.ts:31, 55, 79`
-6. **Pantalla del alumno — `src/components/student/SesionEjercicioCard.tsx`.**
-   Hoy la técnica se muestra para todo el ejercicio (botón "!" sobrepuesto en la
-   foto + modal del glosario). Con el campo nuevo, el aviso debería aparecer en
-   la serie que corresponde y no antes. **Es la parte con más riesgo de romper
-   algo de lo que ya funciona bien** — dejarla para el final y verificarla en el
-   navegador.
-7. **Impulso VIP — `src/lib/impulso-vip/data.ts:361-369` y `motor.ts`.** Lee
-   `tecnica_tipo` para excluir ejercicios enteros del motor de progresión
-   (`esTecnicaExcluida`). Con técnica por serie eso cambia — la regla ya está
-   decidida, ver la sección siguiente. **No es una pregunta abierta: Alejandro
-   la aprobó el 12/08.**
+`normalizarTecnicaSeries` también colapsa a `null` el caso "están todas
+marcadas": si no, habría dos formas de decir lo mismo y cada lector tendría que
+compararlas contra `series_programadas`.
+
+### Técnicas encadenadas: nunca llevan numeritos
+
+Superserie, biserie, triserie, circuito y giant set encadenan **ejercicios entre
+sí**, no series adentro de un ejercicio. Para ellas `tecnica_series` queda
+siempre en `NULL`. El CHECK no lo puede impedir (habría que parsear texto libre
+adentro de un CHECK), así que **lo garantiza el editor**: se detectan con
+`resolverGrupoTecnica()` y ahí los numeritos no se dibujan. Además, los cuatro
+caminos que convierten un ejercicio en encadenado fuerzan `tecnicaSeries: null`
+explícitamente — encadenar pisa lo que se hubiera marcado antes.
+
+Corolario que sale gratis: `SesionGrupoCard.tsx` (la tarjeta de superseries y
+circuitos del alumno) **no necesitó ningún cambio**.
+
+### Dónde quedó cada pieza
+
+1. `supabase/migrations/0073_tecnica_por_serie.sql` — la columna y su CHECK.
+2. `src/lib/entrenamiento/tecnica-series.ts` — toda la lógica, con pruebas.
+3. `src/lib/supabase/types.ts` — `tecnica_series` en Row e Insert.
+4. `src/lib/ai/extraerRutina.ts` — el campo en el esquema, **opcional**: la IA
+   que lee PDFs no lo produce y las rutinas viejas no lo tienen.
+5. `src/components/admin/RutinaDraftEditor.tsx` — los numeritos. Estando en
+   "todas", el primer toque pasa a **solo esa serie** (alternar dejaría las
+   otras tres marcadas, que es lo contrario de lo que el dedo quiso decir);
+   después alterna normal. Al lado, la etiqueta en texto ("última serie").
+6. `src/app/admin/archivos/actions.ts` — el guardado. Se **normaliza contra las
+   series reales de la fila**: el entrenador puede marcar la serie 4 y después
+   bajar el ejercicio a 3 series, y sin eso el insert entero fallaría contra el
+   CHECK.
+7. Lecturas: `src/app/alumno/entrenar/data.ts` (la que importa),
+   `src/app/admin/rutinas-generadas/actions.ts` (sin esto, reabrir una rutina
+   perdía las marcas en silencio) y `src/app/admin/alumnos/rutinaTexto.ts`.
+   En la del alumno el campo va en `COLUMNAS_PROGRAMA` y no en la BASE, para
+   que el último intento de la escalera de selects siga degradándose solo.
+8. `src/components/student/SesionEjercicioCard.tsx` — la píldora de arriba dice
+   "Drop set · última serie", y la fila de la serie que la lleva muestra una
+   píldora ámbar chica (`.pill-tecnica-serie` en `globals.css`) **antes** de los
+   campos de carga: un drop set no se carga igual que una serie normal, así que
+   tiene que leerse antes de escribir los kilos.
+9. `src/lib/impulso-vip/data.ts` — la regla de abajo.
 
 ## Regla decidida: Impulso VIP con técnica en series puntuales
 
@@ -181,15 +179,30 @@ tiembla). Se aceptó igual, porque la alternativa es lo que pasa hoy: un alumno
 con drop set en la última serie de press banca **no recibe progresión nunca**
 en ese ejercicio.
 
-**Nada de esto está implementado todavía.** Va junto con el resto de la
-funcionalidad — el motor no puede aplicar la regla hasta que el editor escriba
-`tecnica_series`.
+### Cómo quedó implementada
 
-### Orden sugerido
+`seriesLimpiasParaProgresion(tecnicaSeries, seriesProgramadas)` en
+`tecnica-series.ts` devuelve las series que sirven, o `null` si hay que excluir
+el ejercicio igual. En `impulso-vip/data.ts`, `esTecnicaExcluida` ya no corta
+solo: cuando dice que sí, se le pregunta a esa función, y si devuelve series se
+pasan a `obtenerHistorialParaMotor`, que descarta del historial las que llevan
+técnica. Descartar y no contar como cero es el mismo criterio que ya usaba
+`esSerieUtilizable` con las series sin peso cargado.
 
-Migración → types → editor (guardar y ver el dato) → lecturas → pantalla del
-alumno. Después de cada tramo, `npx tsc --noEmit` y eslint, que es como se
-trabajó todo lo anterior.
+**Se verificó también el camino de siempre:** con `tecnicaSeries` en `null` —
+que es lo que tienen todas las rutinas de hoy — la función devuelve `null` y el
+ejercicio se excluye entero, exactamente como antes. Las 353 pruebas de la
+suite siguen pasando.
+
+### Lo único que quedó sin verificar
+
+**No se pudo probar en el navegador.** El servidor de desarrollo de esta sesión
+no levantaba (el puerto lo tenía tomado otra sesión), y el que sí respondía
+pedía inicio de sesión, que un agente no debe completar. Se verificó con
+`npx tsc --noEmit`, eslint, la suite completa y un `npm run build` de
+producción, todo limpio — pero **nadie miró los numeritos con los ojos**.
+Conviene que el próximo abra "Armar rutina", ponga un drop set en un ejercicio
+de 4 series, marque la 4, publique y lo mire en la pantalla del alumno.
 
 ## Reglas de trabajo vigentes
 

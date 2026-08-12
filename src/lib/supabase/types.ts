@@ -598,6 +598,11 @@ export interface Database {
           reps_programadas: string;
           descanso_segundos: number | null;
           tecnica_tipo: string | null;
+          // 0073_tecnica_por_serie.sql — números de serie (base 1) donde se
+          // aplica la técnica. `null` = todas las series (comportamiento
+          // histórico, y lo que tienen todas las filas anteriores a la
+          // migración). Siempre `null` en técnicas encadenadas.
+          tecnica_series: number[] | null;
           tecnica_instruccion: string | null;
           observacion: string | null;
           grupo_muscular:
@@ -621,6 +626,7 @@ export interface Database {
           reps_programadas: string;
           descanso_segundos?: number | null;
           tecnica_tipo?: string | null;
+          tecnica_series?: number[] | null;
           tecnica_instruccion?: string | null;
           observacion?: string | null;
           grupo_muscular?:

@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { rangoRepsObjetivo } from "@/lib/entrenamiento/reps";
 import { calcularRecomendacion, esTecnicaExcluida, objetivoAImpulso } from "./motor";
+import { seriesLimpiasParaProgresion } from "@/lib/entrenamiento/tecnica-series";
 import {
   construirPayloadRecomendacion,
   crearReparadorDeAlertas,
@@ -110,7 +111,12 @@ export async function obtenerHistorialParaMotor(
   alumnoId: string,
   diaEjercicioId: string,
   sesionEjercicioActualId: string,
-  limite = 3
+  limite = 3,
+  /** Números de serie que se pueden usar para progresar. `null` = todas, que
+   * es el comportamiento de siempre. Se pasa distinto de `null` solo cuando el
+   * ejercicio tiene técnica en series puntuales y hay series limpias que sí
+   * sirven — ver `seriesLimpiasParaProgresion`. */
+  seriesPermitidas: readonly number[] | null = null
 ): Promise<SesionHistorial[]> {
   const { data } = await supabase
     .from("sesion_ejercicios")
@@ -158,6 +164,9 @@ export async function obtenerHistorialParaMotor(
   const seriesPorEjercicio = new Map<string, SesionHistorial["series"]>();
   for (const s of (series ?? []) as FilaSerieRealizada[]) {
     if (!esSerieUtilizable(s)) continue;
+    // La serie lleva la técnica: se descarta, no se cuenta como cero. Mismo
+    // criterio que `esSerieUtilizable` usa con las series sin peso cargado.
+    if (seriesPermitidas && !seriesPermitidas.includes(s.numero_serie)) continue;
     const arr = seriesPorEjercicio.get(s.sesion_ejercicio_id) ?? [];
     arr.push({
       numeroSerie: s.numero_serie,
@@ -358,7 +367,7 @@ export async function generarYGuardarRecomendacion(
   const [{ data: ejercicio }, { data: perfil }, config] = await Promise.all([
     supabase
       .from("rutina_dia_ejercicios")
-      .select("reps_programadas, series_programadas, tecnica_tipo")
+      .select("reps_programadas, series_programadas, tecnica_tipo, tecnica_series")
       .eq("id", diaEjercicioId)
       .maybeSingle(),
     supabase.from("alumno_perfil").select("objetivo").eq("user_id", alumnoId).maybeSingle(),
@@ -366,12 +375,41 @@ export async function generarYGuardarRecomendacion(
   ]);
 
   if (!ejercicio || !config || !config.aptoProgresion) return null;
-  if (esTecnicaExcluida(ejercicio.tecnica_tipo)) return null;
+
+  /**
+   * Técnica en series puntuales: el ejercicio ya no se excluye entero.
+   *
+   * Antes, cualquier técnica mataba la progresión del ejercicio completo —
+   * correcto mientras la técnica cubriera todas las series, porque el número
+   * no era comparable contra el historial. Con la migración 0073 la técnica
+   * puede ir en una sola serie, y las otras siguen siendo series normales.
+   *
+   * `seriesLimpiasParaProgresion` decide: devuelve las series que sirven, o
+   * `null` si hay que excluir igual (técnica en todo el ejercicio, técnica en
+   * la serie 1 o 2 que deja fatigadas a las siguientes, o menos de dos series
+   * limpias). Ver la regla completa y su porqué en ese módulo y en el
+   * HANDOFF 1.20.
+   */
+  let seriesPermitidas: number[] | null = null;
+  if (esTecnicaExcluida(ejercicio.tecnica_tipo)) {
+    seriesPermitidas = seriesLimpiasParaProgresion(
+      ejercicio.tecnica_series,
+      ejercicio.series_programadas
+    );
+    if (!seriesPermitidas) return null;
+  }
 
   const rango = rangoRepsObjetivo(ejercicio.reps_programadas);
   if (!rango) return null;
 
-  const historial = await obtenerHistorialParaMotor(supabase, alumnoId, diaEjercicioId, sesionEjercicioId);
+  const historial = await obtenerHistorialParaMotor(
+    supabase,
+    alumnoId,
+    diaEjercicioId,
+    sesionEjercicioId,
+    3,
+    seriesPermitidas
+  );
   if (historial.length === 0) return null;
 
   const objetivo = objetivoAImpulso(perfil?.objetivo ?? null);

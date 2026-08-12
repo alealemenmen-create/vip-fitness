@@ -5,6 +5,7 @@ import { mesActualISO } from "@/lib/date";
 import { resolverTempo, type Tempo } from "@/lib/ejercicios/tempo";
 import { emparejarEjercicio } from "@/lib/ejercicios/emparejar";
 import { obtenerBiblioteca } from "@/lib/ejercicios/data";
+import { normalizarTecnicaSeries } from "@/lib/entrenamiento/tecnica-series";
 import { obtenerEstadoPlanMensual } from "@/lib/planes-entrenamiento-servidor";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -342,6 +343,9 @@ export type EjercicioSesion = {
   repsProgramadas: string;
   descansoSegundos: number | null;
   tecnicaTipo: string | null;
+  /** Series donde corre la técnica (base 1). `null` = todas, que es lo que
+   * tienen las rutinas anteriores a la migración 0073. */
+  tecnicaSeries: number[] | null;
   tecnicaInstruccion: string | null;
   observacion: string | null;
   /** Técnica de ejecución de la biblioteca del gimnasio. Se muestra como
@@ -436,7 +440,11 @@ export async function obtenerSesionCompleta(
   // hasta correrla. Ya pasó con las migraciones 0009, 0010 y 0013.
   const COLUMNAS_PROGRAMA_BASE =
     "orden, nombre, series_programadas, reps_programadas, descanso_segundos, tecnica_tipo, tecnica_instruccion, observacion, grupo_muscular";
-  const COLUMNAS_PROGRAMA = `${COLUMNAS_PROGRAMA_BASE}, ejercicio_id`;
+  // `tecnica_series` (0073) va acá y no en BASE por el mismo motivo que
+  // `ejercicio_id`: si la migración no corrió, el último intento se degrada
+  // solo y el alumno igual ve su pantalla — la técnica vuelve a mostrarse en
+  // todas las series, que es el comportamiento de antes.
+  const COLUMNAS_PROGRAMA = `${COLUMNAS_PROGRAMA_BASE}, ejercicio_id, tecnica_series`;
 
   const consultarEjercicios = (columnasPrograma: string) =>
     supabase
@@ -484,6 +492,9 @@ export async function obtenerSesionCompleta(
       observacion: string | null;
       grupo_muscular: GrupoMuscular | null;
       ejercicio_id?: string | null;
+      /** Solo si corrió la 0073. Ausente o null = la técnica va en todas las
+       * series, igual que siempre. */
+      tecnica_series?: number[] | null;
       // Presente solo si la migración 0026 ya corrió (ver el respaldo arriba);
       // los campos de tempo, solo si además corrió la 0031.
       ejercicios?: FilaBiblioteca | FilaBiblioteca[] | null;
@@ -631,6 +642,7 @@ export async function obtenerSesionCompleta(
       repsProgramadas: prog.reps_programadas,
       descansoSegundos: prog.descanso_segundos,
       tecnicaTipo: prog.tecnica_tipo,
+      tecnicaSeries: normalizarTecnicaSeries(prog.tecnica_series, prog.series_programadas),
       tecnicaInstruccion: prog.tecnica_instruccion,
       observacion: prog.observacion,
       tecnicaSugerida: dellaBiblioteca?.tecnica ?? null,

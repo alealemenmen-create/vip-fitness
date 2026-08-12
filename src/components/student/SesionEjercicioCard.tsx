@@ -36,6 +36,7 @@ import { repsObjetivo, esEjercicioDeTiempo } from "@/lib/entrenamiento/reps";
 import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
 import { guardarDescanso, leerDescanso, limpiarDescanso } from "@/lib/entrenamiento/descanso";
 import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import { etiquetaSeriesTecnica, tecnicaAplicaASerie } from "@/lib/entrenamiento/tecnica-series";
 import { explicacionTecnica } from "@/lib/entrenamiento/glosario-tecnicas";
 import { PUNTOS_VIP } from "@/lib/ranking/reglas";
 import {
@@ -870,6 +871,11 @@ export const FilaSerie = forwardRef<
      * un único guardado) sin que `peso_1` de uno pise el `peso_1` del
      * otro — ver `guardarSeriesGrupo` en actions.ts. */
     sufijoNombre?: string;
+    /** Nombre de la técnica cuando corre EN ESTA serie y no en todo el
+     * ejercicio (migración 0073). `null` en el caso de siempre: la técnica va
+     * en todas, ya se anuncia arriba en la tarjeta y repetirla en cada fila
+     * sería ruido. */
+    tecnicaDeEstaSerie?: string | null;
   }
 >(function FilaSerie(
   {
@@ -890,6 +896,7 @@ export const FilaSerie = forwardRef<
     onGuardar,
     colorGrupoTecnica,
     sufijoNombre = "",
+    tecnicaDeEstaSerie = null,
   },
   ref
 ) {
@@ -1288,6 +1295,15 @@ export const FilaSerie = forwardRef<
         <span className="numero-serie" data-hecha={realizada ? "true" : "false"}>
           {numero}
         </span>
+        {/* La técnica va justo en esta serie: se dice acá y no arriba, porque
+            arriba el alumno ya pasó de largo cuando llega a esta fila. Va
+            antes de los campos para que se lea ANTES de cargar los kilos —
+            un drop set no se carga igual que una serie normal. */}
+        {tecnicaDeEstaSerie && (
+          <span className="pill-tecnica-serie shrink-0" title={tecnicaDeEstaSerie}>
+            {tecnicaDeEstaSerie}
+          </span>
+        )}
         {/* Campos planos, sin caja propia — la referencia no encierra cada
             número en su propio recuadro, es un solo renglón con un separador
             vertical entre carga y repeticiones. */}
@@ -1903,6 +1919,11 @@ export const SesionEjercicioCard = forwardRef<
                       }
                     >
                       {ejercicio.tecnicaTipo}
+                      {/* "Drop set · última serie": sin esto el alumno lee
+                          "Drop set" y lo aplica a las cuatro. */}
+                      {ejercicio.tecnicaSeries && (
+                        <> · {etiquetaSeriesTecnica(ejercicio.tecnicaSeries, ejercicio.seriesProgramadas)}</>
+                      )}
                     </span>
                   )}
                 </div>
@@ -2198,6 +2219,13 @@ export const SesionEjercicioCard = forwardRef<
                 onCicloDeshecho={alDeshacerCicloSerie}
                 onGuardar={guardarAhora}
                 colorGrupoTecnica={grupoTecnica?.color}
+                // Solo cuando la técnica va en series puntuales: con
+                // `tecnicaSeries` en null (todas) ya se anuncia arriba.
+                tecnicaDeEstaSerie={
+                  ejercicio.tecnicaSeries && ejercicio.tecnicaTipo && tecnicaAplicaASerie(ejercicio.tecnicaSeries, n)
+                    ? ejercicio.tecnicaTipo
+                    : null
+                }
               />
             </div>
           ))}

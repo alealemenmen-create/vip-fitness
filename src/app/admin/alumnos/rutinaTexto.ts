@@ -29,6 +29,7 @@ type FilaEjercicio = {
   reps_programadas: string | null;
   descanso_segundos: number | null;
   tecnica_tipo: string | null;
+  tecnica_series: number[] | null;
   tecnica_instruccion: string | null;
   observacion: string | null;
   grupo_muscular: RutinaExtraida["dias"][number]["ejercicios"][number]["grupoMuscular"];
@@ -52,7 +53,7 @@ async function cargarRutinaEstructurada(
   const { data: rutina, error } = await db
     .from("rutinas")
     .select(
-      "nombre, rutina_dias(orden, nombre, tipo, descripcion, rutina_dia_ejercicios(orden, nombre, series_programadas, reps_programadas, descanso_segundos, tecnica_tipo, tecnica_instruccion, observacion, grupo_muscular))"
+      "nombre, rutina_dias(orden, nombre, tipo, descripcion, rutina_dia_ejercicios(orden, nombre, series_programadas, reps_programadas, descanso_segundos, tecnica_tipo, tecnica_series, tecnica_instruccion, observacion, grupo_muscular))"
     )
     .eq("id", rutinaId)
     .maybeSingle();
@@ -77,6 +78,7 @@ async function cargarRutinaEstructurada(
           reps: e.reps_programadas ?? "10-12",
           descansoSegundos: e.descanso_segundos,
           tecnicaTipo: e.tecnica_tipo,
+          tecnicaSeries: e.tecnica_series,
           tecnicaInstruccion: e.tecnica_instruccion,
           observacion: e.observacion,
           grupoMuscular: e.grupo_muscular,

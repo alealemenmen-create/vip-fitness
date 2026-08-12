@@ -12,6 +12,7 @@ import { rellenarTemposFaltantes } from "@/lib/ejercicios/rellenarTempos";
 import { serializarRutinaATexto } from "@/lib/generador-rutinas/serializar";
 import { reconciliarObjetivos } from "@/lib/alimentacion/objetivos";
 import { detectarDeficienciasRutina } from "@/lib/rutinas/validacion";
+import { normalizarTecnicaSeries } from "@/lib/entrenamiento/tecnica-series";
 import {
   resolverPlan,
   calcularAporte,
@@ -1056,6 +1057,11 @@ async function publicarUnaRutina(
         reps_programadas: ej.reps || "10-12",
         descanso_segundos: ej.descansoSegundos,
         tecnica_tipo: ej.tecnicaTipo,
+        // Se normaliza contra las series REALES de la fila que se está
+        // guardando: el entrenador pudo marcar la serie 4 y después bajar el
+        // ejercicio a 3 series. Sin esto el insert entero fallaría contra el
+        // CHECK de la migración 0073 por un ejercicio mal quedado.
+        tecnica_series: normalizarTecnicaSeries(ej.tecnicaSeries, ej.series),
         tecnica_instruccion: ej.tecnicaInstruccion,
         observacion: ej.observacion,
         // Si la biblioteca no lo tiene clasificado, vale lo que dijo la IA.

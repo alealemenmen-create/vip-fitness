@@ -34,12 +34,21 @@ create index if not exists reportes_bugs_estado_fecha_idx
 
 alter table reportes_bugs enable row level security;
 
+-- `drop policy if exists` antes de cada `create`: Postgres no tiene
+-- `create policy if not exists`, así que sin esto una corrida a medias deja la
+-- migración imposible de reintentar (pasó: la tabla y la primera política
+-- quedaron creadas y el segundo intento moría con 42710). Mismo patrón que
+-- 0067. Volver a correrla entera ahora es seguro — las políticas se
+-- reescriben con la misma definición.
+drop policy if exists reportes_bugs_select on reportes_bugs;
 create policy reportes_bugs_select on reportes_bugs for select
   using (alumno_id = auth.uid() or es_entrenador_de(alumno_id) or es_admin_o_entrenador());
 
+drop policy if exists reportes_bugs_alumno_insert on reportes_bugs;
 create policy reportes_bugs_alumno_insert on reportes_bugs for insert
   with check (alumno_id = auth.uid());
 
+drop policy if exists reportes_bugs_entrenador_update on reportes_bugs;
 create policy reportes_bugs_entrenador_update on reportes_bugs for update
   using (es_admin_o_entrenador())
   with check (es_admin_o_entrenador());
@@ -48,6 +57,7 @@ create policy reportes_bugs_entrenador_update on reportes_bugs for update
 -- mismo patrón que documentos/fotos-progreso). Lectura para el propio alumno,
 -- su entrenador, o cualquier admin/entrenador (el panel de errores es de
 -- todo el equipo, no de un entrenador puntual).
+drop policy if exists reportes_bugs_storage_select on storage.objects;
 create policy reportes_bugs_storage_select on storage.objects for select
   using (
     bucket_id = 'reportes-bugs'
@@ -58,6 +68,7 @@ create policy reportes_bugs_storage_select on storage.objects for select
     )
   );
 
+drop policy if exists reportes_bugs_storage_write on storage.objects;
 create policy reportes_bugs_storage_write on storage.objects for insert
   with check (
     bucket_id = 'reportes-bugs'

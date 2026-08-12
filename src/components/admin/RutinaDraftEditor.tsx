@@ -24,6 +24,8 @@ import {
   haceCuanto,
   type BorradorArmado,
 } from "@/lib/generador-rutinas/borrador-local";
+import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import { etiquetaSeriesTecnica, normalizarTecnicaSeries } from "@/lib/entrenamiento/tecnica-series";
 
 /** Revisión de IA del borrador. Opcional: solo el flujo del generador la pasa
  * — desde un PDF importado no hay ficha ni brief contra qué contrastar. */
@@ -85,6 +87,7 @@ const EJERCICIO_VACIO: Ejercicio = {
   reps: "10-12",
   descansoSegundos: 60,
   tecnicaTipo: null,
+  tecnicaSeries: null,
   tecnicaInstruccion: null,
   observacion: null,
   grupoMuscular: null,
@@ -662,6 +665,9 @@ function EjercicioForm({
   const [eligiendo, setEligiendo] = useState(false);
   const [eligiendoTecnica, setEligiendoTecnica] = useState(false);
   const colorTecnica = colorTecnicaVisual(ejercicio.tecnicaTipo);
+  /** Superserie, biserie, triserie, circuito, giant set: encadenan ejercicios
+   * entre sí, no series adentro de uno. No llevan numeritos. */
+  const esTecnicaEncadenada = resolverGrupoTecnica(ejercicio.tecnicaTipo) !== null;
   const visual = grupoVisual(ejercicio);
   const objetivoSugerido = ejercicio.patronMovimiento ? objetivoDePatron(ejercicio.patronMovimiento) : null;
 
@@ -792,17 +798,57 @@ function EjercicioForm({
             {ejercicio.tecnicaTipo || "+ Técnica"}
           </button>
         )}
+        {/* Los numeritos de serie, al lado de la técnica y chicos a propósito
+            ("no tiene que ser tan grande" — Alejandro). Solo para técnicas de
+            UN ejercicio: superserie, biserie, circuito y giant set encadenan
+            ejercicios entre sí, no series adentro de uno, así que ahí no tiene
+            sentido y `tecnicaSeries` debe quedar en null (el CHECK de la
+            migración no lo puede impedir: es responsabilidad de este editor). */}
+        {ejercicio.tecnicaTipo && !esTecnicaEncadenada && ejercicio.series > 1 && (
+          <div className="flex shrink-0 items-center gap-0.5" role="group" aria-label={`Series con ${ejercicio.tecnicaTipo}`}>
+            {Array.from({ length: ejercicio.series }, (_, i) => i + 1).map((n) => {
+              // Con `tecnicaSeries` en null la técnica va en TODAS: se ven
+              // todas encendidas, que es la verdad de lo que está guardado.
+              const marcada = !ejercicio.tecnicaSeries || ejercicio.tecnicaSeries.includes(n);
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  aria-pressed={marcada}
+                  title={`Serie ${n}`}
+                  onClick={() => {
+                    // Primer toque estando en "todas": pasa a ser SOLO esa
+                    // serie. Alternar quitaría la tocada y dejaría las otras
+                    // tres, que es lo contrario de lo que el dedo quiso decir.
+                    const siguiente = !ejercicio.tecnicaSeries
+                      ? [n]
+                      : ejercicio.tecnicaSeries.includes(n)
+                        ? ejercicio.tecnicaSeries.filter((s) => s !== n)
+                        : [...ejercicio.tecnicaSeries, n];
+                    onChange({ ...ejercicio, tecnicaSeries: normalizarTecnicaSeries(siguiente, ejercicio.series) });
+                  }}
+                  className={`size-5 shrink-0 rounded-[6px] border text-[9px] font-bold leading-none ${
+                    marcada ? "border-vip/60 text-vip" : "border-border text-text-tertiary"
+                  }`}
+                >
+                  {n}
+                </button>
+              );
+            })}
+            <span className="ml-1 whitespace-nowrap text-[9px] text-text-tertiary">{etiquetaSeriesTecnica(ejercicio.tecnicaSeries, ejercicio.series)}</span>
+          </div>
+        )}
         <button type="button" onClick={() => setAmpliado((v) => !v)} aria-label={ampliado ? "Ocultar opciones avanzadas" : "Opciones avanzadas"} className="ml-auto flex shrink-0 items-center gap-1 py-1 text-[10px] text-text-tertiary">Más {ampliado ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</button>
       </div>
 
       {eligiendoTecnica && tecnicas && tecnicas.length > 0 && <div className="mt-1.5 border-t border-border pt-1.5 pl-[22px]">
-        {ejercicio.tecnicaTipo && <button type="button" onClick={() => { onChange({ ...ejercicio, tecnicaTipo: null, tecnicaInstruccion: null }); setEligiendoTecnica(false); }} className="mb-1.5 rounded-lg border border-border px-2 py-1 text-[10px] text-text-tertiary">Sin técnica</button>}
+        {ejercicio.tecnicaTipo && <button type="button" onClick={() => { onChange({ ...ejercicio, tecnicaTipo: null, tecnicaSeries: null, tecnicaInstruccion: null }); setEligiendoTecnica(false); }} className="mb-1.5 rounded-lg border border-border px-2 py-1 text-[10px] text-text-tertiary">Sin técnica</button>}
         <p className="mb-1 text-[9px] font-semibold uppercase text-text-tertiary">Aplicar a este ejercicio</p>
         {/* Tira deslizable y no grilla que se envuelve: con 6-8 técnicas la
             grilla ocupaba varias filas y había que scrollear la PÁGINA para
             verlas todas. Deslizando el dedo al costado se ven todas sin
             empujar nada hacia abajo — pedido explícito de Alejandro. */}
-        <div className="tira-tecnicas flex gap-1 overflow-x-auto pb-1">{tecnicas.filter((tecnica) => tecnica.tipo === "individual").map((tecnica) => <button key={tecnica.nombre} type="button" onClick={() => { onChange({ ...ejercicio, tecnicaTipo: tecnica.nombre, descansoSegundos: tecnica.descansoFinalSeg ?? ejercicio.descansoSegundos }); setEligiendoTecnica(false); }} className="shrink-0 whitespace-nowrap rounded-lg border border-[#4b665c] bg-[#1c2b27] px-2 py-1.5 text-[10px] font-semibold text-[#bfe0d4]">{tecnica.nombre}</button>)}</div>
+        <div className="tira-tecnicas flex gap-1 overflow-x-auto pb-1">{tecnicas.filter((tecnica) => tecnica.tipo === "individual").map((tecnica) => <button key={tecnica.nombre} type="button" onClick={() => { onChange({ ...ejercicio, tecnicaTipo: tecnica.nombre, tecnicaSeries: null, descansoSegundos: tecnica.descansoFinalSeg ?? ejercicio.descansoSegundos }); setEligiendoTecnica(false); }} className="shrink-0 whitespace-nowrap rounded-lg border border-[#4b665c] bg-[#1c2b27] px-2 py-1.5 text-[10px] font-semibold text-[#bfe0d4]">{tecnica.nombre}</button>)}</div>
         <p className="mb-1 mt-2 text-[9px] font-semibold uppercase text-text-tertiary">Conectar desde este ejercicio</p>
         <div className="tira-tecnicas flex gap-1 overflow-x-auto pb-1">{tecnicas.filter((tecnica) => tecnica.tipo === "encadenada").map((tecnica) => <button key={tecnica.nombre} type="button" onClick={() => { onEncadenar?.(tecnica.nombre, tecnica.cantidadEjercicios ?? 2); setEligiendoTecnica(false); }} className="shrink-0 whitespace-nowrap rounded-lg border border-[#665883] bg-[#282139] px-2 py-1.5 text-[10px] font-semibold text-[#dfd3f5]">{tecnica.nombre} · {tecnica.cantidadEjercicios ?? 2}</button>)}</div>
         <p className="mt-1 text-[9px] text-text-tertiary">Solo conecta esta fila con las siguientes; no convierte toda la sesión.</p>
@@ -1739,6 +1785,10 @@ export function RutinaDraftEditor({
           ejercicios[ejIdx + paso] = {
             ...ejercicios[ejIdx + paso],
             tecnicaTipo: `${nombre} (${paso + 1}/${cantidad})`,
+            // Encadenar pisa cualquier técnica por serie que tuviera antes: lo
+            // que se marcó con los numeritos era de una técnica individual que
+            // acá deja de existir, y en encadenadas debe quedar en null.
+            tecnicaSeries: null,
             // El formato vive en el catálogo: una biserie/triserie queda
             // correctamente armada con un toque, no solo coloreada.
             descansoSegundos: paso === cantidad - 1 ? descansoFinal : descansoInterno,
@@ -2158,6 +2208,8 @@ export function RutinaDraftEditor({
               return {
                 ...ejercicio,
                 tecnicaTipo: `${tecnicaEncadenada.nombre} (${posicion + 1}/${cantidadBloque})${ejercicio.tecnicaTipo ? ` · ${ejercicio.tecnicaTipo}` : ""}`,
+                // Pasa a ser encadenada: sin técnica por serie (ver 0073).
+                tecnicaSeries: null,
                 tecnicaInstruccion: cierra ? `Cierra ${tecnicaEncadenada.nombre.toLowerCase()} y descansa antes de repetir.` : `Continúa sin descanso con ${bloque[indice + 1].nombre}.`,
                 descansoSegundos: cierra ? Math.max(60, tecnicaEncadenada.descansoFinalSeg ?? ejercicio.descansoSegundos ?? 90) : 0,
               };
@@ -2190,8 +2242,9 @@ export function RutinaDraftEditor({
               const instruccionA = ejercicioA.tecnicaInstruccion ? ` ${ejercicioA.tecnicaInstruccion}` : "";
               const instruccionB = ejercicioB.tecnicaInstruccion ? ` ${ejercicioB.tecnicaInstruccion}` : "";
               const nombreEncadenada = tecnicaEncadenada?.nombre ?? "Biserie";
-              ordenados.push({ ...ejercicioA, tecnicaTipo: `${nombreEncadenada} (1/2)${tecnicaA}`, tecnicaInstruccion: `Enlaza sin descanso con ${ejercicioB.nombre}.${instruccionA}`, descansoSegundos: 0 });
-              ordenados.push({ ...ejercicioB, tecnicaTipo: `${nombreEncadenada} (2/2)${tecnicaB}`, tecnicaInstruccion: `Cierra ${nombreEncadenada.toLowerCase()} y descansa antes de repetir.${instruccionB}`, descansoSegundos: Math.max(60, tecnicaEncadenada?.descansoFinalSeg ?? ejercicioB.descansoSegundos ?? 90) });
+              // `tecnicaSeries: null` en ambos: pasan a ser encadenados (ver 0073).
+              ordenados.push({ ...ejercicioA, tecnicaTipo: `${nombreEncadenada} (1/2)${tecnicaA}`, tecnicaSeries: null, tecnicaInstruccion: `Enlaza sin descanso con ${ejercicioB.nombre}.${instruccionA}`, descansoSegundos: 0 });
+              ordenados.push({ ...ejercicioB, tecnicaTipo: `${nombreEncadenada} (2/2)${tecnicaB}`, tecnicaSeries: null, tecnicaInstruccion: `Cierra ${nombreEncadenada.toLowerCase()} y descansa antes de repetir.${instruccionB}`, descansoSegundos: Math.max(60, tecnicaEncadenada?.descansoFinalSeg ?? ejercicioB.descansoSegundos ?? 90) });
             } else if (ejercicioA) ordenados.push(ejercicioA);
             else if (ejercicioB) ordenados.push(ejercicioB);
           }

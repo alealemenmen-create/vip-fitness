@@ -26,6 +26,11 @@ const EjercicioExtraidoSchema = z.object({
   reps: z.string(),
   descansoSegundos: z.number().nullable(),
   tecnicaTipo: z.string().nullable(),
+  /** Series puntuales donde se aplica `tecnicaTipo` (base 1). `null`/ausente =
+   * todas las series, que es el comportamiento histórico. Opcional a
+   * propósito: la IA que lee PDFs no lo produce, y las rutinas viejas no lo
+   * tienen — solo lo escribe el editor. Ver 0073_tecnica_por_serie.sql. */
+  tecnicaSeries: z.array(z.number().int().positive()).nullable().optional(),
   tecnicaInstruccion: z.string().nullable(),
   observacion: z.string().nullable(),
   grupoMuscular: z.enum(GRUPOS_MUSCULARES).nullable(),

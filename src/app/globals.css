@@ -1250,6 +1250,27 @@ input[type="date"]::-webkit-date-and-time-value {
   background: rgba(0, 0, 0, 0.04);
 }
 
+/* Técnica que corre en ESTA serie y no en todo el ejercicio (migración 0073).
+   Va adentro de la fila de la serie, entre el número y los campos de carga, y
+   compite por un renglón que ya está lleno: por eso es más chica y más angosta
+   que .pill-tecnica, y se trunca en vez de empujar los campos. En ámbar y no
+   en el gris de la píldora de arriba porque acá sí es un aviso — cambia cómo
+   se hace justo la serie que el alumno está por cargar. */
+.pill-tecnica-serie {
+  max-width: 7.5rem;
+  overflow: hidden;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 700;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+}
+
 /* Píldoras seleccionables: dificultad percibida y, dentro del panel de
    dolor, intensidad (esas van dentro de un <label> con un radio oculto —
    por eso el segundo selector, con :has, además del data-activo directo). */
