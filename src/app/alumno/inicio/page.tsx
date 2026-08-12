@@ -101,15 +101,18 @@ export default async function InicioPage() {
         constancia={constanciaSemana}
       />
 
+      <Suspense fallback={<RankingCargando />}>
+        <RankingVip rankingPromesa={rankingPromesa} alumnoId={alumnoId} />
+      </Suspense>
+
+      {/* "Comidas de hoy" y "Sesiones del mes" van DEBAJO de la Arena VIP por
+          pedido de Alejandro: son de consulta, y arriba empujaban la Arena
+          —que es lo que engancha— fuera de la primera pantalla. */}
       <ResumenMetricasInicio
         comidasRegistradas={alimentacion.comidasRegistradas}
         comidasDisponibles={alimentacion.comidasDisponibles}
         balanceSesiones={balanceSesiones}
       />
-
-      <Suspense fallback={<RankingCargando />}>
-        <RankingVip rankingPromesa={rankingPromesa} alumnoId={alumnoId} />
-      </Suspense>
 
       <AlimentacionHoyCuadro
         kcal={alimentacion.kcal}

@@ -28,16 +28,17 @@ export function AvisoSesionSinCerrar({ sesionId }: { sesionId: string }) {
       href={`/alumno/entrenar/sesion/${sesionId}`}
       className="franja-sesion-sin-cerrar mb-2.5 flex items-center gap-2"
     >
-      <AlertCircle size={15} className="shrink-0 text-warning" />
+      <span className="punto-sesion-sin-cerrar" aria-hidden="true" />
+      <AlertCircle size={17} className="shrink-0 text-error" />
       <span className="min-w-0 flex-1">
-        <span className="text-caption block font-semibold text-warning">
+        <span className="text-caption block font-bold text-error">
           Tienes un entrenamiento sin cerrar
         </span>
         <span className="text-micro block text-text-secondary">
-          Hasta que lo cierres no suma Puntos VIP.
+          Hasta que lo cierres no suma Puntos VIP. Toca aquí para terminarlo.
         </span>
       </span>
-      <ChevronRight size={16} className="shrink-0 text-text-tertiary" />
+      <ChevronRight size={17} className="shrink-0 text-error" />
     </Link>
   );
 }
