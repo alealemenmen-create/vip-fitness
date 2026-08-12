@@ -183,7 +183,11 @@ export function AdminTabs({
   }
 
   return (
-    <nav className="flex items-stretch gap-1 border-t border-border bg-bg/95 px-2 pb-[max(4px,env(safe-area-inset-bottom))] pt-2 backdrop-blur" aria-label="Navegación del entrenador">
+    // `navegacion-aero` (transparente) y no `bg-bg/95`: ese fondo casi opaco
+    // tapaba el cristal de la placa flotante que lo envuelve, así que la barra
+    // de abajo se veía negra mientras la de arriba mostraba el verde y el azul.
+    // El borde y el desenfoque los pone la placa; acá sobraban.
+    <nav className="navegacion-aero flex items-stretch gap-1 px-2 pb-[max(4px,env(safe-area-inset-bottom))] pt-2" aria-label="Navegación del entrenador">
       {MOBILE_TABS.map((tab) => {
         const Icon = tab.icon;
         const active = estaActivo(pathname, tab.href, tab.section);
@@ -193,8 +197,8 @@ export function AdminTabs({
             key={tab.href}
             href={tab.href}
             aria-label={esperando > 0 ? `${tab.label}: ${esperando} pendientes` : tab.label}
-            className={`radius-control flex min-w-0 flex-1 flex-col items-center gap-1 py-2 transition-colors ${
-              active ? "bg-surface-2 text-vip" : "text-text-tertiary"
+            className={`item-navegacion-aero radius-control flex min-w-0 flex-1 flex-col items-center gap-1 py-2 transition-colors ${
+              active ? "item-navegacion-aero-activo text-vip" : "text-text-tertiary"
             }`}
           >
             <span className="relative">
