@@ -179,6 +179,34 @@ tiembla). Se aceptó igual, porque la alternativa es lo que pasa hoy: un alumno
 con drop set en la última serie de press banca **no recibe progresión nunca**
 en ese ejercicio.
 
+### El error que casi se publica, y cómo se arregló
+
+Al revisar Impulso VIP a fondo apareció un desajuste que las pruebas iniciales
+no cubrían y que habría roto el cumplimiento de todo ejercicio con técnica por
+serie. **Vale la pena entenderlo antes de tocar este módulo.**
+
+La recomendación se calcula sobre las series limpias (3 de 4), pero el
+cumplimiento se resolvía después, en `resolverCumplimientoImpulso`
+(`alumno/entrenar/actions.ts`), sumando **todas** las series de la sesión — las
+4, incluida la del drop set, que trae muchas más repeticiones. Resultado: la
+meta se armaba con una vara y el total se medía con otra.
+
+Se arregló congelando en `decision_data` un campo nuevo, `seriesConsideradas`:
+
+- `construirPayloadRecomendacion` lo guarda; `leerDatosCumplimiento` lo lee y
+  descarta cualquier cosa que no sea una lista de enteros.
+- `resolverCumplimiento` filtra por él antes de sumar. Con `null` —toda
+  recomendación anterior a esto— evalúa todo, igual que siempre.
+- La meta también estaba mal: el motor la arma como
+  `seriesProgramadas × rango.min`, así que en `data.ts` ahora se le pasa la
+  cantidad **efectiva** de series (3, no 4). Pedir 4 × el mínimo sobre 3 series
+  contadas era un total inalcanzable.
+
+**Por qué congelado y no releído:** al resolver el cumplimiento hay que mirar
+exactamente las mismas series que se miraron al recomendar, aunque el
+entrenador haya cambiado la rutina en el medio. Además ahorra una consulta —
+`decision_data` ya está cargado en ese punto.
+
 ### Cómo quedó implementada
 
 `seriesLimpiasParaProgresion(tecnicaSeries, seriesProgramadas)` en
@@ -191,8 +219,12 @@ técnica. Descartar y no contar como cero es el mismo criterio que ya usaba
 
 **Se verificó también el camino de siempre:** con `tecnicaSeries` en `null` —
 que es lo que tienen todas las rutinas de hoy — la función devuelve `null` y el
-ejercicio se excluye entero, exactamente como antes. Las 353 pruebas de la
-suite siguen pasando.
+ejercicio se excluye entero, exactamente como antes. La suite completa (356
+pruebas) pasa.
+
+Optimización de paso: el filtro de series se hace en la base
+(`.in("numero_serie", ...)`) en vez de traer filas para descartarlas en
+memoria.
 
 ### Lo único que quedó sin verificar
 

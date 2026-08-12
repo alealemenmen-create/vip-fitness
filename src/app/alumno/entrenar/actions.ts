@@ -445,7 +445,9 @@ async function resolverCumplimientoImpulso(
     .maybeSingle();
   if (!recomendacion) return;
 
-  const { metaTotalReps, totalAnteriorReps } = leerDatosCumplimiento(recomendacion.decision_data);
+  const { metaTotalReps, totalAnteriorReps, seriesConsideradas } = leerDatosCumplimiento(
+    recomendacion.decision_data
+  );
   const cumplimiento = resolverCumplimiento(
     {
       regla: recomendacion.regla as ReglaImpulso,
@@ -461,7 +463,11 @@ async function resolverCumplimientoImpulso(
       repsRealizadas: f.reps_realizadas,
       realizada: f.realizada,
     })),
-    totalAnteriorReps
+    totalAnteriorReps,
+    // Ya viene congelado en la recomendación: no hace falta releer la rutina
+    // para saber qué series contaban, y si el entrenador la cambió en el
+    // medio se evalúa contra lo que el alumno vio, no contra lo nuevo.
+    seriesConsideradas
   );
 
   await supabase

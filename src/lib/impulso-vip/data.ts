@@ -145,12 +145,17 @@ export async function obtenerHistorialParaMotor(
   });
 
   const idsCandidatos = candidatas.map((c) => c.id);
+  const consultaSeries = supabase
+    .from("series_realizadas")
+    .select("sesion_ejercicio_id, numero_serie, peso_kg, es_peso_corporal, reps_realizadas, realizada")
+    .in("sesion_ejercicio_id", idsCandidatos);
   const [{ data: series }, { data: alertasDolor }] = await Promise.all([
-    supabase
-      .from("series_realizadas")
-      .select("sesion_ejercicio_id, numero_serie, peso_kg, es_peso_corporal, reps_realizadas, realizada")
-      .in("sesion_ejercicio_id", idsCandidatos)
-      .order("numero_serie", { ascending: true }),
+    // El filtro por serie va en la base y no en memoria: son pocas filas, pero
+    // traer las que se van a descartar igual no tiene ninguna ventaja.
+    (seriesPermitidas ? consultaSeries.in("numero_serie", [...seriesPermitidas]) : consultaSeries).order(
+      "numero_serie",
+      { ascending: true }
+    ),
     // Solo alertas ACTIVAS bloquean progresión — una ya resuelta no debe
     // seguir pausando al alumno para siempre.
     supabase
@@ -164,9 +169,6 @@ export async function obtenerHistorialParaMotor(
   const seriesPorEjercicio = new Map<string, SesionHistorial["series"]>();
   for (const s of (series ?? []) as FilaSerieRealizada[]) {
     if (!esSerieUtilizable(s)) continue;
-    // La serie lleva la técnica: se descarta, no se cuenta como cero. Mismo
-    // criterio que `esSerieUtilizable` usa con las series sin peso cargado.
-    if (seriesPermitidas && !seriesPermitidas.includes(s.numero_serie)) continue;
     const arr = seriesPorEjercicio.get(s.sesion_ejercicio_id) ?? [];
     arr.push({
       numeroSerie: s.numero_serie,
@@ -413,10 +415,15 @@ export async function generarYGuardarRecomendacion(
   if (historial.length === 0) return null;
 
   const objetivo = objetivoAImpulso(perfil?.objetivo ?? null);
+  // Las series que de verdad entran al cálculo. Importa porque el motor arma
+  // la meta como `seriesProgramadas * rango.min`: si el ejercicio tiene 4
+  // series pero solo 3 son limpias, pedir 4 × el mínimo sería pedirle al
+  // alumno un total que sus 3 series contadas no pueden alcanzar nunca.
+  const seriesEfectivas = seriesPermitidas ? seriesPermitidas.length : ejercicio.series_programadas;
   const recomendacion = calcularRecomendacion({
     objetivo,
     rango,
-    seriesProgramadas: ejercicio.series_programadas,
+    seriesProgramadas: seriesEfectivas,
     config,
     historialUltimasSesiones: historial,
   });
@@ -427,10 +434,11 @@ export async function generarYGuardarRecomendacion(
     alumnoId,
     objetivo,
     rango,
-    seriesProgramadas: ejercicio.series_programadas,
+    seriesProgramadas: seriesEfectivas,
     config,
     historial,
     recomendacion,
+    seriesConsideradas: seriesPermitidas,
   });
 
   return insertarORecuperarRecomendacion(repoRecomendaciones, payload, repararAlerta);

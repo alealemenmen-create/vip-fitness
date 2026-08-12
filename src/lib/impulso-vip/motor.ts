@@ -383,11 +383,24 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
  */
 export function resolverCumplimiento(
   recomendacion: Pick<Recomendacion, "regla" | "pesoSugeridoKg" | "repsObjetivoMin" | "repsObjetivoMax" | "metaTotalReps">,
-  seriesRealizadas: SerieHistorial[],
-  totalSesionAnterior: number | null
+  seriesRealizadasTodas: SerieHistorial[],
+  totalSesionAnterior: number | null,
+  /**
+   * Series que entraron en la recomendación (congeladas en `decision_data`).
+   * `null` = todas, que es el caso de siempre.
+   *
+   * Sin esto, un ejercicio con drop set en la última serie se evaluaba mal en
+   * las dos puntas: la meta se calculó sobre 3 series limpias, pero el total
+   * hecho sumaba las 4 — incluida la de la técnica, que justamente tiene
+   * muchas más repeticiones. Todo daba "superada" siempre.
+   */
+  seriesConsideradas: readonly number[] | null = null
 ): Cumplimiento | null {
   if (recomendacion.regla === "E_consultar") return null;
 
+  const seriesRealizadas = seriesConsideradas
+    ? seriesRealizadasTodas.filter((s) => seriesConsideradas.includes(s.numeroSerie))
+    : seriesRealizadasTodas;
   const totalHecho = totalReps(seriesRealizadas);
   const max = recomendacion.repsObjetivoMax ?? Infinity;
   const dentroDeRango = seriesRealizadas.every((s) => !s.realizada || (s.repsRealizadas ?? 0) <= max);

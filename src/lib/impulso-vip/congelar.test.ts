@@ -121,6 +121,7 @@ function decisionDataEjemplo(overrides: Partial<DecisionData> = {}): DecisionDat
     repsAnterioresPorSerie: [10, 9],
     totalAnteriorReps: 19,
     metaTotalReps: 20,
+    seriesConsideradas: null,
     sesionesHistoricasValidas: 1,
     dificultadAnterior: "justo",
     esPesoCorporal: false,
@@ -432,21 +433,33 @@ describe("leerDatosCumplimiento", () => {
     expect(leerDatosCumplimiento({ metaTotalReps: 30, totalAnteriorReps: 28 })).toEqual({
       metaTotalReps: 30,
       totalAnteriorReps: 28,
+      // Recomendación anterior a la técnica por serie: sin el campo, se
+      // evalúan todas las series, que es lo que se hacía siempre.
+      seriesConsideradas: null,
     });
   });
 
   it("devuelve null para cada campo faltante, sin lanzar", () => {
-    expect(leerDatosCumplimiento({})).toEqual({ metaTotalReps: null, totalAnteriorReps: null });
-    expect(leerDatosCumplimiento(null)).toEqual({ metaTotalReps: null, totalAnteriorReps: null });
-    expect(leerDatosCumplimiento([])).toEqual({ metaTotalReps: null, totalAnteriorReps: null });
-    expect(leerDatosCumplimiento("texto")).toEqual({ metaTotalReps: null, totalAnteriorReps: null });
+    const vacio = { metaTotalReps: null, totalAnteriorReps: null, seriesConsideradas: null };
+    expect(leerDatosCumplimiento({})).toEqual(vacio);
+    expect(leerDatosCumplimiento(null)).toEqual(vacio);
+    expect(leerDatosCumplimiento([])).toEqual(vacio);
+    expect(leerDatosCumplimiento("texto")).toEqual(vacio);
   });
 
   it("ignora valores del tipo incorrecto en vez de devolverlos tal cual", () => {
     expect(leerDatosCumplimiento({ metaTotalReps: "30", totalAnteriorReps: NaN })).toEqual({
       metaTotalReps: null,
       totalAnteriorReps: null,
+      seriesConsideradas: null,
     });
+  });
+
+  it("lee seriesConsideradas y descarta lo que no sea una lista de enteros", () => {
+    expect(leerDatosCumplimiento({ seriesConsideradas: [1, 2, 3] }).seriesConsideradas).toEqual([1, 2, 3]);
+    expect(leerDatosCumplimiento({ seriesConsideradas: [] }).seriesConsideradas).toBeNull();
+    expect(leerDatosCumplimiento({ seriesConsideradas: [1, "2"] }).seriesConsideradas).toBeNull();
+    expect(leerDatosCumplimiento({ seriesConsideradas: "1,2" }).seriesConsideradas).toBeNull();
   });
 });
 

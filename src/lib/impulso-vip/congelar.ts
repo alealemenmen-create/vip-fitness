@@ -43,6 +43,18 @@ export interface DecisionData {
   repsAnterioresPorSerie: (number | null)[];
   totalAnteriorReps: number | null;
   metaTotalReps: number | null;
+  /**
+   * Series que entraron en el cálculo (base 1), cuando el ejercicio tiene la
+   * técnica en series puntuales y solo algunas sirven para progresar. `null` =
+   * entraron todas: el caso de siempre, y el de toda recomendación anterior a
+   * la migración 0073.
+   *
+   * Se congela acá a propósito, igual que el resto de este objeto: al resolver
+   * el cumplimiento hay que evaluar exactamente las mismas series que se
+   * usaron para recomendar, aunque el entrenador haya cambiado la rutina en el
+   * medio. Además evita releer la rutina en el guardado.
+   */
+  seriesConsideradas: number[] | null;
   sesionesHistoricasValidas: number;
   dificultadAnterior: string | null;
   esPesoCorporal: boolean;
@@ -144,9 +156,16 @@ export function construirPayloadRecomendacion(args: {
   config: ConfigProgresion;
   historial: SesionHistorial[];
   recomendacion: Recomendacion;
+  /** Series que entraron en el cálculo cuando el ejercicio tiene técnica en
+   * series puntuales; `null` cuando entraron todas (el caso de siempre). Se
+   * congela acá y no se vuelve a consultar: al resolver el cumplimiento hay
+   * que mirar EXACTAMENTE las mismas series que se miraron al recomendar, y
+   * la rutina pudo cambiar en el medio. Ver `resolverCumplimiento`. */
+  seriesConsideradas?: readonly number[] | null;
 }): PayloadRecomendacion {
   const { sesionEjercicioId, diaEjercicioId, alumnoId, objetivo, rango, seriesProgramadas, config, historial, recomendacion } =
     args;
+  const seriesConsideradas = args.seriesConsideradas ? [...args.seriesConsideradas] : null;
   // El historial ya debe venir ordenado del más reciente al más antiguo
   // (ver `obtenerHistorialParaMotor` en data.ts) — acá solo se toma el primero.
   const ultima = historial[0] as SesionHistorial | undefined;
@@ -178,6 +197,7 @@ export function construirPayloadRecomendacion(args: {
       repsAnterioresPorSerie: ultima ? ultima.series.map((s) => s.repsRealizadas) : [],
       totalAnteriorReps: ultima ? totalRepsRealizadas(ultima.series) : null,
       metaTotalReps: recomendacion.metaTotalReps,
+      seriesConsideradas,
       sesionesHistoricasValidas: historial.length,
       dificultadAnterior: ultima?.dificultadPercibida ?? null,
       esPesoCorporal: recomendacion.esPesoCorporal,
@@ -208,13 +228,24 @@ export function esObjetoJson(valor: unknown): valor is Record<string, unknown> {
 export function leerDatosCumplimiento(decisionData: unknown): {
   metaTotalReps: number | null;
   totalAnteriorReps: number | null;
+  seriesConsideradas: number[] | null;
 } {
-  if (!esObjetoJson(decisionData)) return { metaTotalReps: null, totalAnteriorReps: null };
+  const vacio = { metaTotalReps: null, totalAnteriorReps: null, seriesConsideradas: null };
+  if (!esObjetoJson(decisionData)) return vacio;
   const meta = decisionData.metaTotalReps;
   const total = decisionData.totalAnteriorReps;
+  // Ausente en toda recomendación anterior a la técnica por serie, y también
+  // cuando entraron todas las series: en ambos casos `null`, que significa
+  // "mirá todas", exactamente lo que se hacía antes.
+  const series = decisionData.seriesConsideradas;
+  const seriesConsideradas =
+    Array.isArray(series) && series.length > 0 && series.every((n) => typeof n === "number" && Number.isInteger(n))
+      ? (series as number[])
+      : null;
   return {
     metaTotalReps: typeof meta === "number" && Number.isFinite(meta) ? meta : null,
     totalAnteriorReps: typeof total === "number" && Number.isFinite(total) ? total : null,
+    seriesConsideradas,
   };
 }
 

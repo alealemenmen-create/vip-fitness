@@ -299,6 +299,44 @@ describe("resolverCumplimiento", () => {
     expect(r).toBeNull();
   });
 
+  it("con seriesConsideradas, la serie de la técnica no cuenta para el total", () => {
+    // Drop set en la 4ª de 4: la meta se armó sobre las 3 limpias (3 × 10) y
+    // la 4ª trae 25 reps, que es lo normal en un drop set. Sin filtrar daría
+    // "superada" siempre; el alumno cobraría por una serie que el motor
+    // decidió no mirar.
+    const series = [
+      serie({ numeroSerie: 1, repsRealizadas: 10 }),
+      serie({ numeroSerie: 2, repsRealizadas: 10 }),
+      serie({ numeroSerie: 3, repsRealizadas: 10 }),
+      serie({ numeroSerie: 4, repsRealizadas: 25 }),
+    ];
+    const reco = {
+      regla: "A_subir_reps" as const,
+      pesoSugeridoKg: 20,
+      repsObjetivoMin: 8,
+      repsObjetivoMax: 12,
+      metaTotalReps: 30,
+    };
+    expect(resolverCumplimiento(reco, series, 28, [1, 2, 3])).toBe("cumplida");
+    // Sin el filtro, la misma sesión da mal: las 25 reps del drop set se
+    // suman (55 en total) y encima quedan fuera del rango máximo, así que el
+    // alumno que cumplió al pie de la letra figura como que no llegó.
+    expect(resolverCumplimiento(reco, series, 28)).toBe("parcial");
+  });
+
+  it("sin seriesConsideradas se evalúa todo, igual que antes de la 0073", () => {
+    const series = [serie({ numeroSerie: 1, repsRealizadas: 10 }), serie({ numeroSerie: 2, repsRealizadas: 10 })];
+    const reco = {
+      regla: "A_subir_reps" as const,
+      pesoSugeridoKg: 20,
+      repsObjetivoMin: 8,
+      repsObjetivoMax: 12,
+      metaTotalReps: 20,
+    };
+    expect(resolverCumplimiento(reco, series, 18)).toBe("cumplida");
+    expect(resolverCumplimiento(reco, series, 18, null)).toBe("cumplida");
+  });
+
   it("Regla A: cumplida si alcanzó exactamente la meta total sin salir del rango", () => {
     const r = resolverCumplimiento(
       { regla: "A_subir_reps", pesoSugeridoKg: 20, repsObjetivoMin: 8, repsObjetivoMax: 12, metaTotalReps: 30 },
