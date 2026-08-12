@@ -47,14 +47,11 @@ type PresetNivel = {
 };
 
 export const NIVELES_ARMADO: Record<NivelArmado, PresetNivel> = {
-  // Los cuatro niveles vivos. Las cantidades las fijó Alejandro el 11/08/2026
-  // y son POR SESIÓN, no por músculo: 5 · 6 · 8-9 · 10 ejercicios. La
-  // descripción las dice en voz alta a propósito — antes cada nivel era una
-  // frase de estilo ("más densidad", "volumen alto") y no había forma de saber
-  // qué iba a salir sin generar la rutina y contarla.
+  // Los cuatro niveles vivos. La dosis visible en Armar se expresa como series
+  // TOTALES POR GRUPO MUSCULAR EN CADA SESIÓN, nunca por ejercicio.
   principiante: {
     etiqueta: "Principiante",
-    descripcion: "5 ejercicios por sesión · 2 series cada uno. Técnica primero, sin técnicas de intensidad.",
+    descripcion: "1 grupo: 5 series · 2 grupos: 3+3 · 3 grupos: 3+2+2. Técnica primero, sin intensidad avanzada.",
     brief: {
       objetivo: "hipertrofia", prioridad: "retorno", intensidadDeseada: "estandar", tecnicasIntensidad: "no",
       estiloEntrenamiento: "vieja_escuela", inspiracionEstilo: "ninguna", ejerciciosPorSesion: 5,
@@ -63,7 +60,7 @@ export const NIVELES_ARMADO: Record<NivelArmado, PresetNivel> = {
   },
   intermedio: {
     etiqueta: "Intermedio",
-    descripcion: "6 ejercicios por sesión · 3 series cada uno. Hipertrofia equilibrada, técnicas solo cuando corresponden.",
+    descripcion: "Progresión por sesión: 6 series con un grupo, 4+4 con dos y 4+3+3 con tres.",
     brief: {
       objetivo: "hipertrofia", prioridad: "hipertrofia", intensidadDeseada: "estandar", tecnicasIntensidad: "automatico",
       estiloEntrenamiento: "hibrido", inspiracionEstilo: "ninguna", ejerciciosPorSesion: 6,
@@ -72,7 +69,7 @@ export const NIVELES_ARMADO: Record<NivelArmado, PresetNivel> = {
   },
   avanzado: {
     etiqueta: "Avanzado",
-    descripcion: "8 ejercicios por sesión · 4 series cada uno. Más densidad y recursos de intensidad controlados.",
+    descripcion: "6 series por cada grupo muscular en la sesión; busca 12–20 semanales con frecuencia 2–3×.",
     brief: {
       objetivo: "hipertrofia", prioridad: "hipertrofia", intensidadDeseada: "alta", tecnicasIntensidad: "si",
       estiloEntrenamiento: "hibrido", inspiracionEstilo: "alta_intensidad", ejerciciosPorSesion: 8,
@@ -81,7 +78,7 @@ export const NIVELES_ARMADO: Record<NivelArmado, PresetNivel> = {
   },
   olympia: {
     etiqueta: "Olympia",
-    descripcion: "10 ejercicios por sesión · 4 series cada uno. Preparación competitiva: más variedad y finalizadores.",
+    descripcion: "8 series por cada grupo muscular en la sesión; frecuencia 2–3× y volumen competitivo recuperable.",
     brief: {
       objetivo: "hipertrofia", prioridad: "hipertrofia", intensidadDeseada: "competitiva", tecnicasIntensidad: "si",
       estiloEntrenamiento: "hibrido", inspiracionEstilo: "volumen_tradicional", ejerciciosPorSesion: 10,

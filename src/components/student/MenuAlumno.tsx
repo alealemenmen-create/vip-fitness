@@ -9,9 +9,9 @@ import { guardarTemaBoton } from "@/app/alumno/perfil/actions";
 
 type TemaBoton = "espejo" | "vip" | "femenino";
 const TEMAS_BOTON: { valor: TemaBoton; texto: string; muestra: string }[] = [
-  { valor: "espejo", texto: "Espejo", muestra: "linear-gradient(135deg, #060606, #1d1d20)" },
   { valor: "vip", texto: "VIP", muestra: "linear-gradient(135deg, #ffc247, #ff8a00)" },
-  { valor: "femenino", texto: "Lady", muestra: "linear-gradient(135deg, #ff8ac0, #b388ff)" },
+  { valor: "femenino", texto: "Lady Fit", muestra: "linear-gradient(135deg, #d99aaa, #b8a6c9)" },
+  { valor: "espejo", texto: "Espejo", muestra: "linear-gradient(135deg, #060606, #1d1d20)" },
 ];
 
 /*
@@ -46,7 +46,7 @@ const ESCALAS: { valor: Escala; texto: string; muestra: number }[] = [
 export function MenuAlumno({ nombre }: { nombre: string }) {
   const [abierto, setAbierto] = useState(false);
   const [claro, setClaro] = useState(false);
-  const [temaBoton, setTemaBoton] = useState<TemaBoton>("espejo");
+  const [temaBoton, setTemaBoton] = useState<TemaBoton>("vip");
   // Valor real de `--escala-texto`, no acotado a los tres tamaños de este
   // menú: el panel de zoom del entrenador (ZoomPanel.tsx) escribe la misma
   // variable y la misma clave de localStorage con su propio rango (75/85/100%).
@@ -96,6 +96,14 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
       document.documentElement.setAttribute("data-tema-boton", tema);
     }
     localStorage.setItem("vip-tema-boton", tema);
+    // Lady Fit nace como una experiencia luminosa. Al elegirla se activa su
+    // variante clara; el alumno sigue pudiendo pasarla a nocturna después
+    // con el mismo control de siempre.
+    if (tema === "femenino") {
+      setClaro(true);
+      document.documentElement.setAttribute("data-theme", "light");
+      localStorage.setItem("vip-theme", "light");
+    }
     // Además de local (aplica al instante), se guarda en la cuenta — así el
     // alumno recupera su tema al entrar desde otro dispositivo o navegador.
     void guardarTemaBoton(tema);
@@ -130,7 +138,7 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
       <button
         onClick={abrir}
         aria-label="Configuración"
-        className="radius-control relative flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-surface text-text-secondary active:scale-95"
+        className="boton-menu-alumno radius-control relative flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-surface text-text-secondary active:scale-95"
       >
         <Settings size={18} />
       </button>
@@ -138,16 +146,16 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
       {abierto &&
         montado &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="contenedor-menu-alumno fixed inset-0 z-50 flex justify-end">
             <button
               aria-label="Cerrar menú"
               onClick={() => setAbierto(false)}
-              className="absolute inset-0 bg-black/70"
+              className="fondo-menu-alumno absolute inset-0 bg-black/70"
             />
 
             {/* overflow-y-auto: con el texto en "Más grande" y una pantalla
                 baja, el panel ya no entra completo de una. */}
-            <aside className="relative flex h-full w-72 max-w-[80%] flex-col overflow-y-auto bg-surface p-5">
+            <aside className="panel-menu-alumno relative flex h-full w-72 max-w-[80%] flex-col overflow-y-auto bg-surface p-5">
               <div className="mb-6 flex items-start justify-between gap-2">
                 <div>
                   <p className="text-caption text-text-tertiary">SESIÓN DE</p>
@@ -249,7 +257,7 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
 
               <div className="mt-5 border-t border-border pt-4">
                 <p className="text-caption mb-2 flex items-center gap-2 text-text-tertiary">
-                  <Sparkles size={16} className="text-vip" /> TEMA DE BOTONES
+                  <Sparkles size={16} className="text-vip" /> MODO VISUAL
                 </p>
                 <div className="flex gap-2">
                   {TEMAS_BOTON.map((t) => (

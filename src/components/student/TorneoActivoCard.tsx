@@ -105,7 +105,7 @@ function TorneoCard({
   });
 
   return (
-    <div className="panel-vip-espejo radius-card px-4 py-3.5">
+    <div className="ranked-casino-card ranked-torneo-card radius-card px-4 py-3.5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <Swords size={18} className="shrink-0 text-vip" />

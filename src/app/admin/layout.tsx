@@ -13,6 +13,8 @@ import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ZoomPanel } from "@/components/admin/ZoomPanel";
 import { AlternarPanelLateral } from "@/components/admin/AlternarPanelLateral";
+import { obtenerResumenAlertasGastos } from "@/lib/gastos/data";
+import { AlertTriangle } from "lucide-react";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const sesion = await requireRol(["entrenador", "admin"]);
@@ -32,6 +34,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { count: alimentosPendientes },
     { count: solicitudesPendientes },
     novedades,
+    gastosAlerta,
   ] = await Promise.all([
     miAlumnoPerfilPromise,
     supabase
@@ -47,12 +50,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     // la navegación (ver `lib/novedades-vistas-local.ts`), y no vale la pena
     // mandar título/resumen de todas al cliente en cada carga del panel.
     registroDespliegue.then(() => obtenerNovedades(10)),
+    obtenerResumenAlertasGastos(),
   ]);
 
   const badges = {
     alimentosPendientes: alimentosPendientes ?? 0,
     solicitudesPendientes: solicitudesPendientes ?? 0,
     novedadesFechas: novedades.map((n) => n.creadoEn),
+    gastosPendientes: gastosAlerta.pendientes,
   };
 
   return (
@@ -158,7 +163,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </header>
 
         <main className="pantalla-scroll min-w-0 flex-1 px-4 pb-28 md:px-8 md:pb-10 lg:px-10">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
+          <div className="mx-auto w-full max-w-7xl">
+            {gastosAlerta.pendientes > 0 && (
+              <Link href="/admin/gastos" className="mb-4 flex items-center gap-2 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-caption font-semibold text-text">
+                <AlertTriangle size={17} className={gastosAlerta.vencidos ? "text-error" : "text-warning"} />
+                {gastosAlerta.vencidos > 0
+                  ? `${gastosAlerta.vencidos} pago${gastosAlerta.vencidos === 1 ? "" : "s"} vencido${gastosAlerta.vencidos === 1 ? "" : "s"}. Revisar gastos de la app.`
+                  : `${gastosAlerta.pendientes} pago${gastosAlerta.pendientes === 1 ? "" : "s"} se acerca${gastosAlerta.pendientes === 1 ? "" : "n"}. Revisar calendario.`}
+              </Link>
+            )}
+            {children}
+          </div>
           <LogoutButton className="mt-8 block w-full py-2 text-center text-xs text-text-tertiary md:hidden" />
         </main>
       </div>

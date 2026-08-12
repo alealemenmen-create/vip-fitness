@@ -207,7 +207,9 @@ describe("insertarORecuperarRecomendacion", () => {
 
   it("una fila insertada en Regla E repara su alerta", async () => {
     const { repo } = crearRepoRecomendacionesFalso();
-    const asegurarAlerta = vi.fn(async (_fila: FilaRecomendacion) => {});
+    const asegurarAlerta = vi.fn(async (fila: FilaRecomendacion) => {
+      void fila;
+    });
     const fila = await insertarORecuperarRecomendacion(
       repo,
       payloadEjemplo({ regla: "E_consultar", decision_data: decisionDataEjemplo({ alertaTipo: "dolor" }) }),
@@ -224,7 +226,9 @@ describe("insertarORecuperarRecomendacion", () => {
       payloadEjemplo({ regla: "E_consultar", decision_data: decisionDataEjemplo({ alertaTipo: "caida_rendimiento" }) })
     );
 
-    const asegurarAlerta = vi.fn(async (_fila: FilaRecomendacion) => {});
+    const asegurarAlerta = vi.fn(async (fila: FilaRecomendacion) => {
+      void fila;
+    });
     await insertarORecuperarRecomendacion(repo, payloadEjemplo({ regla: "A_subir_reps" }), asegurarAlerta);
 
     expect(asegurarAlerta).toHaveBeenCalledTimes(1);
@@ -350,7 +354,9 @@ describe("simularGenerarYGuardar — idempotencia de las dos capas juntas", () =
 
     const buscar = vi.spyOn(repo, "buscar");
     const insertar = vi.spyOn(repo, "insertar");
-    const asegurarAlerta = vi.fn(async (_fila: FilaRecomendacion) => {});
+    const asegurarAlerta = vi.fn(async (fila: FilaRecomendacion) => {
+      void fila;
+    });
     const fila = await simularGenerarYGuardar(
       repo,
       "se-1",

@@ -19,7 +19,7 @@ export function HistorialTorneos({ historial }: { historial: ResultadoHistorico[
         const ganador = ordenados[0];
         if (!ganador) return null;
         return (
-          <div key={torneo.torneoId} className="radius-card bg-surface-2 p-3">
+          <div key={torneo.torneoId} className="ranked-trofeo-card radius-card p-3">
             <p className="text-secondary font-semibold text-text">{torneo.nombre}</p>
             <p className="text-caption mb-2 text-text-tertiary">
               {NOMBRE_MODALIDAD[torneo.modalidad]} · {NOMBRE_METRICA[torneo.metrica]} · {formatFechaCorta(torneo.fechaFin)}

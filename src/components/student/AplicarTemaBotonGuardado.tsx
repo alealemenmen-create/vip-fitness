@@ -12,9 +12,8 @@ import { useEffect } from "react";
  *
  * `temaGuardado` es `undefined`/`null` en DOS casos bien distintos: la cuenta
  * nunca eligió nada todavía (no hay fila que corregir), o no se pudo leer la
- * base (columna sin migrar, error de red). En ningún caso hay que forzar
- * "espejo" — eso le pisaría al alumno un tema que ya tiene bien puesto en
- * este mismo dispositivo. Solo se corrige cuando hay un valor explícito.
+ * base (columna sin migrar, error de red). En ambos casos el script inicial ya
+ * mantiene VIP como predeterminado. Solo se corrige con un valor explícito.
  */
 export function AplicarTemaBotonGuardado({
   temaGuardado,
@@ -28,6 +27,14 @@ export function AplicarTemaBotonGuardado({
       temaGuardado !== "femenino"
     ) {
       return;
+    }
+
+    // En un dispositivo nuevo (o en uno que ya usaba el antiguo Lady solo de
+    // botones) puede no existir todavía una preferencia de luminosidad. Lady
+    // Fit arranca clara sin pisar una elección oscura guardada expresamente.
+    if (temaGuardado === "femenino" && localStorage.getItem("vip-theme") === null) {
+      document.documentElement.setAttribute("data-theme", "light");
+      localStorage.setItem("vip-theme", "light");
     }
 
     const actual = document.documentElement.getAttribute("data-tema-boton") ?? "espejo";

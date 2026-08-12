@@ -7,6 +7,7 @@ import {
   Bell,
   Bot,
   ClipboardList,
+  CircleDollarSign,
   Dumbbell,
   FileText,
   History,
@@ -27,6 +28,7 @@ import { contarNovedadesSinVer } from "@/lib/novedades-vistas-local";
 type AdminTabsProps = {
   alimentosPendientes?: number;
   solicitudesPendientes?: number;
+  gastosPendientes?: number;
   /** Fechas (`creado_en`) de las últimas novedades — de acá sale cuántas
    * están sin ver, comparando contra lo último visto en este dispositivo. */
   novedadesFechas?: string[];
@@ -82,6 +84,7 @@ const SIDEBAR_GROUPS = [
     items: [
       { href: "/admin/auditoria", label: "Auditoría", icon: ShieldCheck, section: "auditoria" },
       { href: "/admin/novedades", label: "Actualizaciones", icon: Bell, section: "novedades" },
+      { href: "/admin/gastos", label: "Gastos de la app", icon: CircleDollarSign, section: "gastos" },
       { href: "/admin/configuracion", label: "Configuración", icon: Settings, section: "configuracion" },
     ],
   },
@@ -98,6 +101,7 @@ const MORE_PREFIXES = [
   "/admin/torneos",
   "/admin/noticias",
   "/admin/novedades",
+  "/admin/gastos",
 ];
 
 function estaActivo(pathname: string, href: string, section: string) {
@@ -113,12 +117,15 @@ function pendientesDe(
   alimentosPendientes: number,
   solicitudesPendientes: number,
   novedadesSinVer: number,
+  gastosPendientes: number,
 ) {
   if (section === "alimentos") return alimentosPendientes;
   if (section === "alumnos" || section === "solicitudes") return solicitudesPendientes;
   // En el celular, "Actualizaciones" no tiene lugar propio en la barra: se
   // llega por "Más", así que ahí es donde tiene que verse el aviso.
-  if (section === "novedades" || section === "mas") return novedadesSinVer;
+  if (section === "gastos") return gastosPendientes;
+  if (section === "novedades") return novedadesSinVer;
+  if (section === "mas") return novedadesSinVer + gastosPendientes;
   return 0;
 }
 
@@ -126,6 +133,7 @@ export function AdminTabs({
   alimentosPendientes = 0,
   solicitudesPendientes = 0,
   novedadesFechas = [],
+  gastosPendientes = 0,
   variant = "mobile",
 }: AdminTabsProps) {
   const pathname = usePathname();
@@ -154,7 +162,7 @@ export function AdminTabs({
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const active = estaActivo(pathname, item.href, item.section);
-                const esperando = pendientesDe(item.section, alimentosPendientes, solicitudesPendientes, novedadesSinVer);
+                const esperando = pendientesDe(item.section, alimentosPendientes, solicitudesPendientes, novedadesSinVer, gastosPendientes);
                 return (
                   <Link
                     key={item.href}
@@ -191,7 +199,7 @@ export function AdminTabs({
       {MOBILE_TABS.map((tab) => {
         const Icon = tab.icon;
         const active = estaActivo(pathname, tab.href, tab.section);
-        const esperando = pendientesDe(tab.section, alimentosPendientes, solicitudesPendientes, novedadesSinVer);
+        const esperando = pendientesDe(tab.section, alimentosPendientes, solicitudesPendientes, novedadesSinVer, gastosPendientes);
         return (
           <Link
             key={tab.href}

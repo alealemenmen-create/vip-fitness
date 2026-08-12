@@ -1081,7 +1081,10 @@ async function publicarUnaRutina(
   if (filasEjercicios.length > 0) {
     const { data: ejerciciosCreados, error: errorEjercicios } = await supabase
       .from("rutina_dia_ejercicios")
-      .insert(filasEjercicios.map(({ _progresion, ...fila }) => fila))
+      .insert(filasEjercicios.map(({ _progresion, ...fila }) => {
+        void _progresion;
+        return fila;
+      }))
       .select("id, dia_id, orden");
 
     if (errorEjercicios) {

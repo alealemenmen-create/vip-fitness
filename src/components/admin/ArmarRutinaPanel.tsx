@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { AlertTriangle, ArrowLeft, Check, ChevronDown, Coffee, PencilRuler, Search, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, Coffee, PencilRuler, Search, SlidersHorizontal } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -102,8 +102,17 @@ const DIAS = [1, 2, 3, 4, 5, 6, 7];
  * tomar. Sigue existiendo en el tipo para que los borradores viejos abran. */
 const NIVELES: NivelArmado[] = ["principiante", "intermedio", "avanzado", "olympia"];
 
-type GrupoPlan = "pecho" | "espalda" | "piernas" | "hombros" | "biceps" | "triceps" | "core";
-type SesionPlan = { grupos: GrupoPlan[]; focos: string[]; ejerciciosPorGrupo: Partial<Record<GrupoPlan, number>>; descansoDespues: boolean; tipoDescanso: string };
+type GrupoPlan = "pecho" | "espalda" | "cuadriceps" | "femoral" | "gluteo" | "hombros" | "biceps" | "triceps" | "core";
+type OrganizacionSesion = "por_grupos" | "cruzado";
+type SesionPlan = {
+  grupos: GrupoPlan[];
+  focos: string[];
+  ejerciciosPorGrupo: Partial<Record<GrupoPlan, number>>;
+  seriesPorGrupo: Partial<Record<GrupoPlan, number>>;
+  organizacion: OrganizacionSesion;
+  descansoDespues: boolean;
+  tipoDescanso: string;
+};
 
 /** Todo lo que hace falta para retomar el asistente exactamente donde quedó
  * (ver `asistente-armado-local.ts`). `busqueda`, `error` y `pendiente` quedan
@@ -123,6 +132,8 @@ type EstadoAsistente = {
   seriesManuales: number;
   repeticionesManuales: string;
   ejerciciosPlaneadosPorDia: Record<number, Record<string, number>>;
+  seriesPlaneadasPorDia: Record<number, Record<string, number>>;
+  organizacionPlaneadaPorDia: Record<number, "por_grupos" | "alternado">;
 };
 
 const RECOMENDACION_NIVEL: Record<NivelArmado, { series: number; bases: string; accesorios: string }> = {
@@ -139,14 +150,38 @@ const RECOMENDACION_NIVEL: Record<NivelArmado, { series: number; bases: string; 
 function cantidadSugerida(gruposEnSesion: number, grupo: GrupoPlan): number {
   if (grupo === "core") return 1;
   if (gruposEnSesion <= 1) return 4;
-  if (gruposEnSesion === 2) return 3;
+  if (gruposEnSesion === 2) return 2;
   return 2;
+}
+
+/** Series EFECTIVAS totales para cada grupo en una sesiÃ³n. No son series por
+ * ejercicio. El orden del array coincide con la prioridad 1, 2 y 3 elegida
+ * por el entrenador. Avanzado (6) y Olympia (8) alcanzan 12â€“20 semanales con
+ * dos o tres exposiciones, sin inflar cada ejercicio por separado. */
+export function seriesSugeridasPorSesion(nivel: NivelArmado, cantidadGrupos: number): number[] {
+  const cantidad = Math.max(1, cantidadGrupos);
+  const nivelActual = nivel === "profesional" || nivel === "competitivo" ? "olympia" : nivel === "estandar" ? "intermedio" : nivel === "senior" ? "principiante" : nivel;
+  if (nivelActual === "avanzado") return Array(cantidad).fill(6);
+  if (nivelActual === "olympia") return Array(cantidad).fill(8);
+  const base = nivelActual === "principiante"
+    ? (cantidad === 1 ? [5] : cantidad === 2 ? [3, 3] : [3, 2, 2])
+    : (cantidad === 1 ? [6] : cantidad === 2 ? [4, 4] : [4, 3, 3]);
+  return Array.from({ length: cantidad }, (_, indice) => base[indice] ?? base.at(-1) ?? 2);
+}
+
+function seriesSugeridaParaGrupo(nivel: NivelArmado, grupos: GrupoPlan[], grupo: GrupoPlan): number {
+  if (grupo === "core") return nivel === "principiante" || nivel === "senior" ? 3 : 4;
+  const gruposMusculares = grupos.filter((item) => item !== "core");
+  const posicion = Math.max(0, gruposMusculares.indexOf(grupo));
+  return seriesSugeridasPorSesion(nivel, gruposMusculares.length)[posicion] ?? 3;
 }
 
 const GRUPOS_PLAN: { id: GrupoPlan; nombre: string; color: string; focos: string[] }[] = [
   { id: "pecho", nombre: "Pecho", color: "#c9787f", focos: ["Superior", "Medio", "Inferior", "Aislamiento"] },
   { id: "espalda", nombre: "Espalda", color: "#728fb8", focos: ["Amplitud", "Densidad", "Lumbar", "Trapecio"] },
-  { id: "piernas", nombre: "Piernas", color: "#78a27c", focos: ["Glúteos", "Cuádriceps", "Femoral", "Aductor", "Abductor", "Pantorrilla"] },
+  { id: "cuadriceps", nombre: "Cuádriceps", color: "#78a27c", focos: [] },
+  { id: "femoral", nombre: "Femoral", color: "#5f9678", focos: [] },
+  { id: "gluteo", nombre: "Glúteo", color: "#91ad69", focos: [] },
   { id: "hombros", nombre: "Hombros", color: "#b99a62", focos: ["Anterior", "Lateral", "Posterior", "Press vertical"] },
   // Modelo de brazos definido por el entrenador: los SUBGRUPOS son bíceps,
   // tríceps y antebrazo; lo de adentro son ENFOQUES (qué cabeza del músculo
@@ -161,21 +196,41 @@ const GRUPOS_PLAN: { id: GrupoPlan; nombre: string; color: string; focos: string
   { id: "triceps", nombre: "Tríceps", color: "#9a84b9", focos: ["Cabeza larga", "Cabeza lateral", "Cabeza medial"] },
   { id: "core", nombre: "Core", color: "#b77f97", focos: ["Abdominal", "Oblicuos", "Estabilidad", "Lumbar"] },
 ];
+const SUBGRUPOS_INFERIOR = [
+  { id: "Tren inferior · Abductor", etiqueta: "Abductor", color: "#78a891" },
+  { id: "Tren inferior · Aductor", etiqueta: "Aductor", color: "#719b82" },
+  { id: "Tren inferior · Pantorrilla", etiqueta: "Pantorrilla", color: "#668b72" },
+] as const;
+const GRUPOS_INFERIORES = new Set<GrupoPlan>(["cuadriceps", "femoral", "gluteo"]);
 
-function sesionesIniciales(cantidad: number): SesionPlan[] {
+function normalizarSesionGuardada(sesion: SesionPlan, nivel: NivelArmado): SesionPlan {
+  const gruposViejos = sesion.grupos as (GrupoPlan | "piernas")[];
+  const grupos = gruposViejos.flatMap((grupo) => grupo === "piernas" ? (["cuadriceps", "femoral", "gluteo"] as GrupoPlan[]) : [grupo]);
+  return {
+    ...sesion,
+    grupos: [...new Set(grupos)],
+    ejerciciosPorGrupo: Object.fromEntries(grupos.map((grupo) => [grupo, sesion.ejerciciosPorGrupo?.[grupo as GrupoPlan] ?? cantidadSugerida(grupos.length, grupo)])),
+    seriesPorGrupo: Object.fromEntries(grupos.map((grupo) => [grupo, sesion.seriesPorGrupo?.[grupo as GrupoPlan] ?? seriesSugeridaParaGrupo(nivel, grupos, grupo)])),
+    organizacion: sesion.organizacion ?? "por_grupos",
+  };
+}
+
+function sesionesIniciales(cantidad: number, nivel: NivelArmado = "intermedio"): SesionPlan[] {
   const plantillas: Record<number, GrupoPlan[][]> = {
-    1: [["piernas"]],
-    2: [["pecho", "espalda"], ["piernas", "hombros"]],
-    3: [["pecho", "biceps"], ["espalda", "triceps"], ["piernas", "hombros"]],
-    4: [["pecho", "biceps"], ["espalda", "triceps"], ["piernas"], ["hombros", "biceps", "triceps"]],
-    5: [["pecho", "biceps"], ["espalda", "triceps"], ["piernas"], ["pecho", "espalda"], ["hombros", "biceps", "triceps"]],
-    6: [["pecho", "biceps"], ["espalda", "triceps"], ["piernas", "hombros"], ["pecho", "espalda"], ["hombros", "biceps", "triceps"], ["piernas"]],
-    7: [["pecho"], ["espalda"], ["piernas"], ["hombros"], ["biceps", "triceps"], ["pecho", "espalda"], ["piernas"]],
+    1: [["cuadriceps", "femoral", "gluteo"]],
+    2: [["pecho", "espalda"], ["cuadriceps", "femoral", "gluteo"]],
+    3: [["pecho", "biceps"], ["espalda", "triceps"], ["cuadriceps", "femoral", "gluteo"]],
+    4: [["pecho", "biceps"], ["espalda", "triceps"], ["cuadriceps", "femoral", "gluteo"], ["hombros", "biceps", "triceps"]],
+    5: [["pecho", "biceps"], ["espalda", "triceps"], ["cuadriceps", "femoral", "gluteo"], ["pecho", "espalda"], ["hombros", "biceps", "triceps"]],
+    6: [["pecho", "biceps"], ["espalda", "triceps"], ["cuadriceps", "gluteo"], ["pecho", "espalda"], ["hombros", "biceps", "triceps"], ["femoral", "gluteo"]],
+    7: [["pecho"], ["espalda"], ["cuadriceps", "gluteo"], ["hombros"], ["biceps", "triceps"], ["pecho", "espalda"], ["femoral", "gluteo"]],
   };
   return (plantillas[cantidad] ?? plantillas[3]).map((grupos) => ({
     grupos,
     focos: [],
     ejerciciosPorGrupo: Object.fromEntries(grupos.map((grupo) => [grupo, cantidadSugerida(grupos.length, grupo)])),
+    seriesPorGrupo: Object.fromEntries(grupos.map((grupo) => [grupo, seriesSugeridaParaGrupo(nivel, grupos, grupo)])),
+    organizacion: "por_grupos",
     descansoDespues: false,
     tipoDescanso: "Descanso total",
   }));
@@ -215,6 +270,8 @@ export function ArmarRutinaPanel({
   const [seriesManuales, setSeriesManuales] = useState(3);
   const [repeticionesManuales, setRepeticionesManuales] = useState("8-12");
   const [ejerciciosPlaneadosPorDia, setEjerciciosPlaneadosPorDia] = useState<Record<number, Record<string, number>>>({});
+  const [seriesPlaneadasPorDia, setSeriesPlaneadasPorDia] = useState<Record<number, Record<string, number>>>({});
+  const [organizacionPlaneadaPorDia, setOrganizacionPlaneadaPorDia] = useState<Record<number, "por_grupos" | "alternado">>({});
   const [pendiente, iniciar] = useTransition();
 
   // ── Guardado automático del asistente (steps 1 a 4) ───────────────────
@@ -242,12 +299,14 @@ export function ArmarRutinaPanel({
       setAlertas(guardado.alertas);
       setSeleccionando(guardado.seleccionando);
       setDisenandoEstructura(guardado.disenandoEstructura);
-      setSesionesPlan(guardado.sesionesPlan);
+      setSesionesPlan(guardado.sesionesPlan.map((sesion) => normalizarSesionGuardada(sesion, guardado.nivel)));
       setSesionActiva(guardado.sesionActiva);
       setConfiguracionManual(guardado.configuracionManual);
       setSeriesManuales(guardado.seriesManuales);
       setRepeticionesManuales(guardado.repeticionesManuales);
       setEjerciciosPlaneadosPorDia(guardado.ejerciciosPlaneadosPorDia);
+      setSeriesPlaneadasPorDia(guardado.seriesPlaneadasPorDia ?? {});
+      setOrganizacionPlaneadaPorDia(guardado.organizacionPlaneadaPorDia ?? {});
     }, 0);
     return () => window.clearTimeout(id);
     // Solo al montar.
@@ -275,6 +334,8 @@ export function ArmarRutinaPanel({
       seriesManuales,
       repeticionesManuales,
       ejerciciosPlaneadosPorDia,
+      seriesPlaneadasPorDia,
+      organizacionPlaneadaPorDia,
     });
   }, [
     seleccionados,
@@ -291,6 +352,8 @@ export function ArmarRutinaPanel({
     seriesManuales,
     repeticionesManuales,
     ejerciciosPlaneadosPorDia,
+    seriesPlaneadasPorDia,
+    organizacionPlaneadaPorDia,
   ]);
 
   /** "Descartar" en la mesa de trabajo y "Cargar otra rutina" después de
@@ -315,6 +378,8 @@ export function ArmarRutinaPanel({
     setSeriesManuales(3);
     setRepeticionesManuales("8-12");
     setEjerciciosPlaneadosPorDia({});
+    setSeriesPlaneadasPorDia({});
+    setOrganizacionPlaneadaPorDia({});
     limpiarAsistenteArmado();
   };
 
@@ -365,7 +430,7 @@ export function ArmarRutinaPanel({
     if (!alumno) return;
     setError(null);
     setAlertas([]);
-    setSesionesPlan(sesionesIniciales(dias));
+    setSesionesPlan(sesionesIniciales(dias, nivel));
     setSesionActiva(0);
     setDisenandoEstructura(true);
   };
@@ -374,9 +439,20 @@ export function ArmarRutinaPanel({
     if (!alumno || sesionesPlan.some((sesion) => sesion.grupos.length === 0)) return;
     const diasRutina: RutinaExtraida["dias"] = [];
     const cantidadesPorDia: Record<number, Record<string, number>> = {};
+    const seriesPorDia: Record<number, Record<string, number>> = {};
+    const organizacionPorDia: Record<number, "por_grupos" | "alternado"> = {};
     sesionesPlan.forEach((sesion, indice) => {
       const etiquetas = sesion.grupos.map((grupo) => GRUPOS_PLAN.find((item) => item.id === grupo)?.nombre ?? grupo);
-      cantidadesPorDia[diasRutina.length] = Object.fromEntries(sesion.grupos.map((grupo) => [grupo, sesion.ejerciciosPorGrupo[grupo] ?? cantidadSugerida(sesion.grupos.length, grupo)]));
+      const subgrupos = sesion.focos.filter((foco) => foco.startsWith("Tren inferior · ")).map((foco) => foco.split(" · ")[1].toLowerCase());
+      cantidadesPorDia[diasRutina.length] = Object.fromEntries([
+        ...sesion.grupos.map((grupo) => [grupo, sesion.ejerciciosPorGrupo[grupo] ?? cantidadSugerida(sesion.grupos.length, grupo)] as const),
+        ...subgrupos.map((grupo) => [grupo, 1] as const),
+      ]);
+      seriesPorDia[diasRutina.length] = Object.fromEntries([
+        ...sesion.grupos.map((grupo) => [grupo, sesion.seriesPorGrupo?.[grupo] ?? seriesSugeridaParaGrupo(nivel, sesion.grupos, grupo)] as const),
+        ...subgrupos.map((grupo) => [grupo, RECOMENDACION_NIVEL[nivel].series] as const),
+      ]);
+      organizacionPorDia[diasRutina.length] = sesion.organizacion === "cruzado" ? "alternado" : "por_grupos";
       diasRutina.push({
         numero: diasRutina.length + 1,
         nombre: etiquetas.join(" + "),
@@ -399,6 +475,8 @@ export function ArmarRutinaPanel({
       dias: diasRutina,
     });
     setEjerciciosPlaneadosPorDia(cantidadesPorDia);
+    setSeriesPlaneadasPorDia(seriesPorDia);
+    setOrganizacionPlaneadaPorDia(organizacionPorDia);
     setDisenandoEstructura(false);
   };
 
@@ -463,6 +541,8 @@ export function ArmarRutinaPanel({
             seriesPorEjercicio: configuracionManual ? seriesManuales : RECOMENDACION_NIVEL[nivel].series,
             repeticiones: configuracionManual ? repeticionesManuales : RECOMENDACION_NIVEL[nivel].bases,
             ejerciciosPorSesion: ejerciciosPlaneadosPorDia,
+            seriesPorGrupoSesion: seriesPlaneadasPorDia,
+            organizacionPorSesion: organizacionPlaneadaPorDia,
           }}
         />
       </div>
@@ -476,26 +556,51 @@ export function ArmarRutinaPanel({
       const quitando = sesion.grupos.includes(grupo);
       const grupos = quitando ? sesion.grupos.filter((item) => item !== grupo) : [...sesion.grupos, grupo];
       const ejerciciosPorGrupo = { ...sesion.ejerciciosPorGrupo };
+      const seriesPorGrupo = { ...sesion.seriesPorGrupo };
       if (quitando) delete ejerciciosPorGrupo[grupo];
       else ejerciciosPorGrupo[grupo] = cantidadSugerida(grupos.length, grupo);
+      if (quitando) delete seriesPorGrupo[grupo];
+      grupos.forEach((item) => { seriesPorGrupo[item] = seriesSugeridaParaGrupo(nivel, grupos, item); });
       // Al sacar el grupo se van también sus enfoques: si no, quedaban
       // guardados invisibles y reaparecían en la descripción del día.
       const nombreGrupo = GRUPOS_PLAN.find((item) => item.id === grupo)?.nombre ?? grupo;
       const focos = quitando ? sesion.focos.filter((foco) => !foco.startsWith(`${nombreGrupo} · `)) : sesion.focos;
-      return { ...sesion, grupos, ejerciciosPorGrupo, focos };
+      return { ...sesion, grupos, ejerciciosPorGrupo, seriesPorGrupo, focos };
+    }));
+    const moverGrupo = (grupo: GrupoPlan, direccion: -1 | 1) => setSesionesPlan((previas) => previas.map((sesion, indice) => {
+      if (indice !== sesionActiva) return sesion;
+      const desde = sesion.grupos.indexOf(grupo);
+      const hasta = desde + direccion;
+      if (desde < 0 || hasta < 0 || hasta >= sesion.grupos.length) return sesion;
+      const grupos = [...sesion.grupos];
+      [grupos[desde], grupos[hasta]] = [grupos[hasta], grupos[desde]];
+      return { ...sesion, grupos };
     }));
     const alternarFoco = (foco: string) => setSesionesPlan((previas) => previas.map((sesion, indice) => {
       if (indice !== sesionActiva) return sesion;
       const focos = sesion.focos.includes(foco) ? sesion.focos.filter((item) => item !== foco) : [...sesion.focos, foco];
       return { ...sesion, focos };
     }));
-    const gruposActivos = GRUPOS_PLAN.filter((grupo) => actual.grupos.includes(grupo.id));
+    const gruposActivos = actual.grupos
+      .map((id) => GRUPOS_PLAN.find((grupo) => grupo.id === id))
+      .filter((grupo): grupo is (typeof GRUPOS_PLAN)[number] => Boolean(grupo));
+    const volumenSemanal = GRUPOS_PLAN.map((grupo) => {
+      const sesiones = sesionesPlan.filter((sesion) => sesion.grupos.includes(grupo.id));
+      return {
+        ...grupo,
+        frecuencia: sesiones.length,
+        series: sesiones.reduce((total, sesion) => total + (sesion.seriesPorGrupo?.[grupo.id] ?? seriesSugeridaParaGrupo(nivel, sesion.grupos, grupo.id)), 0),
+      };
+    }).filter((grupo) => grupo.frecuencia > 0);
     // El enfoque se guarda calificado por su grupo ("Bíceps · Cabeza larga").
     // Sin eso, "Cabeza larga" de bíceps y de tríceps serían el mismo botón:
     // marcar uno marcaría los dos y la descripción del día quedaría ambigua.
-    const focosDisponibles = gruposActivos.flatMap((grupo) =>
+    const focosPrincipales = gruposActivos.flatMap((grupo) =>
       grupo.focos.map((foco) => ({ id: `${grupo.nombre} · ${foco}`, etiqueta: foco, color: grupo.color }))
     );
+    const focosDisponibles = gruposActivos.some((grupo) => GRUPOS_INFERIORES.has(grupo.id))
+      ? [...focosPrincipales, ...SUBGRUPOS_INFERIOR]
+      : focosPrincipales;
     return (
       <div className="space-y-3 rounded-2xl border border-[#303846] bg-[#151922] p-3 text-[#f4f7fb]">
         <div className="flex items-center justify-between gap-2 border-b border-[#303846] pb-2">
@@ -530,20 +635,42 @@ export function ArmarRutinaPanel({
 
         {gruposActivos.length > 0 && (
           <div className="space-y-1.5 rounded-xl border border-[#394352] bg-[#1d222c] p-2.5">
-            <p className="text-micro text-[#a8b2c1]">EJERCICIOS POR MÚSCULO</p>
-            {gruposActivos.map((grupo) => (
-              <label key={grupo.id} className="flex items-center justify-between gap-3 text-caption text-[#d9dfe8]">
-                <span className="flex items-center gap-2"><span className="size-2 rounded-full" style={{ backgroundColor: grupo.color }} />{grupo.nombre}</span>
+            <div className="flex items-center justify-between gap-2"><p className="text-micro text-[#a8b2c1]">ORDEN, EJERCICIOS Y SERIES</p><span className="text-[9px] text-[#8f9aaa]">por grupo/sesión</span></div>
+            {gruposActivos.map((grupo, posicion) => (
+              <div key={grupo.id} className="grid grid-cols-[minmax(100px,1fr)_auto] gap-2 rounded-lg bg-[#151922] p-1.5 text-caption text-[#d9dfe8]">
+                <span className="flex min-w-0 items-center gap-1">
+                  <strong className="grid size-5 shrink-0 place-items-center rounded-full bg-[#314151] text-[9px]">{posicion + 1}</strong>
+                  <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: grupo.color }} /><span className="truncate">{grupo.nombre}</span>
+                  <button type="button" disabled={posicion === 0} aria-label={`Subir ${grupo.nombre}`} onClick={() => moverGrupo(grupo.id, -1)} className="grid size-6 place-items-center disabled:opacity-25"><ArrowUp size={12} /></button>
+                  <button type="button" disabled={posicion === gruposActivos.length - 1} aria-label={`Bajar ${grupo.nombre}`} onClick={() => moverGrupo(grupo.id, 1)} className="grid size-6 place-items-center disabled:opacity-25"><ArrowDown size={12} /></button>
+                </span>
                 <span className="flex items-center gap-1">
                   <button type="button" aria-label={`Quitar un ejercicio de ${grupo.nombre}`} onClick={() => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, ejerciciosPorGrupo: { ...sesion.ejerciciosPorGrupo, [grupo.id]: Math.max(1, (sesion.ejerciciosPorGrupo[grupo.id] ?? 1) - 1) } } : sesion))} className="grid size-7 place-items-center rounded-lg border border-[#465263] bg-[#151922]">−</button>
                   <input type="number" min={1} max={6} value={actual.ejerciciosPorGrupo[grupo.id] ?? cantidadSugerida(actual.grupos.length, grupo.id)} onChange={(evento) => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, ejerciciosPorGrupo: { ...sesion.ejerciciosPorGrupo, [grupo.id]: Math.min(6, Math.max(1, Number(evento.target.value) || 1)) } } : sesion))} className="h-7 w-10 rounded-lg border border-[#465263] bg-[#151922] text-center text-caption text-white" />
                   <button type="button" aria-label={`Agregar un ejercicio de ${grupo.nombre}`} onClick={() => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, ejerciciosPorGrupo: { ...sesion.ejerciciosPorGrupo, [grupo.id]: Math.min(6, (sesion.ejerciciosPorGrupo[grupo.id] ?? 1) + 1) } } : sesion))} className="grid size-7 place-items-center rounded-lg border border-[#465263] bg-[#151922]">+</button>
                 </span>
-              </label>
+                <span className="col-span-2 flex items-center justify-end gap-1 border-t border-[#303846] pt-1">
+                  <span className="mr-auto text-[9px] text-[#8f9aaa]">Series totales de {grupo.nombre}</span>
+                  <button type="button" aria-label={`Quitar una serie de ${grupo.nombre}`} onClick={() => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, seriesPorGrupo: { ...sesion.seriesPorGrupo, [grupo.id]: Math.max(1, (sesion.seriesPorGrupo?.[grupo.id] ?? 2) - 1) } } : sesion))} className="grid size-7 place-items-center rounded-lg border border-[#6b5b3d] bg-[#211d17]">−</button>
+                  <strong className="min-w-14 text-center text-[10px] text-[#f0cf8c]">{actual.seriesPorGrupo?.[grupo.id] ?? seriesSugeridaParaGrupo(nivel, actual.grupos, grupo.id)} series</strong>
+                  <button type="button" aria-label={`Agregar una serie de ${grupo.nombre}`} onClick={() => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, seriesPorGrupo: { ...sesion.seriesPorGrupo, [grupo.id]: Math.min(12, (sesion.seriesPorGrupo?.[grupo.id] ?? 2) + 1) } } : sesion))} className="grid size-7 place-items-center rounded-lg border border-[#6b5b3d] bg-[#211d17]">+</button>
+                </span>
+              </div>
             ))}
-            <p className="text-[9px] text-[#8f9aaa]">Total estimado: {gruposActivos.reduce((total, grupo) => total + (actual.ejerciciosPorGrupo[grupo.id] ?? 0), 0)} ejercicios · {(configuracionManual ? seriesManuales : RECOMENDACION_NIVEL[nivel].series) * gruposActivos.reduce((total, grupo) => total + (actual.ejerciciosPorGrupo[grupo.id] ?? 0), 0)} series.</p>
+            <p className="text-[9px] text-[#8f9aaa]">Las series del grupo se reparten entre sus ejercicios; no se multiplican por cada ejercicio.</p>
+            {gruposActivos.length > 1 && <div className="grid grid-cols-2 gap-1.5 pt-1">{(["por_grupos", "cruzado"] as const).map((modo) => <button key={modo} type="button" aria-pressed={actual.organizacion === modo} onClick={() => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, organizacion: modo } : sesion))} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${actual.organizacion === modo ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#465263] text-[#a8b2c1]"}`}>{modo === "por_grupos" ? "Por grupos · 1.º, 2.º, 3.º" : "Cruzado · alternar 1–2–3"}</button>)}</div>}
           </div>
         )}
+
+        {volumenSemanal.length > 0 && <div className="rounded-xl border border-[#3e4b5a] bg-[#19212b] p-2.5">
+          <p className="text-micro font-semibold text-[#c9d7e5]">CONTROL SEMANAL</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">{volumenSemanal.map((grupo) => {
+            const auditar = nivel === "avanzado" || nivel === "olympia";
+            const correcto = grupo.series >= 12 && grupo.series <= (nivel === "olympia" ? 24 : 20) && grupo.frecuencia >= 2 && grupo.frecuencia <= 3;
+            return <span key={grupo.id} className={`rounded-lg border px-2 py-1 text-[9px] ${auditar ? (correcto ? "border-[#3f7059] text-[#9bd2b4]" : "border-[#765d39] text-[#e2bd7a]") : "border-[#465263] text-[#b9c2cf]"}`}>{grupo.nombre}: {grupo.series} series · {grupo.frecuencia}×</span>;
+          })}</div>
+          <p className="mt-1.5 text-[9px] text-[#8f9aaa]">Referencia avanzada/Olympia: 12–20 series semanales por grupo y frecuencia 2–3×. Olympia puede superar levemente ese rango.</p>
+        </div>}
 
         {focosDisponibles.length > 0 && (
           <div className="border-l-2 border-[#6f9bc6] bg-[#1c2733] p-2.5">
@@ -668,7 +795,7 @@ export function ArmarRutinaPanel({
         </div>
         <div>
           <p className="text-micro mb-1.5 text-text-tertiary">NIVEL DEL ALUMNO</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {NIVELES.map((opcion) => {
               const activo = nivel === opcion;
               return (
@@ -686,7 +813,7 @@ export function ArmarRutinaPanel({
                   className={`rounded-xl border p-2.5 text-left transition ${activo ? "border-vip bg-vip/10 ring-2 ring-vip/10" : "border-border bg-surface-2 hover:border-vip/40"}`}
                 >
                   <span className={`block text-caption font-bold ${activo ? "text-vip" : "text-text"}`}>{NIVELES_ARMADO[opcion].etiqueta}</span>
-                  <span className="mt-1 block text-[9px] leading-relaxed text-text-tertiary">{RECOMENDACION_NIVEL[opcion].series} series · {RECOMENDACION_NIVEL[opcion].bases} reps</span>
+                  <span className="mt-1 block text-[9px] leading-relaxed text-text-tertiary">{seriesSugeridasPorSesion(opcion, 1)[0]} series/grupo · {RECOMENDACION_NIVEL[opcion].bases} reps</span>
                 </button>
               );
             })}
@@ -695,27 +822,14 @@ export function ArmarRutinaPanel({
         </div>
 
         <div className="radius-control border border-[#394352] bg-[#151922] p-2.5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-caption font-semibold text-[#eef2f7]">Volumen recomendado por sesión</p>
-              <p className="mt-0.5 text-[10px] text-[#a8b2c1]">{RECOMENDACION_NIVEL[nivel].series} series por ejercicio · bases {RECOMENDACION_NIVEL[nivel].bases} reps · accesorios {RECOMENDACION_NIVEL[nivel].accesorios} reps</p>
-            </div>
-            <div className="grid shrink-0 grid-cols-2 gap-1">
-              <button type="button" aria-pressed={!configuracionManual} onClick={() => setConfiguracionManual(false)} className={`rounded-lg border px-2 py-1.5 text-[9px] font-bold ${!configuracionManual ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] text-[#a8b2c1]"}`}>Recomendado</button>
-              <button type="button" aria-pressed={configuracionManual} onClick={() => setConfiguracionManual(true)} className={`rounded-lg border px-2 py-1.5 text-[9px] font-bold ${configuracionManual ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] text-[#a8b2c1]"}`}>A mi manera</button>
-            </div>
-          </div>
+          <p className="text-caption font-semibold text-[#eef2f7]">Series totales por grupo muscular en cada sesión</p>
+          <p className="mt-0.5 text-[10px] text-[#a8b2c1]">Se reparten entre los ejercicios del grupo · bases {RECOMENDACION_NIVEL[nivel].bases} reps · accesorios {RECOMENDACION_NIVEL[nivel].accesorios} reps</p>
           <div className="mt-2 grid grid-cols-3 gap-1 text-center text-[9px] text-[#9eabbc]">
-            <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">1 músculo</strong>4 ejercicios · {RECOMENDACION_NIVEL[nivel].series * 4} series</div>
-            <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">2 músculos</strong>3 + 3 ejercicios · {RECOMENDACION_NIVEL[nivel].series * 6} series</div>
-            <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">3 músculos</strong>2 + 2 + 2 · {RECOMENDACION_NIVEL[nivel].series * 6} series</div>
+            <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">1 músculo</strong>{seriesSugeridasPorSesion(nivel, 1).join(" series")}</div>
+            <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">2 músculos</strong>{seriesSugeridasPorSesion(nivel, 2).join(" + ")} series</div>
+            <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">3 músculos</strong>{seriesSugeridasPorSesion(nivel, 3).join(" + ")} series</div>
           </div>
-          {configuracionManual && (
-            <div className="mt-2 grid gap-3 border-t border-[#303846] pt-2 sm:grid-cols-2">
-              <div><p className="text-[9px] uppercase text-[#a8b2c1]">Series por ejercicio</p><div className="mt-1 grid grid-cols-5 gap-1">{[2, 3, 4, 5, 6].map((cantidad) => <button key={cantidad} type="button" aria-pressed={seriesManuales === cantidad} onClick={() => setSeriesManuales(cantidad)} className={`rounded-lg border py-2 text-caption font-bold ${seriesManuales === cantidad ? "border-[#78a6d1] bg-[#243c55] text-white" : "border-[#465263] bg-[#1d222c] text-[#b9c2cf]"}`}>{cantidad}</button>)}</div></div>
-              <div><p className="text-[9px] uppercase text-[#a8b2c1]">Repeticiones</p><div className="mt-1 grid grid-cols-3 gap-1">{["5-8", "6-10", "8-12", "10-15", "12-20", "15-25"].map((rango) => <button key={rango} type="button" aria-pressed={repeticionesManuales === rango} onClick={() => setRepeticionesManuales(rango)} className={`rounded-lg border py-2 text-[10px] font-bold ${repeticionesManuales === rango ? "border-[#78a6d1] bg-[#243c55] text-white" : "border-[#465263] bg-[#1d222c] text-[#b9c2cf]"}`}>{rango}</button>)}</div></div>
-            </div>
-          )}
+          <p className="mt-2 text-[9px] text-[#8f9aaa]">Podrás ajustar músculo por músculo, elegir cuál va primero y decidir entre orden por grupos o cruzado en el siguiente paso.</p>
         </div>
 
         <section className="rounded-xl border border-border bg-surface-2 p-2.5">

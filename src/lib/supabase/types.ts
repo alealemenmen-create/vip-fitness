@@ -667,6 +667,7 @@ export interface Database {
           numero_calendario?: number | null;
           estado?: EstadoSesion;
           comentario?: string | null;
+          rutina_iniciada_en?: string | null;
         };
         Update: {
           hora_fin?: string | null;

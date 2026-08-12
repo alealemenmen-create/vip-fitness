@@ -102,7 +102,7 @@ export function GuiaPuntos() {
       <button
         type="button"
         onClick={() => setAbierta((v) => !v)}
-        className="radius-control flex w-full items-center justify-between border border-border bg-surface px-4 py-3"
+        className="ranked-casino-card radius-control flex w-full items-center justify-between px-4 py-3"
       >
         <div className="text-left">
           <p className="text-secondary font-semibold text-text">¿Cómo se ganan los puntos?</p>
@@ -118,7 +118,7 @@ export function GuiaPuntos() {
       {abierta && (
         <div className="space-y-1.5">
           {FILAS.map((fila) => (
-            <Card key={fila.titulo} padding="p-3" className="flex items-start gap-2.5">
+            <Card key={fila.titulo} padding="p-3" className="ranked-casino-card flex items-start gap-2.5">
               <span
                 className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
                   fila.positivo ? "bg-vip/15 text-vip" : "bg-error/15 text-error"

@@ -23,6 +23,28 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const DIFICULTADES_VALIDAS = new Set(["muy_facil", "facil", "justo", "dificil", "fallo"]);
 type TrainingDb = ReturnType<typeof createAdminClient>;
 
+async function buscarOtraSesionRealEnProgreso(
+  supabase: TrainingDb,
+  alumnoId: string,
+  excluirSesionId?: string
+) {
+  let consulta = supabase
+    .from("sesiones_entrenamiento")
+    .select("id, rutina_iniciada_en, rutina_dias(tipo)")
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "en_progreso")
+    .order("hora_inicio", { ascending: false })
+    .limit(20);
+
+  if (excluirSesionId) consulta = consulta.neq("id", excluirSesionId);
+
+  const { data: candidatas } = await consulta;
+  return (candidatas ?? []).find((sesion) => {
+    const dia = sesion.rutina_dias as unknown as { tipo: string } | null;
+    return dia?.tipo === "descanso" || sesion.rutina_iniciada_en !== null;
+  });
+}
+
 /** Encuentra la sesión existente de este día o la crea, y redirige ahí.
  * Compartido por `iniciarSesion` (chequea primero si hay OTRO día
  * bloqueando) y `cancelarYEmpezarOtroDia` (ya canceló ese otro día, así que
@@ -58,13 +80,25 @@ async function crearOEntrarSesion(
     if (plan && plan.restantes <= 0) redirect("/alumno/entrenar?plan=agotado");
   }
 
+  const inicioDescanso = diaPropio.tipo === "descanso" ? new Date().toISOString() : null;
   const { data: sesion, error: errorSesion } = await supabase
     .from("sesiones_entrenamiento")
-    .insert({ alumno_id: alumnoId, rutina_id: rutinaId, dia_id: diaId, numero_calendario: numero })
+    .insert({
+      alumno_id: alumnoId,
+      rutina_id: rutinaId,
+      dia_id: diaId,
+      numero_calendario: numero,
+      rutina_iniciada_en: inicioDescanso,
+    })
     .select("id")
     .single();
 
   if (errorSesion || !sesion) {
+    // La restricción de la migración 0071 también cubre la carrera entre
+    // dos pestañas: si la otra solicitud arrancó primero, se continúa esa.
+    const activa = await buscarOtraSesionRealEnProgreso(supabase, alumnoId);
+    if (activa) redirect(`/alumno/entrenar/sesion/${activa.id}`);
+
     const { data: creadaPorOtraSolicitud } = await supabase
       .from("sesiones_entrenamiento")
       .select("id")
@@ -135,18 +169,7 @@ export async function iniciarSesion(formData: FormData): Promise<void> {
   // entrenamiento activo, ¿continuar o cancelarlo?" en vez de redirigir en
   // silencio. Este bloqueo server-side queda como red de seguridad (JS
   // desactualizado, dos pestañas, etc.), no como el camino normal.
-  const { data: candidatas } = await supabase
-    .from("sesiones_entrenamiento")
-    .select("id, rutina_iniciada_en, rutina_dias(tipo)")
-    .eq("alumno_id", alumnoId)
-    .eq("estado", "en_progreso")
-    .order("hora_inicio", { ascending: false })
-    .limit(20);
-
-  const enProgreso = (candidatas ?? []).find((s) => {
-    const dia = s.rutina_dias as unknown as { tipo: string } | null;
-    return dia?.tipo === "descanso" || s.rutina_iniciada_en !== null;
-  });
+  const enProgreso = await buscarOtraSesionRealEnProgreso(supabase, alumnoId);
 
   if (enProgreso) {
     redirect(`/alumno/entrenar/sesion/${enProgreso.id}`);
@@ -193,6 +216,10 @@ export async function cancelarYEmpezarOtroDia(formData: FormData): Promise<void>
     if (!count) {
       await supabase.from("sesiones_entrenamiento").delete().eq("id", sesionIdCancelar).eq("alumno_id", alumnoId);
       revalidatePath("/alumno/entrenar/historial");
+    } else {
+      // El progreso apareció después de abrir el modal. No se crea otra
+      // sesión: se conserva y continúa la que ya contiene trabajo real.
+      redirect(`/alumno/entrenar/sesion/${sesionIdCancelar}`);
     }
   }
 
@@ -213,13 +240,24 @@ export async function iniciarRutina(formData: FormData): Promise<void> {
   if (plan?.pausado || (plan && plan.restantes <= 0)) {
     redirect(`/alumno/entrenar?plan=${plan.pausado ? "pausado" : "agotado"}`);
   }
-  await supabase
+  const otraActiva = await buscarOtraSesionRealEnProgreso(supabase, alumnoId, sesionId);
+  if (otraActiva) redirect(`/alumno/entrenar/sesion/${otraActiva.id}`);
+
+  const { error } = await supabase
     .from("sesiones_entrenamiento")
     .update({ rutina_iniciada_en: new Date().toISOString() })
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .eq("estado", "en_progreso")
     .is("rutina_iniciada_en", null);
+
+  if (error) {
+    // Si dos pestañas pasaron el chequeo a la vez, el índice único deja
+    // ganar solo a una. En vez de mostrar un error, se abre la ganadora.
+    const ganadora = await buscarOtraSesionRealEnProgreso(supabase, alumnoId, sesionId);
+    if (ganadora) redirect(`/alumno/entrenar/sesion/${ganadora.id}`);
+    redirect("/alumno/entrenar");
+  }
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
 }

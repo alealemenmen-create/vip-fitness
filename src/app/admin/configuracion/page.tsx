@@ -16,9 +16,10 @@ import { SaldoIAPanel } from "@/components/admin/SaldoIAPanel";
 import { GavetaConfig } from "@/components/admin/GavetaConfig";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
-import { Bell, Bot, ChevronRight, FileText, Images, LogIn, Megaphone, ShieldAlert, Sparkles, Trophy } from "lucide-react";
+import { Bell, Bot, ChevronRight, CircleDollarSign, FileText, Images, LogIn, Megaphone, ShieldAlert, Sparkles, Trophy } from "lucide-react";
 import { obtenerHallazgosPendientes } from "@/lib/auditoria/data";
 import { obtenerIngresos } from "@/lib/ingresos/data";
+import { obtenerResumenAlertasGastos } from "@/lib/gastos/data";
 
 export default async function ConfiguracionAdminPage() {
   await requireRol(["entrenador", "admin"]);
@@ -28,7 +29,7 @@ export default async function ConfiguracionAdminPage() {
   // lo dejara pasar). Arranca igual antes de esperar al grupo, así que no
   // agrega ni un milisegundo de espera.
   const saldoPromesa = obtenerSaldoIA();
-  const [config, supervision, registro, asistente, hallazgos, { resumen: ingresos }] =
+  const [config, supervision, registro, asistente, hallazgos, { resumen: ingresos }, gastosAlerta] =
     await Promise.all([
       obtenerConfiguracionReconocimientos(),
       obtenerConfiguracionSupervision(),
@@ -36,6 +37,7 @@ export default async function ConfiguracionAdminPage() {
       obtenerConfiguracionAsistenteVip(),
       obtenerHallazgosPendientes(),
       obtenerIngresos("semana"),
+      obtenerResumenAlertasGastos(),
     ]);
   const saldoIA = await saldoPromesa;
   const activosAhora = ingresos.filter((r) => r.estado === "activo_ahora").length;
@@ -101,6 +103,21 @@ export default async function ConfiguracionAdminPage() {
                 : `${activosAhora} ${activosAhora === 1 ? "alumno" : "alumnos"} en el gimnasio ahora`}
             </span>
           </span>
+          <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
+        </Card>
+      </Link>
+      <Link href="/admin/gastos" className="block h-full">
+        <Card className="flex items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#22c55e]/15 text-[#22c55e]">
+            <CircleDollarSign size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="text-secondary block font-semibold text-text">Gastos de la app</span>
+            <span className="text-caption block text-text-tertiary">
+              {gastosAlerta.pendientes ? `${gastosAlerta.pendientes} pago${gastosAlerta.pendientes === 1 ? "" : "s"} próximo${gastosAlerta.pendientes === 1 ? "" : "s"} o vencido${gastosAlerta.pendientes === 1 ? "" : "s"}` : "Costos, vencimientos e historial de pagos"}
+            </span>
+          </span>
+          {gastosAlerta.pendientes > 0 && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-error" />}
           <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
         </Card>
       </Link>

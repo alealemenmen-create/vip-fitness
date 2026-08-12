@@ -1,5 +1,44 @@
 # HANDOFF 1.18
 
+## Cierre de pendientes del 12/08 (Codex, sin push)
+
+- **Ranked estilo casino: RESUELTO en `main` local.** Cristal facetado,
+  jerarquía de premios, podio competitivo y Arena integrada, sin cambiar la
+  lógica de puntos ni apuestas. Verificado en 412×915 y 844×390: sin desborde
+  horizontal, guía interactiva funcionando y cero errores del navegador.
+- **"En el teléfono no funciona": RESUELTO.** El comentario era anterior al
+  arreglo horizontal; con el código actual no se reproduce. Build, TypeScript,
+  lint de lo tocado y 328 pruebas quedaron limpios en la verificación final.
+- **Micrófono en iPhone: DESCARTADO por Alejandro.** No volver a ponerlo en la
+  cola ni pedir esa prueba.
+- **Costo de IA: RESUELTO como estimativo, no como contabilidad exacta.** Ya no
+  se espera una factura de Anthropic para cuadrar cada llamada. Se construyó
+  **Más → Gastos de la app**, con costo estimado, moneda, ciclo, próxima fecha,
+  aviso anticipado, "Marcar pagado" e historial. Anthropic entra como gasto
+  variable estimado. **Migración `0070_gastos_app.sql` ya aplicada por
+  Alejandro**: verificada con 8 servicios iniciales y 0 pagos históricos.
+- **Inventario de ejercicios/fotos/rutinas: RESUELTO.** En Galería multimedia
+  hay una lista alfabética completa que indica CON FOTO/SIN FOTO, cantidad de
+  usos en rutinas, nombres exactos usados y nombres todavía sin vincular. Cada
+  nombre suelto se puede abrir, buscar el ejercicio base y vincular en un toque:
+  corrige todas sus apariciones y lo guarda como alias para futuras rutinas.
+  Esto deja visible qué material falta antes de habilitar grupos como Antebrazo.
+- **Solicitudes de fotos repetidas: RESUELTO.** Si varios alumnos reportan el
+  mismo ejercicio, Galería muestra un solo cuadro con el número de reportes y
+  los nombres de todos. "Resolver todos" cierra el grupo completo; reemplazar
+  la foto ya resolvía automáticamente todos los reportes del ejercicio.
+- **Sesiones activas duplicadas: RESUELTO en código, datos y DB.** Se cerraron de
+  forma conservadora las 2 sesiones antiguas que coexistían con otra de
+  actividad más reciente, sin borrar ejercicios ni series y sin adjudicar
+  puntos. El cambio de día ya no abre otra si apareció progreso; iniciar desde
+  dos pestañas redirige a la sesión ganadora. La migración
+  `0071_una_sesion_real_en_progreso.sql` ya fue ejecutada por Alejandro.
+- **Lady Fit: RESUELTO como tema visual adicional.** El valor `femenino` que
+  ya persistía por alumno ahora aplica una identidad completa marfil, rosa
+  palo, ciruela, lavanda y champagne; no duplica componentes ni modifica
+  lógica. Al elegirlo arranca luminoso y conserva el modo nocturno opcional.
+
+
 Continúa el 1.17. Leer los dos: el 1.17 tiene el detalle de la sesión de
 entrenar del alumno y la cola larga; este cubre la sesión del 11-12/08 (tramo
 de la noche) y deja el punto de regreso al día.
@@ -10,6 +49,7 @@ de la noche) y deja el punto de regreso al día.
   lo listado abajo **ya está en producción**.
 - `tsc` limpio · **317 pruebas** · lint limpio en lo tocado · build OK.
 - **Migraciones pendientes de correr, en este orden de importancia:**
+  - `0071_una_sesion_real_en_progreso.sql` — **YA CORRIDA** por Alejandro.
   - `0068_tema_vip_predeterminado.sql` — la escribió Codex, pone el tema VIP
     como predeterminado. **Sin correr.**
   - `0067_publicacion_versionada_vip_2.sql` — **YA NO SIRVE.** Era del Motor
@@ -152,28 +192,26 @@ esos textos** cuando se conecte.
    veces, y migrar la clave vieja `vip-escala-texto`. Tocar `ZoomPanel.tsx`,
    `MenuAlumno.tsx` y el script inline de `app/layout.tsx`. Alejandro quiere
    cuatro tamaños: grande · normal · pequeña · más pequeña.
-3. **Rediseño de la pestaña Ranked.** Pedido: cristal tipo diamante, aire de
-   casino/premios, muy competitivo, "que provoque participar". Sin empezar.
-4. **Preguntar qué falla en el teléfono.** Alejandro dijo "en ordenador
-   funciona bien, el teléfono no", pero el arreglo del horizontal se subió
-   DESPUÉS de ese comentario. Puede estar ya resuelto: hay que confirmarlo
-   antes de tocar nada.
+3. ~~**Rediseño de la pestaña Ranked.**~~ **RESUELTO** (ver cierre arriba).
+4. ~~**Preguntar qué falla en el teléfono.**~~ **RESUELTO**: no se reproduce
+   después del arreglo horizontal y se verificaron ambos tamaños reales.
 
 ## Cola que viene del 1.17, sin cambios
 
 - **Decidido**: la IA no es obligatoria y su tema se hace **al final**; la
   auditoría del generador (21 controles → ~8) va **después de todo lo demás**;
   el material de culturismo **lo trae Alejandro**.
-- **Antebrazo**: iba a cargar los ejercicios "mañana" (12/08). Sin eso no se
-  puede agregar el grupo — no hay ni un ejercicio en la biblioteca.
-- **Reconciliar el costo de IA contra una factura real de Anthropic**: el
-  panel dice ~US$0,24 y la fórmula da ~US$0,71. **No usar ese panel para
-  decisiones de plata** hasta resolverlo.
-- Dos sesiones `en_progreso` a la vez siguen siendo posibles
-  (`cancelarYEmpezarOtroDia` no cierra la vieja si tiene progreso). Importa
-  más ahora: la franja de "sin cerrar" muestra solo una.
-- Micrófono **sin probar en iPhone**.
-- 3 errores viejos de eslint en `SesionEjercicioCard.tsx`.
+- **Antebrazo**: el control de lo que falta quedó resuelto con el inventario
+  alfabético de Galería. La base tiene solo "Curl de muñeca" relacionado y
+  clasificado como brazos; no habilitar un grupo vacío hasta cargar material.
+- ~~**Reconciliar el costo de IA contra una factura real.**~~ **DESCARTADO como
+  requisito**: Alejandro necesita un estimativo. Se trasladó a Gastos de la
+  app con historial y calendario de pago (migración 0070 ya aplicada).
+- ~~Dos sesiones reales `en_progreso` a la vez.~~ **RESUELTO**: datos actuales,
+  caminos de inicio y garantía transaccional de base de datos corregidos.
+- ~~Micrófono sin probar en iPhone.~~ **DESCARTADO por Alejandro.**
+- ESLint del proyecto limpio: 0 errores y 0 advertencias en la verificación
+  del 12/08.
 - Sin verificar con toque real: el recordatorio push de sesión sin cerrar (hay
   que dejar una abierta 4 min) y el cierre automático al terminar.
 

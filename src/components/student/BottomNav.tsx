@@ -7,11 +7,11 @@ import { Home, Dumbbell, UtensilsCrossed, TrendingUp, Trophy } from "lucide-reac
 // Documentos salió de la barra: vive en el menú de las tres rayitas. Ranked
 // entró en su lugar porque es de consulta diaria.
 const TABS = [
-  { href: "/alumno/inicio", label: "Inicio", icon: Home },
-  { href: "/alumno/entrenar", label: "Entrenar", icon: Dumbbell },
-  { href: "/alumno/comer", label: "Nutrición", icon: UtensilsCrossed },
-  { href: "/alumno/progreso", label: "Mi avance", icon: TrendingUp },
-  { href: "/alumno/ranked", label: "Ranked", icon: Trophy },
+  { href: "/alumno/inicio", label: "Inicio", labelEspejo: "Inicio", icon: Home },
+  { href: "/alumno/entrenar", label: "Entrenar", labelEspejo: "Entrenar", icon: Dumbbell },
+  { href: "/alumno/comer", label: "Nutrición", labelEspejo: "Comer", icon: UtensilsCrossed },
+  { href: "/alumno/progreso", label: "Mi avance", labelEspejo: "Progreso", icon: TrendingUp },
+  { href: "/alumno/ranked", label: "Ranked", labelEspejo: "Arena", icon: Trophy },
 ];
 
 /**
@@ -52,9 +52,10 @@ export function BottomNav({ sesionEnProgresoId = null }: { sesionEnProgresoId?: 
               fillOpacity={active ? 0.16 : 0}
               className={`icono-navegacion-aero ${active ? "scale-110 transition-transform duration-200" : ""}`}
             />
-            <span className={`text-caption ${active ? "font-semibold text-text" : ""}`}>
+            <span className={`etiqueta-nav-normal text-caption ${active ? "font-semibold text-text" : ""}`}>
               {tab.label}
             </span>
+            <span className={`etiqueta-nav-espejo text-caption ${active ? "font-semibold text-text" : ""}`}>{tab.labelEspejo}</span>
           </Link>
         );
       })}

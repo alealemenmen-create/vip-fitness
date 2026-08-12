@@ -20,6 +20,7 @@ import {
   eliminarVideoCloudflare,
   solicitarSubidaDirecta,
 } from "@/lib/cloudflare/stream";
+import { normalizar } from "@/lib/alimentos/emparejar";
 
 /** Bloquea que el link pegado apunte a la red interna del servidor (SSRF) —
  * localhost, IPs privadas, o el endpoint de metadata de la nube. El link lo
@@ -266,13 +267,14 @@ export async function subirFotoEjercicio(
  * de la biblioteca. Reemplazar una foto lo resuelve automáticamente. */
 export async function resolverReporteFoto(formData: FormData): Promise<void> {
   const entrenador = await requireRol(["entrenador", "admin"]);
-  const reporteId = String(formData.get("reporte_id") || "");
-  if (!reporteId) return;
+  const reporteIds = formData.getAll("reporte_id").map(String).filter(Boolean).slice(0, 200);
+  if (reporteIds.length === 0) return;
   const supabase = await createClient();
   await supabase
     .from("reportes_fotos_ejercicios")
     .update({ estado: "resuelto", resuelto_en: new Date().toISOString(), resuelto_por: entrenador.userId })
-    .eq("id", reporteId);
+    .in("id", reporteIds)
+    .eq("estado", "pendiente");
   revalidatePath("/admin/ejercicios");
 }
 
@@ -705,6 +707,57 @@ export async function quitarVideoCloudflare(
 }
 
 export type UsoRutina = { nombre: string; cantidad: number };
+
+export type VincularNombreRutinaState = { error: string | null; ok: boolean; mensaje?: string };
+
+/** Une un nombre libre de rutinas con una entrada oficial de la biblioteca.
+ * Vincula todas sus apariciones todavía sueltas y guarda el texto como alias:
+ * así se corrige lo histórico y las próximas importaciones lo reconocen sin
+ * volver a pedir trabajo manual. El nombre original no se borra: queda como
+ * alias y permite auditar cómo venía escrito. */
+export async function vincularNombreRutinaSinEjercicio(
+  _prevState: VincularNombreRutinaState,
+  formData: FormData,
+): Promise<VincularNombreRutinaState> {
+  await requireRol(["entrenador", "admin"]);
+  const nombreRutina = String(formData.get("nombre_rutina") || "").trim();
+  const ejercicioId = String(formData.get("ejercicio_id") || "").trim();
+  if (!nombreRutina || !ejercicioId) return { error: "Elige el ejercicio base.", ok: false };
+
+  const supabase = await createClient();
+  const { data: ejercicio, error: errorEjercicio } = await supabase
+    .from("ejercicios")
+    .select("id,nombre,aliases")
+    .eq("id", ejercicioId)
+    .eq("activo", true)
+    .maybeSingle();
+  if (errorEjercicio || !ejercicio) return { error: "Ese ejercicio base ya no está disponible.", ok: false };
+
+  const existentes = ejercicio.aliases ?? [];
+  const yaReconocido = [ejercicio.nombre, ...existentes].some((nombre) => normalizar(nombre) === normalizar(nombreRutina));
+  if (!yaReconocido) {
+    const { error: errorAlias } = await supabase.from("ejercicios").update({ aliases: [...existentes, nombreRutina] }).eq("id", ejercicioId);
+    if (errorAlias) return { error: "No se pudo guardar la variante como alias.", ok: false };
+  }
+
+  const { data: vinculadas, error: errorVincular } = await supabase
+    .from("rutina_dia_ejercicios")
+    .update({ ejercicio_id: ejercicioId })
+    .is("ejercicio_id", null)
+    .eq("nombre", nombreRutina)
+    .select("id");
+  if (errorVincular) return { error: "El alias quedó guardado, pero no se pudieron vincular las rutinas. Intenta otra vez.", ok: false };
+
+  avisarCambios();
+  const cantidad = vinculadas?.length ?? 0;
+  return {
+    error: null,
+    ok: true,
+    mensaje: cantidad
+      ? `${cantidad} ${cantidad === 1 ? "aparición vinculada" : "apariciones vinculadas"} a ${ejercicio.nombre}.`
+      : `La variante quedó guardada como alias de ${ejercicio.nombre}.`,
+  };
+}
 
 /**
  * Para el modal de un ejercicio en la galería: todas las variantes de texto

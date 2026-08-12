@@ -2,6 +2,10 @@
 
 Última revisión: **8 de agosto de 2026**
 
+> Este inventario ahora se administra desde **Más → Gastos de la app**. La
+> sección guarda montos estimados, vencimientos, avisos anticipados e historial
+> de pagos. Requiere la migración `0070_gastos_app.sql`.
+
 Este archivo no debe contener contraseñas, tokens, números de tarjeta ni claves API.
 Su objetivo es evitar suspensiones inesperadas y registrar qué depende de cada proveedor.
 

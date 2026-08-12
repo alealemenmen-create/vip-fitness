@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useRef, useState, type PointerEvent
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film } from "lucide-react";
+import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import {
@@ -22,6 +22,8 @@ import {
   sincronizarVideoCloudflare,
   quitarVideoCloudflare,
   type UsoRutina,
+  vincularNombreRutinaSinEjercicio,
+  type VincularNombreRutinaState,
 } from "@/app/admin/ejercicios/actions";
 import { normalizar } from "@/lib/alimentos/emparejar";
 import { Button } from "@/components/ui/Button";
@@ -32,6 +34,7 @@ import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/clie
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { ModalVideo } from "@/components/student/ModalVideo";
 import { CuadroFotoReferencia } from "@/components/student/SesionEjercicioCard";
+import type { UsoEjercicioInventario } from "@/lib/ejercicios/inventario";
 
 const ETIQUETAS_GRUPO: Record<string, string> = {
   pecho: "Pecho",
@@ -172,6 +175,64 @@ export type ReporteFotoPendiente = {
   alumnoNombre: string;
 };
 
+const ESTADO_INICIAL_VINCULO: VincularNombreRutinaState = { error: null, ok: false };
+
+function puntajeParecido(nombreRutina: string, ejercicio: Ejercicio): number {
+  const origen = normalizar(nombreRutina);
+  const candidatos = [ejercicio.nombre, ...ejercicio.aliases].map(normalizar);
+  const tokens = new Set(origen.split(" ").filter((token) => token.length > 2));
+  return Math.max(...candidatos.map((candidato) => {
+    if (candidato === origen) return 1000;
+    let puntos = candidato.includes(origen) || origen.includes(candidato) ? 80 : 0;
+    for (const token of tokens) if (candidato.includes(token)) puntos += 12;
+    return puntos;
+  }));
+}
+
+/** Corrector manual para los nombres libres que todavía no apuntan a la
+ * biblioteca. La búsqueda filtra los 121 ejercicios y, antes de escribir,
+ * muestra candidatos por palabras coincidentes para acelerar variantes. */
+function VincularNombreRutina({ item, ejercicios }: { item: { nombre: string; cantidad: number }; ejercicios: Ejercicio[] }) {
+  const [abierto, setAbierto] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [seleccionado, setSeleccionado] = useState<Ejercicio | null>(null);
+  const [state, formAction, pending] = useActionState(vincularNombreRutinaSinEjercicio, ESTADO_INICIAL_VINCULO);
+  const opciones = useMemo(() => {
+    const q = normalizar(busqueda);
+    if (q) return ejercicios.filter((ejercicio) => normalizar(`${ejercicio.nombre} ${ejercicio.aliases.join(" ")}`).includes(q)).slice(0, 12);
+    return [...ejercicios].sort((a, b) => puntajeParecido(item.nombre, b) - puntajeParecido(item.nombre, a) || a.nombre.localeCompare(b.nombre, "es")).slice(0, 8);
+  }, [busqueda, ejercicios, item.nombre]);
+
+  return (
+    <div className="border-b border-warning/20 py-2 last:border-0">
+      <button type="button" onClick={() => setAbierto((valor) => !valor)} className="flex w-full items-center gap-2 text-left">
+        <span className="min-w-0 flex-1"><span className="text-caption block font-semibold text-text">{item.nombre}</span><span className="text-micro text-text-tertiary">{item.cantidad} {item.cantidad === 1 ? "aparición" : "apariciones"}</span></span>
+        <span className="rounded-full bg-warning/15 px-2 py-1 text-[9px] font-bold text-warning">{abierto ? "CERRAR" : "VINCULAR"}</span>
+      </button>
+      {abierto && (
+        <form action={formAction} className="mt-2 space-y-2 rounded-xl border border-border bg-surface p-2.5">
+          <input type="hidden" name="nombre_rutina" value={item.nombre} />
+          <input type="hidden" name="ejercicio_id" value={seleccionado?.id ?? ""} />
+          <Input value={busqueda} onChange={(evento) => setBusqueda(evento.target.value)} placeholder="Buscar ejercicio base…" className="!py-2 text-caption" />
+          <div className="scrollbar-fina max-h-48 space-y-1 overflow-y-auto">
+            {opciones.map((ejercicio) => (
+              <button key={ejercicio.id} type="button" onClick={() => setSeleccionado(ejercicio)} className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left ${seleccionado?.id === ejercicio.id ? "border-vip bg-vip/10" : "border-border bg-surface-2"}`}>
+                <span className="min-w-0 flex-1"><span className="text-caption block font-semibold text-text">{ejercicio.nombre}</span>{ejercicio.aliases.length > 0 && <span className="text-micro block truncate text-text-tertiary">{ejercicio.aliases.join(" · ")}</span>}</span>
+                {seleccionado?.id === ejercicio.id && <Check size={15} className="shrink-0 text-vip" />}
+              </button>
+            ))}
+            {opciones.length === 0 && <p className="text-caption px-2 py-3 text-text-tertiary">No hay coincidencias. Prueba otra palabra.</p>}
+          </div>
+          {seleccionado && <p className="text-caption text-text-secondary">Se unirá <strong className="text-text">{item.nombre}</strong> con <strong className="text-vip">{seleccionado.nombre}</strong> y se guardará como alias.</p>}
+          {state.error && <p className="text-caption text-error">{state.error}</p>}
+          {state.ok && <p className="text-caption text-success">{state.mensaje}</p>}
+          <Button type="submit" size="xs" loading={pending} disabled={!seleccionado}>Vincular todas las apariciones</Button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 /** La miniatura a mostrar: la foto subida desde acá si existe, si no la
  * ilustración estática de siempre (public/ejercicios/<slug>). Mismo criterio
  * que usa la app del alumno (ver SesionEjercicioCard). */
@@ -181,12 +242,25 @@ function fotoDe(ej: Ejercicio): string | null {
   return origen === "ilustracion" ? src : null;
 }
 
+/** El reintento con query string es solo para Storage/CDN. Next 16 bloquea
+ * query strings en imágenes locales de /public salvo que se abra un patrón
+ * explícito; además esas imágenes locales ya usan `must-revalidate` y no
+ * necesitan cache-buster. */
+function fotoConReintento(foto: string | null, buster?: number): string | null {
+  if (!foto || !buster || foto.startsWith("/")) return foto;
+  return `${foto}${foto.includes("?") ? "&" : "?"}r=${buster}`;
+}
+
 export function GaleriaEjercicios({
   ejercicios,
   reportes = [],
+  usosPorEjercicio = {},
+  nombresRutinaSinVincular = [],
 }: {
   ejercicios: Ejercicio[];
   reportes?: ReporteFotoPendiente[];
+  usosPorEjercicio?: Record<string, UsoEjercicioInventario>;
+  nombresRutinaSinVincular?: { nombre: string; cantidad: number }[];
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [editando, setEditando] = useState<Ejercicio | null>(null);
@@ -231,7 +305,44 @@ export function GaleriaEjercicios({
     return ejercicios.filter((e) => e.nombre.toLowerCase().includes(q));
   }, [ejercicios, busqueda]);
 
-  const sinFoto = ejercicios.filter((e) => !fotoDe(e)).length;
+  const sinFoto = ejercicios.filter((e) => !e.fotoMiniaturaUrl && !e.fotoCompletaUrl).length;
+  const ejerciciosAlfabeticos = useMemo(
+    () => [...ejercicios].sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })),
+    [ejercicios],
+  );
+  const reportesAgrupados = useMemo(() => {
+    const grupos = new Map<string, {
+      ids: string[];
+      ejercicioId: string | null;
+      nombre: string;
+      nombresReportados: Set<string>;
+      alumnos: Set<string>;
+      fotoUrl: string | null;
+    }>();
+    for (const reporte of reportes) {
+      // Con ejercicio_id, todos apuntan al mismo problema global aunque la
+      // rutina lo haya escrito con otra variante. Sin id, se agrupa por el
+      // nombre normalizado para evitar duplicados por mayúsculas o tildes.
+      const clave = reporte.ejercicioId
+        ? `id:${reporte.ejercicioId}`
+        : `nombre:${normalizar(reporte.nombreEjercicio)}`;
+      const ejercicio = reporte.ejercicioId ? ejercicios.find((item) => item.id === reporte.ejercicioId) : null;
+      const grupo = grupos.get(clave) ?? {
+        ids: [],
+        ejercicioId: reporte.ejercicioId,
+        nombre: ejercicio?.nombre ?? reporte.nombreEjercicio,
+        nombresReportados: new Set<string>(),
+        alumnos: new Set<string>(),
+        fotoUrl: null,
+      };
+      grupo.ids.push(reporte.id);
+      grupo.nombresReportados.add(reporte.nombreEjercicio);
+      grupo.alumnos.add(reporte.alumnoNombre);
+      grupo.fotoUrl ??= reporte.fotoUrl;
+      grupos.set(clave, grupo);
+    }
+    return Array.from(grupos.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+  }, [reportes, ejercicios]);
 
   return (
     <div className="space-y-3">
@@ -246,38 +357,50 @@ export function GaleriaEjercicios({
               <p className="text-micro text-text-tertiary">Corrige la foto aquí y se actualizará para todos.</p>
             </div>
           </div>
-          {reportes.map((reporte) => {
-            const ejercicio = ejercicios.find((item) => item.id === reporte.ejercicioId);
+          {reportesAgrupados.map((grupo) => {
+            const ejercicio = ejercicios.find((item) => item.id === grupo.ejercicioId);
+            const alumnos = Array.from(grupo.alumnos).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+            const nombresReportados = Array.from(grupo.nombresReportados);
             return (
-              <Card key={reporte.id} padding="p-2.5" className="border-error/25">
+              <Card key={grupo.ejercicioId ?? `nombre:${normalizar(grupo.nombre)}`} padding="p-2.5" className="border-error/25">
                 <div className="flex items-center gap-2.5">
                   <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-surface-2">
-                    {reporte.fotoUrl ? (
-                      <Image src={reporte.fotoUrl} alt="Foto reportada" fill sizes="56px" className="object-cover" />
+                    {grupo.fotoUrl ? (
+                      <Image src={grupo.fotoUrl} alt="Foto reportada" fill sizes="56px" className="object-cover" />
                     ) : (
                       <div className="grid h-full place-items-center text-text-tertiary"><ImageIcon size={18} /></div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-caption truncate font-bold text-text">{reporte.nombreEjercicio}</p>
-                    <p className={`text-micro font-semibold ${reporte.fotoUrl ? "text-error" : "text-vip"}`}>
-                      {reporte.fotoUrl ? "La foto no corresponde" : "Falta la foto"}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="text-caption font-bold text-text">{grupo.nombre}</p>
+                      <span className="rounded-full bg-error/15 px-2 py-0.5 text-[9px] font-bold text-error">
+                        {grupo.ids.length} {grupo.ids.length === 1 ? "REPORTE" : "REPORTES"}
+                      </span>
+                    </div>
+                    <p className={`text-micro font-semibold ${grupo.fotoUrl ? "text-error" : "text-vip"}`}>
+                      {grupo.fotoUrl ? "La foto no corresponde" : "Falta la foto"}
                     </p>
-                    <p className="text-micro text-text-tertiary">Reportó: {reporte.alumnoNombre}</p>
+                    <p className="text-micro text-text-tertiary">
+                      Reportaron: {alumnos.join(", ")}
+                    </p>
+                    {nombresReportados.some((nombre) => nombre !== grupo.nombre) && (
+                      <p className="text-micro mt-0.5 text-text-tertiary">En rutinas figura como: {nombresReportados.join(" · ")}</p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => ejercicio ? setEditando(ejercicio) : setCreando(reporte.nombreEjercicio)}
+                    onClick={() => ejercicio ? setEditando(ejercicio) : setCreando(grupo.nombre)}
                     className="btn-accion radius-control h-9 text-caption font-bold"
                   >
-                    {reporte.fotoUrl ? "Corregir ahora" : "Agregar foto"}
+                    {grupo.fotoUrl ? "Corregir ahora" : "Agregar foto"}
                   </button>
                   <form action={resolverReporteFoto}>
-                    <input type="hidden" name="reporte_id" value={reporte.id} />
+                    {grupo.ids.map((id) => <input key={id} type="hidden" name="reporte_id" value={id} />)}
                     <button type="submit" className="radius-control h-9 w-full border border-border text-caption font-semibold text-text-secondary">
-                      Marcar resuelto
+                      Resolver todos
                     </button>
                   </form>
                 </div>
@@ -295,6 +418,43 @@ export function GaleriaEjercicios({
           </p>
         </Card>
       )}
+
+      <details id="inventario-ejercicios" className="scroll-mt-28 rounded-[20px] border border-border bg-surface p-3" open>
+        <summary className="flex cursor-pointer list-none items-center gap-2">
+          <span className="grid size-8 place-items-center rounded-full bg-vip/15 text-vip"><ListChecks size={17} /></span>
+          <span className="min-w-0 flex-1"><span className="text-caption block font-bold text-text">Lista completa de ejercicios</span><span className="text-micro block text-text-tertiary">Alfabética · foto real · presencia en rutinas</span></span>
+          <span className="rounded-full bg-surface-2 px-2 py-1 text-micro font-bold text-text-secondary">{ejercicios.length}</span>
+        </summary>
+        <div className="scrollbar-fina mt-3 max-h-[560px] overflow-y-auto rounded-xl border border-border">
+          {ejerciciosAlfabeticos.map((ejercicio) => {
+            const conFotoPropia = Boolean(ejercicio.fotoMiniaturaUrl || ejercicio.fotoCompletaUrl);
+            const uso = usosPorEjercicio[ejercicio.id];
+            return (
+              <button key={ejercicio.id} type="button" onClick={() => setEditando(ejercicio)} className="flex w-full items-start gap-2 border-b border-border/70 px-3 py-2.5 text-left last:border-0 hover:bg-surface-2">
+                <span className={`mt-1 size-2 shrink-0 rounded-full ${conFotoPropia ? "bg-success" : "bg-error"}`} />
+                <span className="min-w-0 flex-1">
+                  <span className="text-caption block font-semibold text-text">{ejercicio.nombre}</span>
+                  <span className="text-micro block text-text-tertiary">
+                    {uso?.cantidad
+                      ? `En ${uso.cantidad} entrada${uso.cantidad === 1 ? "" : "s"} de rutina${uso.nombres.length ? ` · nombres: ${uso.nombres.map((item) => item.nombre === ejercicio.nombre ? item.nombre : `${item.nombre} (${item.cantidad})`).join(", ")}` : ""}`
+                      : "No aparece vinculada en ninguna rutina"}
+                  </span>
+                </span>
+                <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${conFotoPropia ? "bg-success/12 text-success" : "bg-error/12 text-error"}`}>{conFotoPropia ? "CON FOTO" : "SIN FOTO"}</span>
+                <span className={`hidden shrink-0 rounded-full px-2 py-1 text-[9px] font-bold sm:block ${uso?.cantidad ? "bg-vip/12 text-vip" : "bg-surface-2 text-text-tertiary"}`}>{uso?.cantidad ? "EN RUTINAS" : "SIN USO"}</span>
+              </button>
+            );
+          })}
+        </div>
+        {nombresRutinaSinVincular.length > 0 && (
+          <details className="mt-3 rounded-xl border border-warning/35 bg-warning/5 p-3">
+            <summary className="cursor-pointer text-caption font-semibold text-warning">{nombresRutinaSinVincular.length} nombres de rutinas todavía sin enlazar a la galería</summary>
+            <p className="text-micro mt-1 text-text-tertiary">Abre un nombre, busca el ejercicio base y vincúlalo. Se corrigen todas sus apariciones y queda como alias para el futuro.</p>
+            <div className="mt-2">{nombresRutinaSinVincular.map((item) => <VincularNombreRutina key={item.nombre} item={item} ejercicios={ejerciciosAlfabeticos} />)}</div>
+          </details>
+        )}
+        <p className="text-micro mt-2 text-text-tertiary">Toca cualquier nombre para abrir su foto y sus datos. Los nombres de rutina se muestran tal como fueron escritos; el encabezado siempre usa el nombre oficial de la base.</p>
+      </details>
 
       <div className="relative">
         <Search
@@ -325,7 +485,7 @@ export function GaleriaEjercicios({
           // El "?r=<timestamp>" fuerza a next/image a pedirla de nuevo en vez
           // de repetir el mismo fallo cacheado — solo se agrega a partir del
           // reintento, y con un valor que nunca choca con uno de antes.
-          const foto = fotoBase && buster ? `${fotoBase}?r=${buster}` : fotoBase;
+          const foto = fotoConReintento(fotoBase, buster);
           return (
             <Card key={ej.id} padding="p-0" className="tarjeta-modelo-oscura overflow-hidden border-white/10 bg-black">
               <div className="flex items-center gap-2 px-3 pb-2 pt-3">

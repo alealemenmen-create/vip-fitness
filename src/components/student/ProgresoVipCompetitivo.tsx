@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Dumbbell, Flame, Swords, Target, Trophy, UtensilsCrossed, Zap } from "lucide-react";
+import { Crown, Dumbbell, Flame, Medal, Swords, Target, Trophy, UtensilsCrossed, Zap } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { BadgeRango } from "@/components/student/BadgeRango";
 import { EscalaRangos } from "@/components/student/EscalaRangos";
@@ -46,16 +46,16 @@ export function ProgresoVipCompetitivo({
 
   return (
     <div className="space-y-5">
-      <Card>
+      <Card className="ranked-casino-card ranked-tabla-card" padding="p-4">
         <div className="mb-3 flex items-center gap-2">
           <Trophy size={17} className="text-vip" />
           <div className="min-w-0 flex-1">
-            <p className="text-body font-semibold text-text">Competencia VIP</p>
+            <p className="text-body font-semibold text-text">La tabla en vivo</p>
             <p className="text-micro text-text-tertiary">{periodoInfo.ayuda}</p>
           </div>
         </div>
 
-        <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl bg-surface-2 p-1">
+        <div className="ranked-periodos mb-4 grid grid-cols-3 gap-1 rounded-xl p-1">
           {PERIODOS.map((item) => (
             <button
               key={item.id}
@@ -70,11 +70,11 @@ export function ProgresoVipCompetitivo({
           ))}
         </div>
 
-        <div className="radius-control mb-3 border border-vip/30 bg-vip/5 px-3 py-2.5">
+        <div className="ranked-posicion radius-control mb-3 px-3 py-2.5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-micro uppercase tracking-wide text-text-tertiary">Tu posición</p>
-              <p className="text-h2 text-vip">#{propia.posicion}</p>
+              <p className="flex items-center gap-1 text-h2 text-vip"><Crown size={19} /> #{propia.posicion}</p>
             </div>
             <div className="text-right">
               <p className="text-h3 text-text">{propia.puntos.toLocaleString("es-CL")} pts</p>
@@ -94,12 +94,12 @@ export function ProgresoVipCompetitivo({
             return (
               <div
                 key={fila.alumnoId}
-                className={`radius-control grid grid-cols-[28px_34px_minmax(0,1fr)_auto] items-center gap-2 px-2 py-2 ${
-                  esPropia ? "border border-vip/50 bg-vip/10" : "bg-surface-2/55"
+                className={`ranked-fila radius-control grid grid-cols-[28px_34px_minmax(0,1fr)_auto] items-center gap-2 px-2 py-2 ${
+                  esPropia ? "ranked-fila--propia" : ""
                 }`}
               >
-                <span className="text-center text-caption font-bold" style={{ color: colorPuesto(fila.posicion) }}>
-                  {fila.posicion}
+                <span className="flex justify-center text-caption font-bold" style={{ color: colorPuesto(fila.posicion) }}>
+                  {fila.posicion <= 3 ? <Medal size={17} aria-label={`Puesto ${fila.posicion}`} /> : fila.posicion}
                 </span>
                 <BadgeRango rango={fila.rango} size={32} destacado={fila.posicion === 1} />
                 <p className="truncate text-caption font-semibold text-text">
@@ -112,7 +112,7 @@ export function ProgresoVipCompetitivo({
         </div>
       </Card>
 
-      <Card>
+      <Card className="ranked-casino-card" padding="p-4">
         <p className="text-caption mb-3 flex items-center gap-1.5 text-text-tertiary">
           <Zap size={14} className="text-vip" /> ASÍ SUMAS ESTA SEMANA
         </p>
@@ -129,7 +129,7 @@ export function ProgresoVipCompetitivo({
         <p className="text-micro mt-3 text-text-tertiary">La alimentación se confirma al cerrar el día. Las penalizaciones son visibles y el saldo nunca baja de cero.</p>
       </Card>
 
-      <Card>
+      <Card className="ranked-casino-card" padding="p-4">
         <p className="text-caption mb-3 text-text-tertiary">ÚLTIMOS PUNTOS</p>
         {movimientos.length === 0 ? (
           <p className="text-caption text-text-secondary">Completa tu primera acción para comenzar.</p>
@@ -150,7 +150,7 @@ export function ProgresoVipCompetitivo({
         )}
       </Card>
 
-      <Card className="!p-3">
+      <Card className="ranked-casino-card" padding="p-3">
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-caption text-text-tertiary">RANGOS VIP</p>
           <p className="text-micro text-text-secondary">El total no se reinicia</p>

@@ -9,7 +9,9 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
-    ".next-preview/**",
+    // Next permite distDir personalizado; todas esas carpetas son artefactos
+    // compilados, no código fuente para lint.
+    ".next-*/**",
     "out/**",
     "build/**",
     "tmp/**",

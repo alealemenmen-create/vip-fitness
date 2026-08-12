@@ -5,6 +5,7 @@ import { GaleriaEjercicios, type ReporteFotoPendiente } from "@/components/admin
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { CircleAlert, Dumbbell, Images } from "lucide-react";
+import { obtenerInventarioUsosRutina } from "@/lib/ejercicios/inventario";
 
 export default async function EjerciciosAdminPage({
   searchParams,
@@ -15,7 +16,10 @@ export default async function EjerciciosAdminPage({
   const supabase = await createClient();
   // Sin caché a propósito — ver `obtenerBibliotecaSinCache`: esta es la
   // pantalla donde el entrenador acaba de subir una foto y tiene que verla.
-  const biblioteca = await obtenerBibliotecaSinCache();
+  const [biblioteca, inventario] = await Promise.all([
+    obtenerBibliotecaSinCache(),
+    obtenerInventarioUsosRutina(),
+  ]);
   const { data: filasReportes } = await supabase
     .from("reportes_fotos_ejercicios")
     .select("id, alumno_id, ejercicio_id, nombre_ejercicio, foto_url_reportada, creado_en")
@@ -35,6 +39,7 @@ export default async function EjerciciosAdminPage({
     alumnoNombre: nombres.get(fila.alumno_id) ?? "Alumno",
   }));
   const { demoSolicitudFoto } = await searchParams;
+  const conFoto = biblioteca.filter((ejercicio) => ejercicio.fotoMiniaturaUrl || ejercicio.fotoCompletaUrl).length;
   if (demoSolicitudFoto === "1") {
     const ejercicioDemo = biblioteca.find((ejercicio) =>
       ejercicio.nombre.toLowerCase().includes("cuerda") && ejercicio.nombre.toLowerCase().includes("jal")
@@ -58,12 +63,12 @@ export default async function EjerciciosAdminPage({
       />
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-3" aria-label="Resumen de ejercicios">
         <AdminStatCard href="/admin/ejercicios#biblioteca-ejercicios" icon={<Dumbbell size={20} />} value={biblioteca.length} label="Ejercicios" detail="Ver biblioteca disponible" color="#3b82f6" />
-        <AdminStatCard href="/admin/ejercicios#biblioteca-ejercicios" icon={<Images size={20} />} value="Foto · Clip" label="Multimedia" detail="Gestionar referencias" color="#a78bfa" />
+        <AdminStatCard href="/admin/ejercicios#inventario-ejercicios" icon={<Images size={20} />} value={`${conFoto} · ${biblioteca.length - conFoto}`} label="Con foto · Sin foto" detail="Ver inventario alfabético" color="#a78bfa" />
         <AdminStatCard href="/admin/ejercicios#reportes-ejercicios" icon={<CircleAlert size={20} />} value={reportes.length} label="Reportes" detail="Revisar imágenes señaladas" color={reportes.length ? "#f59e0b" : "#22c55e"} />
       </section>
       <section id="biblioteca-ejercicios" className="admin-panel-card scroll-mt-28 rounded-3xl p-4 md:p-5">
         <span id="reportes-ejercicios" className="block scroll-mt-28" />
-        <GaleriaEjercicios ejercicios={biblioteca} reportes={reportes} />
+        <GaleriaEjercicios ejercicios={biblioteca} reportes={reportes} usosPorEjercicio={inventario.usosPorEjercicio} nombresRutinaSinVincular={inventario.nombresSinVincular} />
       </section>
     </div>
   );

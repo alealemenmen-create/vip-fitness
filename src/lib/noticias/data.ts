@@ -537,7 +537,10 @@ export async function obtenerAlumnosDeCumpleanosHoy(
  * la clave, así que al cambiar el día se recalcula sola.
  */
 export const obtenerCumpleanerosDeHoy = unstable_cache(
-  async (_fechaHoy: string): Promise<CumpleaneroHoy[]> => {
+  async (fechaHoy: string): Promise<CumpleaneroHoy[]> => {
+    // Aunque la consulta usa la zona horaria internamente, este argumento
+    // forma parte de la clave de unstable_cache y fuerza una entrada por día.
+    void fechaHoy;
     const admin = createAdminClient();
     return obtenerAlumnosDeCumpleanosHoy(admin);
   },
