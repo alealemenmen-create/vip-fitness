@@ -21,7 +21,6 @@ import {
   Users,
   WandSparkles,
   PencilRuler,
-  FlaskConical,
 } from "lucide-react";
 import { contarNovedadesSinVer } from "@/lib/novedades-vistas-local";
 
@@ -36,11 +35,9 @@ type AdminTabsProps = {
 
 const MOBILE_TABS = [
   { href: "/admin/alumnos", label: "Alumnos", icon: Users, section: "alumnos" },
-  // El generador se queda acá. Sacarlo para meter la herramienta manual lo
-  // dejaba inalcanzable desde el celular: "Más" apunta a Configuración, no a
-  // un índice. Armar rutina va a vivir como pestaña DENTRO del generador, que
-  // es lo que corresponde — no compitiendo por este lugar.
-  { href: "/admin/generador", label: "Generar", icon: WandSparkles, section: "generador" },
+  // El armado manual es ahora la herramienta principal del entrenador. Debe
+  // quedar a un toque también en celular, no escondido dentro de otro flujo.
+  { href: "/admin/armar-rutina", label: "Armar", icon: PencilRuler, section: "armar-rutina" },
   { href: "/admin/documentos", label: "Documentos", icon: FileText, section: "documentos" },
   { href: "/admin/alimentos", label: "Alimentos", icon: Salad, section: "alimentos" },
   { href: "/admin/configuracion", label: "Más", icon: MoreHorizontal, section: "mas" },
@@ -56,7 +53,6 @@ const SIDEBAR_GROUPS = [
       // afinar cada detalle antes de generar.
       { href: "/admin/armar-rutina", label: "Armar rutina", icon: PencilRuler, section: "armar-rutina" },
       { href: "/admin/generador", label: "Generador de rutinas", icon: WandSparkles, section: "generador" },
-      { href: "/admin/generador-v2", label: "Generador 2.0 · Lab", icon: FlaskConical, section: "generador-v2" },
       { href: "/admin/documentos", label: "Documentos", icon: FileText, section: "documentos" },
       // Reabrir lo ya hecho: con 68 alumnos, la mayoría de las rutinas nuevas
       // son una variación de la anterior de esa misma persona.

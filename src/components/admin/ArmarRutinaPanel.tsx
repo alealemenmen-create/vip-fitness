@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { AlertTriangle, ArrowLeft, Check, ChevronDown, Coffee, PencilRuler, Search, SlidersHorizontal } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input, Select } from "@/components/ui/Input";
+import { Input } from "@/components/ui/Input";
 import { RutinaDraftEditor, type TecnicaOpcion } from "@/components/admin/RutinaDraftEditor";
 import { generarBorradorRutina } from "@/app/admin/generador/actions";
 import { briefDesdeNivel, NIVELES_ARMADO, type NivelArmado } from "@/lib/generador-rutinas/niveles-armado";
@@ -663,20 +663,33 @@ export function ArmarRutinaPanel({
           </div>
           <p className="text-micro mt-0.5 text-text-tertiary">Manual manda. La base VIP es solo un punto de partida editable.</p>
         </div>
-        <label className="block">
-          <span className="text-micro mb-1 block text-text-tertiary">NIVEL DEL ALUMNO</span>
-          <Select value={nivel} onChange={(evento) => {
-            const nuevoNivel = evento.target.value as NivelArmado;
-            setNivel(nuevoNivel);
-            if (!configuracionManual) {
-              setSeriesManuales(RECOMENDACION_NIVEL[nuevoNivel].series);
-              setRepeticionesManuales(RECOMENDACION_NIVEL[nuevoNivel].bases);
-            }
-          }} className="py-2">
-            {NIVELES.map((opcion) => <option key={opcion} value={opcion}>{NIVELES_ARMADO[opcion].etiqueta}</option>)}
-          </Select>
-          <span className="text-micro mt-1 block text-text-tertiary">{NIVELES_ARMADO[nivel].descripcion}</span>
-        </label>
+        <div>
+          <p className="text-micro mb-1.5 text-text-tertiary">NIVEL DEL ALUMNO</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {NIVELES.map((opcion) => {
+              const activo = nivel === opcion;
+              return (
+                <button
+                  key={opcion}
+                  type="button"
+                  aria-pressed={activo}
+                  onClick={() => {
+                    setNivel(opcion);
+                    if (!configuracionManual) {
+                      setSeriesManuales(RECOMENDACION_NIVEL[opcion].series);
+                      setRepeticionesManuales(RECOMENDACION_NIVEL[opcion].bases);
+                    }
+                  }}
+                  className={`rounded-xl border p-2.5 text-left transition ${activo ? "border-vip bg-vip/10 ring-2 ring-vip/10" : "border-border bg-surface-2 hover:border-vip/40"}`}
+                >
+                  <span className={`block text-caption font-bold ${activo ? "text-vip" : "text-text"}`}>{NIVELES_ARMADO[opcion].etiqueta}</span>
+                  <span className="mt-1 block text-[9px] leading-relaxed text-text-tertiary">{RECOMENDACION_NIVEL[opcion].series} series · {RECOMENDACION_NIVEL[opcion].bases} reps</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-micro mt-1.5 text-text-tertiary">{NIVELES_ARMADO[nivel].descripcion}</p>
+        </div>
 
         <div className="radius-control border border-[#394352] bg-[#151922] p-2.5">
           <div className="flex items-start justify-between gap-3">
@@ -684,7 +697,10 @@ export function ArmarRutinaPanel({
               <p className="text-caption font-semibold text-[#eef2f7]">Volumen recomendado por sesión</p>
               <p className="mt-0.5 text-[10px] text-[#a8b2c1]">{RECOMENDACION_NIVEL[nivel].series} series por ejercicio · bases {RECOMENDACION_NIVEL[nivel].bases} reps · accesorios {RECOMENDACION_NIVEL[nivel].accesorios} reps</p>
             </div>
-            <label className="flex shrink-0 items-center gap-1.5 text-[10px] font-semibold text-[#c8d0dc]"><input type="checkbox" checked={configuracionManual} onChange={(evento) => setConfiguracionManual(evento.target.checked)} /> Manual</label>
+            <div className="grid shrink-0 grid-cols-2 gap-1">
+              <button type="button" aria-pressed={!configuracionManual} onClick={() => setConfiguracionManual(false)} className={`rounded-lg border px-2 py-1.5 text-[9px] font-bold ${!configuracionManual ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] text-[#a8b2c1]"}`}>Recomendado</button>
+              <button type="button" aria-pressed={configuracionManual} onClick={() => setConfiguracionManual(true)} className={`rounded-lg border px-2 py-1.5 text-[9px] font-bold ${configuracionManual ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] text-[#a8b2c1]"}`}>A mi manera</button>
+            </div>
           </div>
           <div className="mt-2 grid grid-cols-3 gap-1 text-center text-[9px] text-[#9eabbc]">
             <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">1 músculo</strong>4 ejercicios · {RECOMENDACION_NIVEL[nivel].series * 4} series</div>
@@ -692,18 +708,18 @@ export function ArmarRutinaPanel({
             <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">3 músculos</strong>2 + 2 + 2 · {RECOMENDACION_NIVEL[nivel].series * 6} series</div>
           </div>
           {configuracionManual && (
-            <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#303846] pt-2">
-              <label className="text-[9px] uppercase text-[#a8b2c1]">Series por ejercicio<input type="number" min={1} max={10} value={seriesManuales} onChange={(evento) => setSeriesManuales(Math.min(10, Math.max(1, Number(evento.target.value) || 1)))} className="mt-1 w-full rounded-lg border border-[#465263] bg-[#1d222c] px-2 py-2 text-caption text-white" /></label>
-              <label className="text-[9px] uppercase text-[#a8b2c1]">Repeticiones<input value={repeticionesManuales} onChange={(evento) => setRepeticionesManuales(evento.target.value)} placeholder="Ej. 8-12" className="mt-1 w-full rounded-lg border border-[#465263] bg-[#1d222c] px-2 py-2 text-caption text-white" /></label>
+            <div className="mt-2 grid gap-3 border-t border-[#303846] pt-2 sm:grid-cols-2">
+              <div><p className="text-[9px] uppercase text-[#a8b2c1]">Series por ejercicio</p><div className="mt-1 grid grid-cols-5 gap-1">{[2, 3, 4, 5, 6].map((cantidad) => <button key={cantidad} type="button" aria-pressed={seriesManuales === cantidad} onClick={() => setSeriesManuales(cantidad)} className={`rounded-lg border py-2 text-caption font-bold ${seriesManuales === cantidad ? "border-[#78a6d1] bg-[#243c55] text-white" : "border-[#465263] bg-[#1d222c] text-[#b9c2cf]"}`}>{cantidad}</button>)}</div></div>
+              <div><p className="text-[9px] uppercase text-[#a8b2c1]">Repeticiones</p><div className="mt-1 grid grid-cols-3 gap-1">{["5-8", "6-10", "8-12", "10-15", "12-20", "15-25"].map((rango) => <button key={rango} type="button" aria-pressed={repeticionesManuales === rango} onClick={() => setRepeticionesManuales(rango)} className={`rounded-lg border py-2 text-[10px] font-bold ${repeticionesManuales === rango ? "border-[#78a6d1] bg-[#243c55] text-white" : "border-[#465263] bg-[#1d222c] text-[#b9c2cf]"}`}>{rango}</button>)}</div></div>
             </div>
           )}
         </div>
 
-        <details className="radius-control border border-border">
-          <summary className="flex cursor-pointer items-center gap-2 px-2.5 py-2 text-caption font-semibold text-text-secondary">
-            <SlidersHorizontal size={14} className="text-[#4f83b7]" /> Ajustar sesiones y duración
-          </summary>
-          <div className="space-y-3 border-t border-border p-2.5">
+        <section className="rounded-xl border border-border bg-surface-2 p-2.5">
+          <div className="mb-2 flex items-center gap-2 text-caption font-semibold text-text-secondary">
+            <SlidersHorizontal size={14} className="text-[#4f83b7]" /> Sesiones y duración
+          </div>
+          <div className="space-y-3">
           <div>
           <p className="text-micro text-text-tertiary">DÍAS POR SEMANA</p>
           <div className="mt-1 flex gap-1">
@@ -741,7 +757,7 @@ export function ArmarRutinaPanel({
           </div>
           </div>
           </div>
-        </details>
+        </section>
         {alumno?.plan && dias !== alumno.plan.diasSemana && (
           <p className="text-caption text-warning">
             El plan de {alumno.nombre} es de {alumno.plan.diasSemana} días por semana y estás armando {dias}.

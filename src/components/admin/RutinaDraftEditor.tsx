@@ -1153,19 +1153,30 @@ export function VistaPreviaEstructurada({
                 </div>
               </div>
               {alcanceAutomatico === "grupo" && (
-                <label className="block">
-                  <span className="mb-1 block text-[9px] font-semibold uppercase text-[#a8b2c1]">Grupo muscular</span>
-                  <select value={objetivoAutomatico} onChange={(evento) => setObjetivoAutomatico(evento.target.value as ObjetivoAutomatico)} className="radius-control w-full border border-[#394352] bg-[#1d222c] px-2 py-2 text-caption text-white">
-                    {(objetivosDia.length > 0 ? objetivosDia : ["pecho", "espalda", "piernas", "hombros", "biceps", "triceps"] as ObjetivoAutomatico[]).map((objetivo) => <option key={objetivo} value={objetivo}>{ETIQUETA_OBJETIVO[objetivo]}</option>)}
-                  </select>
-                </label>
+                <div>
+                  <p className="mb-1 text-[9px] font-semibold uppercase text-[#a8b2c1]">Grupo muscular</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(objetivosDia.length > 0 ? objetivosDia : ["pecho", "espalda", "piernas", "hombros", "biceps", "triceps"] as ObjetivoAutomatico[]).map((objetivo) => (
+                      <button key={objetivo} type="button" aria-pressed={objetivoAutomatico === objetivo} onClick={() => setObjetivoAutomatico(objetivo)} className={`radius-control border px-2.5 py-2 text-[10px] font-semibold ${objetivoAutomatico === objetivo ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] bg-[#1d222c] text-[#b9c2cf]"}`}>
+                        {ETIQUETA_OBJETIVO[objetivo]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
               <div>
                 <p className="mb-1 text-[9px] font-semibold uppercase text-[#a8b2c1]">Programa VIP · compatible con {NIVELES_ARMADO[nivelArmado].etiqueta}</p>
-                <select value={estiloAutomatico} onChange={(evento) => elegirPrograma(evento.target.value as EstiloAutomatico)} className="radius-control w-full border border-[#394352] bg-[#1d222c] px-2 py-2 text-caption text-white">
-                  {programasDisponibles.map(([valor, programa]) => <option key={valor} value={valor}>{programa.nombre}</option>)}
-                </select>
-                <p className="mt-1 text-[9px] text-[#9eabbc]">{PROGRAMAS_VIP[estiloAutomatico].descripcion}</p>
+                <div className="grid gap-1.5 sm:grid-cols-2">
+                  {programasDisponibles.map(([valor, programa]) => {
+                    const activo = estiloAutomatico === valor;
+                    return (
+                      <button key={valor} type="button" aria-pressed={activo} onClick={() => elegirPrograma(valor)} className={`rounded-xl border p-2.5 text-left transition ${activo ? "border-[#78a6d1] bg-[#243c55] ring-2 ring-[#78a6d1]/10" : "border-[#394352] bg-[#1d222c]"}`}>
+                        <span className={`block text-[10px] font-bold ${activo ? "text-[#d9ecff]" : "text-[#d9dfe8]"}`}>{programa.nombre}</span>
+                        <span className="mt-1 block text-[9px] leading-relaxed text-[#9eabbc]">{programa.descripcion}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               {alcanceAutomatico !== "grupo" && (
                 <div>
@@ -1194,9 +1205,9 @@ export function VistaPreviaEstructurada({
                 {([ ["inicio", cardioInicio, setCardioInicio, cardioInicioMinutos, setCardioInicioMinutos], ["final", cardioFinal, setCardioFinal, cardioFinalMinutos, setCardioFinalMinutos] ] as const).map(([posicion, modalidad, cambiarModalidad, minutos, cambiarMinutos]) => (
                   <div key={posicion} className="radius-control border border-[#394352] bg-[#1d222c] p-2">
                     <p className="mb-1 text-[9px] font-semibold uppercase text-[#a8b2c1]">Cardio al {posicion}</p>
-                    <select value={modalidad} onChange={(evento) => cambiarModalidad(evento.target.value as CardioAutomatico)} className="w-full rounded-md border border-[#465263] bg-[#151922] px-1.5 py-1.5 text-[10px] text-white">
-                      <option value="ninguno">Ninguno</option><option value="bicicleta">Bicicleta</option><option value="spinning">Spinning</option>
-                    </select>
+                    <div className="grid grid-cols-3 gap-1">
+                      {([ ["ninguno", "No"], ["bicicleta", "Bici"], ["spinning", "Spin"] ] as const).map(([valor, etiqueta]) => <button key={valor} type="button" aria-pressed={modalidad === valor} onClick={() => cambiarModalidad(valor)} className={`rounded-md border px-1 py-1.5 text-[9px] font-semibold ${modalidad === valor ? "border-[#78a6d1] bg-[#243c55] text-white" : "border-[#465263] bg-[#151922] text-[#b9c2cf]"}`}>{etiqueta}</button>)}
+                    </div>
                     {modalidad !== "ninguno" && <label className="mt-1 flex items-center justify-between gap-1 text-[9px] text-[#a8b2c1]">Minutos <input type="number" min={3} max={60} value={minutos} onChange={(evento) => cambiarMinutos(Math.min(60, Math.max(3, Number(evento.target.value) || 3)))} className="w-14 rounded-md border border-[#465263] bg-[#151922] px-1.5 py-1 text-right text-[10px] text-white" /></label>}
                   </div>
                 ))}
