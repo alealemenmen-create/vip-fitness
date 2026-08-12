@@ -1583,6 +1583,14 @@ input[type="date"]::-webkit-date-and-time-value {
 .tira-ejercicios-rutina::-webkit-scrollbar {
   display: none;
 }
+/* Selector de técnica del editor de rutina (admin): tira deslizable en vez de
+   grilla que se envuelve, mismo criterio que `.tira-ejercicios-rutina`. */
+.tira-tecnicas {
+  scrollbar-width: none;
+}
+.tira-tecnicas::-webkit-scrollbar {
+  display: none;
+}
 .casillero-ejercicio-rutina {
   display: grid;
   place-items: center;
@@ -2315,6 +2323,31 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
 }
 @media (prefers-reduced-motion: reduce) {
   .boton-descanso[data-estado="confirmar"] {
+    animation: none;
+  }
+}
+
+/* Confirmar cancelar descanso: primer toque sobre un descanso QUE ESTÁ
+   CORRIENDO — antes cancelaba de un solo toque (deshacía la serie marcada).
+   Pedido de Alejandro: que un roce accidental no lo tire abajo solo. Rojo de
+   advertencia y no ámbar: acá "seguir tocando" deshace algo, es lo opuesto de
+   "confirmar" (que construye hacia adelante). */
+.boton-descanso[data-estado="confirmar-cancelar-descanso"] {
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 16%, transparent);
+  border-color: var(--color-error);
+  animation: confirmar-cancelar-descanso-pulso 0.6s ease-in-out infinite;
+}
+@keyframes confirmar-cancelar-descanso-pulso {
+  0%, 100% {
+    box-shadow: 0 0 0 color-mix(in srgb, var(--color-error) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-error) 55%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boton-descanso[data-estado="confirmar-cancelar-descanso"] {
     animation: none;
   }
 }

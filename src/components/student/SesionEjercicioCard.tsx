@@ -919,10 +919,22 @@ export const FilaSerie = forwardRef<
   const deshacerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const TOQUES_DESHACER = 2;
 
+  /** Semibloqueo para cancelar un descanso QUE ESTÁ CORRIENDO: antes un solo
+   * toque de más (sin querer) cancelaba el descanso y desmarcaba la serie de
+   * un golpe — mismo mecanismo que "deshacer serie", 2 toques, porque es
+   * exactamente el mismo gesto (arrepentirse de una serie ya marcada), solo
+   * que acá todavía está corriendo el reloj. No aplica al botón "pausado"
+   * (el de otra serie mientras esta corre): ese no cancela nada, solo
+   * informa. */
+  const [tocandoCancelarDescanso, setTocandoCancelarDescanso] = useState(0);
+  const cancelarDescansoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const TOQUES_CANCELAR_DESCANSO = 2;
+
   useEffect(() => {
     return () => {
       if (confirmacionTimeoutRef.current) clearTimeout(confirmacionTimeoutRef.current);
       if (deshacerTimeoutRef.current) clearTimeout(deshacerTimeoutRef.current);
+      if (cancelarDescansoTimeoutRef.current) clearTimeout(cancelarDescansoTimeoutRef.current);
     };
   }, []);
 
@@ -948,7 +960,9 @@ export const FilaSerie = forwardRef<
    * combinar tres data-* sueltos para decidir cómo pintarlo. */
   const estadoBoton = descansando
     ? activo
-      ? "corriendo"
+      ? tocandoCancelarDescanso > 0
+        ? "confirmar-cancelar-descanso"
+        : "corriendo"
       : "pausado"
     : avisandoSiguiente
       ? "avisando"
@@ -1149,6 +1163,26 @@ export const FilaSerie = forwardRef<
       // quiere hacer con un cronómetro que no debería haber arrancado.
       // Antes lo reiniciaba, y un toque accidental no tenía vuelta atrás salvo
       // esperar los 150 segundos completos.
+      //
+      // Pedido de Alejandro: ni siquiera esto debería pasar con UN solo toque
+      // sin querer — mismo semibloqueo que deshacer una serie ya marcada (ver
+      // `tocandoDeshacer` abajo), 2 toques seguidos. Solo mientras `activo`:
+      // el botón "pausado" de una fila que no es la que corre no cancela
+      // nada con ningún toque, así que no necesita este freno.
+      if (activo) {
+        const siguiente = tocandoCancelarDescanso + 1;
+        if (siguiente < TOQUES_CANCELAR_DESCANSO) {
+          setTocandoCancelarDescanso(siguiente);
+          if (cancelarDescansoTimeoutRef.current) clearTimeout(cancelarDescansoTimeoutRef.current);
+          cancelarDescansoTimeoutRef.current = setTimeout(() => setTocandoCancelarDescanso(0), 2000);
+          return;
+        }
+        setTocandoCancelarDescanso(0);
+        if (cancelarDescansoTimeoutRef.current) {
+          clearTimeout(cancelarDescansoTimeoutRef.current);
+          cancelarDescansoTimeoutRef.current = null;
+        }
+      }
       limpiarDescanso(sesionId, sesionEjercicioId, numero);
       // flushSync: `onGuardar` lee el <input hidden> de "realizada" del DOM
       // (vía FormData) apenas termina esta función. Sin forzar el
@@ -1321,7 +1355,9 @@ export const FilaSerie = forwardRef<
             aria-label={
               descansando
                 ? activo
-                  ? `Descanso, ${restante}s — tocar para reiniciar`
+                  ? tocandoCancelarDescanso > 0
+                    ? "Toca de nuevo para cancelar el descanso y deshacer esta serie"
+                    : `Descanso, ${restante}s`
                   : `En pausa, ${restante}s — arrancó el descanso de otra serie`
                 : realizada
                   ? avisandoSiguiente
@@ -1350,16 +1386,26 @@ export const FilaSerie = forwardRef<
             <span className="boton-descanso-contenido">
               {descansando ? (
                 activo ? (
-                  // Reloj + etiqueta + cuenta en formato mm:ss, como la
-                  // referencia — mismo dato que antes (segundos crudos),
-                  // solo el formato de lectura cambia.
-                  <span className="flex items-center gap-1.5">
-                    <Timer size={14} strokeWidth={2.5} />
-                    <span className="flex flex-col items-start leading-tight">
-                      <span className="boton-descanso-etiqueta">Descanso</span>
-                      <span className="boton-descanso-cuenta">{formatoRestante(restante ?? 0)}</span>
+                  tocandoCancelarDescanso > 0 ? (
+                    // Mismo semibloqueo que "fuera de turno": el primer toque
+                    // cuenta pero todavía no cancela nada, avisa que falta uno
+                    // más — así un roce accidental sobre el descanso corriendo
+                    // no lo tira abajo solo.
+                    <span className="flex flex-col items-center leading-tight">
+                      <span>Toca de nuevo para cancelar</span>
                     </span>
-                  </span>
+                  ) : (
+                    // Reloj + etiqueta + cuenta en formato mm:ss, como la
+                    // referencia — mismo dato que antes (segundos crudos),
+                    // solo el formato de lectura cambia.
+                    <span className="flex items-center gap-1.5">
+                      <Timer size={14} strokeWidth={2.5} />
+                      <span className="flex flex-col items-start leading-tight">
+                        <span className="boton-descanso-etiqueta">Descanso</span>
+                        <span className="boton-descanso-cuenta">{formatoRestante(restante ?? 0)}</span>
+                      </span>
+                    </span>
+                  )
                 ) : (
                   <>
                     <Play size={13} strokeWidth={3} />

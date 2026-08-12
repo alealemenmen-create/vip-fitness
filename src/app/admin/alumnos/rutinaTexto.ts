@@ -42,7 +42,9 @@ type FilaDia = {
   rutina_dia_ejercicios: FilaEjercicio[];
 };
 
-export async function obtenerRutinaComoTexto(rutinaId: string): Promise<RutinaTextoResultado> {
+async function cargarRutinaEstructurada(
+  rutinaId: string
+): Promise<{ ok: true; datos: RutinaExtraida } | { ok: false; error: string }> {
   await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
   const db = supabase as unknown as SupabaseClient;
@@ -83,6 +85,56 @@ export async function obtenerRutinaComoTexto(rutinaId: string): Promise<RutinaTe
 
   if (dias.length === 0) return { ok: false, error: "Esa rutina no tiene días cargados." };
 
-  const datos: RutinaExtraida = { nombreRutina: rutina.nombre as string, dias };
-  return { ok: true, nombre: rutina.nombre as string, texto: serializarRutinaATexto(datos) };
+  return { ok: true, datos: { nombreRutina: rutina.nombre as string, dias } };
+}
+
+export async function obtenerRutinaComoTexto(rutinaId: string): Promise<RutinaTextoResultado> {
+  const r = await cargarRutinaEstructurada(rutinaId);
+  if (!r.ok) return r;
+  return { ok: true, nombre: r.datos.nombreRutina, texto: serializarRutinaATexto(r.datos) };
+}
+
+export type RutinaBorradorResultado =
+  | { ok: true; nombre: string; rutina: RutinaExtraida; diasEntrenamiento: number }
+  | { ok: false; error: string };
+
+/** Igual que `obtenerRutinaComoTexto`, pero sin aplanar a texto: devuelve la
+ * misma forma (`RutinaExtraida`) que ya usa `ArmarRutinaPanel` como borrador
+ * en memoria. Existe para "aplicar esta rutina a otros alumnos" — ver
+ * `AplicarRutinaAOtrosAlumnos.tsx`, que la deja en el mismo respaldo local
+ * del asistente (`asistente-armado-local.ts`) y manda al entrenador
+ * directo al selector de alumnos, ya con la rutina cargada. Sigue pasando
+ * por la mesa de trabajo antes de publicar — mismo criterio documentado en
+ * `CopiarRutinaAlumno`: nunca copiar directo sin que alguien la revise. */
+export async function obtenerRutinaComoBorrador(rutinaId: string): Promise<RutinaBorradorResultado> {
+  const r = await cargarRutinaEstructurada(rutinaId);
+  if (!r.ok) return r;
+  const diasEntrenamiento = r.datos.dias.filter((d) => d.tipo === "entrenamiento").length;
+  return { ok: true, nombre: r.datos.nombreRutina, rutina: r.datos, diasEntrenamiento: diasEntrenamiento || 3 };
+}
+
+export type AlumnoBasico = { id: string; nombre: string };
+
+/** Lista liviana de alumnos (solo id + nombre), para el picker de "Agregar
+ * alguien más" en la mesa de trabajo (`RutinaDraftEditor`). Pedido de
+ * Alejandro: justo antes de "Asignar rutina", poder sumar más alumnos sin
+ * salir de esa pantalla — sea que llegó ahí armando una rutina nueva o
+ * editando una ya hecha. No lleva ficha ni plan (eso ya se decidió antes,
+ * al elegir el nivel/plan de la rutina): acá solo hace falta el nombre para
+ * elegir a quién más publicarle exactamente lo mismo. */
+export async function obtenerListaAlumnosBasica(): Promise<AlumnoBasico[]> {
+  await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
+  const db = supabase as unknown as SupabaseClient;
+  const { data } = await db
+    .from("alumno_perfil")
+    .select("user_id, perfiles!alumno_perfil_user_id_fkey(nombre)")
+    .order("created_at");
+
+  return (data ?? [])
+    .map((f) => {
+      const rel = f.perfiles as unknown as { nombre: string } | null;
+      return { id: f.user_id as string, nombre: rel?.nombre ?? "Alumno" };
+    })
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }

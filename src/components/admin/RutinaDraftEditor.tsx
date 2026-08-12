@@ -1,11 +1,12 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search, Copy, RefreshCcw, Check, AlertTriangle, CircleCheckBig, WandSparkles, GripVertical } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search, Copy, RefreshCcw, Check, AlertTriangle, CircleCheckBig, WandSparkles, GripVertical, Users, X } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { publicarRutinaAVariosAlumnos } from "@/app/admin/archivos/actions";
+import { obtenerListaAlumnosBasica, type AlumnoBasico } from "@/app/admin/alumnos/rutinaTexto";
 import { RevisionIAPanel } from "@/components/admin/RevisionIAPanel";
 import { BotonDictado } from "@/components/admin/BotonDictado";
 import { serializarRutinaATexto } from "@/lib/generador-rutinas/serializar";
@@ -797,9 +798,13 @@ function EjercicioForm({
       {eligiendoTecnica && tecnicas && tecnicas.length > 0 && <div className="mt-1.5 border-t border-border pt-1.5 pl-[22px]">
         {ejercicio.tecnicaTipo && <button type="button" onClick={() => { onChange({ ...ejercicio, tecnicaTipo: null, tecnicaInstruccion: null }); setEligiendoTecnica(false); }} className="mb-1.5 rounded-lg border border-border px-2 py-1 text-[10px] text-text-tertiary">Sin técnica</button>}
         <p className="mb-1 text-[9px] font-semibold uppercase text-text-tertiary">Aplicar a este ejercicio</p>
-        <div className="flex flex-wrap gap-1">{tecnicas.filter((tecnica) => tecnica.tipo === "individual").map((tecnica) => <button key={tecnica.nombre} type="button" onClick={() => { onChange({ ...ejercicio, tecnicaTipo: tecnica.nombre, descansoSegundos: tecnica.descansoFinalSeg ?? ejercicio.descansoSegundos }); setEligiendoTecnica(false); }} className="rounded-lg border border-[#4b665c] bg-[#1c2b27] px-2 py-1.5 text-[10px] font-semibold text-[#bfe0d4]">{tecnica.nombre}</button>)}</div>
+        {/* Tira deslizable y no grilla que se envuelve: con 6-8 técnicas la
+            grilla ocupaba varias filas y había que scrollear la PÁGINA para
+            verlas todas. Deslizando el dedo al costado se ven todas sin
+            empujar nada hacia abajo — pedido explícito de Alejandro. */}
+        <div className="tira-tecnicas flex gap-1 overflow-x-auto pb-1">{tecnicas.filter((tecnica) => tecnica.tipo === "individual").map((tecnica) => <button key={tecnica.nombre} type="button" onClick={() => { onChange({ ...ejercicio, tecnicaTipo: tecnica.nombre, descansoSegundos: tecnica.descansoFinalSeg ?? ejercicio.descansoSegundos }); setEligiendoTecnica(false); }} className="shrink-0 whitespace-nowrap rounded-lg border border-[#4b665c] bg-[#1c2b27] px-2 py-1.5 text-[10px] font-semibold text-[#bfe0d4]">{tecnica.nombre}</button>)}</div>
         <p className="mb-1 mt-2 text-[9px] font-semibold uppercase text-text-tertiary">Conectar desde este ejercicio</p>
-        <div className="flex flex-wrap gap-1">{tecnicas.filter((tecnica) => tecnica.tipo === "encadenada").map((tecnica) => <button key={tecnica.nombre} type="button" onClick={() => { onEncadenar?.(tecnica.nombre, tecnica.cantidadEjercicios ?? 2); setEligiendoTecnica(false); }} className="rounded-lg border border-[#665883] bg-[#282139] px-2 py-1.5 text-[10px] font-semibold text-[#dfd3f5]">{tecnica.nombre} · {tecnica.cantidadEjercicios ?? 2}</button>)}</div>
+        <div className="tira-tecnicas flex gap-1 overflow-x-auto pb-1">{tecnicas.filter((tecnica) => tecnica.tipo === "encadenada").map((tecnica) => <button key={tecnica.nombre} type="button" onClick={() => { onEncadenar?.(tecnica.nombre, tecnica.cantidadEjercicios ?? 2); setEligiendoTecnica(false); }} className="shrink-0 whitespace-nowrap rounded-lg border border-[#665883] bg-[#282139] px-2 py-1.5 text-[10px] font-semibold text-[#dfd3f5]">{tecnica.nombre} · {tecnica.cantidadEjercicios ?? 2}</button>)}</div>
         <p className="mt-1 text-[9px] text-text-tertiary">Solo conecta esta fila con las siguientes; no convierte toda la sesión.</p>
       </div>}
 
@@ -980,8 +985,15 @@ export function VistaPreviaEstructurada({
   onEncadenar?: (diaIdx: number, ejIdx: number, nombre: string, cantidad: number) => void;
   /** Mete un día de descanso en esa posición de la semana. */
   onInsertarDescanso?: (posicion: number) => void;
-  /** Series o descanso de todo un grupo del día, de un toque. */
-  onAplicarAGrupo?: (diaIdx: number, etiqueta: string, campo: "series" | "descansoSegundos", valor: number) => void;
+  /** Series, reps o descanso de todo un grupo, de un toque — un día puntual o
+   * toda la semana (ver `aplicarATodaLaSemana` en el cuerpo del componente). */
+  onAplicarAGrupo?: (
+    diaIdx: number,
+    etiqueta: string,
+    campo: "series" | "reps" | "descansoSegundos",
+    valor: number | string,
+    todaLaSemana: boolean
+  ) => void;
   /** Varita VIP: completa desde la biblioteca un músculo, la sesión o toda la rutina. */
   onGenerarAutomatico?: (config: ConfigAutomatico) => void;
   /** Semáforo calculado en vivo por la mesa de armado. */
@@ -997,6 +1009,14 @@ export function VistaPreviaEstructurada({
   // aparezca ya abierto (ver `insertar` más abajo).
   const [editando, setEditando] = useState<{ dia: number; ej: number } | null>(null);
   const [varitaDia, setVaritaDia] = useState<number | null>(null);
+  /** Pedido de Alejandro: "por qué tuve que cambiar todas las series de los
+   * ejercicios de la semana, perdí mucho tiempo" — "Ajustes rápidos por
+   * grupo" solo tocaba el día donde estabas parado. Con esto prendido, el
+   * mismo selector de series/reps/descanso pega en TODOS los días de
+   * entrenamiento que tengan ese grupo, no solo el de acá. Un solo interruptor
+   * para toda la mesa de trabajo, no uno por día — es un modo, no una
+   * configuración por sesión. */
+  const [aplicarATodaLaSemana, setAplicarATodaLaSemana] = useState(false);
   const [arrastrando, setArrastrando] = useState<{ dia: number; desde: number; sobre: number } | null>(null);
   const arrastrandoRef = useRef<{ dia: number; desde: number; sobre: number } | null>(null);
   const [alcanceAutomatico, setAlcanceAutomatico] = useState<AlcanceAutomatico>("sesion");
@@ -1113,6 +1133,14 @@ export function VistaPreviaEstructurada({
               <summary className="cursor-pointer px-1 py-1.5 text-[10px] font-semibold text-text-tertiary">
                 Ajustes rápidos por grupo
               </summary>
+              <label className="flex items-center gap-1.5 px-1 pb-1.5 text-[10px] font-semibold text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={aplicarATodaLaSemana}
+                  onChange={(e) => setAplicarATodaLaSemana(e.target.checked)}
+                />
+                Aplicar a toda la semana, no solo este día
+              </label>
               <div className="flex flex-wrap items-center gap-1.5 px-1 pb-2">
               {Array.from(new Set(dia.ejercicios.map((e) => grupoVisual(e).etiqueta))).map((etiqueta) => {
                 const color = dia.ejercicios.map(grupoVisual).find((v) => v.etiqueta === etiqueta)?.color;
@@ -1125,7 +1153,8 @@ export function VistaPreviaEstructurada({
                       aria-label={`Series de todo ${etiqueta} en el día ${dia.numero}`}
                       defaultValue=""
                       onChange={(e) => {
-                        if (e.target.value) onAplicarAGrupo(diaIdx, etiqueta, "series", Number(e.target.value));
+                        if (e.target.value)
+                          onAplicarAGrupo(diaIdx, etiqueta, "series", Number(e.target.value), aplicarATodaLaSemana);
                         e.target.value = "";
                       }}
                       className="radius-control border border-border bg-surface-2 px-1 py-0.5 text-[10px] text-text-secondary"
@@ -1138,11 +1167,27 @@ export function VistaPreviaEstructurada({
                       ))}
                     </select>
                     <select
+                      aria-label={`Repeticiones de todo ${etiqueta} en el día ${dia.numero}`}
+                      defaultValue=""
+                      onChange={(e) => {
+                        if (e.target.value) onAplicarAGrupo(diaIdx, etiqueta, "reps", e.target.value, aplicarATodaLaSemana);
+                        e.target.value = "";
+                      }}
+                      className="radius-control border border-border bg-surface-2 px-1 py-0.5 text-[10px] text-text-secondary"
+                    >
+                      <option value="">reps…</option>
+                      {["6-8", "8-10", "8-12", "10-12", "10-15", "12-15", "15-20"].map((r) => (
+                        <option key={r} value={r}>
+                          {r} reps
+                        </option>
+                      ))}
+                    </select>
+                    <select
                       aria-label={`Descanso de todo ${etiqueta} en el día ${dia.numero}`}
                       defaultValue=""
                       onChange={(e) => {
                         if (e.target.value)
-                          onAplicarAGrupo(diaIdx, etiqueta, "descansoSegundos", Number(e.target.value));
+                          onAplicarAGrupo(diaIdx, etiqueta, "descansoSegundos", Number(e.target.value), aplicarATodaLaSemana);
                         e.target.value = "";
                       }}
                       className="radius-control border border-border bg-surface-2 px-1 py-0.5 text-[10px] text-text-secondary"
@@ -1485,6 +1530,18 @@ export function RutinaDraftEditor({
     })),
   }));
   const [publicando, setPublicando] = useState(false);
+  /** Deshacer la última técnica encadenada (biserie, superserie, circuito...).
+   * Reportado por Alejandro: tocar "Circuito" de 4 sin querer pisa la técnica
+   * y el descanso de los 3 ejercicios de abajo en el acto, sin avisar — "así
+   * se me daña la rutina". La solución que pidió es esta, deliberadamente
+   * chica: no rediseñar cómo se eligen los ejercicios del combo, solo dejar
+   * un camino de vuelta. Guarda una foto de los ejercicios del día ANTES de
+   * encadenar; "Deshacer" la restaura tal cual estaba. */
+  const [ultimaEncadenada, setUltimaEncadenada] = useState<{
+    diaIdx: number;
+    nombre: string;
+    ejerciciosPrevios: Ejercicio[];
+  } | null>(null);
   const [planCodigo, setPlanCodigo] = useState<CodigoPlanEntrenamiento | "">(planInicial ?? "");
   const [error, setError] = useState<string | null>(null);
   const [versionDesactualizada, setVersionDesactualizada] = useState(false);
@@ -1498,6 +1555,43 @@ export function RutinaDraftEditor({
   const [errorRevision, setErrorRevision] = useState<string | null>(null);
   const [aplicados, setAplicados] = useState<Set<number>>(() => new Set());
   const [diaActivo, setDiaActivo] = useState(0);
+
+  // ── Agregar alguien más, justo antes de publicar ──────────────────────
+  // Pedido de Alejandro: llegue armando una rutina nueva o editando una ya
+  // hecha, quiere poder sumar más alumnos EN esta pantalla, justo antes de
+  // "Asignar rutina" — sin volver al paso de selección de más atrás (que en
+  // algunos de los 4 caminos que usan este editor ni siquiera existe). No
+  // toca `alumnoIds` (la prop): esa sigue siendo la clave del respaldo local
+  // de este borrador. Los agregados quedan en un set aparte y se suman recién
+  // al publicar (ver `idsParaPublicar` y `publicar` más abajo).
+  const [idsExtra, setIdsExtra] = useState<string[]>([]);
+  const [nombresExtra, setNombresExtra] = useState<Record<string, string>>({});
+  const [mostrarAgregarAlumnos, setMostrarAgregarAlumnos] = useState(false);
+  const [alumnosDisponibles, setAlumnosDisponibles] = useState<AlumnoBasico[] | null>(null);
+  const [cargandoAlumnos, setCargandoAlumnos] = useState(false);
+  const [errorAlumnos, setErrorAlumnos] = useState<string | null>(null);
+  const [busquedaAlumno, setBusquedaAlumno] = useState("");
+
+  const idsParaPublicar = useMemo(
+    () => Array.from(new Set([...alumnoIds, ...idsExtra])),
+    [alumnoIds, idsExtra]
+  );
+
+  const abrirAgregarAlumnos = () => {
+    setMostrarAgregarAlumnos(true);
+    if (alumnosDisponibles !== null || cargandoAlumnos) return;
+    setCargandoAlumnos(true);
+    setErrorAlumnos(null);
+    obtenerListaAlumnosBasica()
+      .then((lista) => setAlumnosDisponibles(lista))
+      .catch(() => setErrorAlumnos("No se pudo cargar la lista de alumnos."))
+      .finally(() => setCargandoAlumnos(false));
+  };
+
+  const alternarAlumnoExtra = (id: string, nombre: string) => {
+    setIdsExtra((actual) => (actual.includes(id) ? actual.filter((x) => x !== id) : [...actual, id]));
+    setNombresExtra((actual) => ({ ...actual, [id]: nombre }));
+  };
 
   // ── Guardado automático del armado ────────────────────────────────────
   // Pedido del entrenador, primero de su lista: "guardar el progreso al
@@ -1633,6 +1727,8 @@ export function RutinaDraftEditor({
     const formato = tecnicas?.find((tecnica) => tecnica.nombre === nombre);
     const descansoInterno = formato?.descansoInternoSeg ?? 0;
     const descansoFinal = formato?.descansoFinalSeg ?? 90;
+    // Foto de cómo estaba el día ANTES de tocar nada — ver `ultimaEncadenada`.
+    setUltimaEncadenada({ diaIdx, nombre, ejerciciosPrevios: draft.dias[diaIdx]?.ejercicios ?? [] });
     setDraft((d) => ({
       ...d,
       dias: d.dias.map((dia, i) => {
@@ -1651,6 +1747,19 @@ export function RutinaDraftEditor({
         return { ...dia, ejercicios: ejercicios.map((e, orden) => ({ ...e, orden: orden + 1 })) };
       }),
     }));
+  };
+
+  /** Vuelve el día a como estaba justo antes del último "Conectar desde este
+   * ejercicio". Un solo nivel (no una pila de deshacer): alcanza para el
+   * caso real — el toque de más se nota al toque, no varias acciones después. */
+  const deshacerEncadenar = () => {
+    if (!ultimaEncadenada) return;
+    const { diaIdx, ejerciciosPrevios } = ultimaEncadenada;
+    setDraft((d) => ({
+      ...d,
+      dias: d.dias.map((dia, i) => (i === diaIdx ? { ...dia, ejercicios: ejerciciosPrevios } : dia)),
+    }));
+    setUltimaEncadenada(null);
   };
 
   const agregarEjercicio = (diaIdx: number) => {
@@ -1831,24 +1940,35 @@ export function RutinaDraftEditor({
     });
   };
 
-  /** Cambia series o descanso de TODOS los ejercicios de un grupo dentro de un
-   * día, de un toque. Pedido textual: "en el día de pecho, un botón general de
+  /** Cambia series, reps o descanso de TODOS los ejercicios de un grupo, de un
+   * toque. Pedido textual original: "en el día de pecho, un botón general de
    * descanso para el músculo de pecho... me estás poniendo a editar muchos
    * campos, quiero todo mucho más fácil". Agrupa por la etiqueta visual, así
    * que bíceps y tríceps se tocan por separado aunque la base los guarde
-   * juntos como "brazos". */
-  const aplicarAGrupo = (diaIdx: number, etiqueta: string, campo: "series" | "descansoSegundos", valor: number) => {
+   * juntos como "brazos".
+   *
+   * `todaLaSemana`: pedido posterior — tener que repetir esto día por día
+   * para armar una rutina entera "fue mucho, perdí tiempo". Con esto en true
+   * toca todos los días de entrenamiento que tengan ese grupo, no solo
+   * `diaIdx`; en false se comporta exactamente igual que antes. */
+  const aplicarAGrupo = (
+    diaIdx: number,
+    etiqueta: string,
+    campo: "series" | "reps" | "descansoSegundos",
+    valor: number | string,
+    todaLaSemana: boolean
+  ) => {
     setDraft((d) => ({
       ...d,
       dias: d.dias.map((dia, i) =>
-        i !== diaIdx
-          ? dia
-          : {
+        (todaLaSemana ? dia.tipo === "entrenamiento" : i === diaIdx)
+          ? {
               ...dia,
               ejercicios: dia.ejercicios.map((e) =>
                 grupoVisual(e).etiqueta === etiqueta ? { ...e, [campo]: valor } : e
               ),
             }
+          : dia
       ),
     }));
   };
@@ -2124,7 +2244,7 @@ export function RutinaDraftEditor({
     // entrenador no tenía forma de saber que había fallado, ni yo de saber por
     // qué. Cualquier fallo tiene que terminar en un mensaje en pantalla.
     try {
-      const resultado = await publicarRutinaAVariosAlumnos(alumnoIds, draft, planCodigo);
+      const resultado = await publicarRutinaAVariosAlumnos(idsParaPublicar, draft, planCodigo);
 
       if (resultado.error) {
         setError(resultado.error);
@@ -2446,6 +2566,27 @@ export function RutinaDraftEditor({
         />
       )}
 
+      {ultimaEncadenada && (
+        <div className="radius-control flex items-center justify-between gap-2 border border-vip/40 bg-vip/10 px-2.5 py-2">
+          <p className="text-caption text-text">
+            Se conectó <strong>{ultimaEncadenada.nombre}</strong> desde este ejercicio.
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={deshacerEncadenar} className="text-caption font-bold text-vip">
+              Deshacer
+            </button>
+            <button
+              type="button"
+              onClick={() => setUltimaEncadenada(null)}
+              aria-label="Cerrar aviso"
+              className="text-text-tertiary"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {mesaDeTrabajo ? (
         <VistaPreviaEstructurada
           draft={draft}
@@ -2537,6 +2678,75 @@ export function RutinaDraftEditor({
         </div>
       )}
 
+      {!publicado && (
+        <div className="space-y-2 border-t border-border pt-2">
+          {idsExtra.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {idsExtra.map((id) => (
+                <span
+                  key={id}
+                  className="radius-control flex items-center gap-1 bg-vip/12 px-2 py-1 text-micro font-medium text-vip"
+                >
+                  {nombresExtra[id] ?? "Alumno"}
+                  <button
+                    type="button"
+                    onClick={() => setIdsExtra((actual) => actual.filter((x) => x !== id))}
+                    aria-label={`Quitar a ${nombresExtra[id] ?? "este alumno"} de esta publicación`}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          {mostrarAgregarAlumnos ? (
+            <Card padding="p-2.5" className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-caption font-semibold text-text">Agregar a esta publicación</p>
+                <button type="button" onClick={() => setMostrarAgregarAlumnos(false)} aria-label="Cerrar" className="text-text-tertiary">
+                  <X size={16} />
+                </button>
+              </div>
+              <Input
+                value={busquedaAlumno}
+                onChange={(e) => setBusquedaAlumno(e.target.value)}
+                placeholder="Buscar alumno…"
+              />
+              {cargandoAlumnos && <p className="text-caption text-text-tertiary">Cargando…</p>}
+              {errorAlumnos && <p className="text-caption text-error">{errorAlumnos}</p>}
+              {alumnosDisponibles && (
+                <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
+                  {alumnosDisponibles
+                    .filter((a) => !alumnoIds.includes(a.id))
+                    .filter((a) => a.nombre.toLowerCase().includes(busquedaAlumno.toLowerCase()))
+                    .map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => alternarAlumnoExtra(a.id, a.nombre)}
+                        className={`radius-control flex w-full items-center justify-between px-2.5 py-2 text-left text-caption ${
+                          idsExtra.includes(a.id) ? "bg-vip/15 font-semibold text-vip" : "bg-surface-2 text-text-secondary"
+                        }`}
+                      >
+                        {a.nombre}
+                        {idsExtra.includes(a.id) && <Check size={14} />}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </Card>
+          ) : (
+            <button
+              type="button"
+              onClick={abrirAgregarAlumnos}
+              className="text-caption flex items-center gap-1.5 font-semibold text-vip"
+            >
+              <Users size={14} /> Agregar alguien más a esta rutina
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-2 border-t border-border pt-2">
         <Button
           onClick={publicar}
@@ -2546,7 +2756,13 @@ export function RutinaDraftEditor({
           size={mesaDeTrabajo ? "xs" : "lg"}
           className="flex-1"
         >
-          {publicando ? "Publicando…" : mesaDeTrabajo ? "Asignar rutina" : "Confirmar y asignar rutina"}
+          {publicando
+            ? "Publicando…"
+            : idsParaPublicar.length > 1
+              ? `Asignar rutina a ${idsParaPublicar.length} alumnos`
+              : mesaDeTrabajo
+                ? "Asignar rutina"
+                : "Confirmar y asignar rutina"}
         </Button>
         <Button variant="secondary" size={mesaDeTrabajo ? "xsAuto" : "lg"} onClick={onDescartar} className={mesaDeTrabajo ? "" : "w-auto px-6"}>
           Descartar

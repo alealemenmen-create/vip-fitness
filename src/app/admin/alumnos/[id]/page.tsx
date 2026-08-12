@@ -16,6 +16,7 @@ import { FotosSoloLectura } from "@/components/admin/FotosSoloLectura";
 import { HistorialEntrenamiento } from "@/components/admin/HistorialEntrenamiento";
 import { HistorialPuntosAlumno } from "@/components/admin/HistorialPuntosAlumno";
 import { CopiarRutinaAlumno } from "@/components/admin/CopiarRutinaAlumno";
+import { AplicarRutinaAOtrosAlumnos } from "@/components/admin/AplicarRutinaAOtrosAlumnos";
 import { FichaAlumnoAdmin } from "@/components/admin/FichaAlumnoAdmin";
 import { leerFicha } from "@/lib/perfil-alumno/datos";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -165,7 +166,12 @@ export default async function AlumnoDetallePage({
           <PesoCorporalSoloLectura historial={historialPeso} />
           <FotosSoloLectura fotos={fotos} />
           <HistorialEntrenamiento rutinaActivaNombre={rutinaActiva?.nombre ?? null} sesiones={sesiones} />
-          {rutinaActiva && <CopiarRutinaAlumno rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />}
+          {rutinaActiva && (
+            <>
+              <AplicarRutinaAOtrosAlumnos rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />
+              <CopiarRutinaAlumno rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />
+            </>
+          )}
           <HistorialPuntosAlumno movimientos={movimientosPuntos} />
           <ResumenComidas resumen={resumenComidas} />
           <SeguimientoDiarioSoloLectura seguimientos={seguimientos} />
