@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   Bot,
+  Bug,
   ClipboardList,
   CircleDollarSign,
   Dumbbell,
@@ -83,6 +84,7 @@ const SIDEBAR_GROUPS = [
     label: "Sistema",
     items: [
       { href: "/admin/auditoria", label: "Auditoría", icon: ShieldCheck, section: "auditoria" },
+      { href: "/admin/reportes", label: "Errores reportados", icon: Bug, section: "reportes" },
       { href: "/admin/novedades", label: "Actualizaciones", icon: Bell, section: "novedades" },
       { href: "/admin/gastos", label: "Gastos de la app", icon: CircleDollarSign, section: "gastos" },
       { href: "/admin/configuracion", label: "Configuración", icon: Settings, section: "configuracion" },
@@ -102,6 +104,7 @@ const MORE_PREFIXES = [
   "/admin/noticias",
   "/admin/novedades",
   "/admin/gastos",
+  "/admin/reportes",
 ];
 
 function estaActivo(pathname: string, href: string, section: string) {

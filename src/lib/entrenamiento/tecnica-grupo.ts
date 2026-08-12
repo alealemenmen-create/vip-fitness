@@ -36,3 +36,33 @@ export function posicionTecnica(tecnicaTipo: string | null | undefined): { actua
   if (!m) return null;
   return { actual: Number(m[1]), total: Number(m[2]) };
 }
+
+/**
+ * Cuántos ejercicios forma cada familia cuando NO viene el "(n/total)" —
+ * el campo `tecnica_tipo` es texto libre en varios caminos (el cuadro de
+ * texto suelto del editor, lo que extrae la IA de un PDF, una rutina vieja
+ * escrita a mano) y ninguno de esos garantiza el sufijo con número. Sin este
+ * respaldo, dos biseries seguidas sin numerar se fundían en un solo grupo de
+ * 4 en vez de dos de 2 — "en muchas biserias no sale la cantidad correcta de
+ * ejercicio", reportado por Alejandro.
+ *
+ * Solo cubre las familias con un tamaño que el propio nombre ya fija (bi=2,
+ * tri=3, super=2). "Giant Set" y "Circuito" quedan sin tope a propósito: su
+ * cantidad de ejercicios varía de verdad de una rutina a otra, así que
+ * inventar un default ahí sería tan arbitrario como el bug que se arregla acá.
+ */
+const TAMANO_POR_DEFECTO: Partial<Record<GrupoTecnica["etiqueta"], number>> = {
+  Superserie: 2,
+  Biserie: 2,
+  Triserie: 3,
+};
+
+/** Cuántos ejercicios debería tener el grupo de este `tecnicaTipo`: el número
+ * explícito si vino, si no el default de su familia (ver arriba), si no
+ * `null` (sin tope, como hoy). */
+export function tamanoGrupoTecnica(tecnicaTipo: string | null | undefined): number | null {
+  const explicito = posicionTecnica(tecnicaTipo)?.total;
+  if (explicito) return explicito;
+  const familia = resolverGrupoTecnica(tecnicaTipo)?.etiqueta;
+  return familia ? (TAMANO_POR_DEFECTO[familia] ?? null) : null;
+}

@@ -47,6 +47,7 @@ export type TipoAlertaImpulso = "dolor" | "estancamiento_3_sesiones" | "caida_re
 export type MomentoAlertaImpulso = "antes" | "durante" | "despues";
 export type EstadoAlertaImpulso = "pendiente" | "vista" | "resuelta";
 export type EstadoReporteFotoEjercicio = "pendiente" | "resuelto";
+export type EstadoReporteBug = "pendiente" | "resuelto";
 /** Forma de cada fila del snapshot de resultados de un torneo (ver ResultadoTorneo en lib/torneos/puntos.ts). */
 export type ResultadoTorneoJSON = {
   alumnoId: string;
@@ -1581,6 +1582,36 @@ export interface Database {
         };
         Update: {
           estado?: EstadoReporteFotoEjercicio;
+          resuelto_en?: string | null;
+          resuelto_por?: string | null;
+        };
+        Relationships: [];
+      };
+      // 0072_reportes_bugs.sql — botón flotante de reporte de fallas: captura
+      // de pantalla + descripción, directo al panel del entrenador.
+      reportes_bugs: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          ruta: string;
+          descripcion: string;
+          captura_path: string | null;
+          dispositivo: string | null;
+          estado: EstadoReporteBug;
+          creado_en: string;
+          resuelto_en: string | null;
+          resuelto_por: string | null;
+        };
+        Insert: {
+          alumno_id: string;
+          ruta: string;
+          descripcion: string;
+          captura_path?: string | null;
+          dispositivo?: string | null;
+          estado?: EstadoReporteBug;
+        };
+        Update: {
+          estado?: EstadoReporteBug;
           resuelto_en?: string | null;
           resuelto_por?: string | null;
         };

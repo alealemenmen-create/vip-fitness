@@ -15,7 +15,7 @@ import {
   NotebookPen,
   Maximize2,
   X,
-  Info,
+  AlertCircle,
   TrendingUp,
   ShieldAlert,
   HeartCrack,
@@ -36,6 +36,7 @@ import { repsObjetivo, esEjercicioDeTiempo } from "@/lib/entrenamiento/reps";
 import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
 import { guardarDescanso, leerDescanso, limpiarDescanso } from "@/lib/entrenamiento/descanso";
 import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import { explicacionTecnica } from "@/lib/entrenamiento/glosario-tecnicas";
 import { PUNTOS_VIP } from "@/lib/ranking/reglas";
 import {
   guardarBorrador,
@@ -1460,6 +1461,9 @@ export const SesionEjercicioCard = forwardRef<
   const esTiempo = esEjercicioDeTiempo(ejercicio.repsProgramadas);
   const ultimoTexto = formatUltimo(ejercicio.ultimoRegistro, esTiempo);
   const tecnica = resolverTecnica(ejercicio);
+  // Busca la técnica conocida tanto en el texto libre como en la etiqueta
+  // ("Biserie (1/2)"): a veces la palabra clave está en una y no en la otra.
+  const explicacion = explicacionTecnica(`${tecnica?.texto ?? ""} ${ejercicio.tecnicaTipo ?? ""}`);
   const recomendacionImpulso = ejercicio.recomendacionImpulso;
   // Solo una recomendación APROBADA precarga algo — 'propuesta' (esperando
   // al entrenador) y 'bloqueada' (Regla E) nunca sugieren peso ni reps.
@@ -1470,6 +1474,24 @@ export const SesionEjercicioCard = forwardRef<
   const pesoSugeridoEfectivo =
     recomendacionAprobada && !recomendacionAprobada.esPesoCorporal ? recomendacionAprobada.pesoSugeridoKg : null;
   const grupoTecnica = resolverGrupoTecnica(ejercicio.tecnicaTipo);
+  // Pantalla "cargada", pedido de Alejandro: la técnica ya no vive siempre
+  // abierta. Un botoncito de info la muestra/esconde a pedido — pero la
+  // primera vez que este ejercicio pasa a ser el activo (le toca ahora) se
+  // abre sola, para que el alumno la vea sí o sí antes de poder cerrarla.
+  // `avisoAutomaticoRef` evita que se vuelva a abrir sola en cada render
+  // mientras sigue activo, o si el alumno ya la cerró a mano.
+  const [mostrarTecnica, setMostrarTecnica] = useState(false);
+  const avisoAutomaticoRef = useRef(false);
+  useEffect(() => {
+    if (activo && tecnica && !avisoAutomaticoRef.current) {
+      avisoAutomaticoRef.current = true;
+      setMostrarTecnica(true);
+    }
+    // `tecnica` es un objeto nuevo en cada render (lo arma `resolverTecnica`
+    // sin memo): depender de él directo dispararía el efecto todo el tiempo.
+    // `tecnica?.texto` es el valor real que importa y sí es estable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activo, tecnica?.texto]);
   const cardRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const formId = `series-${ejercicio.sesionEjercicioId}`;
@@ -1729,11 +1751,18 @@ export const SesionEjercicioCard = forwardRef<
       // por debajo de esa barra en vez de después.
       style={{ scrollMarginTop: "calc(var(--alto-cabecera-alumno) + 130px)" }}
     >
-      {/* `tarjeta-modelo-oscura`: negro real en los dos temas, como la
-          referencia — antes usaba el gris de `bg-surface`, que al lado del
-          resto de la pantalla se veía deslavado. */}
+      {/* Ya NO fuerza negro plano (`tarjeta-modelo-oscura`/`-ejercicio-oscura`
+          quitadas): pedido de Alejandro — con los temas VIP/Steel Fit/Lady
+          Fit, el negro fijo se veía "trabado" al lado del resto de la
+          pantalla, que sí sigue el tema. `bg-surface` normal ya alcanza:
+          la única razón real del negro era el recorte transparente del
+          modelo en el ícono de respaldo (IlustracionEjercicio → 48px), que
+          tiene su PROPIO fondo negro fijo (`FONDO_FOTO_GRUPO`) inline, sin
+          depender de esta tarjeta. La foto de referencia grande tampoco lo
+          necesita: rellena los bordes con la misma foto desenfocada, no con
+          negro. */}
       <Card
-        className={`tarjeta-modelo-oscura tarjeta-ejercicio-oscura p-3 ${modoEnfocado ? "tarjeta-ejercicio-enfocada" : ""} ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
+        className={`p-3 ${modoEnfocado ? "tarjeta-ejercicio-enfocada" : ""} ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
         style={
           grupoTecnica
             ? { borderLeft: `3px solid ${grupoTecnica.color}` }
@@ -1788,29 +1817,42 @@ export const SesionEjercicioCard = forwardRef<
                 <p className="text-card-title mt-0.5 leading-tight text-text">
                   {ejercicio.nombre}
                 </p>
-                {ejercicio.tecnicaTipo && (
-                  <span
-                    className="pill-tecnica mt-1 inline-block"
-                    // Coloreada por familia cuando es una técnica encadenada
-                    // (superserie, biserie...): el alumno ve de un vistazo
-                    // que este ejercicio va pegado a otro, sin tener que leer
-                    // el texto completo.
-                    style={
-                      grupoTecnica
-                        ? {
-                            color: grupoTecnica.color,
-                            borderColor: grupoTecnica.color,
-                            background: `color-mix(in srgb, ${grupoTecnica.color} 16%, transparent)`,
-                          }
-                        : undefined
-                    }
-                  >
-                    {ejercicio.tecnicaTipo}
+                {/* De un vistazo, junto al nombre: cuánto hay que hacer y con
+                    qué técnica — sin la descripción, que vive en el botón "!"
+                    sobrepuesto en la foto (ver más abajo), no acá. Pedido de
+                    Alejandro: la pantalla de entrenar se sentía cargada. */}
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className="text-micro font-semibold text-text-secondary">
+                    {ejercicio.seriesProgramadas} series · {ejercicio.repsProgramadas}
+                    {esTiempo ? " seg" : " reps"}
                   </span>
-                )}
+                  {ejercicio.tecnicaTipo && (
+                    <span
+                      className="pill-tecnica inline-block"
+                      // Coloreada por familia cuando es una técnica encadenada
+                      // (superserie, biserie...): el alumno ve de un vistazo
+                      // que este ejercicio va pegado a otro, sin tener que leer
+                      // el texto completo.
+                      style={
+                        grupoTecnica
+                          ? {
+                              color: grupoTecnica.color,
+                              borderColor: grupoTecnica.color,
+                              background: `color-mix(in srgb, ${grupoTecnica.color} 16%, transparent)`,
+                            }
+                          : undefined
+                      }
+                    >
+                      {ejercicio.tecnicaTipo}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
+          {/* `relative`: contenedor del botón "!" sobrepuesto (ver abajo) —
+              no de la foto en sí, que sigue midiéndose sola por su `tamano`. */}
+          <div className="relative shrink-0">
           <CuadroFotoReferencia
             ilustracionSlug={ejercicio.ilustracionSlug}
             fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
@@ -1829,7 +1871,109 @@ export const SesionEjercicioCard = forwardRef<
             destacado={modoEnfocado}
             reproducirAutomaticamente={modoEnfocado && activo && !soloLectura}
           />
+          {/* El botón de técnica: SOBRE la foto (esquina inferior izquierda —
+              la derecha ya la usa el ícono de ampliar) y no en el texto, para
+              que no empuje nada hacia abajo. Funciona igual en modo normal y
+              en modo enfocado, a diferencia del botón que tenía antes en la
+              cabecera (que quedaba oculto en modo enfocado y no había forma
+              de reabrir la técnica una vez cerrada). Abre el modal completo,
+              nunca cierra desde acá — cerrar es cosa del modal mismo. */}
+          {tecnica && (
+            <button
+              type="button"
+              onClick={() => setMostrarTecnica(true)}
+              aria-haspopup="dialog"
+              aria-label="Ver técnica sugerida"
+              className="absolute bottom-1.5 left-1.5 z-[4] flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-vip backdrop-blur-sm active:scale-95"
+            >
+              <AlertCircle size={16} strokeWidth={2.5} />
+            </button>
+          )}
         </div>
+        </div>
+
+        {/* Técnica, en lugar de la observación que había antes: lo que se lee
+            acá tiene que ser CÓMO se hace el ejercicio, no un comentario
+            suelto. Manda lo que pidió la rutina; si el entrenador no pidió
+            nada, entra la de la biblioteca del gimnasio, marcada como
+            sugerencia para que no se confunda con una orden. Ver
+            `resolverTecnica` arriba.
+
+            Ya no vive siempre abierta (pantalla cargada, pedido de
+            Alejandro): el botón "!" sobrepuesto en la foto la abre a pedido,
+            y se abre sola una vez cuando el ejercicio pasa a activo (ver el
+            efecto más arriba) — que la vea sí o sí antes de poder cerrarla.
+            Modal completo y no una cajita en la tarjeta: así el texto nunca
+            queda cortado ni apretado, entre en la pantalla que entre.
+
+            A propósito FUERA del `{!expandido ? ... : ...}` de más abajo: el
+            botón "!" que la abre vive en la foto, que se ve tanto plegada
+            como expandida — si el modal quedara adentro de la rama expandida,
+            abrir la técnica de un ejercicio plegado no mostraba nada (bug
+            encontrado al verificar en el navegador). */}
+        {tecnica && mostrarTecnica &&
+          createPortal(
+            <div
+              role="dialog"
+              aria-label="Técnica sugerida"
+              onClick={() => setMostrarTecnica(false)}
+              className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 sm:items-center"
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="max-h-[75vh] w-full max-w-sm overflow-y-auto rounded-[22px] border border-vip/25 bg-surface p-4 shadow-2xl"
+              >
+                <div className="flex items-start gap-2.5">
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-vip/15 text-vip">
+                    <AlertCircle size={18} strokeWidth={2.5} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-card-title text-text">
+                      {explicacion?.etiqueta ?? (tecnica.sugerida ? "Técnica sugerida" : "Técnica")}
+                    </p>
+                    <p className="text-caption mt-0.5 text-text-secondary">{ejercicio.nombre}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarTecnica(false)}
+                    aria-label="Cerrar"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-2 text-text-secondary"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div className="mt-3 space-y-3 border-t border-border pt-3">
+                  <p className="text-secondary leading-relaxed text-text">
+                    <span className="font-semibold text-vip">
+                      {tecnica.sugerida ? "Lo que pide tu rutina: " : "Instrucción: "}
+                    </span>
+                    {tecnica.texto}
+                  </p>
+                  {/* Explicación general de la técnica (drop set, biserie...),
+                      detectada por palabra clave en lo que ya escribió el
+                      entrenador o la IA — ver glosario-tecnicas.ts. Complementa
+                      el texto de arriba, no lo reemplaza: los números exactos
+                      (si los hay) siguen siendo los del entrenador. */}
+                  {explicacion && (
+                    <p className="text-secondary leading-relaxed text-text-secondary">
+                      <span className="font-semibold text-text">Cómo se hace: </span>
+                      {explicacion.explicacion}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMostrarTecnica(false)}
+                  className="radius-control mt-4 flex h-11 w-full items-center justify-center bg-vip text-caption font-bold text-black"
+                >
+                  Entendido
+                </button>
+              </div>
+            </div>,
+            document.body
+          )}
 
         {/* Los números que se consultan de reojo entre serie y serie, ahora a
             todo el ancho de la tarjeta (antes vivía en la columna angosta que
@@ -1884,23 +2028,6 @@ export const SesionEjercicioCard = forwardRef<
       {/* El tempo ya se muestra arriba, como 4ta columna de la fila de datos
           (junto a Series/Reps/Descanso) — acá no se repite. */}
 
-      {/* Técnica, en lugar de la observación que había antes: lo que se lee
-          acá tiene que ser CÓMO se hace el ejercicio, no un comentario suelto.
-          Manda lo que pidió la rutina; si el entrenador no pidió nada, entra la
-          de la biblioteca del gimnasio, marcada como sugerencia para que no se
-          confunda con una orden. Ver `resolverTecnica` arriba. */}
-      {tecnica && (
-        <div className={`tarjeta-tecnica mb-1.5 flex items-start gap-2 ${modoEnfocado ? "tecnica-ejercicio-enfocada" : ""}`}>
-          <Info size={13} className="mt-0.5 shrink-0 text-vip" strokeWidth={2.5} />
-          <p className="text-micro leading-snug text-text-secondary">
-            <span className="font-semibold text-vip">
-              {tecnica.sugerida ? "Técnica sugerida: " : "Técnica: "}
-            </span>
-            {tecnica.texto}
-          </p>
-        </div>
-      )}
-
       <TarjetaImpulsoVip recomendacion={recomendacionImpulso} />
 
       {ultimoTexto && (
@@ -1938,8 +2065,9 @@ export const SesionEjercicioCard = forwardRef<
           <input type="hidden" name="sesion_id" value={sesionId} />
           <input type="hidden" name="cantidad_series" value={ejercicio.seriesProgramadas} />
 
-          <p className="text-micro mb-1 font-bold tracking-wide text-vip">SERIES</p>
-
+          {/* La etiqueta "SERIES" que iba acá se sacó: la fila de números
+              (1, 2, 3...) ya deja claro qué es sin hacer falta el rótulo —
+              pedido de Alejandro para que la pantalla se sienta menos cargada. */}
           {filas.map((n) => (
             <div
               key={`${n}-${borradorLeido}`}

@@ -7,7 +7,7 @@ import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamie
 import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
 import { SesionGrupoCard } from "@/components/student/SesionGrupoCard";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
-import { posicionTecnica, resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import { resolverGrupoTecnica, tamanoGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 
 const suscribirSinCambios = () => () => {};
@@ -15,9 +15,10 @@ const suscribirSinCambios = () => () => {};
 /**
  * Parte la lista de ejercicios en grupos consecutivos de la misma familia de
  * técnica (superserie/biserie/triserie/circuito, ver `resolverGrupoTecnica`),
- * acotados por la numeración "(n/total)" que escribe el entrenador (ver
- * `posicionTecnica`) para no fusionar dos biseries seguidas en una de 4. Un
- * ejercicio suelto es un "grupo" de 1.
+ * acotados por el tamaño del grupo (ver `tamanoGrupoTecnica`: la numeración
+ * "(n/total)" si el entrenador la escribió, si no el default de la familia)
+ * para no fusionar dos biseries seguidas en una de 4. Un ejercicio suelto es
+ * un "grupo" de 1.
  *
  * Único punto donde se calculan los límites de grupo — tanto `calcularActivo`
  * como el render de abajo parten de acá, para que nunca puedan desincronizarse
@@ -30,7 +31,10 @@ function agruparPorTecnica(ejercicios: EjercicioSesion[]): EjercicioSesion[][] {
     const familia = resolverGrupoTecnica(ejercicios[i].tecnicaTipo)?.etiqueta ?? null;
     let j = i;
     if (familia) {
-      const total = posicionTecnica(ejercicios[i].tecnicaTipo)?.total ?? null;
+      // `tamanoGrupoTecnica` cae al default de la familia (bi=2, tri=3,
+      // super=2) cuando el "(n/total)" no viene escrito — sin esto, dos
+      // biseries seguidas sin numerar se fusionaban en un grupo de 4.
+      const total = tamanoGrupoTecnica(ejercicios[i].tecnicaTipo);
       while (
         j + 1 < ejercicios.length &&
         resolverGrupoTecnica(ejercicios[j + 1].tecnicaTipo)?.etiqueta === familia &&

@@ -287,7 +287,12 @@ export const SesionGrupoCard = forwardRef<
   return (
     <div
       ref={cardRef}
-      className={`tarjeta-modelo-oscura tarjeta-ejercicio-oscura p-3 ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
+      // Ya NO fuerza negro plano — ver el comentario en SesionEjercicioCard.tsx
+      // sobre por qué esto se saca (los temas VIP/Steel Fit/Lady Fit se veían
+      // "trabados" acá). El fondo negro real que necesitaba el ícono de
+      // respaldo (recorte transparente del modelo) sigue puesto aparte,
+      // inline, en IlustracionEjercicio/FONDO_FOTO_GRUPO.
+      className={`p-3 ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
       style={grupoTecnica ? ({ "--color-glow-tecnica": grupoTecnica.color } as React.CSSProperties) : undefined}
     >
       {/* Cabecera única para el grupo: la etiqueta de técnica (coloreada por

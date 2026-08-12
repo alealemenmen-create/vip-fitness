@@ -27,6 +27,7 @@ import { AplicarTemaBotonGuardado } from "@/components/student/AplicarTemaBotonG
 import { AnuncioImportanteFlotante } from "@/components/student/AnuncioImportanteFlotante";
 import { CelebracionTorneo } from "@/components/student/CelebracionTorneo";
 import { CumpleanosFlotante } from "@/components/student/CumpleanosFlotante";
+import { BotonReportarBug } from "@/components/student/BotonReportarBug";
 import { Logo } from "@/components/Logo";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { marcarRequest } from "@/lib/supabase/instrumentacion";
@@ -173,6 +174,10 @@ export default async function AlumnoLayout({ children }: { children: React.React
         {anuncioImportante && <AnuncioImportanteFlotante anuncio={anuncioImportante} />}
         {celebracionTorneo && <CelebracionTorneo celebracion={celebracionTorneo} />}
         <CumpleanosFlotante cumpleaneros={cumpleaneros} />
+        {/* Siempre a la vista, en todas las pantallas del alumno: el momento
+            de reportar una falla es justo cuando se la encuentra, no después
+            buscando dónde avisar. */}
+        <BotonReportarBug />
       </div>
       <AplicarTemaBotonGuardado temaGuardado={errorTema ? undefined : perfilTema?.tema_boton} />
     </div>

@@ -2837,6 +2837,32 @@ input[type="number"] {
 .panel-aero-superior .logo-vip-lady {
   display: none;
 }
+/*
+  Botón flotante de reporte de fallas (ver BotonReportarBug.tsx). Va pegado al
+  borde derecho, JUSTO encima de la barra de navegación: es lo único que queda
+  siempre disponible en todas las pantallas del alumno, así que no puede
+  taparle un botón real a ninguna.
+
+  El alto de la barra (~74px) más su separación del borde se suman al área
+  segura del teléfono (la franja del gesto de inicio en iPhone), porque si no
+  el botón queda por debajo del alcance del pulgar en pantallas con notch.
+*/
+.boton-reportar-bug {
+  right: 10px;
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  opacity: 0.55;
+}
+.boton-reportar-bug:active {
+  opacity: 1;
+}
+/* En una pantalla de escritorio ancha la barra inferior no compite por el
+   mismo lugar: el botón puede bajar a la esquina de siempre. */
+@media (min-width: 768px) {
+  .boton-reportar-bug {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 .panel-aero-inferior {
   left: 4px;
   right: 4px;
