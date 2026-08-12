@@ -98,6 +98,10 @@ export const SesionGrupoCard = forwardRef<
   const [recienCompletado, setRecienCompletado] = useState(false);
   /** Pidió cerrar el grupo con series sin hacer: se le muestra qué implica. */
   const [confirmandoIncompleto, setConfirmandoIncompleto] = useState(false);
+  /** Mismo criterio que en la tarjeta de ejercicio suelto (ver el comentario
+   * ahí): segundo paso adentro de "Cerrar igual" para cuando el alumno sí
+   * hizo todo pero se olvidó de tocar "Listo" en cada serie. */
+  const [confirmandoDeVerdad, setConfirmandoDeVerdad] = useState(false);
   const filasRef = useRef<Map<number, FilaSerieHandle>[]>(ejercicios.map(() => new Map()));
   const filaNodoRef = useRef<Map<number, HTMLDivElement>[]>(ejercicios.map(() => new Map()));
 
@@ -226,6 +230,7 @@ export const SesionGrupoCard = forwardRef<
       return;
     }
     setConfirmandoIncompleto(false);
+    setConfirmandoDeVerdad(false);
     // Un solo envío después de actualizar todas las filas evita carreras entre
     // respuestas parciales del mismo grupo (el mismo problema corregido en la
     // tarjeta de ejercicio individual).
@@ -470,32 +475,70 @@ export const SesionGrupoCard = forwardRef<
 
               {!completoTodo &&
                 (confirmandoIncompleto ? (
-                  <div className="panel-cerrar-incompleto space-y-2">
-                    <p className="text-caption font-semibold text-warning">
-                      Te faltan {seriesFaltantes}{" "}
-                      {seriesFaltantes === 1 ? "serie" : "series"} de esta {etiquetaGrupo.toLowerCase()}
-                    </p>
-                    <p className="text-micro text-text-secondary">
-                      Si la cierras ahora, esas series quedan marcadas como hechas y sin kilos ni
-                      repeticiones registradas. Tu entrenador lo va a ver así.
-                    </p>
-                    <div className="flex gap-2">
+                  confirmandoDeVerdad ? (
+                    <div className="panel-cerrar-incompleto space-y-2">
+                      <p className="text-caption font-semibold text-warning">
+                        ¿De verdad hiciste esta {etiquetaGrupo.toLowerCase()} completa?
+                      </p>
+                      <p className="text-micro text-text-secondary">
+                        Van a quedar marcadas como hechas sin kilos ni repeticiones exactas, pero
+                        cuentan entero para tu progreso. Confirmá solo si de verdad las hiciste.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmandoDeVerdad(false)}
+                          className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text"
+                        >
+                          No, volver
+                        </button>
+                        <button
+                          type="button"
+                          onClick={marcarGrupoListo}
+                          className="text-caption h-10 flex-1 rounded-[12px] border border-vip/60 font-bold text-vip"
+                        >
+                          Sí, las hice
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="panel-cerrar-incompleto space-y-2">
+                      <p className="text-caption font-semibold text-warning">
+                        Te faltan {seriesFaltantes}{" "}
+                        {seriesFaltantes === 1 ? "serie" : "series"} de esta {etiquetaGrupo.toLowerCase()}
+                      </p>
+                      <p className="text-micro text-text-secondary">
+                        Si la cierras ahora, esas series quedan marcadas como hechas y sin kilos ni
+                        repeticiones registradas. Tu entrenador lo va a ver así.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConfirmandoIncompleto(false);
+                            setConfirmandoDeVerdad(false);
+                          }}
+                          className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text"
+                        >
+                          Sigo entrenando
+                        </button>
+                        <button
+                          type="button"
+                          onClick={marcarGrupoListo}
+                          className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text-secondary"
+                        >
+                          Cerrar igual
+                        </button>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setConfirmandoIncompleto(false)}
-                        className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text"
+                        onClick={() => setConfirmandoDeVerdad(true)}
+                        className="text-micro block w-full text-center text-text-secondary underline decoration-dotted underline-offset-2"
                       >
-                        Sigo entrenando
-                      </button>
-                      <button
-                        type="button"
-                        onClick={marcarGrupoListo}
-                        className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text-secondary"
-                      >
-                        Cerrar igual
+                        Ya la hice, solo olvidé anotarla
                       </button>
                     </div>
-                  </div>
+                  )
                 ) : (
                   <button
                     type="button"

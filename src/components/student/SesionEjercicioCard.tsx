@@ -1525,6 +1525,14 @@ export const SesionEjercicioCard = forwardRef<
   /** Pidió cerrar el ejercicio con series sin hacer: se le muestra qué implica
    * antes de hacerlo. */
   const [confirmandoIncompleto, setConfirmandoIncompleto] = useState(false);
+  /** Pedido de Alejandro: a veces el alumno SÍ hizo todas las series pero se
+   * olvidó de ir tocando "Listo" en cada una — obligarlo a esperar todos los
+   * descansos de nuevo para cerrar "de verdad" no tiene sentido si ya
+   * entrenó. Este es un segundo paso adentro de "Cerrar igual", no un tercer
+   * camino técnico distinto (el dato de kilos/reps sigue sin poder
+   * inventarse) — solo cambia la pregunta de "¿cerrás sin más?" a "¿de
+   * verdad la hiciste?", con su propio aviso de que cuenta para el progreso. */
+  const [confirmandoDeVerdad, setConfirmandoDeVerdad] = useState(false);
   const filasRef = useRef(new Map<number, FilaSerieHandle>());
   /** Nodo DOM de cada fila de serie, para centrarla en pantalla al terminar
    * la anterior — no confundir con `filasRef` (el handle imperativo de cada
@@ -1663,6 +1671,7 @@ export const SesionEjercicioCard = forwardRef<
     // y checks desaparecieran hasta recargar la app. Se actualizan todas las
     // filas primero y se envía una única fotografía coherente del formulario.
     filasRef.current.forEach((handle) => handle.completarYa(false));
+    setConfirmandoDeVerdad(false);
     setRecienCompletado(true);
     guardarAhora();
   }
@@ -2156,32 +2165,73 @@ export const SesionEjercicioCard = forwardRef<
               descansos y dar el ejercicio por terminado. */}
           {!ejercicio.completado && seriesHechas.size < ejercicio.seriesProgramadas && (
             confirmandoIncompleto ? (
-              <div className="panel-cerrar-incompleto space-y-2">
-                <p className="text-caption font-semibold text-warning">
-                  Te faltan {ejercicio.seriesProgramadas - seriesHechas.size} de{" "}
-                  {ejercicio.seriesProgramadas} series
-                </p>
-                <p className="text-micro text-text-secondary">
-                  Si cierras el ejercicio ahora, esas series quedan marcadas como hechas y sin kilos
-                  ni repeticiones registradas. Tu entrenador lo va a ver así.
-                </p>
-                <div className="flex gap-2">
+              confirmandoDeVerdad ? (
+                <div className="panel-cerrar-incompleto space-y-2">
+                  <p className="text-caption font-semibold text-warning">
+                    ¿De verdad hiciste las {ejercicio.seriesProgramadas} series?
+                  </p>
+                  <p className="text-micro text-text-secondary">
+                    Van a quedar marcadas como hechas sin kilos ni repeticiones exactas, pero
+                    cuentan entero para tu progreso. Confirmá solo si de verdad las hiciste.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmandoDeVerdad(false)}
+                      className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text"
+                    >
+                      No, volver
+                    </button>
+                    <button
+                      type="button"
+                      onClick={marcarEjercicioListo}
+                      className="text-caption h-10 flex-1 rounded-[12px] border border-vip/60 font-bold text-vip"
+                    >
+                      Sí, las hice
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="panel-cerrar-incompleto space-y-2">
+                  <p className="text-caption font-semibold text-warning">
+                    Te faltan {ejercicio.seriesProgramadas - seriesHechas.size} de{" "}
+                    {ejercicio.seriesProgramadas} series
+                  </p>
+                  <p className="text-micro text-text-secondary">
+                    Si cierras el ejercicio ahora, esas series quedan marcadas como hechas y sin kilos
+                    ni repeticiones registradas. Tu entrenador lo va a ver así.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfirmandoIncompleto(false);
+                        setConfirmandoDeVerdad(false);
+                      }}
+                      className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text"
+                    >
+                      Sigo entrenando
+                    </button>
+                    <button
+                      type="button"
+                      onClick={marcarEjercicioListo}
+                      className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text-secondary"
+                    >
+                      Cerrar igual
+                    </button>
+                  </div>
+                  {/* Pequeñita a propósito: el uso real es "cerrar igual"
+                      cuando de verdad falta algo; esta es la salida para el
+                      caso puntual de "sí lo hice, me olvidé de tocar Listo". */}
                   <button
                     type="button"
-                    onClick={() => setConfirmandoIncompleto(false)}
-                    className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text"
+                    onClick={() => setConfirmandoDeVerdad(true)}
+                    className="text-micro block w-full text-center text-text-secondary underline decoration-dotted underline-offset-2"
                   >
-                    Sigo entrenando
-                  </button>
-                  <button
-                    type="button"
-                    onClick={marcarEjercicioListo}
-                    className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text-secondary"
-                  >
-                    Cerrar igual
+                    Ya la hice, solo olvidé anotarla
                   </button>
                 </div>
-              </div>
+              )
             ) : (
               <button
                 type="button"
