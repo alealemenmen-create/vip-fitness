@@ -223,12 +223,19 @@ export async function obtenerNumerosCalendario(
   });
 }
 
-/** El próximo número sin usar de la rutina activa (el más alto usado + 1). */
-export async function obtenerProximoNumero(
+/**
+ * Dónde va el alumno en su rutina: cuál es el próximo número sin usar (el más
+ * alto usado + 1) y cuál fue la última sesión que terminó de verdad.
+ *
+ * Las dos salen de la misma consulta a propósito: son la misma lista leída con
+ * dos preguntas distintas, y pedirla dos veces sería un round-trip de más en
+ * la carga más caliente del alumno.
+ */
+export async function obtenerAvanceCiclo(
   supabase: SupabaseServerClient,
   alumnoId: string,
   rutinaId: string
-): Promise<number> {
+): Promise<{ proximoNumero: number; ultimoNumeroHecho: number | null }> {
   const { data } = await supabase
     .from("sesiones_entrenamiento")
     .select("numero_calendario, estado, rutina_iniciada_en, rutina_dias(tipo)")
@@ -239,12 +246,25 @@ export async function obtenerProximoNumero(
     .limit(500);
 
   const sesiones = data ?? [];
-  const vistaPreviaPendiente = sesiones.find((sesion) => {
-    const dia = sesion.rutina_dias as unknown as { tipo: string } | null;
-    return sesion.estado === "en_progreso" && sesion.rutina_iniciada_en === null && dia?.tipo === "entrenamiento";
-  });
-  if (vistaPreviaPendiente?.numero_calendario) return vistaPreviaPendiente.numero_calendario;
-  return (sesiones.at(-1)?.numero_calendario ?? 0) + 1;
+  const tipoDe = (sesion: (typeof sesiones)[number]) =>
+    (sesion.rutina_dias as unknown as { tipo: string } | null)?.tipo;
+
+  // La última TERMINADA, y solo de entrenamiento: es la que el alumno reconoce
+  // como "la que hice". Una en progreso todavía no cuenta, y un descanso
+  // registrado con la regla vieja tampoco — nadie se ubica por un descanso.
+  const ultimoNumeroHecho =
+    sesiones
+      .filter((s) => s.estado !== "en_progreso" && tipoDe(s) === "entrenamiento")
+      .at(-1)?.numero_calendario ?? null;
+
+  const vistaPreviaPendiente = sesiones.find(
+    (sesion) =>
+      sesion.estado === "en_progreso" && sesion.rutina_iniciada_en === null && tipoDe(sesion) === "entrenamiento"
+  );
+  const proximoNumero =
+    vistaPreviaPendiente?.numero_calendario ?? (sesiones.at(-1)?.numero_calendario ?? 0) + 1;
+
+  return { proximoNumero, ultimoNumeroHecho };
 }
 
 export type BalanceSesionesMes = {

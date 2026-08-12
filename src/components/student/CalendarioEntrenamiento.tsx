@@ -27,6 +27,7 @@ function TiraDias({
   seleccionado,
   sesionesPorSemana,
   descansoDespuesDe,
+  ultimoNumeroHecho,
   onSeleccionar,
 }: {
   numeros: NumeroCalendario[];
@@ -36,12 +37,17 @@ function TiraDias({
    * detrás. Se dibuja una luna finita entre medio, sin casillero ni número:
    * el descanso es una recomendación, no una sesión que haya que registrar. */
   descansoDespuesDe: string[];
+  /** La última sesión que el alumno terminó de verdad, en toda la rutina — no
+   * solo en esta semana. `null` si todavía no hizo ninguna. */
+  ultimoNumeroHecho: number | null;
   onSeleccionar: (n: number) => void;
 }) {
   return (
     <div className="-mx-1 flex gap-0.5 overflow-x-auto px-1">
       {numeros.map((n, indice) => {
         const activo = n.numero === seleccionado;
+        const hecha = n.estado === "completado";
+        const esUltimaHecha = hecha && n.numero === ultimoNumeroHecho;
         // Solo puede quedar en `true` para sesiones de descanso ya registradas
         // con la regla vieja: la rueda no vuelve a ofrecerlas. Se sigue
         // dibujando para no reescribir lo que el alumno ya hizo.
@@ -53,25 +59,49 @@ function TiraDias({
               className="radius-control flex min-w-0 flex-1 shrink-0 flex-col items-center gap-0.5 px-0.5 py-1.5 transition-colors duration-200 ease-in-out"
               style={{ background: activo ? "var(--color-acento-suave)" : "transparent" }}
             >
+              {/* "ÚLTIMA" en vez de "SESIÓN" en la que acaba de hacer: es el
+                  ancla para volver a ubicarse. "Acá es donde se pierden los
+                  alumnos" — Alejandro. */}
               <span
-                className={`text-[8px] leading-none ${activo ? "text-acento-fuerte" : "text-text-tertiary"}`}
+                className={`text-[8px] leading-none ${
+                  esUltimaHecha ? "font-bold text-success" : activo ? "text-acento-fuerte" : "text-text-tertiary"
+                }`}
               >
-                {descanso ? "DESC." : "SESIÓN"}
+                {descanso ? "DESC." : esUltimaHecha ? "ÚLTIMA" : "SESIÓN"}
               </span>
               <span
-                className={`text-[12px] font-semibold leading-tight ${activo ? "text-text" : "text-text-secondary"}`}
+                className={`text-[12px] font-semibold leading-tight ${
+                  hecha ? "text-success" : activo ? "text-text" : "text-text-secondary"
+                }`}
               >
                 {/* El número del MES, no el de la semana: en la semana 2 se
                     ven 4, 5 y 6, que es como el alumno cuenta lo que lleva. */}
                 {descanso ? <Moon size={13} className="mt-0.5" /> : sesionDelMes(n.numero, sesionesPorSemana)}
               </span>
-              <span
-                className="h-1 w-1 rounded-full"
-                style={{
-                  background: COLOR_PUNTO[n.estado],
-                  border: n.estado === "no_iniciado" ? "1px solid var(--color-border)" : "none",
-                }}
-              />
+              {/* Un check y no un puntito de 4px: el punto verde no se
+                  distinguía del gris de un vistazo, que es como se mira esta
+                  tira. Las que no están hechas conservan el punto — un círculo
+                  vacío al lado de un check se lee solo. */}
+              {/* Alto fijo: el check mide más que el punto y sin esto los
+                  casilleros quedaban a distinta altura entre sí. */}
+              <span className="flex h-3 items-center justify-center">
+                {hecha ? (
+                  <Check
+                    size={11}
+                    strokeWidth={3.5}
+                    className="text-success"
+                    aria-label={esUltimaHecha ? "Última sesión hecha" : "Sesión hecha"}
+                  />
+                ) : (
+                  <span
+                    className="h-1 w-1 rounded-full"
+                    style={{
+                      background: COLOR_PUNTO[n.estado],
+                      border: n.estado === "no_iniciado" ? "1px solid var(--color-border)" : "none",
+                    }}
+                  />
+                )}
+              </span>
             </button>
             {/* No después del último: ahí el descanso ya se entiende solo
                 (se acabó la semana) y una luna colgando al final se lee como
@@ -101,6 +131,7 @@ export function CalendarioEntrenamiento({
   soloLectura = false,
   sesionesPorSemana,
   descansoDespuesDe,
+  ultimoNumeroHecho,
   planNombre,
   planPausado,
   cupoAgotado,
@@ -113,6 +144,7 @@ export function CalendarioEntrenamiento({
   soloLectura?: boolean;
   sesionesPorSemana: number;
   descansoDespuesDe: string[];
+  ultimoNumeroHecho: number | null;
   planNombre: string | null;
   planPausado: boolean;
   cupoAgotado: boolean;
@@ -173,6 +205,7 @@ export function CalendarioEntrenamiento({
         seleccionado={seleccionado}
         sesionesPorSemana={sesionesPorSemana}
         descansoDespuesDe={descansoDespuesDe}
+        ultimoNumeroHecho={ultimoNumeroHecho}
         onSeleccionar={setSeleccionado}
       />
 

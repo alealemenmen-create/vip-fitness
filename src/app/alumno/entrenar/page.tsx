@@ -9,7 +9,7 @@ import {
   obtenerRutinaActiva,
   obtenerDiasRutina,
   obtenerNumerosCalendario,
-  obtenerProximoNumero,
+  obtenerAvanceCiclo,
   obtenerBalanceSesionesMes,
   obtenerSesionEnProgreso,
 } from "./data";
@@ -95,12 +95,13 @@ export default async function EntrenarPage({
 
   // Días de la rutina y próximo número no dependen entre sí, solo de
   // rutina.id: se piden en paralelo en vez de uno después del otro.
-  const [diasRutina, proximoNumero, balanceSesiones, sesionEnProgresoId] = await Promise.all([
+  const [diasRutina, avance, balanceSesiones, sesionEnProgresoId] = await Promise.all([
     obtenerDiasRutina(rutina.id),
-    obtenerProximoNumero(supabase, userId, rutina.id),
+    obtenerAvanceCiclo(supabase, userId, rutina.id),
     balanceSesionesPromise,
     sesionEnProgresoPromise,
   ]);
+  const { proximoNumero, ultimoNumeroHecho } = avance;
 
   // Una rutina con días pero todos de descanso queda igual de vacía que una
   // sin días: desde que los descansos no numeran, no hay ninguna sesión que
@@ -217,6 +218,7 @@ export default async function EntrenarPage({
         soloLectura={soloLectura}
         sesionesPorSemana={sesionesPorSemana}
         descansoDespuesDe={descansoDespuesDe}
+        ultimoNumeroHecho={ultimoNumeroHecho}
         planNombre={balanceSesiones?.planNombre ?? null}
         planPausado={balanceSesiones?.pausado ?? false}
         cupoAgotado={(balanceSesiones?.balance ?? 1) <= 0}
