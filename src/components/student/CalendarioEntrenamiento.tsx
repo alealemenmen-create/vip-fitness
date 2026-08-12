@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Moon, Check, AlertTriangle } from "lucide-react";
 import { iniciarSesion, cancelarYEmpezarOtroDia } from "@/app/alumno/entrenar/actions";
 import type { NumeroCalendario, EstadoNumero } from "@/app/alumno/entrenar/data";
 import { FotoDiaEntrenamiento, ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
+import { sesionDeLaSemana } from "@/lib/entrenamiento/ciclo-sesiones";
 
 const COLOR_PUNTO: Record<EstadoNumero, string> = {
   no_iniciado: "transparent",
@@ -20,43 +21,64 @@ function TiraDias({
   numeros,
   seleccionado,
   sesionesPorSemana,
+  descansoDespuesDe,
   onSeleccionar,
 }: {
   numeros: NumeroCalendario[];
   seleccionado: number;
   sesionesPorSemana: number;
+  /** Ids de días de entrenamiento que en la rutina llevan un descanso
+   * detrás. Se dibuja una luna finita entre medio, sin casillero ni número:
+   * el descanso es una recomendación, no una sesión que haya que registrar. */
+  descansoDespuesDe: string[];
   onSeleccionar: (n: number) => void;
 }) {
   return (
     <div className="-mx-1 flex gap-0.5 overflow-x-auto px-1">
-      {numeros.map((n) => {
+      {numeros.map((n, indice) => {
         const activo = n.numero === seleccionado;
+        // Solo puede quedar en `true` para sesiones de descanso ya registradas
+        // con la regla vieja: la rueda no vuelve a ofrecerlas. Se sigue
+        // dibujando para no reescribir lo que el alumno ya hizo.
         const descanso = n.dia.tipo === "descanso";
         return (
-          <button
-            key={n.numero}
-            onClick={() => onSeleccionar(n.numero)}
-            className="radius-control flex min-w-0 flex-1 shrink-0 flex-col items-center gap-0.5 px-0.5 py-1.5 transition-colors duration-200 ease-in-out"
-            style={{ background: activo ? "var(--color-acento-suave)" : "transparent" }}
-          >
-            <span
-              className={`text-[8px] leading-none ${activo ? "text-acento-fuerte" : "text-text-tertiary"}`}
+          <Fragment key={n.numero}>
+            <button
+              onClick={() => onSeleccionar(n.numero)}
+              className="radius-control flex min-w-0 flex-1 shrink-0 flex-col items-center gap-0.5 px-0.5 py-1.5 transition-colors duration-200 ease-in-out"
+              style={{ background: activo ? "var(--color-acento-suave)" : "transparent" }}
             >
-              {descanso ? "DESC." : "SESIÓN"}
-            </span>
-            <span
-              className={`text-[12px] font-semibold leading-tight ${activo ? "text-text" : "text-text-secondary"}`}
-            >
-              {descanso ? <Moon size={13} className="mt-0.5" /> : ((n.numero - 1) % sesionesPorSemana) + 1}
-            </span>
-            <span
-              className="h-1 w-1 rounded-full"
-              style={{
-                background: COLOR_PUNTO[n.estado],
-                border: n.estado === "no_iniciado" ? "1px solid var(--color-border)" : "none",
-              }}
-            />
-          </button>
+              <span
+                className={`text-[8px] leading-none ${activo ? "text-acento-fuerte" : "text-text-tertiary"}`}
+              >
+                {descanso ? "DESC." : "SESIÓN"}
+              </span>
+              <span
+                className={`text-[12px] font-semibold leading-tight ${activo ? "text-text" : "text-text-secondary"}`}
+              >
+                {descanso ? <Moon size={13} className="mt-0.5" /> : sesionDeLaSemana(n.numero, sesionesPorSemana)}
+              </span>
+              <span
+                className="h-1 w-1 rounded-full"
+                style={{
+                  background: COLOR_PUNTO[n.estado],
+                  border: n.estado === "no_iniciado" ? "1px solid var(--color-border)" : "none",
+                }}
+              />
+            </button>
+            {/* No después del último: ahí el descanso ya se entiende solo
+                (se acabó la semana) y una luna colgando al final se lee como
+                si faltara algo. */}
+            {!descanso && indice < numeros.length - 1 && descansoDespuesDe.includes(n.dia.id) && (
+              <span
+                className="flex shrink-0 items-center px-0.5 text-text-tertiary"
+                title="Descanso recomendado"
+                aria-label="Descanso recomendado"
+              >
+                <Moon size={10} />
+              </span>
+            )}
+          </Fragment>
         );
       })}
     </div>
@@ -71,6 +93,7 @@ export function CalendarioEntrenamiento({
   rutinaId,
   soloLectura = false,
   sesionesPorSemana,
+  descansoDespuesDe,
   planNombre,
   planPausado,
   cupoAgotado,
@@ -82,6 +105,7 @@ export function CalendarioEntrenamiento({
   rutinaId: string;
   soloLectura?: boolean;
   sesionesPorSemana: number;
+  descansoDespuesDe: string[];
   planNombre: string | null;
   planPausado: boolean;
   cupoAgotado: boolean;
@@ -137,6 +161,7 @@ export function CalendarioEntrenamiento({
         numeros={numeros}
         seleccionado={seleccionado}
         sesionesPorSemana={sesionesPorSemana}
+        descansoDespuesDe={descansoDespuesDe}
         onSeleccionar={setSeleccionado}
       />
 
@@ -156,7 +181,7 @@ export function CalendarioEntrenamiento({
             <p className="mb-0.5 text-[9px] tracking-[0.08em] text-text-tertiary">
               {actual.numero === proximoNumero
                 ? `PRÓXIMA SESIÓN · SEMANA ${pagina}`
-                : `SEMANA ${pagina} · SESIÓN ${((actual.numero - 1) % sesionesPorSemana) + 1} DE ${sesionesPorSemana}`}
+                : `SEMANA ${pagina} · SESIÓN ${sesionDeLaSemana(actual.numero, sesionesPorSemana)} DE ${sesionesPorSemana}`}
             </p>
             <h2 className="text-[26px] font-bold leading-none text-text">{titulo}</h2>
             <p className="mt-1 text-[11px] text-text-secondary">{subtitulo}</p>
@@ -211,7 +236,7 @@ export function CalendarioEntrenamiento({
       </div>
       {planNombre && (
         <p className="text-center text-[9px] text-text-tertiary">
-          {planNombre} · Semana {pagina} · sesión {((actual.numero - 1) % sesionesPorSemana) + 1} de {sesionesPorSemana}
+          {planNombre} · Semana {pagina} · sesión {sesionDeLaSemana(actual.numero, sesionesPorSemana)} de {sesionesPorSemana}
         </p>
       )}
     </div>

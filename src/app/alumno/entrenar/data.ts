@@ -155,35 +155,57 @@ export type NumeroCalendario = {
   sesionId: string | null;
 };
 
-/** Calendario "falso": el número no es una fecha, es una posición secuencial
+/**
+ * Calendario "falso": el número no es una fecha, es una posición secuencial
  * que se mapea al día de rutina que le toca por posición (número % cantidad
  * de días). Así, sin importar cuándo entrene en la vida real, el alumno
- * siempre sigue la rotación de días de su rutina en orden. */
+ * siempre sigue la rotación de días de su rutina en orden.
+ *
+ * `diasCiclo` son SOLO los días de entrenamiento. Los descansos quedan fuera
+ * de la rueda a propósito: un descanso de la vida real pasa solo, pero en la
+ * app había que ir a marcarlo, así que el número se quedaba sin consumir y
+ * tapaba el paso. Peor todavía, la rueda giraba sobre todos los días (5) y la
+ * pantalla paginaba solo sobre los de entrenamiento (4): cinco contra cuatro,
+ * y la rutina se corría un lugar por semana. Reportado por Alejandro: "me
+ * marca el lunes la sesión que tocaba el viernes de la semana pasada".
+ *
+ * `todosLosDias` incluye los descansos y se usa solo para mirar hacia atrás:
+ * las sesiones de descanso que ya existen (creadas con la regla vieja) se
+ * siguen mostrando tal como se registraron.
+ */
 export async function obtenerNumerosCalendario(
   supabase: SupabaseServerClient,
   alumnoId: string,
   rutinaId: string,
-  diasRutina: DiaRutina[],
+  diasCiclo: DiaRutina[],
   desde: number,
-  cantidad: number
+  cantidad: number,
+  todosLosDias: DiaRutina[] = diasCiclo
 ): Promise<NumeroCalendario[]> {
-  if (diasRutina.length === 0) return [];
+  if (diasCiclo.length === 0) return [];
 
   const numeros = Array.from({ length: cantidad }, (_, i) => desde + i).filter((n) => n >= 1);
   if (numeros.length === 0) return [];
 
   const { data: sesiones } = await supabase
     .from("sesiones_entrenamiento")
-    .select("id, numero_calendario, estado, rutina_iniciada_en")
+    .select("id, numero_calendario, estado, rutina_iniciada_en, dia_id")
     .eq("alumno_id", alumnoId)
     .eq("rutina_id", rutinaId)
     .in("numero_calendario", numeros);
 
   const sesionPorNumero = new Map((sesiones ?? []).map((s) => [s.numero_calendario, s]));
+  const diaPorId = new Map(todosLosDias.map((d) => [d.id, d]));
 
   return numeros.map((n) => {
-    const dia = diasRutina[(n - 1) % diasRutina.length];
     const sesion = sesionPorNumero.get(n);
+    // Si ya hay una sesión para este número, manda el día que quedó guardado
+    // en ella, no el que calcularía la rueda. Sin esto, sacar los descansos
+    // de la rueda reescribía el pasado: un número que el alumno usó para un
+    // descanso pasaría a mostrarse como el entrenamiento que hoy le toca a
+    // esa posición, y encima aparecería como ya completado.
+    const dia =
+      (sesion?.dia_id ? diaPorId.get(sesion.dia_id) : undefined) ?? diasCiclo[(n - 1) % diasCiclo.length];
     // Un día de entrenamiento con fila creada pero la rutina todavía
     // bloqueada (nunca se tocó "Iniciar rutina") es solo una vista previa —
     // "Ver entrenamiento" no debe pintar el círculo como si ya estuviera en

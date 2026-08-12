@@ -14,6 +14,7 @@ import {
   obtenerSesionEnProgreso,
 } from "./data";
 import { PuntosVipGanados } from "@/components/student/PuntosVipGanados";
+import { descansosDespuesDe, diasQueNumeran, semanaDelNumero, sesionDeLaSemana } from "@/lib/entrenamiento/ciclo-sesiones";
 
 /** Los dos accesos chicos de arriba, alineados a la derecha para que caigan
  * bajo el menú de las tres rayitas. El título de la pantalla ("Entrenamiento
@@ -93,7 +94,11 @@ export default async function EntrenarPage({
     sesionEnProgresoPromise,
   ]);
 
-  if (diasRutina.length === 0) {
+  // Una rutina con días pero todos de descanso queda igual de vacía que una
+  // sin días: desde que los descansos no numeran, no hay ninguna sesión que
+  // ofrecer. Sin este caso, más abajo se leería `numeros[0]` de una lista
+  // vacía.
+  if (diasRutina.filter((d) => d.tipo === "entrenamiento").length === 0) {
     await Promise.all([sesionEnProgresoPromise, balanceSesionesPromise]);
     return (
       <div className="space-y-3 pb-6">
@@ -102,7 +107,11 @@ export default async function EntrenarPage({
           mensaje="Tu rutina ya está creada; falta que tu entrenador cargue los días para comenzar."
         />
         <Card padding="p-4">
-          <p className="text-body text-text-secondary">Esta rutina todavía no tiene días cargados.</p>
+          <p className="text-body text-text-secondary">
+            {diasRutina.length === 0
+              ? "Esta rutina todavía no tiene días cargados."
+              : "Esta rutina solo tiene días de descanso cargados."}
+          </p>
         </Card>
       </div>
     );
@@ -110,20 +119,45 @@ export default async function EntrenarPage({
 
   const { pagina: paginaParam, puntos: puntosParam, plan: avisoPlan } = await searchParams;
   const puntosGanados = Math.max(0, Number(puntosParam) || 0);
-  const sesionesPorSemana = balanceSesiones?.diasSemana ?? Math.max(1, diasRutina.filter((d) => d.tipo === "entrenamiento").length);
+
+  /**
+   * La semana del alumno son sus SESIONES, no los días escritos en la rutina.
+   *
+   * Acá estaba el desfase: la rueda de `obtenerNumerosCalendario` giraba sobre
+   * todos los días (5, contando el descanso) mientras esta pantalla paginaba
+   * sobre los de entrenamiento (4). Cinco contra cuatro, y la rutina se corría
+   * un lugar por semana.
+   *
+   * `plan.diasSemana` ya no manda acá: es un dato comercial (cuántas sesiones
+   * pagó el alumno) y puede no coincidir con los días que el entrenador
+   * realmente cargó. Si no coinciden, mandan los de la rutina — es lo que el
+   * alumno tiene que entrenar. El plan sigue gobernando el balance del mes,
+   * que es donde corresponde.
+   */
+  const diasEntrenamiento = diasQueNumeran(diasRutina);
+  const sesionesPorSemana = Math.max(1, diasEntrenamiento.length);
   const pagina = paginaParam
     ? Math.max(1, Number(paginaParam) || 1)
-    : Math.max(1, Math.ceil(proximoNumero / sesionesPorSemana));
+    : semanaDelNumero(proximoNumero, sesionesPorSemana);
   const desde = (pagina - 1) * sesionesPorSemana + 1;
 
   const numeros = await obtenerNumerosCalendario(
     supabase,
     userId,
     rutina.id,
-    diasRutina,
+    diasEntrenamiento,
     desde,
-    sesionesPorSemana
+    sesionesPorSemana,
+    diasRutina
   );
+
+  /**
+   * Los descansos salieron de la numeración, pero no de la rutina: el
+   * entrenador los sigue escribiendo y el alumno los sigue viendo. Se marcan
+   * como una recomendación DESPUÉS de la sesión que los precede en la rutina
+   * ("sesión 1, descanso, sesión 2"), sin número ni casillero propio.
+   */
+  const descansoDespuesDe = descansosDespuesDe(diasRutina);
 
   const numeroEnProgreso = numeros.find((n) => n.sesionId === sesionEnProgresoId)?.numero;
   const seleccionInicial =
@@ -158,7 +192,7 @@ export default async function EntrenarPage({
         indicador={
           sesionEnProgresoId
             ? "Sesión en curso"
-            : `Semana ${pagina} · Sesión ${((diaImpulso.numero - 1) % sesionesPorSemana) + 1} de ${sesionesPorSemana}`
+            : `Semana ${pagina} · Sesión ${sesionDeLaSemana(diaImpulso.numero, sesionesPorSemana)} de ${sesionesPorSemana}`
         }
         mensaje={mensajeImpulso}
       />
@@ -174,6 +208,7 @@ export default async function EntrenarPage({
         rutinaId={rutina.id}
         soloLectura={soloLectura}
         sesionesPorSemana={sesionesPorSemana}
+        descansoDespuesDe={descansoDespuesDe}
         planNombre={balanceSesiones?.planNombre ?? null}
         planPausado={balanceSesiones?.pausado ?? false}
         cupoAgotado={(balanceSesiones?.balance ?? 1) <= 0}
