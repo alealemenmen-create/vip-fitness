@@ -7,6 +7,7 @@ import {
   type GrupoMuscular,
 } from "@/app/alumno/entrenar/data";
 import { elegirSesionDeHoy } from "@/lib/entrenamiento/sesion-actual";
+import { diasQueNumeran } from "@/lib/entrenamiento/ciclo-sesiones";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -204,9 +205,14 @@ export async function obtenerResumenEntrenamientoDias(
       .order("numero_calendario", { ascending: false }),
   ]);
 
-  if (diasRutina.length === 0) return null;
+  // Solo los días que numeran: los descansos salieron de la rueda (ver
+  // `ciclo-sesiones.ts`). Inicio tenía que quedar con la MISMA cuenta que la
+  // pantalla de entrenar — si acá se divide por 5 y allá por 4, el anillo de
+  // "hoy" apunta a un día y el calendario a otro.
+  const diasCiclo = diasQueNumeran(diasRutina);
+  if (diasCiclo.length === 0) return null;
 
-  const n = diasRutina.length;
+  const n = diasCiclo.length;
 
   // El día actual es la sesión en curso si la hay; si la última ya se
   // finalizó, el actual es el número siguiente (todavía sin sesión).
@@ -221,7 +227,7 @@ export async function obtenerResumenEntrenamientoDias(
   // los tres podían apuntar a sesiones distintas.
   const enCurso = (sesiones ?? []).filter((s) => {
     if (s.estado !== "en_progreso") return false;
-    const dia = diasRutina[(s.numero_calendario! - 1) % n];
+    const dia = diasCiclo[(s.numero_calendario! - 1) % n];
     return dia?.tipo === "descanso" || s.rutina_iniciada_en != null;
   });
   const ultimaSesion = sesiones?.[0];
@@ -259,7 +265,7 @@ export async function obtenerResumenEntrenamientoDias(
     conteoPorSesion.set(e.sesion_id, actual);
   }
 
-  const dias: EstadoDiaResumen[] = diasRutina.map((dia, pos) => {
+  const dias: EstadoDiaResumen[] = diasCiclo.map((dia, pos) => {
     const esHoy = pos === posicionHoy;
     const programados = dia.resumen?.cantidadEjercicios ?? 0;
     const ultima = ultimaPorPosicion.get(pos);
