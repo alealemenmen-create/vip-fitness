@@ -1,17 +1,28 @@
 # HANDOFF 1.20
 
 Continúa el 1.19. Cubre el tramo del **12/08**, que cerró **sin pendientes de
-código**: se puso al día toda la deuda de migraciones y se terminó de punta a
-punta la técnica aplicada a series puntuales.
+código**: se puso al día toda la deuda de migraciones, se terminó de punta a
+punta la técnica aplicada a series puntuales, y se arregló el desfase de la
+rutina por los días de descanso.
 
 ## Punto de regreso
 
-- Rama **`main`**.
+- Rama **`main`**. Último commit: **`ecaaebe`**, **pusheado y en producción**.
 - Sin trackear y **sin tocar** (venían de antes, no los creó ninguna sesión de
   Claude, no se sabe qué son — preguntar a Alejandro antes de borrar):
   `Rutinas Alejandro/`, `respaldo-cloud-ia-2026-08-09.bundle`, `tmp/`.
 
-### Migraciones: ya no queda ninguna pendiente
+### ⚠️ Migración pendiente de correr: `0074_descansos_no_numeran.sql`
+
+**El código ya está en producción; esta migración todavía no se corrió.** No
+hay nada roto mientras tanto: los alumnos que ya tenían descansos registrados
+siguen viendo ese descanso ocupando un número (a Diana le queda "SESIÓN 1, 2,
+3, DESC., 5"). La migración es lo que limpia ese pasado.
+
+Es **la primera migración del proyecto que modifica datos reales de alumnos**,
+no solo estructura. No borra ninguna sesión, pero renumera. Hay una vista
+previa de solo lectura en `tmp/vista-previa-0074.sql` que muestra a quién toca
+y cómo quedaría, sin cambiar nada. Correr eso antes.
 
 `0067`, `0068`, `0072` y `0073` se corrieron todas en Supabase el 12/08. La
 deuda que venía arrastrándose desde el 1.18 quedó saldada.
@@ -235,6 +246,61 @@ pedía inicio de sesión, que un agente no debe completar. Se verificó con
 producción, todo limpio — pero **nadie miró los numeritos con los ojos**.
 Conviene que el próximo abra "Armar rutina", ponga un drop set en un ejercicio
 de 4 series, marque la 4, publique y lo mire en la pantalla del alumno.
+
+## Terminado: la rutina ya no se corre por los descansos
+
+### El síntoma
+
+Reportado por Alejandro: "el lunes me marca la sesión que tocaba el viernes de
+la semana pasada". Con rutinas de 5 días, y también de 3 y de 4.
+
+### La causa (dos cosas, no una)
+
+**Dos partes de la app contaban distinto la misma rutina.** La rueda de
+`obtenerNumerosCalendario` giraba sobre TODOS los días de la rutina (5,
+contando el descanso) mientras la pantalla paginaba las semanas sobre los de
+entrenamiento (4). Cinco contra cuatro: la rutina se corría un lugar por
+semana.
+
+Y encima, **un descanso de la vida real pasa solo pero en la app había que
+entrar a marcarlo.** Nadie abre la app un jueves de descanso, así que el número
+quedaba sin consumir y tapaba el paso.
+
+### La regla nueva
+
+**La rueda gira solo sobre los días de entrenamiento.** Vive en
+`src/lib/entrenamiento/ciclo-sesiones.ts`, con 16 pruebas — mismo criterio que
+`sesion-actual.ts`: es regla de negocio, no consulta, así que se prueba sin
+base de datos.
+
+Los descansos siguen escritos en la rutina y el alumno los sigue viendo, pero
+como **recomendación entre sesiones**: una luna finita entre casilleros, sin
+número ni casillero propio. Pedido textual: "los descansos no me lo marques
+como día, o márcalo como recomendación o algo así".
+
+**Cuidado con esto:** si alguna vez se toca la paginación de la semana o el
+anillo de Inicio, los dos tienen que salir de `diasQueNumeran()`. Si una
+pantalla divide por 5 y la otra por 4, vuelve el desfase. Ya pasó dos veces:
+primero entre entrenar y su propia paginación, y después entre entrenar e
+Inicio, que se había quedado con la regla vieja.
+
+`plan.diasSemana` **no** manda en el calendario: es un dato comercial (lo que
+el alumno pagó) y puede no coincidir con los días que el entrenador cargó.
+Mandan los de la rutina. El plan sigue gobernando el balance del mes.
+
+### Lo que ve el alumno
+
+- **Numeración corrida del mes**, no de la semana: "Semana 3 de 4 · 8 de 12
+  sesiones", y los casilleros de la semana 2 muestran 4, 5 y 6. El mes son
+  cuatro semanas de SU rutina — la misma cuenta con la que el plan calcula las
+  sesiones mensuales (días/semana × 4), así que el "de 12" coincide con lo
+  contratado. **No es el mes del calendario:** si entrena más lento, su semana
+  4 puede caer en el mes siguiente.
+- **Check verde en las hechas** y el rótulo **"ÚLTIMA"** en la que terminó
+  recién. El puntito de 4px no se distinguía del gris de un vistazo, y "ahí es
+  donde se pierden los alumnos".
+- `obtenerProximoNumero` pasó a ser `obtenerAvanceCiclo` y devuelve el próximo
+  número y el último hecho **de la misma consulta**, sin round-trip extra.
 
 ## Reglas de trabajo vigentes
 
