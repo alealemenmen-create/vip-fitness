@@ -97,7 +97,10 @@ function FichaDelAlumno({ alumno, compacta = false }: { alumno: AlumnoArmado; co
 
 const MINUTOS = [30, 45, 60, 75, 90, 120];
 const DIAS = [1, 2, 3, 4, 5, 6, 7];
-const NIVELES: NivelArmado[] = ["principiante", "intermedio", "avanzado", "olympia", "profesional"];
+/** Los cuatro que se ofrecen. "Profesional" salió por pedido de Alejandro:
+ * era prácticamente igual a Avanzado y solo agregaba una decisión más que
+ * tomar. Sigue existiendo en el tipo para que los borradores viejos abran. */
+const NIVELES: NivelArmado[] = ["principiante", "intermedio", "avanzado", "olympia"];
 
 type GrupoPlan = "pecho" | "espalda" | "piernas" | "hombros" | "biceps" | "triceps" | "core";
 type SesionPlan = { grupos: GrupoPlan[]; focos: string[]; ejerciciosPorGrupo: Partial<Record<GrupoPlan, number>>; descansoDespues: boolean; tipoDescanso: string };

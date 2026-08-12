@@ -17,8 +17,10 @@ export type NivelArmado =
   | "intermedio"
   | "avanzado"
   | "olympia"
+  // Compatibilidad con borradores y pruebas anteriores. Ya no se ofrecen al
+  // elegir nivel (ver `NIVELES` en ArmarRutinaPanel), pero un borrador guardado
+  // con uno de estos tiene que seguir abriendo sin romperse.
   | "profesional"
-  // Compatibilidad con borradores y pruebas anteriores.
   | "competitivo"
   | "estandar"
   | "senior";
@@ -45,18 +47,23 @@ type PresetNivel = {
 };
 
 export const NIVELES_ARMADO: Record<NivelArmado, PresetNivel> = {
+  // Los cuatro niveles vivos. Las cantidades las fijó Alejandro el 11/08/2026
+  // y son POR SESIÓN, no por músculo: 5 · 6 · 8-9 · 10 ejercicios. La
+  // descripción las dice en voz alta a propósito — antes cada nivel era una
+  // frase de estilo ("más densidad", "volumen alto") y no había forma de saber
+  // qué iba a salir sin generar la rutina y contarla.
   principiante: {
     etiqueta: "Principiante",
-    descripcion: "Aprendizaje técnico, volumen corto y sin técnicas de intensidad automáticas.",
+    descripcion: "5 ejercicios por sesión · 2 series cada uno. Técnica primero, sin técnicas de intensidad.",
     brief: {
       objetivo: "hipertrofia", prioridad: "retorno", intensidadDeseada: "estandar", tecnicasIntensidad: "no",
-      estiloEntrenamiento: "vieja_escuela", inspiracionEstilo: "ninguna", ejerciciosPorSesion: 4,
+      estiloEntrenamiento: "vieja_escuela", inspiracionEstilo: "ninguna", ejerciciosPorSesion: 5,
       evitarSaltos: true, abdominales: true, cardio: "ninguno", cardioMinutos: 0,
     },
   },
   intermedio: {
     etiqueta: "Intermedio",
-    descripcion: "Base de hipertrofia equilibrada con progresión y técnicas solo cuando corresponden.",
+    descripcion: "6 ejercicios por sesión · 3 series cada uno. Hipertrofia equilibrada, técnicas solo cuando corresponden.",
     brief: {
       objetivo: "hipertrofia", prioridad: "hipertrofia", intensidadDeseada: "estandar", tecnicasIntensidad: "automatico",
       estiloEntrenamiento: "hibrido", inspiracionEstilo: "ninguna", ejerciciosPorSesion: 6,
@@ -65,19 +72,19 @@ export const NIVELES_ARMADO: Record<NivelArmado, PresetNivel> = {
   },
   avanzado: {
     etiqueta: "Avanzado",
-    descripcion: "Más densidad, selección técnica amplia y recursos de intensidad controlados.",
+    descripcion: "8 ejercicios por sesión · 4 series cada uno. Más densidad y recursos de intensidad controlados.",
     brief: {
       objetivo: "hipertrofia", prioridad: "hipertrofia", intensidadDeseada: "alta", tecnicasIntensidad: "si",
-      estiloEntrenamiento: "hibrido", inspiracionEstilo: "alta_intensidad", ejerciciosPorSesion: 7,
+      estiloEntrenamiento: "hibrido", inspiracionEstilo: "alta_intensidad", ejerciciosPorSesion: 8,
       evitarSaltos: false, abdominales: true, cardio: "ninguno", cardioMinutos: 0,
     },
   },
   olympia: {
     etiqueta: "Olympia",
-    descripcion: "Preparación competitiva: volumen alto, variedad de patrones y finalizadores avanzados.",
+    descripcion: "10 ejercicios por sesión · 4 series cada uno. Preparación competitiva: más variedad y finalizadores.",
     brief: {
       objetivo: "hipertrofia", prioridad: "hipertrofia", intensidadDeseada: "competitiva", tecnicasIntensidad: "si",
-      estiloEntrenamiento: "hibrido", inspiracionEstilo: "volumen_tradicional", ejerciciosPorSesion: 8,
+      estiloEntrenamiento: "hibrido", inspiracionEstilo: "volumen_tradicional", ejerciciosPorSesion: 10,
       evitarSaltos: false, abdominales: true, cardio: "ninguno", cardioMinutos: 0,
     },
   },
