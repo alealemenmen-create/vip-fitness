@@ -178,6 +178,59 @@ body {
     padding-left: 56px;
   }
 }
+/* La navegación NUNCA puede desaparecer del todo.
+   La barra de íconos de abajo es `md:hidden` porque en pantalla grande manda
+   la barra lateral. Pero al poder cerrarse la lateral, quedaba un panel sin
+   una sola forma de navegar salvo el botoncito flotante — "¿dónde están los
+   íconos?". Con la lateral cerrada, los íconos vuelven. */
+@media (min-width: 768px) {
+  :root[data-panel-admin="oculto"] .barra-iconos-admin {
+    display: block;
+    left: 50%;
+    width: min(calc(100% - 32px), 620px);
+    transform: translateX(-50%);
+  }
+}
+
+/* TELÉFONO ACOSTADO.
+   Ancho de computador (>768px) pero alto de teléfono (~390-430px). Ahí la
+   barra lateral se comportaba como en un escritorio: se quedaba como columna
+   fija, le comía 288px a un ancho que ya era poco, y su propio contenido no
+   entraba en el alto. Reportado tal cual: "aparece ese panel lateral y se daña
+   todo el contenido, y apenas se ve".
+   Solución: en pantallas bajas la lateral NUNCA es columna. O está oculta, o
+   se superpone por encima del contenido como un cajón. El contenido conserva
+   siempre el ancho completo. */
+@media (min-width: 768px) and (max-height: 560px) {
+  .admin-shell .admin-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 50;
+    width: 250px;
+    overflow-y: auto;
+    /* Sombra enorme a modo de fondo oscuro: separa el cajón del contenido sin
+       necesitar un elemento nuevo ni tocar el layout. */
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.55);
+  }
+  /* Los íconos de abajo quedan siempre, con o sin cajón abierto: en horizontal
+     es la única navegación cómoda y no puede depender de recordar un botón. */
+  .barra-iconos-admin {
+    display: block;
+    left: 50%;
+    width: min(calc(100% - 32px), 620px);
+    transform: translateX(-50%);
+  }
+  /* El contenido nunca se corre: la lateral flota encima. */
+  :root[data-panel-admin="oculto"] .admin-shell main {
+    padding-left: 16px;
+  }
+  /* Con tan poco alto, el encabezado del cajón no puede llevarse la mitad. */
+  .admin-shell .admin-sidebar .admin-profile-card {
+    display: none;
+  }
+}
 
 .admin-sidebar {
   background:
@@ -2360,14 +2413,25 @@ input[type="number"] {
    se percibe como color y forma difuminados, nunca como texto legible. El halo
    usa el acento activo, así Espejo, VIP y Lady comparten material sin perder
    personalidad. */
+/* Cristal, no vidrio ahumado.
+   Antes el fondo iba de 0.72 a 0.90 de opacidad: con eso el desenfoque casi no
+   se notaba y las placas se leían como paneles negros, no como vidrio. Ahora
+   son translúcidas de verdad (se ve pasar el contenido por debajo) y el
+   desenfoque hace el trabajo pesado.
+   El tinte azul de mar (`--cristal-azul`) es lo que evita que un vidrio tan
+   transparente se vea gris sucio: le da temperatura sin competir con el verde
+   VIP, que sigue apareciendo como resplandor en los bordes. */
+:root {
+  --cristal-azul: 128, 186, 214;
+}
 .panel-aero-superior,
 .panel-aero-inferior {
   isolation: isolate;
   background:
-    linear-gradient(180deg, rgba(24, 25, 30, 0.72), rgba(8, 9, 12, 0.88)),
+    linear-gradient(180deg, rgba(20, 30, 38, 0.44), rgba(8, 14, 20, 0.58)),
     color-mix(in srgb, var(--color-vip) 4%, transparent);
-  -webkit-backdrop-filter: blur(20px) saturate(145%);
-  backdrop-filter: blur(20px) saturate(145%);
+  -webkit-backdrop-filter: blur(26px) saturate(165%);
+  backdrop-filter: blur(26px) saturate(165%);
 }
 .panel-aero-superior {
   overflow: hidden;
@@ -2377,9 +2441,12 @@ input[type="number"] {
   /* Mismo redondeo que la barra de navegación de ejercicios: con 28px el
      encabezado se leía como una píldora y las dos piezas no combinaban. */
   border-radius: 20px;
+  /* Ojo al tocar esto: esta regla PISA el `background` de la regla compartida
+     de arriba. Cambiar solo allá no se ve. */
   background:
-    radial-gradient(circle at 24% 0%, color-mix(in srgb, var(--color-vip) 13%, transparent), transparent 48%),
-    linear-gradient(180deg, rgba(24, 25, 30, 0.74), rgba(8, 9, 12, 0.88));
+    radial-gradient(circle at 24% 0%, color-mix(in srgb, var(--color-vip) 12%, transparent), transparent 48%),
+    linear-gradient(180deg, rgba(var(--cristal-azul), 0.16), rgba(var(--cristal-azul), 0.05)),
+    linear-gradient(180deg, rgba(10, 20, 27, 0.4), rgba(6, 12, 18, 0.55));
   box-shadow:
     0 14px 34px -26px color-mix(in srgb, var(--color-vip) 45%, transparent),
     inset 0 -1px 0 rgba(255, 255, 255, 0.06);
@@ -2404,14 +2471,16 @@ input[type="number"] {
   bottom: 4px;
   width: auto;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  border: 1px solid rgba(var(--cristal-azul), 0.26);
   border-radius: 28px;
+  /* Igual que arriba: esta regla pisa el `background` compartido. */
   background:
-    radial-gradient(circle at 18% 100%, color-mix(in srgb, var(--color-vip) 15%, transparent), transparent 58%),
-    linear-gradient(180deg, rgba(24, 25, 30, 0.72), rgba(8, 9, 12, 0.9));
+    radial-gradient(circle at 18% 100%, color-mix(in srgb, var(--color-vip) 13%, transparent), transparent 58%),
+    linear-gradient(180deg, rgba(var(--cristal-azul), 0.06), rgba(var(--cristal-azul), 0.17)),
+    linear-gradient(180deg, rgba(10, 20, 27, 0.36), rgba(6, 12, 18, 0.52));
   box-shadow:
     0 -22px 42px -30px color-mix(in srgb, var(--color-vip) 58%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 .navegacion-aero {
   background: transparent;
@@ -2435,6 +2504,183 @@ input[type="number"] {
 }
 .item-navegacion-aero-activo .icono-navegacion-aero {
   filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-vip) 48%, transparent));
+}
+.etiqueta-nav-espejo,
+.titulo-espejo-compacto {
+  display: none;
+}
+
+/*
+  ESPEJO COMPACTO
+  No es una paleta: es el modo de alta densidad del Portal VIP. Como Espejo
+  se representa por la ausencia de `data-tema-boton`, todas estas reglas
+  quedan aisladas de VIP (predeterminado) y Lady.
+*/
+:root:not([data-tema-boton]) .shell-alumno {
+  --radius-card: 16px;
+  background: #080909;
+}
+:root:not([data-tema-boton]) .shell-alumno .panel-aero-superior {
+  width: 100%;
+  margin-top: 0;
+  padding: 4px 14px 5px;
+  overflow: visible;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  background: rgba(8, 9, 9, 0.9);
+  box-shadow: none;
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+  backdrop-filter: blur(18px) saturate(135%);
+}
+:root:not([data-tema-boton]) .shell-alumno .panel-aero-superior .placa-logo-aero {
+  min-height: 42px;
+  justify-content: center;
+  padding: 4px 84px;
+}
+:root:not([data-tema-boton]) .shell-alumno .panel-aero-superior .logo-espejo,
+:root:not([data-tema-boton]) .shell-alumno .panel-aero-superior .logo-vip-lady {
+  display: none;
+}
+:root:not([data-tema-boton]) .shell-alumno .titulo-espejo-compacto {
+  display: block;
+  white-space: nowrap;
+}
+:root:not([data-tema-boton]) .shell-alumno .panel-aero-superior > div > div:first-child:not(.placa-logo-aero) {
+  min-height: 42px;
+}
+:root:not([data-tema-boton]) .shell-alumno .panel-aero-superior .boton-menu-alumno,
+:root:not([data-tema-boton]) .shell-alumno .panel-aero-superior button {
+  width: 34px;
+  height: 34px;
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  background: rgba(31, 33, 34, 0.86);
+}
+:root:not([data-tema-boton]) .shell-alumno .pantalla-scroll {
+  padding-left: 10px;
+  padding-right: 10px;
+  padding-bottom: calc(var(--alto-nav-alumno, 76px) + 10px);
+}
+:root:not([data-tema-boton]) .shell-alumno .pantalla-scroll > * + * {
+  margin-top: 8px;
+}
+:root:not([data-tema-boton]) .shell-alumno .radius-card {
+  box-shadow: none;
+}
+:root:not([data-tema-boton]) .shell-alumno .p-6 {
+  padding: 14px;
+}
+:root:not([data-tema-boton]) .shell-alumno .p-5 {
+  padding: 12px;
+}
+:root:not([data-tema-boton]) .shell-alumno .p-4 {
+  padding: 10px;
+}
+:root:not([data-tema-boton]) .shell-alumno .space-y-6 > :not(:last-child) {
+  margin-bottom: 12px;
+}
+:root:not([data-tema-boton]) .shell-alumno .space-y-5 > :not(:last-child) {
+  margin-bottom: 10px;
+}
+:root:not([data-tema-boton]) .shell-alumno .space-y-4 > :not(:last-child),
+:root:not([data-tema-boton]) .shell-alumno .space-y-3 > :not(:last-child) {
+  margin-bottom: 8px;
+}
+:root:not([data-tema-boton]) .shell-alumno .text-h1,
+:root:not([data-tema-boton]) .shell-alumno .text-h2 {
+  line-height: 1.1;
+}
+:root:not([data-tema-boton]) .shell-alumno .bg-surface.radius-card,
+:root:not([data-tema-boton]) .shell-alumno .radius-card.bg-surface {
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  background: #101112;
+}
+:root:not([data-tema-boton]) .shell-alumno .panel-aero-inferior {
+  left: 10px;
+  right: 10px;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  border-radius: 25px;
+  background: rgba(29, 30, 31, 0.88);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  backdrop-filter: blur(22px) saturate(130%);
+}
+:root:not([data-tema-boton]) .shell-alumno .navegacion-aero {
+  gap: 2px;
+  padding: 5px;
+}
+:root:not([data-tema-boton]) .shell-alumno .item-navegacion-aero {
+  gap: 1px;
+  padding-top: 6px;
+  padding-bottom: 5px;
+  border-radius: 20px;
+  text-shadow: none;
+}
+:root:not([data-tema-boton]) .shell-alumno .item-navegacion-aero-activo {
+  border-color: transparent;
+  background: rgba(92, 94, 96, 0.72);
+  box-shadow: none;
+}
+:root:not([data-tema-boton]) .shell-alumno .icono-navegacion-aero {
+  width: 20px;
+  height: 20px;
+  filter: none;
+}
+:root:not([data-tema-boton]) .shell-alumno .item-navegacion-aero-activo .icono-navegacion-aero {
+  transform: none;
+  filter: none;
+}
+:root:not([data-tema-boton]) .shell-alumno .etiqueta-nav-normal {
+  display: none;
+}
+:root:not([data-tema-boton]) .shell-alumno .etiqueta-nav-espejo {
+  display: inline;
+  font-size: calc(10px * var(--escala-texto));
+}
+
+/* El menú lateral se convierte en una burbuja flotante translúcida, con la
+   misma expansión desde la esquina que inspiró la propuesta. */
+:root:not([data-tema-boton]) .contenedor-menu-alumno {
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: max(58px, env(safe-area-inset-top)) 12px 90px;
+}
+:root:not([data-tema-boton]) .fondo-menu-alumno {
+  background: rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+:root:not([data-tema-boton]) .panel-menu-alumno {
+  width: min(310px, calc(100vw - 24px));
+  max-width: none;
+  height: auto;
+  max-height: calc(100dvh - 150px);
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 24px;
+  background: rgba(25, 26, 27, 0.9);
+  box-shadow: 0 22px 55px rgba(0, 0, 0, 0.58);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+  transform-origin: top right;
+  animation: espejo-menu-entra 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+:root:not([data-tema-boton]) .panel-menu-alumno nav {
+  gap: 0;
+}
+:root:not([data-tema-boton]) .panel-menu-alumno nav > * {
+  min-height: 42px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+@keyframes espejo-menu-entra {
+  from { opacity: 0; transform: translateY(-8px) scale(0.9); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-tema-boton]) .panel-menu-alumno { animation: none; }
 }
 .franja-regreso-entrenador {
   border-top: 1px solid rgba(255, 255, 255, 0.06);

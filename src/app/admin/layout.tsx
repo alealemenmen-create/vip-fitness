@@ -165,7 +165,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       {/* Igual que la barra del alumno: flotante, redondeada y con el mismo
           tinte VIP abajo, en vez de una franja pegada al borde inferior. */}
-      <div className="panel-aero-inferior franja-segura-inferior fixed inset-x-0 bottom-0 z-40 md:hidden">
+      <div className="barra-iconos-admin panel-aero-inferior franja-segura-inferior fixed inset-x-0 bottom-0 z-40 md:hidden">
         <AdminTabs {...badges} />
       </div>
 
