@@ -6,7 +6,12 @@ import { requireRol } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { calcularResultadoTorneo } from "@/lib/torneos/puntos";
 import { calcularValoresCompetencia } from "@/lib/torneos/metricas";
+import { ganadorDeResultados } from "@/lib/torneos/apuestas";
+import { resolverApuestasTorneo } from "@/lib/torneos/apuestas-data";
+import { avisarATodosLosAlumnos } from "@/lib/push/enviar";
+import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { hoyISO } from "@/lib/date";
+import { NOMBRE_MODALIDAD } from "@/lib/torneos/types";
 import type { TorneoMetrica, TorneoModalidad } from "@/lib/supabase/types";
 
 export type FormState = { error: string | null; ok: boolean };
@@ -120,6 +125,21 @@ export async function crearTorneo(_prevState: FormState, formData: FormData): Pr
     await admin.from("torneos").delete().eq("id", torneo.id);
     return fail("No se pudo agregar a los participantes. Intenta nuevamente.");
   }
+
+  // El aviso que faltaba para que Arena VIP dejara de ser "fome": hasta ahora
+  // el torneo aparecía en la app y se enteraba el que entrara a mirar. Ahora
+  // se entera el gimnasio entero, y el que no compite entra a apostar. Los
+  // competidores quedan fuera de este aviso: no pueden apostar en su propio
+  // torneo, y ya reciben su invitación por separado.
+  await avisarATodosLosAlumnos(
+    {
+      title: `Nueva competencia: ${nombre}`,
+      body: `${NOMBRE_MODALIDAD[modalidad]} · bolsa de ${Math.round(puntosEnJuego).toLocaleString("es-CL")} pts. Apuesta por tu favorito antes de que empiece.`,
+      tag: `torneo-nuevo-${torneo.id}`,
+      url: "/alumno/ranked",
+    },
+    { exceptoAlumnoIds: alumnoIds }
+  );
 
   revalidatePath("/admin/torneos");
   revalidatePath("/alumno/noticias");
@@ -275,6 +295,32 @@ export async function cerrarTorneo(_prevState: FormState, formData: FormData): P
     return fail("No se pudo cerrar la competencia. No se repartieron puntos.");
   }
 
+  // Recién ahora se reparte la bolsa de las APUESTAS del público, que es
+  // plata distinta de la bolsa de premios: esta salió del saldo de los
+  // alumnos. Va después de cerrar el torneo a propósito — si algo falla acá,
+  // las apuestas quedan sin resolver y se pueden reintentar, en vez de dejar
+  // una competencia a medio cerrar con los premios ya entregados.
+  const ganadorId = ganadorDeResultados(resultados);
+  const reparto = await resolverApuestasTorneo(admin, { id: torneoId, nombre: torneo.nombre }, ganadorId);
+
+  // La celebración que faltaba: hasta ahora el resultado lo veía el que
+  // entraba a mirar. Un torneo que nadie sabe que terminó no emociona a nadie.
+  const ganador = resultados.find((resultado) => resultado.puesto === 1 && resultado.valido !== false);
+  if (ganador) {
+    const cuerpoApuestas =
+      reparto.cantidad > 0 && !reparto.motivoDevolucion
+        ? ` ${reparto.bolsaTotal.toLocaleString("es-CL")} pts apostados ya se repartieron.`
+        : reparto.cantidad > 0
+          ? " Las apuestas se devolvieron completas."
+          : "";
+    await avisarATodosLosAlumnos({
+      title: `${nombreAlumnoPublicado(ganador.nombre)} ganó ${torneo.nombre}`,
+      body: `Se llevó ${ganador.puntosDelta.toLocaleString("es-CL")} Puntos VIP.${cuerpoApuestas}`,
+      tag: `torneo-cerrado-${torneoId}`,
+      url: "/alumno/ranked",
+    });
+  }
+
   // El premio entra como movimiento auditable en semana, mes, año y acumulado.
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/admin/torneos");
@@ -289,13 +335,17 @@ export async function cerrarTorneo(_prevState: FormState, formData: FormData): P
  * Borra una competencia — pensada para pruebas de error, no para deshacer una
  * ya jugada de verdad.
  *
- * `torneo_participantes` y `torneo_resultados` tienen `on delete cascade`
- * hacia `torneos` (migración 0015) y se van solos. `puntos_vip_movimientos`
+ * `torneo_participantes`, `torneo_resultados` y `torneo_apuestas` tienen
+ * `on delete cascade` hacia `torneos` y se van solos. `puntos_vip_movimientos`
  * NO tiene esa relación —es un libro de movimientos aparte, sin llave foránea
- * a torneos— así que si la competencia ya se había cerrado y repartido bolsa,
- * hay que borrar esos movimientos a mano por su `clave` (`arena:{torneoId}`,
- * la misma que arma `cerrarTorneo`) o quedarían puntos fantasma sin ninguna
- * competencia detrás que los explique.
+ * a torneos— así que hay que borrar esos movimientos a mano por su `clave` o
+ * quedarían puntos fantasma sin ninguna competencia detrás que los explique.
+ *
+ * Son TRES claves, no una: la bolsa de premios (`arena:`), el descuento de lo
+ * que apostó el público (`apuesta:`, negativo) y lo que se le devolvió
+ * (`apuesta-pago:`). Borrar solo la primera dejaría a los apostadores sin los
+ * puntos que arriesgaron y sin ninguna competencia que lo explicara — es
+ * decir, les cobraría una apuesta que ya no existe.
  */
 export async function eliminarTorneo(_prevState: FormState, formData: FormData): Promise<FormState> {
   await requireRol(["entrenador", "admin"]);
@@ -304,7 +354,10 @@ export async function eliminarTorneo(_prevState: FormState, formData: FormData):
   if (!torneoId) return fail("Falta el torneo.");
 
   const admin = createAdminClient();
-  await admin.from("puntos_vip_movimientos").delete().eq("clave", `arena:${torneoId}`);
+  await admin
+    .from("puntos_vip_movimientos")
+    .delete()
+    .in("clave", [`arena:${torneoId}`, `apuesta:${torneoId}`, `apuesta-pago:${torneoId}`]);
   const { error } = await admin.from("torneos").delete().eq("id", torneoId);
   if (error) return fail("No se pudo eliminar la competencia. Intenta nuevamente.");
 

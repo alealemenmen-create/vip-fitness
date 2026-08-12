@@ -5,6 +5,7 @@ import { ZONA_HORARIA_VIP, hoyISO } from "@/lib/date";
 import type { TorneoAdmin, TorneoPublico, ResultadoHistorico } from "./types";
 import type { ResultadoTorneo } from "./puntos";
 import { calcularValoresCompetencia } from "./metricas";
+import { apuestasAbiertas, obtenerResumenApuestas } from "./apuestas-data";
 
 export type { TorneoMetrica, TorneoAdmin, TorneoPublico, ResultadoHistorico } from "./types";
 export { NOMBRE_METRICA, NOMBRE_MODALIDAD } from "./types";
@@ -74,13 +75,38 @@ export async function obtenerTorneosAdmin(): Promise<TorneoAdmin[]> {
   if (!torneos || torneos.length === 0) return [];
 
   const torneoIds = torneos.map((t) => t.id);
-  const [{ data: participantes }, { data: resultadosCerrados }] = await Promise.all([
+  const [{ data: participantes }, { data: resultadosCerrados }, { data: apuestas }] = await Promise.all([
     admin
       .from("torneo_participantes")
       .select("torneo_id, alumno_id, resultado_manual, estado")
       .in("torneo_id", torneoIds),
     admin.from("torneo_resultados").select("torneo_id, resultados").in("torneo_id", torneoIds),
+    admin
+      .from("torneo_apuestas")
+      .select("torneo_id, por_alumno_id, puntos, devuelto")
+      .in("torneo_id", torneoIds),
   ]);
+
+  /** Agrupa las apuestas de un torneo por el competidor al que respaldan. */
+  const apuestasDe = (torneoId: string) => {
+    const suyas = (apuestas ?? []).filter((a) => a.torneo_id === torneoId);
+    const porParticipante: { alumnoId: string; total: number; cantidad: number }[] = [];
+    for (const apuesta of suyas) {
+      const fila = porParticipante.find((p) => p.alumnoId === apuesta.por_alumno_id);
+      if (fila) {
+        fila.total += apuesta.puntos;
+        fila.cantidad += 1;
+      } else {
+        porParticipante.push({ alumnoId: apuesta.por_alumno_id, total: apuesta.puntos, cantidad: 1 });
+      }
+    }
+    return {
+      total: suyas.reduce((total, a) => total + a.puntos, 0),
+      cantidad: suyas.length,
+      porParticipante,
+      resueltas: suyas.length > 0 && suyas.every((a) => a.devuelto !== null),
+    };
+  };
 
   const nombres = await obtenerNombres(
     admin,
@@ -101,6 +127,7 @@ export async function obtenerTorneosAdmin(): Promise<TorneoAdmin[]> {
     fechaFin: t.fecha_fin,
     puntosEnJuego: t.puntos_en_juego,
     cerrado: t.cerrado,
+    apuestas: apuestasDe(t.id),
     participantes: (participantes ?? [])
       .filter((p) => p.torneo_id === t.id)
       .map((p) => ({
@@ -138,10 +165,10 @@ export async function obtenerTorneosPublicos(alumnoId: string): Promise<TorneoPu
       torneos.map((t) => t.id)
     );
 
-  const nombres = await obtenerNombres(
-    admin,
-    [...new Set((todosParticipantes ?? []).map((p) => p.alumno_id))]
-  );
+  const [nombres, apuestas] = await Promise.all([
+    obtenerNombres(admin, [...new Set((todosParticipantes ?? []).map((p) => p.alumno_id))]),
+    obtenerResumenApuestas(torneos.map((t) => t.id), alumnoId),
+  ]);
 
   const marcadores = new Map<string, Awaited<ReturnType<typeof calcularValoresCompetencia>>>();
   await Promise.all(
@@ -197,6 +224,13 @@ export async function obtenerTorneosPublicos(alumnoId: string): Promise<TorneoPu
       puntosEnJuego: t.puntos_en_juego,
       participantes,
       miEstado: propia?.estado ?? null,
+      apuestas: {
+        abiertas: apuestasAbiertas(t),
+        total: apuestas.get(t.id)?.total ?? 0,
+        cantidad: apuestas.get(t.id)?.cantidad ?? 0,
+        porParticipante: apuestas.get(t.id)?.porParticipante ?? [],
+        miApuesta: apuestas.get(t.id)?.miApuesta ?? null,
+      },
     };
   });
 }

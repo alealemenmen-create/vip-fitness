@@ -15,14 +15,23 @@ const TEMAS_BOTON: { valor: TemaBoton; texto: string; muestra: string }[] = [
 ];
 
 /*
-  Tamaño de texto (ver globals.css). Escalones chicos a propósito: más de 1.3
-  empieza a romper las tarjetas y la barra de abajo en celulares angostos.
+  Zoom de PANTALLA, no de letra (ver --zoom-pantalla en globals.css).
+
+  Antes esto solo multiplicaba la escala tipográfica: la letra se achicaba y
+  las tarjetas quedaban igual de grandes con el texto chico adentro. Alejandro
+  lo pidió tres veces — "que achique TODO" — y estos son los cuatro tamaños
+  que nombró.
+
+  Escalones cortos a propósito: pasando de 1.15 las tarjetas y la barra de
+  abajo se rompen en celulares angostos, y bajando de 0.8 la letra chica deja
+  de leerse en un teléfono.
 */
-type Escala = 1 | 1.15 | 1.3;
+type Escala = 0.8 | 0.9 | 1 | 1.15;
 const ESCALAS: { valor: Escala; texto: string; muestra: number }[] = [
-  { valor: 1, texto: "Normal", muestra: 14 },
-  { valor: 1.15, texto: "Grande", muestra: 17 },
-  { valor: 1.3, texto: "Más grande", muestra: 20 },
+  { valor: 1.15, texto: "Grande", muestra: 18 },
+  { valor: 1, texto: "Normal", muestra: 15 },
+  { valor: 0.9, texto: "Pequeña", muestra: 13 },
+  { valor: 0.8, texto: "Más pequeña", muestra: 11 },
 ];
 
 /**
@@ -66,7 +75,7 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
     const tb = document.documentElement.getAttribute("data-tema-boton");
     setTemaBoton(tb === "vip" || tb === "femenino" ? tb : "espejo");
     const e = parseFloat(
-      document.documentElement.style.getPropertyValue("--escala-texto") || "1"
+      document.documentElement.style.getPropertyValue("--zoom-pantalla") || "1"
     );
     setEscala(e || 1);
     setAbierto(true);
@@ -74,9 +83,9 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
 
   const elegirEscala = (valor: Escala) => {
     setEscala(valor);
-    document.documentElement.style.setProperty("--escala-texto", String(valor));
-    document.documentElement.setAttribute("data-escala-texto", String(valor));
-    localStorage.setItem("vip-escala-texto", String(valor));
+    document.documentElement.style.setProperty("--zoom-pantalla", String(valor));
+    document.documentElement.setAttribute("data-zoom-pantalla", String(valor));
+    localStorage.setItem("vip-zoom-pantalla", String(valor));
   };
 
   const elegirTemaBoton = (tema: TemaBoton) => {
@@ -207,14 +216,16 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
 
               <div className="mt-5 border-t border-border pt-4">
                 <p className="text-caption mb-2 flex items-center gap-2 text-text-tertiary">
-                  <Type size={16} className="text-vip" /> TAMAÑO DE TEXTO
+                  <Type size={16} className="text-vip" /> TAMAÑO DE PANTALLA
                 </p>
-                <div className="flex gap-2">
+                {/* Dos por fila y no cuatro: con cuatro columnas "Más pequeña"
+                    no entra en el panel de 288 px sin partirse. */}
+                <div className="grid grid-cols-2 gap-2">
                   {ESCALAS.map((e) => (
                     <button
                       key={e.valor}
                       onClick={() => elegirEscala(e.valor)}
-                      className="radius-control flex flex-1 flex-col items-center justify-end gap-1 py-2.5 transition-colors duration-200 ease-in-out"
+                      className="radius-control flex flex-col items-center justify-end gap-1 py-2.5 transition-colors duration-200 ease-in-out"
                       style={{
                         background: "var(--color-surface-2)",
                         border:
@@ -225,8 +236,10 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
                           escala === e.valor ? "var(--color-text)" : "var(--color-text-secondary)",
                       }}
                     >
-                      {/* La "A" de muestra va en px fijos: enseña el tamaño en
-                          vez de crecer junto con el resto del menú. */}
+                      {/* La "A" de muestra enseña el tamaño relativo de cada
+                          opción. Ojo: el zoom de pantalla también la escala,
+                          así que muestra la proporción entre las cuatro, no un
+                          tamaño absoluto en píxeles. */}
                       <span style={{ fontSize: e.muestra, fontWeight: 700, lineHeight: 1 }}>A</span>
                       <span style={{ fontSize: 12, fontWeight: 500 }}>{e.texto}</span>
                     </button>

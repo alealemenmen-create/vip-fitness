@@ -3,6 +3,7 @@ import {
   MINIMO_APUESTA,
   TOPE_APUESTA,
   estimarRetorno,
+  ganadorDeResultados,
   repartirApuestas,
   validarApuesta,
   type Apuesta,
@@ -161,5 +162,64 @@ describe("estimarRetorno", () => {
     const alTapado = estimarRetorno(apuestas, "tapado", 50);
     const alFavorito = estimarRetorno(apuestas, "favorito", 50);
     expect(alTapado.multiplicador).toBeGreaterThan(alFavorito.multiplicador);
+  });
+});
+
+describe("ganadorDeResultados", () => {
+  // El snapshot que guarda `cerrarTorneo` (calcularResultadoTorneo) le pone
+  // puesto 1 a TODOS los empatados, así que el empate no es un caso raro: es
+  // la forma normal en que llega un empate. Pagar en ese caso sería inventar
+  // un ganador que la competencia no tuvo.
+  const fila = (alumnoId: string, puesto: number, valido = true) => ({
+    alumnoId,
+    nombre: alumnoId.toUpperCase(),
+    valor: 10,
+    valido,
+    puesto,
+    puntosDelta: 0,
+  });
+
+  it("con un solo primer puesto, ese es el ganador", () => {
+    expect(ganadorDeResultados([fila("ana", 1), fila("beto", 2)])).toBe("ana");
+  });
+
+  it("con empate en el primer puesto no hay ganador", () => {
+    expect(ganadorDeResultados([fila("ana", 1), fila("beto", 1)])).toBeNull();
+  });
+
+  it("un primer puesto sin resultado valido no cuenta como ganador", () => {
+    expect(ganadorDeResultados([fila("ana", 1, false)])).toBeNull();
+  });
+
+  it("sin resultados no hay ganador", () => {
+    expect(ganadorDeResultados([])).toBeNull();
+  });
+
+  // `valido` es opcional en ResultadoTorneo (los snapshots viejos, anteriores
+  // a que existiera el campo, no lo traen). Un torneo cerrado antes de esta
+  // funcion tiene que seguir resolviendo su ganador igual.
+  it("un snapshot viejo sin el campo valido sigue teniendo ganador", () => {
+    const viejo = { alumnoId: "ana", nombre: "ANA", valor: 10, puesto: 1, puntosDelta: 500 };
+    expect(ganadorDeResultados([viejo])).toBe("ana");
+  });
+});
+
+describe("el reparto nunca crea ni destruye puntos", () => {
+  // La propiedad que importa cuando se mueve el saldo de 66 personas: lo
+  // pagado tiene que ser exactamente lo apostado, siempre.
+  it("lo devuelto siempre iguala lo apostado, gane quien gane", () => {
+    const apuestas: Apuesta[] = [
+      { alumnoId: "a", porAlumnoId: "corredor-a", puntos: 137 },
+      { alumnoId: "b", porAlumnoId: "corredor-b", puntos: 43 },
+      { alumnoId: "c", porAlumnoId: "corredor-a", puntos: 11 },
+      { alumnoId: "d", porAlumnoId: "corredor-c", puntos: 200 },
+    ];
+    const apostado = apuestas.reduce((total, a) => total + a.puntos, 0);
+
+    for (const ganador of ["corredor-a", "corredor-b", "corredor-c", null]) {
+      const { pagos } = repartirApuestas(apuestas, ganador);
+      const devuelto = pagos.reduce((total, p) => total + p.devuelto, 0);
+      expect(devuelto).toBe(apostado);
+    }
   });
 });

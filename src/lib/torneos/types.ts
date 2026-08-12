@@ -41,6 +41,16 @@ export type TorneoAdmin = {
     estado: TorneoParticipanteEstado;
   }[];
   resultados: ResultadoTorneo[] | null;
+  /** Lo que apostó el público. El entrenador tiene que poder ver qué se va a
+   * repartir y por qué ANTES de cerrar: son puntos que salieron del saldo de
+   * los alumnos, no de la bolsa de VIP Fitness. */
+  apuestas: {
+    total: number;
+    cantidad: number;
+    porParticipante: { alumnoId: string; total: number; cantidad: number }[];
+    /** Ya se pagaron (el torneo cerró y el reparto se escribió). */
+    resueltas: boolean;
+  };
 };
 
 export type ParticipanteConEstado = {
@@ -49,6 +59,22 @@ export type ParticipanteConEstado = {
   estado: TorneoParticipanteEstado;
   valorActual: number | null;
   resultadoValido: boolean;
+};
+
+/** Las apuestas del público en un torneo, tal como las ve un alumno.
+ *
+ * Vive acá y no en `apuestas-data.ts` porque ese archivo es server-only (usa
+ * la service_role key) y este tipo cruza al bundle del navegador. */
+export type ApuestasEnTorneo = {
+  /** Se puede apostar todavía. Cierran cuando la competencia empieza. */
+  abiertas: boolean;
+  /** Bolsa apostada por el público — distinta de `puntosEnJuego`, que la pone
+   * VIP Fitness. */
+  total: number;
+  cantidad: number;
+  porParticipante: { alumnoId: string; total: number; cantidad: number }[];
+  /** La apuesta del alumno que está mirando, si puso alguna. */
+  miApuesta: { porAlumnoId: string; puntos: number } | null;
 };
 
 /** Un torneo abierto tal como lo ve un alumno: TODOS los alumnos ven todos
@@ -72,6 +98,7 @@ export type TorneoPublico = {
   puntosEnJuego: number;
   participantes: ParticipanteConEstado[];
   miEstado: TorneoParticipanteEstado | null;
+  apuestas: ApuestasEnTorneo;
 };
 
 export type ResultadoHistorico = {

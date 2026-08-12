@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Trophy, Lock, Check, Trash2 } from "lucide-react";
+import { Trophy, Lock, Check, Trash2, Coins } from "lucide-react";
 import {
   cargarResultadoManual,
   cerrarTorneo,
@@ -57,6 +57,8 @@ export function TorneoAdminCard({ torneo }: { torneo: TorneoAdmin }) {
         {torneo.participantes.length} aceptaron
       </p>
 
+      <ApuestasDelPublico torneo={torneo} />
+
       {torneo.resultados ? (
         <div className="space-y-1 border-t border-border pt-3">
           {[...torneo.resultados]
@@ -88,6 +90,62 @@ export function TorneoAdminCard({ torneo }: { torneo: TorneoAdmin }) {
         </div>
       )}
     </Card>
+  );
+}
+
+/**
+ * Qué apostó el público y qué pagaría cada resultado.
+ *
+ * El entrenador tiene que poder ver esto ANTES de cerrar: son puntos que
+ * salieron del saldo de los alumnos, no de la bolsa de VIP Fitness, y cuando
+ * alguien pregunte "por qué me pagaron tanto" la respuesta tiene que estar a
+ * la vista y no en la cabeza de nadie.
+ *
+ * El multiplicador es el del reparto pari-mutuel: el que acierta recupera lo
+ * suyo y se lleva una parte de lo que pusieron los que fallaron, en proporción
+ * a lo que arriesgó. Por eso "paga bolsa/apostado-a-ese": si todos apostaron
+ * al mismo, paga 1,00× (se devuelve lo puesto y nadie gana nada).
+ */
+function ApuestasDelPublico({ torneo }: { torneo: TorneoAdmin }) {
+  const { apuestas } = torneo;
+  if (apuestas.cantidad === 0) {
+    return (
+      <p className="text-micro text-text-tertiary">
+        El público todavía no apuesta en esta competencia.
+      </p>
+    );
+  }
+
+  const nombreDe = (alumnoId: string) =>
+    nombreAlumnoPublicado(
+      torneo.participantes.find((p) => p.alumnoId === alumnoId)?.nombre ?? "Alumno"
+    );
+
+  return (
+    <div className="radius-control bg-surface-2 px-3 py-2">
+      <p className="text-micro flex items-center gap-1.5 font-semibold text-vip">
+        <Coins size={12} />
+        APUESTAS DEL PÚBLICO · {apuestas.total.toLocaleString("es-CL")} pts entre{" "}
+        {apuestas.cantidad}
+        {apuestas.resueltas && " · YA REPARTIDAS"}
+      </p>
+      <div className="mt-1.5 space-y-0.5">
+        {apuestas.porParticipante.map((p) => (
+          <p key={p.alumnoId} className="text-caption text-text-secondary">
+            {nombreDe(p.alumnoId)}: {p.total.toLocaleString("es-CL")} pts ({p.cantidad}){" "}
+            <span className="text-text-tertiary">
+              — si gana, paga {(apuestas.total / p.total).toFixed(2)}×
+            </span>
+          </p>
+        ))}
+      </div>
+      {!apuestas.resueltas && (
+        <p className="text-[9px] mt-1.5 leading-relaxed text-text-tertiary">
+          Al cerrar se reparte solo. Si nadie acierta, si aciertan todos o si hay empate en el
+          primer puesto, se devuelve todo lo apostado.
+        </p>
+      )}
+    </div>
   );
 }
 

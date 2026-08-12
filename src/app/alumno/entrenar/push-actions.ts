@@ -1,28 +1,13 @@
 "use server";
 
 import { after } from "next/server";
-import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
-
-// A proposito NO se llama a nivel de modulo: `setVapidDetails` tira una
-// excepcion sincronica si falta cualquiera de las dos claves, y eso rompia
-// TODA la pagina de sesion en produccion (cualquier accion la importa
-// transitivamente) durante la ventana en la que las claves todavia no
-// estaban cargadas en Vercel. Se llama recien dentro de cada funcion, solo
-// cuando ambas claves existen de verdad.
-function vapidListo(): boolean {
-  return Boolean(process.env.VAPID_PRIVATE_KEY && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
-}
-
-function configurarVapid(): void {
-  webpush.setVapidDetails(
-    `mailto:${process.env.VAPID_CONTACT_EMAIL ?? "soporte@vipfitness.cl"}`,
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY as string,
-    process.env.VAPID_PRIVATE_KEY as string
-  );
-}
+// El envío en sí vive en `lib/push/enviar.ts`: este archivo es "use server" y
+// no puede exportar ayudantes no-async, pero los avisos de Arena VIP (que
+// dispara el entrenador, no el alumno) necesitan la misma maquinaria.
+import { enviarPush, vapidListo } from "@/lib/push/enviar";
 
 /** Guarda (o actualiza) la suscripción push de este alumno — se llama sola
  * apenas acepta el permiso de notificaciones, ver `asegurarSuscripcionPush`
@@ -51,28 +36,6 @@ export async function guardarSuscripcionPush(sub: {
 
 async function esperar(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Manda el push a una suscripción puntual. Si el navegador la dio de baja
- * (404/410 — el usuario desinstaló la PWA, revocó el permiso, etc.) borra la
- * fila para no seguir intentando en vano las próximas veces. */
-async function enviarPush(
-  admin: ReturnType<typeof createAdminClient>,
-  sub: { endpoint: string; p256dh: string; auth: string },
-  payload: { title: string; body: string; tag: string; url: string }
-): Promise<void> {
-  try {
-    configurarVapid();
-    await webpush.sendNotification(
-      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-      JSON.stringify(payload)
-    );
-  } catch (error) {
-    const status = (error as { statusCode?: number } | null)?.statusCode;
-    if (status === 404 || status === 410) {
-      await admin.from("push_suscripciones").delete().eq("endpoint", sub.endpoint);
-    }
-  }
 }
 
 /**

@@ -15,6 +15,7 @@ import { progresoAlSiguiente } from "@/lib/ranking/puntos";
 import { TorneoActivoCard } from "@/components/student/TorneoActivoCard";
 import { obtenerRankingSemanal, type FilaRanking } from "@/lib/ranking/data";
 import { obtenerTorneosPublicos } from "@/lib/torneos/data";
+import { obtenerSaldoVip } from "@/lib/torneos/apuestas-data";
 import type { TorneoPublico } from "@/lib/torneos/types";
 import { obtenerPlanAlimentacion } from "@/app/alumno/comer/data";
 import { formatFechaCompacta, nombreDiaSemana } from "@/lib/date";
@@ -126,7 +127,7 @@ export default async function InicioPage() {
           reservar espacio para algo que casi nunca aparece descuadra la
           pantalla más de lo que ayuda. */}
       <Suspense fallback={null}>
-        <TorneosAbiertos torneosPromesa={torneosPromesa} nombrePropio={perfil.nombre} />
+        <TorneosAbiertos torneosPromesa={torneosPromesa} nombrePropio={perfil.nombre} alumnoId={alumnoId} />
       </Suspense>
 
       {!soloLectura && <SeguimientoDiario seguimientoHoy={seguimientoHoy} />}
@@ -226,11 +227,21 @@ function RankingCargando() {
 async function TorneosAbiertos({
   torneosPromesa,
   nombrePropio,
+  alumnoId,
 }: {
   torneosPromesa: Promise<TorneoPublico[]>;
   nombrePropio: string;
+  alumnoId: string;
 }) {
-  return <TorneoActivoCard torneos={await torneosPromesa} nombrePropio={nombrePropio} />;
+  const [torneos, saldo] = await Promise.all([torneosPromesa, obtenerSaldoVip(alumnoId)]);
+  return (
+    <TorneoActivoCard
+      torneos={torneos}
+      nombrePropio={nombrePropio}
+      miAlumnoId={alumnoId}
+      miSaldo={saldo}
+    />
+  );
 }
 
 /** La gráfica histórica vive dentro de un <details> cerrado por defecto, así

@@ -8,28 +8,26 @@ import { ZoomOut } from "lucide-react";
  * más chico ×2. Pedido textual: "zoom de pantalla, tres tamaños, con el
  * control arriba, al lado del toggle claro/oscuro".
  *
- * No es un zoom del navegador ni una hoja de estilos aparte: reusa la misma
- * variable `--escala-texto` que el alumno usa para AGRANDAR la letra (ver
- * MenuAlumno.tsx y globals.css). Toda la escala tipográfica de la app ya está
- * escrita multiplicada por esa variable, así que achicar acá achica todo de
- * forma pareja en vez de romper el calce de una pantalla puntual.
+ * Escribe `--zoom-pantalla`, la misma variable que usa el menú del alumno (ver
+ * MenuAlumno.tsx y globals.css). Antes escribía `--escala-texto`, que solo
+ * multiplicaba la escala tipográfica: la letra se achicaba pero las tarjetas
+ * quedaban del mismo porte, así que no entraba más rutina en pantalla, que era
+ * justamente el pedido. Ahora achica el layout completo.
  *
  * Un solo botón que cicla, no tres: el espacio de la cabecera es el mismo que
  * pelea la barra de navegación, y el porcentaje que muestra ya dice en cuál
  * de los tres está.
  */
 
-const ESCALAS = [1, 0.85, 0.75] as const;
+const ESCALAS = [1, 0.9, 0.8] as const;
 type Escala = (typeof ESCALAS)[number];
 
 export function ZoomPanel({ className = "" }: { className?: string }) {
-  // Valor real de `--escala-texto`, no acotado a los tres tamaños de este
-  // panel: el selector de tamaño de letra del alumno (MenuAlumno.tsx) escribe
-  // la misma variable y la misma clave de localStorage con su propio rango
-  // (100/115/130%). Antes acá se forzaba cualquier valor ajeno a 100%, así
-  // que si el entrenador entraba a "Mi rutina" con la letra agrandada, este
-  // botón decía "100%" mintiendo sobre el tamaño real (bug encontrado en
-  // revisión de código).
+  // Valor real de `--zoom-pantalla`, no acotado a los tres tamaños de este
+  // panel: el menú del alumno (MenuAlumno.tsx) escribe la misma variable y la
+  // misma clave de localStorage con su propio rango, que llega hasta 115%.
+  // Forzar acá cualquier valor ajeno a 100% hacía que este botón dijera
+  // "100%" mintiendo sobre el tamaño real (bug encontrado en revisión).
   const [escala, setEscala] = useState(1);
 
   // Igual que ThemeToggle: el valor real lo dejó el script inline de
@@ -38,7 +36,7 @@ export function ZoomPanel({ className = "" }: { className?: string }) {
   useEffect(() => {
     const id = window.setTimeout(() => {
       const actual = parseFloat(
-        document.documentElement.style.getPropertyValue("--escala-texto") || "1"
+        document.documentElement.style.getPropertyValue("--zoom-pantalla") || "1"
       );
       setEscala(actual || 1);
     }, 0);
@@ -53,10 +51,10 @@ export function ZoomPanel({ className = "" }: { className?: string }) {
     const indiceActual = ESCALAS.indexOf(escala as Escala);
     const siguiente = indiceActual === -1 ? ESCALAS[0] : ESCALAS[(indiceActual + 1) % ESCALAS.length];
     setEscala(siguiente);
-    document.documentElement.style.setProperty("--escala-texto", String(siguiente));
-    document.documentElement.setAttribute("data-escala-texto", String(siguiente));
+    document.documentElement.style.setProperty("--zoom-pantalla", String(siguiente));
+    document.documentElement.setAttribute("data-zoom-pantalla", String(siguiente));
     try {
-      localStorage.setItem("vip-escala-texto", String(siguiente));
+      localStorage.setItem("vip-zoom-pantalla", String(siguiente));
     } catch {
       // Modo privado: el tamaño igual se aplica, solo no sobrevive al cierre.
     }

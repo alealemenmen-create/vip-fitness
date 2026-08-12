@@ -4,6 +4,7 @@ import { Swords, Check, X, Clock } from "lucide-react";
 import { NOMBRE_METRICA, NOMBRE_MODALIDAD, type TorneoPublico } from "@/lib/torneos/types";
 import { descripcionRepartoPremio } from "@/lib/torneos/puntos";
 import { responderInvitacionTorneo } from "@/app/alumno/inicio/actions";
+import { ApostarTorneo } from "./ApostarTorneo";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 
 /** Recuadro de Inicio: TODOS los torneos abiertos se publican como noticia
@@ -11,13 +12,29 @@ import { nombreAlumnoPublicado } from "@/lib/nombre";
  * alumno fue invitado y todavía no respondió, aparecen los botones de
  * aceptar/rechazar; si ya respondió o es solo espectador, se ve como
  * anuncio nomás. */
-export function TorneoActivoCard({ torneos, nombrePropio }: { torneos: TorneoPublico[]; nombrePropio: string }) {
+export function TorneoActivoCard({
+  torneos,
+  nombrePropio,
+  miAlumnoId,
+  miSaldo,
+}: {
+  torneos: TorneoPublico[];
+  nombrePropio: string;
+  miAlumnoId: string;
+  miSaldo: number;
+}) {
   if (torneos.length === 0) return null;
 
   return (
     <div className="space-y-2">
       {torneos.map((t) => (
-        <TorneoCard key={t.id} torneo={t} nombrePropio={nombrePropio} />
+        <TorneoCard
+          key={t.id}
+          torneo={t}
+          nombrePropio={nombrePropio}
+          miAlumnoId={miAlumnoId}
+          miSaldo={miSaldo}
+        />
       ))}
     </div>
   );
@@ -48,7 +65,17 @@ function formatoValor(metrica: TorneoPublico["metrica"], valor: number, unidadMa
   return `${valor.toLocaleString("es-CL", { maximumFractionDigits: 2 })}${unidadManual ? ` ${unidadManual}` : ""}`;
 }
 
-function TorneoCard({ torneo: t, nombrePropio }: { torneo: TorneoPublico; nombrePropio: string }) {
+function TorneoCard({
+  torneo: t,
+  nombrePropio,
+  miAlumnoId,
+  miSaldo,
+}: {
+  torneo: TorneoPublico;
+  nombrePropio: string;
+  miAlumnoId: string;
+  miSaldo: number;
+}) {
   const rivales = t.participantes
     .filter((p) => p.nombre !== nombrePropio)
     .map((p) => nombreAlumnoPublicado(p.nombre));
@@ -100,8 +127,11 @@ function TorneoCard({ torneo: t, nombrePropio }: { torneo: TorneoPublico; nombre
           <p className="text-caption mt-0.5 text-text">{t.reglaPublica}</p>
         </div>
       )}
+      {/* Competir sigue sin costar nada: la bolsa la pone VIP Fitness. Lo que
+          sí arriesga puntos propios es APOSTAR, y es voluntario — por eso la
+          frase vieja ("nadie pierde puntos acumulados") ya no va sola. */}
       <p className="text-[9px] mt-2 leading-relaxed text-text-tertiary">
-        {descripcionRepartoPremio(t.modalidad === "duelo" ? 2 : 3)} Nadie pierde puntos acumulados.
+        {descripcionRepartoPremio(t.modalidad === "duelo" ? 2 : 3)} Competir no te cuesta puntos.
       </p>
 
       {t.participantes.length > 0 && (
@@ -172,6 +202,8 @@ function TorneoCard({ torneo: t, nombrePropio }: { torneo: TorneoPublico; nombre
           <Check size={14} /> Estás compitiendo{rivales.length > 0 ? ` contra ${rivales.join(", ")}` : ""}
         </p>
       )}
+
+      <ApostarTorneo torneo={t} miSaldo={miSaldo} miAlumnoId={miAlumnoId} />
     </div>
   );
 }

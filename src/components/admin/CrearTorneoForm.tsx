@@ -462,8 +462,13 @@ export function CrearTorneoForm({
                   required
                   className="mt-2"
                 />
+                {/* Competir sigue sin costar nada. Lo que cambió es que el
+                    público que NO compite puede apostar sus propios puntos
+                    (ver 0069_torneo_apuestas.sql), y eso conviene decirlo acá:
+                    al publicar la competencia le llega el aviso a todos. */}
                 <p className="text-caption mt-1 text-text-tertiary">
-                  VIP Fitness aporta la bolsa. Nadie arriesga ni pierde puntos ya ganados.
+                  VIP Fitness aporta la bolsa: los que compiten no arriesgan nada. El resto del
+                  gimnasio recibe el aviso y puede apostar sus propios puntos por un favorito.
                 </p>
               </div>
 

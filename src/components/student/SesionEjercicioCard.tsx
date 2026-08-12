@@ -977,6 +977,12 @@ export const FilaSerie = forwardRef<
 
     const restanteReal = Math.round((finEn - Date.now()) / 1000);
     if (restanteReal > 0) {
+      // react-hooks/set-state-in-effect: falso positivo. La regla apunta a
+      // estado DERIVADO de props; acá se está leyendo un sistema externo
+      // (localStorage) que no existe en el servidor, que es exactamente el uso
+      // para el que la propia documentación recomienda un efecto. No se puede
+      // resolver en el render sin romper la hidratación.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRestante(restanteReal);
       onIniciar(numero);
     } else {
@@ -1530,7 +1536,13 @@ export const SesionEjercicioCard = forwardRef<
   // la pestaña por memoria o se corta la conexión ANTES de tocar "Listo" de
   // nuevo, no quedaba ninguna copia de la que recuperarse.
 
+  // react-hooks/set-state-in-effect: falso positivo, misma razón que arriba —
+  // el respaldo vive en localStorage, que no existe durante el render del
+  // servidor. Leerlo en el render (o en el inicializador de useState) daría
+  // desajuste de hidratación, que es justo lo que el comentario de arriba
+  // explica que hay que evitar.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBorrador(leerBorrador(sesionId, ejercicio.sesionEjercicioId));
     setBorradorLeido(true);
   }, [sesionId, ejercicio.sesionEjercicioId]);
@@ -1646,9 +1658,16 @@ export const SesionEjercicioCard = forwardRef<
   // Al terminar un ejercicio, el siguiente pasa a ser el activo tras revalidar:
   // se abre solo, sin que el alumno tenga que tocar nada con las manos ocupadas.
   // Solo abre — nunca cierra lo que el alumno abrió a mano.
-  useEffect(() => {
+  //
+  // Ajuste durante el render y no un efecto: es el patrón que documenta React
+  // para derivar estado de un cambio de prop. Con el efecto, la tarjeta se
+  // alcanzaba a pintar cerrada y recién en el segundo render se abría — un
+  // parpadeo justo en el momento en que el alumno tiene las manos ocupadas.
+  const [activoPrevio, setActivoPrevio] = useState(activo);
+  if (activo !== activoPrevio) {
+    setActivoPrevio(activo);
     if (activo) setExpandido(true);
-  }, [activo]);
+  }
 
   /** Se canceló o deshizo una serie: vuelve a estar pendiente y el barrido
    * regresa a ella. */

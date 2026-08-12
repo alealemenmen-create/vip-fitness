@@ -4,6 +4,7 @@ import { obtenerMovimientosAlumno, obtenerRanking } from "@/lib/ranking/data";
 import { ProgresoVipCompetitivo } from "@/components/student/ProgresoVipCompetitivo";
 import { TarjetaRangoActual } from "@/components/student/TarjetaRangoActual";
 import { obtenerHistorialTorneos, obtenerTorneosPublicos } from "@/lib/torneos/data";
+import { obtenerSaldoVip } from "@/lib/torneos/apuestas-data";
 import { TorneoActivoCard } from "@/components/student/TorneoActivoCard";
 import { HistorialTorneos } from "@/components/student/HistorialTorneos";
 import { Card } from "@/components/ui/Card";
@@ -40,9 +41,10 @@ async function RangoActual({ alumnoId }: { alumnoId: string }) {
 }
 
 async function ArenaVip({ alumnoId, nombre }: { alumnoId: string; nombre: string }) {
-  const [activas, historial] = await Promise.all([
+  const [activas, historial, saldo] = await Promise.all([
     obtenerTorneosPublicos(alumnoId),
     obtenerHistorialTorneos(),
+    obtenerSaldoVip(alumnoId),
   ]);
   return (
     <section className="space-y-2">
@@ -50,11 +52,13 @@ async function ArenaVip({ alumnoId, nombre }: { alumnoId: string; nombre: string
         <Swords size={18} className="text-vip" />
         <div>
           <h2 className="text-body font-bold text-text">Arena VIP</h2>
-          <p className="text-micro text-text-tertiary">Reglas públicas · premios de VIP Fitness · sin apostar tu saldo</p>
+          {/* Decía "sin apostar tu saldo". Dejó de ser cierto: competir sigue
+              siendo gratis, pero el público ahora apuesta lo suyo. */}
+          <p className="text-micro text-text-tertiary">Reglas públicas · competir es gratis · el público apuesta</p>
         </div>
       </div>
       {activas.length > 0 ? (
-        <TorneoActivoCard torneos={activas} nombrePropio={nombre} />
+        <TorneoActivoCard torneos={activas} nombrePropio={nombre} miAlumnoId={alumnoId} miSaldo={saldo} />
       ) : (
         <Card className="!p-4">
           <p className="text-caption text-text-secondary">No hay competencias activas. El próximo Duelo, Reto del Coach o Copa aparecerá aquí.</p>

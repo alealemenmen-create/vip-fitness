@@ -1387,6 +1387,38 @@ export interface Database {
           },
         ];
       };
+      // 0069_torneo_apuestas.sql — el público de la carrera de caballos:
+      // apuesta el que NO compite. Una sola apuesta por alumno y torneo.
+      torneo_apuestas: {
+        Row: {
+          id: string;
+          torneo_id: string;
+          alumno_id: string;
+          por_alumno_id: string;
+          puntos: number;
+          created_at: string;
+          devuelto: number | null;
+          resuelta_en: string | null;
+        };
+        Insert: {
+          torneo_id: string;
+          alumno_id: string;
+          por_alumno_id: string;
+          puntos: number;
+          devuelto?: number | null;
+          resuelta_en?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["torneo_apuestas"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "torneo_apuestas_torneo_id_fkey";
+            columns: ["torneo_id"];
+            isOneToOne: false;
+            referencedRelation: "torneos";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       // 0043_impulso_vip.sql — configuración de progresión por asignación
       // (no por ejercicio de biblioteca: la misma máquina puede pedir
       // progresión distinta en dos rutinas).

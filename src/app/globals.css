@@ -327,6 +327,21 @@ body {
 }
 
 /*
+  El zoom de pantalla (ver --zoom-pantalla arriba). Va en <html> para que
+  alcance también a lo que se dibuja por portal a <body> —el menú del
+  engranaje, los modales—: si fuera en el shell de cada layout, esos quedarían
+  del tamaño original y se notaría el desajuste.
+
+  La división compensa el propio zoom: `height: 100%` se resuelve contra el
+  viewport y DESPUÉS `zoom` lo multiplica, así que sin dividir, con el zoom en
+  0.8 la app ocuparía el 80% de la pantalla y quedaría una franja muerta abajo.
+*/
+html {
+  zoom: var(--zoom-pantalla);
+  height: calc(100% / var(--zoom-pantalla));
+}
+
+/*
   Bloqueo de orientación vertical, aunque el alumno tenga el bloqueo de
   rotación del teléfono APAGADO.
 
@@ -360,8 +375,11 @@ body {
     position: absolute !important;
     top: 100% !important;
     left: 0 !important;
-    width: 100vh !important;
-    height: 100vw !important;
+    /* Divididos por el zoom, por lo mismo que la regla de <html> de más
+       arriba: las unidades de viewport se resuelven primero y `zoom` las
+       multiplica después. */
+    width: calc(100vh / var(--zoom-pantalla)) !important;
+    height: calc(100vw / var(--zoom-pantalla)) !important;
     transform: rotate(-90deg) !important;
     transform-origin: left top !important;
     overflow: hidden !important;
@@ -441,9 +459,33 @@ input[type="date"]::-webkit-date-and-time-value {
   ejercicios desde el teléfono y pidió poder ACHICAR para que entre más de un
   vistazo (ver ZoomPanel.tsx, junto al toggle claro/oscuro del panel). Por eso
   el rango va de 0.75 a 1.3 y no de 1 para arriba.
+
+  --------------------------------------------------------------------------
+  ZOOM DE PANTALLA (--zoom-pantalla) — distinto de lo de arriba.
+
+  Pedido de Alejandro, tres veces: "que achique TODO, no solo la letra". Con
+  --escala-texto sola, las tarjetas quedaban del mismo tamaño con la letra
+  chica adentro, que es lo contrario de lo que se busca: lo que él quiere es
+  que entre más cosa en la pantalla.
+
+  Por qué `zoom` y no `transform: scale()`: `zoom` REFLUYE el layout (todo se
+  recalcula al tamaño nuevo, los textos vuelven a cortar donde corresponde) y
+  respeta `position: fixed`. `transform` solo dibuja más chico el mismo layout
+  —quedan bordes en blanco y los `fixed` se rompen— y además convertiría a
+  <html> en contenedor de todos los `fixed` de la app, que es justo lo que el
+  bloqueo de orientación de más abajo ya hace a propósito y con cuidado.
+
+  Por qué acá y no escalando el font-size de <html>: Tailwind mide los
+  espaciados en rem, así que eso escalaría paddings y gaps, pero la app tiene
+  ~266 tamaños de letra escritos en px fijo (`text-[11px]`) que se quedarían
+  del mismo porte. `zoom` los agarra a todos sin tocar 266 lugares.
+
+  --escala-texto queda en 1 y no se toca: si el zoom achica y además la letra
+  se multiplica por su cuenta, se escala dos veces y no cuadra nada.
 */
 :root {
   --escala-texto: 1;
+  --zoom-pantalla: 1;
 
   /* Alto del encabezado fijo del alumno (logo + campanita + engranaje, ver
      src/app/alumno/layout.tsx): marca de 34 px más pt-1 y pb-2. Las cabeceras

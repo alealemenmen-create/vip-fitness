@@ -24,6 +24,8 @@
  * puede probar entero, que es lo que importa cuando se mueven puntos ajenos.
  */
 
+import type { ResultadoTorneo } from "./puntos";
+
 /** Nadie arriesga más que esto en una sola apuesta. */
 export const TOPE_APUESTA = 200;
 /** Mínimo, para que la apuesta signifique algo. */
@@ -149,6 +151,21 @@ export function repartirApuestas(apuestas: Apuesta[], ganadorId: string | null):
   });
 
   return { pagos, bolsaTotal, motivoDevolucion: null };
+}
+
+/**
+ * Quién ganó, según el snapshot de resultados del torneo — el dato que
+ * `repartirApuestas` necesita como `ganadorId`.
+ *
+ * Devuelve `null` si hubo empate en el primer puesto o si nadie registró una
+ * marca válida. No es un caso de borde raro: `calcularResultadoTorneo` le da
+ * puesto 1 a TODOS los empatados, y pagarle a los que apostaron por uno de dos
+ * empatados sería inventar un ganador que la competencia no tuvo. Con `null`,
+ * el motor devuelve todo lo apostado, que es la única salida honesta.
+ */
+export function ganadorDeResultados(resultados: ResultadoTorneo[]): string | null {
+  const primeros = resultados.filter((r) => r.puesto === 1 && r.valido !== false);
+  return primeros.length === 1 ? primeros[0].alumnoId : null;
 }
 
 /**
