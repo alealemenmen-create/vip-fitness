@@ -2450,6 +2450,210 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   }
 }
 
+/* -------------------------------------------------------------------------
+   BURBUJA DE TÉCNICA (SesionEjercicioCard)
+
+   Flota en el CENTRO de la pantalla, no pegada abajo: es lo que el alumno
+   tiene que leer ANTES de hacer la serie, así que se planta en el medio y el
+   fondo se oscurece lo justo para que se siga viendo dónde estaba.
+   ---------------------------------------------------------------------- */
+.fondo-burbuja-tecnica {
+  /* Más claro que el resto de los modales de la app (que van en /70 o /90):
+     acá el fondo NO estorba, ubica — el alumno tiene que reconocer el
+     ejercicio detrás mientras lee la técnica. El desenfoque separa las dos
+     capas sin necesidad de tapar. */
+  background: rgba(0, 0, 0, 0.42);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  animation: visor-fondo-entrada 0.2s ease-out;
+}
+
+.burbuja-tecnica {
+  position: relative;
+  /* Por encima de los rayos, que son un hermano suyo dentro de la capa (ver
+     `.rayos-reto`): sin esto los haces cruzan por delante del texto y la
+     explicación queda ilegible. Encontrado verificando en el navegador. */
+  z-index: 1;
+  animation: burbuja-tecnica-entra 0.4s cubic-bezier(0.34, 1.5, 0.64, 1);
+}
+@keyframes burbuja-tecnica-entra {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/*
+  Variante RETO: solo cuando la técnica es una de las que exigen de verdad
+  (drop set, rest-pause, al fallo... — las que reconoce glosario-tecnicas.ts).
+  Pedido de Alejandro: "que provoque hacerlo, que sienta que va a hacer algo
+  muy bueno, entre reto y desafío".
+
+  Entra con un golpe (overshoot + un grado de rotación que se corrige sola),
+  no con un fundido: el gesto tiene que leerse como un impacto, no como la
+  aparición de un cartel más.
+*/
+.burbuja-tecnica-reto {
+  animation: burbuja-reto-entra 0.52s cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+@keyframes burbuja-reto-entra {
+  0% {
+    opacity: 0;
+    transform: scale(0.62) rotate(-3.5deg);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.07) rotate(1.5deg);
+  }
+  72% {
+    transform: scale(0.985) rotate(-0.6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* Onda expansiva: un anillo que sale del borde de la burbuja y se apaga. Una
+   sola vez (`forwards`) — repetirla la volvería decorado de fondo en vez de
+   un golpe de entrada. */
+.onda-reto {
+  position: absolute;
+  inset: -2px;
+  border-radius: 24px;
+  border: 2px solid var(--color-vip);
+  pointer-events: none;
+  animation: onda-reto-expandir 0.85s ease-out forwards;
+}
+.onda-reto-2 {
+  animation-delay: 0.16s;
+}
+@keyframes onda-reto-expandir {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+/* Rayos detrás de la burbuja: un abanico que gira lento y se desvanece. El
+   `conic-gradient` con paradas duras dibuja los haces sin necesidad de un
+   SVG ni de 12 divs.
+
+   Va como hermano de la burbuja DENTRO de la capa del modal, no adentro de la
+   burbuja: adentro quedaba pintado por delante del cuerpo y del botón (solo la
+   cabecera tiene `relative`, así que los haces cruzaban sobre la explicación y
+   la dejaban ilegible — visto en el navegador). Como hermano, con la burbuja
+   en `z-index: 1`, salen por detrás y asoman alrededor, que es el efecto que
+   se buscaba. */
+.rayos-reto {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  /* Medida propia y no un % del padre: el padre ahora es la capa a pantalla
+     completa, donde 190% se iría muy lejos del borde de la burbuja. */
+  width: min(150vw, 620px);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  pointer-events: none;
+  border-radius: 999px;
+  background: conic-gradient(
+    from 0deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent) 0deg 6deg,
+    transparent 6deg 30deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent) 30deg 36deg,
+    transparent 36deg 60deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent) 60deg 66deg,
+    transparent 66deg 90deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent) 90deg 96deg,
+    transparent 96deg 120deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent) 120deg 126deg,
+    transparent 126deg 150deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent) 150deg 156deg,
+    transparent 156deg 180deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent) 180deg 186deg,
+    transparent 186deg 210deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent) 210deg 216deg,
+    transparent 216deg 240deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent) 240deg 246deg,
+    transparent 246deg 270deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent) 270deg 276deg,
+    transparent 276deg 300deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent) 300deg 306deg,
+    transparent 306deg 330deg,
+    color-mix(in srgb, var(--color-vip) 42%, transparent) 330deg 336deg,
+    transparent 336deg 360deg
+  );
+  /* Se apaga hacia afuera: sin esto los rayos cortan en seco en un círculo. */
+  mask-image: radial-gradient(circle, #000 22%, transparent 62%);
+  -webkit-mask-image: radial-gradient(circle, #000 22%, transparent 62%);
+  animation: rayos-reto-girar 1.1s ease-out forwards;
+}
+@keyframes rayos-reto-girar {
+  0% {
+    opacity: 0;
+    transform: rotate(-14deg) scale(0.75);
+  }
+  22% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(16deg) scale(1.18);
+  }
+}
+
+/* El nombre de la técnica: un destello que lo recorre una vez, para que el
+   ojo caiga ahí primero y no en el texto largo de abajo. */
+.titulo-reto {
+  background: linear-gradient(
+    100deg,
+    var(--color-text) 0%,
+    var(--color-text) 34%,
+    var(--color-vip) 50%,
+    var(--color-text) 66%,
+    var(--color-text) 100%
+  );
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: destello-titulo-reto 1.15s ease-out 0.18s both;
+}
+@keyframes destello-titulo-reto {
+  0% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: -60% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fondo-burbuja-tecnica,
+  .burbuja-tecnica,
+  .burbuja-tecnica-reto,
+  .titulo-reto {
+    animation: none;
+  }
+  /* Los rayos y la onda son puro movimiento: sin animación no aportan nada,
+     así que directamente no se dibujan. */
+  .rayos-reto,
+  .onda-reto {
+    display: none;
+  }
+  .titulo-reto {
+    color: var(--color-text);
+  }
+}
+
 .confeti-torneo {
   position: absolute;
   top: -24px;

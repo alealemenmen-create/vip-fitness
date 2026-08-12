@@ -1917,18 +1917,35 @@ export const SesionEjercicioCard = forwardRef<
               role="dialog"
               aria-label="Técnica sugerida"
               onClick={() => setMostrarTecnica(false)}
-              className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 sm:items-center"
+              className="fondo-burbuja-tecnica fixed inset-0 z-50 flex items-center justify-center p-4"
             >
+              {/* `explicacion` manda el tratamiento de RETO (rayos, onda,
+                  golpe de entrada): solo las técnicas que exigen de verdad
+                  —drop set, rest-pause, al fallo…— se anuncian así. Si TODA
+                  técnica entrara con rayos, los rayos dejarían de significar
+                  algo, igual que pasó con el aviso de sesión sin cerrar.
+
+                  Los rayos van ACÁ, hermanos de la burbuja y no adentro:
+                  adentro se dibujaban por delante del texto (ver el comentario
+                  de `.rayos-reto` en globals.css). Las ondas sí van adentro,
+                  porque son un anillo pegado al borde de la burbuja. */}
+              {explicacion && <span aria-hidden className="rayos-reto" />}
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="max-h-[75vh] w-full max-w-sm overflow-y-auto rounded-[22px] border border-vip/25 bg-surface p-4 shadow-2xl"
+                className={`burbuja-tecnica ${explicacion ? "burbuja-tecnica-reto" : ""} max-h-[80vh] w-full max-w-sm overflow-y-auto rounded-[22px] border border-vip/30 bg-surface p-4 shadow-2xl`}
               >
-                <div className="flex items-start gap-2.5">
+                {explicacion && (
+                  <>
+                    <span aria-hidden className="onda-reto" />
+                    <span aria-hidden className="onda-reto onda-reto-2" />
+                  </>
+                )}
+                <div className="relative flex items-start gap-2.5">
                   <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-vip/15 text-vip">
                     <AlertCircle size={18} strokeWidth={2.5} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-card-title text-text">
+                    <p className={`text-card-title text-text ${explicacion ? "titulo-reto" : ""}`}>
                       {explicacion?.etiqueta ?? (tecnica.sugerida ? "Técnica sugerida" : "Técnica")}
                     </p>
                     <p className="text-caption mt-0.5 text-text-secondary">{ejercicio.nombre}</p>
