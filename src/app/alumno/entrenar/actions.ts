@@ -664,6 +664,26 @@ export async function terminarCorreccion(formData: FormData): Promise<void> {
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId);
 
+  /**
+   * La marca también se deja acá, no solo al abrir la corrección.
+   *
+   * `reabrirSesion` la escribe al entrar, pero eso no cubre a quien YA estaba
+   * corrigiendo cuando la 0078 llegó a la base: su corrección se abrió cuando
+   * la columna no existía, y como el botón "Corregir registro" no se ofrece
+   * mientras se corrige, no había forma de volver a pasar por ahí sin cerrar y
+   * reabrir. Terminar de corregir es, además, el momento que mejor describe lo
+   * que la marca dice: los números se revisaron a mano.
+   *
+   * Va en un update aparte y sin mirar el error, por lo mismo de siempre: si
+   * la 0078 no corrió, cerrar la corrección tiene que seguir funcionando igual.
+   */
+  await supabase
+    .from("sesiones_entrenamiento")
+    .update({ corregida_en: new Date().toISOString() })
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .is("corregida_en", null);
+
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/entrenar/historial");
   revalidatePath("/alumno/inicio");
