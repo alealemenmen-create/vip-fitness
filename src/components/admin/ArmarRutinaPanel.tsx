@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, Coffee, PencilRuler, Search, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, ChevronDown, PencilRuler, Search, Undo2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -95,25 +95,6 @@ function FichaDelAlumno({ alumno, compacta = false }: { alumno: AlumnoArmado; co
   );
 }
 
-const MINUTOS = [30, 45, 60, 75, 90, 120];
-const DIAS = [1, 2, 3, 4, 5, 6, 7];
-/** Los cuatro que se ofrecen. "Profesional" salió por pedido de Alejandro:
- * era prácticamente igual a Avanzado y solo agregaba una decisión más que
- * tomar. Sigue existiendo en el tipo para que los borradores viejos abran. */
-const NIVELES: NivelArmado[] = ["principiante", "intermedio", "avanzado", "olympia"];
-
-type GrupoPlan = "pecho" | "espalda" | "cuadriceps" | "femoral" | "gluteo" | "hombros" | "biceps" | "triceps" | "core";
-type OrganizacionSesion = "por_grupos" | "cruzado";
-type SesionPlan = {
-  grupos: GrupoPlan[];
-  focos: string[];
-  ejerciciosPorGrupo: Partial<Record<GrupoPlan, number>>;
-  seriesPorGrupo: Partial<Record<GrupoPlan, number>>;
-  organizacion: OrganizacionSesion;
-  descansoDespues: boolean;
-  tipoDescanso: string;
-};
-
 /** Todo lo que hace falta para retomar el asistente exactamente donde quedó
  * (ver `asistente-armado-local.ts`). `busqueda`, `error` y `pendiente` quedan
  * afuera a propósito: son ruido de la sesión de edición, no del avance. */
@@ -125,9 +106,6 @@ type EstadoAsistente = {
   rutina: RutinaExtraida | null;
   alertas: string[];
   seleccionando: boolean;
-  disenandoEstructura: boolean;
-  sesionesPlan: SesionPlan[];
-  sesionActiva: number;
   configuracionManual: boolean;
   seriesManuales: number;
   repeticionesManuales: string;
@@ -147,13 +125,6 @@ const RECOMENDACION_NIVEL: Record<NivelArmado, { series: number; bases: string; 
   senior: { series: 2, bases: "10-12", accesorios: "12-15" },
 };
 
-function cantidadSugerida(gruposEnSesion: number, grupo: GrupoPlan): number {
-  if (grupo === "core") return 1;
-  if (gruposEnSesion <= 1) return 4;
-  if (gruposEnSesion === 2) return 2;
-  return 2;
-}
-
 /** Series EFECTIVAS totales para cada grupo en una sesiÃ³n. No son series por
  * ejercicio. El orden del array coincide con la prioridad 1, 2 y 3 elegida
  * por el entrenador. Avanzado (6) y Olympia (8) alcanzan 12â€“20 semanales con
@@ -167,73 +138,6 @@ export function seriesSugeridasPorSesion(nivel: NivelArmado, cantidadGrupos: num
     ? (cantidad === 1 ? [5] : cantidad === 2 ? [3, 3] : [3, 2, 2])
     : (cantidad === 1 ? [6] : cantidad === 2 ? [4, 4] : [4, 3, 3]);
   return Array.from({ length: cantidad }, (_, indice) => base[indice] ?? base.at(-1) ?? 2);
-}
-
-function seriesSugeridaParaGrupo(nivel: NivelArmado, grupos: GrupoPlan[], grupo: GrupoPlan): number {
-  if (grupo === "core") return nivel === "principiante" || nivel === "senior" ? 3 : 4;
-  const gruposMusculares = grupos.filter((item) => item !== "core");
-  const posicion = Math.max(0, gruposMusculares.indexOf(grupo));
-  return seriesSugeridasPorSesion(nivel, gruposMusculares.length)[posicion] ?? 3;
-}
-
-const GRUPOS_PLAN: { id: GrupoPlan; nombre: string; color: string; focos: string[] }[] = [
-  { id: "pecho", nombre: "Pecho", color: "#c9787f", focos: ["Superior", "Medio", "Inferior", "Aislamiento"] },
-  { id: "espalda", nombre: "Espalda", color: "#728fb8", focos: ["Amplitud", "Densidad", "Lumbar", "Trapecio"] },
-  { id: "cuadriceps", nombre: "Cuádriceps", color: "#78a27c", focos: [] },
-  { id: "femoral", nombre: "Femoral", color: "#5f9678", focos: [] },
-  { id: "gluteo", nombre: "Glúteo", color: "#91ad69", focos: [] },
-  { id: "hombros", nombre: "Hombros", color: "#b99a62", focos: ["Anterior", "Lateral", "Posterior", "Press vertical"] },
-  // Modelo de brazos definido por el entrenador: los SUBGRUPOS son bíceps,
-  // tríceps y antebrazo; lo de adentro son ENFOQUES (qué cabeza del músculo
-  // se busca), no subgrupos. Lo que había antes mezclaba las dos cosas y
-  // metía además implementos ("Polea") y formas de ejecución ("Compuesto"),
-  // que no son ni una cosa ni la otra.
-  //
-  // Antebrazo NO figura acá todavía a propósito: no hay un solo ejercicio de
-  // antebrazo cargado en la biblioteca, así que ofrecerlo daría un día vacío.
-  // Entra en cuanto se carguen los ejercicios — ver el handoff.
-  { id: "biceps", nombre: "Bíceps", color: "#6fa4a0", focos: ["Cabeza larga", "Cabeza corta", "Braquial"] },
-  { id: "triceps", nombre: "Tríceps", color: "#9a84b9", focos: ["Cabeza larga", "Cabeza lateral", "Cabeza medial"] },
-  { id: "core", nombre: "Core", color: "#b77f97", focos: ["Abdominal", "Oblicuos", "Estabilidad", "Lumbar"] },
-];
-const SUBGRUPOS_INFERIOR = [
-  { id: "Tren inferior · Abductor", etiqueta: "Abductor", color: "#78a891" },
-  { id: "Tren inferior · Aductor", etiqueta: "Aductor", color: "#719b82" },
-  { id: "Tren inferior · Pantorrilla", etiqueta: "Pantorrilla", color: "#668b72" },
-] as const;
-const GRUPOS_INFERIORES = new Set<GrupoPlan>(["cuadriceps", "femoral", "gluteo"]);
-
-function normalizarSesionGuardada(sesion: SesionPlan, nivel: NivelArmado): SesionPlan {
-  const gruposViejos = sesion.grupos as (GrupoPlan | "piernas")[];
-  const grupos = gruposViejos.flatMap((grupo) => grupo === "piernas" ? (["cuadriceps", "femoral", "gluteo"] as GrupoPlan[]) : [grupo]);
-  return {
-    ...sesion,
-    grupos: [...new Set(grupos)],
-    ejerciciosPorGrupo: Object.fromEntries(grupos.map((grupo) => [grupo, sesion.ejerciciosPorGrupo?.[grupo as GrupoPlan] ?? cantidadSugerida(grupos.length, grupo)])),
-    seriesPorGrupo: Object.fromEntries(grupos.map((grupo) => [grupo, sesion.seriesPorGrupo?.[grupo as GrupoPlan] ?? seriesSugeridaParaGrupo(nivel, grupos, grupo)])),
-    organizacion: sesion.organizacion ?? "por_grupos",
-  };
-}
-
-function sesionesIniciales(cantidad: number, nivel: NivelArmado = "intermedio"): SesionPlan[] {
-  const plantillas: Record<number, GrupoPlan[][]> = {
-    1: [["cuadriceps", "femoral", "gluteo"]],
-    2: [["pecho", "espalda"], ["cuadriceps", "femoral", "gluteo"]],
-    3: [["pecho", "biceps"], ["espalda", "triceps"], ["cuadriceps", "femoral", "gluteo"]],
-    4: [["pecho", "biceps"], ["espalda", "triceps"], ["cuadriceps", "femoral", "gluteo"], ["hombros", "biceps", "triceps"]],
-    5: [["pecho", "biceps"], ["espalda", "triceps"], ["cuadriceps", "femoral", "gluteo"], ["pecho", "espalda"], ["hombros", "biceps", "triceps"]],
-    6: [["pecho", "biceps"], ["espalda", "triceps"], ["cuadriceps", "gluteo"], ["pecho", "espalda"], ["hombros", "biceps", "triceps"], ["femoral", "gluteo"]],
-    7: [["pecho"], ["espalda"], ["cuadriceps", "gluteo"], ["hombros"], ["biceps", "triceps"], ["pecho", "espalda"], ["femoral", "gluteo"]],
-  };
-  return (plantillas[cantidad] ?? plantillas[3]).map((grupos) => ({
-    grupos,
-    focos: [],
-    ejerciciosPorGrupo: Object.fromEntries(grupos.map((grupo) => [grupo, cantidadSugerida(grupos.length, grupo)])),
-    seriesPorGrupo: Object.fromEntries(grupos.map((grupo) => [grupo, seriesSugeridaParaGrupo(nivel, grupos, grupo)])),
-    organizacion: "por_grupos",
-    descansoDespues: false,
-    tipoDescanso: "Descanso total",
-  }));
 }
 
 /** Herramienta de armado manual: el entrenador elige alumno y nivel, el motor
@@ -250,7 +154,7 @@ export function ArmarRutinaPanel({
   tecnicas,
 }: {
   alumnos: AlumnoArmado[];
-  ejercicios: { id: string; nombre: string; grupo: string; equipo: string; patronMovimiento?: PatronMovimiento | null }[];
+  ejercicios: { id: string; nombre: string; aliases?: string[]; grupo: string; equipo: string; patronMovimiento?: PatronMovimiento | null }[];
   tecnicas: TecnicaOpcion[];
 }) {
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
@@ -263,9 +167,8 @@ export function ArmarRutinaPanel({
   const [error, setError] = useState<string | null>(null);
   const [seleccionando, setSeleccionando] = useState(true);
   const [mostrarFicha, setMostrarFicha] = useState(false);
-  const [disenandoEstructura, setDisenandoEstructura] = useState(false);
-  const [sesionesPlan, setSesionesPlan] = useState<SesionPlan[]>(() => sesionesIniciales(3));
-  const [sesionActiva, setSesionActiva] = useState(0);
+  const [deshacerSignal, setDeshacerSignal] = useState(0);
+  const [puedeDeshacer, setPuedeDeshacer] = useState(false);
   const [configuracionManual, setConfiguracionManual] = useState(false);
   const [seriesManuales, setSeriesManuales] = useState(3);
   const [repeticionesManuales, setRepeticionesManuales] = useState("8-12");
@@ -297,10 +200,10 @@ export function ArmarRutinaPanel({
       setMinutos(guardado.minutos);
       setRutina(guardado.rutina);
       setAlertas(guardado.alertas);
-      setSeleccionando(guardado.seleccionando);
-      setDisenandoEstructura(guardado.disenandoEstructura);
-      setSesionesPlan(guardado.sesionesPlan.map((sesion) => normalizarSesionGuardada(sesion, guardado.nivel)));
-      setSesionActiva(guardado.sesionActiva);
+      // Las dos pantallas intermedias ya no existen. Un borrador viejo que
+      // quedó guardado allí vuelve a la selección; si ya tenía rutina, abre
+      // directamente la mesa de trabajo.
+      setSeleccionando(guardado.rutina ? false : true);
       setConfiguracionManual(guardado.configuracionManual);
       setSeriesManuales(guardado.seriesManuales);
       setRepeticionesManuales(guardado.repeticionesManuales);
@@ -327,9 +230,6 @@ export function ArmarRutinaPanel({
       rutina,
       alertas,
       seleccionando,
-      disenandoEstructura,
-      sesionesPlan,
-      sesionActiva,
       configuracionManual,
       seriesManuales,
       repeticionesManuales,
@@ -345,9 +245,6 @@ export function ArmarRutinaPanel({
     rutina,
     alertas,
     seleccionando,
-    disenandoEstructura,
-    sesionesPlan,
-    sesionActiva,
     configuracionManual,
     seriesManuales,
     repeticionesManuales,
@@ -371,9 +268,8 @@ export function ArmarRutinaPanel({
     setError(null);
     setSeleccionando(true);
     setMostrarFicha(false);
-    setDisenandoEstructura(false);
-    setSesionesPlan(sesionesIniciales(3));
-    setSesionActiva(0);
+    setDeshacerSignal(0);
+    setPuedeDeshacer(false);
     setConfiguracionManual(false);
     setSeriesManuales(3);
     setRepeticionesManuales("8-12");
@@ -423,61 +319,10 @@ export function ArmarRutinaPanel({
       if (!r.ok) return setError(r.error);
       setRutina(r.rutina);
       setAlertas(r.alertas);
+      setSeleccionando(false);
+      setDeshacerSignal(0);
+      setPuedeDeshacer(false);
     });
-  };
-
-  const empezarVacia = () => {
-    if (!alumno) return;
-    setError(null);
-    setAlertas([]);
-    setSesionesPlan(sesionesIniciales(dias, nivel));
-    setSesionActiva(0);
-    setDisenandoEstructura(true);
-  };
-
-  const crearDesdeEstructura = () => {
-    if (!alumno || sesionesPlan.some((sesion) => sesion.grupos.length === 0)) return;
-    const diasRutina: RutinaExtraida["dias"] = [];
-    const cantidadesPorDia: Record<number, Record<string, number>> = {};
-    const seriesPorDia: Record<number, Record<string, number>> = {};
-    const organizacionPorDia: Record<number, "por_grupos" | "alternado"> = {};
-    sesionesPlan.forEach((sesion, indice) => {
-      const etiquetas = sesion.grupos.map((grupo) => GRUPOS_PLAN.find((item) => item.id === grupo)?.nombre ?? grupo);
-      const subgrupos = sesion.focos.filter((foco) => foco.startsWith("Tren inferior · ")).map((foco) => foco.split(" · ")[1].toLowerCase());
-      cantidadesPorDia[diasRutina.length] = Object.fromEntries([
-        ...sesion.grupos.map((grupo) => [grupo, sesion.ejerciciosPorGrupo[grupo] ?? cantidadSugerida(sesion.grupos.length, grupo)] as const),
-        ...subgrupos.map((grupo) => [grupo, 1] as const),
-      ]);
-      seriesPorDia[diasRutina.length] = Object.fromEntries([
-        ...sesion.grupos.map((grupo) => [grupo, sesion.seriesPorGrupo?.[grupo] ?? seriesSugeridaParaGrupo(nivel, sesion.grupos, grupo)] as const),
-        ...subgrupos.map((grupo) => [grupo, RECOMENDACION_NIVEL[nivel].series] as const),
-      ]);
-      organizacionPorDia[diasRutina.length] = sesion.organizacion === "cruzado" ? "alternado" : "por_grupos";
-      diasRutina.push({
-        numero: diasRutina.length + 1,
-        nombre: etiquetas.join(" + "),
-        tipo: "entrenamiento",
-        descripcion: sesion.focos.length > 0 ? `Enfoques: ${sesion.focos.join(" · ")}` : null,
-        ejercicios: [],
-      });
-      if (sesion.descansoDespues && indice < sesionesPlan.length - 1) {
-        diasRutina.push({
-          numero: diasRutina.length + 1,
-          nombre: sesion.tipoDescanso,
-          tipo: "descanso",
-          descripcion: sesion.tipoDescanso,
-          ejercicios: [],
-        });
-      }
-    });
-    setRutina({
-      nombreRutina: `Rutina de ${elegidos.length === 1 ? alumno.nombre : `${elegidos.length} alumnos`}`,
-      dias: diasRutina,
-    });
-    setEjerciciosPlaneadosPorDia(cantidadesPorDia);
-    setSeriesPlaneadasPorDia(seriesPorDia);
-    setOrganizacionPlaneadaPorDia(organizacionPorDia);
-    setDisenandoEstructura(false);
   };
 
   if (rutina && alumno) {
@@ -488,17 +333,22 @@ export function ArmarRutinaPanel({
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => { setRutina(null); setDisenandoEstructura(true); }} className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-[#8fb7d8]">
+          <button type="button" onClick={() => { setRutina(null); setSeleccionando(true); }} className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-[#8fb7d8]">
             <ArrowLeft size={13} /> Atrás
           </button>
-          {/* Este botón vuelve a "Diseñar estructura" (sigue siendo el mismo
-              alumno, se sigue armando). El reinicio completo es solo en
-              `onDescartar`, más abajo, donde el entrenador de verdad terminó
-              con esta rutina. */}
           <PencilRuler size={13} className="shrink-0 text-vip" />
           <p className="text-caption min-w-0 flex-1 truncate font-semibold text-text">
             {elegidos.length === 1 ? alumno.nombre : `${elegidos.length} alumnos`} · {NIVELES_ARMADO[nivel].etiqueta}
           </p>
+          <button
+            type="button"
+            onClick={() => setDeshacerSignal((valor) => valor + 1)}
+            disabled={!puedeDeshacer}
+            aria-label="Deshacer el último cambio"
+            className="radius-control flex shrink-0 items-center gap-1 border border-border px-2 py-1 text-[10px] font-semibold text-[#8fb7d8] disabled:opacity-35"
+          >
+            <Undo2 size={12} /> Deshacer
+          </button>
           <button
             type="button"
             onClick={() => setMostrarFicha((valor) => !valor)}
@@ -529,6 +379,8 @@ export function ArmarRutinaPanel({
         )}
         <RutinaDraftEditor
           mesaDeTrabajo
+          deshacerSignal={deshacerSignal}
+          onPuedeDeshacer={setPuedeDeshacer}
           alumnoIds={[...seleccionados]}
           draftInicial={rutina}
           onDescartar={reiniciarAsistente}
@@ -536,6 +388,9 @@ export function ArmarRutinaPanel({
           tecnicas={tecnicas}
           planInicial={planComun}
           nivelArmado={nivel}
+          onCambiarNivel={setNivel}
+          minutosSesion={minutos}
+          onCambiarMinutosSesion={setMinutos}
           configuracionArmado={{
             manual: configuracionManual,
             seriesPorEjercicio: configuracionManual ? seriesManuales : RECOMENDACION_NIVEL[nivel].series,
@@ -549,169 +404,9 @@ export function ArmarRutinaPanel({
     );
   }
 
-  if (disenandoEstructura && alumno) {
-    const actual = sesionesPlan[sesionActiva];
-    const alternarGrupo = (grupo: GrupoPlan) => setSesionesPlan((previas) => previas.map((sesion, indice) => {
-      if (indice !== sesionActiva) return sesion;
-      const quitando = sesion.grupos.includes(grupo);
-      const grupos = quitando ? sesion.grupos.filter((item) => item !== grupo) : [...sesion.grupos, grupo];
-      const ejerciciosPorGrupo = { ...sesion.ejerciciosPorGrupo };
-      const seriesPorGrupo = { ...sesion.seriesPorGrupo };
-      if (quitando) delete ejerciciosPorGrupo[grupo];
-      else ejerciciosPorGrupo[grupo] = cantidadSugerida(grupos.length, grupo);
-      if (quitando) delete seriesPorGrupo[grupo];
-      grupos.forEach((item) => { seriesPorGrupo[item] = seriesSugeridaParaGrupo(nivel, grupos, item); });
-      // Al sacar el grupo se van también sus enfoques: si no, quedaban
-      // guardados invisibles y reaparecían en la descripción del día.
-      const nombreGrupo = GRUPOS_PLAN.find((item) => item.id === grupo)?.nombre ?? grupo;
-      const focos = quitando ? sesion.focos.filter((foco) => !foco.startsWith(`${nombreGrupo} · `)) : sesion.focos;
-      return { ...sesion, grupos, ejerciciosPorGrupo, seriesPorGrupo, focos };
-    }));
-    const moverGrupo = (grupo: GrupoPlan, direccion: -1 | 1) => setSesionesPlan((previas) => previas.map((sesion, indice) => {
-      if (indice !== sesionActiva) return sesion;
-      const desde = sesion.grupos.indexOf(grupo);
-      const hasta = desde + direccion;
-      if (desde < 0 || hasta < 0 || hasta >= sesion.grupos.length) return sesion;
-      const grupos = [...sesion.grupos];
-      [grupos[desde], grupos[hasta]] = [grupos[hasta], grupos[desde]];
-      return { ...sesion, grupos };
-    }));
-    const alternarFoco = (foco: string) => setSesionesPlan((previas) => previas.map((sesion, indice) => {
-      if (indice !== sesionActiva) return sesion;
-      const focos = sesion.focos.includes(foco) ? sesion.focos.filter((item) => item !== foco) : [...sesion.focos, foco];
-      return { ...sesion, focos };
-    }));
-    const gruposActivos = actual.grupos
-      .map((id) => GRUPOS_PLAN.find((grupo) => grupo.id === id))
-      .filter((grupo): grupo is (typeof GRUPOS_PLAN)[number] => Boolean(grupo));
-    const volumenSemanal = GRUPOS_PLAN.map((grupo) => {
-      const sesiones = sesionesPlan.filter((sesion) => sesion.grupos.includes(grupo.id));
-      return {
-        ...grupo,
-        frecuencia: sesiones.length,
-        series: sesiones.reduce((total, sesion) => total + (sesion.seriesPorGrupo?.[grupo.id] ?? seriesSugeridaParaGrupo(nivel, sesion.grupos, grupo.id)), 0),
-      };
-    }).filter((grupo) => grupo.frecuencia > 0);
-    // El enfoque se guarda calificado por su grupo ("Bíceps · Cabeza larga").
-    // Sin eso, "Cabeza larga" de bíceps y de tríceps serían el mismo botón:
-    // marcar uno marcaría los dos y la descripción del día quedaría ambigua.
-    const focosPrincipales = gruposActivos.flatMap((grupo) =>
-      grupo.focos.map((foco) => ({ id: `${grupo.nombre} · ${foco}`, etiqueta: foco, color: grupo.color }))
-    );
-    const focosDisponibles = gruposActivos.some((grupo) => GRUPOS_INFERIORES.has(grupo.id))
-      ? [...focosPrincipales, ...SUBGRUPOS_INFERIOR]
-      : focosPrincipales;
-    return (
-      <div className="space-y-3 rounded-2xl border border-[#303846] bg-[#151922] p-3 text-[#f4f7fb]">
-        <div className="flex items-center justify-between gap-2 border-b border-[#303846] pb-2">
-          <div className="min-w-0">
-            <p className="text-caption truncate font-semibold">{elegidos.length === 1 ? alumno.nombre : `${elegidos.length} alumnos`}</p>
-            <p className="text-micro text-[#a8b2c1]">Paso 2 de 4 · estructura semanal</p>
-          </div>
-          <button type="button" onClick={() => setDisenandoEstructura(false)} className="flex items-center gap-1 text-micro font-semibold text-[#8fb7d8]"><ArrowLeft size={13} /> Atrás</button>
-        </div>
-
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {sesionesPlan.map((sesion, indice) => (
-            <button key={indice} type="button" onClick={() => setSesionActiva(indice)} className={`radius-control shrink-0 border px-3 py-2 text-micro font-semibold ${sesionActiva === indice ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] bg-[#1d222c] text-[#b9c2cf]"}`}>
-              S{indice + 1} {sesion.grupos.length > 0 ? `· ${sesion.grupos.length}` : ""}
-            </button>
-          ))}
-        </div>
-
-        <div>
-          <p className="text-micro mb-2 text-[#a8b2c1]">GRUPOS PRINCIPALES · SESIÓN {sesionActiva + 1}</p>
-          <div className="flex flex-wrap gap-1.5">
-            {GRUPOS_PLAN.map((grupo) => {
-              const activo = actual.grupos.includes(grupo.id);
-              return (
-                <button key={grupo.id} type="button" onClick={() => alternarGrupo(grupo.id)} className={`radius-control flex items-center gap-1.5 border px-2.5 py-2 text-caption ${activo ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] bg-[#1d222c] text-[#c1c9d5]"}`}>
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: grupo.color }} /> {grupo.nombre}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {gruposActivos.length > 0 && (
-          <div className="space-y-1.5 rounded-xl border border-[#394352] bg-[#1d222c] p-2.5">
-            <div className="flex items-center justify-between gap-2"><p className="text-micro text-[#a8b2c1]">ORDEN, EJERCICIOS Y SERIES</p><span className="text-[9px] text-[#8f9aaa]">por grupo/sesión</span></div>
-            {gruposActivos.map((grupo, posicion) => (
-              <div key={grupo.id} className="grid grid-cols-[minmax(100px,1fr)_auto] gap-2 rounded-lg bg-[#151922] p-1.5 text-caption text-[#d9dfe8]">
-                <span className="flex min-w-0 items-center gap-1">
-                  <strong className="grid size-5 shrink-0 place-items-center rounded-full bg-[#314151] text-[9px]">{posicion + 1}</strong>
-                  <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: grupo.color }} /><span className="truncate">{grupo.nombre}</span>
-                  <button type="button" disabled={posicion === 0} aria-label={`Subir ${grupo.nombre}`} onClick={() => moverGrupo(grupo.id, -1)} className="grid size-6 place-items-center disabled:opacity-25"><ArrowUp size={12} /></button>
-                  <button type="button" disabled={posicion === gruposActivos.length - 1} aria-label={`Bajar ${grupo.nombre}`} onClick={() => moverGrupo(grupo.id, 1)} className="grid size-6 place-items-center disabled:opacity-25"><ArrowDown size={12} /></button>
-                </span>
-                <span className="flex items-center gap-1">
-                  <button type="button" aria-label={`Quitar un ejercicio de ${grupo.nombre}`} onClick={() => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, ejerciciosPorGrupo: { ...sesion.ejerciciosPorGrupo, [grupo.id]: Math.max(1, (sesion.ejerciciosPorGrupo[grupo.id] ?? 1) - 1) } } : sesion))} className="grid size-7 place-items-center rounded-lg border border-[#465263] bg-[#151922]">−</button>
-                  <input type="number" min={1} max={6} value={actual.ejerciciosPorGrupo[grupo.id] ?? cantidadSugerida(actual.grupos.length, grupo.id)} onChange={(evento) => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, ejerciciosPorGrupo: { ...sesion.ejerciciosPorGrupo, [grupo.id]: Math.min(6, Math.max(1, Number(evento.target.value) || 1)) } } : sesion))} className="h-7 w-10 rounded-lg border border-[#465263] bg-[#151922] text-center text-caption text-white" />
-                  <button type="button" aria-label={`Agregar un ejercicio de ${grupo.nombre}`} onClick={() => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, ejerciciosPorGrupo: { ...sesion.ejerciciosPorGrupo, [grupo.id]: Math.min(6, (sesion.ejerciciosPorGrupo[grupo.id] ?? 1) + 1) } } : sesion))} className="grid size-7 place-items-center rounded-lg border border-[#465263] bg-[#151922]">+</button>
-                </span>
-                <span className="col-span-2 flex items-center justify-end gap-1 border-t border-[#303846] pt-1">
-                  <span className="mr-auto text-[9px] text-[#8f9aaa]">Series totales de {grupo.nombre}</span>
-                  <button type="button" aria-label={`Quitar una serie de ${grupo.nombre}`} onClick={() => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, seriesPorGrupo: { ...sesion.seriesPorGrupo, [grupo.id]: Math.max(1, (sesion.seriesPorGrupo?.[grupo.id] ?? 2) - 1) } } : sesion))} className="grid size-7 place-items-center rounded-lg border border-[#6b5b3d] bg-[#211d17]">−</button>
-                  <strong className="min-w-14 text-center text-[10px] text-[#f0cf8c]">{actual.seriesPorGrupo?.[grupo.id] ?? seriesSugeridaParaGrupo(nivel, actual.grupos, grupo.id)} series</strong>
-                  <button type="button" aria-label={`Agregar una serie de ${grupo.nombre}`} onClick={() => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, seriesPorGrupo: { ...sesion.seriesPorGrupo, [grupo.id]: Math.min(12, (sesion.seriesPorGrupo?.[grupo.id] ?? 2) + 1) } } : sesion))} className="grid size-7 place-items-center rounded-lg border border-[#6b5b3d] bg-[#211d17]">+</button>
-                </span>
-              </div>
-            ))}
-            <p className="text-[9px] text-[#8f9aaa]">Las series del grupo se reparten entre sus ejercicios; no se multiplican por cada ejercicio.</p>
-            {gruposActivos.length > 1 && <div className="grid grid-cols-2 gap-1.5 pt-1">{(["por_grupos", "cruzado"] as const).map((modo) => <button key={modo} type="button" aria-pressed={actual.organizacion === modo} onClick={() => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, organizacion: modo } : sesion))} className={`rounded-lg border px-2 py-2 text-[10px] font-semibold ${actual.organizacion === modo ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#465263] text-[#a8b2c1]"}`}>{modo === "por_grupos" ? "Por grupos · 1.º, 2.º, 3.º" : "Cruzado · alternar 1–2–3"}</button>)}</div>}
-          </div>
-        )}
-
-        {volumenSemanal.length > 0 && <div className="rounded-xl border border-[#3e4b5a] bg-[#19212b] p-2.5">
-          <p className="text-micro font-semibold text-[#c9d7e5]">CONTROL SEMANAL</p>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">{volumenSemanal.map((grupo) => {
-            const auditar = nivel === "avanzado" || nivel === "olympia";
-            const correcto = grupo.series >= 12 && grupo.series <= (nivel === "olympia" ? 24 : 20) && grupo.frecuencia >= 2 && grupo.frecuencia <= 3;
-            return <span key={grupo.id} className={`rounded-lg border px-2 py-1 text-[9px] ${auditar ? (correcto ? "border-[#3f7059] text-[#9bd2b4]" : "border-[#765d39] text-[#e2bd7a]") : "border-[#465263] text-[#b9c2cf]"}`}>{grupo.nombre}: {grupo.series} series · {grupo.frecuencia}×</span>;
-          })}</div>
-          <p className="mt-1.5 text-[9px] text-[#8f9aaa]">Referencia avanzada/Olympia: 12–20 series semanales por grupo y frecuencia 2–3×. Olympia puede superar levemente ese rango.</p>
-        </div>}
-
-        {focosDisponibles.length > 0 && (
-          <div className="border-l-2 border-[#6f9bc6] bg-[#1c2733] p-2.5">
-            <p className="text-micro mb-2 text-[#a9bdd0]">SUBGRUPOS Y ENFOQUES · opcional</p>
-            <div className="flex flex-wrap gap-1.5">
-              {focosDisponibles.map((foco) => (
-                <button key={foco.id} type="button" onClick={() => alternarFoco(foco.id)} className={`radius-control flex items-center gap-1.5 border px-2 py-1.5 text-micro ${actual.focos.includes(foco.id) ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] bg-[#151922] text-[#a8b2c1]"}`}>
-                  <span className="size-1.5 rounded-full" style={{ backgroundColor: foco.color }} />{foco.etiqueta}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {sesionActiva < sesionesPlan.length - 1 && (
-          <div className="radius-control border border-[#3e5c54] bg-[#1d2d29] p-2.5">
-            <label className="flex cursor-pointer items-center gap-2 text-caption text-[#c4e3da]">
-              <input type="checkbox" checked={actual.descansoDespues} onChange={(evento) => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, descansoDespues: evento.target.checked } : sesion))} />
-              <Coffee size={14} className="text-[#76a98a]" /> Insertar descanso después de esta sesión
-            </label>
-            {actual.descansoDespues && (
-              <select value={actual.tipoDescanso} onChange={(evento) => setSesionesPlan((previas) => previas.map((sesion, indice) => indice === sesionActiva ? { ...sesion, tipoDescanso: evento.target.value } : sesion))} className="mt-2 w-full rounded-lg border border-[#46645c] bg-[#151922] px-2 py-2 text-caption text-[#d8eee8]">
-                <option>Descanso total</option><option>Recuperación activa</option><option>Movilidad o cardio ligero</option>
-              </select>
-            )}
-          </div>
-        )}
-
-        <div className="flex items-center justify-between gap-2 border-t border-[#303846] pt-3">
-          <p className="text-micro text-[#a8b2c1]">{sesionesPlan.length} sesiones · {sesionesPlan.filter((sesion) => sesion.descansoDespues).length} descansos</p>
-          <Button size="xs" onClick={crearDesdeEstructura} disabled={sesionesPlan.some((sesion) => sesion.grupos.length === 0)} disabledReason="Elige al menos un grupo en cada sesión" className="!bg-[#466f91] !text-white">
-            Elegir ejercicios
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-2">
-      {(seleccionando || seleccionados.size === 0) ? <Card padding="p-3" className="space-y-2">
+      <Card padding="p-3" className="space-y-2">
         <div>
           <div className="mb-1 flex items-center justify-between gap-2">
             <p className="text-secondary font-medium text-text">1. ¿Para quién?</p>
@@ -763,145 +458,16 @@ export function ArmarRutinaPanel({
         <Button
           size="xs"
           className="!bg-[#2f6fa8] !text-white"
-          onClick={() => setSeleccionando(false)}
-          disabled={seleccionados.size === 0}
-          disabledReason="Elegí al menos un alumno"
-        >
-          Continuar <Check size={15} />
-        </Button>
-      </Card> : (
-        <div className="radius-control flex items-center gap-2 border border-border bg-surface px-2.5 py-2">
-          <div className="min-w-0 flex-1">
-            <p className="text-caption truncate font-semibold text-text">
-              {elegidos.length === 1 ? alumno?.nombre : `${elegidos.length} alumnos`}
-            </p>
-            <p className="text-micro truncate text-text-tertiary">
-              {alumno?.plan ? `${alumno.plan.nombre} · ${dias} sesiones · ${minutos} min` : `${dias} sesiones · ${minutos} min`}
-            </p>
-          </div>
-          <button type="button" onClick={() => setSeleccionando(true)} className="text-caption font-semibold text-[#4f83b7]">
-            Cambiar
-          </button>
-        </div>
-      )}
-
-      {!seleccionando && seleccionados.size > 0 && <Card padding="p-3" className="space-y-3">
-        <div>
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-caption font-semibold text-text">¿Cómo quieres comenzar?</p>
-            <button type="button" onClick={() => setSeleccionando(true)} className="flex items-center gap-1 text-micro font-semibold text-[#8fb7d8]"><ArrowLeft size={13} /> Atrás</button>
-          </div>
-          <p className="text-micro mt-0.5 text-text-tertiary">Manual manda. La base VIP es solo un punto de partida editable.</p>
-        </div>
-        <div>
-          <p className="text-micro mb-1.5 text-text-tertiary">NIVEL DEL ALUMNO</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {NIVELES.map((opcion) => {
-              const activo = nivel === opcion;
-              return (
-                <button
-                  key={opcion}
-                  type="button"
-                  aria-pressed={activo}
-                  onClick={() => {
-                    setNivel(opcion);
-                    if (!configuracionManual) {
-                      setSeriesManuales(RECOMENDACION_NIVEL[opcion].series);
-                      setRepeticionesManuales(RECOMENDACION_NIVEL[opcion].bases);
-                    }
-                  }}
-                  className={`rounded-xl border p-2.5 text-left transition ${activo ? "border-vip bg-vip/10 ring-2 ring-vip/10" : "border-border bg-surface-2 hover:border-vip/40"}`}
-                >
-                  <span className={`block text-caption font-bold ${activo ? "text-vip" : "text-text"}`}>{NIVELES_ARMADO[opcion].etiqueta}</span>
-                  <span className="mt-1 block text-[9px] leading-relaxed text-text-tertiary">{seriesSugeridasPorSesion(opcion, 1)[0]} series/grupo · {RECOMENDACION_NIVEL[opcion].bases} reps</span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-micro mt-1.5 text-text-tertiary">{NIVELES_ARMADO[nivel].descripcion}</p>
-        </div>
-
-        <div className="radius-control border border-[#394352] bg-[#151922] p-2.5">
-          <p className="text-caption font-semibold text-[#eef2f7]">Series totales por grupo muscular en cada sesión</p>
-          <p className="mt-0.5 text-[10px] text-[#a8b2c1]">Se reparten entre los ejercicios del grupo · bases {RECOMENDACION_NIVEL[nivel].bases} reps · accesorios {RECOMENDACION_NIVEL[nivel].accesorios} reps</p>
-          <div className="mt-2 grid grid-cols-3 gap-1 text-center text-[9px] text-[#9eabbc]">
-            <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">1 músculo</strong>{seriesSugeridasPorSesion(nivel, 1).join(" series")}</div>
-            <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">2 músculos</strong>{seriesSugeridasPorSesion(nivel, 2).join(" + ")} series</div>
-            <div className="rounded-lg bg-[#1d222c] p-1.5"><strong className="block text-[#dce5ef]">3 músculos</strong>{seriesSugeridasPorSesion(nivel, 3).join(" + ")} series</div>
-          </div>
-          <p className="mt-2 text-[9px] text-[#8f9aaa]">Podrás ajustar músculo por músculo, elegir cuál va primero y decidir entre orden por grupos o cruzado en el siguiente paso.</p>
-        </div>
-
-        <section className="rounded-xl border border-border bg-surface-2 p-2.5">
-          <div className="mb-2 flex items-center gap-2 text-caption font-semibold text-text-secondary">
-            <SlidersHorizontal size={14} className="text-[#4f83b7]" /> Sesiones y duración
-          </div>
-          <div className="space-y-3">
-          <div>
-          <p className="text-micro text-text-tertiary">DÍAS POR SEMANA</p>
-          <div className="mt-1 flex gap-1">
-            {DIAS.map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setDias(d)}
-                aria-pressed={dias === d}
-                className={`radius-control flex-1 py-2 text-caption font-semibold ${
-                  dias === d ? "bg-[#dbeafe] text-[#214f7d]" : "bg-surface-2 text-text-secondary"
-                }`}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-          </div>
-          <div>
-          <p className="text-micro text-text-tertiary">MINUTOS POR SESIÓN</p>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {MINUTOS.map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMinutos(m)}
-                aria-pressed={minutos === m}
-                className={`radius-control flex-1 py-2 text-caption font-semibold ${
-                  minutos === m ? "bg-[#dbeafe] text-[#214f7d]" : "bg-surface-2 text-text-secondary"
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-          </div>
-          </div>
-        </section>
-        {alumno?.plan && dias !== alumno.plan.diasSemana && (
-          <p className="text-caption text-warning">
-            El plan de {alumno.nombre} es de {alumno.plan.diasSemana} días por semana y estás armando {dias}.
-          </p>
-        )}
-      </Card>}
-
-      {error && <p className="text-caption text-error">{error}</p>}
-      {!seleccionando && seleccionados.size > 0 && <div className="grid gap-2 sm:grid-cols-2">
-        <Button
-          onClick={empezarVacia}
-          className="!bg-[#2f6fa8] !text-white"
-          disabled={seleccionados.size === 0}
-          disabledReason="Elegí al menos un alumno"
-        >
-          <PencilRuler size={18} /> Diseñar estructura
-        </Button>
-        <Button
-          variant="secondary"
           onClick={armar}
           loading={pendiente}
           disabled={seleccionados.size === 0}
           disabledReason="Elegí al menos un alumno"
         >
-          {pendiente ? "Preparando…" : "Usar base VIP"}
+          {pendiente ? "Preparando…" : <>Continuar <Check size={15} /></>}
         </Button>
-      </div>}
+      </Card>
+
+      {error && <p className="text-caption text-error">{error}</p>}
     </div>
   );
 }

@@ -97,6 +97,7 @@ export default async function ArmarRutinaPage() {
         ejercicios={ejercicios.map((e) => ({
           id: e.id,
           nombre: e.nombre,
+          aliases: e.aliases,
           grupo: e.grupoMuscular,
           equipo: e.equipo,
           patronMovimiento: e.patronMovimiento,

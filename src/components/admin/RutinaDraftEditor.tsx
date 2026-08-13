@@ -1,11 +1,12 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search, Copy, RefreshCcw, Check, AlertTriangle, CircleCheckBig, WandSparkles, GripVertical, Users, X } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search, Copy, RefreshCcw, Check, AlertTriangle, CircleCheckBig, WandSparkles, GripVertical, Users, X, Pencil, ClipboardPaste } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { publicarRutinaAVariosAlumnos } from "@/app/admin/archivos/actions";
+import { importarRutinaDesdeTexto } from "@/app/admin/generador/actions";
 import { obtenerListaAlumnosBasica, type AlumnoBasico } from "@/app/admin/alumnos/rutinaTexto";
 import { RevisionIAPanel } from "@/components/admin/RevisionIAPanel";
 import { BotonDictado } from "@/components/admin/BotonDictado";
@@ -17,6 +18,7 @@ import { PLANES_ENTRENAMIENTO, type CodigoPlanEntrenamiento } from "@/lib/planes
 import { esBaseEstructural, patronMovimiento, prioridadEstructural, type PatronMovimiento } from "@/lib/rutinas/patrones";
 import { detectarHallazgosRutina, type HallazgoRutina } from "@/lib/rutinas/validacion";
 import { NIVELES_ARMADO, type NivelArmado } from "@/lib/generador-rutinas/niveles-armado";
+import { FORMATO_RUTINA_SIN_IA } from "@/lib/generador-rutinas/importar-texto-estructurado";
 import {
   guardarBorradorArmado,
   leerBorradorArmado,
@@ -40,6 +42,7 @@ export type RevisarRutinaFn = (
 export type EjercicioBiblioteca = {
   id: string;
   nombre: string;
+  aliases?: string[];
   grupo: string;
   equipo: string;
   patronMovimiento?: PatronMovimiento | null;
@@ -643,6 +646,7 @@ function EjercicioForm({
   onRemove,
   onEncadenar,
   nivelArmado = "estandar",
+  selectorAbiertoInicial = false,
 }: {
   numero: number;
   ejercicio: Ejercicio;
@@ -657,12 +661,14 @@ function EjercicioForm({
    * varios seguidos. Lo resuelve el día, que es quien los conoce a todos. */
   onEncadenar?: (nombre: string, cantidad: number) => void;
   nivelArmado?: NivelArmado;
+  /** Desde la mesa, tocar el nombre lleva directo a la biblioteca. */
+  selectorAbiertoInicial?: boolean;
 }) {
   // El resumen útil queda siempre visible. Técnica, observación y progresión
   // empiezan cerradas para que una rutina de 30 ejercicios no obligue a
   // recorrer una página interminable.
   const [ampliado, setAmpliado] = useState(false);
-  const [eligiendo, setEligiendo] = useState(false);
+  const [eligiendo, setEligiendo] = useState(selectorAbiertoInicial);
   const [eligiendoTecnica, setEligiendoTecnica] = useState(false);
   const colorTecnica = colorTecnicaVisual(ejercicio.tecnicaTipo);
   /** Superserie, biserie, triserie, circuito, giant set: encadenan ejercicios
@@ -1008,6 +1014,9 @@ export function VistaPreviaEstructurada({
   hallazgos = [],
   diaActivo = 0,
   onCambiarDia,
+  onActualizarDia,
+  onReordenarDia,
+  onCambiarMusculosDia,
   nivelArmado = "estandar",
   configuracionArmado,
 }: {
@@ -1047,6 +1056,10 @@ export function VistaPreviaEstructurada({
   /** En la mesa manual se muestra una sola sesión para evitar el scroll. */
   diaActivo?: number;
   onCambiarDia?: (diaIdx: number) => void;
+  /** Edición de la sesión desde la misma mesa, sin volver al asistente. */
+  onActualizarDia?: (diaIdx: number, cambios: Partial<Dia>) => void;
+  onReordenarDia?: (desde: number, hasta: number) => void;
+  onCambiarMusculosDia?: (diaIdx: number, objetivos: ObjetivoAutomatico[]) => void;
   nivelArmado?: NivelArmado;
   configuracionArmado?: ConfiguracionArmado;
 }) {
@@ -1054,6 +1067,7 @@ export function VistaPreviaEstructurada({
   // así, al insertar uno nuevo, alcanza con apuntar a su posición para que
   // aparezca ya abierto (ver `insertar` más abajo).
   const [editando, setEditando] = useState<{ dia: number; ej: number } | null>(null);
+  const [selectorDirecto, setSelectorDirecto] = useState<{ dia: number; ej: number } | null>(null);
   const [varitaDia, setVaritaDia] = useState<number | null>(null);
   /** Pedido de Alejandro: "por qué tuve que cambiar todas las series de los
    * ejercicios de la semana, perdí mucho tiempo" — "Ajustes rápidos por
@@ -1065,6 +1079,10 @@ export function VistaPreviaEstructurada({
   const [aplicarATodaLaSemana, setAplicarATodaLaSemana] = useState(false);
   const [arrastrando, setArrastrando] = useState<{ dia: number; desde: number; sobre: number } | null>(null);
   const arrastrandoRef = useRef<{ dia: number; desde: number; sobre: number } | null>(null);
+  const [sesionArrastrando, setSesionArrastrando] = useState<{ desde: number; sobre: number } | null>(null);
+  const sesionArrastrandoRef = useRef<{ desde: number; sobre: number } | null>(null);
+  const [editandoSesion, setEditandoSesion] = useState<number | null>(null);
+  const [musculosSesion, setMusculosSesion] = useState<ObjetivoAutomatico[]>([]);
   const [alcanceAutomatico, setAlcanceAutomatico] = useState<AlcanceAutomatico>("sesion");
   const [estiloAutomatico, setEstiloAutomatico] = useState<EstiloAutomatico>("balance_vip");
   const [organizacionAutomatica, setOrganizacionAutomatica] = useState<OrganizacionAutomatica>("por_grupos");
@@ -1079,6 +1097,7 @@ export function VistaPreviaEstructurada({
   const insertar = (diaIdx: number, posicion: number) => {
     onInsertarEjercicio(diaIdx, posicion);
     setEditando({ dia: diaIdx, ej: posicion });
+    setSelectorDirecto({ dia: diaIdx, ej: posicion });
   };
 
   const iniciarArrastre = (dia: number, desde: number, evento: React.PointerEvent<HTMLButtonElement>) => {
@@ -1104,30 +1123,70 @@ export function VistaPreviaEstructurada({
     setArrastrando(null);
   };
 
+  const abrirEdicionSesion = (diaIdx: number) => {
+    const objetivos = objetivosMuscularesDia(draft.dias[diaIdx]).filter((objetivo) => objetivo !== "cardio");
+    setMusculosSesion(objetivos);
+    setEditandoSesion((actual) => actual === diaIdx ? null : diaIdx);
+  };
+
+  const seleccionarSesion = (diaIdx: number) => {
+    onCambiarDia?.(diaIdx);
+    if (draft.dias[diaIdx]?.tipo === "entrenamiento" && onActualizarDia) abrirEdicionSesion(diaIdx);
+  };
+
+  const iniciarArrastreSesion = (desde: number, evento: React.PointerEvent<HTMLButtonElement>) => {
+    evento.currentTarget.setPointerCapture(evento.pointerId);
+    const estado = { desde, sobre: desde };
+    sesionArrastrandoRef.current = estado;
+    setSesionArrastrando(estado);
+  };
+  const moverArrastreSesion = (evento: React.PointerEvent<HTMLButtonElement>) => {
+    const estado = sesionArrastrandoRef.current;
+    if (!estado) return;
+    const elemento = document.elementFromPoint(evento.clientX, evento.clientY)?.closest<HTMLElement>("[data-sesion-indice]");
+    const sobre = Number(elemento?.dataset.sesionIndice);
+    if (!Number.isInteger(sobre) || sobre === estado.sobre) return;
+    const siguiente = { ...estado, sobre };
+    sesionArrastrandoRef.current = siguiente;
+    setSesionArrastrando(siguiente);
+  };
+  const terminarArrastreSesion = () => {
+    const estado = sesionArrastrandoRef.current;
+    if (estado && estado.desde !== estado.sobre) onReordenarDia?.(estado.desde, estado.sobre);
+    sesionArrastrandoRef.current = null;
+    setSesionArrastrando(null);
+  };
+
   const indicesVisibles = expandida
-    ? [Math.min(Math.max(0, diaActivo), Math.max(0, draft.dias.length - 1))]
+    ? (draft.dias.length > 0 ? [Math.min(Math.max(0, diaActivo), draft.dias.length - 1)] : [])
     : draft.dias.map((_, indice) => indice);
+  const controlSemanal = (Object.keys(ETIQUETA_OBJETIVO) as ObjetivoAutomatico[]).filter((objetivo) => objetivo !== "cardio").map((objetivo) => {
+    const sesiones = draft.dias.filter((dia) => dia.tipo === "entrenamiento" && dia.ejercicios.some((ejercicio) => objetivoDePatron(ejercicio.patronMovimiento ?? patronMovimiento(ejercicio.nombre, ejercicio.grupoMuscular)) === objetivo));
+    const series = sesiones.reduce((total, dia) => total + dia.ejercicios.filter((ejercicio) => objetivoDePatron(ejercicio.patronMovimiento ?? patronMovimiento(ejercicio.nombre, ejercicio.grupoMuscular)) === objetivo).reduce((subtotal, ejercicio) => subtotal + ejercicio.series, 0), 0);
+    return { objetivo, frecuencia: sesiones.length, series };
+  }).filter((item) => item.frecuencia > 0);
 
   return (
     <div className={expandida ? "space-y-2" : "max-h-[34rem] space-y-3 overflow-y-auto pr-1"}>
       {!expandida && <p className="text-card-title font-bold text-text">{draft.nombreRutina}</p>}
-      {expandida && draft.dias.length > 1 && (
-        <div className="flex gap-1 overflow-x-auto pb-1">
+      {expandida && draft.dias.length > 0 && (
+        <div className="flex gap-1 overflow-x-auto pb-1" aria-label="Orden de las sesiones">
           {draft.dias.map((dia, indice) => {
             const errores = hallazgos.filter((hallazgo) => hallazgo.diaIndice === indice && hallazgo.severidad === "error").length;
+            const numeroSesion = draft.dias.slice(0, indice + 1).filter((item) => item.tipo === "entrenamiento").length;
+            const siguiente = draft.dias[indice + 1];
+            const puedeInsertarDescanso = Boolean(onInsertarDescanso && dia.tipo === "entrenamiento" && siguiente?.tipo === "entrenamiento");
             return (
-              <button
-                key={`${dia.numero}-${indice}`}
-                type="button"
-                onClick={() => onCambiarDia?.(indice)}
-                aria-pressed={diaActivo === indice}
-                className={`radius-control flex shrink-0 items-center gap-1 border px-2 py-1.5 text-[10px] font-semibold ${
-                  diaActivo === indice ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#394352] bg-[#1d222c] text-[#b9c2cf]"
-                }`}
-              >
-                <span className={`size-1.5 rounded-full ${errores ? "bg-error" : "bg-success"}`} />
-                S{indice + 1} · {dia.nombre || "Sin nombre"}
-              </button>
+              <Fragment key={`${dia.numero}-${indice}`}>
+                <div data-sesion-indice={indice} className={`radius-control flex shrink-0 overflow-hidden border ${sesionArrastrando?.sobre === indice ? "border-[#78a6d1] bg-[#26384a]" : diaActivo === indice ? "border-[#78a6d1] bg-[#243c55]" : dia.tipo === "descanso" ? "border-[#46645c] bg-[#18251f]" : "border-[#394352] bg-[#1d222c]"}`}>
+                  <button type="button" onClick={() => seleccionarSesion(indice)} aria-pressed={diaActivo === indice} aria-expanded={editandoSesion === indice} className={`flex items-center gap-1 px-2 py-1.5 text-[10px] font-semibold ${diaActivo === indice ? "text-[#d9ecff]" : dia.tipo === "descanso" ? "text-[#9dc9b9]" : "text-[#b9c2cf]"}`}>
+                    <span className={`size-1.5 rounded-full ${dia.tipo === "descanso" ? "bg-[#76a98a]" : errores ? "bg-error" : "bg-success"}`} />
+                    {dia.tipo === "descanso" ? dia.nombre || "Descanso" : `S${numeroSesion} · ${dia.nombre || "Sin nombre"}`}
+                  </button>
+                  {onReordenarDia && <button type="button" aria-label={`Mover ${dia.tipo === "descanso" ? "descanso" : `sesión ${numeroSesion}`}`} title="Mantén presionado y arrastra para cambiar el orden" onPointerDown={(evento) => iniciarArrastreSesion(indice, evento)} onPointerMove={moverArrastreSesion} onPointerUp={terminarArrastreSesion} onPointerCancel={terminarArrastreSesion} className="grid w-7 touch-none place-items-center border-l border-white/10 text-[#8795a6] active:bg-[#36516d] active:text-white"><GripVertical size={13} /></button>}
+                </div>
+                {puedeInsertarDescanso && <button type="button" onClick={() => onInsertarDescanso?.(indice + 1)} aria-label={`Agregar descanso entre sesión ${numeroSesion} y sesión ${numeroSesion + 1}`} title="Agregar descanso aquí" className="flex h-7 shrink-0 items-center gap-0.5 self-center rounded-full border border-[#46645c] bg-[#18251f] px-1.5 text-[8px] font-semibold text-[#9dc9b9] active:bg-[#29443a]"><Plus size={9} /> descanso</button>}
+              </Fragment>
             );
           })}
         </div>
@@ -1140,7 +1199,7 @@ export function VistaPreviaEstructurada({
         <section id={`rutina-dia-${diaIdx}`} className={`scroll-mt-24 overflow-hidden ${expandida ? "" : "radius-control border border-border"}`}>
           <div className={`flex items-center justify-between gap-2 px-1 py-1.5 ${expandida ? "border-b border-border" : "bg-surface-2"}`}>
             <p className="text-caption truncate font-bold text-[#6f9bc6]">SESIÓN {dia.numero} · {dia.nombre}</p>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5">
               <span className="text-micro text-text-tertiary">
                 {dia.tipo === "descanso" ? "Descanso" : `${dia.ejercicios.length} ejercicios`}
               </span>
@@ -1158,10 +1217,15 @@ export function VistaPreviaEstructurada({
                   <WandSparkles size={12} /> Rellenar cupos
                 </button>
               )}
-              {onQuitarDia && draft.dias.length > 1 && (
+              {onActualizarDia && dia.tipo === "entrenamiento" && (
+                <button type="button" onClick={() => abrirEdicionSesion(diaIdx)} aria-expanded={editandoSesion === diaIdx} aria-label={`Editar sesión ${diaIdx + 1}`} className={`grid size-6 place-items-center rounded-full border ${editandoSesion === diaIdx ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-border text-text-tertiary"}`}>
+                  <Pencil size={12} />
+                </button>
+              )}
+              {onQuitarDia && (
                 <button
                   type="button"
-                  onClick={() => onQuitarDia(diaIdx)}
+                  onClick={() => { onQuitarDia(diaIdx); setEditandoSesion(null); }}
                   aria-label={`Quitar el día ${dia.numero}`}
                   title="Quitar este día"
                   className="grid size-6 place-items-center rounded-full border border-border text-text-tertiary active:bg-error active:text-white"
@@ -1171,6 +1235,32 @@ export function VistaPreviaEstructurada({
               )}
             </div>
           </div>
+          {editandoSesion === diaIdx && onActualizarDia && dia.tipo === "entrenamiento" && (
+            <div className="space-y-2 border-b border-[#3d5368] bg-[#151b23] px-2 py-2.5">
+              <div className="flex items-center gap-1.5">
+                <label className="text-[9px] font-semibold uppercase text-[#91a0b2]" htmlFor={`nombre-sesion-${diaIdx}`}>Nombre</label>
+                <input id={`nombre-sesion-${diaIdx}`} value={dia.nombre} onChange={(evento) => onActualizarDia(diaIdx, { nombre: evento.target.value })} className="h-7 min-w-0 flex-1 rounded-lg border border-[#465263] bg-[#10151c] px-2 text-[11px] font-semibold text-white" />
+                {onReordenarDia && <>
+                  <button type="button" onClick={() => diaIdx > 0 && onReordenarDia(diaIdx, diaIdx - 1)} disabled={diaIdx === 0} aria-label="Mover sesión a la izquierda" className="grid size-7 place-items-center rounded-lg border border-[#465263] text-[#aeb8c6] disabled:opacity-30"><ChevronRight size={13} className="rotate-180" /></button>
+                  <button type="button" onClick={() => diaIdx < draft.dias.length - 1 && onReordenarDia(diaIdx, diaIdx + 1)} disabled={diaIdx === draft.dias.length - 1} aria-label="Mover sesión a la derecha" className="grid size-7 place-items-center rounded-lg border border-[#465263] text-[#aeb8c6] disabled:opacity-30"><ChevronRight size={13} /></button>
+                </>}
+              </div>
+              {onCambiarMusculosDia && <>
+                <p className="text-[9px] leading-relaxed text-[#91a0b2]">Músculos de la sesión. Al aplicar, los ejercicios que ya no correspondan quedan como cupos para volver a elegirlos.</p>
+                <div className="flex flex-wrap gap-1">
+                  {(Object.keys(ETIQUETA_OBJETIVO) as ObjetivoAutomatico[]).filter((objetivo) => objetivo !== "cardio").map((objetivo) => {
+                    const activo = musculosSesion.includes(objetivo);
+                    return <button key={objetivo} type="button" aria-pressed={activo} onClick={() => setMusculosSesion((actual) => activo ? actual.filter((item) => item !== objetivo) : [...actual, objetivo])} className={`rounded-md border px-1.5 py-1 text-[9px] font-semibold ${activo ? "border-[#78a6d1] bg-[#243c55] text-[#d9ecff]" : "border-[#465263] bg-[#10151c] text-[#aeb8c6]"}`}>{ETIQUETA_OBJETIVO[objetivo]}</button>;
+                  })}
+                </div>
+                <button type="button" disabled={musculosSesion.length === 0} onClick={() => onCambiarMusculosDia(diaIdx, musculosSesion)} className="flex h-7 w-full items-center justify-center gap-1 rounded-lg border border-[#587c9c] bg-[#203246] text-[10px] font-bold text-[#cde7ff] disabled:opacity-40"><Check size={12} /> Aplicar músculos</button>
+              </>}
+              {controlSemanal.length > 0 && <details className="rounded-lg border border-[#394352] bg-[#10151c] p-2">
+                <summary className="cursor-pointer text-[9px] font-semibold uppercase text-[#91a0b2]">Control semanal</summary>
+                <div className="mt-1.5 flex flex-wrap gap-1">{controlSemanal.map((item) => <span key={item.objetivo} className="rounded-md border border-[#465263] px-1.5 py-1 text-[8px] text-[#b9c2cf]">{ETIQUETA_OBJETIVO[item.objetivo]}: {item.series} series · {item.frecuencia}×</span>)}</div>
+              </details>}
+            </div>
+          )}
           {/* Series y descanso de todo un grupo del día, de un toque, en vez de
               abrir ejercicio por ejercicio. Los valores son los que se usan de
               verdad en sala; el que quiera otro sigue teniendo el lápiz. */}
@@ -1187,58 +1277,60 @@ export function VistaPreviaEstructurada({
                 />
                 Aplicar a toda la semana, no solo este día
               </label>
-              <div className="flex flex-wrap items-center gap-1.5 px-1 pb-2">
+              <div className="space-y-1 px-1 pb-2">
               {Array.from(new Set(dia.ejercicios.map((e) => grupoVisual(e).etiqueta))).map((etiqueta) => {
                 const color = dia.ejercicios.map(grupoVisual).find((v) => v.etiqueta === etiqueta)?.color;
+                const ejerciciosGrupo = dia.ejercicios.filter((e) => grupoVisual(e).etiqueta === etiqueta);
+                const valorUnico = <T,>(valores: T[]): T | "" => valores.length > 0 && valores.every((valor) => valor === valores[0]) ? valores[0] : "";
+                const seriesActuales = valorUnico(ejerciciosGrupo.map((e) => e.series));
+                const repsActuales = valorUnico(ejerciciosGrupo.map((e) => e.reps));
+                const descansoActual = valorUnico(ejerciciosGrupo.map((e) => e.descansoSegundos ?? 0));
                 return (
-                  <div key={etiqueta} className="flex items-center gap-1">
-                    <span className="text-[9px] font-bold uppercase" style={{ color }}>
+                  <div key={etiqueta} className="grid grid-cols-[minmax(4.5rem,1fr)_3.25rem_4.25rem_3.5rem] items-center gap-1">
+                    <span className="truncate text-[9px] font-bold uppercase" style={{ color }}>
                       {etiqueta}
                     </span>
                     <select
                       aria-label={`Series de todo ${etiqueta} en el día ${dia.numero}`}
-                      defaultValue=""
+                      value={seriesActuales}
                       onChange={(e) => {
                         if (e.target.value)
                           onAplicarAGrupo(diaIdx, etiqueta, "series", Number(e.target.value), aplicarATodaLaSemana);
-                        e.target.value = "";
                       }}
-                      className="radius-control border border-border bg-surface-2 px-1 py-0.5 text-[10px] text-text-secondary"
+                      className="h-7 min-w-0 rounded-md border border-border bg-surface-2 px-1 text-center text-[9px] text-text-secondary"
                     >
-                      <option value="">series…</option>
+                      <option value="">S</option>
                       {[2, 3, 4, 5, 6].map((s) => (
                         <option key={s} value={s}>
-                          {s} series
+                          {s}
                         </option>
                       ))}
                     </select>
                     <select
                       aria-label={`Repeticiones de todo ${etiqueta} en el día ${dia.numero}`}
-                      defaultValue=""
+                      value={repsActuales}
                       onChange={(e) => {
                         if (e.target.value) onAplicarAGrupo(diaIdx, etiqueta, "reps", e.target.value, aplicarATodaLaSemana);
-                        e.target.value = "";
                       }}
-                      className="radius-control border border-border bg-surface-2 px-1 py-0.5 text-[10px] text-text-secondary"
+                      className="h-7 min-w-0 rounded-md border border-border bg-surface-2 px-1 text-center text-[9px] text-text-secondary"
                     >
-                      <option value="">reps…</option>
+                      <option value="">R</option>
                       {["6-8", "8-10", "8-12", "10-12", "10-15", "12-15", "15-20"].map((r) => (
                         <option key={r} value={r}>
-                          {r} reps
+                          {r}
                         </option>
                       ))}
                     </select>
                     <select
                       aria-label={`Descanso de todo ${etiqueta} en el día ${dia.numero}`}
-                      defaultValue=""
+                      value={descansoActual}
                       onChange={(e) => {
                         if (e.target.value)
                           onAplicarAGrupo(diaIdx, etiqueta, "descansoSegundos", Number(e.target.value), aplicarATodaLaSemana);
-                        e.target.value = "";
                       }}
-                      className="radius-control border border-border bg-surface-2 px-1 py-0.5 text-[10px] text-text-secondary"
+                      className="h-7 min-w-0 rounded-md border border-border bg-surface-2 px-1 text-center text-[9px] text-text-secondary"
                     >
-                      <option value="">descanso…</option>
+                      <option value="">D</option>
                       {[30, 45, 60, 90, 120, 150, 180].map((s) => (
                         <option key={s} value={s}>
                           {s}s
@@ -1349,6 +1441,7 @@ export function VistaPreviaEstructurada({
                           }
                           onChange={(e) => onActualizarEjercicio(diaIdx, indice, e)}
                           nivelArmado={nivelArmado}
+                          selectorAbiertoInicial={selectorDirecto?.dia === diaIdx && selectorDirecto.ej === indice}
                           onRemove={() => {
                             onQuitarEjercicio(diaIdx, indice);
                             setEditando(null);
@@ -1362,7 +1455,7 @@ export function VistaPreviaEstructurada({
                       >
                         <div className="flex min-w-0 items-center gap-1.5 pl-1">
                           <span className="text-micro w-4 shrink-0 text-right font-semibold text-text-tertiary">{indice + 1}.</span>
-                          <button type="button" onClick={() => setEditando({ dia: diaIdx, ej: indice })} className="text-caption min-w-0 flex-1 truncate text-left" style={{ color: visual.color, fontWeight: 800 }}>
+                          <button type="button" onClick={() => { setEditando({ dia: diaIdx, ej: indice }); setSelectorDirecto({ dia: diaIdx, ej: indice }); }} className="text-caption min-w-0 flex-1 truncate text-left" style={{ color: visual.color, fontWeight: 800 }}>
                             {ejercicio.nombre || `Cupo de ${visual.etiqueta} · toca para elegir`}
                           </button>
                           <span className="text-[9px] shrink-0 text-text-secondary">
@@ -1426,13 +1519,23 @@ export function VistaPreviaEstructurada({
         )}
         </Fragment>
       );})}
-      {onAgregarDia && (
+      {draft.dias.length === 0 && (onAgregarDia || onInsertarDescanso) && (
+        <div className="radius-control space-y-2 border border-dashed border-[#587c9c] bg-[#151b23] p-3 text-center">
+          <p className="text-caption font-semibold text-[#c9d7e5]">La rutina quedó vacía</p>
+          <p className="text-[9px] text-[#8f9aaa]">Puedes volver a construirla desde aquí.</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {onAgregarDia && <button type="button" onClick={onAgregarDia} className="flex h-8 items-center justify-center gap-1 rounded-lg border border-[#587c9c] bg-[#203246] text-[10px] font-semibold text-[#cde7ff]"><Plus size={12} /> Agregar sesión</button>}
+            {onInsertarDescanso && <button type="button" onClick={() => onInsertarDescanso(0)} className="flex h-8 items-center justify-center gap-1 rounded-lg border border-[#46645c] bg-[#18251f] text-[10px] font-semibold text-[#9dc9b9]"><Plus size={12} /> Agregar descanso</button>}
+          </div>
+        </div>
+      )}
+      {onAgregarDia && draft.dias.length > 0 && (
         <button
           type="button"
           onClick={onAgregarDia}
           className="radius-control flex w-full items-center justify-center gap-1.5 border border-dashed border-[#587c9c] bg-[#19232e] py-3 text-caption font-semibold text-[#9fc4e3]"
         >
-          <Plus size={15} /> Agregar otro día
+          <Plus size={15} /> Agregar otra sesión
         </button>
       )}
       <p className="text-caption text-right font-semibold text-text-secondary">— Alejandro Mendoza · Método VIP Fitness</p>
@@ -1505,7 +1608,12 @@ export function RutinaDraftEditor({
   tecnicas,
   planInicial,
   nivelArmado = "estandar",
+  onCambiarNivel,
+  minutosSesion,
+  onCambiarMinutosSesion,
   configuracionArmado,
+  deshacerSignal = 0,
+  onPuedeDeshacer,
 }: {
   /** Herramienta de armado manual: la vista previa deja de ser una vista y
    * pasa a ser la mesa de trabajo — a lo ancho, siempre abierta y con los
@@ -1522,9 +1630,16 @@ export function RutinaDraftEditor({
   planInicial?: CodigoPlanEntrenamiento;
   /** Ajusta únicamente las fórmulas sugeridas al elegir una fila vacía. */
   nivelArmado?: NivelArmado;
+  onCambiarNivel?: (nivel: NivelArmado) => void;
+  minutosSesion?: number;
+  onCambiarMinutosSesion?: (minutos: number) => void;
   /** Decisiones tomadas en los pasos anteriores; la Varita las consume sin
    * volver a preguntarlas. */
   configuracionArmado?: ConfiguracionArmado;
+  /** Permite ubicar el control global en la cabecera del flujo de armado,
+   * junto a Ficha, aunque el estado editable viva dentro de este componente. */
+  deshacerSignal?: number;
+  onPuedeDeshacer?: (puede: boolean) => void;
   alumnoIds: string[];
   draftInicial: RutinaExtraida;
   onDescartar: () => void;
@@ -1575,6 +1690,12 @@ export function RutinaDraftEditor({
       })),
     })),
   }));
+  const historialDraftRef = useRef<RutinaConProgresion[]>([]);
+  const ultimoDraftRef = useRef(draft);
+  const ultimoCambioHistorialRef = useRef(0);
+  const omitirSiguienteHistorialRef = useRef(false);
+  const ultimoSignalDeshacerRef = useRef(deshacerSignal);
+
   const [publicando, setPublicando] = useState(false);
   /** Deshacer la última técnica encadenada (biserie, superserie, circuito...).
    * Reportado por Alejandro: tocar "Circuito" de 4 sin querer pisa la técnica
@@ -1601,6 +1722,13 @@ export function RutinaDraftEditor({
   const [errorRevision, setErrorRevision] = useState<string | null>(null);
   const [aplicados, setAplicados] = useState<Set<number>>(() => new Set());
   const [diaActivo, setDiaActivo] = useState(0);
+  const importadorRef = useRef<HTMLDetailsElement>(null);
+  const [textoImportacion, setTextoImportacion] = useState("");
+  const [analizandoImportacion, setAnalizandoImportacion] = useState(false);
+  const [errorImportacion, setErrorImportacion] = useState<string | null>(null);
+  const [rutinaImportada, setRutinaImportada] = useState<RutinaExtraida | null>(null);
+  const [modoImportacion, setModoImportacion] = useState<"formato" | "ia" | null>(null);
+  const [formatoCopiado, setFormatoCopiado] = useState(false);
 
   // ── Agregar alguien más, justo antes de publicar ──────────────────────
   // Pedido de Alejandro: llegue armando una rutina nueva o editando una ya
@@ -1617,6 +1745,43 @@ export function RutinaDraftEditor({
   const [cargandoAlumnos, setCargandoAlumnos] = useState(false);
   const [errorAlumnos, setErrorAlumnos] = useState<string | null>(null);
   const [busquedaAlumno, setBusquedaAlumno] = useState("");
+
+  // Historial general de la mesa. Los cambios consecutivos de escritura se
+  // agrupan para que "Deshacer" quite una edición, no una letra por toque.
+  useEffect(() => {
+    if (omitirSiguienteHistorialRef.current) {
+      omitirSiguienteHistorialRef.current = false;
+      ultimoDraftRef.current = draft;
+      return;
+    }
+    const anterior = ultimoDraftRef.current;
+    if (anterior === draft) return;
+    const ahora = Date.now();
+    if (ahora - ultimoCambioHistorialRef.current > 300 || historialDraftRef.current.length === 0) {
+      historialDraftRef.current.push(anterior);
+      if (historialDraftRef.current.length > 50) historialDraftRef.current.shift();
+    }
+    ultimoDraftRef.current = draft;
+    ultimoCambioHistorialRef.current = ahora;
+    onPuedeDeshacer?.(historialDraftRef.current.length > 0);
+  }, [draft, onPuedeDeshacer]);
+
+  useEffect(() => {
+    if (ultimoSignalDeshacerRef.current === deshacerSignal) return;
+    ultimoSignalDeshacerRef.current = deshacerSignal;
+    const anterior = historialDraftRef.current.pop();
+    if (!anterior) {
+      onPuedeDeshacer?.(false);
+      return;
+    }
+    omitirSiguienteHistorialRef.current = true;
+    ultimoDraftRef.current = anterior;
+    ultimoCambioHistorialRef.current = 0;
+    setDraft(anterior);
+    setDiaActivo((actual) => Math.min(actual, Math.max(0, anterior.dias.length - 1)));
+    setError(null);
+    onPuedeDeshacer?.(historialDraftRef.current.length > 0);
+  }, [deshacerSignal, onPuedeDeshacer]);
 
   const idsParaPublicar = useMemo(
     () => Array.from(new Set([...alumnoIds, ...idsExtra])),
@@ -1664,6 +1829,71 @@ export function RutinaDraftEditor({
   }, []);
 
   const totalEjercicios = draft.dias.reduce((total, dia) => total + dia.ejercicios.length, 0);
+
+  const analizarTextoImportado = async () => {
+    if (!textoImportacion.trim() || analizandoImportacion) return;
+    setAnalizandoImportacion(true);
+    setErrorImportacion(null);
+    setRutinaImportada(null);
+    setModoImportacion(null);
+    try {
+      const resultado = await importarRutinaDesdeTexto(textoImportacion);
+      if (resultado.ok) {
+        setRutinaImportada(resultado.rutina);
+        setModoImportacion(resultado.modo);
+      }
+      else setErrorImportacion(resultado.error);
+    } catch {
+      setErrorImportacion("No fue posible analizar el texto en este momento. Intenta nuevamente.");
+    } finally {
+      setAnalizandoImportacion(false);
+    }
+  };
+
+  const cargarRutinaImportada = () => {
+    if (!rutinaImportada) return;
+    const bibliotecaPorNombre = new Map((ejercicios ?? []).flatMap((ejercicio) =>
+      [ejercicio.nombre, ...(ejercicio.aliases ?? [])].map((nombre) => [
+        nombre.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim(),
+        ejercicio,
+      ] as const)
+    ));
+    const nueva: RutinaConProgresion = {
+      ...rutinaImportada,
+      metodoGeneracion: rutinaImportada.metodoGeneracion ?? {
+        nivel: NIVELES_ARMADO[nivelArmado].etiqueta,
+        inspiracion: "Rutina pegada como texto",
+        organizacion: "Importada y editable",
+        generadoAutomaticamente: false,
+      },
+      dias: rutinaImportada.dias.map((dia, indiceDia) => ({
+        ...dia,
+        numero: indiceDia + 1,
+        ejercicios: dia.ejercicios.map((ejercicio, indiceEjercicio) => {
+          const coincidencia = bibliotecaPorNombre.get(
+            ejercicio.nombre.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim()
+          );
+          return {
+            ...DEFAULTS_PROGRESION,
+            ...ejercicio,
+            orden: indiceEjercicio + 1,
+            ejercicioId: coincidencia?.id ?? ejercicio.ejercicioId ?? null,
+            grupoMuscular: coincidencia && ["pecho", "espalda", "piernas", "hombros", "brazos", "core", "cardio"].includes(coincidencia.grupo)
+              ? coincidencia.grupo as EjercicioExtraido["grupoMuscular"]
+              : ejercicio.grupoMuscular,
+            patronMovimiento: coincidencia?.patronMovimiento ?? patronMovimiento(ejercicio.nombre, ejercicio.grupoMuscular),
+          };
+        }),
+      })),
+    };
+    setDraft(nueva);
+    setDiaActivo(Math.max(0, nueva.dias.findIndex((dia) => dia.tipo === "entrenamiento")));
+    setRecuperable(null);
+    setRutinaImportada(null);
+    setTextoImportacion("");
+    if (importadorRef.current) importadorRef.current.open = false;
+    setError(null);
+  };
 
   useEffect(() => {
     if (!yaMonto.current) {
@@ -1843,18 +2073,96 @@ export function RutinaDraftEditor({
     }));
   };
 
-  const moverDia = (diaIdx: number, direccion: -1 | 1) => {
-    setDraft((d) => {
-      const nuevos = [...d.dias];
-      const destino = diaIdx + direccion;
-      if (destino < 0 || destino >= nuevos.length) return d;
-      [nuevos[diaIdx], nuevos[destino]] = [nuevos[destino], nuevos[diaIdx]];
-      return { ...d, dias: nuevos };
+  /** Reordena la semana desde las pestañas de la mesa y mantiene al usuario
+   * parado sobre la sesión que movió. La numeración se recalcula porque el
+   * orden visual también es el orden que recibe el alumno. */
+  const reordenarDia = (desde: number, hasta: number) => {
+    if (desde === hasta || desde < 0 || hasta < 0 || desde >= draft.dias.length || hasta >= draft.dias.length) return;
+    setDraft((actual) => {
+      const dias = [...actual.dias];
+      const [movido] = dias.splice(desde, 1);
+      dias.splice(hasta, 0, movido);
+      return { ...actual, dias: dias.map((dia, indice) => ({ ...dia, numero: indice + 1 })) };
+    });
+    setDiaActivo((actual) => {
+      if (actual === desde) return hasta;
+      if (desde < actual && actual <= hasta) return actual - 1;
+      if (hasta <= actual && actual < desde) return actual + 1;
+      return actual;
     });
   };
 
+  /** Cambiar los músculos no deja ejercicios de otro grupo escondidos bajo un
+   * título nuevo. Conserva los que sí corresponden y transforma los demás en
+   * cupos editables, manteniendo su dosis. Si se suma un músculo nuevo, crea al
+   * menos un cupo para que pueda elegirse su ejercicio ahí mismo. */
+  const cambiarMusculosDia = (diaIdx: number, objetivos: ObjetivoAutomatico[]) => {
+    const objetivosUnicos = Array.from(new Set(objetivos.filter((objetivo) => objetivo !== "cardio")));
+    if (objetivosUnicos.length === 0) return;
+    setDraft((actual) => ({
+      ...actual,
+      dias: actual.dias.map((dia, indiceDia) => {
+        if (indiceDia !== diaIdx || dia.tipo !== "entrenamiento") return dia;
+        let siguienteObjetivo = 0;
+        const ejercicios = dia.ejercicios.map((ejercicio) => {
+          const patron = ejercicio.patronMovimiento ?? patronMovimiento(ejercicio.nombre, ejercicio.grupoMuscular);
+          const objetivoActual = objetivoDePatron(patron);
+          if (objetivoActual === "cardio" || (objetivoActual && objetivosUnicos.includes(objetivoActual))) return ejercicio;
+          const objetivo = objetivosUnicos[siguienteObjetivo % objetivosUnicos.length];
+          siguienteObjetivo += 1;
+          return {
+            ...ejercicio,
+            nombre: "",
+            ejercicioId: undefined,
+            grupoMuscular: grupoPersistidoDeObjetivo(objetivo),
+            patronMovimiento: patronMarcadorDeObjetivo(objetivo),
+            tecnicaTipo: null,
+            tecnicaSeries: null,
+            tecnicaInstruccion: null,
+            observacion: null,
+          };
+        });
+        const representados = new Set(ejercicios.map((ejercicio) => objetivoDePatron(ejercicio.patronMovimiento ?? patronMovimiento(ejercicio.nombre, ejercicio.grupoMuscular))));
+        for (const objetivo of objetivosUnicos) {
+          if (!representados.has(objetivo)) ejercicios.push({
+            ...EJERCICIO_VACIO,
+            grupoMuscular: grupoPersistidoDeObjetivo(objetivo),
+            patronMovimiento: patronMarcadorDeObjetivo(objetivo),
+          });
+        }
+        return {
+          ...dia,
+          nombre: objetivosUnicos.map((objetivo) => ETIQUETA_OBJETIVO[objetivo]).join(" + "),
+          ejercicios: ejercicios.map((ejercicio, orden) => ({ ...ejercicio, orden: orden + 1 })),
+        };
+      }),
+    }));
+  };
+
+  const moverDia = (diaIdx: number, direccion: -1 | 1) => {
+    reordenarDia(diaIdx, diaIdx + direccion);
+  };
+
   const quitarDia = (diaIdx: number) => {
-    setDraft((d) => ({ ...d, dias: d.dias.filter((_, i) => i !== diaIdx) }));
+    // El último elemento necesita una ruta explícita: además de permitir que
+    // la semana quede vacía, evita que un updater encadenado conserve por error
+    // la última sesión mientras se recalcula el índice activo.
+    if (draft.dias.length === 1 && diaIdx === 0) {
+      setDraft({ ...draft, dias: [] });
+      setDiaActivo(0);
+      return;
+    }
+    setDraft((d) => ({
+      ...d,
+      dias: d.dias.filter((_, i) => i !== diaIdx).map((dia, indice) => ({ ...dia, numero: indice + 1 })),
+    }));
+    setDiaActivo((actual) => {
+      const cantidadRestante = Math.max(0, draft.dias.length - 1);
+      if (cantidadRestante === 0) return 0;
+      if (actual > diaIdx) return actual - 1;
+      if (actual === diaIdx) return Math.min(diaIdx, cantidadRestante - 1);
+      return actual;
+    });
   };
 
   /** Ubica el ejercicio al que apunta un cambio de la IA. Primero por posición
@@ -1956,19 +2264,24 @@ export function RutinaDraftEditor({
   };
 
   const agregarDia = () => {
-    setDraft((d) => ({
-      ...d,
-      dias: [
-        ...d.dias,
-        {
-          numero: d.dias.length + 1,
-          nombre: `Día ${d.dias.length + 1}`,
-          tipo: "entrenamiento",
-          descripcion: null,
-          ejercicios: [],
-        },
-      ],
-    }));
+    const nuevoIndice = draft.dias.length;
+    setDraft((d) => {
+      const numeroSesion = d.dias.filter((dia) => dia.tipo === "entrenamiento").length + 1;
+      return {
+        ...d,
+        dias: [
+          ...d.dias,
+          {
+            numero: d.dias.length + 1,
+            nombre: `Sesión ${numeroSesion}`,
+            tipo: "entrenamiento",
+            descripcion: null,
+            ejercicios: [],
+          },
+        ],
+      };
+    });
+    setDiaActivo(nuevoIndice);
   };
 
   /** Mete un día de descanso en una posición concreta de la semana — entre el
@@ -1988,6 +2301,7 @@ export function RutinaDraftEditor({
       });
       return { ...d, dias: dias.map((dia, i) => ({ ...dia, numero: i + 1 })) };
     });
+    setDiaActivo((actual) => actual >= posicion ? actual + 1 : actual);
   };
 
   /** Cambia series, reps o descanso de TODOS los ejercicios de un grupo, de un
@@ -2399,10 +2713,89 @@ export function RutinaDraftEditor({
           </button>
         </div>
       )}
+      {mesaDeTrabajo && (
+        <details ref={importadorRef} className="space-y-2">
+          <summary className="ml-auto flex w-fit cursor-pointer list-none items-center gap-1.5 radius-control border border-[#6f9bc6] bg-[#19232e] px-2.5 py-1.5 text-[10px] font-semibold text-[#b9d8ef]">
+              <ClipboardPaste size={13} /> Pegar rutina
+          </summary>
+
+          <div className="radius-control space-y-2 border border-[#52677c] bg-[#151a21] p-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-caption font-semibold text-text">Importar una rutina desde texto</p>
+                  <p className="text-[9px] text-text-tertiary">Pégala tal como salió de ChatGPT. La rutina actual no cambiará hasta que confirmes.</p>
+                </div>
+                <button type="button" aria-label="Cerrar importador" onClick={() => { if (importadorRef.current) importadorRef.current.open = false; }} className="grid size-7 shrink-0 place-items-center text-text-tertiary"><X size={14} /></button>
+              </div>
+
+              {!rutinaImportada ? (
+                <>
+                  <Textarea
+                    value={textoImportacion}
+                    onChange={(evento) => setTextoImportacion(evento.target.value)}
+                    rows={8}
+                    placeholder={"Puedes pegar texto libre, o usar el formato sin IA que aparece debajo."}
+                    className="min-h-44 text-caption"
+                  />
+                  <details className="radius-control border border-border bg-surface-2">
+                    <summary className="cursor-pointer px-2.5 py-2 text-[10px] font-semibold text-[#9fc4e3]">Ver formato predeterminado · sin IA</summary>
+                    <div className="space-y-2 border-t border-border p-2">
+                      <p className="text-[9px] text-text-tertiary">Cada ejercicio usa: nombre | series | repeticiones | descanso | técnica | series donde aplica | instrucción | observación. Usa - cuando un campo no corresponda.</p>
+                      <pre className="max-h-52 overflow-auto whitespace-pre-wrap rounded-lg bg-[#0d1117] p-2 text-[9px] leading-relaxed text-[#c9d6e2]">{FORMATO_RUTINA_SIN_IA}</pre>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(FORMATO_RUTINA_SIN_IA);
+                            setFormatoCopiado(true);
+                            window.setTimeout(() => setFormatoCopiado(false), 1800);
+                          } catch {
+                            setTextoImportacion(FORMATO_RUTINA_SIN_IA);
+                          }
+                        }}
+                        className="radius-control border border-border px-2.5 py-1.5 text-[10px] font-semibold text-text-secondary"
+                      >
+                        <Copy size={12} className="mr-1 inline" /> {formatoCopiado ? "Formato copiado" : "Copiar formato"}
+                      </button>
+                    </div>
+                  </details>
+                  {errorImportacion && <p className="text-caption text-error">{errorImportacion}</p>}
+                  <div className="flex justify-end gap-2">
+                    <Button size="xsAuto" variant="secondary" onClick={() => { if (importadorRef.current) importadorRef.current.open = false; }}>Cancelar</Button>
+                    <Button
+                      size="xsAuto"
+                      onClick={analizarTextoImportado}
+                      loading={analizandoImportacion}
+                      disabled={!textoImportacion.trim()}
+                      disabledReason="Pega primero el texto de la rutina"
+                    >
+                      {analizandoImportacion ? "Analizando…" : "Analizar rutina"}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <div className="radius-control border border-[#54725f] bg-[#19251f] p-2.5">
+                    <p className="text-caption font-semibold text-[#bce0c8]">Rutina reconocida</p>
+                    <p className="text-[9px] font-semibold text-[#89bfa0]">{modoImportacion === "formato" ? "Leída directamente · sin IA" : "Interpretada con IA"}</p>
+                    <p className="text-[10px] text-[#aabbb0]">
+                      {rutinaImportada.dias.filter((dia) => dia.tipo === "entrenamiento").length} sesiones · {rutinaImportada.dias.filter((dia) => dia.tipo === "descanso").length} descansos · {rutinaImportada.dias.reduce((total, dia) => total + dia.ejercicios.length, 0)} ejercicios
+                    </p>
+                    <p className="mt-1 text-[9px] text-[#91a398]">Al cargarla reemplazará lo que ves ahora, pero seguirá siendo completamente editable.</p>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button size="xsAuto" variant="secondary" onClick={() => setRutinaImportada(null)}>Corregir texto</Button>
+                    <Button size="xsAuto" onClick={cargarRutinaImportada}><Check size={13} /> Cargar en el editor</Button>
+                  </div>
+                </div>
+              )}
+          </div>
+        </details>
+      )}
       {mesaDeTrabajo ? (
         <details className="radius-control border border-border bg-surface">
           <summary className="cursor-pointer px-2.5 py-2 text-caption font-semibold text-text-secondary">
-            {draft.nombreRutina} · {planCodigo ? PLANES_ENTRENAMIENTO[planCodigo].nombre : "Elegir plan"}
+            Ajustes generales · {NIVELES_ARMADO[nivelArmado].etiqueta}{minutosSesion ? ` · ${minutosSesion} min` : ""}
           </summary>
           <div className="grid gap-1.5 border-t border-border p-2 sm:grid-cols-2">
             <label className="min-w-0">
@@ -2428,6 +2821,18 @@ export function RutinaDraftEditor({
                 ))}
               </Select>
             </label>
+            {onCambiarNivel && <label className="min-w-0">
+              <span className="text-[9px] mb-0.5 block font-semibold uppercase text-text-tertiary">Nivel</span>
+              <select value={nivelArmado} onChange={(evento) => onCambiarNivel(evento.target.value as NivelArmado)} className="h-8 w-full rounded-lg border border-border bg-surface-2 px-2 text-[10px] text-text-secondary">
+                {(["principiante", "intermedio", "avanzado", "olympia"] as NivelArmado[]).map((nivel) => <option key={nivel} value={nivel}>{NIVELES_ARMADO[nivel].etiqueta}</option>)}
+              </select>
+            </label>}
+            {onCambiarMinutosSesion && <label className="min-w-0">
+              <span className="text-[9px] mb-0.5 block font-semibold uppercase text-text-tertiary">Minutos por sesión</span>
+              <select value={minutosSesion ?? 60} onChange={(evento) => onCambiarMinutosSesion(Number(evento.target.value))} className="h-8 w-full rounded-lg border border-border bg-surface-2 px-2 text-[10px] text-text-secondary">
+                {[30, 45, 60, 75, 90, 120].map((minutos) => <option key={minutos} value={minutos}>{minutos} min</option>)}
+              </select>
+            </label>}
           </div>
         </details>
       ) : (
@@ -2659,6 +3064,9 @@ export function RutinaDraftEditor({
           hallazgos={hallazgosEstructura}
           diaActivo={diaActivo}
           onCambiarDia={setDiaActivo}
+          onActualizarDia={actualizarDia}
+          onReordenarDia={reordenarDia}
+          onCambiarMusculosDia={cambiarMusculosDia}
           nivelArmado={nivelArmado}
           configuracionArmado={configuracionArmado}
         />

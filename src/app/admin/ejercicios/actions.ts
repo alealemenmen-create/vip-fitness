@@ -308,6 +308,12 @@ export async function crearEjercicioNuevo(
   const categoria = String(formData.get("categoria") || "") as CategoriaEjercicio;
   const equipo = String(formData.get("equipo") || "") as EquipoEjercicio;
   const patronMovimiento = String(formData.get("patron_movimiento") || "");
+  const nivel = String(formData.get("nivel") || "intermedio") as NivelEjercicio;
+  const descripcionCorta = String(formData.get("descripcion_corta") || "").trim() || null;
+  const tecnica = String(formData.get("tecnica") || "").trim() || null;
+  const erroresComunes = String(formData.get("errores_comunes") || "").split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+  const consejos = String(formData.get("consejos") || "").split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+  const videoUrl = String(formData.get("video_url") || "").trim();
   const archivo = formData.get("foto") as File | null;
   const fotoUrl = String(formData.get("foto_url") || "").trim();
   const miniaturaUrlSubida = String(formData.get("foto_miniatura_url_subida") || "").trim();
@@ -325,6 +331,7 @@ export async function crearEjercicioNuevo(
   if (!grupoMuscular) return { error: "Elegí el grupo muscular.", ok: false };
   if (!categoria) return { error: "Elegí la categoría.", ok: false };
   if (!equipo) return { error: "Elegí el equipo.", ok: false };
+  if (!["principiante", "intermedio", "avanzado"].includes(nivel)) return { error: "Elegí un nivel válido.", ok: false };
   if (!PATRONES_MOVIMIENTO_VALIDOS.includes(patronMovimiento as (typeof PATRONES_MOVIMIENTO_VALIDOS)[number])) {
     return { error: "Elegí el tipo de movimiento.", ok: false };
   }
@@ -350,7 +357,11 @@ export async function crearEjercicioNuevo(
       categoria,
       equipo,
       patron_movimiento: patronMovimiento,
-      nivel: "intermedio" as NivelEjercicio,
+      nivel,
+      descripcion_corta: descripcionCorta,
+      tecnica,
+      errores_comunes: erroresComunes,
+      consejos,
     })
     .select("id")
     .single();
@@ -377,11 +388,42 @@ export async function crearEjercicioNuevo(
     }
   }
 
+  if (videoUrl) {
+    const datosVideo = new FormData();
+    datosVideo.set("ejercicio_id", nuevo.id);
+    datosVideo.set("video_url", videoUrl);
+    const resultadoVideo = await guardarVideoEjercicio({ error: null, ok: false }, datosVideo);
+    if (resultadoVideo.error) return { error: `Ejercicio creado, pero el video falló: ${resultadoVideo.error}`, ok: true };
+  }
+
   avisarCambios();
   return { error: null, ok: true };
 }
 
 export type ActualizarNombreState = { error: string | null; ok: boolean };
+export type ActualizarDetallesState = { error: string | null; ok: boolean };
+
+export async function actualizarDetallesEjercicio(
+  _prevState: ActualizarDetallesState,
+  formData: FormData,
+): Promise<ActualizarDetallesState> {
+  await requireRol(["entrenador", "admin"]);
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  const nivel = String(formData.get("nivel") || "intermedio") as NivelEjercicio;
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+  if (!["principiante", "intermedio", "avanzado"].includes(nivel)) return { error: "El nivel no es válido.", ok: false };
+  const supabase = await createClient();
+  const { error } = await supabase.from("ejercicios").update({
+    nivel,
+    descripcion_corta: String(formData.get("descripcion_corta") || "").trim() || null,
+    tecnica: String(formData.get("tecnica") || "").trim() || null,
+    errores_comunes: String(formData.get("errores_comunes") || "").split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+    consejos: String(formData.get("consejos") || "").split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+  }).eq("id", ejercicioId);
+  if (error) return { error: "No se pudieron guardar los detalles.", ok: false };
+  avisarCambios();
+  return { error: null, ok: true };
+}
 
 /**
  * Edita el nombre "principal" de un ejercicio y sus alias — todas las formas
@@ -709,6 +751,55 @@ export async function quitarVideoCloudflare(
 export type UsoRutina = { nombre: string; cantidad: number };
 
 export type VincularNombreRutinaState = { error: string | null; ok: boolean; mensaje?: string };
+export type CombinarDuplicadosState = { error: string | null; ok: boolean; mensaje?: string };
+
+/** Fusiona dos entradas de la biblioteca sin perder historial. La entrada con
+ * foto propia manda como original; si ambas (o ninguna) tienen foto, se
+ * conserva la sugerida por la galería. El nombre descartado queda como alias, todas las
+ * rutinas pasan a apuntar al original y el duplicado solo se desactiva. */
+export async function combinarEjerciciosDuplicados(
+  _prevState: CombinarDuplicadosState,
+  formData: FormData,
+): Promise<CombinarDuplicadosState> {
+  await requireRol(["entrenador", "admin"]);
+  const idA = String(formData.get("original_id") || "");
+  const idB = String(formData.get("duplicado_id") || "");
+  if (!idA || !idB || idA === idB) return { error: "Elige dos ejercicios distintos.", ok: false };
+
+  const supabase = await createClient();
+  const { data, error: errorLectura } = await supabase
+    .from("ejercicios")
+    .select("id,nombre,aliases,activo,foto_miniatura_url,foto_completa_url,ilustracion_slug,video_url")
+    .in("id", [idA, idB]);
+  if (errorLectura || !data || data.length !== 2) return { error: "No se pudieron leer ambos ejercicios.", ok: false };
+
+  const conFoto = (item: (typeof data)[number]) => Boolean(item.foto_miniatura_url || item.foto_completa_url);
+  const sugerido = data.find((item) => item.id === idA)!;
+  const otro = data.find((item) => item.id === idB)!;
+  const original = conFoto(otro) && !conFoto(sugerido) ? otro : sugerido;
+  const duplicado = original.id === sugerido.id ? otro : sugerido;
+  if (!original.activo || !duplicado.activo) return { error: "Uno de los ejercicios ya no está activo.", ok: false };
+
+  const aliases = [...new Set([...(original.aliases ?? []), duplicado.nombre, ...(duplicado.aliases ?? [])])]
+    .filter((alias) => normalizar(alias) !== normalizar(original.nombre));
+  const { error: errorOriginal } = await supabase.from("ejercicios").update({
+    aliases,
+    foto_miniatura_url: original.foto_miniatura_url ?? duplicado.foto_miniatura_url,
+    foto_completa_url: original.foto_completa_url ?? duplicado.foto_completa_url,
+    ilustracion_slug: original.ilustracion_slug ?? duplicado.ilustracion_slug,
+    video_url: original.video_url ?? duplicado.video_url,
+  }).eq("id", original.id);
+  if (errorOriginal) return { error: "No se pudo preparar el ejercicio original.", ok: false };
+
+  const { error: errorRutinas } = await supabase.from("rutina_dia_ejercicios").update({ ejercicio_id: original.id }).eq("ejercicio_id", duplicado.id);
+  if (errorRutinas) return { error: "No se pudieron trasladar las rutinas al ejercicio original.", ok: false };
+
+  const { error: errorDesactivar } = await supabase.from("ejercicios").update({ activo: false }).eq("id", duplicado.id);
+  if (errorDesactivar) return { error: "Las rutinas quedaron asociadas, pero no se pudo ocultar el duplicado.", ok: false };
+
+  avisarCambios();
+  return { error: null, ok: true, mensaje: `${duplicado.nombre} quedó combinado con ${original.nombre}.` };
+}
 
 /** Une un nombre libre de rutinas con una entrada oficial de la biblioteca.
  * Vincula todas sus apariciones todavía sueltas y guarda el texto como alias:

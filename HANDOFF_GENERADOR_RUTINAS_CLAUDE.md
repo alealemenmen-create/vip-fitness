@@ -195,3 +195,31 @@ Se acumularon varios handoffs y documentos de contexto de sesiones distintas (`R
 - No hacer commit o push de trabajo nuevo hasta confirmar el alcance con el usuario.
 
 Para una descripción complementaria del producto, leer `docs/GENERADOR_RUTINAS_VIP.md`.
+
+## Entrega local pendiente de push · 13 de agosto de 2026
+
+Alejandro autorizó dejar este trabajo **commiteado en `main`, sin pushear**, para
+que Claude haga la revisión final y el push. El commit incluye la nueva mesa de
+`Armar rutina`: edición/reordenamiento de sesiones y músculos, descansos
+insertables y recuperables, ajustes compactos, deshacer global, importación de
+rutinas pegadas (formato determinista sin IA y respaldo de texto libre con IA),
+eliminación de las dos pantallas intermedias antiguas y acceso directo desde la
+selección del alumno.
+
+La galería de ejercicios queda como inventario oficial: alta con nombre/alias,
+grupo, patrón, categoría, equipo, nivel, foto, video, descripción, ejecución,
+errores y consejos; impresión/PDF del catálogo; aviso de posibles duplicados y
+combinación manual conservando como original el registro con foto, trasladando
+las rutinas y guardando el nombre alternativo como alias. El alta invalida el
+catálogo para que el ejercicio aparezca en `Armar rutina` y el resto de la app.
+
+Verificación ya ejecutada y limpia antes del commit:
+
+- `npm run lint`
+- `npx tsc --noEmit`
+- `npm test -- --run`: **378/378 pruebas**
+- `npm run build`: compilación de producción correcta
+
+Claude puede revisar el commit y, si no encuentra regresiones, hacer `git push
+origin main`. No hay migraciones pendientes en esta entrega. Los archivos
+`.next-dev-*.log` son locales y se dejaron fuera del commit a propósito.

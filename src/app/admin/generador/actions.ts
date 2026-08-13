@@ -8,11 +8,33 @@ import { obtenerTecnicas } from "@/lib/generador-rutinas/data";
 import { generarRutinaPorReglas } from "@/lib/generador-rutinas/motor";
 import { combinarPerfilesGrupo } from "@/lib/generador-rutinas/perfil-grupal";
 import type { BriefGenerador, EjercicioGenerador, PerfilEntrenamiento } from "@/lib/generador-rutinas/tipos";
-import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
+import { extraerRutinaDesdePdf, type RutinaExtraida } from "@/lib/ai/extraerRutina";
+import { importarRutinaEstructurada } from "@/lib/generador-rutinas/importar-texto-estructurado";
 import { revisarRutinaGenerada, type RevisionResuelta } from "@/lib/ai/revisarRutina";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ResultadoGeneracion = { ok: true; borradorId: string | null; rutina: RutinaExtraida; alertas: string[]; reglas: string[] } | { ok: false; error: string };
+export type ResultadoImportacionTexto = { ok: true; rutina: RutinaExtraida; modo: "formato" | "ia" } | { ok: false; error: string };
+
+/** Convierte una rutina copiada desde ChatGPT, WhatsApp o cualquier texto en
+ * el mismo borrador editable que usa la mesa de armado. No publica ni guarda
+ * nada: el entrenador primero ve un resumen y decide si reemplaza lo actual. */
+export async function importarRutinaDesdeTexto(texto: string): Promise<ResultadoImportacionTexto> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+  const limpio = texto.trim();
+  if (limpio.length < 20) return { ok: false, error: "Pega una rutina con días y ejercicios para poder analizarla." };
+  if (limpio.length > 60_000) return { ok: false, error: "El texto es demasiado largo. Pega solamente la rutina." };
+
+  const estructurada = importarRutinaEstructurada(limpio);
+  if (estructurada) return { ok: true, rutina: estructurada, modo: "formato" };
+
+  const resultado = await extraerRutinaDesdePdf(
+    Buffer.from(limpio, "utf8").toString("base64"),
+    "text/plain",
+    sesion.userId
+  );
+  return resultado.ok ? { ok: true, rutina: resultado.datos, modo: "ia" } : resultado;
+}
 
 /** Todo lo que hace falta saber del alumno para generar Y para revisar: se
  * arma una sola vez y lo usan las dos acciones. La revisión de IA tiene que

@@ -4,13 +4,14 @@ import { useActionState, useEffect, useMemo, useRef, useState, type PointerEvent
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks } from "lucide-react";
+import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import {
   subirFotoEjercicio,
   crearEjercicioNuevo,
   actualizarNombreEjercicio,
+  actualizarDetallesEjercicio,
   actualizarPatronMovimiento,
   desactivarEjercicio,
   quitarVideoEjercicio,
@@ -24,6 +25,8 @@ import {
   type UsoRutina,
   vincularNombreRutinaSinEjercicio,
   type VincularNombreRutinaState,
+  combinarEjerciciosDuplicados,
+  type CombinarDuplicadosState,
 } from "@/app/admin/ejercicios/actions";
 import { normalizar } from "@/lib/alimentos/emparejar";
 import { Button } from "@/components/ui/Button";
@@ -176,6 +179,40 @@ export type ReporteFotoPendiente = {
 };
 
 const ESTADO_INICIAL_VINCULO: VincularNombreRutinaState = { error: null, ok: false };
+const ESTADO_INICIAL_COMBINAR: CombinarDuplicadosState = { error: null, ok: false };
+
+function firmaPosibleDuplicado(nombre: string): string {
+  return normalizar(nombre)
+    .split(" ")
+    .filter((palabra) => !["de", "del", "la", "el", "al", "en", "con"].includes(palabra))
+    .map((palabra) => palabra
+      .replace(/iones$/, "ion")
+      .replace(/ales$/, "al")
+      .replace(/ares$/, "ar")
+      .replace(/([aeiou])s$/, "$1"))
+    .join(" ");
+}
+
+function CombinarDuplicadoForm({ original, duplicado }: { original: Ejercicio; duplicado: Ejercicio }) {
+  const [state, action, pending] = useActionState(combinarEjerciciosDuplicados, ESTADO_INICIAL_COMBINAR);
+  return (
+    <form
+      action={action}
+      onSubmit={(evento) => {
+        if (!window.confirm(`¿Combinar "${duplicado.nombre}" con "${original.nombre}"? Las rutinas se asociarán al original y el otro nombre quedará como alias.`)) evento.preventDefault();
+      }}
+      className="mt-1.5"
+    >
+      <input type="hidden" name="original_id" value={original.id} />
+      <input type="hidden" name="duplicado_id" value={duplicado.id} />
+      <button type="submit" disabled={pending} className="radius-control flex items-center gap-1 border border-warning/40 px-2 py-1 text-[9px] font-semibold text-warning disabled:opacity-50">
+        <Merge size={11} /> {pending ? "Combinando…" : "Combinar con el original"}
+      </button>
+      {state.error && <p className="text-micro mt-1 text-error">{state.error}</p>}
+      {state.ok && <p className="text-micro mt-1 text-success">{state.mensaje}</p>}
+    </form>
+  );
+}
 
 function puntajeParecido(nombreRutina: string, ejercicio: Ejercicio): number {
   const origen = normalizar(nombreRutina);
@@ -310,6 +347,34 @@ export function GaleriaEjercicios({
     () => [...ejercicios].sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })),
     [ejercicios],
   );
+  const gruposDuplicados = useMemo(() => {
+    const porFirma = new Map<string, Map<string, Ejercicio>>();
+    for (const ejercicio of ejercicios) {
+      for (const variante of [ejercicio.nombre, ...ejercicio.aliases]) {
+        const firma = firmaPosibleDuplicado(variante);
+        if (!firma) continue;
+        const grupo = porFirma.get(firma) ?? new Map<string, Ejercicio>();
+        grupo.set(ejercicio.id, ejercicio);
+        porFirma.set(firma, grupo);
+      }
+    }
+    const vistos = new Set<string>();
+    return Array.from(porFirma.values())
+      .map((grupo) => Array.from(grupo.values()))
+      .filter((grupo) => grupo.length > 1)
+      .map((grupo) => grupo.sort((a, b) => {
+        const fotoA = Number(Boolean(a.fotoMiniaturaUrl || a.fotoCompletaUrl));
+        const fotoB = Number(Boolean(b.fotoMiniaturaUrl || b.fotoCompletaUrl));
+        return fotoB - fotoA || Number(Boolean(b.ilustracionSlug)) - Number(Boolean(a.ilustracionSlug)) || (usosPorEjercicio[b.id]?.cantidad ?? 0) - (usosPorEjercicio[a.id]?.cantidad ?? 0);
+      }))
+      .filter((grupo) => {
+        const clave = grupo.map((item) => item.id).sort().join(":");
+        if (vistos.has(clave)) return false;
+        vistos.add(clave);
+        return true;
+      })
+      .sort((a, b) => a[0].nombre.localeCompare(b[0].nombre, "es", { sensitivity: "base" }));
+  }, [ejercicios, usosPorEjercicio]);
   const reportesAgrupados = useMemo(() => {
     const grupos = new Map<string, {
       ids: string[];
@@ -419,12 +484,44 @@ export function GaleriaEjercicios({
         </Card>
       )}
 
+      {gruposDuplicados.length > 0 && (
+        <details className="rounded-[20px] border border-warning/40 bg-warning/5 p-3">
+          <summary className="flex cursor-pointer list-none items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-warning/15 text-warning"><Merge size={16} /></span>
+            <span className="min-w-0 flex-1"><span className="text-caption block font-bold text-text">Posibles ejercicios duplicados</span><span className="text-micro block text-text-tertiary">Se prioriza como original el que tenga foto propia</span></span>
+            <span className="rounded-full bg-warning/15 px-2 py-1 text-micro font-bold text-warning">{gruposDuplicados.length}</span>
+          </summary>
+          <p className="text-micro mt-2 text-text-tertiary">Solo son sugerencias: nombres parecidos pueden ser ejercicios distintos. Revisa cada grupo antes de combinar; nunca se borra automáticamente.</p>
+          <div className="mt-2 space-y-2">
+            {gruposDuplicados.map((grupo) => {
+              const [original, ...variantes] = grupo;
+              const conFoto = Boolean(original.fotoMiniaturaUrl || original.fotoCompletaUrl);
+              return (
+                <div key={grupo.map((item) => item.id).join(":")} className="radius-control border border-border bg-surface p-2.5">
+                  <p className="text-caption font-bold text-text">Original sugerido: <span className="text-vip">{original.nombre}</span></p>
+                  <p className="text-micro text-text-tertiary">{conFoto ? "Tiene foto propia" : original.ilustracionSlug ? "Tiene ilustración original" : "Sin foto propia"}</p>
+                  {variantes.map((duplicado) => (
+                    <div key={duplicado.id} className="mt-2 border-t border-border pt-2">
+                      <p className="text-caption text-text-secondary">Posible variante: <strong className="text-text">{duplicado.nombre}</strong></p>
+                      <CombinarDuplicadoForm original={original} duplicado={duplicado} />
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      )}
+
       <details id="inventario-ejercicios" className="scroll-mt-28 rounded-[20px] border border-border bg-surface p-3" open>
         <summary className="flex cursor-pointer list-none items-center gap-2">
           <span className="grid size-8 place-items-center rounded-full bg-vip/15 text-vip"><ListChecks size={17} /></span>
           <span className="min-w-0 flex-1"><span className="text-caption block font-bold text-text">Lista completa de ejercicios</span><span className="text-micro block text-text-tertiary">Alfabética · foto real · presencia en rutinas</span></span>
           <span className="rounded-full bg-surface-2 px-2 py-1 text-micro font-bold text-text-secondary">{ejercicios.length}</span>
         </summary>
+        <button type="button" onClick={() => window.print()} className="radius-control mt-3 flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-[10px] font-semibold text-text-secondary">
+          <Printer size={13} /> Imprimir / guardar PDF
+        </button>
         <div className="scrollbar-fina mt-3 max-h-[560px] overflow-y-auto rounded-xl border border-border">
           {ejerciciosAlfabeticos.map((ejercicio) => {
             const conFotoPropia = Boolean(ejercicio.fotoMiniaturaUrl || ejercicio.fotoCompletaUrl);
@@ -455,6 +552,26 @@ export function GaleriaEjercicios({
         )}
         <p className="text-micro mt-2 text-text-tertiary">Toca cualquier nombre para abrir su foto y sus datos. Los nombres de rutina se muestran tal como fueron escritos; el encabezado siempre usa el nombre oficial de la base.</p>
       </details>
+
+      <section id="inventario-ejercicios-imprimible" className="hidden">
+        <h1>Biblioteca oficial de ejercicios VIP Fitness</h1>
+        <p>{ejercicios.length} ejercicios disponibles · nombres exactos para solicitar rutinas</p>
+        {Object.entries(ETIQUETAS_GRUPO).map(([grupo, etiqueta]) => {
+          const lista = ejerciciosAlfabeticos.filter((ejercicio) => ejercicio.grupoMuscular === grupo);
+          if (lista.length === 0) return null;
+          return <div key={grupo}><h2>{etiqueta}</h2><ol>{lista.map((ejercicio) => <li key={ejercicio.id}><strong>{ejercicio.nombre}</strong>{ejercicio.aliases.length ? ` — también reconocido como: ${ejercicio.aliases.join(", ")}` : ""}{ejercicio.fotoMiniaturaUrl || ejercicio.fotoCompletaUrl ? " · foto original" : ""}</li>)}</ol></div>;
+        })}
+      </section>
+      <style>{`@media print {
+        body * { visibility: hidden !important; }
+        #inventario-ejercicios-imprimible, #inventario-ejercicios-imprimible * { visibility: visible !important; }
+        #inventario-ejercicios-imprimible { display: block !important; position: absolute; inset: 0; padding: 18mm; color: #111; background: white; font-family: Arial, sans-serif; }
+        #inventario-ejercicios-imprimible h1 { font-size: 22px; margin: 0 0 4px; }
+        #inventario-ejercicios-imprimible h2 { font-size: 15px; margin: 16px 0 5px; border-bottom: 1px solid #999; }
+        #inventario-ejercicios-imprimible p, #inventario-ejercicios-imprimible li { font-size: 10px; line-height: 1.4; }
+        #inventario-ejercicios-imprimible ol { columns: 2; column-gap: 28px; padding-left: 20px; }
+        #inventario-ejercicios-imprimible li { break-inside: avoid; margin-bottom: 3px; }
+      }`}</style>
 
       <div className="relative">
         <Search
@@ -824,6 +941,24 @@ function EditorNombre({ ejercicio }: { ejercicio: Ejercicio }) {
       >
         {pending ? "Guardando..." : "Guardar nombre"}
       </button>
+    </form>
+  );
+}
+
+function EditorDetalles({ ejercicio }: { ejercicio: Ejercicio }) {
+  const [state, action, pending] = useActionState(actualizarDetallesEjercicio, { error: null, ok: false });
+  return (
+    <form action={action} className="space-y-2">
+      <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+      <p className="text-caption font-semibold text-text">Detalles técnicos</p>
+      <label className="block"><span className="text-micro text-text-tertiary">Nivel</span><select name="nivel" defaultValue={ejercicio.nivel} className="radius-control mt-1 w-full border border-border bg-surface-2 px-3 py-2 text-caption text-text"><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzado">Avanzado</option></select></label>
+      <label className="block"><span className="text-micro text-text-tertiary">Descripción corta</span><Textarea name="descripcion_corta" rows={2} defaultValue={ejercicio.descripcionCorta ?? ""} placeholder="Qué trabaja y para qué se usa" className="mt-1 text-caption" /></label>
+      <label className="block"><span className="text-micro text-text-tertiary">Ejecución correcta</span><Textarea name="tecnica" rows={3} defaultValue={ejercicio.tecnica ?? ""} placeholder="Pasos para realizarlo correctamente" className="mt-1 text-caption" /></label>
+      <label className="block"><span className="text-micro text-text-tertiary">Errores comunes · uno por línea</span><Textarea name="errores_comunes" rows={3} defaultValue={ejercicio.erroresComunes.join("\n")} className="mt-1 text-caption" /></label>
+      <label className="block"><span className="text-micro text-text-tertiary">Consejos · uno por línea</span><Textarea name="consejos" rows={3} defaultValue={ejercicio.consejos.join("\n")} className="mt-1 text-caption" /></label>
+      {state.error && <p className="text-caption text-error">{state.error}</p>}
+      {state.ok && <p className="text-caption text-success">Detalles guardados.</p>}
+      <Button type="submit" size="xs" loading={pending}>Guardar detalles</Button>
     </form>
   );
 }
@@ -1237,6 +1372,10 @@ function ModalSubirFoto({
 
       <div className="mt-4 border-t border-border pt-3">
         <EditorPatronMovimiento ejercicio={ejercicio} />
+      </div>
+
+      <div className="mt-4 border-t border-border pt-3">
+        <EditorDetalles ejercicio={ejercicio} />
       </div>
 
       <div className="mt-4 border-t border-border pt-3">
@@ -1685,6 +1824,25 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
             ))}
           </select>
         </label>
+
+        <label className="block">
+          <span className="text-caption mb-1 block text-text-tertiary">Nivel</span>
+          <select name="nivel" defaultValue="intermedio" className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text">
+            <option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzado">Avanzado</option>
+          </select>
+        </label>
+
+        <details className="radius-control border border-border bg-surface-2 p-2.5">
+          <summary className="cursor-pointer text-caption font-semibold text-text">Detalles técnicos y video</summary>
+          <div className="mt-2 space-y-2">
+            <label className="block"><span className="text-micro text-text-tertiary">Descripción corta</span><Textarea name="descripcion_corta" rows={2} placeholder="Qué trabaja y para qué se usa" className="mt-1 text-caption" /></label>
+            <label className="block"><span className="text-micro text-text-tertiary">Ejecución correcta</span><Textarea name="tecnica" rows={3} placeholder="Pasos para realizarlo correctamente" className="mt-1 text-caption" /></label>
+            <label className="block"><span className="text-micro text-text-tertiary">Errores comunes · uno por línea</span><Textarea name="errores_comunes" rows={3} className="mt-1 text-caption" /></label>
+            <label className="block"><span className="text-micro text-text-tertiary">Consejos · uno por línea</span><Textarea name="consejos" rows={3} className="mt-1 text-caption" /></label>
+            <label className="block"><span className="text-micro text-text-tertiary">Video · YouTube o archivo enlazado</span><Input type="url" name="video_url" placeholder="https://…" className="mt-1 text-caption" /></label>
+            <p className="text-micro text-text-tertiary">Si prefieres subir un clip desde el celular, crea el ejercicio y luego abre “Foto y datos” → “Subir clip”.</p>
+          </div>
+        </details>
 
         {state.error && <p className="text-caption text-error">{state.error}</p>}
         {state.ok && (
