@@ -1,28 +1,32 @@
 # HANDOFF 1.20
 
-Continúa el 1.19. Cubre el tramo del **12/08**, que cerró **sin pendientes de
-código**: se puso al día toda la deuda de migraciones, se terminó de punta a
-punta la técnica aplicada a series puntuales, y se arregló el desfase de la
-rutina por los días de descanso.
+> **Continuado por el [HANDOFF 1.21](HANDOFF_1.21.md), que manda sobre este en
+> todo lo que se contradigan** — sobre todo el estado de las migraciones y el
+> punto de regreso. Este documento se queda como referencia de *cómo* y *por
+> qué* se hizo la técnica por serie y el arreglo de los descansos.
+
+Continúa el 1.19. Cubre el tramo del **12/08**: se puso al día toda la deuda de
+migraciones, se terminó de punta a punta la técnica aplicada a series
+puntuales, y se arregló el desfase de la rutina por los días de descanso.
 
 ## Punto de regreso
 
-- Rama **`main`**. Último commit: **`ecaaebe`**, **pusheado y en producción**.
+- Rama **`main`**. Último commit de este tramo: **`ecaaebe`**, pusheado y en
+  producción. (Ver el 1.21 para el punto de regreso vigente.)
 - Sin trackear y **sin tocar** (venían de antes, no los creó ninguna sesión de
   Claude, no se sabe qué son — preguntar a Alejandro antes de borrar):
   `Rutinas Alejandro/`, `respaldo-cloud-ia-2026-08-09.bundle`, `tmp/`.
 
-### ⚠️ Migración pendiente de correr: `0074_descansos_no_numeran.sql`
+### `0074_descansos_no_numeran.sql` — corrida el 12/08
 
-**El código ya está en producción; esta migración todavía no se corrió.** No
-hay nada roto mientras tanto: los alumnos que ya tenían descansos registrados
-siguen viendo ese descanso ocupando un número (a Diana le queda "SESIÓN 1, 2,
-3, DESC., 5"). La migración es lo que limpia ese pasado.
+Limpió el pasado: los alumnos que ya tenían descansos registrados los veían
+ocupando un número (a Diana le quedaba "SESIÓN 1, 2, 3, DESC., 5").
 
 Es **la primera migración del proyecto que modifica datos reales de alumnos**,
-no solo estructura. No borra ninguna sesión, pero renumera. Hay una vista
-previa de solo lectura en `tmp/vista-previa-0074.sql` que muestra a quién toca
-y cómo quedaría, sin cambiar nada. Correr eso antes.
+no solo estructura. No borra ninguna sesión, pero renumera. Quedó una vista
+previa de solo lectura en `tmp/vista-previa-0074.sql` — sirve de molde para la
+próxima migración que toque datos: mostrar a quién afecta y cómo quedaría,
+antes de cambiar nada.
 
 `0067`, `0068`, `0072` y `0073` se corrieron todas en Supabase el 12/08. La
 deuda que venía arrastrándose desde el 1.18 quedó saldada.
