@@ -256,10 +256,11 @@ export async function abandonarEntrenamiento(alumnoId: string, sesionId: string,
 }
 
 /** Borra los movimientos de puntos (`entrenamiento:<id>` e `impulso:<id>`)
- * de sesiones que se eliminaron por completo, para que reiniciar una rutina
- * no deje puntos huérfanos que se sumen de nuevo cuando el alumno la vuelva
- * a completar con sesiones nuevas (ver `reiniciarRutina` en
- * `alumno/entrenar/actions.ts`). */
+ * de sesiones que se eliminaron por completo: viven en `puntos_vip_movimientos`
+ * indexados por clave y no por clave foránea, así que no se van solos con la
+ * sesión. Sin esto quedarían huérfanos, cobrados para siempre por una sesión
+ * que ya no existe. Hoy la usa `aprobarBorradoSesion` (`admin/borrados`), el
+ * único camino que borra una sesión de verdad. */
 export async function eliminarMovimientosDeSesiones(alumnoId: string, sesionIds: string[]) {
   if (sesionIds.length === 0) return;
   const admin = createAdminClient();

@@ -717,9 +717,42 @@ export async function solicitarBorradoSesion(formData: FormData): Promise<void> 
   if (!sesion || sesion.estado === "en_progreso") return;
 
   const dia = sesion.rutina_dias as unknown as { nombre: string } | null;
-  // `upsert` sobre el índice de "una pendiente por sesión": tocar el botón dos
-  // veces actualiza el motivo en vez de dejarle dos avisos iguales al
-  // entrenador.
+
+  /**
+   * Un pedido pendiente para esta sesión ya alcanza: el segundo no se inserta.
+   *
+   * Acá el comentario decía "upsert" y el código hacía `insert`. El índice
+   * único de la 0076 (una pendiente por sesión) rechazaba el segundo pedido, y
+   * como cualquier error se traducía a `falta-migracion`, el alumno que pedía
+   * dos veces —lo más natural del mundo si no ve confirmación— terminaba
+   * leyendo "Esta opción todavía no está activa. Avísale a tu entrenador".
+   * Mentira por partida doble: la función estaba activa y su pedido ya estaba
+   * guardado. Salía a reportar una falla que no existía.
+   *
+   * El motivo NO se reescribe: la solicitud es la única constancia de que se
+   * destruyó historial, y el tipo de la tabla ya deja `motivo` fuera de lo
+   * actualizable a propósito. Si quedó mal escrito, el entrenador rechaza y el
+   * alumno pide de nuevo.
+   *
+   * Tampoco sirve `upsert`: el índice es parcial (`where estado =
+   * 'pendiente'`) y PostgREST no manda el predicado que Postgres pide para
+   * usarlo en un `on conflict`.
+   */
+  const pendiente = await supabase
+    .from("solicitudes_borrado_sesion")
+    .select("id")
+    .eq("sesion_id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "pendiente")
+    .maybeSingle();
+
+  // Sin la 0076 la tabla no existe. Decirlo es mejor que dejar al alumno
+  // creyendo que su pedido llegó. Es el ÚNICO camino que muestra ese aviso:
+  // antes lo disparaba también un pedido repetido, que no tiene nada que ver.
+  if (pendiente.error) redirect(`/alumno/entrenar/sesion/${sesionId}?aviso=falta-migracion`);
+
+  if (pendiente.data) redirect(`/alumno/entrenar/sesion/${sesionId}?aviso=pedido-en-curso`);
+
   const { error } = await supabase.from("solicitudes_borrado_sesion").insert({
     alumno_id: alumnoId,
     sesion_id: sesionId,
@@ -729,10 +762,11 @@ export async function solicitarBorradoSesion(formData: FormData): Promise<void> 
     motivo,
   });
 
-  // Sin la 0076 la tabla no existe. Decirlo es mejor que dejar al alumno
-  // creyendo que su pedido llegó.
   if (error) redirect(`/alumno/entrenar/sesion/${sesionId}?aviso=falta-migracion`);
 
+  // Sin esto, el aviso verde aparecía pero el bloque de opciones seguía
+  // mostrando el estado viejo hasta la próxima navegación.
+  revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   redirect(`/alumno/entrenar/sesion/${sesionId}?aviso=pedido-enviado`);
 }
 
@@ -780,27 +814,6 @@ export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
   revalidatePath("/alumno/entrenar/historial");
   revalidatePath("/alumno/inicio");
   redirect("/alumno/entrenar");
-}
-
-/**
- * Reinicia una rutina de cero: borra TODAS las sesiones (y en cascada sus
- * ejercicios y series) que el alumno haya registrado bajo esa rutina, para
- * que el calendario de Entrenar vuelva a empezar desde el Día 1.
- *
- * También borra los movimientos de puntos de esas sesiones (`entrenamiento:
- * <sesionId>` e `impulso:<sesionId>`) antes de eliminarlas: dejarlos
- * intactos (como se hacía antes) generaba puntos duplicados, porque al
- * volver a completar la rutina se crean sesiones con IDs nuevos y se suman
- * puntos nuevos encima de los viejos que quedaban huérfanos.
- */
-export async function reiniciarRutina(formData: FormData): Promise<void> {
-  const rutinaId = String(formData.get("rutina_id") || "");
-  const { soloLectura } = await requireAlumno();
-  if (!rutinaId || soloLectura) return;
-  // El reinicio destructivo queda inhabilitado: nunca se borra historial ni
-  // una recompensa acreditada. Para repetir un entrenamiento se avanza a la
-  // siguiente sesión del calendario.
-  redirect("/alumno/entrenar/historial");
 }
 
 /**

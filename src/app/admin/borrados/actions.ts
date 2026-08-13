@@ -47,12 +47,23 @@ export async function aprobarBorradoSesion(
   if (solicitud.estado !== "pendiente") return { error: "Esa solicitud ya estaba resuelta.", ok: false };
 
   if (solicitud.sesion_id) {
-    // Primero los puntos: si el borrado de la fila falla, es preferible haber
-    // quitado puntos de una sesión que sigue existiendo (se recalculan al
-    // volver a cerrarla) que dejar puntos huérfanos de una sesión que ya no
-    // está y que nadie va a poder rastrear.
-    await eliminarMovimientosDeSesiones(solicitud.alumno_id, [solicitud.sesion_id]);
-
+    /**
+     * La sesión primero, los puntos después.
+     *
+     * Estaba al revés, con el argumento de que unos puntos de menos eran
+     * mejores que unos puntos huérfanos, "porque se recalculan al volver a
+     * cerrar la sesión". No se recalculan: una sesión ya cerrada no se vuelve
+     * a cerrar nunca. Así que si el `delete` fallaba —que era justo el caso
+     * que ese código estaba previendo— el alumno se quedaba sin los puntos de
+     * una sesión que seguía existiendo en su historial, sin aviso para nadie y
+     * sin forma de recuperarlos salvo a mano contra la base.
+     *
+     * En este orden, el fallo probable (una clave foránea que bloquea el
+     * borrado) no toca nada: la solicitud sigue pendiente y se puede
+     * reintentar. Y si lo que falla es el borrado de los puntos, quedan
+     * huérfanos pero recuperables — `eliminarMovimientosDeSesiones` borra por
+     * clave, así que reintentar la aprobación los limpia.
+     */
     const admin = createAdminClient();
     const { error } = await admin
       .from("sesiones_entrenamiento")
@@ -61,6 +72,8 @@ export async function aprobarBorradoSesion(
       .eq("alumno_id", solicitud.alumno_id);
 
     if (error) return { error: "No se pudo borrar el registro. Falta correr la migración 0075.", ok: false };
+
+    await eliminarMovimientosDeSesiones(solicitud.alumno_id, [solicitud.sesion_id]);
   }
 
   await supabase

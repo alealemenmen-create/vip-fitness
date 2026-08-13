@@ -12,7 +12,7 @@ import { CierreAutomaticoSesion } from "@/components/student/CierreAutomaticoSes
 import { ReabrirSesionBoton } from "@/components/student/ReabrirSesionBoton";
 import { EliminarSesionBoton } from "@/components/student/EliminarSesionBoton";
 import { sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
-import { obtenerSesionCompleta } from "../../data";
+import { obtenerSesionCompleta, tienePedidoDeBorradoPendiente } from "../../data";
 import { iniciarRutina, terminarCorreccion } from "../../actions";
 
 // El aviso de fin de descanso lo programa `programarAvisoDescanso` (Server
@@ -35,7 +35,13 @@ export default async function SesionPage({
   const { alumnoId, soloLectura: vistaSoloLectura } = await requireAlumno();
   const supabase = await createClient();
 
-  const sesion = await obtenerSesionCompleta(supabase, alumnoId, id);
+  // Las dos en paralelo: el pedido de borrado no depende de la sesión, y
+  // encadenarlas agregaba un viaje de ida y vuelta a una pantalla que ya es la
+  // más pesada de la pestaña.
+  const [sesion, pedidoDeBorradoPendiente] = await Promise.all([
+    obtenerSesionCompleta(supabase, alumnoId, id),
+    tienePedidoDeBorradoPendiente(supabase, alumnoId, id),
+  ]);
 
   if (!sesion) {
     return (
@@ -79,6 +85,14 @@ export default async function SesionPage({
           <p className="text-caption font-semibold text-success">Tu pedido llegó a tu entrenador</p>
           <p className="text-micro mt-1 text-text-secondary">
             Él revisa y borra el registro. Mientras tanto queda como está.
+          </p>
+        </Card>
+      )}
+      {aviso === "pedido-en-curso" && (
+        <Card padding="p-3" className="border border-warning/40 bg-warning/10">
+          <p className="text-caption font-semibold text-warning">Ya tenías un pedido para este registro</p>
+          <p className="text-micro mt-1 text-text-secondary">
+            No hizo falta mandar otro. Tu entrenador todavía lo está revisando.
           </p>
         </Card>
       )}
@@ -268,12 +282,31 @@ export default async function SesionPage({
           {/* Debajo de corregir y más apagado, en ese orden a propósito:
               corregir es lo que se va a querer casi siempre, borrar es la
               excepción de haber marcado la rutina hecha sin querer. Y borrar
-              no lo hace el alumno: lo pide, y lo resuelve el entrenador. */}
-          <EliminarSesionBoton sesionId={sesion.id} />
-          <p className="text-micro text-text-tertiary">
-            Borrar elimina el registro y sus Puntos VIP, y no se puede deshacer. Tu entrenador lo
-            revisa antes; después vas a poder hacer esta sesión de nuevo.
-          </p>
+              no lo hace el alumno: lo pide, y lo resuelve el entrenador.
+
+              Con un pedido ya esperando NO se ofrece el botón de nuevo: sin
+              esto, la pantalla quedaba igual que antes de pedir —ninguna
+              señal de que el pedido existía— y el alumno volvía a tocarlo
+              creyendo que no había pasado nada. */}
+          {pedidoDeBorradoPendiente ? (
+            <div className="radius-control border border-warning/40 bg-warning/10 p-3">
+              <p className="text-caption font-semibold text-warning">
+                Ya pediste que borren este registro
+              </p>
+              <p className="text-micro mt-1 text-text-secondary">
+                Tu entrenador lo revisa y decide. Mientras tanto el registro queda como está, y
+                podés seguir corrigiéndolo.
+              </p>
+            </div>
+          ) : (
+            <>
+              <EliminarSesionBoton sesionId={sesion.id} />
+              <p className="text-micro text-text-tertiary">
+                Borrar elimina el registro y sus Puntos VIP, y no se puede deshacer. Tu entrenador
+                lo revisa antes; después vas a poder hacer esta sesión de nuevo.
+              </p>
+            </>
+          )}
         </div>
       )}
 

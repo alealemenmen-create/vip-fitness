@@ -775,6 +775,35 @@ export async function obtenerSesionCompleta(
   };
 }
 
+/**
+ * ¿Este registro ya tiene un pedido de borrado esperando al entrenador?
+ *
+ * Sin esto la pantalla no tenía forma de saberlo, y le seguía ofreciendo al
+ * alumno "Pedir que borren este registro" como si nunca hubiera pedido nada.
+ * El segundo pedido chocaba contra el índice único de la 0076 y el error se
+ * traducía a "Esta opción todavía no está activa" — un mensaje falso, sobre
+ * una función que sí estaba activa y sobre un pedido que ya estaba guardado.
+ *
+ * Devuelve `false` si la tabla no existe (0076 sin correr): sin tabla no hay
+ * pedidos pendientes que mostrar, y la pantalla sigue funcionando igual.
+ */
+export async function tienePedidoDeBorradoPendiente(
+  supabase: SupabaseServerClient,
+  alumnoId: string,
+  sesionId: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("solicitudes_borrado_sesion")
+    .select("id")
+    .eq("sesion_id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "pendiente")
+    .maybeSingle();
+
+  if (error) return false;
+  return !!data;
+}
+
 export type SesionHistorial = {
   id: string;
   fecha: string;
