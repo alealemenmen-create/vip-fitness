@@ -213,11 +213,12 @@ export default async function SesionPage({
           </p>
           {/* Debajo de corregir y más apagado, en ese orden a propósito:
               corregir es lo que se va a querer casi siempre, borrar es la
-              excepción de haber marcado la rutina hecha sin querer. */}
+              excepción de haber marcado la rutina hecha sin querer. Y borrar
+              no lo hace el alumno: lo pide, y lo resuelve el entrenador. */}
           <EliminarSesionBoton sesionId={sesion.id} />
           <p className="text-micro text-text-tertiary">
-            Eliminar borra el registro completo y sus Puntos VIP. No queda en el historial y podrás
-            volver a hacer esta sesión desde cero.
+            Borrar elimina el registro y sus Puntos VIP, y no se puede deshacer. Tu entrenador lo
+            revisa antes; después vas a poder hacer esta sesión de nuevo.
           </p>
         </div>
       )}

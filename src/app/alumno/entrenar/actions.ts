@@ -9,7 +9,6 @@ import { hoyISO } from "@/lib/date";
 import {
   abandonarEntrenamiento,
   calcularYRegistrarPuntosImpulso,
-  eliminarMovimientosDeSesiones,
   registrarEntrenamiento,
   registrarPenalizacionDescanso,
 } from "@/lib/ranking/movimientos";
@@ -638,55 +637,53 @@ export async function abandonarSesion(formData: FormData): Promise<void> {
 }
 
 /**
- * Borra un registro de entrenamiento por completo.
+ * El alumno PIDE que le borren un registro. No lo borra él.
  *
- * Es la salida para lo que Alejandro describió: "la persona llegue y haga la
- * rutina y la marque hecha sin querer". Corregir no alcanza ahí — por más que
- * edite, el registro sigue existiendo y contando.
+ * El caso es real: "la persona llegue y haga la rutina y la marque hecha sin
+ * querer" — corregir no alcanza, porque por más que edite el registro sigue
+ * existiendo y contando. Pero borrar destruye historial sin vuelta atrás, y
+ * dejarlo a un toque de distancia era demasiado: "si no, cualquiera puede
+ * borrarla como si nada" (Alejandro).
  *
- * Se lleva TODO lo de esa sesión: sus ejercicios y series se van en cascada
- * (migración 0001), sus recomendaciones de Impulso VIP también, y los puntos
- * se borran acá a mano porque viven en otra tabla, indexados por clave y no
- * por clave foránea.
+ * Se evaluó pedir un código del entrenador y se descartó — un código fijo se
+ * filtra solo, y uno de un solo uso obliga al entrenador a estar disponible en
+ * el momento. Queda el pedido: el entrenador lo ve en su panel y borra él.
  *
- * Lo que NO se lleva: el número de calendario queda libre, así que el alumno
- * puede volver a hacer esa misma sesión. Es justamente lo que se busca — si la
- * marcó hecha sin querer, la borra y la hace de nuevo.
- *
- * A diferencia de `abandonarSesion`, acá **no queda rastro**: no hay fila en el
- * historial que diga que se empezó. Por eso pide confirmación aparte en la
- * pantalla y por eso las dos opciones conviven en vez de reemplazarse.
+ * Se guarda una foto del día y la fecha porque, una vez borrada la sesión, la
+ * solicitud es lo único que queda para saber qué se borró.
  */
-export async function eliminarSesion(formData: FormData): Promise<void> {
+export async function solicitarBorradoSesion(formData: FormData): Promise<void> {
   const sesionId = String(formData.get("sesion_id") || "");
-  const confirmada = String(formData.get("confirmar_borrado") || "") === "true";
+  const motivo = String(formData.get("motivo") || "").trim().slice(0, 500);
   const { alumnoId, soloLectura } = await requireAlumno();
-  if (!sesionId || soloLectura || !confirmada) return;
+  if (!sesionId || soloLectura || motivo.length === 0) return;
 
   const supabase = createAdminClient();
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
-    .select("id, estado")
+    .select("id, estado, fecha, numero_calendario, rutina_dias(nombre)")
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .maybeSingle();
-  // Una sesión en curso no se borra desde acá: para eso está
+  // Una sesión en curso no se pide borrar: para eso está
   // `cancelarSesionEnCurso`, que además libera el cupo de sesión activa.
   if (!sesion || sesion.estado === "en_progreso") return;
 
-  // Primero los puntos: si el borrado de la fila falla, es preferible haber
-  // quitado puntos de una sesión que sigue existiendo (se recalculan al
-  // volver a cerrarla) que dejar puntos huérfanos de una sesión que ya no
-  // está y que nadie va a poder rastrear.
-  await eliminarMovimientosDeSesiones(alumnoId, [sesionId]);
+  const dia = sesion.rutina_dias as unknown as { nombre: string } | null;
+  // `upsert` sobre el índice de "una pendiente por sesión": tocar el botón dos
+  // veces actualiza el motivo en vez de dejarle dos avisos iguales al
+  // entrenador.
+  await supabase.from("solicitudes_borrado_sesion").insert({
+    alumno_id: alumnoId,
+    sesion_id: sesionId,
+    dia_nombre: dia?.nombre ?? "Entrenamiento",
+    fecha_sesion: sesion.fecha,
+    numero_calendario: sesion.numero_calendario,
+    motivo,
+  });
 
-  await supabase.from("sesiones_entrenamiento").delete().eq("id", sesionId).eq("alumno_id", alumnoId);
-
-  revalidateTag(TAG_RANKING, { expire: 0 });
+  revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/entrenar/historial");
-  revalidatePath("/alumno/inicio");
-  revalidatePath("/alumno/entrenar");
-  redirect("/alumno/entrenar/historial");
 }
 
 /**

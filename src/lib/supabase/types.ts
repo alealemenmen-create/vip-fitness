@@ -1623,6 +1623,40 @@ export interface Database {
         };
         Relationships: [];
       };
+      // 0076_solicitudes_borrado_sesion.sql — borrar un registro destruye
+      // historial, así que el alumno pide y el entrenador resuelve. La fila
+      // sobrevive al borrado (`sesion_id` queda en null) y guarda una foto de
+      // qué era esa sesión: es la única constancia que queda.
+      solicitudes_borrado_sesion: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          sesion_id: string | null;
+          dia_nombre: string;
+          fecha_sesion: string | null;
+          numero_calendario: number | null;
+          motivo: string;
+          estado: "pendiente" | "borrada" | "rechazada";
+          creado_en: string;
+          resuelto_en: string | null;
+          resuelto_por: string | null;
+        };
+        Insert: {
+          alumno_id: string;
+          sesion_id: string;
+          dia_nombre: string;
+          fecha_sesion?: string | null;
+          numero_calendario?: number | null;
+          motivo: string;
+          estado?: "pendiente" | "borrada" | "rechazada";
+        };
+        Update: {
+          estado?: "pendiente" | "borrada" | "rechazada";
+          resuelto_en?: string | null;
+          resuelto_por?: string | null;
+        };
+        Relationships: [];
+      };
       push_suscripciones: {
         Row: {
           id: string;

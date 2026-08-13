@@ -3,19 +3,25 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Trash2, AlertTriangle } from "lucide-react";
-import { eliminarSesion } from "@/app/alumno/entrenar/actions";
+import { solicitarBorradoSesion } from "@/app/alumno/entrenar/actions";
 import { Card } from "@/components/ui/Card";
+import { Textarea } from "@/components/ui/Input";
 
 /**
- * Borra el registro entero. Hermano de `ReabrirSesionBoton`, y a propósito
- * más apagado que él: corregir es lo que el alumno va a querer casi siempre,
- * borrar es la excepción (marcó la rutina hecha sin querer).
+ * El alumno PIDE que le borren el registro; no lo borra él.
  *
- * El aviso no dice "¿estás seguro?" sino qué se pierde exactamente, que es lo
- * único que ayuda a decidir.
+ * Borrar destruye historial sin vuelta atrás y dejarlo a dos toques era
+ * demasiado: "si no, cualquiera puede borrarla como si nada" (Alejandro). Se
+ * descartó pedir un código del entrenador — uno fijo se filtra solo, uno de un
+ * solo uso lo obliga a estar disponible en el momento. El pedido deja la
+ * decisión donde tiene que estar y de paso queda constancia de quién la tomó.
+ *
+ * El motivo es obligatorio a propósito: sin él, el entrenador no tiene con qué
+ * decidir y termina aprobando todo.
  */
 export function EliminarSesionBoton({ sesionId }: { sesionId: string }) {
   const [abierto, setAbierto] = useState(false);
+  const [motivo, setMotivo] = useState("");
   return (
     <>
       <button
@@ -23,7 +29,7 @@ export function EliminarSesionBoton({ sesionId }: { sesionId: string }) {
         onClick={() => setAbierto(true)}
         className="radius-control flex h-11 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text-tertiary"
       >
-        <Trash2 size={16} /> Eliminar registro
+        <Trash2 size={16} /> Pedir que borren este registro
       </button>
       {abierto &&
         createPortal(
@@ -34,34 +40,46 @@ export function EliminarSesionBoton({ sesionId }: { sesionId: string }) {
             <Card padding="p-4" className="w-full max-w-sm">
               <div className="space-y-3" onClick={(event) => event.stopPropagation()}>
                 <div className="flex items-start gap-2.5">
-                  <AlertTriangle size={20} className="mt-0.5 shrink-0 text-error" />
+                  <AlertTriangle size={20} className="mt-0.5 shrink-0 text-warning" />
                   <div>
-                    <p className="text-body font-semibold text-text">¿Eliminar este registro?</p>
+                    <p className="text-body font-semibold text-text">¿Pedir que borren este registro?</p>
                     <p className="text-caption mt-1 text-text-secondary">
-                      Se borran los kilos y las repeticiones que cargaste, y los Puntos VIP que te
-                      dio esta sesión. No queda en el historial y no se puede deshacer.
+                      Borrar elimina los kilos, las repeticiones y los Puntos VIP de esta sesión, y
+                      no se puede deshacer. Por eso lo revisa tu entrenador antes.
                     </p>
                     <p className="text-micro mt-1.5 text-text-tertiary">
-                      Vas a poder volver a hacer esta sesión desde cero.
+                      Si solo cargaste un dato mal, es mejor “Corregir registro”: lo editas tú
+                      mismo, al instante.
                     </p>
                   </div>
                 </div>
-                <form action={eliminarSesion} className="grid grid-cols-2 gap-2">
+                <form action={solicitarBorradoSesion} className="space-y-2">
                   <input type="hidden" name="sesion_id" value={sesionId} />
-                  <input type="hidden" name="confirmar_borrado" value="true" />
-                  <button
-                    type="button"
-                    onClick={() => setAbierto(false)}
-                    className="radius-control h-11 border border-border text-caption font-semibold text-text"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="radius-control h-11 border border-error text-caption font-bold text-error"
-                  >
-                    Sí, eliminar
-                  </button>
+                  <Textarea
+                    name="motivo"
+                    value={motivo}
+                    onChange={(e) => setMotivo(e.target.value)}
+                    placeholder="¿Por qué hay que borrarla? Ej: la marqué hecha sin querer"
+                    rows={2}
+                    maxLength={500}
+                    required
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAbierto(false)}
+                      className="radius-control h-11 border border-border text-caption font-semibold text-text"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={motivo.trim().length === 0}
+                      className="btn-accion radius-control h-11 text-caption font-semibold disabled:opacity-40"
+                    >
+                      Enviar pedido
+                    </button>
+                  </div>
                 </form>
               </div>
             </Card>
