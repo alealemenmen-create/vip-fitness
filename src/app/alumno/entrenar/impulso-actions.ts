@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
+import { refrescarRecomendacionesFaltantes } from "@/lib/impulso-vip/data";
 import type { MomentoAlertaImpulso } from "@/lib/supabase/types";
 
 export type ReportarDolorState = { error: string | null; ok: boolean };
@@ -67,4 +68,36 @@ export async function reportarDolor(
 
   if (sesionId) revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   return { error: null, ok: true };
+}
+
+/**
+ * Intenta rellenar las metas de Impulso VIP que quedaron sin generar al
+ * crear la sesión — ver `refrescarRecomendacionesFaltantes`.
+ *
+ * Se llama sola al entrar a una sesión en progreso (ver
+ * `RefrescarRecomendaciones.tsx`), no hace falta que el alumno haga nada.
+ * `void`, sin loading ni error visible: si no hay nada que rellenar es un
+ * no-op instantáneo, y si algo falla el alumno sigue viendo su sesión igual
+ * que siempre — una meta que no aparece no es un error, es el mismo
+ * comportamiento de hoy.
+ *
+ * Solo mientras la sesión sigue `en_progreso`: una vez cerrada, la meta que
+ * el alumno vio (o no vio) mientras entrenaba queda fija, igual que ya vale
+ * para las que sí se generaron a tiempo.
+ */
+export async function refrescarRecomendaciones(sesionId: string): Promise<void> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (!sesionId || soloLectura) return;
+
+  const supabase = await createClient();
+  const { data: sesion } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id, estado")
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .maybeSingle();
+  if (sesion?.estado !== "en_progreso") return;
+
+  await refrescarRecomendacionesFaltantes(supabase, alumnoId, sesionId);
+  revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
 }

@@ -520,6 +520,64 @@ export async function generarYGuardarRecomendacion(
   return insertarORecuperarRecomendacion(repoRecomendaciones, payload, repararAlerta);
 }
 
+/**
+ * Reintenta generar la meta de los ejercicios que se quedaron sin ninguna al
+ * crear la sesión, con el historial de HOY — no del momento en que la sesión
+ * se creó.
+ *
+ * El punto flojo que esto cierra: `generarYGuardarRecomendacion` corre UNA
+ * sola vez, al crear la sesión (`crearOEntrarSesion`), y si en ese momento un
+ * ejercicio no tenía historial utilizable, se queda sin fila en
+ * `impulso_vip_recomendaciones` para siempre — no hay ningún otro disparador
+ * que lo vuelva a intentar. Le pasó a Alejandro: creó la sesión 6 antes de
+ * terminar de corregir la sesión 1, y quedó sin ninguna meta aunque el
+ * historial mejoró un minuto después.
+ *
+ * Solo TOCA los ejercicios sin fila. Uno que ya tiene una recomendación
+ * generada no se toca nunca por acá — sigue siendo la regla de siempre
+ * (`RecomendacionImpulso`, en `entrenar/data.ts`): una meta ya mostrada no
+ * cambia por debajo del alumno mientras entrena.
+ */
+export async function refrescarRecomendacionesFaltantes(
+  supabase: SupabaseServerClient,
+  alumnoId: string,
+  sesionId: string
+): Promise<void> {
+  const { data: ejercicios } = await supabase
+    .from("sesion_ejercicios")
+    .select("id, dia_ejercicio_id")
+    .eq("sesion_id", sesionId);
+  if (!ejercicios || ejercicios.length === 0) return;
+
+  const { data: existentes } = await supabase
+    .from("impulso_vip_recomendaciones")
+    .select("sesion_ejercicio_id")
+    .in(
+      "sesion_ejercicio_id",
+      ejercicios.map((e) => e.id)
+    );
+  const yaTienen = new Set((existentes ?? []).map((r) => r.sesion_ejercicio_id));
+  const faltantes = ejercicios.filter((e) => !yaTienen.has(e.id));
+  if (faltantes.length === 0) return;
+
+  // El objetivo del alumno se lee una vez para todos los faltantes, mismo
+  // motivo que en `crearOEntrarSesion`: son la misma fila repetida por
+  // ejercicio.
+  const { data: perfil } = await supabase.from("alumno_perfil").select("objetivo").eq("user_id", alumnoId).maybeSingle();
+  const objetivoAlumno = { valor: perfil?.objetivo ?? null };
+
+  await Promise.all(
+    faltantes.map((e) =>
+      generarYGuardarRecomendacion(supabase, {
+        sesionEjercicioId: e.id,
+        diaEjercicioId: e.dia_ejercicio_id,
+        alumnoId,
+        objetivoAlumno,
+      }).catch(() => null)
+    )
+  );
+}
+
 export type AlertaPendiente = {
   id: string;
   tipo: "dolor" | "estancamiento_3_sesiones" | "caida_rendimiento";

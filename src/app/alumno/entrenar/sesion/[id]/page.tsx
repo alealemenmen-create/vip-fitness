@@ -11,6 +11,7 @@ import { SalidaGuiadaSesion } from "@/components/student/SalidaGuiadaSesion";
 import { CierreAutomaticoSesion } from "@/components/student/CierreAutomaticoSesion";
 import { ReabrirSesionBoton } from "@/components/student/ReabrirSesionBoton";
 import { EliminarSesionBoton } from "@/components/student/EliminarSesionBoton";
+import { RefrescarRecomendaciones } from "@/components/student/RefrescarRecomendaciones";
 import { sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerSesionCompleta, tienePedidoDeBorradoPendiente } from "../../data";
 import { iniciarRutina, terminarCorreccion } from "../../actions";
@@ -80,6 +81,9 @@ export default async function SesionPage({
     // 28 px de scroll. Lo que se busca es que el ejercicio en curso y la
     // cabecera del siguiente entren juntos en una pantalla.
     <div className="space-y-3 pb-8">
+      {sesion.estado === "en_progreso" && !vistaSoloLectura && (
+        <RefrescarRecomendaciones sesionId={sesion.id} />
+      )}
       {aviso === "pedido-enviado" && (
         <Card padding="p-3" className="border border-success/40 bg-success/10">
           <p className="text-caption font-semibold text-success">Tu pedido llegó a tu entrenador</p>
