@@ -175,6 +175,7 @@ export default async function SesionPage({
           ejercicios={sesion.ejercicios}
           sesionId={sesion.id}
           soloLectura={sesionSoloLectura}
+          modoCorreccion={enCorreccion}
           completados={completados}
           total={total}
         />
@@ -245,11 +246,25 @@ export default async function SesionPage({
           <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-text-tertiary">
             Opciones de este registro
           </p>
-          <ReabrirSesionBoton sesionId={sesion.id} />
-          <p className="text-micro text-text-tertiary">
-            Corregir vuelve a abrir esta sesión para editar kilos y repeticiones. Tus Puntos VIP no
-            cambian: esta sesión no vuelve a sumar ni pierde lo ya ganado.
-          </p>
+          {/* Corregir NO se ofrece mientras ya se está corrigiendo: el botón
+              ya se tocó y volver a tocarlo no hace nada. Alejandro: "cuando
+              entro a corregir me da opciones de este registro y me dan de
+              nuevo el botón corregir registro, y ahí no funciona. Ese botón
+              está solamente cuando le das en ver registro".
+              Es el mismo error que la 1.21 dio por cerrado —un botón visible
+              que no responde se lee como app colgada—, solo que del otro lado
+              de la puerta: allá faltaba la migración, acá sobra el botón.
+              Salir de la corrección se hace con "Listo, terminé de corregir",
+              arriba. */}
+          {!enCorreccion && (
+            <>
+              <ReabrirSesionBoton sesionId={sesion.id} />
+              <p className="text-micro text-text-tertiary">
+                Corregir vuelve a abrir esta sesión para editar kilos y repeticiones. Tus Puntos VIP
+                no cambian: esta sesión no vuelve a sumar ni pierde lo ya ganado.
+              </p>
+            </>
+          )}
           {/* Debajo de corregir y más apagado, en ese orden a propósito:
               corregir es lo que se va a querer casi siempre, borrar es la
               excepción de haber marcado la rutina hecha sin querer. Y borrar

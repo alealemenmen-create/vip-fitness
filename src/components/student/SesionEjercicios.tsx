@@ -97,10 +97,28 @@ export function SesionEjercicios({
   soloLectura,
   completados,
   total,
+  modoCorreccion = false,
 }: {
   ejercicios: EjercicioSesion[];
   sesionId: string;
   soloLectura: boolean;
+  /**
+   * Corrigiendo un registro cerrado (migración 0077): se edita, pero **toda la
+   * rutina se muestra en lista**, no de a un ejercicio por vez.
+   *
+   * `soloLectura` decidía dos cosas a la vez —si se puede escribir Y si se ve
+   * uno o todos— y por eso corregir caía en el modo enfocado del
+   * entrenamiento: para arreglar un kilo del ejercicio 6 había que tocar
+   * "Siguiente" cinco veces. Alejandro: "que cuando entre a la pantalla de
+   * corregir me arroje la rutina en lista para verla mejor y corregirla muy
+   * rápido". Son dos preguntas distintas y ahora son dos props distintas.
+   *
+   * También apaga `activo` en todas las tarjetas: en una sesión abandonada o
+   * incompleta quedan ejercicios sin terminar, y sin esto el primero de ellos
+   * arrancaría los descansos y los temporizadores. Corregir no es entrenar —
+   * acá no corre ningún reloj.
+   */
+  modoCorreccion?: boolean;
   completados: number;
   total: number;
 }) {
@@ -144,7 +162,7 @@ export function SesionEjercicios({
 
   const renderizarGrupo = (grupo: EjercicioSesion[]) => {
     if (grupo.length >= 2) {
-      const activo = grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId);
+      const activo = !modoCorreccion && grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId);
       return (
         <SesionGrupoCard
           key={grupo[0].sesionEjercicioId}
@@ -173,8 +191,8 @@ export function SesionEjercicios({
         ejercicio={grupo[0]}
         sesionId={sesionId}
         soloLectura={soloLectura}
-        activo={grupo[0].sesionEjercicioId === ejercicioActivoId}
-        modoEnfocado={!soloLectura}
+        activo={!modoCorreccion && grupo[0].sesionEjercicioId === ejercicioActivoId}
+        modoEnfocado={!soloLectura && !modoCorreccion}
         onDificultadRespondida={() => avanzarDesdeEncuesta(grupo)}
       />
     );
@@ -255,7 +273,11 @@ export function SesionEjercicios({
 
   return (
     <>
-      {soloLectura ? (
+      {/* Dos motivos distintos para ver la rutina entera de una: mirarla sin
+          poder tocarla (`soloLectura`) y corregirla (`modoCorreccion`). La
+          diferencia está adentro de las tarjetas, que en corrección siguen
+          siendo editables. */}
+      {soloLectura || modoCorreccion ? (
         grupos.map(renderizarGrupo)
       ) : grupoVisible ? (
         <section className="modo-entrenamiento-enfocado space-y-2" aria-label="Ejercicio actual">
@@ -279,9 +301,15 @@ export function SesionEjercicios({
         </section>
       ) : null}
 
-      {montado && !soloLectura && navegacion ? createPortal(navegacion, document.body) : null}
+      {/* Ni barra de navegación ni "Finalizar entrenamiento" en una
+          corrección: no hay ejercicio "en curso" que seguir ni entrenamiento
+          que cerrar. De la corrección se sale con "Listo, terminé de
+          corregir", que la pantalla pone arriba de las opciones. */}
+      {montado && !soloLectura && !modoCorreccion && navegacion
+        ? createPortal(navegacion, document.body)
+        : null}
 
-      {!soloLectura && (
+      {!soloLectura && !modoCorreccion && (
         <>
           {/* "Guardar" suelto ya no existe: guardar y completar el ejercicio
               eran dos toques para una sola intención, y el segundo casi nunca
