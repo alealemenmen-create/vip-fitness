@@ -795,6 +795,16 @@ function ReportarDolorPanel({
  * antes de asentarse en "Listo". */
 const MS_AVISO_SIGUIENTE = 4000;
 
+/** Ventana de gracia de la presencia: cuánto vale un toque, un scroll o una
+ * tecla como prueba de que el alumno sigue frente a la pantalla. Mientras esa
+ * señal esté fresca, el contador de exceso de descanso no corre.
+ *
+ * 30 s es un tramo y medio de penalización (`descansoSegundosPorTramo` = 20):
+ * suficiente para que anotar kilos, leer la ficha del ejercicio o acomodar la
+ * máquina no cueste puntos, y corto como para que el teléfono apoyado en el
+ * banco mientras se conversa sí los cueste. */
+const MS_PRESENCIA = 30_000;
+
 /**
  * Qué técnica mostrar y si es una orden o una sugerencia.
  *
@@ -1088,46 +1098,88 @@ export const FilaSerie = forwardRef<
    * penalizado queda, pero no sigue creciendo. */
   const [segundosExceso, setSegundosExceso] = useState(0);
   const [excesoPausado, setExcesoPausado] = useState(false);
-  const excesoDesdeRef = useRef<number | null>(null);
+  /** Congelado porque hay señales de que el alumno está en la pantalla. Es
+   * distinto de `excesoPausado` (freno manual) solo para poder decirlo bien
+   * en el aviso. */
+  const [presente, setPresente] = useState(true);
+  /** Momento de la última señal humana. Arranca en 0 y lo llena el efecto de
+   * abajo al montar: `Date.now()` en el render rompe la pureza (y el HTML del
+   * servidor no tiene reloj del alumno). */
+  const ultimaSenalRef = useRef(0);
   const tramosNotificadosRef = useRef(0);
+
+  // Presencia. Yesenia lo dijo mejor que cualquier especificación: el reloj no
+  // se detenía aunque ella estuviera enfrente de la pantalla, y en cambio se
+  // frenaba solo cuando se iba a WhatsApp — o sea, penalizaba estar y perdonaba
+  // irse. Lo que la app puede saber de verdad es si hubo una señal humana hace
+  // poco: un toque, un scroll, una tecla, volver a la app. No hay forma de
+  // "ver" al alumno, pero un toque hace unos segundos alcanza para asumir que
+  // sigue ahí.
   useEffect(() => {
-    const pausarAlOcultarse = () => {
-      if (document.hidden && avisadoRef.current) setExcesoPausado(true);
+    if (soloLectura) return;
+    // Solo se toca el ref, nunca el estado: un scroll dispara decenas de
+    // eventos por segundo y no puede costar un re-render cada uno. Quien mira
+    // el ref es el tick de una vez por segundo del contador, que es también
+    // quien actualiza `presente` para la pantalla.
+    const marcar = () => {
+      ultimaSenalRef.current = Date.now();
     };
-    document.addEventListener("visibilitychange", pausarAlOcultarse);
-    return () => document.removeEventListener("visibilitychange", pausarAlOcultarse);
-  }, []);
+    // Estar en la pantalla al montar ya cuenta como señal: la pantalla de la
+    // sesión no se abre sola.
+    marcar();
+    const alCambiarVisibilidad = () => {
+      // Se fue de la app: eso no es estar frente a la pantalla, y el reloj
+      // tiene que correr. La señal vieja se descarta para que el contador
+      // arranque ya y no espere la ventana de gracia.
+      ultimaSenalRef.current = document.hidden ? 0 : Date.now();
+    };
+    const opciones = { passive: true, capture: true } as const;
+    window.addEventListener("pointerdown", marcar, opciones);
+    window.addEventListener("touchstart", marcar, opciones);
+    window.addEventListener("keydown", marcar, opciones);
+    window.addEventListener("scroll", marcar, opciones);
+    window.addEventListener("wheel", marcar, opciones);
+    document.addEventListener("visibilitychange", alCambiarVisibilidad);
+    return () => {
+      window.removeEventListener("pointerdown", marcar, opciones);
+      window.removeEventListener("touchstart", marcar, opciones);
+      window.removeEventListener("keydown", marcar, opciones);
+      window.removeEventListener("scroll", marcar, opciones);
+      window.removeEventListener("wheel", marcar, opciones);
+      document.removeEventListener("visibilitychange", alCambiarVisibilidad);
+    };
+  }, [soloLectura]);
 
   function alternarPausaExceso() {
-    if (excesoPausado) {
-      // Reconstruye el origen solo con el tiempo visible ya contabilizado;
-      // nunca incorpora los minutos que el navegador estuvo oculto/dormido.
-      excesoDesdeRef.current = Date.now() - segundosExceso * 1000;
-      setExcesoPausado(false);
-    } else {
-      setExcesoPausado(true);
-    }
+    setExcesoPausado((prev) => !prev);
   }
   useEffect(() => {
     if (soloLectura || !activo || descansando || !avisadoRef.current || !descansoSegundos) {
-      excesoDesdeRef.current = null;
       tramosNotificadosRef.current = 0;
       setSegundosExceso(0);
       setExcesoPausado(false);
       return;
     }
     if (excesoPausado) return;
-    excesoDesdeRef.current ??= Date.now();
+    // Acumulador y no "ahora menos el origen": el contador se congela y se
+    // reanuda muchas veces por descanso (cada toque lo frena), así que el
+    // tiempo penalizado es la suma de los tramos en que NO hubo nadie, no el
+    // reloj de pared desde que terminó el descanso.
     const id = setInterval(() => {
-      const transcurridoS = Math.floor((Date.now() - (excesoDesdeRef.current ?? Date.now())) / 1000);
-      setSegundosExceso(transcurridoS);
-      const tramos = Math.floor(transcurridoS / PUNTOS_VIP.descansoSegundosPorTramo);
-      // Solo se manda al servidor cuando se cruza un tramo nuevo, no cada
-      // segundo — el indicador visual sí se actualiza cada segundo.
-      if (tramos > tramosNotificadosRef.current) {
-        tramosNotificadosRef.current = tramos;
-        void penalizarExcesoDescanso(sesionEjercicioId, numero, tramos);
-      }
+      const enPantalla = !document.hidden && Date.now() - ultimaSenalRef.current <= MS_PRESENCIA;
+      setPresente(enPantalla);
+      if (enPantalla) return;
+      setSegundosExceso((prev) => {
+        const siguiente = prev + 1;
+        const tramos = Math.floor(siguiente / PUNTOS_VIP.descansoSegundosPorTramo);
+        // Solo se manda al servidor cuando se cruza un tramo nuevo, no cada
+        // segundo — el indicador visual sí se actualiza cada segundo.
+        if (tramos > tramosNotificadosRef.current) {
+          tramosNotificadosRef.current = tramos;
+          void penalizarExcesoDescanso(sesionEjercicioId, numero, tramos);
+        }
+        return siguiente;
+      });
     }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1470,15 +1522,21 @@ export const FilaSerie = forwardRef<
         )}
       </div>
       {segundosExceso > 0 && (
-        // Aviso chico y en rojo, en vivo desde el segundo 1: primero avisa
-        // que el reloj corre, y recién cuando se cruza el primer tramo (ver
+        // Aviso chico, en vivo desde el segundo 1: primero avisa que el reloj
+        // corre, y recién cuando se cruza el primer tramo (ver
         // PUNTOS_VIP.descansoSegundosPorTramo) muestra los puntos perdidos.
         // Tocable: frena el contador donde está sin obligar a arrancar la
         // siguiente serie (lo ya penalizado no se revierte).
+        //
+        // Rojo solo cuando de verdad está corriendo. Congelado —a mano o
+        // porque el alumno está en la pantalla— no es una alarma, y pintarlo
+        // igual hacía que el aviso gritara todo el tiempo lo mismo.
         <button
           type="button"
           onClick={alternarPausaExceso}
-          className="mt-1 text-left text-micro text-error underline decoration-dotted"
+          className={`mt-1 text-left text-micro underline decoration-dotted ${
+            excesoPausado || presente ? "text-text-tertiary" : "text-error"
+          }`}
         >
           {excesoPausado
             ? tramosExcedidos > 0
@@ -1487,7 +1545,16 @@ export const FilaSerie = forwardRef<
                   tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
                 )} pts · toca para reanudar`
               : "Detenido · toca para reanudar"
-            : tramosExcedidos > 0
+            : presente
+              ? // Congelado solo porque hay señales de que sigue en la pantalla.
+                // Decirlo importa: si no, el número quieto parece un error.
+                tramosExcedidos > 0
+                ? `En pausa mientras estás en la pantalla · ${Math.min(
+                    PUNTOS_VIP.descansoPenalizacionMaxima,
+                    tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
+                  )} pts descontados`
+                : "En pausa mientras estás en la pantalla"
+              : tramosExcedidos > 0
               ? `Te pasaste del descanso: -${Math.min(
                   PUNTOS_VIP.descansoPenalizacionMaxima,
                   tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo

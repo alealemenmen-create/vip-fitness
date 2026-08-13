@@ -163,7 +163,7 @@ export function SalidaGuiadaSesion({
             recuerda dónde está el botón para frenarla. */}
         <p className="text-micro mt-0.5 text-text-secondary">
           {descansoCorrio
-            ? "Mientras no estabas el reloj no se detuvo. Toca “toca para frenar”, sobre la serie en curso, para parar el descuento."
+            ? "Mientras no estabas el reloj corrió y descontó. Ya se detuvo al volver: mientras estés en la pantalla no descuenta nada."
             : completa
               ? `Terminaste los ${total} ejercicios. Ciérralo para cobrar tus +${puntos} pts.`
               : `Llevas ${completados} de ${total}. Sigue donde lo dejaste.`}
