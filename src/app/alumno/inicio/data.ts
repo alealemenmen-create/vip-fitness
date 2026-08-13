@@ -292,7 +292,14 @@ export async function obtenerResumenEntrenamientoDias(
     return {
       nombre: dia.tipo === "descanso" ? "Descanso" : dia.nombre,
       tipo: dia.tipo,
-      grupo: dia.resumen?.gruposMusculares[0] ?? null,
+      // Cardio nunca es el que titula la tarjeta: un día de fuerza que
+      // arranca con una bicicleta de calentamiento no puede mostrarse como
+      // "Cardio" solo porque esa fila fue la primera. Ver mismo criterio en
+      // CalendarioEntrenamiento.tsx.
+      grupo:
+        dia.resumen?.gruposMusculares.find((g) => g !== "cardio") ??
+        dia.resumen?.gruposMusculares[0] ??
+        null,
       esHoy,
       conDatos: usaSesion,
       completados,

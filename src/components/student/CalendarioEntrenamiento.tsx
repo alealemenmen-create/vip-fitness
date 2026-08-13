@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Moon, Check, AlertTriangle, Eye } from "lucide-react";
 import { iniciarSesion, cancelarYEmpezarOtroDia } from "@/app/alumno/entrenar/actions";
-import type { NumeroCalendario, EstadoNumero } from "@/app/alumno/entrenar/data";
+import type { NumeroCalendario, EstadoNumero, GrupoMuscular } from "@/app/alumno/entrenar/data";
 import { FotoDiaEntrenamiento, ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import {
   SEMANAS_POR_MES,
@@ -166,11 +166,24 @@ export function CalendarioEntrenamiento({
       : null;
   const resumen = actual.dia.resumen;
   const grupos = resumen?.gruposMusculares ?? [];
-  const titulo = descanso ? "Descanso" : (grupos[0] ? ETIQUETAS_GRUPO_MUSCULAR[grupos[0]] : actual.dia.nombre);
+  // Cardio va siempre al final, no por el orden en que se cargaron los
+  // ejercicios: un día "Pecho + Bíceps" con una bicicleta de calentamiento al
+  // principio no puede titularse "Cardio" solo porque esa fue la primera
+  // fila. Si el día es puramente cardio, ahí sí es el título.
+  const gruposPrincipales = grupos.filter((g) => g !== "cardio");
+  const tieneCardio = grupos.includes("cardio");
+  const gruposOrdenados = [...gruposPrincipales, ...(tieneCardio ? (["cardio"] as GrupoMuscular[]) : [])];
+  const titulo = descanso
+    ? "Descanso"
+    : gruposPrincipales.length > 0
+      ? gruposPrincipales.slice(0, 2).map((g) => ETIQUETAS_GRUPO_MUSCULAR[g]).join(" · ")
+      : tieneCardio
+        ? ETIQUETAS_GRUPO_MUSCULAR.cardio
+        : actual.dia.nombre;
   const subtitulo = descanso
     ? (actual.dia.descripcion ?? "Día de recuperación")
-    : grupos.length > 0
-      ? grupos.map((g) => ETIQUETAS_GRUPO_MUSCULAR[g]).join(" · ")
+    : gruposOrdenados.length > 0
+      ? gruposOrdenados.map((g) => ETIQUETAS_GRUPO_MUSCULAR[g]).join(" · ")
       : actual.dia.nombre;
 
   return (
