@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Play } from "lucide-react";
 import { iniciarRutina } from "@/app/alumno/entrenar/actions";
@@ -21,12 +21,13 @@ import { iniciarRutina } from "@/app/alumno/entrenar/actions";
  * técnica de esta misma pantalla ya resuelve el mismo problema así.
  *
  * `montado` evita el portal en el primer render del servidor (no existe
- * `document` ahí) — mismo patrón que el resto de la app para todo lo que
- * depende del DOM real.
+ * `document` ahí) — mismo patrón que el resto de la app (`useSyncExternalStore`
+ * con un "store" que nunca cambia, en vez de `setState` dentro de un efecto).
  */
+const suscribirSinCambios = () => () => {};
+
 export function BotonIniciarRutinaFijo({ sesionId }: { sesionId: string }) {
-  const [montado, setMontado] = useState(false);
-  useEffect(() => setMontado(true), []);
+  const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
   if (!montado) return null;
 
   return createPortal(

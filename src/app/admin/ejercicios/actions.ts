@@ -12,7 +12,13 @@ import {
   TAMANO_MAXIMO_FOTO as TAMANO_MAXIMO,
   TIPOS_IMAGEN,
 } from "@/lib/ejercicios/procesarFoto";
-import type { CategoriaEjercicio, EquipoEjercicio, NivelEjercicio } from "@/lib/ejercicios/tipos";
+import type {
+  CategoriaEjercicio,
+  EquipoEjercicio,
+  NivelEjercicio,
+  IntensidadImpulsoEjercicio,
+  TecnicaImpulsoEjercicio,
+} from "@/lib/ejercicios/tipos";
 import type { GrupoMuscular } from "@/app/alumno/entrenar/data";
 import { PATRONES_MOVIMIENTO_VALIDOS } from "@/lib/rutinas/patrones";
 import {
@@ -799,6 +805,46 @@ export async function combinarEjerciciosDuplicados(
 
   avisarCambios();
   return { error: null, ok: true, mensaje: `${duplicado.nombre} quedó combinado con ${original.nombre}.` };
+}
+
+export type ActualizarPerfilImpulsoState = { error: string | null; ok: boolean };
+
+const INTENSIDADES_IMPULSO: IntensidadImpulsoEjercicio[] = ["ninguna", "baja", "media", "alta"];
+const TECNICAS_IMPULSO: TecnicaImpulsoEjercicio[] = [
+  "tempo_controlado",
+  "pausa_isometrica",
+  "serie_descarga",
+  "drop_set",
+  "rest_pause",
+  "fallo_controlado",
+];
+
+/** Perfil explícito: Impulso nunca habilita una técnica por coincidencias en
+ * el nombre del ejercicio. Alejandro define aquí el techo real de seguridad. */
+export async function actualizarPerfilImpulsoEjercicio(
+  _prevState: ActualizarPerfilImpulsoState,
+  formData: FormData,
+): Promise<ActualizarPerfilImpulsoState> {
+  await requireRol(["entrenador", "admin"]);
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  const intensidad = String(formData.get("impulso_intensidad_maxima") || "ninguna") as IntensidadImpulsoEjercicio;
+  const solicitadas = formData.getAll("impulso_tecnicas_permitidas").map(String);
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+  if (!INTENSIDADES_IMPULSO.includes(intensidad)) return { error: "La intensidad no es válida.", ok: false };
+  if (solicitadas.some((tecnica) => !TECNICAS_IMPULSO.includes(tecnica as TecnicaImpulsoEjercicio))) {
+    return { error: "Hay una técnica no válida.", ok: false };
+  }
+  const tecnicas = intensidad === "ninguna" ? [] : Array.from(new Set(solicitadas)) as TecnicaImpulsoEjercicio[];
+  const supabase = await createClient();
+  const { error } = await supabase.from("ejercicios").update({
+    impulso_intensidad_maxima: intensidad,
+    impulso_tecnicas_permitidas: tecnicas,
+    impulso_requiere_supervision: formData.get("impulso_requiere_supervision") === "on",
+    impulso_perfil_revisado: true,
+  }).eq("id", ejercicioId);
+  if (error) return { error: "No se pudo guardar el perfil de Impulso. Verifica que la migración 0082 esté aplicada.", ok: false };
+  avisarCambios();
+  return { error: null, ok: true };
 }
 
 /** Une un nombre libre de rutinas con una entrada oficial de la biblioteca.

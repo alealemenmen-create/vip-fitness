@@ -15,6 +15,7 @@ import { BotonIniciarRutinaFijo } from "@/components/student/BotonIniciarRutinaF
 import { sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerSesionCompleta, tienePedidoDeBorradoPendiente } from "../../data";
 import { terminarCorreccion } from "../../actions";
+import { SincronizarIndicacionesAle } from "@/components/student/SincronizarIndicacionesAle";
 
 // El aviso de fin de descanso lo programa `programarAvisoDescanso` (Server
 // Action de esta página, ver push-actions.ts) con `after()`: el servidor
@@ -75,6 +76,14 @@ export default async function SesionPage({
     (sesion.estado !== "en_progreso" && !enCorreccion) || vistaSoloLectura || bloqueadaPorIniciar;
   const completados = sesion.ejercicios.filter((e) => e.completado).length;
   const total = sesion.ejercicios.length;
+  const firmaIntervenciones = JSON.stringify(
+    sesion.ejercicios.flatMap((ejercicio) => ejercicio.intervencionesImpulso.map((intervencion) => ({
+      id: intervencion.id,
+      origen: intervencion.origen,
+      instruccion: intervencion.instruccion,
+      estado: intervencion.estado,
+    }))).sort((a, b) => a.id.localeCompare(b.id)),
+  );
 
   return (
     // space-y-3 y no 4: con siete ejercicios, cada 4 px entre tarjetas son
@@ -83,6 +92,9 @@ export default async function SesionPage({
     // `pb-32` cuando "Iniciar rutina" queda fijo abajo (ver más abajo): sin
     // ese aire de más, el botón fijo tapaba el último ejercicio de la lista.
     <div className={`space-y-3 ${bloqueadaPorIniciar ? "pb-32" : "pb-8"}`}>
+      {sesion.estado === "en_progreso" && rutinaIniciada && !vistaSoloLectura && (
+        <SincronizarIndicacionesAle sesionId={sesion.id} firmaInicial={firmaIntervenciones} />
+      )}
       {sesion.estado === "en_progreso" && !vistaSoloLectura && (
         <RefrescarRecomendaciones sesionId={sesion.id} />
       )}

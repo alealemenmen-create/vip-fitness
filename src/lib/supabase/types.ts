@@ -46,6 +46,26 @@ export type DecisionDataImpulso = Record<string, unknown>;
 export type TipoAlertaImpulso = "dolor" | "estancamiento_3_sesiones" | "caida_rendimiento";
 export type MomentoAlertaImpulso = "antes" | "durante" | "despues";
 export type EstadoAlertaImpulso = "pendiente" | "vista" | "resuelta";
+// 0079: momentos de Impulso VIP dentro de una serie concreta.
+export type TipoIntervencionImpulso =
+  | "cierre_controlado"
+  | "repeticion_objetivo"
+  | "tempo_controlado"
+  | "pausa_isometrica"
+  | "serie_descarga"
+  | "drop_set"
+  | "rest_pause"
+  | "fallo_controlado";
+export type OrigenIntervencionImpulso = "metodo_ale" | "preparada_por_ale" | "personal_ale";
+export type EstadoIntervencionImpulso = "preparada" | "mostrada" | "resuelta" | "cancelada";
+export type ResultadoIntervencionImpulso =
+  | "lograda"
+  | "parcial"
+  | "no_lograda"
+  | "omitida"
+  | "omitida_molestia";
+export type VerificacionIntervencionImpulso = "datos" | "declarada" | "entrenador";
+export type EstadoSolicitudAsistenciaImpulso = "pendiente" | "voy" | "atendida" | "no_disponible" | "vencida";
 export type EstadoReporteFotoEjercicio = "pendiente" | "resuelto";
 export type EstadoReporteBug = "pendiente" | "resuelto";
 /** Forma de cada fila del snapshot de resultados de un torneo (ver ResultadoTorneo en lib/torneos/puntos.ts). */
@@ -755,6 +775,12 @@ export interface Database {
           nota: string | null;
           // 0016_serie_realizada.sql
           realizada: boolean;
+          // 0080_trazabilidad_serie_impulso.sql
+          realizada_en: string | null;
+          rir_estimado: number | null;
+          calidad_tecnica: "limpia" | "forzada" | "rota" | null;
+          origen_registro: "directo" | "confirmado_sin_datos" | "corregido";
+          updated_at: string;
         };
         Insert: {
           sesion_ejercicio_id: string;
@@ -764,6 +790,11 @@ export interface Database {
           reps_realizadas?: number | null;
           nota?: string | null;
           realizada?: boolean;
+          realizada_en?: string | null;
+          rir_estimado?: number | null;
+          calidad_tecnica?: "limpia" | "forzada" | "rota" | null;
+          origen_registro?: "directo" | "confirmado_sin_datos" | "corregido";
+          updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["series_realizadas"]["Insert"]>;
         Relationships: [
@@ -844,6 +875,13 @@ export interface Database {
           // restricción `check` en la base: es texto libre validado en la
           // Server Action (ver PATRONES_MOVIMIENTO_VALIDOS).
           patron_movimiento: string | null;
+          // 0082_elegibilidad_tecnicas_impulso.sql
+          impulso_intensidad_maxima: "ninguna" | "baja" | "media" | "alta";
+          impulso_tecnicas_permitidas: Array<
+            "tempo_controlado" | "pausa_isometrica" | "serie_descarga" | "drop_set" | "rest_pause" | "fallo_controlado"
+          >;
+          impulso_requiere_supervision: boolean;
+          impulso_perfil_revisado: boolean;
           activo: boolean;
           created_at: string;
         };
@@ -899,6 +937,12 @@ export interface Database {
           foto_panorama_y?: number;
           foto_cuadrada_x?: number;
           foto_cuadrada_y?: number;
+          impulso_intensidad_maxima?: "ninguna" | "baja" | "media" | "alta";
+          impulso_tecnicas_permitidas?: Array<
+            "tempo_controlado" | "pausa_isometrica" | "serie_descarga" | "drop_set" | "rest_pause" | "fallo_controlado"
+          >;
+          impulso_requiere_supervision?: boolean;
+          impulso_perfil_revisado?: boolean;
           foto_completa_url?: string | null;
           patron_movimiento?: string | null;
           activo?: boolean;
@@ -1523,6 +1567,215 @@ export interface Database {
             columns: ["sesion_ejercicio_id"];
             isOneToOne: true;
             referencedRelation: "sesion_ejercicios";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // 0079_impulso_vip_en_vivo.sql — una instruccion puntual para una
+      // serie. No reemplaza la recomendacion general del ejercicio.
+      impulso_vip_intervenciones: {
+        Row: {
+          id: string;
+          sesion_ejercicio_id: string;
+          alumno_id: string;
+          serie_objetivo: number;
+          tipo: TipoIntervencionImpulso;
+          origen: OrigenIntervencionImpulso;
+          firma: string;
+          instruccion: string;
+          motivo: string;
+          prescripcion: Record<string, unknown>;
+          estado: EstadoIntervencionImpulso;
+          resultado: ResultadoIntervencionImpulso | null;
+          resultado_data: Record<string, unknown>;
+          verificacion: VerificacionIntervencionImpulso | null;
+          motor_version: string;
+          decision_data: Record<string, unknown>;
+          mostrada_en: string | null;
+          resuelta_en: string | null;
+          created_at: string;
+        };
+        Insert: {
+          sesion_ejercicio_id: string;
+          alumno_id: string;
+          serie_objetivo: number;
+          tipo: TipoIntervencionImpulso;
+          origen?: OrigenIntervencionImpulso;
+          firma?: string;
+          instruccion: string;
+          motivo: string;
+          prescripcion?: Record<string, unknown>;
+          estado?: EstadoIntervencionImpulso;
+          motor_version?: string;
+          decision_data?: Record<string, unknown>;
+        };
+        Update: {
+          estado?: EstadoIntervencionImpulso;
+          tipo?: TipoIntervencionImpulso;
+          origen?: OrigenIntervencionImpulso;
+          firma?: string;
+          instruccion?: string;
+          motivo?: string;
+          prescripcion?: Record<string, unknown>;
+          motor_version?: string;
+          decision_data?: Record<string, unknown>;
+          resultado?: ResultadoIntervencionImpulso | null;
+          resultado_data?: Record<string, unknown>;
+          verificacion?: VerificacionIntervencionImpulso | null;
+          mostrada_en?: string | null;
+          resuelta_en?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "impulso_vip_intervenciones_sesion_ejercicio_id_fkey";
+            columns: ["sesion_ejercicio_id"];
+            isOneToOne: false;
+            referencedRelation: "sesion_ejercicios";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      perfiles_entrenamiento: {
+        Row: {
+          alumno_id: string;
+          objetivo_principal: string | null;
+          experiencia: "principiante" | "intermedio" | "avanzado" | null;
+          molestias: string | null;
+          lesiones_diagnosticadas: string | null;
+          condiciones_medicas: string | null;
+          autorizacion_medica: boolean;
+          requiere_revision: boolean;
+          revisado_en: string | null;
+          version: number;
+          updated_at: string;
+        };
+        Insert: {
+          alumno_id: string;
+          objetivo_principal?: string | null;
+          experiencia?: "principiante" | "intermedio" | "avanzado" | null;
+          molestias?: string | null;
+          lesiones_diagnosticadas?: string | null;
+          condiciones_medicas?: string | null;
+          autorizacion_medica?: boolean;
+          requiere_revision?: boolean;
+          revisado_en?: string | null;
+          version?: number;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["perfiles_entrenamiento"]["Insert"]>;
+        Relationships: [];
+      };
+      // 0081_asistencia_ale_en_vivo.sql — solicitud contextual y temporal.
+      impulso_vip_memoria_tecnicas: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          ejercicio_id: string;
+          tecnica: "drop_set" | "rest_pause" | "fallo_controlado";
+          intentos: number;
+          logradas: number;
+          verificadas: number;
+          parciales: number;
+          fallidas: number;
+          omitidas: number;
+          molestias: number;
+          racha: number;
+          confianza: "en_prueba" | "confiable" | "retroceder";
+          ultimo_resultado: ResultadoIntervencionImpulso | null;
+          ultima_intervencion_id: string | null;
+          ultima_intervencion_en: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          alumno_id: string;
+          ejercicio_id: string;
+          tecnica: "drop_set" | "rest_pause" | "fallo_controlado";
+          intentos?: number;
+          logradas?: number;
+          verificadas?: number;
+          parciales?: number;
+          fallidas?: number;
+          omitidas?: number;
+          molestias?: number;
+          racha?: number;
+          confianza?: "en_prueba" | "confiable" | "retroceder";
+          ultimo_resultado?: ResultadoIntervencionImpulso | null;
+          ultima_intervencion_id?: string | null;
+          ultima_intervencion_en?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["impulso_vip_memoria_tecnicas"]["Insert"]>;
+        Relationships: [];
+      };
+      impulso_vip_indicaciones_programadas: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          dia_ejercicio_id: string;
+          serie_objetivo: number;
+          tipo: TipoIntervencionImpulso;
+          instruccion: string;
+          prescripcion: Record<string, unknown>;
+          estado: "pendiente" | "entregada" | "cancelada";
+          creada_por: string;
+          creada_en: string;
+          entregada_en: string | null;
+          intervencion_id: string | null;
+        };
+        Insert: {
+          alumno_id: string;
+          dia_ejercicio_id: string;
+          serie_objetivo: number;
+          tipo: TipoIntervencionImpulso;
+          instruccion: string;
+          prescripcion?: Record<string, unknown>;
+          estado?: "pendiente" | "entregada" | "cancelada";
+          creada_por: string;
+          creada_en?: string;
+          entregada_en?: string | null;
+          intervencion_id?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["impulso_vip_indicaciones_programadas"]["Insert"]>;
+        Relationships: [];
+      };
+      impulso_vip_solicitudes_asistencia: {
+        Row: {
+          id: string;
+          intervencion_id: string;
+          alumno_id: string;
+          sesion_ejercicio_id: string;
+          estado: EstadoSolicitudAsistenciaImpulso;
+          mensaje_alumno: string | null;
+          respuesta_entrenador: string | null;
+          solicitada_en: string;
+          vence_en: string;
+          respondida_en: string | null;
+          respondida_por: string | null;
+        };
+        Insert: {
+          intervencion_id: string;
+          alumno_id: string;
+          sesion_ejercicio_id: string;
+          estado?: EstadoSolicitudAsistenciaImpulso;
+          mensaje_alumno?: string | null;
+          respuesta_entrenador?: string | null;
+          solicitada_en?: string;
+          vence_en?: string;
+          respondida_en?: string | null;
+          respondida_por?: string | null;
+        };
+        Update: {
+          estado?: EstadoSolicitudAsistenciaImpulso;
+          respuesta_entrenador?: string | null;
+          respondida_en?: string | null;
+          respondida_por?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "impulso_vip_solicitudes_asistencia_intervencion_id_fkey";
+            columns: ["intervencion_id"];
+            isOneToOne: true;
+            referencedRelation: "impulso_vip_intervenciones";
             referencedColumns: ["id"];
           },
         ];

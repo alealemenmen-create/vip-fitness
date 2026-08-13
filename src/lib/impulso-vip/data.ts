@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { rangoRepsObjetivo } from "@/lib/entrenamiento/reps";
 import { calcularRecomendacion, esTecnicaExcluida, objetivoAImpulso } from "./motor";
+import { asegurarIntervencionEnVivo } from "./en-vivo-data";
 import { seriesLimpiasParaProgresion } from "@/lib/entrenamiento/tecnica-series";
 import {
   construirPayloadRecomendacion,
@@ -545,9 +546,14 @@ export async function refrescarRecomendacionesFaltantes(
 ): Promise<void> {
   const { data: ejercicios } = await supabase
     .from("sesion_ejercicios")
-    .select("id, dia_ejercicio_id")
+    .select("id, dia_ejercicio_id, rutina_dia_ejercicios(orden)")
     .eq("sesion_id", sesionId);
   if (!ejercicios || ejercicios.length === 0) return;
+  ejercicios.sort((a, b) => {
+    const programaA = a.rutina_dia_ejercicios as unknown as { orden: number } | null;
+    const programaB = b.rutina_dia_ejercicios as unknown as { orden: number } | null;
+    return (programaA?.orden ?? 0) - (programaB?.orden ?? 0);
+  });
 
   const { data: existentes } = await supabase
     .from("impulso_vip_recomendaciones")
@@ -558,24 +564,30 @@ export async function refrescarRecomendacionesFaltantes(
     );
   const yaTienen = new Set((existentes ?? []).map((r) => r.sesion_ejercicio_id));
   const faltantes = ejercicios.filter((e) => !yaTienen.has(e.id));
-  if (faltantes.length === 0) return;
+  if (faltantes.length > 0) {
+    const { data: perfil } = await supabase.from("alumno_perfil").select("objetivo").eq("user_id", alumnoId).maybeSingle();
+    const objetivoAlumno = { valor: perfil?.objetivo ?? null };
 
-  // El objetivo del alumno se lee una vez para todos los faltantes, mismo
-  // motivo que en `crearOEntrarSesion`: son la misma fila repetida por
-  // ejercicio.
-  const { data: perfil } = await supabase.from("alumno_perfil").select("objetivo").eq("user_id", alumnoId).maybeSingle();
-  const objetivoAlumno = { valor: perfil?.objetivo ?? null };
+    await Promise.all(
+      faltantes.map((e) =>
+        generarYGuardarRecomendacion(supabase, {
+          sesionEjercicioId: e.id,
+          diaEjercicioId: e.dia_ejercicio_id,
+          alumnoId,
+          objetivoAlumno,
+        }).catch(() => null)
+      )
+    );
+  }
 
-  await Promise.all(
-    faltantes.map((e) =>
-      generarYGuardarRecomendacion(supabase, {
-        sesionEjercicioId: e.id,
-        diaEjercicioId: e.dia_ejercicio_id,
-        alumnoId,
-        objetivoAlumno,
-      }).catch(() => null)
-    )
-  );
+  // Repara tambien sesiones creadas antes de 0079: puede existir la meta
+  // general y faltar todavia su primer Momento Impulso.
+  for (const e of ejercicios) {
+    await asegurarIntervencionEnVivo(supabase, {
+      sesionEjercicioId: e.id,
+      alumnoId,
+    }).catch(() => null);
+  }
 }
 
 export type AlertaPendiente = {

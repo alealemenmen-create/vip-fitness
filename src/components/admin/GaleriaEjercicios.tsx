@@ -13,6 +13,7 @@ import {
   actualizarNombreEjercicio,
   actualizarDetallesEjercicio,
   actualizarPatronMovimiento,
+  actualizarPerfilImpulsoEjercicio,
   desactivarEjercicio,
   quitarVideoEjercicio,
   obtenerUsosRutina,
@@ -120,6 +121,82 @@ const GRUPOS_PATRON: { etiqueta: string; opciones: { valor: PatronMovimiento; et
 ];
 
 const ESTADO_INICIAL_PATRON = { error: null, ok: false };
+
+const TECNICAS_IMPULSO = [
+  ["tempo_controlado", "Tempo controlado"],
+  ["pausa_isometrica", "Pausa isométrica"],
+  ["serie_descarga", "Serie de descarga"],
+  ["drop_set", "Drop set"],
+  ["rest_pause", "Rest-pause"],
+  ["fallo_controlado", "Fallo técnico"],
+] as const;
+
+function EditorPerfilImpulso({ ejercicio }: { ejercicio: Ejercicio }) {
+  const [state, formAction, pending] = useActionState(actualizarPerfilImpulsoEjercicio, { error: null, ok: false });
+
+  return (
+    <form action={formAction} className="space-y-3 rounded-2xl border border-vip/25 bg-vip/[0.05] p-3">
+      <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+      <div>
+        <p className="text-caption font-semibold text-text">Seguridad de Impulso VIP</p>
+        <p className="mt-0.5 text-micro leading-snug text-text-tertiary">
+          Define qué puede pedir Ale durante una sesión. Impulso no lo adivina por el nombre.
+        </p>
+      </div>
+      <label className="block text-caption text-text-secondary">
+        Intensidad máxima
+        <select
+          name="impulso_intensidad_maxima"
+          defaultValue={ejercicio.impulsoIntensidadMaxima}
+          className="radius-control mt-1 w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
+        >
+          <option value="ninguna">Ninguna técnica intensa</option>
+          <option value="baja">Baja · solo control técnico</option>
+          <option value="media">Media · permite descarga</option>
+          <option value="alta">Alta · solo alumnos avanzados</option>
+        </select>
+      </label>
+      <fieldset>
+        <legend className="text-caption text-text-secondary">Técnicas autorizadas</legend>
+        <div className="mt-1.5 grid grid-cols-2 gap-2">
+          {TECNICAS_IMPULSO.map(([valor, etiqueta]) => (
+            <label key={valor} className="flex min-h-9 items-center gap-2 rounded-xl border border-border bg-surface-2 px-2 text-micro text-text">
+              <input
+                type="checkbox"
+                name="impulso_tecnicas_permitidas"
+                value={valor}
+                defaultChecked={ejercicio.impulsoTecnicasPermitidas.includes(valor)}
+                className="accent-vip"
+              />
+              {etiqueta}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <label className="flex items-center gap-2 text-caption text-text-secondary">
+        <input
+          type="checkbox"
+          name="impulso_requiere_supervision"
+          defaultChecked={ejercicio.impulsoRequiereSupervision}
+          className="accent-vip"
+        />
+        Exigir supervisión de Ale para la técnica
+      </label>
+      {!ejercicio.impulsoPerfilRevisado && (
+        <p className="text-micro font-semibold text-warning">Perfil automático pendiente de revisión manual.</p>
+      )}
+      {state.error && <p className="text-caption text-error">{state.error}</p>}
+      {state.ok && <p className="flex items-center gap-1 text-caption text-success"><Check size={12} /> Perfil revisado y guardado.</p>}
+      <button
+        type="submit"
+        disabled={pending}
+        className="radius-control flex h-9 w-full items-center justify-center border border-vip/35 bg-vip/10 text-caption font-semibold text-vip disabled:opacity-60"
+      >
+        {pending ? "Guardando..." : "Guardar seguridad de Impulso"}
+      </button>
+    </form>
+  );
+}
 
 /**
  * Clasificación biomecánica estructurada de UN ejercicio (columna
@@ -1372,6 +1449,7 @@ function ModalSubirFoto({
 
       <div className="mt-4 border-t border-border pt-3">
         <EditorPatronMovimiento ejercicio={ejercicio} />
+        <EditorPerfilImpulso ejercicio={ejercicio} />
       </div>
 
       <div className="mt-4 border-t border-border pt-3">

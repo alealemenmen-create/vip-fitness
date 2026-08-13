@@ -32,6 +32,10 @@ function ejercicio(overrides: Partial<Ejercicio> & Pick<Ejercicio, "id" | "nombr
     fotoCuadradaX: 50,
     fotoCuadradaY: 50,
     patronMovimiento: null,
+    impulsoIntensidadMaxima: "ninguna",
+    impulsoTecnicasPermitidas: [],
+    impulsoRequiereSupervision: true,
+    impulsoPerfilRevisado: false,
     ...overrides,
   };
 }

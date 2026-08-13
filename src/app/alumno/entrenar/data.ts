@@ -469,6 +469,28 @@ export type RecomendacionImpulso = {
   estado: "propuesta" | "aprobada" | "bloqueada" | "modificada";
 } | null;
 
+export type IntervencionImpulsoEnVivo = {
+  id: string;
+  serieObjetivo: number;
+  tipo:
+    | "cierre_controlado"
+    | "repeticion_objetivo"
+    | "tempo_controlado"
+    | "pausa_isometrica"
+    | "serie_descarga"
+    | "drop_set"
+    | "rest_pause"
+    | "fallo_controlado";
+  origen: "metodo_ale" | "preparada_por_ale" | "personal_ale";
+  firma: string;
+  instruccion: string;
+  motivo: string;
+  estado: "preparada" | "mostrada" | "resuelta" | "cancelada";
+  resultado: "lograda" | "parcial" | "no_lograda" | "omitida" | "omitida_molestia" | null;
+  calibrada: boolean;
+  prescripcion: Record<string, unknown>;
+};
+
 export type EjercicioSesion = {
   sesionEjercicioId: string;
   diaEjercicioId: string;
@@ -520,6 +542,9 @@ export type EjercicioSesion = {
    * migración 0043 no corrió todavía, o si el alumno no la cargó. */
   dificultadPercibida: DificultadPercibida | null;
   recomendacionImpulso: RecomendacionImpulso;
+  /** Momento puntual dentro del ejercicio. En la primera version se prepara
+   * uno solo, en la ultima serie, y siempre con una instruccion segura. */
+  intervencionesImpulso: IntervencionImpulsoEnVivo[];
 };
 
 export type SesionCompleta = {
@@ -748,6 +773,24 @@ export async function obtenerSesionCompleta(
     )
   );
 
+  const intentoIntervenciones = sesionEjercicioIds.length
+    ? await supabase
+        .from("impulso_vip_intervenciones")
+        .select(
+          "id, sesion_ejercicio_id, serie_objetivo, tipo, origen, firma, instruccion, motivo, estado, resultado, decision_data, prescripcion"
+        )
+        .in("sesion_ejercicio_id", sesionEjercicioIds)
+        .order("serie_objetivo", { ascending: true })
+    : { data: [], error: null };
+  const intervencionPorEjercicio = new Map<string, FilaIntervencionSesion[]>();
+  for (const intervencion of (intentoIntervenciones.error
+    ? []
+    : ((intentoIntervenciones.data ?? []) as FilaIntervencionSesion[]))) {
+    const actuales = intervencionPorEjercicio.get(intervencion.sesion_ejercicio_id) ?? [];
+    actuales.push(intervencion);
+    intervencionPorEjercicio.set(intervencion.sesion_ejercicio_id, actuales);
+  }
+
   // Lazy y una sola vez: la mayoría de los ejercicios ya vienen con foto por
   // el join de arriba y no hace falta tocar esto. `obtenerBiblioteca` está
   // cacheada (1h, se invalida sola al editar un ejercicio), así que ni
@@ -841,6 +884,7 @@ export async function obtenerSesionCompleta(
       ultimoRegistro: await obtenerUltimoRegistro(supabase, alumnoId, se.dia_ejercicio_id, sesionId),
       dificultadPercibida: dificultadPorEjercicio.get(se.id) ?? null,
       recomendacionImpulso: mapearRecomendacionImpulso(recomendacionPorEjercicio.get(se.id)),
+      intervencionesImpulso: (intervencionPorEjercicio.get(se.id) ?? []).map(mapearIntervencionImpulso),
     });
   }
 
@@ -1058,6 +1102,21 @@ type FilaRecomendacionSesion = {
   estado: string;
 };
 
+type FilaIntervencionSesion = {
+  id: string;
+  sesion_ejercicio_id: string;
+  serie_objetivo: number;
+  tipo: string;
+  origen: string;
+  firma: string;
+  instruccion: string;
+  motivo: string;
+  estado: string;
+  resultado: string | null;
+  decision_data: Record<string, unknown>;
+  prescripcion: Record<string, unknown>;
+};
+
 function mapearRecomendacionImpulso(fila: FilaRecomendacionSesion | undefined): RecomendacionImpulso {
   if (!fila) return null;
   return {
@@ -1068,6 +1127,22 @@ function mapearRecomendacionImpulso(fila: FilaRecomendacionSesion | undefined): 
     esPesoCorporal: fila.es_peso_corporal,
     justificacion: fila.justificacion,
     estado: fila.estado as NonNullable<RecomendacionImpulso>["estado"],
+  };
+}
+
+function mapearIntervencionImpulso(fila: FilaIntervencionSesion): IntervencionImpulsoEnVivo {
+  return {
+    id: fila.id,
+    serieObjetivo: fila.serie_objetivo,
+    tipo: fila.tipo as IntervencionImpulsoEnVivo["tipo"],
+    origen: fila.origen as IntervencionImpulsoEnVivo["origen"],
+    firma: fila.firma,
+    instruccion: fila.instruccion,
+    motivo: fila.motivo,
+    estado: fila.estado as IntervencionImpulsoEnVivo["estado"],
+    resultado: fila.resultado as IntervencionImpulsoEnVivo["resultado"],
+    calibrada: typeof fila.decision_data?.rirCalibracion === "number",
+    prescripcion: fila.prescripcion ?? {},
   };
 }
 

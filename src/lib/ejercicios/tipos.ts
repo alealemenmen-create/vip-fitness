@@ -24,6 +24,15 @@ export type EquipoEjercicio =
   | "banco"
   | "otro";
 
+export type IntensidadImpulsoEjercicio = "ninguna" | "baja" | "media" | "alta";
+export type TecnicaImpulsoEjercicio =
+  | "tempo_controlado"
+  | "pausa_isometrica"
+  | "serie_descarga"
+  | "drop_set"
+  | "rest_pause"
+  | "fallo_controlado";
+
 /** Una entrada de la biblioteca maestra (tabla `ejercicios`). */
 export type Ejercicio = {
   id: string;
@@ -61,6 +70,12 @@ export type Ejercicio = {
    * toda la biblioteca todavía — mientras no se cargue, el generador sigue
    * clasificando por nombre (ver `patronMovimiento()` en lib/rutinas/patrones.ts). */
   patronMovimiento: PatronMovimiento | null;
+  /** Perfil de seguridad explícito de Impulso VIP. Si no fue revisado, el
+   * motor nunca debe interpretar el nombre del ejercicio para intensificarlo. */
+  impulsoIntensidadMaxima: IntensidadImpulsoEjercicio;
+  impulsoTecnicasPermitidas: TecnicaImpulsoEjercicio[];
+  impulsoRequiereSupervision: boolean;
+  impulsoPerfilRevisado: boolean;
 };
 
 /** Columnas a pedir cuando se lee la biblioteca. */
@@ -75,6 +90,9 @@ export const COLUMNAS_EJERCICIO_CON_ENCUADRE =
 export const COLUMNAS_EJERCICIO_MULTIMEDIA =
   `${COLUMNAS_EJERCICIO_CON_ENCUADRE}, video_cloudflare_uid, video_cloudflare_estado, ` +
   "video_cloudflare_duracion_seg, video_cloudflare_miniatura_url, video_cloudflare_error, patron_movimiento";
+export const COLUMNAS_EJERCICIO_IMPULSO =
+  `${COLUMNAS_EJERCICIO_MULTIMEDIA}, impulso_intensidad_maxima, impulso_tecnicas_permitidas, ` +
+  "impulso_requiere_supervision, impulso_perfil_revisado";
 
 type FilaEjercicio = {
   id: string;
@@ -104,6 +122,10 @@ type FilaEjercicio = {
   foto_cuadrada_x?: number | null;
   foto_cuadrada_y?: number | null;
   patron_movimiento?: PatronMovimiento | null;
+  impulso_intensidad_maxima?: IntensidadImpulsoEjercicio | null;
+  impulso_tecnicas_permitidas?: TecnicaImpulsoEjercicio[] | null;
+  impulso_requiere_supervision?: boolean | null;
+  impulso_perfil_revisado?: boolean | null;
 };
 
 export function aEjercicio(fila: FilaEjercicio): Ejercicio {
@@ -135,5 +157,9 @@ export function aEjercicio(fila: FilaEjercicio): Ejercicio {
     fotoCuadradaX: fila.foto_cuadrada_x ?? 50,
     fotoCuadradaY: fila.foto_cuadrada_y ?? 50,
     patronMovimiento: fila.patron_movimiento ?? null,
+    impulsoIntensidadMaxima: fila.impulso_intensidad_maxima ?? "ninguna",
+    impulsoTecnicasPermitidas: fila.impulso_tecnicas_permitidas ?? [],
+    impulsoRequiereSupervision: fila.impulso_requiere_supervision ?? true,
+    impulsoPerfilRevisado: fila.impulso_perfil_revisado ?? false,
   };
 }

@@ -35,6 +35,8 @@ import { DetalleEstadoAlumno } from "@/components/admin/IndicadorEstadoAlumno";
 import { AlertasImpulsoVip } from "@/components/admin/AlertasImpulsoVip";
 import { obtenerAlertasPendientes } from "@/lib/impulso-vip/data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
+import { obtenerPanelIndicacionesAle } from "@/lib/impulso-vip/manual-data";
+import { IndicacionesAlePanel } from "@/components/admin/IndicacionesAlePanel";
 
 export default async function AlumnoDetallePage({
   params,
@@ -60,6 +62,7 @@ export default async function AlumnoDetallePage({
     alertasImpulso,
     movimientosPuntos,
     ficha,
+    panelIndicaciones,
   ] = await Promise.all([
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     supabase
@@ -85,6 +88,7 @@ export default async function AlumnoDetallePage({
     obtenerAlertasPendientes(supabase, alumnoId),
     obtenerMovimientosAlumno(alumnoId, 1000),
     leerFicha(supabase as unknown as SupabaseClient, alumnoId),
+    obtenerPanelIndicacionesAle(supabase, alumnoId),
   ]);
 
   // Marca como vistas las notas que generó la IA para este alumno, ahora que
@@ -135,6 +139,7 @@ export default async function AlumnoDetallePage({
         </Card>
       )}
       <AlertasImpulsoVip alumnoId={alumnoId} alertas={alertasImpulso} />
+      <IndicacionesAlePanel alumnoId={alumnoId} objetivos={panelIndicaciones.objetivos} pendientes={panelIndicaciones.pendientes} />
       <FichaAlumnoAdmin alumnoId={alumnoId} nombre={perfil?.nombre ?? "este alumno"} ficha={ficha} />
 
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">

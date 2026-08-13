@@ -13,6 +13,8 @@ import {
   registrarPenalizacionDescanso,
 } from "@/lib/ranking/movimientos";
 import { generarYGuardarRecomendacion } from "@/lib/impulso-vip/data";
+import { asegurarIntervencionEnVivo } from "@/lib/impulso-vip/en-vivo-data";
+import { entregarIndicacionesProgramadas } from "@/lib/impulso-vip/manual-data";
 import { leerDatosCumplimiento } from "@/lib/impulso-vip/congelar";
 import { resolverCumplimiento } from "@/lib/impulso-vip/motor";
 import type { ReglaImpulso } from "@/lib/impulso-vip/tipos";
@@ -119,7 +121,7 @@ async function crearOEntrarSesion(
   // rutina de diez, todas dentro de la espera que el alumno ve al tocar "Ver
   // entrenamiento".
   const [{ data: ejercicios }, { data: perfilAlumno }] = await Promise.all([
-    supabase.from("rutina_dia_ejercicios").select("id").eq("dia_id", diaId),
+    supabase.from("rutina_dia_ejercicios").select("id, orden").eq("dia_id", diaId).order("orden"),
     supabase.from("alumno_perfil").select("objetivo").eq("user_id", alumnoId).maybeSingle(),
   ]);
 
@@ -136,8 +138,9 @@ async function crearOEntrarSesion(
     // corrió en este entorno), no debe impedir empezar a entrenar.
     if (sesionEjercicios && sesionEjercicios.length > 0) {
       await Promise.all(
-        sesionEjercicios.map((se) =>
-          generarYGuardarRecomendacion(supabase, {
+        sesionEjercicios.map(async (se) => {
+          try {
+          await generarYGuardarRecomendacion(supabase, {
             sesionEjercicioId: se.id,
             diaEjercicioId: se.dia_ejercicio_id,
             alumnoId,
@@ -145,9 +148,32 @@ async function crearOEntrarSesion(
             // Los ejercicios se acaban de insertar acá arriba: no puede haber
             // una recomendación previa que buscar.
             sesionRecienCreada: true,
-          }).catch(() => null)
-        )
+          });
+          } catch {
+            // Impulso mejora la sesion, pero una migracion pendiente nunca
+            // puede impedir que el alumno empiece a entrenar.
+          }
+        })
       );
+      // En orden y no en Promise.all: el limite de tres ejercicios
+      // destacados por sesion debe ser determinista, no depender de cual
+      // consulta gana una carrera.
+      const ordenPorAsignacion = new Map(ejercicios.map((e) => [e.id, e.orden]));
+      const ordenados = [...sesionEjercicios].sort(
+        (a, b) => (ordenPorAsignacion.get(a.dia_ejercicio_id) ?? 0) - (ordenPorAsignacion.get(b.dia_ejercicio_id) ?? 0)
+      );
+      // Las indicaciones personales ocupan primero su serie. Después el
+      // motor automático completa únicamente los momentos que siguen libres.
+      await entregarIndicacionesProgramadas(supabase, {
+        alumnoId,
+        sesionEjercicios: ordenados,
+      }).catch(() => null);
+      for (const se of ordenados) {
+        await asegurarIntervencionEnVivo(supabase, {
+          sesionEjercicioId: se.id,
+          alumnoId,
+        }).catch(() => null);
+      }
     }
   }
 
@@ -270,6 +296,13 @@ export async function iniciarRutina(formData: FormData): Promise<void> {
     if (ganadora) redirect(`/alumno/entrenar/sesion/${ganadora.id}`);
     redirect("/alumno/entrenar");
   }
+
+  const { data: ejerciciosSesion } = await supabase.from("sesion_ejercicios")
+    .select("id, dia_ejercicio_id").eq("sesion_id", sesionId);
+  await entregarIndicacionesProgramadas(supabase, {
+    alumnoId,
+    sesionEjercicios: ejerciciosSesion ?? [],
+  }).catch(() => null);
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
 }

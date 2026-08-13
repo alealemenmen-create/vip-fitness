@@ -8,3 +8,11 @@ por un prompt libre ni publiques cambios en producción sin autorización expres
 
 Si el usuario pide verificar y respaldar este trabajo en GitHub, sigue
 `MENSAJE_PARA_CLAUDE_GITHUB.md` paso por paso.
+
+## Revisión pendiente: Impulso VIP En Vivo
+
+Antes de revisar, probar o continuar Impulso VIP, lee completo
+`HANDOFF_IMPULSO_VIP_CLAUDE.md`. Alejandro pidió expresamente que Claude haga
+la revisión técnica y visual, ejecute las pruebas y le deje la demostración
+abierta en pantalla porque le duelen las manos. No hagas push sin una nueva
+autorización explícita.

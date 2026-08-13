@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   COLUMNAS_EJERCICIO,
   COLUMNAS_EJERCICIO_CON_ENCUADRE,
+  COLUMNAS_EJERCICIO_IMPULSO,
   COLUMNAS_EJERCICIO_MULTIMEDIA,
   COLUMNAS_EJERCICIO_SIN_FOTOS,
   aEjercicio,
@@ -44,16 +45,22 @@ export const TAG_BIBLIOTECA_EJERCICIOS = "biblioteca-ejercicios";
 async function leerBiblioteca(): Promise<Ejercicio[]> {
   const supabase = createAdminClient();
 
+  const conImpulso = await supabase
+    .from("ejercicios")
+    .select(COLUMNAS_EJERCICIO_IMPULSO)
+    .eq("activo", true)
+    .order("nombre");
+
   // Si la migración 0042 (foto_miniatura_url/foto_completa_url) todavía no
   // corrió en este entorno, pedir esas columnas hace fallar el select
   // ENTERO — antes se leía `data ?? []` sin mirar el error, así que la
   // biblioteca se quedaba vacía en silencio para toda la app. Mismo
   // respaldo encadenado que ya usa obtenerSesionCompleta para 0026/0031.
-  const conMultimedia = await supabase
+  const conMultimedia = conImpulso.error ? await supabase
     .from("ejercicios")
     .select(COLUMNAS_EJERCICIO_MULTIMEDIA)
     .eq("activo", true)
-    .order("nombre");
+    .order("nombre") : conImpulso;
 
   const conEncuadre = conMultimedia.error ? await supabase
     .from("ejercicios")

@@ -12,6 +12,10 @@ import { obtenerReportes, obtenerAvisosNotasIA, type EstadoAlumno } from "./data
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { TituloPestana } from "@/components/admin/TituloPestana";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
+import { AsistenciaImpulsoEnVivo } from "@/components/admin/AsistenciaImpulsoEnVivo";
+import { obtenerSolicitudesAsistenciaEnVivo } from "@/lib/impulso-vip/asistencia-data";
+import { obtenerResumenMemoriaImpulso } from "@/lib/impulso-vip/memoria-data";
+import { MemoriaImpulsoVIP } from "@/components/admin/MemoriaImpulsoVIP";
 
 export default async function AlumnosPage({
   searchParams,
@@ -45,10 +49,12 @@ export default async function AlumnosPage({
 
   // La lista de entrenadores no depende de los reportes: iba suelta después
   // del Promise.all y sumaba una espera de red entera a cada carga del panel.
-  const [reportes, avisosNotasIA, { data: entrenadoresData }, { count: solicitudesPendientes }] =
+  const [reportes, avisosNotasIA, solicitudesImpulso, memoriasImpulso, { data: entrenadoresData }, { count: solicitudesPendientes }] =
     await Promise.all([
       obtenerReportes(supabase, alumnos),
       obtenerAvisosNotasIA(supabase),
+      obtenerSolicitudesAsistenciaEnVivo(supabase),
+      obtenerResumenMemoriaImpulso(supabase),
       supabase
         .from("perfiles")
         .select("id, nombre")
@@ -114,6 +120,8 @@ export default async function AlumnosPage({
         </section>
 
         <aside className="order-1 space-y-4 xl:order-2 xl:sticky xl:top-28" aria-label="Acciones y avisos">
+          <AsistenciaImpulsoEnVivo solicitudes={solicitudesImpulso} />
+          <MemoriaImpulsoVIP memorias={memoriasImpulso} />
           <div className="admin-panel-card rounded-3xl p-4">
             <div className="mb-4 flex items-center gap-2">
               <Sparkles size={17} className="text-vip" />
