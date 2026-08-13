@@ -457,23 +457,51 @@ export async function obtenerSesionCompleta(
   const COLUMNAS_SESION =
     "id, fecha, numero_calendario, estado, hora_inicio, hora_fin, comentario, dia_id, rutina_dias(nombre, tipo, descripcion), rutinas(nombre)";
 
-  // Igual que con los ejercicios más abajo: si la migración 0040
-  // (rutina_iniciada_en) todavía no corrió en este entorno, se degrada sola
-  // en vez de romper la pantalla de sesión entera.
-  const intentoSesion = await supabase
-    .from("sesiones_entrenamiento")
-    .select(`${COLUMNAS_SESION}, rutina_iniciada_en, corrigiendo_desde`)
-    .eq("id", sesionId)
-    .eq("alumno_id", alumnoId)
-    .maybeSingle();
-  const { data: sesion } = intentoSesion.error
-    ? await supabase
-        .from("sesiones_entrenamiento")
-        .select(COLUMNAS_SESION)
-        .eq("id", sesionId)
-        .eq("alumno_id", alumnoId)
-        .maybeSingle()
-    : intentoSesion;
+  // Cadena de respaldo, del select más completo al más pobre: una migración
+  // que todavía no corrió no puede dejar al alumno sin pantalla.
+  //
+  // **Cada escalón suelta UNA sola columna, la de su propia migración.** Es la
+  // parte que importa: `corrigiendo_desde` (0077) se había agregado en el
+  // mismo escalón que `rutina_iniciada_en` (0040), así que en un entorno sin
+  // la 0077 se perdían las dos de una. Y sin `rutina_iniciada_en` la sesión
+  // queda para siempre en `bloqueadaPorIniciar`: el alumno toca "Iniciar
+  // rutina", la base sí se actualiza, pero al recargar vuelve a leerse null y
+  // el botón sigue ahí. Se ve exactamente como un botón que no hace nada.
+  // Reportado por Alejandro. Al agregar una columna nueva acá, agregar un
+  // escalón nuevo — nunca sumarla a uno existente.
+  // El `select` se arma con plantilla, así que PostgREST no puede inferir la
+  // forma del resultado: se declara a mano, igual que `FilaBiblioteca` más
+  // abajo. Las dos columnas de migraciones recientes van opcionales porque
+  // justamente pueden no venir.
+  type FilaSesion = {
+    id: string;
+    fecha: string;
+    numero_calendario: number | null;
+    estado: "en_progreso" | "completada" | "finalizada_incompleta" | "abandonada";
+    hora_inicio: string;
+    hora_fin: string | null;
+    comentario: string | null;
+    dia_id: string;
+    rutina_dias: unknown;
+    rutinas: unknown;
+    rutina_iniciada_en?: string | null;
+    corrigiendo_desde?: string | null;
+  };
+
+  const consultarSesion = (columnas: string) =>
+    supabase
+      .from("sesiones_entrenamiento")
+      .select(columnas)
+      .eq("id", sesionId)
+      .eq("alumno_id", alumnoId)
+      .maybeSingle();
+
+  const conCorreccion = await consultarSesion(`${COLUMNAS_SESION}, rutina_iniciada_en, corrigiendo_desde`);
+  const conInicio = conCorreccion.error
+    ? await consultarSesion(`${COLUMNAS_SESION}, rutina_iniciada_en`)
+    : conCorreccion;
+  const resultadoSesion = conInicio.error ? await consultarSesion(COLUMNAS_SESION) : conInicio;
+  const sesion = resultadoSesion.data as unknown as FilaSesion | null;
 
   if (!sesion) return null;
 

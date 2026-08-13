@@ -23,8 +23,15 @@ import { iniciarRutina, terminarCorreccion } from "../../actions";
 // típico (90-180s).
 export const maxDuration = 300;
 
-export default async function SesionPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SesionPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ aviso?: string }>;
+}) {
   const { id } = await params;
+  const { aviso } = await searchParams;
   const { alumnoId, soloLectura: vistaSoloLectura } = await requireAlumno();
   const supabase = await createClient();
 
@@ -67,6 +74,22 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
     // 28 px de scroll. Lo que se busca es que el ejercicio en curso y la
     // cabecera del siguiente entren juntos en una pantalla.
     <div className="space-y-3 pb-8">
+      {aviso === "pedido-enviado" && (
+        <Card padding="p-3" className="border border-success/40 bg-success/10">
+          <p className="text-caption font-semibold text-success">Tu pedido llegó a tu entrenador</p>
+          <p className="text-micro mt-1 text-text-secondary">
+            Él revisa y borra el registro. Mientras tanto queda como está.
+          </p>
+        </Card>
+      )}
+      {aviso === "falta-migracion" && (
+        <Card padding="p-3" className="border border-warning/40 bg-warning/10">
+          <p className="text-caption font-semibold text-warning">Esta opción todavía no está activa</p>
+          <p className="text-micro mt-1 text-text-secondary">
+            Avísale a tu entrenador. Tu registro no se tocó.
+          </p>
+        </Card>
+      )}
       {/* Título, estado y avance quedan clavados arriba y los ejercicios pasan
           por debajo al hacer scroll (igual que la cabecera de Nutrición): con
           siete ejercicios, a mitad de sesión ya no se veía en qué día se está

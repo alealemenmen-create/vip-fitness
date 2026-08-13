@@ -365,6 +365,44 @@ async function guardarUnEjercicio(
   return { error: null };
 }
 
+/**
+ * ¿Se puede escribir en esta sesión? Sí mientras el alumno entrena, y también
+ * si abrió una corrección sobre un registro ya cerrado (migración 0077).
+ *
+ * Con respaldo por la misma razón que `obtenerSesionCompleta`: si la 0077
+ * todavía no corrió, `corrigiendo_desde` no existe y la consulta falla
+ * ENTERA. Sin este respaldo el alumno no podía guardar nada —ni siquiera
+ * entrenando normal— porque el chequeo previo a escribir reventaba antes de
+ * llegar a los datos.
+ */
+async function sesionAceptaEscritura(
+  supabase: TrainingDb,
+  sesionId: string,
+  alumnoId: string
+): Promise<boolean> {
+  const conCorreccion = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id, estado, corrigiendo_desde")
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .maybeSingle();
+
+  if (!conCorreccion.error) {
+    const sesion = conCorreccion.data;
+    return !!sesion && (sesion.estado === "en_progreso" || sesion.corrigiendo_desde !== null);
+  }
+
+  // Sin la 0077 no hay correcciones posibles, así que vale la regla de
+  // siempre: se escribe solo mientras la sesión está en progreso.
+  const { data } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id, estado")
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .maybeSingle();
+  return data?.estado === "en_progreso";
+}
+
 export async function guardarSeries(
   _prevState: GuardarSeriesState,
   formData: FormData
@@ -373,16 +411,7 @@ export async function guardarSeries(
   const { alumnoId, soloLectura } = await requireAlumno();
   if (!sesionId || soloLectura) return { error: "Esta sesión ya no se puede editar." };
   const supabase = createAdminClient();
-  const { data: sesion } = await supabase
-    .from("sesiones_entrenamiento")
-    .select("id, estado, corrigiendo_desde")
-    .eq("id", sesionId)
-    .eq("alumno_id", alumnoId)
-    .maybeSingle();
-  // Se escribe si está entrenando, o si abrió una corrección sobre un
-  // registro ya cerrado (0077). El chequeo dejó de ser un `.eq()` en la
-  // consulta porque ahora son dos caminos, no uno.
-  if (!sesion || (sesion.estado !== "en_progreso" && sesion.corrigiendo_desde === null)) {
+  if (!(await sesionAceptaEscritura(supabase, sesionId, alumnoId))) {
     return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
   }
 
@@ -414,16 +443,7 @@ export async function guardarSeriesGrupo(
   const { alumnoId, soloLectura } = await requireAlumno();
   if (!sesionId || soloLectura) return { error: "Esta sesión ya no se puede editar." };
   const supabase = createAdminClient();
-  const { data: sesion } = await supabase
-    .from("sesiones_entrenamiento")
-    .select("id, estado, corrigiendo_desde")
-    .eq("id", sesionId)
-    .eq("alumno_id", alumnoId)
-    .maybeSingle();
-  // Se escribe si está entrenando, o si abrió una corrección sobre un
-  // registro ya cerrado (0077). El chequeo dejó de ser un `.eq()` en la
-  // consulta porque ahora son dos caminos, no uno.
-  if (!sesion || (sesion.estado !== "en_progreso" && sesion.corrigiendo_desde === null)) {
+  if (!(await sesionAceptaEscritura(supabase, sesionId, alumnoId))) {
     return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
   }
 
@@ -583,12 +603,17 @@ export async function reabrirSesion(formData: FormData): Promise<void> {
     .maybeSingle();
   if (!sePuedeCorregir(sesion?.estado)) return;
 
-  await supabase
+  const { error } = await supabase
     .from("sesiones_entrenamiento")
     .update({ corrigiendo_desde: new Date().toISOString() })
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .in("estado", [...ESTADOS_CORREGIBLES]);
+
+  // Si la 0077 no corrió, la columna no existe y esto falla. Antes se ignoraba
+  // el error y el alumno se quedaba mirando la misma pantalla sin entender por
+  // qué — el mismo "botón pegado" de siempre. Ahora al menos se lo dice.
+  if (error) redirect(`/alumno/entrenar/sesion/${sesionId}?aviso=falta-migracion`);
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/entrenar/historial");
@@ -695,7 +720,7 @@ export async function solicitarBorradoSesion(formData: FormData): Promise<void> 
   // `upsert` sobre el índice de "una pendiente por sesión": tocar el botón dos
   // veces actualiza el motivo en vez de dejarle dos avisos iguales al
   // entrenador.
-  await supabase.from("solicitudes_borrado_sesion").insert({
+  const { error } = await supabase.from("solicitudes_borrado_sesion").insert({
     alumno_id: alumnoId,
     sesion_id: sesionId,
     dia_nombre: dia?.nombre ?? "Entrenamiento",
@@ -704,8 +729,11 @@ export async function solicitarBorradoSesion(formData: FormData): Promise<void> 
     motivo,
   });
 
-  revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
-  revalidatePath("/alumno/entrenar/historial");
+  // Sin la 0076 la tabla no existe. Decirlo es mejor que dejar al alumno
+  // creyendo que su pedido llegó.
+  if (error) redirect(`/alumno/entrenar/sesion/${sesionId}?aviso=falta-migracion`);
+
+  redirect(`/alumno/entrenar/sesion/${sesionId}?aviso=pedido-enviado`);
 }
 
 /**
