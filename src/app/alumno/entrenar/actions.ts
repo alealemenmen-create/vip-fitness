@@ -7,7 +7,9 @@ import { TAG_RANKING } from "@/lib/ranking/data";
 import { requireAlumno } from "@/lib/auth";
 import { hoyISO } from "@/lib/date";
 import {
+  abandonarEntrenamiento,
   calcularYRegistrarPuntosImpulso,
+  eliminarMovimientosDeSesiones,
   registrarEntrenamiento,
   registrarPenalizacionDescanso,
 } from "@/lib/ranking/movimientos";
@@ -621,11 +623,70 @@ export async function abandonarSesion(formData: FormData): Promise<void> {
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId);
 
+  // Sin esto los puntos quedaban puestos: la función decía en su propio
+  // comentario que "le quita los puntos que había sumado" y nunca los quitaba
+  // — `abandonarEntrenamiento` no la llamaba nadie. El alumno abandonaba la
+  // sesión, la veía marcada como abandonada en el historial y seguía
+  // cobrándola en el ranking.
+  await abandonarEntrenamiento(alumnoId, sesionId, sesion.fecha);
+
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/entrenar/historial");
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
+}
+
+/**
+ * Borra un registro de entrenamiento por completo.
+ *
+ * Es la salida para lo que Alejandro describió: "la persona llegue y haga la
+ * rutina y la marque hecha sin querer". Corregir no alcanza ahí — por más que
+ * edite, el registro sigue existiendo y contando.
+ *
+ * Se lleva TODO lo de esa sesión: sus ejercicios y series se van en cascada
+ * (migración 0001), sus recomendaciones de Impulso VIP también, y los puntos
+ * se borran acá a mano porque viven en otra tabla, indexados por clave y no
+ * por clave foránea.
+ *
+ * Lo que NO se lleva: el número de calendario queda libre, así que el alumno
+ * puede volver a hacer esa misma sesión. Es justamente lo que se busca — si la
+ * marcó hecha sin querer, la borra y la hace de nuevo.
+ *
+ * A diferencia de `abandonarSesion`, acá **no queda rastro**: no hay fila en el
+ * historial que diga que se empezó. Por eso pide confirmación aparte en la
+ * pantalla y por eso las dos opciones conviven en vez de reemplazarse.
+ */
+export async function eliminarSesion(formData: FormData): Promise<void> {
+  const sesionId = String(formData.get("sesion_id") || "");
+  const confirmada = String(formData.get("confirmar_borrado") || "") === "true";
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (!sesionId || soloLectura || !confirmada) return;
+
+  const supabase = createAdminClient();
+  const { data: sesion } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id, estado")
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .maybeSingle();
+  // Una sesión en curso no se borra desde acá: para eso está
+  // `cancelarSesionEnCurso`, que además libera el cupo de sesión activa.
+  if (!sesion || sesion.estado === "en_progreso") return;
+
+  // Primero los puntos: si el borrado de la fila falla, es preferible haber
+  // quitado puntos de una sesión que sigue existiendo (se recalculan al
+  // volver a cerrarla) que dejar puntos huérfanos de una sesión que ya no
+  // está y que nadie va a poder rastrear.
+  await eliminarMovimientosDeSesiones(alumnoId, [sesionId]);
+
+  await supabase.from("sesiones_entrenamiento").delete().eq("id", sesionId).eq("alumno_id", alumnoId);
+
+  revalidateTag(TAG_RANKING, { expire: 0 });
+  revalidatePath("/alumno/entrenar/historial");
+  revalidatePath("/alumno/inicio");
+  revalidatePath("/alumno/entrenar");
+  redirect("/alumno/entrenar/historial");
 }
 
 /**

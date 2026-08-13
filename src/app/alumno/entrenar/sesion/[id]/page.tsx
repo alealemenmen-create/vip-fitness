@@ -10,6 +10,7 @@ import { CancelarSesionBoton } from "@/components/student/CancelarSesionBoton";
 import { SalidaGuiadaSesion } from "@/components/student/SalidaGuiadaSesion";
 import { CierreAutomaticoSesion } from "@/components/student/CierreAutomaticoSesion";
 import { ReabrirSesionBoton } from "@/components/student/ReabrirSesionBoton";
+import { EliminarSesionBoton } from "@/components/student/EliminarSesionBoton";
 import { sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerSesionCompleta } from "../../data";
 import { iniciarRutina } from "../../actions";
@@ -209,6 +210,14 @@ export default async function SesionPage({
           <p className="text-micro text-text-tertiary">
             Corregir vuelve a abrir esta sesión para editar kilos y repeticiones. Tus Puntos VIP no
             cambian: esta sesión no vuelve a sumar ni pierde lo ya ganado.
+          </p>
+          {/* Debajo de corregir y más apagado, en ese orden a propósito:
+              corregir es lo que se va a querer casi siempre, borrar es la
+              excepción de haber marcado la rutina hecha sin querer. */}
+          <EliminarSesionBoton sesionId={sesion.id} />
+          <p className="text-micro text-text-tertiary">
+            Eliminar borra el registro completo y sus Puntos VIP. No queda en el historial y podrás
+            volver a hacer esta sesión desde cero.
           </p>
         </div>
       )}
