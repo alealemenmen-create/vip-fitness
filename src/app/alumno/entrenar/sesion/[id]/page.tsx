@@ -22,8 +22,18 @@ import { iniciarRutina } from "../../actions";
 // típico (90-180s).
 export const maxDuration = 300;
 
-export default async function SesionPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SesionPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ corregir?: string }>;
+}) {
   const { id } = await params;
+  // Llegó acá porque quiso corregir un registro viejo teniendo este
+  // entrenamiento abierto (ver `reabrirSesion`). Sin decírselo, el salto de
+  // pantalla no se entiende.
+  const { corregir } = await searchParams;
   const { alumnoId, soloLectura: vistaSoloLectura } = await requireAlumno();
   const supabase = await createClient();
 
@@ -54,6 +64,15 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
     // 28 px de scroll. Lo que se busca es que el ejercicio en curso y la
     // cabecera del siguiente entren juntos en una pantalla.
     <div className="space-y-3 pb-8">
+      {corregir === "ocupado" && (
+        <Card padding="p-3" className="border border-warning/40 bg-warning/10">
+          <p className="text-caption font-semibold text-warning">Primero cierra este entrenamiento</p>
+          <p className="text-micro mt-1 text-text-secondary">
+            Para corregir una sesión anterior no puedes tener otra abierta. Termina esta y vuelve a
+            intentarlo — lo que corrijas después no se pierde.
+          </p>
+        </Card>
+      )}
       {/* Título, estado y avance quedan clavados arriba y los ejercicios pasan
           por debajo al hacer scroll (igual que la cabecera de Nutrición): con
           siete ejercicios, a mitad de sesión ya no se veía en qué día se está

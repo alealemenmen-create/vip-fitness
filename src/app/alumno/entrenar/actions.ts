@@ -551,14 +551,34 @@ export async function reabrirSesion(formData: FormData): Promise<void> {
   const supabase = createAdminClient();
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
-    .select("estado")
+    .select("estado, hora_inicio, rutina_iniciada_en")
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .maybeSingle();
   if (!sePuedeCorregir(sesion?.estado)) return;
+
+  // Corregir un registro viejo mientras hay otro entrenamiento de verdad en
+  // curso no se puede: el índice de la migración 0071 admite una sola sesión
+  // real activa por alumno. Antes esto no se miraba, el UPDATE fallaba contra
+  // el índice y la acción terminaba como si nada — el alumno confirmaba y la
+  // pantalla volvía igual. Ahora se lo lleva a la sesión que sí está abierta,
+  // que es lo que tiene que resolver primero.
+  const otraActiva = await buscarOtraSesionRealEnProgreso(supabase, alumnoId, sesionId);
+  if (otraActiva) redirect(`/alumno/entrenar/sesion/${otraActiva.id}?corregir=ocupado`);
+
   await supabase
     .from("sesiones_entrenamiento")
-    .update({ estado: "en_progreso", hora_fin: null, rutina_iniciada_en: null })
+    .update({
+      estado: "en_progreso",
+      hora_fin: null,
+      // Se conserva la marca de arranque en vez de borrarla. Borrarla dejaba
+      // la sesión en el estado de "vista previa sin empezar": el alumno tocaba
+      // "Sí, corregir", la pantalla se recargaba TODA bloqueada y con un botón
+      // de "Iniciar rutina" arriba, así que parecía que el botón no hacía
+      // nada. Corregir un registro no es empezar a entrenar — se abre
+      // editable de una. Reportado por Alejandro: "ese botón está pegado".
+      rutina_iniciada_en: sesion?.rutina_iniciada_en ?? sesion?.hora_inicio ?? new Date().toISOString(),
+    })
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .in("estado", [...ESTADOS_CORREGIBLES]);
