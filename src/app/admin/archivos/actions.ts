@@ -867,6 +867,12 @@ export type PublicarAVariosState = {
   error: string | null;
   publicados: number;
   fallidos: { alumnoId: string; nombre: string; error: string }[];
+  /** Deficiencias de calidad (Semáforo VIP: repeticiones, cobertura) que NO
+   * bloquean la publicación, solo la condicionan a que el entrenador confirme
+   * explícitamente. Si vienen y `forzarConDeficiencias` no se mandó, no se
+   * publicó nada todavía — el cliente debe preguntar y reintentar con
+   * `forzarConDeficiencias: true`. */
+  deficiencias?: string[];
 };
 
 /**
@@ -885,7 +891,8 @@ export type PublicarAVariosState = {
 export async function publicarRutinaAVariosAlumnos(
   alumnoIds: string[],
   datos: RutinaConProgresion,
-  planCodigo: CodigoPlanEntrenamiento
+  planCodigo: CodigoPlanEntrenamiento,
+  forzarConDeficiencias = false
 ): Promise<PublicarAVariosState> {
   const sesion = await requireRol(["entrenador", "admin"]);
 
@@ -907,8 +914,14 @@ export async function publicarRutinaAVariosAlumnos(
   // Se valida UNA vez y usando el patrón confiable de la biblioteca. El dato
   // que llega del cliente sirve para respuesta inmediata, pero el servidor no
   // confía en él para decidir si una rutina puede publicarse.
-  const invalida = validarRutina(datos, biblioteca);
+  const { error: invalida, deficiencias } = validarRutina(datos, biblioteca);
   if (invalida) return { error: invalida, publicados: 0, fallidos: [] };
+  // Las deficiencias del Semáforo VIP (repeticiones, cobertura incompleta) son
+  // criterio del entrenador, no un bloqueo técnico — Alejandro pidió poder
+  // publicar igual. Se avisa una vez; si confirma, se publica con ellas.
+  if (deficiencias.length > 0 && !forzarConDeficiencias) {
+    return { error: null, publicados: 0, fallidos: [], deficiencias };
+  }
 
   const nombrePorId = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
 
@@ -940,19 +953,25 @@ export async function publicarRutinaAVariosAlumnos(
   return { error: null, publicados, fallidos };
 }
 
-/** Revisa la rutina antes de tocar la base. Devuelve el error o null. */
-function validarRutina(datos: RutinaExtraida, biblioteca?: Biblioteca): string | null {
+/**
+ * Revisa la rutina antes de tocar la base. `error` son bloqueos técnicos
+ * reales (nada que publicar, datos incompletos) — nunca se saltan.
+ * `deficiencias` son criterio de calidad (Semáforo VIP: repeticiones,
+ * cobertura) que el entrenador puede decidir ignorar; ver
+ * `forzarConDeficiencias` en `publicarRutinaAVariosAlumnos`.
+ */
+function validarRutina(datos: RutinaExtraida, biblioteca?: Biblioteca): { error: string | null; deficiencias: string[] } {
   const patronPorId = new Map((biblioteca ?? []).map((ejercicio) => [ejercicio.id, ejercicio.patronMovimiento]));
-  if (!datos.dias.length) return "La rutina no tiene días para publicar.";
+  if (!datos.dias.length) return { error: "La rutina no tiene días para publicar.", deficiencias: [] };
   for (const dia of datos.dias) {
-    if (!dia.nombre.trim()) return "Todos los días necesitan un nombre.";
+    if (!dia.nombre.trim()) return { error: "Todos los días necesitan un nombre.", deficiencias: [] };
     if (dia.tipo === "entrenamiento" && dia.ejercicios.length === 0) {
-      return `El día "${dia.nombre}" no tiene ejercicios.`;
+      return { error: `El día "${dia.nombre}" no tiene ejercicios.`, deficiencias: [] };
     }
     for (const ej of dia.ejercicios) {
-      if (!ej.nombre.trim()) return "Hay un ejercicio sin nombre.";
+      if (!ej.nombre.trim()) return { error: "Hay un ejercicio sin nombre.", deficiencias: [] };
       if (!Number.isFinite(ej.series) || ej.series <= 0) {
-        return `"${ej.nombre}" necesita un número de series válido.`;
+        return { error: `"${ej.nombre}" necesita un número de series válido.`, deficiencias: [] };
       }
     }
   }
@@ -966,10 +985,7 @@ function validarRutina(datos: RutinaExtraida, biblioteca?: Biblioteca): string |
       patronMovimiento: ejercicio.ejercicioId ? patronPorId.get(ejercicio.ejercicioId) ?? null : null,
     })),
   })));
-  if (deficiencias.length > 0) {
-    return `La rutina necesita corrección antes de publicarse: ${deficiencias.join(" ")}`;
-  }
-  return null;
+  return { error: null, deficiencias };
 }
 
 type Biblioteca = Awaited<ReturnType<typeof obtenerBiblioteca>>;
@@ -1173,7 +1189,7 @@ export async function confirmarYPublicarRutina(
 ): Promise<PublicarRutinaState> {
   const sesion = await requireRol(["entrenador", "admin"]);
 
-  const invalida = validarRutina(datos);
+  const { error: invalida } = validarRutina(datos);
   if (invalida) return { error: invalida, ok: false };
 
   const supabase = await createClient();

@@ -2606,7 +2606,18 @@ export function RutinaDraftEditor({
     // entrenador no tenía forma de saber que había fallado, ni yo de saber por
     // qué. Cualquier fallo tiene que terminar en un mensaje en pantalla.
     try {
-      const resultado = await publicarRutinaAVariosAlumnos(idsParaPublicar, draft, planCodigo);
+      let resultado = await publicarRutinaAVariosAlumnos(idsParaPublicar, draft, planCodigo);
+
+      // No se publicó nada todavía: son deficiencias de calidad (Semáforo
+      // VIP), no un bloqueo técnico. Se le pregunta al entrenador acá mismo,
+      // en vez de obligarlo a corregir, y si confirma se reintenta forzando.
+      if (!resultado.error && resultado.publicados === 0 && resultado.deficiencias?.length) {
+        const confirma = window.confirm(
+          `El Semáforo VIP encontró ${resultado.deficiencias.length} ${resultado.deficiencias.length === 1 ? "ajuste" : "ajustes"} pendientes:\n\n${resultado.deficiencias.join("\n")}\n\n¿Publicar la rutina igual?`
+        );
+        if (!confirma) return;
+        resultado = await publicarRutinaAVariosAlumnos(idsParaPublicar, draft, planCodigo, true);
+      }
 
       if (resultado.error) {
         setError(resultado.error);
