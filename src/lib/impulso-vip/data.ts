@@ -351,28 +351,60 @@ export function filaAlertaDesdeRow(row: {
  */
 export async function generarYGuardarRecomendacion(
   supabase: SupabaseServerClient,
-  params: { sesionEjercicioId: string; diaEjercicioId: string; alumnoId: string }
+  params: {
+    sesionEjercicioId: string;
+    diaEjercicioId: string;
+    alumnoId: string;
+    /**
+     * Objetivo del alumno ya leído por quien llama, para no repetir la misma
+     * consulta una vez por ejercicio.
+     *
+     * Esto se corre en paralelo para TODOS los ejercicios de la sesión al
+     * crearla, así que `alumno_perfil` se pedía diez veces seguidas para
+     * devolver diez veces la misma fila. Envuelto en un objeto y no suelto
+     * porque el objetivo puede ser `null` legítimamente: hay que poder
+     * distinguir "no me lo pasaron" de "me pasaron que no tiene".
+     */
+    objetivoAlumno?: { valor: string | null };
+    /**
+     * La sesión se acaba de crear y sus ejercicios son nuevos: no puede haber
+     * una recomendación previa, así que se saltea la búsqueda inicial —otra
+     * consulta por ejercicio que en este camino siempre volvía vacía—. No hay
+     * carrera que perder: `insertarORecuperarRecomendacion` ya resuelve el
+     * conflicto si dos pedidos llegan juntos.
+     */
+    sesionRecienCreada?: boolean;
+  }
 ): Promise<FilaRecomendacion | null> {
-  const { sesionEjercicioId, diaEjercicioId, alumnoId } = params;
+  const { sesionEjercicioId, diaEjercicioId, alumnoId, objetivoAlumno, sesionRecienCreada } = params;
   const repoRecomendaciones = crearRepositorioRecomendaciones(supabase);
   const repararAlerta = crearReparadorDeAlertas(crearRepositorioAlertas(supabase));
 
   // Búsqueda inicial ÚNICA: si ya existe, ni siquiera se consulta config ni
   // historial — solo se repara la alerta (por si un intento anterior guardó
   // la recomendación pero falló al crear su alerta) y se devuelve.
-  const existente = await repoRecomendaciones.buscar(sesionEjercicioId);
-  if (existente) {
-    await repararAlerta(existente);
-    return existente;
+  if (!sesionRecienCreada) {
+    const existente = await repoRecomendaciones.buscar(sesionEjercicioId);
+    if (existente) {
+      await repararAlerta(existente);
+      return existente;
+    }
   }
 
-  const [{ data: ejercicio }, { data: perfil }, config] = await Promise.all([
+  const [{ data: ejercicio }, objetivoTexto, config] = await Promise.all([
     supabase
       .from("rutina_dia_ejercicios")
       .select("reps_programadas, series_programadas, tecnica_tipo, tecnica_series")
       .eq("id", diaEjercicioId)
       .maybeSingle(),
-    supabase.from("alumno_perfil").select("objetivo").eq("user_id", alumnoId).maybeSingle(),
+    objetivoAlumno
+      ? Promise.resolve(objetivoAlumno.valor)
+      : supabase
+          .from("alumno_perfil")
+          .select("objetivo")
+          .eq("user_id", alumnoId)
+          .maybeSingle()
+          .then(({ data }) => data?.objetivo ?? null),
     obtenerConfigProgresion(supabase, diaEjercicioId),
   ]);
 
@@ -414,7 +446,7 @@ export async function generarYGuardarRecomendacion(
   );
   if (historial.length === 0) return null;
 
-  const objetivo = objetivoAImpulso(perfil?.objetivo ?? null);
+  const objetivo = objetivoAImpulso(objetivoTexto);
   // Las series que de verdad entran al cálculo. Importa porque el motor arma
   // la meta como `seriesProgramadas * rango.min`: si el ejercicio tiene 4
   // series pero solo 3 son limpias, pedir 4 × el mínimo sería pedirle al

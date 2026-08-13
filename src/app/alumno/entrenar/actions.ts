@@ -112,10 +112,16 @@ async function crearOEntrarSesion(
     redirect("/alumno/entrenar");
   }
 
-  const { data: ejercicios } = await supabase
-    .from("rutina_dia_ejercicios")
-    .select("id")
-    .eq("dia_id", diaId);
+  // El objetivo del alumno va en el mismo viaje que los ejercicios: no
+  // depende de ellos y así no cuesta nada. Se lee UNA vez y se le pasa a
+  // todas las recomendaciones — antes cada ejercicio pedía la misma fila de
+  // `alumno_perfil` por su cuenta, o sea diez consultas idénticas para una
+  // rutina de diez, todas dentro de la espera que el alumno ve al tocar "Ver
+  // entrenamiento".
+  const [{ data: ejercicios }, { data: perfilAlumno }] = await Promise.all([
+    supabase.from("rutina_dia_ejercicios").select("id").eq("dia_id", diaId),
+    supabase.from("alumno_perfil").select("objetivo").eq("user_id", alumnoId).maybeSingle(),
+  ]);
 
   if (ejercicios && ejercicios.length > 0) {
     const { data: sesionEjercicios } = await supabase
@@ -135,6 +141,10 @@ async function crearOEntrarSesion(
             sesionEjercicioId: se.id,
             diaEjercicioId: se.dia_ejercicio_id,
             alumnoId,
+            objetivoAlumno: { valor: perfilAlumno?.objetivo ?? null },
+            // Los ejercicios se acaban de insertar acá arriba: no puede haber
+            // una recomendación previa que buscar.
+            sesionRecienCreada: true,
           }).catch(() => null)
         )
       );
