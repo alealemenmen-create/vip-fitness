@@ -437,6 +437,10 @@ export type SesionCompleta = {
    * rutina sigue bloqueada. Migración 0040; ver el respaldo en
    * `obtenerSesionCompleta` si todavía no corrió. */
   rutinaIniciadaEn: string | null;
+  /** No null mientras el alumno está corrigiendo este registro ya cerrado
+   * (migración 0077). La sesión NO vuelve a "en progreso": solo se habilita
+   * la edición de los números, sin reloj ni puntos de por medio. */
+  corrigiendoDesde: string | null;
   comentario: string | null;
   diaNombre: string;
   diaTipo: "entrenamiento" | "descanso";
@@ -458,7 +462,7 @@ export async function obtenerSesionCompleta(
   // en vez de romper la pantalla de sesión entera.
   const intentoSesion = await supabase
     .from("sesiones_entrenamiento")
-    .select(`${COLUMNAS_SESION}, rutina_iniciada_en`)
+    .select(`${COLUMNAS_SESION}, rutina_iniciada_en, corrigiendo_desde`)
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .maybeSingle();
@@ -733,6 +737,7 @@ export async function obtenerSesionCompleta(
     horaInicio: sesion.hora_inicio,
     horaFin: sesion.hora_fin,
     rutinaIniciadaEn: (sesion as { rutina_iniciada_en?: string | null }).rutina_iniciada_en ?? null,
+    corrigiendoDesde: (sesion as { corrigiendo_desde?: string | null }).corrigiendo_desde ?? null,
     comentario: sesion.comentario,
     diaNombre: dia?.nombre ?? "",
     diaTipo: dia?.tipo ?? "entrenamiento",

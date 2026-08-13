@@ -665,6 +665,8 @@ export interface Database {
           comentario: string | null;
           // 0040_rutina_iniciada.sql
           rutina_iniciada_en: string | null;
+          // 0077 — no null mientras se corrige un registro ya cerrado.
+          corrigiendo_desde: string | null;
         };
         Insert: {
           alumno_id: string;
@@ -675,12 +677,14 @@ export interface Database {
           estado?: EstadoSesion;
           comentario?: string | null;
           rutina_iniciada_en?: string | null;
+          corrigiendo_desde?: string | null;
         };
         Update: {
           hora_fin?: string | null;
           estado?: EstadoSesion;
           comentario?: string | null;
           rutina_iniciada_en?: string | null;
+          corrigiendo_desde?: string | null;
         };
         Relationships: [
           {

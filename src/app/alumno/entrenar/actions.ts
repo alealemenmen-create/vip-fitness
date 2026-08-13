@@ -375,12 +375,16 @@ export async function guardarSeries(
   const supabase = createAdminClient();
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
-    .select("id")
+    .select("id, estado, corrigiendo_desde")
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
-    .eq("estado", "en_progreso")
     .maybeSingle();
-  if (!sesion) return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
+  // Se escribe si está entrenando, o si abrió una corrección sobre un
+  // registro ya cerrado (0077). El chequeo dejó de ser un `.eq()` en la
+  // consulta porque ahora son dos caminos, no uno.
+  if (!sesion || (sesion.estado !== "en_progreso" && sesion.corrigiendo_desde === null)) {
+    return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
+  }
 
   const resultado = await guardarUnEjercicio(supabase, formData, "", sesionId);
   if (resultado.error) return resultado;
@@ -412,12 +416,16 @@ export async function guardarSeriesGrupo(
   const supabase = createAdminClient();
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
-    .select("id")
+    .select("id, estado, corrigiendo_desde")
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
-    .eq("estado", "en_progreso")
     .maybeSingle();
-  if (!sesion) return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
+  // Se escribe si está entrenando, o si abrió una corrección sobre un
+  // registro ya cerrado (0077). El chequeo dejó de ser un `.eq()` en la
+  // consulta porque ahora son dos caminos, no uno.
+  if (!sesion || (sesion.estado !== "en_progreso" && sesion.corrigiendo_desde === null)) {
+    return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
+  }
 
   for (let i = 0; i < cantidad; i++) {
     const sufijo = i === 0 ? "" : `_${i}`;
@@ -543,6 +551,23 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
   redirect(`/alumno/entrenar?puntos=${puntos + puntosImpulso}`);
 }
 
+/**
+ * Abre un registro ya cerrado para editar los números. **No vuelve a
+ * entrenar.**
+ *
+ * Antes esto ponía la sesión en `en_progreso`, y el efecto no era corregir:
+ * era arrancar la rutina de nuevo. La sesión pasaba a ser la activa del alumno
+ * (bloqueando cualquier otra), volvía el cronómetro, el aviso al salir y el
+ * "Entrenamiento en curso" de arriba. Alejandro: "corregir registro inicia
+ * nuevamente la rutina, y no es la idea, es corregir el registro. Y si lo
+ * quiero hacer de nuevo, le pido al entrenador que lo borre y la hago de
+ * nuevo".
+ *
+ * Ahora la sesión **se queda cerrada** y solo se marca `corrigiendo_desde`
+ * (migración 0077). Consecuencias, todas buscadas: no ocupa el cupo de sesión
+ * activa —así que se puede corregir aunque haya otra en curso—, no corre
+ * ningún reloj, no toca los puntos ni el cupo del mes.
+ */
 export async function reabrirSesion(formData: FormData): Promise<void> {
   const sesionId = String(formData.get("sesion_id") || "");
   const confirmada = String(formData.get("confirmar_reapertura") || "") === "true";
@@ -552,42 +577,39 @@ export async function reabrirSesion(formData: FormData): Promise<void> {
   const supabase = createAdminClient();
   const { data: sesion } = await supabase
     .from("sesiones_entrenamiento")
-    .select("estado, hora_inicio, rutina_iniciada_en")
+    .select("estado")
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .maybeSingle();
   if (!sePuedeCorregir(sesion?.estado)) return;
 
-  // Corregir un registro viejo mientras hay otro entrenamiento de verdad en
-  // curso no se puede: el índice de la migración 0071 admite una sola sesión
-  // real activa por alumno. Antes esto no se miraba, el UPDATE fallaba contra
-  // el índice y la acción terminaba como si nada — el alumno confirmaba y la
-  // pantalla volvía igual. Ahora se lo lleva a la sesión que sí está abierta,
-  // que es lo que tiene que resolver primero.
-  const otraActiva = await buscarOtraSesionRealEnProgreso(supabase, alumnoId, sesionId);
-  if (otraActiva) redirect(`/alumno/entrenar/sesion/${otraActiva.id}?corregir=ocupado`);
-
   await supabase
     .from("sesiones_entrenamiento")
-    .update({
-      estado: "en_progreso",
-      hora_fin: null,
-      // Se conserva la marca de arranque en vez de borrarla. Borrarla dejaba
-      // la sesión en el estado de "vista previa sin empezar": el alumno tocaba
-      // "Sí, corregir", la pantalla se recargaba TODA bloqueada y con un botón
-      // de "Iniciar rutina" arriba, así que parecía que el botón no hacía
-      // nada. Corregir un registro no es empezar a entrenar — se abre
-      // editable de una. Reportado por Alejandro: "ese botón está pegado".
-      rutina_iniciada_en: sesion?.rutina_iniciada_en ?? sesion?.hora_inicio ?? new Date().toISOString(),
-    })
+    .update({ corrigiendo_desde: new Date().toISOString() })
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .in("estado", [...ESTADOS_CORREGIBLES]);
 
-  // Reabrir no elimina la recompensa ni devuelve cupo mensual: es una
-  // corrección del mismo registro, no una sesión nueva.
-  revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
+  revalidatePath("/alumno/entrenar/historial");
+}
+
+/** Cierra la corrección: la sesión vuelve a ser de solo lectura. Nunca cambió
+ * de estado, así que acá no hay nada que recalcular — ni puntos, ni cupo. */
+export async function terminarCorreccion(formData: FormData): Promise<void> {
+  const sesionId = String(formData.get("sesion_id") || "");
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (!sesionId || soloLectura) return;
+
+  const supabase = createAdminClient();
+  await supabase
+    .from("sesiones_entrenamiento")
+    .update({ corrigiendo_desde: null })
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId);
+
+  revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
+  revalidatePath("/alumno/entrenar/historial");
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
 }

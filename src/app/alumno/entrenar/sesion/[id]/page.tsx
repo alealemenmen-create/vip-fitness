@@ -13,7 +13,7 @@ import { ReabrirSesionBoton } from "@/components/student/ReabrirSesionBoton";
 import { EliminarSesionBoton } from "@/components/student/EliminarSesionBoton";
 import { sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerSesionCompleta } from "../../data";
-import { iniciarRutina } from "../../actions";
+import { iniciarRutina, terminarCorreccion } from "../../actions";
 
 // El aviso de fin de descanso lo programa `programarAvisoDescanso` (Server
 // Action de esta página, ver push-actions.ts) con `after()`: el servidor
@@ -23,18 +23,8 @@ import { iniciarRutina } from "../../actions";
 // típico (90-180s).
 export const maxDuration = 300;
 
-export default async function SesionPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ corregir?: string }>;
-}) {
+export default async function SesionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  // Llegó acá porque quiso corregir un registro viejo teniendo este
-  // entrenamiento abierto (ver `reabrirSesion`). Sin decírselo, el salto de
-  // pantalla no se entiende.
-  const { corregir } = await searchParams;
   const { alumnoId, soloLectura: vistaSoloLectura } = await requireAlumno();
   const supabase = await createClient();
 
@@ -56,7 +46,19 @@ export default async function SesionPage({
   // "iniciar" — el bloqueo solo aplica a sesiones de entrenamiento real.
   const rutinaIniciada = sesion.rutinaIniciadaEn !== null;
   const bloqueadaPorIniciar = !esDescanso && sesion.estado === "en_progreso" && !rutinaIniciada;
-  const sesionSoloLectura = sesion.estado !== "en_progreso" || vistaSoloLectura || bloqueadaPorIniciar;
+  /**
+   * Corrigiendo un registro ya cerrado (migración 0077). NO es entrenar: la
+   * sesión sigue cerrada, no corre ningún reloj y no vuelve a sumar puntos.
+   * Solo se destraban los campos para arreglar un kilo mal escrito.
+   *
+   * Antes esto se hacía poniendo la sesión en `en_progreso`, y el efecto era
+   * volver a arrancar la rutina entera — con cronómetro, aviso al salir y
+   * bloqueo de cualquier otra sesión. "Corregir registro inicia nuevamente la
+   * rutina, y no es la idea" (Alejandro).
+   */
+  const enCorreccion = !vistaSoloLectura && sesion.corrigiendoDesde !== null;
+  const sesionSoloLectura =
+    (sesion.estado !== "en_progreso" && !enCorreccion) || vistaSoloLectura || bloqueadaPorIniciar;
   const completados = sesion.ejercicios.filter((e) => e.completado).length;
   const total = sesion.ejercicios.length;
 
@@ -65,15 +67,6 @@ export default async function SesionPage({
     // 28 px de scroll. Lo que se busca es que el ejercicio en curso y la
     // cabecera del siguiente entren juntos en una pantalla.
     <div className="space-y-3 pb-8">
-      {corregir === "ocupado" && (
-        <Card padding="p-3" className="border border-warning/40 bg-warning/10">
-          <p className="text-caption font-semibold text-warning">Primero cierra este entrenamiento</p>
-          <p className="text-micro mt-1 text-text-secondary">
-            Para corregir una sesión anterior no puedes tener otra abierta. Termina esta y vuelve a
-            intentarlo — lo que corrijas después no se pierde.
-          </p>
-        </Card>
-      )}
       {/* Título, estado y avance quedan clavados arriba y los ejercicios pasan
           por debajo al hacer scroll (igual que la cabecera de Nutrición): con
           siete ejercicios, a mitad de sesión ya no se veía en qué día se está
@@ -171,7 +164,29 @@ export default async function SesionPage({
         </Card>
       )}
 
-      {!sesionSoloLectura && esDescanso && (
+      {/* Barra de corrección. Va arriba de las opciones y no abajo de todo:
+          mientras se corrige, salir es lo único que el alumno va a querer
+          hacer después de arreglar el número. */}
+      {enCorreccion && (
+        <div className="space-y-2 rounded-[14px] border border-vip/40 bg-vip/10 p-3">
+          <p className="text-caption font-semibold text-vip">Estás corrigiendo este registro</p>
+          <p className="text-micro text-text-secondary">
+            Edita los kilos y las repeticiones que estén mal. La sesión sigue cerrada y tus Puntos
+            VIP no cambian — esto no vuelve a empezar la rutina.
+          </p>
+          <form action={terminarCorreccion}>
+            <input type="hidden" name="sesion_id" value={sesion.id} />
+            <button
+              type="submit"
+              className="btn-accion radius-control h-11 w-full text-caption font-semibold"
+            >
+              Listo, terminé de corregir
+            </button>
+          </form>
+        </div>
+      )}
+
+      {!sesionSoloLectura && !enCorreccion && esDescanso && (
         <FinalizarEntrenamiento
           sesionId={sesion.id}
           completados={completados}
@@ -180,9 +195,10 @@ export default async function SesionPage({
         />
       )}
 
-      {/* Solo con la rutina realmente arrancada: si todavía está en "Iniciar
-          rutina" no hay nada que cerrar y preguntar al salir sería ruido. */}
-      {!esDescanso && !sesionSoloLectura && rutinaIniciada && (
+      {/* Solo con la rutina realmente arrancada, y NUNCA en una corrección:
+          corregir un registro viejo no es entrenar, así que no va cronómetro,
+          ni aviso al salir, ni cierre automático. */}
+      {!esDescanso && !sesionSoloLectura && !enCorreccion && rutinaIniciada && (
         <>
           <SalidaGuiadaSesion sesionId={sesion.id} completados={completados} total={total} />
           {/* Todo hecho: el cierre aparece solo, sin buscarlo. */}
