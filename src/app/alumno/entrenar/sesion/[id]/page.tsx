@@ -117,7 +117,7 @@ export default async function SesionPage({
           por los costados. */}
       <div className="sticky top-0 z-20 -mx-4 space-y-1.5 bg-bg px-4 pb-2 pt-1">
         <VolverAEntrenar
-          titulo={`${sesion.numeroCalendario ? `Sesión ${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
+          titulo={`${sesion.numeroCalendario ? `S${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
           compacto
           accion={
             !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura && rutinaIniciada ? (

@@ -7,8 +7,6 @@ import {
   ChevronDown,
   ChevronRight,
   Play,
-  Layers,
-  Repeat,
   Timer,
   Gauge,
   ImageIcon,
@@ -39,6 +37,7 @@ import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import { etiquetaSeriesTecnica, tecnicaAplicaASerie } from "@/lib/entrenamiento/tecnica-series";
 import { explicacionTecnica } from "@/lib/entrenamiento/glosario-tecnicas";
 import { PUNTOS_VIP } from "@/lib/ranking/reglas";
+import { MomentoImpulsoEnVivo } from "@/components/student/MomentoImpulsoEnVivo";
 import {
   guardarBorrador,
   leerBorrador,
@@ -1527,6 +1526,7 @@ export const SesionEjercicioCard = forwardRef<
   // ("Biserie (1/2)"): a veces la palabra clave está en una y no en la otra.
   const explicacion = explicacionTecnica(`${tecnica?.texto ?? ""} ${ejercicio.tecnicaTipo ?? ""}`);
   const recomendacionImpulso = ejercicio.recomendacionImpulso;
+  const intervencionesImpulso = ejercicio.intervencionesImpulso;
   // Solo una recomendación APROBADA precarga algo — 'propuesta' (esperando
   // al entrenador) y 'bloqueada' (Regla E) nunca sugieren peso ni reps.
   const recomendacionAprobada =
@@ -1892,15 +1892,10 @@ export const SesionEjercicioCard = forwardRef<
                 <p className="text-card-title mt-0.5 leading-tight text-text">
                   {ejercicio.nombre}
                 </p>
-                {/* De un vistazo, junto al nombre: cuánto hay que hacer y con
-                    qué técnica — sin la descripción, que vive en el botón "!"
-                    sobrepuesto en la foto (ver más abajo), no acá. Pedido de
-                    Alejandro: la pantalla de entrenar se sentía cargada. */}
+                {/* Solo la técnica acá — el número de series/reps se movió al
+                    bloque compacto de la derecha (ver más abajo) para no
+                    repetirlo dos veces en la misma tarjeta. */}
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                  <span className="text-micro font-semibold text-text-secondary">
-                    {ejercicio.seriesProgramadas} series · {ejercicio.repsProgramadas}
-                    {esTiempo ? " seg" : " reps"}
-                  </span>
                   {ejercicio.tecnicaTipo && (
                     <span
                       className="pill-tecnica inline-block"
@@ -1930,6 +1925,30 @@ export const SesionEjercicioCard = forwardRef<
               </div>
             </div>
           </div>
+          {/* Bloque compacto de números — reemplaza la barra de 4 chips que
+              cruzaba toda la tarjeta. Serie×reps en grande, descanso y tempo
+              chiquitos abajo, todo en una sola columna angosta en vez de
+              cuatro cajas con ícono+valor+etiqueta cada una (desordenado con
+              varios ejercicios seguidos, pedido de Alejandro). Se oculta en
+              modo enfocado igual que antes. */}
+          {!modoEnfocado && (
+            <div className="mr-1 shrink-0 text-right">
+              <p className="text-caption whitespace-nowrap font-bold leading-tight text-text">
+                {ejercicio.seriesProgramadas} × {ejercicio.repsProgramadas}
+                {esTiempo ? " seg" : ""}
+              </p>
+              <p className="mt-0.5 flex items-center justify-end gap-1 whitespace-nowrap text-micro leading-tight text-text-tertiary">
+                <Timer size={11} />
+                {ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s` : "—"}
+              </p>
+              {ejercicio.tempo && (
+                <p className="mt-0.5 flex items-center justify-end gap-1 whitespace-nowrap text-micro leading-tight text-text-tertiary">
+                  <Gauge size={11} />
+                  {ejercicio.tempo.valor}
+                </p>
+              )}
+            </div>
+          )}
           {/* `relative`: contenedor del botón "!" sobrepuesto (ver abajo) —
               no de la foto en sí, que sigue midiéndose sola por su `tamano`. */}
           <div className="relative shrink-0">
@@ -2093,31 +2112,10 @@ export const SesionEjercicioCard = forwardRef<
             document.body
           )}
 
-        {/* Los números que se consultan de reojo entre serie y serie, ahora a
-            todo el ancho de la tarjeta (antes vivía en la columna angosta que
-            dejaba la foto al lado, y el tempo no entraba como 4ta columna —
-            afuera de esa columna ya no hay ese límite, como en la
-            referencia). */}
-        {!modoEnfocado && <div className="datos-ejercicio radius-control mb-1.5 flex items-stretch overflow-hidden border border-border bg-surface-2">
-          <Dato
-            icono={<Layers size={13} />}
-            valor={String(ejercicio.seriesProgramadas)}
-            etiqueta="Series"
-          />
-          <Dato
-            icono={esTiempo ? <Timer size={13} /> : <Repeat size={13} />}
-            valor={ejercicio.repsProgramadas}
-            etiqueta={esTiempo ? "Tiempo" : "Reps"}
-          />
-          <Dato
-            icono={<Timer size={13} />}
-            valor={ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s` : "—"}
-            etiqueta="Desc."
-          />
-          {ejercicio.tempo && (
-            <Dato icono={<Gauge size={13} />} valor={ejercicio.tempo.valor} etiqueta="Tempo" />
-          )}
-        </div>}
+        {/* La barra de 4 chips (Series/Reps/Desc/Tempo) se sacó de acá: ese
+            mismo dato ahora vive compacto en la cabecera, al lado de la
+            foto (ver más arriba). Pedido de Alejandro: se veía desordenado,
+            sobre todo con varios ejercicios seguidos en pantalla. */}
 
         {/* Plegado: el ejercicio que no toca todavía muestra solo la cabecera de
             arriba. Con siete ejercicios abiertos a la vez había que scrollear a
@@ -2172,6 +2170,22 @@ export const SesionEjercicioCard = forwardRef<
           )}
         </div>
       ) : (
+        <>
+        {intervencionesImpulso.map((intervencion) => {
+          const terminada = seriesHechas.has(intervencion.serieObjetivo);
+          const esOrientacion = intervencion.tipo === "tempo_controlado";
+          return (
+            <MomentoImpulsoEnVivo
+              key={intervencion.id}
+              intervencion={intervencion}
+              visible={
+                seriesHechas.size >= Math.max(0, intervencion.serieObjetivo - 1)
+                && (!esOrientacion || !terminada)
+              }
+              serieTerminada={terminada}
+            />
+          );
+        })}
         <form
           id={formId}
           ref={formRef}
@@ -2339,6 +2353,7 @@ export const SesionEjercicioCard = forwardRef<
             </p>
           )}
         </form>
+        </>
       )}
       {!soloLectura && (
         <div className="acciones-secundarias-ejercicio mt-1.5 grid grid-cols-2 gap-2">
