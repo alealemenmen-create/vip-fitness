@@ -1876,6 +1876,21 @@ input[type="date"]::-webkit-date-and-time-value {
   0%, 100% { opacity: 0.55; box-shadow: 0 0 0 rgba(190, 242, 50, 0); }
   50% { opacity: 1; box-shadow: 0 0 12px color-mix(in srgb, var(--color-vip) 70%, transparent); }
 }
+
+/* Aviso mínimo dentro de un ejercicio: deliberadamente intenso para que un
+   botón de 40 px reemplace la tarjeta completa sin pasar inadvertido. */
+.rayo-impulso-vivo:not(:has(svg.lucide-check)) {
+  animation: rayo-impulso-fuerte .72s cubic-bezier(.2,.8,.2,1) infinite;
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-vip) 65%, transparent);
+}
+@keyframes rayo-impulso-fuerte {
+  0%, 100% { transform: scale(.92) rotate(-4deg); opacity: .72; filter: brightness(.9); box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-vip) 65%, transparent); }
+  42% { transform: scale(1.18) rotate(4deg); opacity: 1; filter: brightness(1.65); box-shadow: 0 0 0 9px color-mix(in srgb, var(--color-vip) 0%, transparent), 0 0 24px color-mix(in srgb, var(--color-vip) 75%, transparent); }
+  58% { transform: scale(1.05) rotate(0); opacity: 1; filter: brightness(1.25); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rayo-impulso-vivo { animation: none !important; opacity: 1; }
+}
 @media (prefers-reduced-motion: reduce) {
   .disco-impulso-parpadeo { animation: none; opacity: 1; }
 }

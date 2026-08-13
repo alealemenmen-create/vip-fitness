@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { obtenerSolicitudesAsistenciaEnVivo } from "@/lib/impulso-vip/asistencia-data";
 import type { SolicitudAsistenciaEnVivo } from "@/lib/impulso-vip/asistencia-data";
 import type { TipoIntervencionImpulso } from "@/lib/supabase/types";
+import { obtenerPropuestasImpulso, propuestaRequiereRevision, type PropuestaImpulso } from "@/lib/impulso-vip/propuestas-data";
 
 const TIPOS_MANUALES = new Set<TipoIntervencionImpulso>([
   "cierre_controlado", "repeticion_objetivo", "tempo_controlado", "pausa_isometrica",
@@ -210,4 +211,69 @@ export async function responderAsistenciaImpulso(formData: FormData): Promise<vo
 export async function consultarAsistenciasImpulso(): Promise<SolicitudAsistenciaEnVivo[]> {
   await requireRol(["entrenador", "admin"]);
   return obtenerSolicitudesAsistenciaEnVivo(createAdminClient());
+}
+
+export async function consultarPropuestasImpulso(): Promise<PropuestaImpulso[]> {
+  await requireRol(["entrenador", "admin"]);
+  return obtenerPropuestasImpulso(createAdminClient());
+}
+
+export async function guardarSuscripcionPushEntrenador(sub: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}): Promise<void> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+  if (!sub.endpoint || !sub.p256dh || !sub.auth) return;
+  await createAdminClient().from("push_suscripciones").upsert({
+    alumno_id: sesion.userId,
+    endpoint: sub.endpoint,
+    p256dh: sub.p256dh,
+    auth: sub.auth,
+  }, { onConflict: "endpoint" });
+}
+
+export async function aprobarPropuestasSeguras(): Promise<void> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+  const supabase = createAdminClient();
+  const propuestas = await obtenerPropuestasImpulso(supabase, 100);
+  const ahora = new Date().toISOString();
+  await Promise.all(propuestas.filter((propuesta) => !propuesta.requiereRevision && !propuesta.aprobadaPorAle).map(async (propuesta) => {
+    const { data } = await supabase.from("impulso_vip_intervenciones").select("decision_data, tipo, prescripcion")
+      .eq("id", propuesta.id).eq("estado", "preparada").eq("origen", "metodo_ale").maybeSingle();
+    if (!data || propuestaRequiereRevision({ tipo: data.tipo, prescripcion: data.prescripcion })) return;
+    await supabase.from("impulso_vip_intervenciones").update({ decision_data: {
+      ...data.decision_data,
+      aprobadaPorAleEn: ahora,
+      aprobadaPorAleId: sesion.userId,
+    }}).eq("id", propuesta.id).eq("estado", "preparada");
+  }));
+  revalidatePath("/admin/alumnos");
+}
+
+export async function decidirPropuestaImpulso(formData: FormData): Promise<void> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+  const id = String(formData.get("intervencion_id") || "");
+  const decision = String(formData.get("decision") || "");
+  if (!id || !["aprobar", "descartar"].includes(decision)) return;
+  const supabase = createAdminClient();
+  if (decision === "descartar") {
+    await supabase.from("impulso_vip_intervenciones").update({ estado: "cancelada" })
+      .eq("id", id).eq("estado", "preparada").eq("origen", "metodo_ale");
+    await supabase.from("impulso_vip_avisos_entrenador").update({
+      estado: "descartada", respondida_en: new Date().toISOString(), respondida_por: sesion.userId,
+    }).eq("intervencion_id", id).eq("estado", "pendiente");
+  } else {
+    const { data } = await supabase.from("impulso_vip_intervenciones").select("decision_data")
+      .eq("id", id).eq("estado", "preparada").eq("origen", "metodo_ale").maybeSingle();
+    if (data) await supabase.from("impulso_vip_intervenciones").update({ decision_data: {
+      ...data.decision_data,
+      aprobadaPorAleEn: new Date().toISOString(),
+      aprobadaPorAleId: sesion.userId,
+    }}).eq("id", id).eq("estado", "preparada");
+    await supabase.from("impulso_vip_avisos_entrenador").update({
+      estado: "aprobada", respondida_en: new Date().toISOString(), respondida_por: sesion.userId,
+    }).eq("intervencion_id", id).eq("estado", "pendiente");
+  }
+  revalidatePath("/admin/alumnos");
 }

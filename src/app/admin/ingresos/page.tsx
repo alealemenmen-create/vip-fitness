@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, CircleDot, Clock3, UserX } from "lucide-react";
+import { Activity, CircleDot, Clock3, Dumbbell, Eye, Pencil, Smartphone, UserX } from "lucide-react";
 import { requireRol } from "@/lib/auth";
 import {
   obtenerIngresos,
@@ -14,7 +14,7 @@ import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { formatFechaDiaSemana, formatFechaHoraCorta, hoyISO, sumarDiasISO } from "@/lib/date";
 
 const COLOR_ESTADO: Record<EstadoIngresoAlumno, string> = {
-  activo_ahora: "text-vip",
+  en_gimnasio: "text-vip",
   hoy: "text-text",
   esta_semana: "text-text-secondary",
   inactivo: "text-text-tertiary",
@@ -26,12 +26,19 @@ const COLOR_ESTADO: Record<EstadoIngresoAlumno, string> = {
 // cada grupo (ver obtenerIngresos), acá solo se define el orden de los
 // encabezados de sección.
 const SECCIONES_ESTADO: { estado: EstadoIngresoAlumno; titulo: string }[] = [
-  { estado: "activo_ahora", titulo: "EN EL GIMNASIO AHORA" },
+  { estado: "en_gimnasio", titulo: "ENTRENANDO AHORA" },
   { estado: "hoy", titulo: "ENTRARON HOY" },
   { estado: "esta_semana", titulo: "ESTA SEMANA" },
   { estado: "inactivo", titulo: "SIN ACTIVIDAD RECIENTE" },
   { estado: "nunca", titulo: "NUNCA ENTRARON" },
 ];
+
+const ETIQUETA_ACTIVIDAD = {
+  app: { texto: "Abrió la app", icono: Smartphone },
+  alimentacion_vista: { texto: "Vio Alimentación", icono: Eye },
+  alimentacion_cambio: { texto: "Modificó Alimentación", icono: Pencil },
+  entrenamiento_iniciado: { texto: "Inició entrenamiento", icono: Dumbbell },
+} as const;
 
 /** "Hoy", "Ayer" o "Jueves 6 de agosto" — igual criterio que el resto de la
  * app para fechas recientes, así el detalle se lee de un vistazo en vez de
@@ -67,13 +74,13 @@ export default async function IngresosPage({
   const filtroEstado = typeof query.estado === "string" ? query.estado : "todos";
 
   const { resumen, detalle } = await obtenerIngresos(rango);
-  const activosAhora = resumen.filter((r) => r.estado === "activo_ahora").length;
-  const entraronHoy = resumen.filter((r) => r.estado === "activo_ahora" || r.estado === "hoy").length;
+  const activosAhora = resumen.filter((r) => r.estado === "en_gimnasio").length;
+  const entraronHoy = resumen.filter((r) => r.estado === "en_gimnasio" || r.estado === "hoy").length;
   const sinUsar = resumen.filter((r) => r.estado === "inactivo" || r.estado === "nunca").length;
-  const resumenVisible = filtroEstado === "activo_ahora"
-    ? resumen.filter((r) => r.estado === "activo_ahora")
+  const resumenVisible = filtroEstado === "en_gimnasio"
+    ? resumen.filter((r) => r.estado === "en_gimnasio")
     : filtroEstado === "hoy"
-      ? resumen.filter((r) => r.estado === "activo_ahora" || r.estado === "hoy")
+      ? resumen.filter((r) => r.estado === "en_gimnasio" || r.estado === "hoy")
       : filtroEstado === "sin_novedad"
         ? resumen.filter((r) => r.estado === "inactivo" || r.estado === "nunca")
         : resumen;
@@ -83,12 +90,12 @@ export default async function IngresosPage({
       <AdminPageHeader
         eyebrow="Seguimiento"
         title="Ingresos a la app"
-        description="Comprueba quién está entrenando, quién ingresó recientemente y qué alumnos necesitan seguimiento."
+        description="Distingue quién comenzó a entrenar de quien solo abrió la app o revisó su alimentación."
         backHref="/admin/configuracion"
       />
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-3" aria-label="Resumen de ingresos">
-        <AdminStatCard href={`/admin/ingresos?rango=${rango}&estado=activo_ahora#por-alumno`} icon={<Activity size={20} />} value={activosAhora} label="En el gym" detail="Ver activos ahora" color="#22c55e" />
+        <AdminStatCard href={`/admin/ingresos?rango=${rango}&estado=en_gimnasio#por-alumno`} icon={<Activity size={20} />} value={activosAhora} label="Entrenando" detail="Rutina iniciada ahora" color="#22c55e" />
         <AdminStatCard href={`/admin/ingresos?rango=${rango}&estado=hoy#por-alumno`} icon={<Clock3 size={20} />} value={entraronHoy} label="Entraron hoy" detail="Ver actividad del día" color="#3b82f6" />
         <AdminStatCard href={`/admin/ingresos?rango=${rango}&estado=sin_novedad#por-alumno`} icon={<UserX size={20} />} value={sinUsar} label="Sin novedad" detail="Ver quién necesita contacto" color="#f59e0b" />
       </section>
@@ -127,7 +134,10 @@ export default async function IngresosPage({
               <Card padding="p-0" className="divide-y divide-border">
                 {grupo.items.map((d) => (
                   <div key={d.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                    <span className="text-secondary text-text">{d.nombre}</span>
+                    <span className="flex min-w-0 items-center gap-2 text-secondary text-text">
+                      {(() => { const Icono = ETIQUETA_ACTIVIDAD[d.tipo].icono; return <Icono size={15} className="shrink-0 text-text-tertiary" />; })()}
+                      <span className="min-w-0"><span className="block truncate">{d.nombre}</span><span className="text-caption block text-text-tertiary">{ETIQUETA_ACTIVIDAD[d.tipo].texto}</span></span>
+                    </span>
                     <span className="text-caption text-text-tertiary">{formatFechaHoraCorta(d.ingresoEn)}</span>
                   </div>
                 ))}
@@ -154,12 +164,17 @@ function SeccionesPorEstado({ resumen }: { resumen: ResumenIngresoAlumno[] }) {
             </p>
             {alumnos.map((r) => (
               <Card key={r.alumnoId} padding="p-3" className="flex items-center gap-3">
-                {r.estado === "activo_ahora" && <CircleDot size={16} className="shrink-0 text-vip" />}
+                {r.estado === "en_gimnasio" && <CircleDot size={16} className="shrink-0 text-vip" />}
                 <span className="min-w-0 flex-1">
                   <span className="text-secondary block font-semibold text-text">{r.nombre}</span>
                   {r.ultimoIngreso && (
                     <span className={`text-caption block ${COLOR_ESTADO[r.estado]}`}>
                       {formatFechaHoraCorta(r.ultimoIngreso)}
+                    </span>
+                  )}
+                  {r.horaHabitual && (
+                    <span className="text-caption block text-text-tertiary">
+                      Suele entrenar cerca de {r.horaHabitual} · confianza {r.confianzaHorario}
                     </span>
                   )}
                 </span>

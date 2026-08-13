@@ -340,12 +340,36 @@ export async function marcarIntervencionMostrada(intervencionId: string): Promis
   const { alumnoId, soloLectura } = await requireAlumno();
   if (!intervencionId || soloLectura) return;
   const supabase = createAdminClient();
+  const { data: intervencion } = await supabase.from("impulso_vip_intervenciones")
+    .select("decision_data, origen, estado")
+    .eq("id", intervencionId).eq("alumno_id", alumnoId).maybeSingle();
+  if (!intervencion || intervencion.estado !== "preparada") return;
+  const decisionData = intervencion.decision_data as Record<string, unknown>;
+  const aprobadaPorAle = typeof decisionData.aprobadaPorAleEn === "string";
+  const ahora = new Date().toISOString();
   await supabase
     .from("impulso_vip_intervenciones")
-    .update({ estado: "mostrada", mostrada_en: new Date().toISOString() })
+    .update({
+      estado: "mostrada",
+      mostrada_en: ahora,
+      decision_data: {
+        ...decisionData,
+        modoActivacion:
+          intervencion.origen === "personal_ale" || intervencion.origen === "preparada_por_ale"
+            ? "personal_ale"
+            : aprobadaPorAle
+              ? "aprobada_por_ale"
+              : "automatica_metodo_ale",
+        activadaEn: ahora,
+      },
+    })
     .eq("id", intervencionId)
     .eq("alumno_id", alumnoId)
     .eq("estado", "preparada");
+  await supabase.from("impulso_vip_avisos_entrenador").update({
+    estado: "automatica",
+    respondida_en: ahora,
+  }).eq("intervencion_id", intervencionId).eq("estado", "pendiente");
 }
 
 /** Firma liviana para recibir una indicación enviada por Ale sin refrescar

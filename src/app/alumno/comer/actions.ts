@@ -16,6 +16,7 @@ import {
 import { deducirMedidaCasera, medidaDeAlimento } from "@/lib/alimentos/medidaCasera";
 import { recalcularAlimentacionDia } from "@/lib/ranking/movimientos";
 import { fechaEnVentanaValida } from "@/lib/date";
+import { registrarActividadAlumno } from "@/lib/ingresos/data";
 
 /**
  * El buscador por texto de Open Food Facts (`cgi/search.pl`) no manda
@@ -153,6 +154,10 @@ async function alumnoDelDiario(): Promise<
   return { ok: true, alumnoId };
 }
 
+async function registrarCambioAlimentacion(alumnoId: string, accion: string): Promise<void> {
+  await registrarActividadAlumno(alumnoId, "alimentacion_cambio", { accion }).catch(() => {});
+}
+
 export async function agregarAlimentoAComida(
   fecha: string,
   tipoComida: string,
@@ -181,6 +186,8 @@ export async function agregarAlimentoAComida(
       .insert({ comida_id: comidaId, alimento_id: alimentoId, cantidad, unidad });
 
     if (error) return { error: "No fue posible agregar el alimento." };
+
+    await registrarCambioAlimentacion(quien.alumnoId, "agregar_alimento");
 
     // Desde la migración 0037 se conserva la hora real del primer alimento de
     // esta comida. Si la comida ya existía, no se sobreescribe la primera hora.
@@ -233,6 +240,8 @@ export async function eliminarComida(comidaId: string, fechaSolicitada: string):
     if (!fecha) return { error: "No encontramos esa comida en tu diario." };
     const { error } = await supabase.from("comidas_registradas").delete().eq("id", comidaId);
     if (error) return { error: "No fue posible eliminar la comida." };
+
+    await registrarCambioAlimentacion(quien.alumnoId, "eliminar_comida");
 
     await recalcularAlimentacionDia(quien.alumnoId, fecha);
     revalidateTag(TAG_RANKING, { expire: 0 });
@@ -551,6 +560,7 @@ export async function quitarAlimentoDeComida(alimentoConsumidoId: string, fechaS
   const fecha = await fechaRealDeAlimentoConsumido(supabase, alimentoConsumidoId, quien.alumnoId);
   if (!fecha) return;
   await supabase.from("alimentos_consumidos").delete().eq("id", alimentoConsumidoId);
+  await registrarCambioAlimentacion(quien.alumnoId, "quitar_alimento");
   await recalcularAlimentacionDia(quien.alumnoId, fecha);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/comer/${fecha}`);
@@ -583,6 +593,8 @@ export async function actualizarCantidadAlimento(
 
   if (error) return { error: "No fue posible actualizar la cantidad." };
 
+  await registrarCambioAlimentacion(quien.alumnoId, "actualizar_cantidad");
+
   const puntos = await recalcularAlimentacionDia(quien.alumnoId, fecha);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/comer/${fecha}`);
@@ -602,6 +614,7 @@ export async function marcarComidaOmitida(
   const comidaId = await obtenerOComida(supabase, registroId, tipoComida);
 
   await supabase.from("comidas_registradas").update({ omitida }).eq("id", comidaId);
+  await registrarCambioAlimentacion(quien.alumnoId, omitida ? "omitir_comida" : "restaurar_comida");
   await recalcularAlimentacionDia(quien.alumnoId, fecha);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/comer/${fecha}`);
@@ -623,6 +636,7 @@ export async function actualizarObservacionComida(
     .from("comidas_registradas")
     .update({ observacion: observacion || null })
     .eq("id", comidaId);
+  await registrarCambioAlimentacion(quien.alumnoId, "actualizar_observacion");
   revalidatePath(`/alumno/comer/${fecha}`);
 }
 

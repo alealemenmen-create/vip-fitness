@@ -16,11 +16,13 @@ import { AsistenciaImpulsoEnVivo } from "@/components/admin/AsistenciaImpulsoEnV
 import { obtenerSolicitudesAsistenciaEnVivo } from "@/lib/impulso-vip/asistencia-data";
 import { obtenerResumenMemoriaImpulso } from "@/lib/impulso-vip/memoria-data";
 import { MemoriaImpulsoVIP } from "@/components/admin/MemoriaImpulsoVIP";
+import { obtenerPropuestasImpulso } from "@/lib/impulso-vip/propuestas-data";
+import { PropuestasImpulsoVIP } from "@/components/admin/PropuestasImpulsoVIP";
 
 export default async function AlumnosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string }>;
+  searchParams: Promise<{ estado?: string; propuesta?: string }>;
 }) {
   const sesion = await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
@@ -49,12 +51,13 @@ export default async function AlumnosPage({
 
   // La lista de entrenadores no depende de los reportes: iba suelta después
   // del Promise.all y sumaba una espera de red entera a cada carga del panel.
-  const [reportes, avisosNotasIA, solicitudesImpulso, memoriasImpulso, { data: entrenadoresData }, { count: solicitudesPendientes }] =
+  const [reportes, avisosNotasIA, solicitudesImpulso, memoriasImpulso, propuestasImpulso, { data: entrenadoresData }, { count: solicitudesPendientes }] =
     await Promise.all([
       obtenerReportes(supabase, alumnos),
       obtenerAvisosNotasIA(supabase),
       obtenerSolicitudesAsistenciaEnVivo(supabase),
       obtenerResumenMemoriaImpulso(supabase),
+      obtenerPropuestasImpulso(supabase),
       supabase
         .from("perfiles")
         .select("id, nombre")
@@ -121,6 +124,7 @@ export default async function AlumnosPage({
 
         <aside className="order-1 space-y-4 xl:order-2 xl:sticky xl:top-28" aria-label="Acciones y avisos">
           <AsistenciaImpulsoEnVivo solicitudes={solicitudesImpulso} />
+          <PropuestasImpulsoVIP iniciales={propuestasImpulso} destacadaId={query.propuesta} />
           <MemoriaImpulsoVIP memorias={memoriasImpulso} />
           <div className="admin-panel-card rounded-3xl p-4">
             <div className="mb-4 flex items-center gap-2">

@@ -1635,6 +1635,29 @@ export interface Database {
           },
         ];
       };
+      // 0086_avisos_push_impulso_entrenador.sql
+      impulso_vip_avisos_entrenador: {
+        Row: {
+          intervencion_id: string;
+          alumno_id: string;
+          estado: "pendiente" | "aprobada" | "descartada" | "automatica";
+          enviado_en: string;
+          vence_en: string;
+          respondida_en: string | null;
+          respondida_por: string | null;
+        };
+        Insert: {
+          intervencion_id: string;
+          alumno_id: string;
+          estado?: "pendiente" | "aprobada" | "descartada" | "automatica";
+          enviado_en?: string;
+          vence_en?: string;
+          respondida_en?: string | null;
+          respondida_por?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["impulso_vip_avisos_entrenador"]["Insert"]>;
+        Relationships: [];
+      };
       perfiles_entrenamiento: {
         Row: {
           alumno_id: string;
@@ -2045,6 +2068,32 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "alumno_accesos_alumno_id_fkey";
+            columns: ["alumno_id"];
+            isOneToOne: false;
+            referencedRelation: "alumno_perfil";
+            referencedColumns: ["user_id"];
+          },
+        ];
+      };
+      // 0085_actividad_contextual_alumno.sql
+      actividad_alumno_eventos: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          tipo: "alimentacion_vista" | "alimentacion_cambio";
+          ocurrido_en: string;
+          metadata: Record<string, string | number | boolean | null>;
+        };
+        Insert: {
+          alumno_id: string;
+          tipo: "alimentacion_vista" | "alimentacion_cambio";
+          ocurrido_en?: string;
+          metadata?: Record<string, string | number | boolean | null>;
+        };
+        Update: Partial<Database["public"]["Tables"]["actividad_alumno_eventos"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "actividad_alumno_eventos_alumno_id_fkey";
             columns: ["alumno_id"];
             isOneToOne: false;
             referencedRelation: "alumno_perfil";

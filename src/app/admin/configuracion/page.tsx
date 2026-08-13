@@ -40,7 +40,7 @@ export default async function ConfiguracionAdminPage() {
       obtenerResumenAlertasGastos(),
     ]);
   const saldoIA = await saldoPromesa;
-  const activosAhora = ingresos.filter((r) => r.estado === "activo_ahora").length;
+  const activosAhora = ingresos.filter((r) => r.estado === "en_gimnasio").length;
 
   return (
     <div className="space-y-4 pb-4">

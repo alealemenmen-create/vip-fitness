@@ -3,27 +3,24 @@ import { formatInTimeZone } from "date-fns-tz";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { ZONA_HORARIA_VIP } from "@/lib/date";
+import { calcularHorarioHabitual, type ConfianzaHorario } from "./horario";
 
-const VENTANA_DEDUP_HORAS = 2;
-const VENTANA_DEDUP_MS = VENTANA_DEDUP_HORAS * 60 * 60 * 1000;
-/** Bajo este umbral se considera que el alumno está en el gimnasio ahora
- * mismo (mismo criterio que la deduplicación: dentro de esa ventana, todo
- * uso de la app es "la misma visita"). */
-const ACTIVO_AHORA_MS = VENTANA_DEDUP_MS;
+const VENTANA_ACCESO_MS = 2 * 60 * 60 * 1000;
+const VENTANA_EVENTO_MS = {
+  alimentacion_vista: 30 * 60 * 1000,
+  alimentacion_cambio: 10 * 60 * 1000,
+} as const;
+const VENTANA_GIMNASIO_MS = 4 * 60 * 60 * 1000;
+const DIAS_VENTANA_ESTADO = 90;
 
-/**
- * Deja constancia de que el alumno usó la app — pero no una fila por cada
- * carga de pantalla: si ya hay un ingreso registrado hace menos de 2 horas,
- * no inserta nada. Así, un alumno entrenando en el gimnasio (que abre la app
- * a cada rato) deja UNA sola huella por visita, y recién cuenta como
- * "volvió a entrar" si pasaron 2+ horas desde la última vez.
- *
- * El fallo nunca debe interrumpir el uso de la app: quien llama a esto
- * (el layout de /alumno) atrapa cualquier error.
- */
+export type TipoActividadAlumno =
+  | "app"
+  | "alimentacion_vista"
+  | "alimentacion_cambio"
+  | "entrenamiento_iniciado";
+
 export async function registrarAccesoApp(alumnoId: string): Promise<void> {
   const admin = createAdminClient();
-
   const { data: ultimo, error: errorUltimo } = await admin
     .from("alumno_accesos")
     .select("ingreso_en")
@@ -32,24 +29,42 @@ export async function registrarAccesoApp(alumnoId: string): Promise<void> {
     .limit(1)
     .maybeSingle();
   if (errorUltimo) throw new Error(`No fue posible leer el último ingreso: ${errorUltimo.message}`);
-
-  if (ultimo) {
-    const transcurrido = Date.now() - new Date(ultimo.ingreso_en).getTime();
-    if (transcurrido < VENTANA_DEDUP_MS) return;
-  }
-
+  if (ultimo && Date.now() - new Date(ultimo.ingreso_en).getTime() < VENTANA_ACCESO_MS) return;
   const { error } = await admin.from("alumno_accesos").insert({ alumno_id: alumnoId });
   if (error) throw new Error(`No fue posible registrar el ingreso: ${error.message}`);
 }
 
-export type EstadoIngresoAlumno = "activo_ahora" | "hoy" | "esta_semana" | "inactivo" | "nunca";
+/** Registra contexto útil sin convertir cada clic en una fila. */
+export async function registrarActividadAlumno(
+  alumnoId: string,
+  tipo: "alimentacion_vista" | "alimentacion_cambio",
+  metadata: Record<string, string | number | boolean | null> = {}
+): Promise<void> {
+  const admin = createAdminClient();
+  const { data: ultimo, error: errorUltimo } = await admin
+    .from("actividad_alumno_eventos")
+    .select("ocurrido_en")
+    .eq("alumno_id", alumnoId)
+    .eq("tipo", tipo)
+    .order("ocurrido_en", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (errorUltimo) throw new Error(`No fue posible leer la actividad: ${errorUltimo.message}`);
+  if (ultimo && Date.now() - new Date(ultimo.ocurrido_en).getTime() < VENTANA_EVENTO_MS[tipo]) return;
+  const { error } = await admin.from("actividad_alumno_eventos").insert({ alumno_id: alumnoId, tipo, metadata });
+  if (error) throw new Error(`No fue posible registrar la actividad: ${error.message}`);
+}
 
+export type EstadoIngresoAlumno = "en_gimnasio" | "hoy" | "esta_semana" | "inactivo" | "nunca";
 export type ResumenIngresoAlumno = {
   alumnoId: string;
   nombre: string;
   totalIngresos: number;
   ultimoIngreso: string | null;
   estado: EstadoIngresoAlumno;
+  horaHabitual: string | null;
+  confianzaHorario: ConfianzaHorario | null;
+  entrenamientosAnalizados: number;
 };
 
 export type IngresoDetalle = {
@@ -57,113 +72,83 @@ export type IngresoDetalle = {
   alumnoId: string;
   nombre: string;
   ingresoEn: string;
-  /** Fecha del ingreso en horario de Chile (YYYY-MM-DD), para agrupar el
-   * detalle cronológico por día en vez de mostrarlo como una lista plana. */
   fechaLocal: string;
+  tipo: TipoActividadAlumno;
 };
 
 export type RangoIngresos = "semana" | "mes";
 
-function calcularEstado(ultimoIngreso: string | null): EstadoIngresoAlumno {
+function estadoDesdeActividad(ultimoIngreso: string | null, enGimnasio: boolean): EstadoIngresoAlumno {
+  if (enGimnasio) return "en_gimnasio";
   if (!ultimoIngreso) return "nunca";
-  const transcurridoMs = Date.now() - new Date(ultimoIngreso).getTime();
-  if (transcurridoMs < ACTIVO_AHORA_MS) return "activo_ahora";
-  if (transcurridoMs < 24 * 60 * 60 * 1000) return "hoy";
-  if (transcurridoMs < 7 * 24 * 60 * 60 * 1000) return "esta_semana";
+  const transcurrido = Date.now() - new Date(ultimoIngreso).getTime();
+  if (transcurrido < 24 * 60 * 60 * 1000) return "hoy";
+  if (transcurrido < 7 * 24 * 60 * 60 * 1000) return "esta_semana";
   return "inactivo";
 }
-
-/**
- * Ingresos a la app para el panel del entrenador: un resumen por alumno
- * (cuántas veces entró en el rango, cuándo fue la última, y si está activo
- * ahora mismo) más el detalle crudo del rango para la lista cronológica.
- *
- * Se calcula sobre TODOS los alumnos (incluso los que no entraron nunca en
- * el rango, con totalIngresos 0) para que "quién no está usando la app" sea
- * tan visible como "quién sí".
- */
-/** Ventana fija para "último ingreso" / estado: más ancha que semana o mes
- * para que un alumno que no entra hace 6 semanas siga marcado "inactivo" en
- * vez de "nunca" solo porque el rango elegido es más chico. */
-const DIAS_VENTANA_ESTADO = 90;
 
 export async function obtenerIngresos(rango: RangoIngresos): Promise<{
   resumen: ResumenIngresoAlumno[];
   detalle: IngresoDetalle[];
 }> {
   const admin = createAdminClient();
-  const desdeEstado = new Date(Date.now() - DIAS_VENTANA_ESTADO * 24 * 60 * 60 * 1000).toISOString();
+  const desdeEstado = new Date(Date.now() - DIAS_VENTANA_ESTADO * 86400000).toISOString();
+  const [alumnosResp, accesosResp, eventosResp, sesionesResp] = await Promise.all([
+    admin.from("alumno_perfil").select("user_id, perfiles!alumno_perfil_user_id_fkey(nombre, rol)"),
+    admin.from("alumno_accesos").select("id, alumno_id, ingreso_en").gte("ingreso_en", desdeEstado).order("ingreso_en", { ascending: false }),
+    admin.from("actividad_alumno_eventos").select("id, alumno_id, tipo, ocurrido_en").gte("ocurrido_en", desdeEstado).order("ocurrido_en", { ascending: false }),
+    admin.from("sesiones_entrenamiento").select("id, alumno_id, rutina_iniciada_en, hora_fin, estado").not("rutina_iniciada_en", "is", null).gte("rutina_iniciada_en", desdeEstado).order("rutina_iniciada_en", { ascending: false }),
+  ]);
+  if (alumnosResp.error) throw new Error(`No fue posible leer los alumnos: ${alumnosResp.error.message}`);
+  if (accesosResp.error) throw new Error(`No fue posible leer los ingresos: ${accesosResp.error.message}`);
+  if (eventosResp.error) throw new Error(`No fue posible leer la actividad: ${eventosResp.error.message}`);
+  if (sesionesResp.error) throw new Error(`No fue posible leer entrenamientos: ${sesionesResp.error.message}`);
 
-  const [{ data: alumnosData, error: errorAlumnos }, { data: accesosData, error: errorAccesos }] =
-    await Promise.all([
-      admin
-        .from("alumno_perfil")
-        .select("user_id, perfiles!alumno_perfil_user_id_fkey(nombre, rol)"),
-      admin
-        .from("alumno_accesos")
-        .select("id, alumno_id, ingreso_en")
-        .gte("ingreso_en", desdeEstado)
-        .order("ingreso_en", { ascending: false }),
-    ]);
-  if (errorAlumnos) throw new Error(`No fue posible leer los alumnos: ${errorAlumnos.message}`);
-  if (errorAccesos) throw new Error(`No fue posible leer los ingresos: ${errorAccesos.message}`);
-
-  const nombrePorAlumno = new Map(
-    (alumnosData ?? [])
+  const nombres = new Map(
+    (alumnosResp.data ?? [])
       .filter((a) => (a.perfiles as unknown as { rol: string } | null)?.rol === "alumno")
-      .map((a) => [
-        a.user_id,
-        nombreAlumnoPublicado((a.perfiles as unknown as { nombre: string } | null)?.nombre ?? "Alumno"),
-      ])
+      .map((a) => [a.user_id, nombreAlumnoPublicado((a.perfiles as unknown as { nombre: string } | null)?.nombre ?? "Alumno")])
+  );
+  const accesos = (accesosResp.data ?? []).filter((a) => nombres.has(a.alumno_id));
+  const eventos = (eventosResp.data ?? []).filter((e) => nombres.has(e.alumno_id));
+  const sesiones = (sesionesResp.data ?? []).filter((s) => nombres.has(s.alumno_id) && s.rutina_iniciada_en);
+  const desdeRango = Date.now() - (rango === "semana" ? 7 : 30) * 86400000;
+
+  const detalle: IngresoDetalle[] = [
+    ...accesos.map((a) => ({ id: `app-${a.id}`, alumnoId: a.alumno_id, ingresoEn: a.ingreso_en, tipo: "app" as const })),
+    ...eventos.map((e) => ({ id: `evento-${e.id}`, alumnoId: e.alumno_id, ingresoEn: e.ocurrido_en, tipo: e.tipo as "alimentacion_vista" | "alimentacion_cambio" })),
+    ...sesiones.map((s) => ({ id: `sesion-${s.id}`, alumnoId: s.alumno_id, ingresoEn: s.rutina_iniciada_en!, tipo: "entrenamiento_iniciado" as const })),
+  ]
+    .filter((a) => new Date(a.ingresoEn).getTime() >= desdeRango)
+    .sort((a, b) => new Date(b.ingresoEn).getTime() - new Date(a.ingresoEn).getTime())
+    .map((a) => ({ ...a, nombre: nombres.get(a.alumnoId)!, fechaLocal: formatInTimeZone(a.ingresoEn, ZONA_HORARIA_VIP, "yyyy-MM-dd") }));
+
+  const ingresosEnRango = new Map<string, number>();
+  for (const a of accesos) if (new Date(a.ingreso_en).getTime() >= desdeRango) ingresosEnRango.set(a.alumno_id, (ingresosEnRango.get(a.alumno_id) ?? 0) + 1);
+  const ultimoAcceso = new Map<string, string>();
+  for (const a of accesos) if (!ultimoAcceso.has(a.alumno_id)) ultimoAcceso.set(a.alumno_id, a.ingreso_en);
+  const iniciosPorAlumno = new Map<string, string[]>();
+  for (const s of sesiones) iniciosPorAlumno.set(s.alumno_id, [...(iniciosPorAlumno.get(s.alumno_id) ?? []), s.rutina_iniciada_en!]);
+  const gimnasioAhora = new Set(
+    sesiones
+      .filter((s) => s.estado === "en_progreso" && !s.hora_fin && Date.now() - new Date(s.rutina_iniciada_en!).getTime() < VENTANA_GIMNASIO_MS)
+      .map((s) => s.alumno_id)
   );
 
-  const accesos = (accesosData ?? []).filter((a) => nombrePorAlumno.has(a.alumno_id));
-
-  const dias = rango === "semana" ? 7 : 30;
-  const desdeRango = Date.now() - dias * 24 * 60 * 60 * 1000;
-  const detalle: IngresoDetalle[] = accesos
-    .filter((a) => new Date(a.ingreso_en).getTime() >= desdeRango)
-    .map((a) => ({
-      id: a.id,
-      alumnoId: a.alumno_id,
-      nombre: nombrePorAlumno.get(a.alumno_id)!,
-      ingresoEn: a.ingreso_en,
-      fechaLocal: formatInTimeZone(a.ingreso_en, ZONA_HORARIA_VIP, "yyyy-MM-dd"),
-    }));
-
-  const totalPorAlumno = new Map<string, number>();
-  for (const a of detalle) {
-    totalPorAlumno.set(a.alumnoId, (totalPorAlumno.get(a.alumnoId) ?? 0) + 1);
-  }
-
-  // `accesos` (ventana de 90 días) ya viene ordenado de más reciente a más
-  // antiguo: el primero que aparece por alumno es su último ingreso real,
-  // sin importar si cae dentro del rango semana/mes elegido para el conteo.
-  const ultimoPorAlumno = new Map<string, string>();
-  for (const a of accesos) {
-    if (!ultimoPorAlumno.has(a.alumno_id)) ultimoPorAlumno.set(a.alumno_id, a.ingreso_en);
-  }
-
-  const resumen: ResumenIngresoAlumno[] = [...nombrePorAlumno.entries()]
-    .map(([alumnoId, nombre]) => {
-      const ultimoIngreso = ultimoPorAlumno.get(alumnoId) ?? null;
-      return {
-        alumnoId,
-        nombre,
-        totalIngresos: totalPorAlumno.get(alumnoId) ?? 0,
-        ultimoIngreso,
-        estado: calcularEstado(ultimoIngreso),
-      };
-    })
-    .sort((a, b) => {
-      const fechaA = a.ultimoIngreso ? new Date(a.ultimoIngreso).getTime() : -Infinity;
-      const fechaB = b.ultimoIngreso ? new Date(b.ultimoIngreso).getTime() : -Infinity;
-      // Empate más común: dos alumnos que "nunca entraron" (ambos -Infinity).
-      // Sin este desempate quedaban en el orden que devolviera Supabase, que
-      // no es alfabético ni estable a la vista.
-      if (fechaA === fechaB) return a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" });
-      return fechaB - fechaA;
-    });
+  const resumen = [...nombres.entries()].map(([alumnoId, nombre]) => {
+    const ultimoIngreso = ultimoAcceso.get(alumnoId) ?? null;
+    const horario = calcularHorarioHabitual(iniciosPorAlumno.get(alumnoId) ?? []);
+    return {
+      alumnoId,
+      nombre,
+      totalIngresos: ingresosEnRango.get(alumnoId) ?? 0,
+      ultimoIngreso,
+      estado: estadoDesdeActividad(ultimoIngreso, gimnasioAhora.has(alumnoId)),
+      horaHabitual: horario.hora,
+      confianzaHorario: horario.confianza,
+      entrenamientosAnalizados: horario.muestras,
+    };
+  }).sort((a, b) => (b.ultimoIngreso ? new Date(b.ultimoIngreso).getTime() : -Infinity) - (a.ultimoIngreso ? new Date(a.ultimoIngreso).getTime() : -Infinity) || a.nombre.localeCompare(b.nombre, "es"));
 
   return { resumen, detalle };
 }

@@ -3,6 +3,7 @@ import { requireAlumno } from "@/lib/auth";
 import { PantallaComer, type GuiaPlan } from "@/components/student/PantallaComer";
 import { obtenerRegistrosRango, obtenerPlanAlimentacion } from "../data";
 import { hoyISO, horaActualISO, sumarDiasISO } from "@/lib/date";
+import { registrarActividadAlumno } from "@/lib/ingresos/data";
 
 /**
  * Cuántos días se traen a cada lado del elegido.
@@ -37,6 +38,7 @@ export default async function ComerDiaPage({ params }: { params: Promise<{ fecha
   const [registros, plan] = await Promise.all([
     obtenerRegistrosRango(supabase, alumnoId, rango.desde, rango.hasta),
     obtenerPlanAlimentacion(supabase, alumnoId),
+    soloLectura ? Promise.resolve() : registrarActividadAlumno(alumnoId, "alimentacion_vista", { fecha }).catch(() => {}),
   ]);
 
   // Las comidas del plan que traen hora se muestran como guía en su franja.
