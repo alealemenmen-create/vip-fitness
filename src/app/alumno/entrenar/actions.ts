@@ -61,7 +61,7 @@ async function crearOEntrarSesion(
   diaId: string,
   rutinaId: string,
   numero: number
-): Promise<never> {
+): Promise<string> {
   const [{ data: rutinaPropia }, { data: diaPropio }] = await Promise.all([
     supabase.from("rutinas").select("id").eq("id", rutinaId).eq("alumno_id", alumnoId).eq("activa", true).maybeSingle(),
     supabase.from("rutina_dias").select("id, tipo").eq("id", diaId).eq("rutina_id", rutinaId).maybeSingle(),
@@ -77,7 +77,7 @@ async function crearOEntrarSesion(
     .maybeSingle();
 
   if (existente) {
-    redirect(`/alumno/entrenar/sesion/${existente.id}`);
+    return existente.id;
   }
 
   if (diaPropio.tipo === "entrenamiento") {
@@ -103,7 +103,7 @@ async function crearOEntrarSesion(
     // La restricción de la migración 0071 también cubre la carrera entre
     // dos pestañas: si la otra solicitud arrancó primero, se continúa esa.
     const activa = await buscarOtraSesionRealEnProgreso(supabase, alumnoId);
-    if (activa) redirect(`/alumno/entrenar/sesion/${activa.id}`);
+    if (activa) return activa.id;
 
     const { data: creadaPorOtraSolicitud } = await supabase
       .from("sesiones_entrenamiento")
@@ -112,7 +112,7 @@ async function crearOEntrarSesion(
       .eq("rutina_id", rutinaId)
       .eq("numero_calendario", numero)
       .maybeSingle();
-    if (creadaPorOtraSolicitud) redirect(`/alumno/entrenar/sesion/${creadaPorOtraSolicitud.id}`);
+    if (creadaPorOtraSolicitud) return creadaPorOtraSolicitud.id;
     redirect("/alumno/entrenar");
   }
 
@@ -180,7 +180,7 @@ async function crearOEntrarSesion(
   }
 
   revalidatePath("/alumno/entrenar");
-  redirect(`/alumno/entrenar/sesion/${sesion.id}`);
+  return sesion.id;
 }
 
 export async function iniciarSesion(formData: FormData): Promise<void> {
@@ -215,7 +215,8 @@ export async function iniciarSesion(formData: FormData): Promise<void> {
     redirect(`/alumno/entrenar/sesion/${enProgreso.id}`);
   }
 
-  await crearOEntrarSesion(supabase, alumnoId, diaId, rutinaId, numero);
+  const sesionId = await crearOEntrarSesion(supabase, alumnoId, diaId, rutinaId, numero);
+  redirect(`/alumno/entrenar/sesion/${sesionId}`);
 }
 
 /**
@@ -230,6 +231,7 @@ export async function cancelarYEmpezarOtroDia(formData: FormData): Promise<void>
   const diaId = String(formData.get("dia_id") || "");
   const rutinaId = String(formData.get("rutina_id") || "");
   const numero = Number(formData.get("numero_calendario") || 0);
+  const iniciarAhora = String(formData.get("iniciar_ahora") || "") === "true";
   if (!sesionIdCancelar || !diaId || !rutinaId || !numero) redirect("/alumno/entrenar");
 
   const { alumnoId, soloLectura } = await requireAlumno();
@@ -263,7 +265,73 @@ export async function cancelarYEmpezarOtroDia(formData: FormData): Promise<void>
     }
   }
 
-  await crearOEntrarSesion(supabase, alumnoId, diaId, rutinaId, numero);
+  const sesionId = await crearOEntrarSesion(supabase, alumnoId, diaId, rutinaId, numero);
+  if (iniciarAhora) {
+    const plan = await obtenerEstadoPlanMensual(supabase as unknown as SupabaseClient, alumnoId);
+    if (plan?.pausado || (plan && plan.restantes <= 0)) {
+      redirect(`/alumno/entrenar?plan=${plan.pausado ? "pausado" : "agotado"}`);
+    }
+
+    const { error } = await supabase.from("sesiones_entrenamiento")
+      .update({ rutina_iniciada_en: new Date().toISOString() })
+      .eq("id", sesionId)
+      .eq("alumno_id", alumnoId)
+      .eq("estado", "en_progreso")
+      .is("rutina_iniciada_en", null);
+
+    if (!error) {
+      const { data: ejerciciosSesion } = await supabase.from("sesion_ejercicios")
+        .select("id, dia_ejercicio_id").eq("sesion_id", sesionId);
+      await entregarIndicacionesProgramadas(supabase, {
+        alumnoId,
+        sesionEjercicios: ejerciciosSesion ?? [],
+      }).catch(() => null);
+      after(() => avisarPropuestaImpulsoCercana({ sesionId, alumnoId }).catch(() => {}));
+    }
+  }
+  revalidatePath("/alumno/entrenar");
+  redirect(`/alumno/entrenar/sesion/${sesionId}`);
+}
+
+/** Desde la portada unificada: crea la sesión, arranca el cronómetro y abre
+ * directamente el registro de series. El alumno ya vio todos los ejercicios
+ * en la misma pantalla, así que no existe una vista previa intermedia. */
+export async function iniciarRutinaDesdeCalendario(formData: FormData): Promise<void> {
+  const diaId = String(formData.get("dia_id") || "");
+  const rutinaId = String(formData.get("rutina_id") || "");
+  const numero = Number(formData.get("numero_calendario") || 0);
+  if (!diaId || !rutinaId || !numero) redirect("/alumno/entrenar");
+
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) redirect("/alumno/entrenar");
+  const supabase = createAdminClient();
+  const activa = await buscarOtraSesionRealEnProgreso(supabase, alumnoId);
+  if (activa) redirect(`/alumno/entrenar/sesion/${activa.id}`);
+
+  const sesionId = await crearOEntrarSesion(supabase, alumnoId, diaId, rutinaId, numero);
+  const plan = await obtenerEstadoPlanMensual(supabase as unknown as SupabaseClient, alumnoId);
+  if (plan?.pausado || (plan && plan.restantes <= 0)) {
+    redirect(`/alumno/entrenar?plan=${plan.pausado ? "pausado" : "agotado"}`);
+  }
+
+  const { error } = await supabase.from("sesiones_entrenamiento")
+    .update({ rutina_iniciada_en: new Date().toISOString() })
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "en_progreso")
+    .is("rutina_iniciada_en", null);
+  if (error) redirect(`/alumno/entrenar/sesion/${sesionId}`);
+
+  const { data: ejerciciosSesion } = await supabase.from("sesion_ejercicios")
+    .select("id, dia_ejercicio_id").eq("sesion_id", sesionId);
+  await entregarIndicacionesProgramadas(supabase, {
+    alumnoId,
+    sesionEjercicios: ejerciciosSesion ?? [],
+  }).catch(() => null);
+  after(() => avisarPropuestaImpulsoCercana({ sesionId, alumnoId }).catch(() => {}));
+  revalidatePath("/alumno/entrenar");
+  revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
+  redirect(`/alumno/entrenar/sesion/${sesionId}`);
 }
 
 /** El alumno ya está en la pantalla de la sesión pero la rutina sigue

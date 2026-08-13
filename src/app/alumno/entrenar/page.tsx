@@ -4,7 +4,6 @@ import { requireAlumno } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { CalendarioEntrenamiento } from "@/components/student/CalendarioEntrenamiento";
 import { BalanceSesionesMes } from "@/components/student/BalanceSesionesMes";
-import { ImpulsoVip } from "@/components/student/ImpulsoVip";
 import {
   obtenerRutinaActiva,
   obtenerDiasRutina,
@@ -12,16 +11,13 @@ import {
   obtenerAvanceCiclo,
   obtenerBalanceSesionesMes,
   obtenerSesionEnProgreso,
+  obtenerDiaVistaPrevia,
 } from "./data";
 import { PuntosVipGanados } from "@/components/student/PuntosVipGanados";
 import {
-  SEMANAS_POR_MES,
   descansosDespuesDe,
   diasQueNumeran,
-  semanaDelMes,
   semanaDelNumero,
-  sesionDelMes,
-  sesionesPorMes,
 } from "@/lib/entrenamiento/ciclo-sesiones";
 
 /** Los dos accesos chicos de arriba, alineados a la derecha para que caigan
@@ -36,19 +32,15 @@ import {
 const PILDORA = "text-[8px] rounded-full bg-surface-2 px-2 py-1 font-medium";
 
 function AccesosEntrenar({ sesionEnProgresoId }: { sesionEnProgresoId: string | null }) {
+  if (!sesionEnProgresoId) return null;
   return (
     <div className="flex justify-end gap-1.5">
-      {sesionEnProgresoId && (
-        <Link
-          href={`/alumno/entrenar/sesion/${sesionEnProgresoId}`}
-          className={`${PILDORA} flex items-center gap-1.5 text-vip`}
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-vip" />
-          Entrenamiento en curso
-        </Link>
-      )}
-      <Link href="/alumno/entrenar/historial" className={`${PILDORA} text-text-secondary`}>
-        Historial
+      <Link
+        href={`/alumno/entrenar/sesion/${sesionEnProgresoId}`}
+        className={`${PILDORA} flex items-center gap-1.5 text-vip`}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-vip" />
+        Entrenamiento en curso
       </Link>
     </div>
   );
@@ -78,10 +70,6 @@ export default async function EntrenarPage({
     await Promise.all([sesionEnProgresoPromise, balanceSesionesPromise]);
     return (
       <div className="space-y-3 pb-6">
-        <ImpulsoVip
-          indicador="En preparación"
-          mensaje="Tu próxima rutina todavía no está asignada. Mantente activo y vuelve cuando tu entrenador la publique."
-        />
         <Card padding="p-4">
           <p className="text-body text-text-secondary">
             Todavía no tienes una rutina asignada.
@@ -111,10 +99,6 @@ export default async function EntrenarPage({
     await Promise.all([sesionEnProgresoPromise, balanceSesionesPromise]);
     return (
       <div className="space-y-3 pb-6">
-        <ImpulsoVip
-          indicador="En preparación"
-          mensaje="Tu rutina ya está creada; falta que tu entrenador cargue los días para comenzar."
-        />
         <Card padding="p-4">
           <p className="text-body text-text-secondary">
             {diasRutina.length === 0
@@ -172,17 +156,18 @@ export default async function EntrenarPage({
   const seleccionInicial =
     numeroEnProgreso ??
     (numeros.some((n) => n.numero === proximoNumero) ? proximoNumero : numeros[0].numero);
-  const diaImpulso = numeros.find((numero) => numero.numero === seleccionInicial) ?? numeros[0];
-  const mensajeImpulso = sesionEnProgresoId
-    ? "Ya estás en movimiento. Retoma tu sesión activa y ciérrala con la misma intensidad con la que comenzaste."
-    : diaImpulso.estado === "completado"
-      ? "Sesión cumplida. Revisa tus marcas y usa esa referencia para superar tu próxima semana."
-      : diaImpulso.dia.tipo === "descanso"
-        ? "La recuperación también construye resultados. Respeta el descanso y vuelve con energía completa."
-        : `Hoy toca ${diaImpulso.dia.nombre}. Entra con un objetivo claro y completa cada serie con intención.`;
+  const diasUnicos = [...new Set(numeros.map((numero) => numero.dia.id))];
+  const vistas = await Promise.all(
+    diasUnicos.map((diaId) => obtenerDiaVistaPrevia(supabase, userId, diaId))
+  );
+  const vistasPrevias = Object.fromEntries(
+    vistas
+      .filter((vista): vista is NonNullable<typeof vista> => vista !== null)
+      .map((vista) => [vista.id, vista])
+  );
 
   return (
-    <div className="space-y-2.5 pb-6">
+    <div className="entrenar-minimalista space-y-2 pb-36">
       <PuntosVipGanados key={puntosParam ?? "0"} puntos={puntosGanados} detalle="Entrenamiento guardado en tu progreso" />
       {(avisoPlan === "pausado" || avisoPlan === "agotado") && (
         <Card padding="p-3" className="border border-warning/40 bg-warning/10">
@@ -197,14 +182,6 @@ export default async function EntrenarPage({
         </Card>
       )}
       <AccesosEntrenar sesionEnProgresoId={sesionEnProgresoId} />
-      <ImpulsoVip
-        indicador={
-          sesionEnProgresoId
-            ? "Sesión en curso"
-            : `Semana ${semanaDelMes(pagina)} de ${SEMANAS_POR_MES} · Sesión ${sesionDelMes(diaImpulso.numero, sesionesPorSemana)} de ${sesionesPorMes(sesionesPorSemana)}`
-        }
-        mensaje={mensajeImpulso}
-      />
 
       {/* El calendario y la tarjeta de "Iniciar entrenamiento" van ANTES del
           balance del mes: es lo que el alumno viene a hacer, y con el balance
@@ -222,9 +199,28 @@ export default async function EntrenarPage({
         planNombre={balanceSesiones?.planNombre ?? null}
         planPausado={balanceSesiones?.pausado ?? false}
         cupoAgotado={(balanceSesiones?.balance ?? 1) <= 0}
+        vistasPrevias={vistasPrevias}
       />
 
-      <BalanceSesionesMes balance={balanceSesiones} compacta />
+      <div className="space-y-2 pt-2">
+        <Link
+          href="/alumno/entrenar/historial"
+          className="mx-auto flex w-fit items-center rounded-full border border-border px-4 py-2 text-caption font-semibold text-text-secondary"
+        >
+          Ver historial de entrenamiento
+        </Link>
+        {balanceSesiones && (
+          <details className="group rounded-2xl border border-white/[0.07] bg-surface/35">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 text-caption font-semibold text-text-secondary marker:content-none">
+              Estado del plan mensual
+              <span className="text-[16px] text-text-tertiary transition-transform group-open:rotate-45">+</span>
+            </summary>
+            <div className="px-2 pb-2">
+              <BalanceSesionesMes balance={balanceSesiones} compacta />
+            </div>
+          </details>
+        )}
+      </div>
     </div>
   );
 }

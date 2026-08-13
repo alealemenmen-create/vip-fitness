@@ -156,6 +156,14 @@ export type EjercicioVistaPrevia = {
   tecnicaTipo: string | null;
   observacion: string | null;
   grupoMuscular: GrupoMuscular | null;
+  ejercicioId: string | null;
+  ilustracionSlug: string | null;
+  fotoMiniaturaUrl: string | null;
+  fotoCompletaUrl: string | null;
+  videoUrl: string | null;
+  videoCloudflareUid: string | null;
+  videoCloudflareEstado: "subiendo" | "procesando" | "listo" | "error" | null;
+  videoCloudflareMiniaturaUrl: string | null;
 };
 
 export type DiaVistaPrevia = {
@@ -215,12 +223,26 @@ export async function obtenerDiaVistaPrevia(
   const { data: ejercicios } = await supabase
     .from("rutina_dia_ejercicios")
     .select(
-      "id, orden, nombre, series_programadas, reps_programadas, descanso_segundos, tecnica_tipo, observacion, grupo_muscular"
+      "id, orden, nombre, series_programadas, reps_programadas, descanso_segundos, tecnica_tipo, observacion, grupo_muscular, ejercicio_id, ejercicios(ilustracion_slug, foto_miniatura_url, foto_completa_url, video_url, video_cloudflare_uid, video_cloudflare_estado, video_cloudflare_miniatura_url)"
     )
     .eq("dia_id", diaId)
     .order("orden");
 
   const rutina = dia.rutinas as unknown as { nombre: string } | null;
+  type FilaEjercicioPrevia = {
+    id: string;
+    orden: number;
+    nombre: string;
+    series_programadas: number;
+    reps_programadas: string;
+    descanso_segundos: number | null;
+    tecnica_tipo: string | null;
+    observacion: string | null;
+    grupo_muscular: string | null;
+    ejercicio_id: string | null;
+    ejercicios: unknown;
+  };
+  const filasEjercicios = (ejercicios ?? []) as unknown as FilaEjercicioPrevia[];
 
   return {
     id: dia.id,
@@ -228,17 +250,45 @@ export async function obtenerDiaVistaPrevia(
     tipo: dia.tipo,
     descripcion: dia.descripcion,
     rutinaNombre: rutina?.nombre ?? "",
-    ejercicios: (ejercicios ?? []).map((e) => ({
-      id: e.id,
-      orden: e.orden,
-      nombre: e.nombre,
-      seriesProgramadas: e.series_programadas,
-      repsProgramadas: e.reps_programadas,
-      descansoSegundos: e.descanso_segundos,
-      tecnicaTipo: e.tecnica_tipo,
-      observacion: e.observacion,
-      grupoMuscular: e.grupo_muscular as GrupoMuscular | null,
-    })),
+    ejercicios: filasEjercicios.map((e) => {
+      const bibliotecaCruda = e.ejercicios as unknown as {
+        ilustracion_slug: string | null;
+        foto_miniatura_url: string | null;
+        foto_completa_url: string | null;
+        video_url: string | null;
+        video_cloudflare_uid: string | null;
+        video_cloudflare_estado: "subiendo" | "procesando" | "listo" | "error" | null;
+        video_cloudflare_miniatura_url: string | null;
+      } | {
+        ilustracion_slug: string | null;
+        foto_miniatura_url: string | null;
+        foto_completa_url: string | null;
+        video_url: string | null;
+        video_cloudflare_uid: string | null;
+        video_cloudflare_estado: "subiendo" | "procesando" | "listo" | "error" | null;
+        video_cloudflare_miniatura_url: string | null;
+      }[] | null;
+      const biblioteca = Array.isArray(bibliotecaCruda) ? bibliotecaCruda[0] ?? null : bibliotecaCruda;
+      return {
+        id: e.id,
+        orden: e.orden,
+        nombre: e.nombre,
+        seriesProgramadas: e.series_programadas,
+        repsProgramadas: e.reps_programadas,
+        descansoSegundos: e.descanso_segundos,
+        tecnicaTipo: e.tecnica_tipo,
+        observacion: e.observacion,
+        grupoMuscular: e.grupo_muscular as GrupoMuscular | null,
+        ejercicioId: e.ejercicio_id,
+        ilustracionSlug: biblioteca?.ilustracion_slug ?? null,
+        fotoMiniaturaUrl: biblioteca?.foto_miniatura_url ?? null,
+        fotoCompletaUrl: biblioteca?.foto_completa_url ?? null,
+        videoUrl: biblioteca?.video_url ?? null,
+        videoCloudflareUid: biblioteca?.video_cloudflare_uid ?? null,
+        videoCloudflareEstado: biblioteca?.video_cloudflare_estado ?? null,
+        videoCloudflareMiniaturaUrl: biblioteca?.video_cloudflare_miniatura_url ?? null,
+      };
+    }),
   };
 }
 

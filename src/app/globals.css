@@ -3151,6 +3151,48 @@ input[type="number"] {
   mix-blend-mode: normal;
   filter: brightness(1.08) contrast(1.18) saturate(1.12) drop-shadow(0 0 12px color-mix(in srgb, var(--color-vip) 18%, transparent));
 }
+
+/* Entrenar usa el lenguaje tipográfico de una app deportiva editorial:
+   SF Pro en iPhone (la fuente nativa de las referencias) e Inter como
+   reemplazo métrico en los demás equipos. El alcance es deliberadamente
+   local; no cambia el panel del entrenador ni las otras áreas del alumno. */
+.entrenar-minimalista {
+  font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, var(--font-body), sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+/* CTA de Entrenar: cristal ámbar real, no una pastilla opaca. El fondo de la
+   rutina se percibe detrás, pero el tinte oscuro mantiene legible el texto. */
+.boton-iniciar-cristal-vip {
+  color: #1b1105;
+  border: 1px solid rgba(255, 224, 155, 0.78);
+  background:
+    linear-gradient(135deg, rgba(255, 207, 112, 0.86), rgba(226, 151, 43, 0.76)),
+    rgba(219, 147, 37, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 227, 0.55),
+    inset 0 -1px 0 rgba(121, 70, 7, 0.24),
+    0 8px 24px rgba(190, 119, 24, 0.2);
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
+  backdrop-filter: blur(14px) saturate(125%);
+}
+
+/* En teléfonos bajos la doble cabecera (logo + sesiones) conserva más área
+   útil sin perder ninguna etiqueta ni acción. */
+@media (max-height: 700px) {
+  .selector-sesiones-fijo {
+    padding-top: 0;
+    padding-bottom: 0.25rem;
+    row-gap: 0.125rem;
+  }
+  .selector-sesiones-fijo .tira-sesiones-entrenar button {
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+    row-gap: 0.125rem;
+  }
+}
 /* La espalda tiene una silueta más angosta en su fotografía que Pecho. Este
    encuadre la acerca sin tocar el alto de la tarjeta ni invadir su información. */
 .foto-modelo-espalda {

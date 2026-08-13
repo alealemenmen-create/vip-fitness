@@ -92,12 +92,14 @@ export function CuadroFotoReferencia({
   videoCloudflareMiniaturaUrl,
   nombre,
   sesionEjercicioId,
+  diaEjercicioId,
   ejercicioId,
   fotoPanoramaX = 50,
   fotoPanoramaY = 50,
   fotoCuadradaX = 50,
   fotoCuadradaY = 50,
   compacto = false,
+  tamanoCompacto = 44,
   destacado = false,
   reproducirAutomaticamente = false,
 }: {
@@ -115,6 +117,7 @@ export function CuadroFotoReferencia({
   videoCloudflareMiniaturaUrl?: string | null;
   nombre: string;
   sesionEjercicioId?: string;
+  diaEjercicioId?: string;
   ejercicioId?: string | null;
   fotoPanoramaX?: number;
   fotoPanoramaY?: number;
@@ -126,6 +129,9 @@ export function CuadroFotoReferencia({
    * se desbordaba de su columna y se amontonaba con la de al lado — acá
    * pasa a un cuadrado chico, sin sangría. */
   compacto?: boolean;
+  /** Permite una miniatura un poco mayor en listados visuales sin cambiar el
+   * tamaño compacto histórico del resto de la rutina. */
+  tamanoCompacto?: number;
   /** En el modo enfocado la referencia es el elemento principal de la
    * pantalla, no una miniatura arrinconada junto al título. */
   destacado?: boolean;
@@ -136,7 +142,7 @@ export function CuadroFotoReferencia({
   const tamano: React.CSSProperties = destacado
     ? { width: "100%", minHeight: 180, height: "auto", aspectRatio: "16 / 9" }
     : compacto
-    ? { width: 44, minHeight: 44, height: 44 }
+    ? { width: tamanoCompacto, minHeight: tamanoCompacto, height: tamanoCompacto }
     : { width: 116, minHeight: 116, height: 116 };
 
   if (!src) {
@@ -157,6 +163,7 @@ export function CuadroFotoReferencia({
         // chico más, no la esquina de toda la tarjeta.
         nombre={nombre}
         sesionEjercicioId={sesionEjercicioId}
+        diaEjercicioId={diaEjercicioId}
         ejercicioId={ejercicioId}
         compacto={compacto}
         destacado={destacado}
@@ -175,6 +182,7 @@ export function CuadroFotoReferencia({
       videoCloudflareListo={!!videoCloudflareUid && videoCloudflareEstado === "listo"}
       nombre={nombre}
       sesionEjercicioId={sesionEjercicioId}
+      diaEjercicioId={diaEjercicioId}
       ejercicioId={ejercicioId}
       posicionX={destacado ? fotoPanoramaX : fotoCuadradaX}
       posicionY={destacado ? fotoPanoramaY : fotoCuadradaY}
@@ -192,6 +200,7 @@ export function CuadroFotoReferencia({
 function CuadroSolicitarFoto({
   nombre,
   sesionEjercicioId,
+  diaEjercicioId,
   ejercicioId,
   tamano,
   compacto,
@@ -199,6 +208,7 @@ function CuadroSolicitarFoto({
 }: {
   nombre: string;
   sesionEjercicioId?: string;
+  diaEjercicioId?: string;
   ejercicioId?: string | null;
   tamano: React.CSSProperties;
   compacto: boolean;
@@ -219,8 +229,8 @@ function CuadroSolicitarFoto({
     <>
       <button
         type="button"
-        onClick={() => sesionEjercicioId && setAbierto(true)}
-        disabled={!sesionEjercicioId}
+        onClick={() => (sesionEjercicioId || diaEjercicioId) && setAbierto(true)}
+        disabled={!sesionEjercicioId && !diaEjercicioId}
         className={clase}
         style={tamano}
         aria-label={`Solicitar foto de ${nombre}`}
@@ -246,6 +256,7 @@ function CuadroSolicitarFoto({
                 {solicitud.error && <p className="text-caption mt-2 text-error">{solicitud.error}</p>}
                 <form action={accionSolicitud} className="mt-4 grid grid-cols-2 gap-2">
                   <input type="hidden" name="sesion_ejercicio_id" value={sesionEjercicioId ?? ""} />
+                  <input type="hidden" name="dia_ejercicio_id" value={diaEjercicioId ?? ""} />
                   <input type="hidden" name="ejercicio_id" value={ejercicioId ?? ""} />
                   <button type="button" onClick={() => setAbierto(false)} className="h-10 rounded-xl border border-white/15 text-caption font-semibold text-white/70">Volver</button>
                   <button type="submit" disabled={enviando} className="h-10 rounded-xl bg-vip text-caption font-bold text-black disabled:opacity-60">{enviando ? "Enviando..." : "Confirmar solicitud"}</button>
@@ -314,6 +325,7 @@ function FotoReferenciaAmpliable({
   videoCloudflareListo,
   nombre,
   sesionEjercicioId,
+  diaEjercicioId,
   ejercicioId,
   posicionX,
   posicionY,
@@ -336,6 +348,7 @@ function FotoReferenciaAmpliable({
   videoCloudflareListo: boolean;
   nombre: string;
   sesionEjercicioId?: string;
+  diaEjercicioId?: string;
   ejercicioId?: string | null;
   posicionX: number;
   posicionY: number;
@@ -457,7 +470,7 @@ function FotoReferenciaAmpliable({
               />
             </div>
             <p className="text-caption text-white/70">{nombre}</p>
-            {sesionEjercicioId && !reporte.ok && !confirmandoReporte && (
+            {(sesionEjercicioId || diaEjercicioId) && !reporte.ok && !confirmandoReporte && (
               <button
                 type="button"
                 onClick={(e) => {
@@ -469,13 +482,14 @@ function FotoReferenciaAmpliable({
                 No es el ejercicio
               </button>
             )}
-            {sesionEjercicioId && confirmandoReporte && !reporte.ok && (
+            {(sesionEjercicioId || diaEjercicioId) && confirmandoReporte && !reporte.ok && (
               <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-error/35 bg-[#141416] p-3 text-center">
                 <p className="text-body font-bold text-white">¿Confirmas que no es el ejercicio?</p>
                 <p className="text-caption mt-1 text-white/60">Avisaremos al entrenador para que cambie esta referencia para todos.</p>
                 {reporte.error && <p className="text-caption mt-2 text-error">{reporte.error}</p>}
                 <form action={accionReporte} className="mt-3 grid grid-cols-2 gap-2">
-                  <input type="hidden" name="sesion_ejercicio_id" value={sesionEjercicioId} />
+                  <input type="hidden" name="sesion_ejercicio_id" value={sesionEjercicioId ?? ""} />
+                  <input type="hidden" name="dia_ejercicio_id" value={diaEjercicioId ?? ""} />
                   <input type="hidden" name="ejercicio_id" value={ejercicioId ?? ""} />
                   <button type="button" onClick={() => setConfirmandoReporte(false)} className="h-10 rounded-xl border border-white/15 text-caption font-semibold text-white/70">
                     Volver
