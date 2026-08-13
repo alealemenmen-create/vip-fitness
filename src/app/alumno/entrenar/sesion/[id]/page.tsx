@@ -191,12 +191,26 @@ export default async function SesionPage({
         </>
       )}
 
-      {/* Mismo criterio que `reabrirSesion`, leído del mismo lugar: antes acá
-          decía `!== "en_progreso"` y la acción solo aceptaba completada e
-          incompleta, así que en una abandonada el botón salía y no hacía
-          nada. */}
+      {/* Opciones del registro, al final de todo y con rótulo.
+          Pedido de Alejandro, textual: "desde registro me aparezcan las
+          opciones al final, abajo".
+
+          Antes el botón estaba suelto, sin título, pegado al último ejercicio:
+          quien no supiera que existía no lo encontraba. El criterio de qué
+          sesiones se pueden corregir sale de `estado-sesion.ts`, el mismo que
+          usa `reabrirSesion` — antes acá decía `!== "en_progreso"` y la acción
+          rechazaba otras, así que el botón aparecía y no hacía nada. */}
       {sePuedeCorregir(sesion.estado) && !vistaSoloLectura && (
-        <ReabrirSesionBoton sesionId={sesion.id} />
+        <div className="space-y-2 border-t border-border pt-3">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-text-tertiary">
+            Opciones de este registro
+          </p>
+          <ReabrirSesionBoton sesionId={sesion.id} />
+          <p className="text-micro text-text-tertiary">
+            Corregir vuelve a abrir esta sesión para editar kilos y repeticiones. Tus Puntos VIP no
+            cambian: esta sesión no vuelve a sumar ni pierde lo ya ganado.
+          </p>
+        </div>
       )}
 
     </div>

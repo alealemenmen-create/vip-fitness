@@ -7,10 +7,10 @@ describe("sePuedeCorregir", () => {
     expect(sePuedeCorregir("finalizada_incompleta")).toBe(true);
   });
 
-  it("una abandonada NO, y por eso el botón tampoco tiene que aparecer", () => {
-    // Este es el bug que reportó Alejandro: la pantalla dibujaba el botón con
-    // `estado !== 'en_progreso'` y la acción lo rechazaba en silencio.
-    expect(sePuedeCorregir("abandonada")).toBe(false);
+  it("una abandonada también: se abandona por error más seguido de lo que parece", () => {
+    // Decisión expresa de Alejandro. Reabrirla NO devuelve los puntos que
+    // `abandonarSesion` retiró — se corrige lo registrado, no la recompensa.
+    expect(sePuedeCorregir("abandonada")).toBe(true);
   });
 
   it("una en progreso no se corrige: se sigue editando y ya", () => {

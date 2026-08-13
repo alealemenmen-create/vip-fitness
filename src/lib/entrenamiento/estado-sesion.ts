@@ -13,12 +13,17 @@
  * toca de nuevo, piensa que la app se colgó y abandona la pantalla. Ahora las
  * dos puntas leen de acá.
  *
- * Las abandonadas quedan afuera a propósito, no por olvido: abandonar retira
- * los puntos que la sesión había sumado y la cierra como constancia de que se
- * empezó (ver `abandonarSesion`). Volver a abrirlas para editar sería
- * deshacer esa decisión por la puerta de atrás.
+ * **Las abandonadas también entran**, por decisión expresa de Alejandro: "la
+ * idea es que desde registro me aparezcan las opciones al final". Una sesión
+ * se abandona muchas veces por error, y dejar ese registro sin arreglo posible
+ * es peor que permitir corregirlo. Reabrir NO devuelve los puntos que
+ * `abandonarSesion` retiró: la corrección es sobre lo registrado (kilos,
+ * repeticiones), no sobre la recompensa.
+ *
+ * Solo queda afuera `en_progreso`, y no por permiso: una sesión abierta ya se
+ * edita directamente, no hay nada que "corregir".
  */
-export const ESTADOS_CORREGIBLES = ["completada", "finalizada_incompleta"] as const;
+export const ESTADOS_CORREGIBLES = ["completada", "finalizada_incompleta", "abandonada"] as const;
 
 export type EstadoCorregible = (typeof ESTADOS_CORREGIBLES)[number];
 
