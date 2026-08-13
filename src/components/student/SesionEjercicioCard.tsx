@@ -862,6 +862,10 @@ export const FilaSerie = forwardRef<
      * segundos en vez de repeticiones — ver `esEjercicioDeTiempo`. */
     esTiempo: boolean;
     descansoSegundos: number | null;
+    /** false: el entrenador le quitó el cronómetro a este alumno. Los segundos
+     * de arriba se siguen mostrando —son parte de la indicación— pero no
+     * arranca ninguna cuenta regresiva ni se penaliza descansar de más. */
+    temporizadorDescanso: boolean;
     soloLectura: boolean;
     /** Para anclar el descanso a una hora real en localStorage — ver
      * `lib/entrenamiento/descanso.ts`. */
@@ -905,6 +909,7 @@ export const FilaSerie = forwardRef<
     pesoSugerido,
     esTiempo,
     descansoSegundos,
+    temporizadorDescanso,
     soloLectura,
     sesionId,
     sesionEjercicioId,
@@ -1016,6 +1021,12 @@ export const FilaSerie = forwardRef<
     if (soloLectura) return;
     const finEn = leerDescanso(sesionId, sesionEjercicioId, numero);
     if (finEn === null) return;
+    // Le apagaron el cronómetro con un descanso ya corriendo en el teléfono:
+    // se limpia en vez de revivirlo al recargar.
+    if (!temporizadorDescanso) {
+      limpiarDescanso(sesionId, sesionEjercicioId, numero);
+      return;
+    }
 
     const restanteReal = Math.round((finEn - Date.now()) / 1000);
     if (restanteReal > 0) {
@@ -1168,7 +1179,14 @@ export const FilaSerie = forwardRef<
     setExcesoPausado((prev) => !prev);
   }
   useEffect(() => {
-    if (soloLectura || !activo || descansando || !avisadoRef.current || !descansoSegundos) {
+    if (
+      soloLectura ||
+      !temporizadorDescanso ||
+      !activo ||
+      descansando ||
+      !avisadoRef.current ||
+      !descansoSegundos
+    ) {
       tramosNotificadosRef.current = 0;
       setSegundosExceso(0);
       setExcesoPausado(false);
@@ -1315,7 +1333,9 @@ export const FilaSerie = forwardRef<
     }
 
     flushSync(() => setRealizada(true));
-    if (descansoSegundos && descansoSegundos > 0) {
+    // Sin cronómetro, marcar la serie la cierra y pasa a la siguiente, igual
+    // que un ejercicio sin descanso programado: no hay reloj que esperar.
+    if (temporizadorDescanso && descansoSegundos && descansoSegundos > 0) {
       // Este toque es el gesto del usuario que habilita el audio: el pitido va a
       // sonar dentro de un temporizador, y para entonces ya no hay gesto que
       // valga. Ver `prepararAviso`.
@@ -2312,6 +2332,7 @@ export const SesionEjercicioCard = forwardRef<
                 pesoSugerido={pesoSugeridoEfectivo}
                 esTiempo={esTiempo}
                 descansoSegundos={ejercicio.descansoSegundos}
+                temporizadorDescanso={ejercicio.temporizadorDescanso}
                 soloLectura={soloLectura}
                 sesionId={sesionId}
                 sesionEjercicioId={ejercicio.sesionEjercicioId}

@@ -552,6 +552,11 @@ export type EjercicioSesion = {
   seriesProgramadas: number;
   repsProgramadas: string;
   descansoSegundos: number | null;
+  /** false: este alumno entrena sin cuenta regresiva entre series (interruptor
+   * del entrenador, migración 0087). Los segundos de arriba se siguen
+   * mostrando como referencia, pero no corre ningún reloj ni se descuentan
+   * puntos por descansar de más. */
+  temporizadorDescanso: boolean;
   tecnicaTipo: string | null;
   /** Series donde corre la técnica (base 1). `null` = todas, que es lo que
    * tienen las rutinas anteriores a la migración 0073. */
@@ -774,6 +779,19 @@ export async function obtenerSesionCompleta(
   const lista = (resultado.data ?? []) as unknown as FilaSesionEjercicio[];
   const sesionEjercicioIds = lista.map((e) => e.id);
 
+  // ¿Este alumno entrena con cronómetro entre series? Es un interruptor del
+  // entrenador (migración 0087): a quien lo tiene apagado, el descanso se le
+  // sigue mostrando como referencia pero no corre la cuenta regresiva ni se le
+  // descuentan puntos por excederse. En consulta aparte y tolerante: si la
+  // migración todavía no corrió en este entorno, se asume encendido, que es el
+  // comportamiento de siempre.
+  const { data: preferencias } = await supabase
+    .from("alumno_perfil")
+    .select("temporizador_descanso")
+    .eq("user_id", alumnoId)
+    .maybeSingle();
+  const temporizadorDescanso = preferencias?.temporizador_descanso ?? true;
+
   const { data: todasLasSeries } = sesionEjercicioIds.length
     ? await supabase
         .from("series_realizadas")
@@ -904,6 +922,7 @@ export async function obtenerSesionCompleta(
       seriesProgramadas: prog.series_programadas,
       repsProgramadas: prog.reps_programadas,
       descansoSegundos: prog.descanso_segundos,
+      temporizadorDescanso,
       tecnicaTipo: prog.tecnica_tipo,
       tecnicaSeries: normalizarTecnicaSeries(prog.tecnica_series, prog.series_programadas),
       tecnicaInstruccion: prog.tecnica_instruccion,

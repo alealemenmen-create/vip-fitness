@@ -454,6 +454,10 @@ export async function actualizarPerfilAlumno(
       plan_entrenamiento_pausado: planEntrenamiento
         ? formData.get("plan_entrenamiento_pausado") === "on"
         : false,
+      // La casilla dice "no usar temporizador", así que marcada significa
+      // apagado. Se invierte acá y no en la base para que la columna se lea
+      // sola: `temporizador_descanso` true es el comportamiento normal.
+      temporizador_descanso: formData.get("sin_temporizador_descanso") !== "on",
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", alumnoId);

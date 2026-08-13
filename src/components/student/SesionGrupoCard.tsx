@@ -459,6 +459,7 @@ export const SesionGrupoCard = forwardRef<
                         pesoSugerido={pesoSugeridoPorPos[paso.pos]}
                         esTiempo={esTiempoPorPos[paso.pos]}
                         descansoSegundos={ej.descansoSegundos}
+                        temporizadorDescanso={ej.temporizadorDescanso}
                         soloLectura={soloLectura}
                         sesionId={sesionId}
                         sesionEjercicioId={ej.sesionEjercicioId}

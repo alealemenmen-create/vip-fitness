@@ -17,6 +17,7 @@ export function PerfilAlumnoForm({
   sesionesMensuales,
   diasSemana,
   planPausado,
+  temporizadorDescanso,
 }: {
   alumnoId: string;
   objetivo: string | null;
@@ -25,6 +26,7 @@ export function PerfilAlumnoForm({
   sesionesMensuales: number | null;
   diasSemana: number | null;
   planPausado: boolean;
+  temporizadorDescanso: boolean;
 }) {
   const [state, formAction, pending] = useActionState(actualizarPerfilAlumno, initialState);
   const [plan, setPlan] = useState<CodigoPlanEntrenamiento | "">(planEntrenamiento ?? "");
@@ -74,6 +76,25 @@ export function PerfilAlumnoForm({
       <label className="radius-control flex items-center gap-2 border border-border bg-surface-2 px-2.5 py-2 text-caption text-text-secondary">
         <input type="checkbox" name="plan_entrenamiento_pausado" defaultChecked={planPausado} />
         Pausar nuevas sesiones (mantiene historial y puntos)
+      </label>
+      {/* A quien el reloj le estorba, se lo quitas desde acá. Va debajo del
+          plan porque es lo mismo: una condición del alumno, no una
+          preferencia que él pueda cambiarse solo. */}
+      <label className="radius-control flex items-start gap-2 border border-border bg-surface-2 px-2.5 py-2 text-caption text-text-secondary">
+        <input
+          type="checkbox"
+          name="sin_temporizador_descanso"
+          defaultChecked={!temporizadorDescanso}
+          className="mt-0.5"
+        />
+        <span>
+          Sin temporizador de descanso
+          <span className="text-micro mt-0.5 block text-text-tertiary">
+            No corre la cuenta regresiva entre series ni se descuentan puntos por
+            descansar de más. Los segundos programados se siguen viendo como
+            referencia.
+          </span>
+        </span>
       </label>
       <div>
         <label className="text-[9px] mb-0.5 block text-text-tertiary">OBJETIVO</label>
