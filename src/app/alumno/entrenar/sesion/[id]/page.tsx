@@ -1,4 +1,3 @@
-import { Play } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
@@ -12,9 +11,10 @@ import { CierreAutomaticoSesion } from "@/components/student/CierreAutomaticoSes
 import { ReabrirSesionBoton } from "@/components/student/ReabrirSesionBoton";
 import { EliminarSesionBoton } from "@/components/student/EliminarSesionBoton";
 import { RefrescarRecomendaciones } from "@/components/student/RefrescarRecomendaciones";
+import { BotonIniciarRutinaFijo } from "@/components/student/BotonIniciarRutinaFijo";
 import { sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerSesionCompleta, tienePedidoDeBorradoPendiente } from "../../data";
-import { iniciarRutina, terminarCorreccion } from "../../actions";
+import { terminarCorreccion } from "../../actions";
 
 // El aviso de fin de descanso lo programa `programarAvisoDescanso` (Server
 // Action de esta página, ver push-actions.ts) con `after()`: el servidor
@@ -167,25 +167,11 @@ export default async function SesionPage({
         )}
       </div>
 
-      {/* Fijo abajo, apoyado justo encima de la barra de navegación
-          (`--alto-nav-alumno`, que publica BarraInferiorFija — mismo patrón
-          que el buscador fijo de Nutrición), en vez de vivir en el flujo
-          normal y desaparecer scroll abajo. Pedido de Alejandro: con varios
-          ejercicios en pantalla el botón para arrancar quedaba tapado sin
-          bajar hasta el fondo. */}
-      {bloqueadaPorIniciar && (
-        <div className="fixed inset-x-0 bottom-[var(--alto-nav-alumno,110px)] z-30 mx-auto w-full max-w-md px-4 pb-2">
-          <form action={iniciarRutina}>
-            <input type="hidden" name="sesion_id" value={sesion.id} />
-            <button
-              type="submit"
-              className="btn-accion boton-entrenar-pulso radius-control flex h-16 w-full items-center justify-center gap-2 text-body font-bold"
-            >
-              <Play size={20} strokeWidth={3} /> Iniciar rutina
-            </button>
-          </form>
-        </div>
-      )}
+      {/* Por portal a document.body (ver BotonIniciarRutinaFijo): dentro de
+          `.pantalla-scroll` un `position: fixed` normal queda "fijo" respecto
+          a ese contenedor, que es el que scrollea — subía y bajaba con la
+          lista en vez de quedarse clavado abajo. */}
+      {bloqueadaPorIniciar && <BotonIniciarRutinaFijo sesionId={sesion.id} />}
 
       {esDescanso ? (
         <Card>
