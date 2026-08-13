@@ -17,6 +17,7 @@ import { resolverCumplimiento } from "@/lib/impulso-vip/motor";
 import type { ReglaImpulso } from "@/lib/impulso-vip/tipos";
 import type { DificultadPercibidaImpulso } from "@/lib/supabase/types";
 import { leerSeriesFormulario } from "@/lib/entrenamiento/leer-series-formulario";
+import { ESTADOS_CORREGIBLES, sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerEstadoPlanMensual } from "@/lib/planes-entrenamiento-servidor";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -554,13 +555,13 @@ export async function reabrirSesion(formData: FormData): Promise<void> {
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .maybeSingle();
-  if (!sesion || !["completada", "finalizada_incompleta"].includes(sesion.estado)) return;
+  if (!sePuedeCorregir(sesion?.estado)) return;
   await supabase
     .from("sesiones_entrenamiento")
     .update({ estado: "en_progreso", hora_fin: null, rutina_iniciada_en: null })
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
-    .in("estado", ["completada", "finalizada_incompleta"]);
+    .in("estado", [...ESTADOS_CORREGIBLES]);
 
   // Reabrir no elimina la recompensa ni devuelve cupo mensual: es una
   // corrección del mismo registro, no una sesión nueva.

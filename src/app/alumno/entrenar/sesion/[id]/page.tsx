@@ -10,6 +10,7 @@ import { CancelarSesionBoton } from "@/components/student/CancelarSesionBoton";
 import { SalidaGuiadaSesion } from "@/components/student/SalidaGuiadaSesion";
 import { CierreAutomaticoSesion } from "@/components/student/CierreAutomaticoSesion";
 import { ReabrirSesionBoton } from "@/components/student/ReabrirSesionBoton";
+import { sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerSesionCompleta } from "../../data";
 import { iniciarRutina } from "../../actions";
 
@@ -171,7 +172,11 @@ export default async function SesionPage({ params }: { params: Promise<{ id: str
         </>
       )}
 
-      {sesion.estado !== "en_progreso" && !vistaSoloLectura && (
+      {/* Mismo criterio que `reabrirSesion`, leído del mismo lugar: antes acá
+          decía `!== "en_progreso"` y la acción solo aceptaba completada e
+          incompleta, así que en una abandonada el botón salía y no hacía
+          nada. */}
+      {sePuedeCorregir(sesion.estado) && !vistaSoloLectura && (
         <ReabrirSesionBoton sesionId={sesion.id} />
       )}
 
