@@ -1932,7 +1932,6 @@ export function RutinaDraftEditor({
         diaIndice: null,
         ejercicioIndices: [],
       }, ...hallazgosEstructura];
-  const erroresCalidad = hallazgos.filter((hallazgo) => hallazgo.severidad === "error");
 
   const irAHallazgo = (hallazgo: HallazgoRutina) => {
     if (hallazgo.diaIndice === null) return;
@@ -2592,10 +2591,6 @@ export function RutinaDraftEditor({
   };
 
   const publicar = async () => {
-    if (erroresCalidad.length > 0) {
-      setError(`Corrige los ${erroresCalidad.length} ajustes del Semáforo VIP antes de publicar.`);
-      return;
-    }
     if (!planCodigo) {
       setError("Selecciona primero el plan principal del alumno.");
       return;
@@ -3212,8 +3207,6 @@ export function RutinaDraftEditor({
         <Button
           onClick={publicar}
           loading={publicando}
-          disabled={erroresCalidad.length > 0}
-          disabledReason={`Corrige ${erroresCalidad.length} ${erroresCalidad.length === 1 ? "ajuste" : "ajustes"} del Semáforo VIP`}
           size={mesaDeTrabajo ? "xs" : "lg"}
           className="flex-1"
         >
