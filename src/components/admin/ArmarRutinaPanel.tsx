@@ -16,6 +16,7 @@ import {
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { PatronMovimiento } from "@/lib/rutinas/patrones";
 import type { CodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
+import { formatFechaHoraCorta } from "@/lib/date";
 import Link from "next/link";
 
 export type AlumnoArmado = {
@@ -148,14 +149,23 @@ export function seriesSugeridasPorSesion(nivel: NivelArmado, cantidadGrupos: num
  * ANTES de generar; acá hay dos decisiones y todo el trabajo fino se hace
  * DESPUÉS, sobre la rutina ya armada. Mismo motor, misma publicación, misma
  * revisión con IA — lo único distinto es por dónde entra el entrenador. */
+export type RutinaReciente = { id: string; nombre: string; alumno: string; creadaEn: string };
+export type EjercicioReciente = { id: string; nombre: string; grupo: string; fotoUrl: string | null; creadoEn: string };
+
 export function ArmarRutinaPanel({
   alumnos,
   ejercicios,
   tecnicas,
+  ultimasRutinas = [],
+  ultimosEjercicios = [],
 }: {
   alumnos: AlumnoArmado[];
   ejercicios: { id: string; nombre: string; aliases?: string[]; grupo: string; equipo: string; patronMovimiento?: PatronMovimiento | null }[];
   tecnicas: TecnicaOpcion[];
+  /** Historial corto de lo último publicado y de lo último agregado a la
+   * biblioteca — para no tener que ir a buscarlo a Documentos o Ejercicios. */
+  ultimasRutinas?: RutinaReciente[];
+  ultimosEjercicios?: EjercicioReciente[];
 }) {
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const [nivel, setNivel] = useState<NivelArmado>("intermedio");
@@ -468,6 +478,53 @@ export function ArmarRutinaPanel({
       </Card>
 
       {error && <p className="text-caption text-error">{error}</p>}
+
+      {(ultimasRutinas.length > 0 || ultimosEjercicios.length > 0) && (
+        <UltimasSubidas rutinas={ultimasRutinas} ejercicios={ultimosEjercicios} />
+      )}
     </div>
+  );
+}
+
+/** Historial corto, plegado por defecto: rutinas publicadas y ejercicios
+ * agregados recientemente, en la misma pantalla donde se elige a quién
+ * armarle una rutina — sin ir a buscarlo a Documentos o Ejercicios. */
+function UltimasSubidas({ rutinas, ejercicios }: { rutinas: RutinaReciente[]; ejercicios: EjercicioReciente[] }) {
+  return (
+    <Card padding="p-3" className="space-y-3">
+      <p className="text-caption font-semibold text-text-tertiary">ÚLTIMAS SUBIDAS</p>
+
+      {rutinas.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-micro font-semibold text-text-secondary">Rutinas publicadas</p>
+          {rutinas.map((r) => (
+            <div key={r.id} className="flex items-center justify-between gap-2 border-b border-border py-1 last:border-0">
+              <span className="text-micro min-w-0 flex-1 truncate text-text">
+                <strong>{r.alumno}</strong> · {r.nombre}
+              </span>
+              <span className="text-micro shrink-0 text-text-tertiary">{formatFechaHoraCorta(r.creadaEn)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {ejercicios.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-micro font-semibold text-text-secondary">Ejercicios agregados a la biblioteca</p>
+          {ejercicios.map((e) => (
+            <div key={e.id} className="flex items-center gap-2 border-b border-border py-1 last:border-0">
+              {e.fotoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- miniatura chica en una lista, no vale la pena next/image acá.
+                <img src={e.fotoUrl} alt="" className="h-6 w-6 shrink-0 rounded object-cover" />
+              ) : (
+                <span className="h-6 w-6 shrink-0 rounded bg-surface-2" />
+              )}
+              <span className="text-micro min-w-0 flex-1 truncate text-text">{e.nombre} · {e.grupo}</span>
+              <span className="text-micro shrink-0 text-text-tertiary">{formatFechaHoraCorta(e.creadoEn)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }

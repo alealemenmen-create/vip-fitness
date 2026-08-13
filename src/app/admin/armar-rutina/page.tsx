@@ -21,7 +21,7 @@ export default async function ArmarRutinaPage() {
   const supabase = await createClient();
   const db = supabase as unknown as SupabaseClient;
 
-  const [{ data: filas }, { data: filasPlan }, { data: perfiles }, ejercicios, tecnicas] = await Promise.all([
+  const [{ data: filas }, { data: filasPlan }, { data: perfiles }, ejercicios, tecnicas, { data: rutinasRecientes }, { data: ejerciciosRecientes }] = await Promise.all([
     supabase.from("alumno_perfil").select("user_id, perfiles!alumno_perfil_user_id_fkey(nombre)").order("created_at"),
     // Consulta aparte, mismo criterio que el generador: si las columnas del
     // plan fallan en algún entorno, no puede llevarse abajo la lista entera
@@ -32,6 +32,19 @@ export default async function ArmarRutinaPage() {
     // Las técnicas reales del gimnasio: son las que ofrece el selector de
     // técnica de cada ejercicio, incluidas las encadenadas con su cantidad.
     obtenerTecnicas(),
+    // "Últimas subidas": historial corto para no tener que ir a buscar en
+    // Documentos si una rutina recién publicada llegó bien.
+    db
+      .from("rutinas")
+      .select("id, nombre, created_at, alumno:perfiles!rutinas_alumno_id_fkey(nombre)")
+      .order("created_at", { ascending: false })
+      .limit(8),
+    db
+      .from("ejercicios")
+      .select("id, nombre, grupo_muscular, foto_miniatura_url, created_at")
+      .eq("activo", true)
+      .order("created_at", { ascending: false })
+      .limit(8),
   ]);
 
   type PerfilBreve = {
@@ -111,6 +124,19 @@ export default async function ArmarRutinaPage() {
           descansoFinalSeg: t.descansoFinalSeg,
           fatiga: t.fatiga,
           requiereSupervision: t.requiereSupervision,
+        }))}
+        ultimasRutinas={(rutinasRecientes ?? []).map((r) => ({
+          id: r.id as string,
+          nombre: r.nombre as string,
+          alumno: (r.alumno as unknown as { nombre: string } | null)?.nombre ?? "Alumno",
+          creadaEn: r.created_at as string,
+        }))}
+        ultimosEjercicios={(ejerciciosRecientes ?? []).map((e) => ({
+          id: e.id as string,
+          nombre: e.nombre as string,
+          grupo: e.grupo_muscular as string,
+          fotoUrl: e.foto_miniatura_url as string | null,
+          creadoEn: e.created_at as string,
         }))}
       />
     </div>
