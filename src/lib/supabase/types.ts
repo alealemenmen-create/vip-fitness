@@ -667,6 +667,10 @@ export interface Database {
           rutina_iniciada_en: string | null;
           // 0077 — no null mientras se corrige un registro ya cerrado.
           corrigiendo_desde: string | null;
+          // 0078 — cuándo se corrigió por primera vez. A diferencia de
+          // corrigiendo_desde no se limpia: es lo que hace que una sesión
+          // abandonada vuelva a contar como historial para Impulso VIP.
+          corregida_en: string | null;
         };
         Insert: {
           alumno_id: string;
@@ -678,6 +682,7 @@ export interface Database {
           comentario?: string | null;
           rutina_iniciada_en?: string | null;
           corrigiendo_desde?: string | null;
+          corregida_en?: string | null;
         };
         Update: {
           hora_fin?: string | null;
@@ -685,6 +690,7 @@ export interface Database {
           comentario?: string | null;
           rutina_iniciada_en?: string | null;
           corrigiendo_desde?: string | null;
+          corregida_en?: string | null;
         };
         Relationships: [
           {

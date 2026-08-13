@@ -3,7 +3,7 @@
 import { Fragment, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Moon, Check, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Moon, Check, AlertTriangle, Eye } from "lucide-react";
 import { iniciarSesion, cancelarYEmpezarOtroDia } from "@/app/alumno/entrenar/actions";
 import type { NumeroCalendario, EstadoNumero } from "@/app/alumno/entrenar/data";
 import { FotoDiaEntrenamiento, ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
@@ -364,6 +364,17 @@ function BotonEmpezarDia({
                 className="btn-accion radius-control flex h-12 w-full items-center justify-center text-body font-semibold"
               >
                 Continuar el activo
+              </Link>
+
+              {/* Mirar sin comprometerse. Antes las dos únicas salidas eran
+                  seguir con el otro día o cancelarlo, así que para saber qué
+                  traía este había que arrancarlo: "debería dejarme ver"
+                  (Alejandro). Esta no crea sesión ni toca el cupo. */}
+              <Link
+                href={`/alumno/entrenar/dia/${actual.dia.id}`}
+                className="radius-control flex h-12 w-full items-center justify-center gap-2 border border-border text-body font-medium text-text"
+              >
+                <Eye size={18} /> Ver qué toca este día
               </Link>
 
               <form action={cancelarYEmpezarOtroDia}>

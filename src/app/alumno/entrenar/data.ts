@@ -146,6 +146,102 @@ export const obtenerDiasRutina = cache(async (rutinaId: string): Promise<DiaRuti
   });
 });
 
+export type EjercicioVistaPrevia = {
+  id: string;
+  orden: number;
+  nombre: string;
+  seriesProgramadas: number;
+  repsProgramadas: string;
+  descansoSegundos: number | null;
+  tecnicaTipo: string | null;
+  observacion: string | null;
+  grupoMuscular: GrupoMuscular | null;
+};
+
+export type DiaVistaPrevia = {
+  id: string;
+  nombre: string;
+  tipo: "entrenamiento" | "descanso";
+  descripcion: string | null;
+  rutinaNombre: string;
+  ejercicios: EjercicioVistaPrevia[];
+} | null;
+
+/**
+ * Los ejercicios de un día **sin crear ninguna sesión**.
+ *
+ * Existe porque hasta ahora la única forma de ver qué tocaba un día era tocar
+ * "Ver entrenamiento", que crea la sesión de una. Con otro entrenamiento
+ * activo eso está bloqueado y el alumno terminaba rebotando a la sesión en
+ * curso: el botón decía "ver" y no dejaba ver nada. Alejandro: "me posiciono
+ * en la sesión seis y le doy ver entrenamiento y no lo veo, solo me lleva a la
+ * sesión que está abierta; debería dejarme ver".
+ *
+ * Mirar no compromete nada, así que esta lectura no toca
+ * `sesiones_entrenamiento` ni el cupo del mes. Lo que NO puede mostrar son las
+ * metas de Impulso VIP: se congelan al crear la sesión (ver
+ * `generarYGuardarRecomendacion`) y acá todavía no hay sesión.
+ *
+ * Valida por rutina activa del alumno, no solo por id de día: sin eso,
+ * cualquiera podría mirar la rutina de otro pegando un uuid en la barra.
+ */
+export async function obtenerDiaVistaPrevia(
+  supabase: SupabaseServerClient,
+  alumnoId: string,
+  diaId: string
+): Promise<DiaVistaPrevia> {
+  // El filtro sobre la relación (`rutinas.alumno_id`) deja al parser de tipos
+  // de PostgREST sin forma que inferir y colapsa la fila a `never` — mismo
+  // caso que `obtenerSesionCompleta` y `FilaBiblioteca`, se declara a mano.
+  type FilaDia = {
+    id: string;
+    nombre: string;
+    tipo: "entrenamiento" | "descanso";
+    descripcion: string | null;
+    rutinas: unknown;
+  };
+
+  const { data } = await supabase
+    .from("rutina_dias")
+    .select("id, nombre, tipo, descripcion, rutinas!inner(nombre, alumno_id, activa)")
+    .eq("id", diaId)
+    .eq("rutinas.alumno_id", alumnoId)
+    .eq("rutinas.activa", true)
+    .maybeSingle();
+
+  const dia = data as unknown as FilaDia | null;
+  if (!dia) return null;
+
+  const { data: ejercicios } = await supabase
+    .from("rutina_dia_ejercicios")
+    .select(
+      "id, orden, nombre, series_programadas, reps_programadas, descanso_segundos, tecnica_tipo, observacion, grupo_muscular"
+    )
+    .eq("dia_id", diaId)
+    .order("orden");
+
+  const rutina = dia.rutinas as unknown as { nombre: string } | null;
+
+  return {
+    id: dia.id,
+    nombre: dia.nombre,
+    tipo: dia.tipo,
+    descripcion: dia.descripcion,
+    rutinaNombre: rutina?.nombre ?? "",
+    ejercicios: (ejercicios ?? []).map((e) => ({
+      id: e.id,
+      orden: e.orden,
+      nombre: e.nombre,
+      seriesProgramadas: e.series_programadas,
+      repsProgramadas: e.reps_programadas,
+      descansoSegundos: e.descanso_segundos,
+      tecnicaTipo: e.tecnica_tipo,
+      observacion: e.observacion,
+      grupoMuscular: e.grupo_muscular as GrupoMuscular | null,
+    })),
+  };
+}
+
 export type EstadoNumero = "no_iniciado" | "en_progreso" | "completado";
 
 export type NumeroCalendario = {

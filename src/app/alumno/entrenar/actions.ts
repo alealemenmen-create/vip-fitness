@@ -625,6 +625,27 @@ export async function reabrirSesion(formData: FormData): Promise<void> {
   // qué — el mismo "botón pegado" de siempre. Ahora al menos se lo dice.
   if (error) redirect(`/alumno/entrenar/sesion/${sesionId}?aviso=falta-migracion`);
 
+  /**
+   * La constancia de que este registro se revisó a mano, en un update aparte y
+   * a propósito.
+   *
+   * Va sola y después de la de arriba porque es de otra migración (0078): si
+   * viajara en el mismo update, un entorno sin esa columna haría fallar
+   * TAMBIÉN el `corrigiendo_desde` y corregir dejaría de funcionar del todo.
+   * Es exactamente cómo se rompió "Iniciar rutina" en el 1.21 — dos
+   * migraciones distintas metidas en la misma consulta.
+   *
+   * `is null` para quedarse con la primera vez, y sin mirar el error: que no
+   * exista la columna solo significa que esta sesión no va a contar todavía
+   * para Impulso VIP, no que la corrección haya fallado.
+   */
+  await supabase
+    .from("sesiones_entrenamiento")
+    .update({ corregida_en: new Date().toISOString() })
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .is("corregida_en", null);
+
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/entrenar/historial");
 }

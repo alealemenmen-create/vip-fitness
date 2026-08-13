@@ -82,13 +82,39 @@ export function esSerieUtilizable(serie: FilaSerieRealizada): boolean {
   );
 }
 
+type SesionDelHistorial = {
+  fecha: string;
+  hora_inicio: string;
+  estado?: string;
+  /** Migración 0078. Puede no venir si todavía no corrió — ver el respaldo en
+   * `obtenerHistorialParaMotor`. */
+  corregida_en?: string | null;
+};
+
 interface FilaSesionEjercicioHistorial {
   id: string;
   dificultad_percibida: Dificultad | null;
-  sesiones_entrenamiento:
-    | { fecha: string; hora_inicio: string }
-    | { fecha: string; hora_inicio: string }[]
-    | null;
+  sesiones_entrenamiento: SesionDelHistorial | SesionDelHistorial[] | null;
+}
+
+/**
+ * ¿Esta sesión sirve para calcular la progresión?
+ *
+ * Las cerradas (`completada`, `finalizada_incompleta`) siempre. Una
+ * **abandonada** solo si el alumno la corrigió: el 1.21 le abrió "Corregir
+ * registro" a las abandonadas porque "se abandona por error más seguido de lo
+ * que parece", pero el motor las seguía ignorando, así que se podían arreglar
+ * los kilos a mano para nada. Si alguien se tomó el trabajo de corregir lo que
+ * levantó, eso es dato bueno. No cambia los puntos: se recupera el registro,
+ * no la recompensa.
+ *
+ * Sin la 0078 `corregida_en` no existe, ninguna abandonada califica y vale la
+ * regla de antes tal cual.
+ */
+function sirveParaProgresion(sesion: SesionDelHistorial): boolean {
+  if (!sesion.estado) return true;
+  if ((ESTADOS_HISTORIAL_VALIDOS as readonly string[]).includes(sesion.estado)) return true;
+  return sesion.estado === "abandonada" && !!sesion.corregida_en;
 }
 
 /**
@@ -118,23 +144,41 @@ export async function obtenerHistorialParaMotor(
    * sirven — ver `seriesLimpiasParaProgresion`. */
   seriesPermitidas: readonly number[] | null = null
 ): Promise<SesionHistorial[]> {
-  const { data } = await supabase
-    .from("sesion_ejercicios")
-    .select("id, dificultad_percibida, sesiones_entrenamiento!inner(fecha, hora_inicio, alumno_id, estado)")
-    .eq("dia_ejercicio_id", diaEjercicioId)
-    .neq("id", sesionEjercicioActualId)
-    .eq("sesiones_entrenamiento.alumno_id", alumnoId)
-    .in("sesiones_entrenamiento.estado", ESTADOS_HISTORIAL_VALIDOS)
-    .limit(MAX_SESIONES_A_REVISAR);
+  /**
+   * Las abandonadas entran a la consulta y se filtran después, en
+   * `sirveParaProgresion`: pedirle a PostgREST un "o esto o aquello" sobre una
+   * relación anidada es más frágil que traer unas pocas filas de más.
+   *
+   * El respaldo es por la regla de siempre —el código puede llegar antes que
+   * la migración— y acá importa especialmente: si `corregida_en` no existe la
+   * consulta falla ENTERA, el motor se queda sin historial y **todas** las
+   * metas de Impulso VIP desaparecen sin decir nada. Es el mismo modo de falla
+   * que rompió "Iniciar rutina" en el 1.21: no se ve como un error, se ve como
+   * una función que dejó de estar.
+   */
+  const consultar = (columnasSesion: string) =>
+    supabase
+      .from("sesion_ejercicios")
+      .select(`id, dificultad_percibida, sesiones_entrenamiento!inner(${columnasSesion})`)
+      .eq("dia_ejercicio_id", diaEjercicioId)
+      .neq("id", sesionEjercicioActualId)
+      .eq("sesiones_entrenamiento.alumno_id", alumnoId)
+      .in("sesiones_entrenamiento.estado", [...ESTADOS_HISTORIAL_VALIDOS, "abandonada"])
+      .limit(MAX_SESIONES_A_REVISAR);
 
-  const filas = (data ?? []) as unknown as FilaSesionEjercicioHistorial[];
+  const conCorregida = await consultar("fecha, hora_inicio, alumno_id, estado, corregida_en");
+  const resultado = conCorregida.error
+    ? await consultar("fecha, hora_inicio, alumno_id, estado")
+    : conCorregida;
+
+  const filas = (resultado.data ?? []) as unknown as FilaSesionEjercicioHistorial[];
   if (filas.length === 0) return [];
 
   type Candidata = { id: string; dificultadPercibida: Dificultad | null; fecha: string; horaInicio: string };
   const candidatas: Candidata[] = [];
   for (const f of filas) {
     const sesion = Array.isArray(f.sesiones_entrenamiento) ? f.sesiones_entrenamiento[0] : f.sesiones_entrenamiento;
-    if (!sesion) continue;
+    if (!sesion || !sirveParaProgresion(sesion)) continue;
     candidatas.push({ id: f.id, dificultadPercibida: f.dificultad_percibida, fecha: sesion.fecha, horaInicio: sesion.hora_inicio });
   }
 

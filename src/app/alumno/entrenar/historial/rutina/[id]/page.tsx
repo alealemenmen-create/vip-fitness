@@ -15,9 +15,9 @@ const ESTADO_LABEL: Record<string, { texto: string; tone: "success" | "error" | 
 };
 
 /** Reporte completo de una rutina: todas las sesiones que el alumno haya
- * cerrado bajo ella, de más reciente a más antigua, más un resumen arriba
- * (rango de fechas, cuántas, Puntos VIP ganados) y la opción de reiniciarla
- * de cero — ver ReiniciarRutinaBoton. */
+ * cerrado bajo ella, de más reciente a más antigua, y un resumen arriba
+ * (rango de fechas, cuántas, Puntos VIP ganados). Reiniciar la rutina de cero
+ * ya no existe: nunca se borra historial ni una recompensa acreditada. */
 export default async function HistorialRutinaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: rutinaId } = await params;
   const { alumnoId, soloLectura } = await requireAlumno();
