@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from "react";
-import { Check, ChevronRight, Info, Layers, NotebookPen, Repeat, Timer } from "lucide-react";
+import { Check, ChevronRight, Info, NotebookPen, Repeat, Timer } from "lucide-react";
 import { guardarSeriesGrupo, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import {
@@ -344,18 +344,20 @@ export const SesionGrupoCard = forwardRef<
                   {ETIQUETAS_GRUPO_MUSCULAR[ej.grupoMuscular]}
                 </p>
               )}
+              {/* Series y reps/tiempo DE ESTE ejercicio, no amontonados con los
+                  de los otros cinco en una sola línea de la barra de abajo —
+                  con seis ejercicios distintos ese resumen se volvía
+                  ilegible ("5+5+5+5+5+5 / 30s/30s/40s/12-15/12"). */}
+              <p className="text-micro leading-tight text-text-secondary">
+                {ej.seriesProgramadas}× {ej.repsProgramadas}
+              </p>
             </div>
           </div>
         ))}
       </div>
 
       <div className="radius-control mb-1.5 flex items-stretch overflow-hidden border border-border bg-surface-2">
-        <Dato icono={<Layers size={13} />} valor={ejercicios.map((e) => e.seriesProgramadas).join("+")} etiqueta="Series" />
-        <Dato
-          icono={esTiempoPorPos.some(Boolean) ? <Timer size={13} /> : <Repeat size={13} />}
-          valor={ejercicios.map((e) => e.repsProgramadas).join(" / ")}
-          etiqueta={esTiempoPorPos.some(Boolean) ? "Tiempo" : "Reps"}
-        />
+        <Dato icono={<Repeat size={13} />} valor={String(maxRondas)} etiqueta="Rondas" />
         <Dato
           icono={<Timer size={13} />}
           valor={descansoRonda ? `${descansoRonda}s` : "—"}
