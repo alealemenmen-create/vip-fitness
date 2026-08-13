@@ -25,7 +25,6 @@ import { programarAvisoDescanso } from "@/app/alumno/entrenar/push-actions";
 import { reportarDolor, type ReportarDolorState } from "@/app/alumno/entrenar/impulso-actions";
 import { reportarFotoIncorrecta, type ReportarFotoState } from "@/app/alumno/entrenar/foto-actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
-import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { ModalVideo } from "@/components/student/ModalVideo";
 import { VideoCloudflareAutomatico } from "@/components/student/VideoCloudflareAutomatico";
 import { resolverIlustracion, resolverFotoCompleta } from "@/lib/ejercicios/ilustracion";
@@ -79,11 +78,9 @@ function formatUltimo(u: EjercicioSesion["ultimoRegistro"], esTiempo: boolean) {
 /**
  * La foto de referencia del ejercicio, tomada en el gimnasio VIP.
  *
- * Deliberadamente NO usa el fallback a la foto de grupo muscular (a
- * diferencia de <IlustracionEjercicio>): ese fallback vive en el ícono chico
- * de al lado del nombre. Acá, mientras no exista la foto propia del
- * ejercicio, se muestra el cuadro vacío en gris — mezclar los dos fallbacks
- * en el mismo lugar los volvía indistinguibles.
+ * Mientras no exista la foto propia del ejercicio, se muestra el cuadro
+ * "Solicitar foto" o el de video, nunca un dibujo genérico del grupo
+ * muscular — la referencia es siempre real o está pendiente, no inventada.
  */
 export function CuadroFotoReferencia({
   ilustracionSlug,
@@ -1845,84 +1842,105 @@ export const SesionEjercicioCard = forwardRef<
         }
       >
 
-        {/* Cabecera en dos columnas: a la izquierda lo que se lee (qué
-            ejercicio es y con qué números), a la derecha la foto de referencia.
-            La fila de datos vive DENTRO de la columna izquierda —antes cruzaba
-            la tarjeta entera debajo de la foto— y eso es lo que deja lugar para
-            que la foto sea grande sin estirar la tarjeta hacia abajo. */}
+        {/* Cabecera en fila: foto real chica primero (sin el muñeco de
+            silueta del grupo muscular, que se sacó — pedido de Alejandro,
+            "exactamente igual" a la referencia), nombre al medio, números a
+            la derecha. En modo enfocado la foto pasa a ocupar toda la fila
+            y el resto se oculta, como antes. */}
         <div className="cabecera-ejercicio mb-2 flex items-start gap-2">
+          {!modoEnfocado && (
+            <CuadroFotoReferencia
+              ilustracionSlug={ejercicio.ilustracionSlug}
+              fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
+              fotoCompletaUrl={ejercicio.fotoCompletaUrl}
+              videoUrl={ejercicio.videoUrl}
+              videoCloudflareUid={ejercicio.videoCloudflareUid}
+              videoCloudflareEstado={ejercicio.videoCloudflareEstado}
+              videoCloudflareMiniaturaUrl={ejercicio.videoCloudflareMiniaturaUrl}
+              nombre={ejercicio.nombre}
+              sesionEjercicioId={ejercicio.sesionEjercicioId}
+              ejercicioId={ejercicio.ejercicioId}
+              fotoPanoramaX={ejercicio.fotoPanoramaX}
+              fotoPanoramaY={ejercicio.fotoPanoramaY}
+              fotoCuadradaX={ejercicio.fotoCuadradaX}
+              fotoCuadradaY={ejercicio.fotoCuadradaY}
+              compacto
+            />
+          )}
           <div className={modoEnfocado ? "hidden" : "flex min-w-0 flex-1 flex-col"}>
-            {/* El muñeco del grupo muscular es una columna propia y no un
-                iconito metido en la línea de arriba: así la etiqueta y el
-                nombre del ejercicio arrancan en la MISMA vertical (la P de
-                "Press" debajo de la E de "EJERCICIO") en vez de escalonados, y
-                el muñeco puede ser grande sin empujar nada. */}
-            <div className="flex items-start gap-2">
-              {/* Anillo ámbar sutil alrededor del muñeco/foto de grupo
-                  muscular — mismo lenguaje "premium" que el resto de la
-                  identidad VIP, sin agrandar el ícono en sí. */}
-              <div className="anillo-vip-suave shrink-0 rounded-full">
-                <IlustracionEjercicio
-                  // Siempre el "modelo" del grupo muscular acá: la foto real del
-                  // ejercicio (si existe) va en el cuadro grande de la derecha,
-                  // no en este ícono. Por eso ilustracionSlug va fijo en null.
-                  ilustracionSlug={null}
-                  grupoMuscular={ejercicio.grupoMuscular}
-                  nombre={ejercicio.nombre}
-                  tamano={48}
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                {/* Sin "EJERCICIO" ni truncate: ese prefijo era lo que hacía
-                    que el grupo muscular ("PIERNAS", "ESPALDA") se cortara en
-                    la columna angosta que deja la foto de referencia al lado.
-                    Con el número solo, el texto entero entra o como mucho
-                    pasa a una segunda línea — nunca queda escondido. */}
-                <p className="text-micro font-semibold leading-tight tracking-wide text-vip">
-                  {ejercicio.orden}
-                  {ejercicio.grupoMuscular
-                    ? ` · ${ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular].toUpperCase()}`
-                    : ""}
-                </p>
-                {/* Jerarquía más marcada: el nombre del ejercicio es lo primero
-                    que hay que leer de la tarjeta, así que sube de tamaño
-                    (antes 14px, igual que cualquier texto secundario). Sigue
-                    sin truncate ni tamaño fijo por longitud: si no entra en una
-                    línea, pasa a la siguiente. */}
-                <p className="text-card-title mt-0.5 leading-tight text-text">
-                  {ejercicio.nombre}
-                </p>
-                {/* Solo la técnica acá — el número de series/reps se movió al
-                    bloque compacto de la derecha (ver más abajo) para no
-                    repetirlo dos veces en la misma tarjeta. */}
-                <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                  {ejercicio.tecnicaTipo && (
-                    <span
-                      className="pill-tecnica inline-block"
-                      // Coloreada por familia cuando es una técnica encadenada
-                      // (superserie, biserie...): el alumno ve de un vistazo
-                      // que este ejercicio va pegado a otro, sin tener que leer
-                      // el texto completo.
-                      style={
-                        grupoTecnica
-                          ? {
-                              color: grupoTecnica.color,
-                              borderColor: grupoTecnica.color,
-                              background: `color-mix(in srgb, ${grupoTecnica.color} 16%, transparent)`,
-                            }
-                          : undefined
-                      }
-                    >
-                      {ejercicio.tecnicaTipo}
-                      {/* "Drop set · última serie": sin esto el alumno lee
-                          "Drop set" y lo aplica a las cuatro. */}
-                      {ejercicio.tecnicaSeries && (
-                        <> · {etiquetaSeriesTecnica(ejercicio.tecnicaSeries, ejercicio.seriesProgramadas)}</>
-                      )}
-                    </span>
+            {/* Sin "EJERCICIO" ni truncate: ese prefijo era lo que hacía
+                que el grupo muscular ("PIERNAS", "ESPALDA") se cortara en
+                la columna angosta que deja la foto de referencia al lado.
+                Con el número solo, el texto entero entra o como mucho
+                pasa a una segunda línea — nunca queda escondido. */}
+            <p className="text-micro font-semibold leading-tight tracking-wide text-vip">
+              {ejercicio.orden}
+              {ejercicio.grupoMuscular
+                ? ` · ${ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular].toUpperCase()}`
+                : ""}
+            </p>
+            {/* Jerarquía más marcada: el nombre del ejercicio es lo primero
+                que hay que leer de la tarjeta, así que sube de tamaño
+                (antes 14px, igual que cualquier texto secundario). Sigue
+                sin truncate ni tamaño fijo por longitud: si no entra en una
+                línea, pasa a la siguiente. */}
+            <p className="text-card-title mt-0.5 leading-tight text-text">
+              {ejercicio.nombre}
+            </p>
+            {/* Técnica y, si hay una sugerida, el disparador que abre el
+                modal — ya no flota sobre la foto (que ahora es chica y no
+                tiene lugar para un botón encima) sino acá, al lado del
+                nombre. Mismo comportamiento: `avisoTecnica` lo hace
+                parpadear unos segundos al activarse el ejercicio, tocarlo
+                lo apaga. */}
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {ejercicio.tecnicaTipo ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMostrarTecnica(true);
+                    setAvisoTecnica(false);
+                  }}
+                  aria-haspopup="dialog"
+                  aria-label="Ver técnica sugerida"
+                  className={`pill-tecnica inline-block ${avisoTecnica ? "parpadeo-icono-tecnica" : ""}`}
+                  // Coloreada por familia cuando es una técnica encadenada
+                  // (superserie, biserie...): el alumno ve de un vistazo
+                  // que este ejercicio va pegado a otro, sin tener que leer
+                  // el texto completo.
+                  style={
+                    grupoTecnica
+                      ? {
+                          color: grupoTecnica.color,
+                          borderColor: grupoTecnica.color,
+                          background: `color-mix(in srgb, ${grupoTecnica.color} 16%, transparent)`,
+                        }
+                      : undefined
+                  }
+                >
+                  {ejercicio.tecnicaTipo}
+                  {/* "Drop set · última serie": sin esto el alumno lee
+                      "Drop set" y lo aplica a las cuatro. */}
+                  {ejercicio.tecnicaSeries && (
+                    <> · {etiquetaSeriesTecnica(ejercicio.tecnicaSeries, ejercicio.seriesProgramadas)}</>
                   )}
-                </div>
-              </div>
+                </button>
+              ) : (
+                tecnica && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarTecnica(true);
+                      setAvisoTecnica(false);
+                    }}
+                    aria-haspopup="dialog"
+                    aria-label="Ver técnica sugerida"
+                    className={`flex items-center gap-1 text-micro font-semibold text-vip ${avisoTecnica ? "parpadeo-icono-tecnica" : ""}`}
+                  >
+                    <AlertCircle size={12} strokeWidth={2.5} /> Técnica sugerida
+                  </button>
+                )
+              )}
             </div>
           </div>
           {/* Bloque compacto de números — reemplaza la barra de 4 chips que
@@ -1949,67 +1967,57 @@ export const SesionEjercicioCard = forwardRef<
               )}
             </div>
           )}
-          {/* `relative`: contenedor del botón "!" sobrepuesto (ver abajo) —
-              no de la foto en sí, que sigue midiéndose sola por su `tamano`. */}
-          <div className="relative shrink-0">
-          <CuadroFotoReferencia
-            ilustracionSlug={ejercicio.ilustracionSlug}
-            fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
-            fotoCompletaUrl={ejercicio.fotoCompletaUrl}
-            videoUrl={ejercicio.videoUrl}
-            videoCloudflareUid={ejercicio.videoCloudflareUid}
-            videoCloudflareEstado={ejercicio.videoCloudflareEstado}
-            videoCloudflareMiniaturaUrl={ejercicio.videoCloudflareMiniaturaUrl}
-            nombre={ejercicio.nombre}
-            sesionEjercicioId={ejercicio.sesionEjercicioId}
-            ejercicioId={ejercicio.ejercicioId}
-            fotoPanoramaX={ejercicio.fotoPanoramaX}
-            fotoPanoramaY={ejercicio.fotoPanoramaY}
-            fotoCuadradaX={ejercicio.fotoCuadradaX}
-            fotoCuadradaY={ejercicio.fotoCuadradaY}
-            destacado={modoEnfocado}
-            reproducirAutomaticamente={modoEnfocado && activo && !soloLectura}
-          />
-          {/* El botón de técnica: SOBRE la foto (esquina inferior izquierda —
-              la derecha ya la usa el ícono de ampliar) y no en el texto, para
-              que no empuje nada hacia abajo. Funciona igual en modo normal y
-              en modo enfocado, a diferencia del botón que tenía antes en la
-              cabecera (que quedaba oculto en modo enfocado y no había forma
-              de reabrir la técnica una vez cerrada). Abre el modal completo,
-              nunca cierra desde acá — cerrar es cosa del modal mismo.
-
-              Al pasar el ejercicio a activo, `avisoTecnica` lo hace parpadear
-              con la etiqueta "Técnica sugerida" al lado unos segundos (ver el
-              efecto más arriba) — nada se abre solo, el alumno decide si
-              toca. Tocar el botón apaga el aviso igual que si se hubiera
-              esperado a que se esconda solo. */}
-          {tecnica && (
-            <div className="absolute bottom-1.5 left-1.5 z-[4] flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setMostrarTecnica(true);
-                  setAvisoTecnica(false);
-                }}
-                aria-haspopup="dialog"
-                aria-label="Ver técnica sugerida"
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/60 text-vip backdrop-blur-sm active:scale-95 ${
-                  avisoTecnica ? "parpadeo-icono-tecnica" : ""
-                }`}
-              >
-                <AlertCircle size={16} strokeWidth={2.5} />
-              </button>
-              {avisoTecnica && (
-                <span
-                  aria-hidden
-                  className="aviso-etiqueta-tecnica whitespace-nowrap rounded-full bg-black/60 px-2 py-1 text-[11px] font-semibold text-vip backdrop-blur-sm"
-                >
-                  Técnica sugerida
-                </span>
+          {/* Modo enfocado: la foto grande vuelve a ocupar la fila entera,
+              con el botón de técnica sobrepuesto como antes — acá sí hay
+              lugar de sobra. */}
+          {modoEnfocado && (
+            <div className="relative shrink-0">
+              <CuadroFotoReferencia
+                ilustracionSlug={ejercicio.ilustracionSlug}
+                fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
+                fotoCompletaUrl={ejercicio.fotoCompletaUrl}
+                videoUrl={ejercicio.videoUrl}
+                videoCloudflareUid={ejercicio.videoCloudflareUid}
+                videoCloudflareEstado={ejercicio.videoCloudflareEstado}
+                videoCloudflareMiniaturaUrl={ejercicio.videoCloudflareMiniaturaUrl}
+                nombre={ejercicio.nombre}
+                sesionEjercicioId={ejercicio.sesionEjercicioId}
+                ejercicioId={ejercicio.ejercicioId}
+                fotoPanoramaX={ejercicio.fotoPanoramaX}
+                fotoPanoramaY={ejercicio.fotoPanoramaY}
+                fotoCuadradaX={ejercicio.fotoCuadradaX}
+                fotoCuadradaY={ejercicio.fotoCuadradaY}
+                destacado
+                reproducirAutomaticamente={activo && !soloLectura}
+              />
+              {tecnica && (
+                <div className="absolute bottom-1.5 left-1.5 z-[4] flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarTecnica(true);
+                      setAvisoTecnica(false);
+                    }}
+                    aria-haspopup="dialog"
+                    aria-label="Ver técnica sugerida"
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/60 text-vip backdrop-blur-sm active:scale-95 ${
+                      avisoTecnica ? "parpadeo-icono-tecnica" : ""
+                    }`}
+                  >
+                    <AlertCircle size={16} strokeWidth={2.5} />
+                  </button>
+                  {avisoTecnica && (
+                    <span
+                      aria-hidden
+                      className="aviso-etiqueta-tecnica whitespace-nowrap rounded-full bg-black/60 px-2 py-1 text-[11px] font-semibold text-vip backdrop-blur-sm"
+                    >
+                      Técnica sugerida
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           )}
-        </div>
         </div>
 
         {/* Técnica, en lugar de la observación que había antes: lo que se lee

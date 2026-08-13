@@ -80,7 +80,9 @@ export default async function SesionPage({
     // space-y-3 y no 4: con siete ejercicios, cada 4 px entre tarjetas son
     // 28 px de scroll. Lo que se busca es que el ejercicio en curso y la
     // cabecera del siguiente entren juntos en una pantalla.
-    <div className="space-y-3 pb-8">
+    // `pb-32` cuando "Iniciar rutina" queda fijo abajo (ver más abajo): sin
+    // ese aire de más, el botón fijo tapaba el último ejercicio de la lista.
+    <div className={`space-y-3 ${bloqueadaPorIniciar ? "pb-32" : "pb-8"}`}>
       {sesion.estado === "en_progreso" && !vistaSoloLectura && (
         <RefrescarRecomendaciones sesionId={sesion.id} />
       )}
@@ -165,20 +167,24 @@ export default async function SesionPage({
         )}
       </div>
 
-      {/* Antes vivía arriba, chico, apretado junto al título — pasaba
-          desapercibido. Acá, grande y con el mismo resplandor insistente que
-          "Ver entrenamiento" en el calendario, es la primera cosa que se ve
-          al entrar a la sesión. */}
+      {/* Fijo abajo, apoyado justo encima de la barra de navegación
+          (`--alto-nav-alumno`, que publica BarraInferiorFija — mismo patrón
+          que el buscador fijo de Nutrición), en vez de vivir en el flujo
+          normal y desaparecer scroll abajo. Pedido de Alejandro: con varios
+          ejercicios en pantalla el botón para arrancar quedaba tapado sin
+          bajar hasta el fondo. */}
       {bloqueadaPorIniciar && (
-        <form action={iniciarRutina}>
-          <input type="hidden" name="sesion_id" value={sesion.id} />
-          <button
-            type="submit"
-            className="btn-accion boton-entrenar-pulso radius-control flex h-16 w-full items-center justify-center gap-2 text-body font-bold"
-          >
-            <Play size={20} strokeWidth={3} /> Iniciar rutina
-          </button>
-        </form>
+        <div className="fixed inset-x-0 bottom-[var(--alto-nav-alumno,110px)] z-30 mx-auto w-full max-w-md px-4 pb-2">
+          <form action={iniciarRutina}>
+            <input type="hidden" name="sesion_id" value={sesion.id} />
+            <button
+              type="submit"
+              className="btn-accion boton-entrenar-pulso radius-control flex h-16 w-full items-center justify-center gap-2 text-body font-bold"
+            >
+              <Play size={20} strokeWidth={3} /> Iniciar rutina
+            </button>
+          </form>
+        </div>
       )}
 
       {esDescanso ? (
