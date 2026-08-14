@@ -1,8 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { Crown } from "lucide-react";
 
 /**
  * Pantallas que cambian la placa de ancho completo por un encabezado bajito:
@@ -70,6 +71,14 @@ function MarcaCuadrada({ lado = 34 }: { lado?: number }) {
   );
 }
 
+function MarcaVipEntrenamiento() {
+  return (
+    <span className="marca-vip-entrenamiento" aria-label="VIP Fitness">
+      <span>VIP</span>
+    </span>
+  );
+}
+
 /** Placa detrás del logo: negro sólido y logo a color completo a la izquierda
  * en Espejo (look premium y serio); VIP y Lady mantienen la placa de color de
  * siempre con el mismo logo teñido de negro plano. En Inicio se muestra a
@@ -82,17 +91,45 @@ export function Logo({
   height,
   corner,
   compact = false,
+  puntosVip = 0,
 }: {
   className?: string;
   height?: number;
   corner?: ReactNode;
   compact?: boolean;
+  puntosVip?: number;
 }) {
   const pathname = usePathname();
+  const [tituloRutinaActiva, setTituloRutinaActiva] = useState("");
+  useEffect(() => {
+    const actualizar = (evento: Event) => {
+      setTituloRutinaActiva((evento as CustomEvent<string>).detail ?? "");
+    };
+    window.addEventListener("vip:titulo-rutina", actualizar);
+    return () => window.removeEventListener("vip:titulo-rutina", actualizar);
+  }, []);
   const resolvedHeight = height ?? (compact ? 44 : pathname === "/alumno/inicio" ? 70 : 36);
   const spacing = compact ? "rounded-xl px-5 py-2.5" : "rounded-2xl px-6 py-4";
 
   const compacta = RUTAS_COMPACTAS.find(([ruta]) => pathname.startsWith(ruta));
+
+  if (pathname.startsWith("/alumno/entrenar/sesion/")) {
+    const [numeroSesion, ...nombreDia] = tituloRutinaActiva.split("·").map((parte) => parte.trim());
+    return (
+      <div className={`logo-rutina-activa flex items-center ${className}`}>
+        <MarcaVipEntrenamiento />
+        <span className="titulo-rutina-activa min-w-0 flex-1 truncate">
+          <b>{numeroSesion || "VIP"}</b>
+          {nombreDia.length > 0 && <span>{nombreDia.join(" · ")}</span>}
+        </span>
+        <span className="puntos-rutina-activa" aria-label={`${puntosVip.toLocaleString("es-CL")} puntos VIP`}>
+          <Crown size={14} fill="currentColor" />
+          <strong>{puntosVip.toLocaleString("es-CL")}</strong>
+        </span>
+        {corner}
+      </div>
+    );
+  }
 
   if (compacta) {
     const [, titulo] = compacta;

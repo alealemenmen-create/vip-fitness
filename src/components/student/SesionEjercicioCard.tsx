@@ -5,7 +5,6 @@ import { createPortal, flushSync } from "react-dom";
 import {
   Check,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Play,
   Timer,
@@ -15,6 +14,10 @@ import {
   Maximize2,
   X,
   AlertCircle,
+  Info,
+  Save,
+  Target,
+  Zap,
   TrendingUp,
   ShieldAlert,
   HeartCrack,
@@ -103,6 +106,8 @@ export function CuadroFotoReferencia({
   tamanoCompacto = 44,
   destacado = false,
   reproducirAutomaticamente = false,
+  tecnicaTexto = null,
+  tecnicaExplicacion = null,
 }: {
   ilustracionSlug: string | null;
   /** Fotos subidas desde /admin/ejercicios — mandan sobre la ilustración
@@ -137,6 +142,8 @@ export function CuadroFotoReferencia({
    * pantalla, no una miniatura arrinconada junto al título. */
   destacado?: boolean;
   reproducirAutomaticamente?: boolean;
+  tecnicaTexto?: string | null;
+  tecnicaExplicacion?: string | null;
 }) {
   const { src: srcEstatico, origen } = resolverIlustracion(ilustracionSlug, null);
   const src = fotoMiniaturaUrl ?? videoCloudflareMiniaturaUrl ?? (origen === "ilustracion" ? srcEstatico : null);
@@ -191,6 +198,8 @@ export function CuadroFotoReferencia({
       compacto={compacto}
       destacado={destacado}
       reproducirAutomaticamente={reproducirAutomaticamente}
+      tecnicaTexto={tecnicaTexto}
+      tecnicaExplicacion={tecnicaExplicacion}
     />
   );
 }
@@ -334,6 +343,8 @@ function FotoReferenciaAmpliable({
   compacto = false,
   destacado = false,
   reproducirAutomaticamente = false,
+  tecnicaTexto = null,
+  tecnicaExplicacion = null,
 }: {
   src: string;
   /** La foto ORIGINAL sin recortar, si ya se identificó cuál es (ver
@@ -357,6 +368,8 @@ function FotoReferenciaAmpliable({
   compacto?: boolean;
   destacado?: boolean;
   reproducirAutomaticamente?: boolean;
+  tecnicaTexto?: string | null;
+  tecnicaExplicacion?: string | null;
 }) {
   const [ampliada, setAmpliada] = useState(false);
   const [confirmandoReporte, setConfirmandoReporte] = useState(false);
@@ -421,7 +434,8 @@ function FotoReferenciaAmpliable({
           // cabeza o los pies según la proporción del cuadro, y se veía mal.
           // Lo que sobra a los costados lo tapa el relleno borroso de atrás,
           // así que el cuadro sigue viéndose lleno.
-          className="z-[1] object-contain object-center"
+          className={destacado ? "z-[1] object-cover" : "z-[1] object-contain object-center"}
+          style={destacado ? { objectPosition: `${posicionX}% ${posicionY}%` } : undefined}
         />
         {destacado && videoCloudflareListo && (
           <VideoCloudflareAutomatico
@@ -459,7 +473,7 @@ function FotoReferenciaAmpliable({
                 altas que anchas), acotada por el alto y ancho de la pantalla
                 — no un cuadrado que la deja flotando con bordes vacíos. */}
             <div
-              className="relative h-[75vh] w-full max-w-md animate-visor-foto"
+              className={`relative w-full max-w-md animate-visor-foto ${tecnicaTexto ? "h-[58vh]" : "h-[75vh]"}`}
               onClick={(e) => e.stopPropagation()}
             >
               <Image
@@ -470,7 +484,19 @@ function FotoReferenciaAmpliable({
                 className="rounded-xl object-contain"
               />
             </div>
-            <p className="text-caption text-white/70">{nombre}</p>
+            {tecnicaTexto ? (
+              <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#141416] px-4 py-3 text-left" onClick={(e) => e.stopPropagation()}>
+                <p className="text-caption font-bold uppercase tracking-wide text-vip">Técnica · {nombre}</p>
+                <p className="mt-1.5 text-caption leading-relaxed text-white">{tecnicaTexto}</p>
+                {tecnicaExplicacion && (
+                  <p className="mt-2 text-caption leading-relaxed text-white/65">
+                    <span className="font-semibold text-white/85">Cómo se ejecuta: </span>{tecnicaExplicacion}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-caption text-white/70">{nombre}</p>
+            )}
             {(sesionEjercicioId || diaEjercicioId) && !reporte.ok && !confirmandoReporte && (
               <button
                 type="button"
@@ -1638,8 +1664,11 @@ export const FilaSerie = forwardRef<
                 </span>
               ) : esLaQueToca ? (
                 <span className="flex flex-col items-center leading-tight">
-                  <span>{modoDestacado ? "Guardar serie" : "Descanso"}</span>
-                  {descansoSegundos ? (
+                  <span className={modoDestacado ? "guardar-serie-foco" : undefined}>
+                    {modoDestacado && <Save size={18} />}
+                    {modoDestacado ? "Guardar" : "Descanso"}
+                  </span>
+                  {!modoDestacado && descansoSegundos ? (
                     <span className="boton-descanso-segundos">{modoDestacado ? `y descansar ${descansoSegundos}s` : `${descansoSegundos}s`}</span>
                   ) : null}
                 </span>
@@ -1707,7 +1736,7 @@ export const SesionEjercicioCard = forwardRef<
   const [state, formAction, pending] = useActionState(guardarSeries, initialState);
   // Abierto de entrada el que está en curso y los ya terminados (para poder
   // revisar lo que se levantó); en modo lectura, todos.
-  const [expandido, setExpandido] = useState(activo || soloLectura || ejercicio.completado);
+  const [expandido, setExpandido] = useState(modoEnfocado || activo || soloLectura || ejercicio.completado);
   const esTiempo = esEjercicioDeTiempo(ejercicio.repsProgramadas);
   const ultimoTexto = formatUltimo(ejercicio.ultimoRegistro, esTiempo);
   const tecnica = resolverTecnica(ejercicio);
@@ -1802,6 +1831,19 @@ export const SesionEjercicioCard = forwardRef<
   // techo del rango del PDF — mismo criterio que el peso: sin recomendación
   // aprobada, el comportamiento de precarga queda igual que siempre.
   const objetivoReps = recomendacionAprobada?.repsObjetivoMax ?? repsObjetivo(ejercicio.repsProgramadas);
+  const pesoObjetivoKg = pesoSugeridoEfectivo ?? (
+    !ejercicio.ultimoRegistro?.esPesoCorporal ? ejercicio.ultimoRegistro?.pesoKg ?? null : null
+  );
+  const pesoObjetivoTexto = recomendacionAprobada?.esPesoCorporal || ejercicio.ultimoRegistro?.esPesoCorporal
+    ? "Peso corporal"
+    : pesoObjetivoKg != null
+      ? `${pesoObjetivoKg} kg`
+      : "— kg";
+  const repsObjetivoTexto = recomendacionAprobada?.repsObjetivoMin != null
+    ? recomendacionAprobada.repsObjetivoMax != null && recomendacionAprobada.repsObjetivoMax !== recomendacionAprobada.repsObjetivoMin
+      ? `${recomendacionAprobada.repsObjetivoMin}–${recomendacionAprobada.repsObjetivoMax} reps`
+      : `${recomendacionAprobada.repsObjetivoMin} reps`
+    : `${ejercicio.repsProgramadas}${esTiempo ? " seg" : " reps"}`;
 
   /**
    * La serie que toca ahora: la primera sin hacer, y solo dentro del ejercicio
@@ -1823,6 +1865,9 @@ export const SesionEjercicioCard = forwardRef<
     activo && !soloLectura && !ejercicio.completado
       ? (filas.find((n) => n <= ejercicio.seriesProgramadas && !seriesHechas.has(n)) ?? primeraExtraPendiente)
       : primeraExtraPendiente;
+  const impulsoEnSerieVisible = intervencionesImpulso.some(
+    (intervencion) => intervencion.serieObjetivo === serieVisibleNumero && intervencion.estado !== "cancelada"
+  );
 
   // Respaldo local: se lee DESPUÉS de montar (localStorage no existe en el
   // servidor, leerlo durante el render rompería la hidratación).
@@ -2200,63 +2245,41 @@ export const SesionEjercicioCard = forwardRef<
                   fotoCuadradaY={ejercicio.fotoCuadradaY}
                   destacado
                   reproducirAutomaticamente={activo && !soloLectura}
+                  tecnicaTexto={tecnica?.texto}
+                  tecnicaExplicacion={explicacion?.explicacion}
                 />
-                {tecnica && (
-                  <div className="absolute bottom-1.5 left-1.5 z-[4] flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMostrarTecnica(true);
-                        setAvisoTecnica(false);
-                      }}
-                      aria-haspopup="dialog"
-                      aria-label="Ver técnica sugerida"
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/60 text-vip backdrop-blur-sm active:scale-95 ${
-                        avisoTecnica ? "parpadeo-icono-tecnica" : ""
-                      }`}
-                    >
-                      <AlertCircle size={16} strokeWidth={2.5} />
-                    </button>
-                    {avisoTecnica && (
-                      <span
-                        aria-hidden
-                        className="aviso-etiqueta-tecnica whitespace-nowrap rounded-full bg-black/60 px-2 py-1 text-[11px] font-semibold text-vip backdrop-blur-sm"
-                      >
-                        Técnica sugerida
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
               <div className="guia-ejercicio-foco">
                 <p>
                   {ejercicio.orden} · {ejercicio.grupoMuscular ? ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular].toUpperCase() : "EJERCICIO"}
                 </p>
                 <h2>{ejercicio.nombre}</h2>
-                <div className="navegacion-serie-cabecera">
-                  <button
-                    type="button"
-                    onClick={() => setSerieVisibleNumero((actual) => Math.max(1, actual - 1))}
-                    disabled={serieVisibleNumero === 1}
-                    aria-label="Ver serie anterior"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <strong>
-                    {serieVisibleNumero > ejercicio.seriesProgramadas ? "Serie extra" : "Serie"} {serieVisibleNumero} de {cantidadSeriesVisible}
-                  </strong>
-                  <button
-                    type="button"
-                    onClick={() => setSerieVisibleNumero((actual) => Math.min(cantidadSeriesVisible, actual + 1))}
-                    disabled={serieVisibleNumero === cantidadSeriesVisible}
-                    aria-label="Ver serie siguiente"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
+                <div className="selector-series-foco" aria-label="Seleccionar serie">
+                  {filas.map((numero) => {
+                    const esImpulso = intervencionesImpulso.some(
+                      (intervencion) => intervencion.serieObjetivo === numero && intervencion.estado !== "cancelada"
+                    );
+                    return (
+                      <button
+                        key={numero}
+                        type="button"
+                        onClick={() => setSerieVisibleNumero(numero)}
+                        data-estado={seriesHechas.has(numero) ? "completa" : numero === serieVisibleNumero ? "actual" : "pendiente"}
+                        data-impulso={esImpulso ? "true" : "false"}
+                        aria-label={`Ver serie ${numero}${esImpulso ? ", con Impulso VIP" : ""}`}
+                        aria-current={numero === serieVisibleNumero ? "step" : undefined}
+                      >
+                        <span />
+                        <small>Serie {numero}</small>
+                      </button>
+                    );
+                  })}
                 </div>
-                {(intervencionesImpulso.some((intervencion) => intervencion.serieObjetivo === serieVisibleNumero)) && (
-                  <span className="impulso-serie-foco">⚡ Impulso VIP</span>
-                )}
+                <span className="impulso-serie-foco" data-activo={impulsoEnSerieVisible ? "true" : "false"}>
+                  <Zap size={19} fill="currentColor" aria-hidden />
+                  Impulso VIP
+                  <Info size={13} />
+                </span>
               </div>
             </>
           )}
@@ -2396,38 +2419,22 @@ export const SesionEjercicioCard = forwardRef<
 
       {!modoEnfocado && <TarjetaImpulsoVip recomendacion={recomendacionImpulso} />}
 
-      {modoEnfocado && (
-        <div className="selector-series-foco" aria-label="Seleccionar serie">
-          {filas.map((numero) => (
-            <button
-              key={numero}
-              type="button"
-              onClick={() => setSerieVisibleNumero(numero)}
-              data-estado={seriesHechas.has(numero) ? "completa" : numero === serieVisibleNumero ? "actual" : "pendiente"}
-              aria-label={`Ver serie ${numero}`}
-              aria-current={numero === serieVisibleNumero ? "step" : undefined}
-            >
-              <span />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {ultimoTexto && (
-        <p className="registro-anterior-foco text-micro mb-1.5 text-text-tertiary">
-          <span>Último registro</span>
-          <strong>{ultimoTexto}</strong>
-          <small>{ejercicio.ultimoRegistro?.fecha}</small>
+      <div className="resumen-serie-foco">
+        <p className="registro-anterior-foco">
+          <Timer size={21} />
+          <span>Última vez</span>
+          <i>·</i>
+          <strong>{ultimoTexto ?? "—"}</strong>
         </p>
-      )}
-      <p className="objetivo-serie-foco">
-        <span>Objetivo</span>
-        <strong>
-          {pesoSugeridoEfectivo != null ? `${pesoSugeridoEfectivo} kg · ` : ""}
-          {ejercicio.repsProgramadas}{esTiempo ? " seg" : " reps"}
-        </strong>
-        <small>{ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s de descanso` : "Sin descanso"}</small>
-      </p>
+        <p className="objetivo-serie-foco">
+          <Target size={21} />
+          <span>Objetivo</span>
+          <i>·</i>
+          <strong>
+            {pesoObjetivoTexto} × {repsObjetivoTexto}
+          </strong>
+        </p>
+      </div>
 
       {modoEnfocado && tecnica &&
         (!ejercicio.tecnicaSeries || tecnicaAplicaASerie(ejercicio.tecnicaSeries, serieVisibleNumero)) && (
@@ -2481,7 +2488,7 @@ export const SesionEjercicioCard = forwardRef<
           ref={formRef}
           action={formAction}
           onChange={respaldarLocal}
-          className="space-y-1"
+          className={modoEnfocado ? "panel-ejecucion-foco" : "space-y-1"}
         >
           <input type="hidden" name="sesion_ejercicio_id" value={ejercicio.sesionEjercicioId} />
           <input type="hidden" name="sesion_id" value={sesionId} />

@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronRight, List, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, List, LockKeyhole, X } from "lucide-react";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
-import { CuadroFotoReferencia, SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
+import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
 import { SesionGrupoCard } from "@/components/student/SesionGrupoCard";
 import { resolverGrupoTecnica, tamanoGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
@@ -91,6 +91,7 @@ function calcularActivo(ejercicios: EjercicioSesion[]): string | null {
 export function SesionEjercicios({
   ejercicios,
   sesionId,
+  tituloSesion,
   soloLectura,
   completados,
   total,
@@ -98,6 +99,7 @@ export function SesionEjercicios({
 }: {
   ejercicios: EjercicioSesion[];
   sesionId: string;
+  tituloSesion?: string;
   soloLectura: boolean;
   /**
    * Corrigiendo un registro cerrado (migración 0077): se edita, pero **toda la
@@ -128,6 +130,14 @@ export function SesionEjercicios({
   );
   const [indiceVisible, setIndiceVisible] = useState(indiceActivo);
   const [mostrarRutina, setMostrarRutina] = useState(false);
+  const [gruposDesbloqueados, setGruposDesbloqueados] = useState<Set<string>>(
+    () => new Set(grupos[indiceActivo]?.[0] ? [grupos[indiceActivo][0].sesionEjercicioId] : [])
+  );
+  const [toquesDesbloqueo, setToquesDesbloqueo] = useState(0);
+  useEffect(() => {
+    if (!tituloSesion) return;
+    window.dispatchEvent(new CustomEvent("vip:titulo-rutina", { detail: tituloSesion }));
+  }, [tituloSesion]);
 
   /**
    * Cambiar de ejercicio guarda lo que haya cargado en el que se deja.
@@ -140,17 +150,24 @@ export function SesionEjercicios({
    */
   const irA = (indice: number) => {
     handles.current.forEach((handle) => handle.guardar());
+    if (indice < indiceVisible) {
+      const claveAnterior = grupos[indice]?.[0]?.sesionEjercicioId;
+      if (claveAnterior) setGruposDesbloqueados((actuales) => new Set(actuales).add(claveAnterior));
+    }
     setIndiceVisible(indice);
+    setToquesDesbloqueo(0);
   };
 
   const avanzarDesdeEncuesta = (grupo: EjercicioSesion[]) => {
     const indice = grupos.findIndex((actual) => actual[0].sesionEjercicioId === grupo[0].sesionEjercicioId);
-    if (indice >= 0 && indice < grupos.length - 1) setIndiceVisible(indice + 1);
+    if (indice >= 0 && indice < grupos.length - 1) irA(indice + 1);
   };
 
   const renderizarGrupo = (grupo: EjercicioSesion[]) => {
     if (grupo.length >= 2) {
-      const activo = !modoCorreccion && grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId);
+      const activo = !modoCorreccion && (
+        grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId) || gruposDesbloqueados.has(grupo[0].sesionEjercicioId)
+      );
       return (
         <SesionGrupoCard
           key={grupo[0].sesionEjercicioId}
@@ -180,7 +197,9 @@ export function SesionEjercicios({
         ejercicio={grupo[0]}
         sesionId={sesionId}
         soloLectura={soloLectura}
-        activo={!modoCorreccion && grupo[0].sesionEjercicioId === ejercicioActivoId}
+        activo={!modoCorreccion && (
+          grupo[0].sesionEjercicioId === ejercicioActivoId || gruposDesbloqueados.has(grupo[0].sesionEjercicioId)
+        )}
         modoEnfocado={!soloLectura && !modoCorreccion}
         onDificultadRespondida={() => avanzarDesdeEncuesta(grupo)}
       />
@@ -188,7 +207,20 @@ export function SesionEjercicios({
   };
 
   const grupoVisible = grupos[indiceVisible] ?? grupos[0];
+  const grupoAnterior = grupos[indiceVisible - 1] ?? null;
   const grupoSiguiente = grupos[indiceVisible + 1] ?? null;
+  const claveGrupoVisible = grupoVisible?.[0]?.sesionEjercicioId ?? "";
+  const grupoVisibleBloqueado = !!claveGrupoVisible && !gruposDesbloqueados.has(claveGrupoVisible);
+  const tocarParaDesbloquear = () => {
+    const siguienteConteo = toquesDesbloqueo + 1;
+    if (siguienteConteo < 3) {
+      setToquesDesbloqueo(siguienteConteo);
+      return;
+    }
+    setGruposDesbloqueados((actuales) => new Set(actuales).add(claveGrupoVisible));
+    setToquesDesbloqueo(0);
+  };
+  const indiceEjercicioVisible = Math.max(0, ejercicios.findIndex((ejercicio) => ejercicio.sesionEjercicioId === grupoVisible?.[0]?.sesionEjercicioId));
 
   return (
     <>
@@ -199,7 +231,16 @@ export function SesionEjercicios({
       {soloLectura || modoCorreccion ? (
         grupos.map(renderizarGrupo)
       ) : grupoVisible ? (
-        <section className="modo-entrenamiento-enfocado space-y-2" aria-label="Ejercicio actual">
+        <section className="modo-entrenamiento-enfocado" aria-label="Ejercicio actual">
+          <header className="cabecera-sesion-foco">
+            <p>{tituloSesion}</p>
+            <div className="progreso-sesion-foco" aria-label={`Ejercicio ${indiceEjercicioVisible + 1} de ${ejercicios.length}`}>
+              <span>
+                <i style={{ width: `${((indiceEjercicioVisible + 1) / Math.max(1, ejercicios.length)) * 100}%` }} />
+              </span>
+              <strong>{indiceEjercicioVisible + 1}/{ejercicios.length}</strong>
+            </div>
+          </header>
           <button
             type="button"
             onClick={() => setMostrarRutina(true)}
@@ -210,37 +251,42 @@ export function SesionEjercicios({
             <span>Rutina</span>
           </button>
 
-          {renderizarGrupo(grupoVisible)}
-
-          {grupoSiguiente && (
-            <div className="vista-siguiente-ejercicio">
-              <CuadroFotoReferencia
-                ilustracionSlug={grupoSiguiente[0].ilustracionSlug}
-                fotoMiniaturaUrl={grupoSiguiente[0].fotoMiniaturaUrl}
-                fotoCompletaUrl={grupoSiguiente[0].fotoCompletaUrl}
-                videoUrl={grupoSiguiente[0].videoUrl}
-                videoCloudflareUid={grupoSiguiente[0].videoCloudflareUid}
-                videoCloudflareEstado={grupoSiguiente[0].videoCloudflareEstado}
-                videoCloudflareMiniaturaUrl={grupoSiguiente[0].videoCloudflareMiniaturaUrl}
-                nombre={grupoSiguiente[0].nombre}
-                sesionEjercicioId={grupoSiguiente[0].sesionEjercicioId}
-                ejercicioId={grupoSiguiente[0].ejercicioId}
-                fotoCuadradaX={grupoSiguiente[0].fotoCuadradaX}
-                fotoCuadradaY={grupoSiguiente[0].fotoCuadradaY}
-                compacto
-                tamanoCompacto={52}
-              />
+          <div className="contenedor-grupo-bloqueable" data-bloqueado={grupoVisibleBloqueado ? "true" : "false"}>
+            {renderizarGrupo(grupoVisible)}
+            {grupoVisibleBloqueado && (
               <button
                 type="button"
-                onClick={() => irA(indiceVisible + 1)}
-                aria-label={`Ver siguiente ejercicio: ${grupoSiguiente.map((ejercicio) => ejercicio.nombre).join(" + ")}`}
+                className="bloqueo-ejercicio-siguiente"
+                onClick={tocarParaDesbloquear}
+                aria-label={`Ejercicio bloqueado. ${3 - toquesDesbloqueo} ${3 - toquesDesbloqueo === 1 ? "toque" : "toques"} para habilitarlo`}
               >
-                <span>Siguiente</span>
-                <strong>{grupoSiguiente.map((ejercicio) => ejercicio.nombre).join(" + ")}</strong>
-                <ChevronRight size={21} />
+                <span><LockKeyhole size={16} /></span>
+                <span className="texto-bloqueo-ejercicio">
+                  <strong>Registro bloqueado</strong>
+                  <small>{toquesDesbloqueo === 0 ? "Toca 3 veces para habilitar" : `${3 - toquesDesbloqueo} ${3 - toquesDesbloqueo === 1 ? "toque más" : "toques más"}`}</small>
+                </span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
+
+          <div className="navegacion-ejercicios-foco">
+            <button type="button" onClick={() => irA(indiceVisible - 1)} disabled={!grupoAnterior}>
+              <ArrowLeft size={22} />
+              <span>Anterior</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => irA(indiceVisible + 1)}
+              disabled={!grupoSiguiente}
+              aria-label={grupoSiguiente ? `Ver siguiente ejercicio: ${grupoSiguiente.map((ejercicio) => ejercicio.nombre).join(" + ")}` : "No hay otro ejercicio"}
+            >
+              <span>
+                <strong>{grupoSiguiente ? "Siguiente ejercicio" : "Último ejercicio"}</strong>
+                <small>{grupoSiguiente?.map((ejercicio) => ejercicio.nombre).join(" + ") ?? "Fin de la rutina"}</small>
+              </span>
+              <ArrowRight size={23} />
+            </button>
+          </div>
 
         </section>
       ) : null}

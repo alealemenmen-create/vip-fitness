@@ -33,6 +33,7 @@ import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { marcarRequest } from "@/lib/supabase/instrumentacion";
 import { registrarIngresoDiario } from "@/lib/ranking/movimientos";
 import { registrarAccesoApp } from "@/lib/ingresos/data";
+import { obtenerSaldoVip } from "@/lib/torneos/apuestas-data";
 
 export default async function AlumnoLayout({ children }: { children: React.ReactNode }) {
   marcarRequest("carga de pantalla de alumno");
@@ -70,8 +71,9 @@ export default async function AlumnoLayout({ children }: { children: React.React
     celebracionTorneo,
     cumpleaneros,
     { data: perfilTema, error: errorTema },
+    puntosVip,
   ] = contexto.soloLectura
-    ? ([null, 0, undefined, 0, null, null, [] as CumpleaneroHoy[], { data: null, error: null }] as const)
+    ? ([null, 0, undefined, 0, null, null, [] as CumpleaneroHoy[], { data: null, error: null }, 0] as const)
     : await Promise.all([
         obtenerSesionEnProgreso(supabase, contexto.alumnoId),
         // Una sola recompensa por fecha. Si ya se registro hoy, el upsert no
@@ -97,6 +99,7 @@ export default async function AlumnoLayout({ children }: { children: React.React
         // en cada carga. Ver AplicarTemaBotonGuardado: solo actúa con un valor
         // explícito, nunca ante la ausencia de dato.
         obtenerPerfilNoticias(contexto.alumnoId),
+        obtenerSaldoVip(contexto.alumnoId),
       ]);
 
   if (errorTema) {
@@ -134,6 +137,7 @@ export default async function AlumnoLayout({ children }: { children: React.React
       <div className="panel-aero-superior imprimir-oculto z-30 mx-auto w-full max-w-md shrink-0 px-4 pb-2 pt-1">
           <Logo
             compact
+            puntosVip={puntosVip}
             corner={
               <div className="flex items-center gap-2">
                 <CampanaNoticias sinVer={noticiasSinVer} />

@@ -75,6 +75,8 @@ export default async function SesionPage({
     (sesion.estado !== "en_progreso" && !enCorreccion) || vistaSoloLectura || bloqueadaPorIniciar;
   const completados = sesion.ejercicios.filter((e) => e.completado).length;
   const total = sesion.ejercicios.length;
+  const modoEnfocadoActivo = !esDescanso && !sesionSoloLectura && !enCorreccion;
+  const tituloSesion = `${sesion.numeroCalendario ? `S${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`;
   const firmaIntervenciones = JSON.stringify(
     sesion.ejercicios.flatMap((ejercicio) => ejercicio.intervencionesImpulso.map((intervencion) => ({
       id: intervencion.id,
@@ -90,7 +92,7 @@ export default async function SesionPage({
     // cabecera del siguiente entren juntos en una pantalla.
     // `pb-32` cuando "Iniciar rutina" queda fijo abajo (ver más abajo): sin
     // ese aire de más, el botón fijo tapaba el último ejercicio de la lista.
-    <div className={`space-y-3 ${bloqueadaPorIniciar ? "pb-32" : "pb-8"}`}>
+    <div className={`entrenar-minimalista space-y-3 ${bloqueadaPorIniciar ? "pb-32" : "pb-8"}`}>
       {sesion.estado === "en_progreso" && rutinaIniciada && !vistaSoloLectura && (
         <SincronizarIndicacionesAle sesionId={sesion.id} firmaInicial={firmaIntervenciones} />
       )}
@@ -128,9 +130,9 @@ export default async function SesionPage({
           El `-mx-4 px-4` es para que el fondo tape de borde a borde — el padding
           lateral lo pone el layout, y sin esto se veían las tarjetas colándose
           por los costados. */}
-      <div className="sticky top-0 z-20 -mx-4 space-y-1.5 bg-bg px-4 pb-2 pt-1">
+      {!modoEnfocadoActivo && <div className="sticky top-0 z-20 -mx-4 space-y-1.5 bg-bg px-4 pb-2 pt-1">
         <VolverAEntrenar
-          titulo={`${sesion.numeroCalendario ? `S${sesion.numeroCalendario} · ` : ""}${sesion.diaNombre}`}
+          titulo={tituloSesion}
           compacto
           accion={
             !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura && rutinaIniciada ? (
@@ -178,7 +180,7 @@ export default async function SesionPage({
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Por portal a document.body (ver BotonIniciarRutinaFijo): dentro de
           `.pantalla-scroll` un `position: fixed` normal queda "fijo" respecto
@@ -197,6 +199,7 @@ export default async function SesionPage({
         <SesionEjercicios
           ejercicios={sesion.ejercicios}
           sesionId={sesion.id}
+          tituloSesion={tituloSesion}
           soloLectura={sesionSoloLectura}
           modoCorreccion={enCorreccion}
           completados={completados}
