@@ -114,6 +114,55 @@ export function calcularIntervencionEnVivo(
   };
 }
 
+export interface EjercicioCandidatoDestacado {
+  categoria: string;
+  posicionSesion: string | null;
+  grupoMuscular: string | null;
+}
+
+/**
+ * Puntaje de "mejor candidato" para elegir los ejercicios destacados de la
+ * sesion. Compuestos (posicion principal, o empuje/traccion/pierna/full_body
+ * como ya define el generador de rutinas en motor.ts) y el grupo muscular
+ * mas repetido del dia suman; nunca el orden en que el alumno llega a cada
+ * ejercicio (HANDOFF 1.26, brecha 3 — Alejandro pidio priorizar esto).
+ */
+export function puntajeCandidatoDestacado(
+  ejercicio: EjercicioCandidatoDestacado,
+  grupoPrioritarioDia: string | null
+): number {
+  const esCompuesto =
+    ejercicio.posicionSesion === "principal"
+    || ["empuje", "traccion", "pierna", "full_body"].includes(ejercicio.categoria);
+  const esGrupoPrioritario = grupoPrioritarioDia !== null && ejercicio.grupoMuscular === grupoPrioritarioDia;
+  return (esCompuesto ? 2 : 0) + (esGrupoPrioritario ? 1 : 0);
+}
+
+/**
+ * Grupo muscular mas repetido entre los ejercicios de la sesion: proxy del
+ * "foco del dia" sin depender de un campo nuevo en rutina_dias. Un empate lo
+ * gana el primero en aparecer, así que conviene pasar los grupos en orden de
+ * rutina para que el resultado sea estable.
+ */
+export function grupoMuscularPrioritarioDia(gruposMusculares: Array<string | null>): string | null {
+  const conteo = new Map<string, number>();
+  for (const grupo of gruposMusculares) {
+    if (grupo === null) continue;
+    conteo.set(grupo, (conteo.get(grupo) ?? 0) + 1);
+  }
+  let mejor: string | null = null;
+  let maximo = 0;
+  for (const grupo of gruposMusculares) {
+    if (grupo === null) continue;
+    const cuenta = conteo.get(grupo) ?? 0;
+    if (cuenta > maximo) {
+      maximo = cuenta;
+      mejor = grupo;
+    }
+  }
+  return mejor;
+}
+
 export function calibrarCierreControlado(
   instruccionBase: string,
   prescripcionBase: Record<string, unknown>,

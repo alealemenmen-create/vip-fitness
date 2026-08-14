@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { calcularIntervencionEnVivo, calcularIntervencionesEnVivo, calibrarCierreControlado } from "./en-vivo";
+import {
+  calcularIntervencionEnVivo,
+  calcularIntervencionesEnVivo,
+  calibrarCierreControlado,
+  grupoMuscularPrioritarioDia,
+  puntajeCandidatoDestacado,
+} from "./en-vivo";
 
 const base = {
   seriesProgramadas: 4,
@@ -54,6 +60,50 @@ describe("calcularIntervencionesEnVivo", () => {
     const resultado = calcularIntervencionesEnVivo({ ...base, seriesProgramadas: 5 });
     expect(resultado.map((i) => i.serieObjetivo)).toEqual([3, 5]);
     expect(resultado[0].prescripcion.requiereResultado).toBe(false);
+  });
+});
+
+describe("puntajeCandidatoDestacado", () => {
+  it("puntua mas alto un compuesto del grupo prioritario que uno aislado de otro grupo", () => {
+    const compuestoDelDia = puntajeCandidatoDestacado(
+      { categoria: "empuje", posicionSesion: "principal", grupoMuscular: "pecho" },
+      "pecho"
+    );
+    const aisladoDeOtroGrupo = puntajeCandidatoDestacado(
+      { categoria: "aislamiento", posicionSesion: "accesorio", grupoMuscular: "brazos" },
+      "pecho"
+    );
+    expect(compuestoDelDia).toBeGreaterThan(aisladoDeOtroGrupo);
+  });
+
+  it("reconoce compuesto por categoria aunque la posicion de sesion sea accesorio", () => {
+    expect(
+      puntajeCandidatoDestacado({ categoria: "pierna", posicionSesion: "accesorio", grupoMuscular: "piernas" }, null)
+    ).toBeGreaterThan(0);
+  });
+
+  it("no suma nada a un aislado fuera del grupo prioritario y sin posicion principal", () => {
+    expect(
+      puntajeCandidatoDestacado({ categoria: "aislamiento", posicionSesion: "accesorio", grupoMuscular: "brazos" }, "pecho")
+    ).toBe(0);
+  });
+});
+
+describe("grupoMuscularPrioritarioDia", () => {
+  it("elige el grupo muscular mas repetido", () => {
+    expect(grupoMuscularPrioritarioDia(["pecho", "brazos", "pecho", "hombros", "pecho"])).toBe("pecho");
+  });
+
+  it("en un empate, gana el primero en aparecer", () => {
+    expect(grupoMuscularPrioritarioDia(["espalda", "piernas", "espalda", "piernas"])).toBe("espalda");
+  });
+
+  it("ignora ejercicios sin grupo (no vinculados a la biblioteca)", () => {
+    expect(grupoMuscularPrioritarioDia([null, "core", null, "core"])).toBe("core");
+  });
+
+  it("devuelve null cuando no hay ningun grupo", () => {
+    expect(grupoMuscularPrioritarioDia([null, null])).toBeNull();
   });
 });
 

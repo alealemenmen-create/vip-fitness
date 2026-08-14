@@ -188,7 +188,7 @@ export async function calibrarIntervencionEnVivo(
     supabase
       .from("sesion_ejercicios")
       .select(
-        "rutina_dia_ejercicios(ejercicio_id, ejercicios(impulso_intensidad_maxima, impulso_tecnicas_permitidas, impulso_requiere_supervision, impulso_perfil_revisado))"
+        "rutina_dia_ejercicios(ejercicio_id, ejercicios(impulso_intensidad_maxima, impulso_tecnicas_permitidas, impulso_perfil_revisado))"
       )
       .eq("id", intervencion.sesion_ejercicio_id)
       .maybeSingle(),
@@ -226,12 +226,10 @@ export async function calibrarIntervencionEnVivo(
     ejercicios: {
       impulso_intensidad_maxima: "ninguna" | "baja" | "media" | "alta";
       impulso_tecnicas_permitidas: TipoIntervencionImpulso[];
-      impulso_requiere_supervision: boolean;
       impulso_perfil_revisado: boolean;
     } | {
       impulso_intensidad_maxima: "ninguna" | "baja" | "media" | "alta";
       impulso_tecnicas_permitidas: TipoIntervencionImpulso[];
-      impulso_requiere_supervision: boolean;
       impulso_perfil_revisado: boolean;
     }[] | null;
   };
@@ -253,7 +251,6 @@ export async function calibrarIntervencionEnVivo(
     intensidadMaxima: ejercicioBiblioteca?.impulso_intensidad_maxima ?? "ninguna",
     tecnicasPermitidas: ejercicioBiblioteca?.impulso_tecnicas_permitidas ?? [],
     tecnicasConRetroceso: (memoriaTecnicas ?? []).map((fila) => fila.tecnica as TipoIntervencionImpulso),
-    requiereSupervision: ejercicioBiblioteca?.impulso_requiere_supervision ?? true,
     experiencia: perfil?.experiencia ?? null,
     tieneRestriccionMedica:
       !!perfil?.requiere_revision || !!perfil?.lesiones_diagnosticadas?.trim() || !!perfil?.condiciones_medicas?.trim(),
