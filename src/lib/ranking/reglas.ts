@@ -6,7 +6,7 @@ export const PUNTOS_VIP = {
   ingresoDiario: 30,
   pesoSemanal: 75,
   fotoSemanal: 100,
-  alimentacionSinRegistro: -150,
+  alimentacionSinRegistro: -100,
   alimentacionPenalizacionMaxima: -100,
   // Impulso VIP: bono chico frente a los 300 de completar la sesión — no
   // debe competir con eso, solo premiar además haber seguido la meta.

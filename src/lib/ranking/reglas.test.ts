@@ -15,8 +15,8 @@ describe("puntos de alimentación", () => {
     expect(calcularPuntosAlimentacion(2000, 2000, true, 300, 150)).toBe(250);
   });
 
-  it("conserva la penalización por un día sin registros", () => {
-    expect(calcularPuntosAlimentacion(0, 2000, true, 0, 150)).toBe(-150);
+  it("la penalización por un día sin registros iguala el piso de quien registra mal", () => {
+    expect(calcularPuntosAlimentacion(0, 2000, true, 0, 150)).toBe(-100);
   });
 });
 
