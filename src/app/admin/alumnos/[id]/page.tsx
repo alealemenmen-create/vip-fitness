@@ -67,7 +67,7 @@ export default async function AlumnoDetallePage({
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     supabase
       .from("alumno_perfil")
-      .select("objetivo, proximo_control_fecha, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana, plan_entrenamiento_pausado, temporizador_descanso")
+      .select("objetivo, proximo_control_fecha, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana, plan_entrenamiento_pausado, temporizador_descanso, acceso_bloqueado, acceso_bloqueado_motivo")
       .eq("user_id", alumnoId)
       .maybeSingle(),
     supabase
@@ -160,6 +160,8 @@ export default async function AlumnoDetallePage({
                 diasSemana={alumnoPerfil?.dias_entrenamiento_semana ?? null}
                 planPausado={alumnoPerfil?.plan_entrenamiento_pausado ?? false}
                 temporizadorDescanso={alumnoPerfil?.temporizador_descanso ?? true}
+                accesoBloqueado={alumnoPerfil?.acceso_bloqueado ?? false}
+                accesoBloqueadoMotivo={alumnoPerfil?.acceso_bloqueado_motivo ?? null}
               />
             </Card>
           </div>
