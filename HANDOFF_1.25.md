@@ -10,25 +10,23 @@ el 1.24 en todo lo que se contradigan.
 | | |
 |---|---|
 | **Rama** | `codex/rutina-activa-redesign` (= `main`, sin divergencia) |
-| **Último commit en origin** | `326c64f` (docs: handoff 1.24) |
-| **⚠️ Working tree** | **6 archivos modificados + 1 nuevo, SIN COMMITEAR** |
+| **Último commit** | `2c28913` |
+| **origin/main** | `2c28913` — **todo pusheado, nada pendiente** |
 | **Migraciones** | `0087` y `0088` corridas y verificadas contra la base |
 | **Pruebas** | 396 pasando · ESLint limpio · TypeScript limpio |
 
-### Archivos sin commitear
+### Commits de esta sesión, del más viejo al más nuevo
 
 ```
-M  .gitignore
-M  src/app/alumno/entrenar/foto-actions.ts
-M  src/app/alumno/entrenar/historial/rutina/[id]/page.tsx
-M  src/lib/ranking/reglas.test.ts
-M  src/lib/ranking/reglas.ts
-M  src/lib/supabase/types.ts
-?? supabase/migrations/0088_reportes_fotos_dedup_portada.sql
+e600154  fix(entrenar): evitar reportes de fotos duplicados desde la portada
+78165d6  fix(entrenar): aclarar que los puntos de una rutina no son el total
+e2d59e5  fix(ranking): igualar la penalización de no registrar comida al piso
+2c28913  docs: handoff 1.25 y limpieza de logs de dev en .gitignore
 ```
 
-Nada de esto se subió a GitHub todavía. Alejandro no pidió el push en esta
-sesión — antes de hacerlo, confirmar con él.
+Se hicieron cuatro commits separados en vez de uno solo, cada uno por tema,
+y se pusheó todo a `origin/main` con autorización explícita de Alejandro
+("sí, commitea y pushea").
 
 ---
 
@@ -174,16 +172,14 @@ que este cambio se despliegue; no toca movimientos ya guardados en
 
 ## Pendientes, en orden de importancia
 
-1. **Decidir si se suben estos cambios a GitHub.** Nada de esta sesión está
-   commiteado ni pusheado — Alejandro no lo pidió todavía.
-2. **Probar en el teléfono real** (arrastrado del 1.24, sigue sin hacerse):
+1. **Probar en el teléfono real** (arrastrado del 1.24, sigue sin hacerse):
    - El candado de descanso excedido en un descanso real de principio a fin.
    - Que "Pídele ayuda a Ale" manda la notificación de verdad.
    - El interruptor de temporizador por alumno.
-3. **La demo de Impulso VIP En Vivo** (arrastrado desde el 1.22): revisión
+2. **La demo de Impulso VIP En Vivo** (arrastrado desde el 1.22): revisión
    técnica y visual, pruebas corridas, demostración en pantalla. Sigue
    anotada en `CLAUDE.md` como pedido expreso de Alejandro, nunca se hizo.
-4. **Confirmar en pantalla el fix de fotos duplicadas** (punto 2) con un caso
+3. **Confirmar en pantalla el fix de fotos duplicadas** (punto 2) con un caso
    real: un ejercicio sin `ejercicio_id` de biblioteca, reportado dos veces
    desde la portada, y ver que la segunda vez no crea una fila nueva.
 
