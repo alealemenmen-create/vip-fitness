@@ -84,13 +84,14 @@ export async function reportarFotoIncorrecta(
     ? await consultaExistente.eq("ejercicio_id", programa.ejercicio_id).maybeSingle()
     : sesionEjercicioId
       ? await consultaExistente.eq("sesion_ejercicio_id", sesionEjercicioId).maybeSingle()
-      : { data: null };
+      : await consultaExistente.eq("dia_ejercicio_id", programaId).maybeSingle();
   if (existente) return { error: null, ok: true };
 
   const { error } = await supabase.from("reportes_fotos_ejercicios").insert({
     alumno_id: alumnoId,
     ejercicio_id: programa.ejercicio_id,
     sesion_ejercicio_id: sesionEjercicioId || null,
+    dia_ejercicio_id: !programa.ejercicio_id && !sesionEjercicioId ? programaId : null,
     nombre_ejercicio: programa.nombre,
     foto_url_reportada: fotoUrl,
   });

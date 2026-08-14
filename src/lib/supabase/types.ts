@@ -1861,6 +1861,7 @@ export interface Database {
           alumno_id: string;
           ejercicio_id: string | null;
           sesion_ejercicio_id: string | null;
+          dia_ejercicio_id: string | null;
           nombre_ejercicio: string;
           foto_url_reportada: string | null;
           estado: EstadoReporteFotoEjercicio;
@@ -1872,6 +1873,7 @@ export interface Database {
           alumno_id: string;
           ejercicio_id?: string | null;
           sesion_ejercicio_id?: string | null;
+          dia_ejercicio_id?: string | null;
           nombre_ejercicio: string;
           foto_url_reportada?: string | null;
           estado?: EstadoReporteFotoEjercicio;
