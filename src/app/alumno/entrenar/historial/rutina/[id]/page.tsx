@@ -70,12 +70,16 @@ export default async function HistorialRutinaPage({ params }: { params: Promise<
             {rutina.puntos > 0 ? "+" : ""}
             {rutina.puntos}
           </p>
-          <p className="text-caption text-text-tertiary">Puntos VIP</p>
+          <p className="text-caption text-text-tertiary">Ganados entrenando</p>
         </div>
       </Card>
 
       <p className="text-caption text-text-tertiary">
         {formatFechaDiaSemana(rutina.primeraFecha)} — {formatFechaDiaSemana(rutina.ultimaFecha)}
+      </p>
+      <p className="text-caption text-text-tertiary">
+        Solo cuenta lo ganado en estas sesiones; alimentación, Impulso VIP y otros
+        descuentos no entran acá — para el total real, revisa el ranking.
       </p>
 
       <div className="space-y-2">
