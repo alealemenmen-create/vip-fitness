@@ -1,16 +1,19 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { ArchiveRestore, ArrowLeft, ArrowRightLeft, Archive, FileText, Search, Star } from "lucide-react";
+import { ArchiveRestore, ArrowLeft, ArrowRightLeft, Archive, FileText, Search, Star, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { RutinaDraftEditor, type TecnicaOpcion } from "@/components/admin/RutinaDraftEditor";
+import { AjusteRapidoRutina } from "@/components/admin/AjusteRapidoRutina";
 import {
   abrirRutinaPublicada,
   archivarRutina,
+  cargarNumerosRutina,
   listarRutinasDeAlumno,
   type RutinaDelAlumno,
+  type RutinaNumeros,
 } from "@/app/admin/rutinas-generadas/actions";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { PatronMovimiento } from "@/lib/rutinas/patrones";
@@ -58,6 +61,7 @@ export function RutinasGeneradasPanel({
   const [rutinas, setRutinas] = useState<RutinaDelAlumno[] | null>(null);
   const [verArchivadas, setVerArchivadas] = useState(false);
   const [abierta, setAbierta] = useState<RutinaExtraida | null>(null);
+  const [ajuste, setAjuste] = useState<RutinaNumeros | null>(null);
   const [alumnoDestino, setAlumnoDestino] = useState<AlumnoConRutinas | null>(null);
   const [traspasoRutinaId, setTraspasoRutinaId] = useState<string | null>(null);
   const [busquedaTraspaso, setBusquedaTraspaso] = useState("");
@@ -113,6 +117,15 @@ export function RutinasGeneradasPanel({
     setBusquedaTraspaso("");
   };
 
+  const abrirAjusteRapido = (rutinaId: string) => {
+    setError(null);
+    iniciar(async () => {
+      const resultado = await cargarNumerosRutina(rutinaId);
+      if (!resultado.ok) return setError(resultado.error);
+      setAjuste(resultado.rutina);
+    });
+  };
+
   const alternarArchivo = (rutina: RutinaDelAlumno) => {
     if (!alumno) return;
     setError(null);
@@ -122,6 +135,17 @@ export function RutinasGeneradasPanel({
       recargarRutinas(alumno.id, verArchivadas);
     });
   };
+
+  if (ajuste && alumno) {
+    return (
+      <AjusteRapidoRutina
+        rutina={ajuste}
+        alumnoNombre={alumno.nombre}
+        onVolver={() => setAjuste(null)}
+        onGuardado={() => recargarRutinas(alumno.id, verArchivadas)}
+      />
+    );
+  }
 
   if (abierta && alumnoDestino) {
     return (
@@ -254,6 +278,14 @@ export function RutinasGeneradasPanel({
                   className="text-micro font-semibold text-[#4f83b7] disabled:opacity-50"
                 >
                   Abrir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => abrirAjusteRapido(r.id)}
+                  disabled={cargando}
+                  className="flex items-center gap-1 text-micro font-semibold text-[#4f83b7] disabled:opacity-50"
+                >
+                  <SlidersHorizontal size={11} /> Ajuste rápido
                 </button>
                 <button
                   type="button"

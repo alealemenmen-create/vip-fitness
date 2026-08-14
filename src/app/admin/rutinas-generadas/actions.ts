@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
+import { normalizarTecnicaSeries } from "@/lib/entrenamiento/tecnica-series";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -185,4 +186,271 @@ export async function abrirRutinaPublicada(rutinaId: string): Promise<RutinaAbie
     ok: true,
     rutina: { nombreRutina: `${rutina.nombre as string} (copia)`, dias },
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * Ajuste rápido: cambiar solo los números de una rutina, EN EL LUGAR.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Por qué esto edita la fila que ya existe en vez de republicar como copia
+ * (que es lo que hace el resto de este archivo):
+ *
+ * El historial de Impulso VIP cuelga de `dia_ejercicio_id`, la fila concreta
+ * de `rutina_dia_ejercicios` — ver `obtenerHistorialParaMotor`. Republicar
+ * crea filas nuevas, así que **cada ejercicio pierde su progresión** y el
+ * motor vuelve a arrancar de cero: el alumno se queda sin metas hasta volver
+ * a juntar historial. Para un cambio de "4 series a 3" ese costo es
+ * desproporcionado e invisible.
+ *
+ * Editando en el lugar se conservan las mismas filas, y con ellas la
+ * progresión, las sesiones ya entrenadas y la configuración de progresión.
+ * Los puntos VIP no dependen de la rutina en ningún caso (cuelgan del alumno,
+ * ver HANDOFF 1.23), así que tampoco se tocan por ninguno de los dos caminos.
+ *
+ * A cambio, esto NO deja rastro en el historial de rutinas: es a propósito,
+ * corregir un número no es una rutina nueva. Para cambiar ejercicios,
+ * técnicas o días sigue estando "Abrir", que republica como copia.
+ */
+
+export type EjercicioNumeros = {
+  id: string;
+  nombre: string;
+  series: number;
+  reps: string;
+  descansoSegundos: number | null;
+  tecnicaTipo: string | null;
+};
+
+export type DiaNumeros = {
+  id: string;
+  nombre: string;
+  orden: number;
+  ejercicios: EjercicioNumeros[];
+};
+
+export type RutinaNumeros = {
+  rutinaId: string;
+  nombre: string;
+  /** Con una sesión abierta, cambiar las series programadas le movería el
+   * piso al alumno mientras entrena. Se bloquea y se le explica. */
+  sesionEnProgreso: boolean;
+  dias: DiaNumeros[];
+};
+
+export type CargarNumerosState = { ok: true; rutina: RutinaNumeros } | { ok: false; error: string };
+
+type FilaEjercicioNumeros = {
+  id: string;
+  orden: number;
+  nombre: string;
+  series_programadas: number;
+  reps_programadas: string | null;
+  descanso_segundos: number | null;
+  tecnica_tipo: string | null;
+  tecnica_series: number[] | null;
+};
+
+export async function cargarNumerosRutina(rutinaId: string): Promise<CargarNumerosState> {
+  await requireRol(["entrenador", "admin"]);
+  if (!rutinaId) return { ok: false, error: "Falta la rutina." };
+  const supabase = await createClient();
+  const db = supabase as unknown as SupabaseClient;
+
+  const { data: rutina, error } = await db
+    .from("rutinas")
+    .select(
+      "id, nombre, alumno_id, rutina_dias(id, orden, nombre, tipo, rutina_dia_ejercicios(id, orden, nombre, series_programadas, reps_programadas, descanso_segundos, tecnica_tipo, tecnica_series))"
+    )
+    .eq("id", rutinaId)
+    .maybeSingle();
+
+  if (error || !rutina) return { ok: false, error: "No se pudo leer esa rutina." };
+
+  const { data: sesionAbierta } = await db
+    .from("sesiones_entrenamiento")
+    .select("id")
+    .eq("rutina_id", rutinaId)
+    .eq("estado", "en_progreso")
+    .limit(1)
+    .maybeSingle();
+
+  type FilaDiaNumeros = {
+    id: string;
+    orden: number;
+    nombre: string;
+    tipo: string;
+    rutina_dia_ejercicios: FilaEjercicioNumeros[] | null;
+  };
+
+  const dias = ((rutina.rutina_dias ?? []) as FilaDiaNumeros[])
+    .filter((d) => d.tipo === "entrenamiento")
+    .slice()
+    .sort((a, b) => a.orden - b.orden)
+    .map((d) => ({
+      id: d.id,
+      nombre: d.nombre,
+      orden: d.orden,
+      ejercicios: (d.rutina_dia_ejercicios ?? [])
+        .slice()
+        .sort((a, b) => a.orden - b.orden)
+        .map((e) => ({
+          id: e.id,
+          nombre: e.nombre,
+          series: e.series_programadas,
+          reps: e.reps_programadas ?? "",
+          descansoSegundos: e.descanso_segundos,
+          tecnicaTipo: e.tecnica_tipo,
+        })),
+    }))
+    .filter((d) => d.ejercicios.length > 0);
+
+  if (dias.length === 0) return { ok: false, error: "Esa rutina no tiene ejercicios que ajustar." };
+
+  return {
+    ok: true,
+    rutina: {
+      rutinaId: rutina.id as string,
+      nombre: rutina.nombre as string,
+      sesionEnProgreso: !!sesionAbierta,
+      dias,
+    },
+  };
+}
+
+export type CambioNumeros = {
+  id: string;
+  series: number;
+  reps: string;
+  descansoSegundos: number | null;
+};
+
+export type AjustarNumerosState = { ok: boolean; error: string | null; actualizados?: number };
+
+const SERIES_MIN = 1;
+const SERIES_MAX = 20;
+const DESCANSO_MAX = 600;
+
+export async function ajustarNumerosRutina(
+  rutinaId: string,
+  cambios: CambioNumeros[]
+): Promise<AjustarNumerosState> {
+  await requireRol(["entrenador", "admin"]);
+  if (!rutinaId) return { ok: false, error: "Falta la rutina." };
+  if (cambios.length === 0) return { ok: true, error: null, actualizados: 0 };
+
+  const supabase = await createClient();
+  const db = supabase as unknown as SupabaseClient;
+
+  // Las filas reales de ESTA rutina. Nada de confiar en los ids que llegan del
+  // navegador: se usan solo para buscar acá dentro, así que un id de otra
+  // rutina (o inventado) no puede tocar nada.
+  const { data: rutina, error: errorLectura } = await db
+    .from("rutinas")
+    .select("id, alumno_id, rutina_dias(id, rutina_dia_ejercicios(id, series_programadas, tecnica_series))")
+    .eq("id", rutinaId)
+    .maybeSingle();
+  if (errorLectura || !rutina) return { ok: false, error: "No se pudo leer esa rutina." };
+
+  const { data: sesionAbierta } = await db
+    .from("sesiones_entrenamiento")
+    .select("id")
+    .eq("rutina_id", rutinaId)
+    .eq("estado", "en_progreso")
+    .limit(1)
+    .maybeSingle();
+  if (sesionAbierta) {
+    return {
+      ok: false,
+      error: "El alumno tiene un entrenamiento abierto ahora mismo. Espera a que lo cierre para no cambiarle los números mientras entrena.",
+    };
+  }
+
+  type FilaDia = {
+    rutina_dia_ejercicios: { id: string; series_programadas: number; tecnica_series: number[] | null }[] | null;
+  };
+  const existentes = new Map(
+    ((rutina.rutina_dias ?? []) as FilaDia[])
+      .flatMap((d) => d.rutina_dia_ejercicios ?? [])
+      .map((e) => [e.id, e] as const)
+  );
+
+  const validos: (CambioNumeros & { tecnicaSeries: number[] | null; seriesPrevias: number })[] = [];
+  for (const cambio of cambios) {
+    const actual = existentes.get(cambio.id);
+    if (!actual) continue;
+    if (!Number.isInteger(cambio.series) || cambio.series < SERIES_MIN || cambio.series > SERIES_MAX) {
+      return { ok: false, error: `Las series tienen que ser un número entre ${SERIES_MIN} y ${SERIES_MAX}.` };
+    }
+    const reps = cambio.reps.trim();
+    if (!reps) return { ok: false, error: "Hay un ejercicio sin repeticiones." };
+    if (reps.length > 40) return { ok: false, error: "Las repeticiones son demasiado largas." };
+    if (
+      cambio.descansoSegundos !== null
+      && (!Number.isInteger(cambio.descansoSegundos) || cambio.descansoSegundos < 0 || cambio.descansoSegundos > DESCANSO_MAX)
+    ) {
+      return { ok: false, error: `El descanso tiene que ir entre 0 y ${DESCANSO_MAX} segundos.` };
+    }
+    validos.push({
+      ...cambio,
+      reps,
+      tecnicaSeries: actual.tecnica_series,
+      seriesPrevias: actual.series_programadas,
+    });
+  }
+  if (validos.length === 0) return { ok: true, error: null, actualizados: 0 };
+
+  // Bajar las series puede dejar una técnica apuntando a una serie que ya no
+  // existe (drop set en la 4 de un ejercicio que pasa a tener 3). El CHECK de
+  // la migración 0073 compara ambas columnas de LA MISMA fila, así que la
+  // técnica hay que renormalizarla en el mismo UPDATE — - hacerlo después
+  // fallaría antes de llegar. Son pocas filas y van de a una; el resto se
+  // agrupa abajo.
+  const conTecnicaAReparar = validos.filter((v) => {
+    if (!v.tecnicaSeries || v.series >= v.seriesPrevias) return false;
+    return v.tecnicaSeries.some((n) => n > v.series);
+  });
+  const idsAReparar = new Set(conTecnicaAReparar.map((v) => v.id));
+
+  for (const v of conTecnicaAReparar) {
+    const { error } = await db
+      .from("rutina_dia_ejercicios")
+      .update({
+        series_programadas: v.series,
+        reps_programadas: v.reps,
+        descanso_segundos: v.descansoSegundos,
+        tecnica_series: normalizarTecnicaSeries(v.tecnicaSeries, v.series),
+      })
+      .eq("id", v.id);
+    if (error) return { ok: false, error: "No se pudieron guardar los cambios. Intenta nuevamente." };
+  }
+
+  // Agrupados por valores idénticos: el caso real que motivó esto ("todos los
+  // ejercicios a 3 series") se resuelve en una sola consulta en vez de una por
+  // ejercicio.
+  const porValores = new Map<string, { series: number; reps: string; descanso: number | null; ids: string[] }>();
+  for (const v of validos) {
+    if (idsAReparar.has(v.id)) continue;
+    const clave = `${v.series}|${v.reps}|${v.descansoSegundos ?? "null"}`;
+    const grupo = porValores.get(clave);
+    if (grupo) grupo.ids.push(v.id);
+    else porValores.set(clave, { series: v.series, reps: v.reps, descanso: v.descansoSegundos, ids: [v.id] });
+  }
+
+  for (const grupo of porValores.values()) {
+    const { error } = await db
+      .from("rutina_dia_ejercicios")
+      .update({
+        series_programadas: grupo.series,
+        reps_programadas: grupo.reps,
+        descanso_segundos: grupo.descanso,
+      })
+      .in("id", grupo.ids);
+    if (error) return { ok: false, error: "No se pudieron guardar los cambios. Intenta nuevamente." };
+  }
+
+  revalidatePath("/admin/rutinas-generadas");
+  revalidatePath("/admin/alumnos");
+  revalidatePath("/alumno/entrenar");
+  return { ok: true, error: null, actualizados: validos.length };
 }
