@@ -68,7 +68,7 @@ function formatoRestante(segundos: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function formatUltimo(u: EjercicioSesion["ultimoRegistro"], esTiempo: boolean) {
+export function formatUltimo(u: EjercicioSesion["ultimoRegistro"], esTiempo: boolean) {
   if (!u) return null;
   const pesoTxto = u.esPesoCorporal ? "Peso corporal" : u.pesoKg != null ? `${u.pesoKg} kg` : "—";
   const repsTxto = u.reps != null ? `${u.reps} ${esTiempo ? "seg" : "reps"}` : "";

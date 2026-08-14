@@ -10,6 +10,7 @@ import {
   FilaSerie,
   SelectorDificultad,
   TarjetaImpulsoVip,
+  formatUltimo,
   resolverTecnica,
   type FilaSerieHandle,
   type SesionEjercicioCardHandle,
@@ -351,6 +352,11 @@ export const SesionGrupoCard = forwardRef<
               <p className="text-micro leading-tight text-text-secondary">
                 {ej.seriesProgramadas}× {ej.repsProgramadas}
               </p>
+              {formatUltimo(ej.ultimoRegistro, esTiempoPorPos[pos]) && (
+                <p className="text-micro leading-tight text-text-tertiary">
+                  Último: {formatUltimo(ej.ultimoRegistro, esTiempoPorPos[pos])}
+                </p>
+              )}
             </div>
           </div>
         ))}
