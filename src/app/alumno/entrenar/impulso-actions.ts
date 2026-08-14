@@ -10,7 +10,7 @@ import type { ResultadoIntervencionImpulso } from "@/lib/supabase/types";
 import { calibrarCierreControlado } from "@/lib/impulso-vip/en-vivo";
 import { evaluarTecnicaIntensiva } from "@/lib/impulso-vip/elegibilidad";
 import type { TipoIntervencionImpulso } from "@/lib/supabase/types";
-import { avisarSolicitudAsistencia } from "@/lib/impulso-vip/avisos-entrenador";
+import { avisarResultadoIntervencion, avisarSolicitudAsistencia } from "@/lib/impulso-vip/avisos-entrenador";
 
 export type ReportarDolorState = { error: string | null; ok: boolean };
 
@@ -557,5 +557,13 @@ export async function resolverIntervencionEnVivo(
     .in("estado", ["preparada", "mostrada"]);
 
   if (error) return { error: "No pudimos guardar el resultado. Intenta nuevamente.", ok: false, verificada: false };
+
+  await avisarResultadoIntervencion({
+    intervencionId,
+    alumnoId,
+    sesionEjercicioId: intervencion.sesion_ejercicio_id,
+    resultado,
+  }).catch(() => {});
+
   return { error: null, ok: true, verificada };
 }

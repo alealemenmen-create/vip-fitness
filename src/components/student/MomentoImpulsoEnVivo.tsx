@@ -1,23 +1,18 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useState, useTransition } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 import { Check, ShieldAlert, Target, Zap } from "lucide-react";
 import {
   calibrarIntervencionEnVivo,
-  consultarEstadoAsistenciaAle,
   marcarIntervencionMostrada,
   resolverIntervencionEnVivo,
-  solicitarAsistenciaAle,
   type CalibrarIntervencionState,
   type ResolverIntervencionState,
-  type SolicitarAsistenciaState,
-  type EstadoAsistenciaAlumno,
 } from "@/app/alumno/entrenar/impulso-actions";
 import type { IntervencionImpulsoEnVivo } from "@/app/alumno/entrenar/data";
 
 const inicial: ResolverIntervencionState = { error: null, ok: false, verificada: false };
 const inicialCalibracion: CalibrarIntervencionState = { error: null, ok: false, instruccion: null, tipo: null, prescripcion: null };
-const inicialAsistencia: SolicitarAsistenciaState = { error: null, ok: false };
 
 export function MomentoImpulsoEnVivo({
   intervencion,
@@ -34,13 +29,7 @@ export function MomentoImpulsoEnVivo({
     inicialCalibracion
   );
   const [resultadoElegido, setResultadoElegido] = useState<string | null>(intervencion?.resultado ?? null);
-  const [asistencia, asistenciaAction, avisandoAle] = useActionState(
-    solicitarAsistenciaAle,
-    inicialAsistencia
-  );
-  const [estadoAsistencia, setEstadoAsistencia] = useState<EstadoAsistenciaAlumno>(null);
   const [expandido, setExpandido] = useState(false);
-  const [, iniciarConsultaAsistencia] = useTransition();
   const esOrientacion = intervencion?.tipo === "tempo_controlado";
   const esPersonalAle = intervencion?.origen === "personal_ale" || intervencion?.origen === "preparada_por_ale";
   const tipoActual = calibracion.tipo ?? intervencion?.tipo ?? null;
@@ -56,23 +45,6 @@ export function MomentoImpulsoEnVivo({
     if (!intervencion || !visible || !listaParaMostrar || intervencion.estado !== "preparada") return;
     startTransition(() => void marcarIntervencionMostrada(intervencion.id));
   }, [intervencion, visible, listaParaMostrar]);
-
-  useEffect(() => {
-    if (!intervencion || !visible || serieTerminada) return;
-    let activo = true;
-    const consultar = () => {
-      iniciarConsultaAsistencia(async () => {
-        const estado = await consultarEstadoAsistenciaAle(intervencion.id).catch(() => null);
-        if (activo && estado) setEstadoAsistencia(estado);
-      });
-    };
-    consultar();
-    const id = window.setInterval(consultar, 8_000);
-    return () => {
-      activo = false;
-      window.clearInterval(id);
-    };
-  }, [intervencion, visible, serieTerminada, asistencia.ok]);
 
   if (!intervencion || !visible || intervencion.estado === "cancelada") return null;
 
@@ -187,41 +159,13 @@ export function MomentoImpulsoEnVivo({
             <Target size={12} className="text-vip" /> {intervencion.firma}
           </p>
           {!serieTerminada && (
-            asistencia.ok || estadoAsistencia ? (
-              <p className={`mt-2 rounded-xl border px-3 py-2 text-micro font-semibold ${
-                estadoAsistencia?.estado === "voy" || estadoAsistencia?.estado === "atendida"
-                  ? "border-success/30 bg-success/10 text-success"
-                  : estadoAsistencia?.estado === "no_disponible" || estadoAsistencia?.estado === "vencida"
-                    ? "border-warning/30 bg-warning/10 text-warning"
-                    : "border-vip/25 bg-vip/10 text-vip"
-              }`}>
-                {estadoAsistencia?.estado === "voy"
-                  ? "Ale respondio: voy para alla."
-                  : estadoAsistencia?.estado === "atendida"
-                    ? "Ale marco esta asistencia como atendida."
-                    : estadoAsistencia?.estado === "no_disponible"
-                      ? "Ale no esta disponible ahora. Haz la serie normal, sin tecnica intensa y con una repeticion en reserva."
-                      : estadoAsistencia?.estado === "vencida"
-                        ? "La solicitud vencio. Continua con una serie normal y segura."
-                        : "Ale recibio el aviso. Puedes continuar de forma segura mientras responde."}
-              </p>
-            ) : (
-              <form action={asistenciaAction} className="mt-2">
-                <input type="hidden" name="intervencion_id" value={intervencion.id} />
-                <button
-                  type="submit"
-                  disabled={avisandoAle}
-                  className="min-h-10 w-full rounded-xl border border-vip/35 bg-vip/10 px-3 text-micro font-bold text-vip disabled:opacity-50"
-                >
-                  {avisandoAle ? "Pidiendo ayuda..." : "Pídele ayuda a Ale"}
-                </button>
-                {asistencia.error && <p className="mt-1 text-micro text-error">{asistencia.error}</p>}
-              </form>
-            )
+            <p className="mt-2 rounded-xl border border-vip/25 bg-vip/10 px-3 py-2 text-micro font-semibold text-vip">
+              Avísale a tu entrenador si necesitas que te guíe en esta serie.
+            </p>
           )}
-          {requiereSupervision && !serieTerminada && estadoAsistencia?.estado !== "voy" && estadoAsistencia?.estado !== "atendida" && (
+          {requiereSupervision && !serieTerminada && (
             <p className="mt-2 text-micro font-semibold leading-snug text-warning">
-              Esta técnica requiere supervisión. No la ejecutes hasta que Ale confirme; si no responde, haz la serie normal.
+              Esta técnica requiere supervisión. No la ejecutes hasta que tu entrenador esté contigo; si no está disponible, haz la serie normal.
             </p>
           )}
         </div>
