@@ -118,6 +118,11 @@ export const SesionGrupoCard = forwardRef<
       if (ronda <= ejercicios[pos].seriesProgramadas) pasos.push({ pos, numero: ronda });
     }
   }
+  const [indicePasoVisible, setIndicePasoVisible] = useState(
+    () => Math.max(0, pasos.findIndex((paso) => !ejercicios[paso.pos].series.some(
+      (serie) => serie.numeroSerie === paso.numero && serie.realizada
+    )))
+  );
 
   const pasoQueToca =
     activo && !soloLectura && !completoTodo
@@ -207,6 +212,8 @@ export const SesionGrupoCard = forwardRef<
         const idxActual = pasos.findIndex((p) => p.pos === pos && p.numero === numero);
         const siguiente = pasos.slice(idxActual + 1).find((p) => !completadasRef.current[p.pos].has(p.numero));
         if (siguiente) {
+          const indiceSiguiente = pasos.findIndex((paso) => paso.pos === siguiente.pos && paso.numero === siguiente.numero);
+          if (indiceSiguiente >= 0) setIndicePasoVisible(indiceSiguiente);
           window.requestAnimationFrame(() => {
             filaNodoRef.current[siguiente.pos].get(siguiente.numero)?.scrollIntoView({ behavior: "smooth", block: "center" });
           });
@@ -299,7 +306,7 @@ export const SesionGrupoCard = forwardRef<
       // "trabados" acá). El fondo negro real que necesitaba el ícono de
       // respaldo (recorte transparente del modelo) sigue puesto aparte,
       // inline, en IlustracionEjercicio/FONDO_FOTO_GRUPO.
-      className={`p-3 ${modoEnfocado ? "tarjeta-grupo-enfocada" : ""} ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
+      className={`p-3 ${modoEnfocado ? "tarjeta-ejercicio-enfocada tarjeta-grupo-enfocada" : ""} ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
       style={grupoTecnica ? ({ "--color-glow-tecnica": grupoTecnica.color } as React.CSSProperties) : undefined}
     >
       {/* Cabecera única para el grupo: la etiqueta de técnica (coloreada por
@@ -448,10 +455,37 @@ export const SesionGrupoCard = forwardRef<
                 )}
               </div>
 
-              {pasos.map((paso) => {
+              {modoEnfocado && (
+                <div className="selector-series-foco" aria-label="Seleccionar paso de la técnica">
+                  {pasos.map((paso, indice) => (
+                    <button
+                      key={`${paso.pos}-${paso.numero}`}
+                      type="button"
+                      onClick={() => setIndicePasoVisible(indice)}
+                      data-estado={
+                        seriesHechas[paso.pos].has(paso.numero)
+                          ? "completa"
+                          : indice === indicePasoVisible
+                            ? "actual"
+                            : "pendiente"
+                      }
+                      aria-label={`Ver ${LETRAS[paso.pos]}, serie ${paso.numero}`}
+                      aria-current={indice === indicePasoVisible ? "step" : undefined}
+                    >
+                      <span />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {pasos.map((paso, indicePaso) => {
                 const ej = ejercicios[paso.pos];
                 return (
-                  <div key={`${paso.pos}-${paso.numero}-${montado ? "local" : "server"}`}>
+                  <div
+                    key={`${paso.pos}-${paso.numero}-${montado ? "local" : "server"}`}
+                    className={modoEnfocado ? "contenedor-serie-foco" : undefined}
+                    data-visible={!modoEnfocado || indicePaso === indicePasoVisible ? "true" : "false"}
+                  >
                     <div className="mb-0.5 flex items-center gap-1">
                       <span className="text-micro font-bold text-vip">{LETRAS[paso.pos]}</span>
                       <span className="text-micro truncate text-text-tertiary">{ej.nombre}</span>
@@ -485,6 +519,7 @@ export const SesionGrupoCard = forwardRef<
                         onCicloDeshecho={alDeshacerCiclo(paso.pos)}
                         onGuardar={guardarAhora}
                         colorGrupoTecnica={grupoTecnica?.color}
+                        modoDestacado={modoEnfocado && indicePaso === indicePasoVisible}
                       />
                     </div>
                   </div>

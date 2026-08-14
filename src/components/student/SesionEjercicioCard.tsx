@@ -900,6 +900,10 @@ export const FilaSerie = forwardRef<
      * en todas, ya se anuncia arriba en la tarjeta y repetirla en cada fila
      * sería ruido. */
     tecnicaDeEstaSerie?: string | null;
+    /** En el modo de entrenamiento guiado solo una serie ocupa el foco. Las
+     * demás siguen montadas en el formulario, pero esta usa controles grandes
+     * y una acción única de Guardar serie. */
+    modoDestacado?: boolean;
   }
 >(function FilaSerie(
   {
@@ -922,9 +926,11 @@ export const FilaSerie = forwardRef<
     colorGrupoTecnica,
     sufijoNombre = "",
     tecnicaDeEstaSerie = null,
+    modoDestacado = false,
   },
   ref
 ) {
+  const filaDomRef = useRef<HTMLDivElement>(null);
   const esPesoCorporal = inicial?.esPesoCorporal ?? false;
   const [realizada, setRealizada] = useState(inicial?.realizada ?? false);
   const [restante, setRestante] = useState<number | null>(null);
@@ -1404,15 +1410,26 @@ export const FilaSerie = forwardRef<
     onGuardar();
   }
 
+  function ajustarCampo(nombre: string, incremento: number) {
+    const input = filaDomRef.current?.querySelector<HTMLInputElement>(`input[name="${nombre}"]`);
+    if (!input || input.disabled) return;
+    const actual = Number(input.value.replace(",", ".")) || 0;
+    const siguiente = Math.max(0, actual + incremento);
+    input.value = Number.isInteger(siguiente) ? String(siguiente) : siguiente.toFixed(1);
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
   return (
     // p-1.5 y no p-2: con tres series, la tarjeta del ejercicio en curso y la
     // cabecera del siguiente tienen que entrar juntas en una pantalla de
     // celular — que es como se usa esto, apoyado en el banco.
     <div
+      ref={filaDomRef}
       className="fila-serie p-2"
       data-hecha={realizada ? "true" : "false"}
       data-activa={esLaQueToca ? "true" : "false"}
       data-descansando={descansando ? "true" : "false"}
+      data-destacada={modoDestacado ? "true" : "false"}
     >
       <input type="hidden" name={`peso_corporal_${numero}${sufijoNombre}`} value={esPesoCorporal ? "true" : "false"} />
       <input type="hidden" name={`realizada_${numero}${sufijoNombre}`} value={realizada ? "true" : "false"} />
@@ -1435,8 +1452,13 @@ export const FilaSerie = forwardRef<
         {/* Campos planos, sin caja propia — la referencia no encierra cada
             número en su propio recuadro, es un solo renglón con un separador
             vertical entre carga y repeticiones. */}
-        <label className="campo-serie-plano flex-1">
-          <input
+        <div className="grupo-campo-serie grupo-campo-peso">
+          {modoDestacado && (
+            <button type="button" onClick={() => ajustarCampo(`peso_${numero}${sufijoNombre}`, -0.5)} aria-label="Bajar peso">−</button>
+          )}
+          <label className="campo-serie-plano flex-1">
+            <span className="titulo-campo-destacado">Peso (kg)</span>
+            <input
             name={`peso_${numero}${sufijoNombre}`}
             // type="text" y no "number": en varios celulares (Android con
             // teclado en español, sobre todo) el separador decimal que
@@ -1461,14 +1483,23 @@ export const FilaSerie = forwardRef<
             // intentar (solo si hay una recomendación aprobada — ver
             // `pesoSugeridoEfectivo` en el componente padre).
             defaultValue={inicial?.pesoKg ?? pesoSugerido ?? ""}
-          />
-          <span className="campo-serie-etiqueta">kg</span>
-        </label>
+            />
+            <span className="campo-serie-etiqueta">kg</span>
+          </label>
+          {modoDestacado && (
+            <button type="button" onClick={() => ajustarCampo(`peso_${numero}${sufijoNombre}`, 0.5)} aria-label="Subir peso">+</button>
+          )}
+        </div>
         <span className="separador-serie" aria-hidden />
         {/* La etiqueta va dentro del campo, a la izquierda del número: sin ella
             "8" al lado de la carga se leía como otro peso. */}
-        <label className="campo-serie-plano w-[64px] shrink-0">
-          <input
+        <div className="grupo-campo-serie grupo-campo-reps">
+          {modoDestacado && (
+            <button type="button" onClick={() => ajustarCampo(`reps_${numero}${sufijoNombre}`, -1)} aria-label="Bajar repeticiones">−</button>
+          )}
+          <label className="campo-serie-plano w-[64px] shrink-0">
+            <span className="titulo-campo-destacado">{esTiempo ? "Segundos" : "Repeticiones"}</span>
+            <input
             name={`reps_${numero}${sufijoNombre}`}
             type="number"
             min="0"
@@ -1481,9 +1512,13 @@ export const FilaSerie = forwardRef<
             // ahí no hay objetivo numérico que precargar, el alumno carga los
             // segundos que aguantó.
             defaultValue={inicial?.repsRealizadas ?? repsObjetivo ?? ""}
-          />
-          <span className="campo-serie-etiqueta">{esTiempo ? "seg" : "reps"}</span>
-        </label>
+            />
+            <span className="campo-serie-etiqueta">{esTiempo ? "seg" : "reps"}</span>
+          </label>
+          {modoDestacado && (
+            <button type="button" onClick={() => ajustarCampo(`reps_${numero}${sufijoNombre}`, 1)} aria-label="Subir repeticiones">+</button>
+          )}
+        </div>
         {!soloLectura && (
           <button
             type="button"
@@ -1586,9 +1621,9 @@ export const FilaSerie = forwardRef<
                 </span>
               ) : esLaQueToca ? (
                 <span className="flex flex-col items-center leading-tight">
-                  <span>Descanso</span>
+                  <span>{modoDestacado ? "Guardar serie" : "Descanso"}</span>
                   {descansoSegundos ? (
-                    <span className="boton-descanso-segundos">{descansoSegundos}s</span>
+                    <span className="boton-descanso-segundos">{modoDestacado ? `y descansar ${descansoSegundos}s` : `${descansoSegundos}s`}</span>
                   ) : null}
                 </span>
               ) : (
@@ -1706,6 +1741,10 @@ export const SesionEjercicioCard = forwardRef<
      para contar sin re-renderizar, y esto para MOSTRAR cuál es la que toca. */
   const [seriesHechas, setSeriesHechas] = useState<ReadonlySet<number>>(
     () => new Set(ejercicio.series.filter((s) => s.realizada).map((s) => s.numeroSerie))
+  );
+  const [serieVisibleNumero, setSerieVisibleNumero] = useState(
+    () => Array.from({ length: ejercicio.seriesProgramadas }, (_, indice) => indice + 1)
+      .find((numero) => !ejercicio.series.some((serie) => serie.numeroSerie === numero && serie.realizada)) ?? 1
   );
   // Solo el descanso de esta serie corre — arrancar el de otra la pausa sola.
   const [serieActivaNumero, setSerieActivaNumero] = useState<number | null>(null);
@@ -1915,6 +1954,7 @@ export const SesionEjercicioCard = forwardRef<
       proximo.delete(numero);
       return proximo;
     });
+    setSerieVisibleNumero(numero);
   }
 
   function alCompletarCicloSerie(numero: number) {
@@ -1946,6 +1986,7 @@ export const SesionEjercicioCard = forwardRef<
       // más abajo).
       const siguiente = filas.find((n) => n > numero && !completadasRef.current.has(n));
       if (siguiente) {
+        setSerieVisibleNumero(siguiente);
         window.requestAnimationFrame(() => {
           filaNodoRef.current.get(siguiente)?.scrollIntoView({ behavior: "smooth", block: "center" });
         });
@@ -2159,14 +2200,14 @@ export const SesionEjercicioCard = forwardRef<
                 )}
               </div>
               <div className="guia-ejercicio-foco">
-                <p>Objetivo</p>
-                <strong>
-                  {ejercicio.seriesProgramadas} × {ejercicio.repsProgramadas}{esTiempo ? " seg" : " reps"}
-                </strong>
-                <span>
-                  <Timer size={12} />
-                  {ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s de descanso` : "Sin descanso programado"}
-                </span>
+                <p>
+                  {ejercicio.orden} · {ejercicio.grupoMuscular ? ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular].toUpperCase() : "EJERCICIO"}
+                </p>
+                <h2>{ejercicio.nombre}</h2>
+                <strong>Serie {serieVisibleNumero} de {ejercicio.seriesProgramadas}</strong>
+                {(intervencionesImpulso.some((intervencion) => intervencion.serieObjetivo === serieVisibleNumero)) && (
+                  <span className="impulso-serie-foco">⚡ Impulso VIP</span>
+                )}
               </div>
             </>
           )}
@@ -2313,6 +2354,31 @@ export const SesionEjercicioCard = forwardRef<
           <small>{ejercicio.ultimoRegistro?.fecha}</small>
         </p>
       )}
+      <p className="objetivo-serie-foco">
+        <span>Objetivo</span>
+        <strong>
+          {pesoSugeridoEfectivo != null ? `${pesoSugeridoEfectivo} kg · ` : ""}
+          {ejercicio.repsProgramadas}{esTiempo ? " seg" : " reps"}
+        </strong>
+        <small>{ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s de descanso` : "Sin descanso"}</small>
+      </p>
+
+      {modoEnfocado && (
+        <div className="selector-series-foco" aria-label="Seleccionar serie">
+          {filas.map((numero) => (
+            <button
+              key={numero}
+              type="button"
+              onClick={() => setSerieVisibleNumero(numero)}
+              data-estado={seriesHechas.has(numero) ? "completa" : numero === serieVisibleNumero ? "actual" : "pendiente"}
+              aria-label={`Ver serie ${numero}`}
+              aria-current={numero === serieVisibleNumero ? "step" : undefined}
+            >
+              <span />
+            </button>
+          ))}
+        </div>
+      )}
 
       {soloLectura ? (
         <div className="space-y-1">
@@ -2365,6 +2431,8 @@ export const SesionEjercicioCard = forwardRef<
           {filas.map((n) => (
             <div
               key={`${n}-${borradorLeido}`}
+              className={modoEnfocado ? "contenedor-serie-foco" : undefined}
+              data-visible={!modoEnfocado || serieVisibleNumero === n ? "true" : "false"}
               ref={(nodo) => {
                 if (nodo) filaNodoRef.current.set(n, nodo);
                 else filaNodoRef.current.delete(n);
@@ -2403,6 +2471,7 @@ export const SesionEjercicioCard = forwardRef<
                     ? ejercicio.tecnicaTipo
                     : null
                 }
+                modoDestacado={modoEnfocado && serieVisibleNumero === n}
               />
             </div>
           ))}

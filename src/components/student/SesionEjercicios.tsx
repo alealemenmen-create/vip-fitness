@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { useRef, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
-import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
+import { CuadroFotoReferencia, SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
 import { SesionGrupoCard } from "@/components/student/SesionGrupoCard";
-import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { resolverGrupoTecnica, tamanoGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
-
-const suscribirSinCambios = () => () => {};
 
 /**
  * Parte la lista de ejercicios en grupos consecutivos de la misma familia de
@@ -125,21 +121,11 @@ export function SesionEjercicios({
   const handles = useRef(new Map<string, SesionEjercicioCardHandle>());
   const ejercicioActivoId = calcularActivo(ejercicios);
   const grupos = agruparPorTecnica(ejercicios);
-  const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
   const indiceActivo = Math.max(
     0,
     grupos.findIndex((grupo) => grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId))
   );
   const [indiceVisible, setIndiceVisible] = useState(indiceActivo);
-  // Con 8-10 ejercicios la tira no entra entera y hay que desplazarla. Se
-  // centra sola en el que se está mirando: si no, al entrar a mitad de sesión
-  // el casillero activo quedaba fuera de la parte visible.
-  const pistaRef = useRef<HTMLDivElement>(null);
-  const casilleroActivoRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    casilleroActivoRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-  }, [indiceVisible]);
 
   /**
    * Cambiar de ejercicio guarda lo que haya cargado en el que se deja.
@@ -200,86 +186,7 @@ export function SesionEjercicios({
   };
 
   const grupoVisible = grupos[indiceVisible] ?? grupos[0];
-  const tituloVisible = grupoVisible?.map((ej) => ej.nombre).join(" + ") ?? "Entrenamiento";
-  const totalSeriesVisible = grupoVisible?.reduce((totalGrupo, ejercicio) => totalGrupo + ejercicio.seriesProgramadas, 0) ?? 0;
-  const seriesHechasVisible = grupoVisible?.reduce(
-    (totalGrupo, ejercicio) => totalGrupo + ejercicio.series.filter((serie) => serie.realizada).length,
-    0
-  ) ?? 0;
-  const siguienteSerieVisible = Math.min(seriesHechasVisible + 1, Math.max(totalSeriesVisible, 1));
-  const musculosVisible = Array.from(
-    new Set(grupoVisible?.map((ejercicio) => ejercicio.grupoMuscular).filter(Boolean) ?? [])
-  ).join(" + ");
-
-  /* Los puntitos de antes decían "vas por el 3 de 7" pero no cuál era cada
-     uno, así que para revisar un ejercicio había que ir tocando Siguiente a
-     ciegas. Ahora en el medio va la rutina entera —un casillero por ejercicio,
-     numerado— y el que se está mirando lleva borde violeta. Anterior y
-     Siguiente se achicaron a solo la flecha y se corrieron a los extremos:
-     ese ancho es justo el que necesitaba la fila de casilleros. */
-  const navegacion = grupoVisible ? (
-    <nav className="navegacion-modo-enfocado navegacion-modo-enfocado-fija" aria-label="Navegar por los ejercicios">
-      <button
-        type="button"
-        onClick={() => irA(Math.max(0, indiceVisible - 1))}
-        disabled={indiceVisible === 0}
-        className="boton-navegacion-ejercicio boton-navegacion-atras"
-        aria-label="Ejercicio anterior"
-        title="Ejercicio anterior"
-      >
-        <ChevronLeft size={17} strokeWidth={3} />
-        <ChevronLeft size={17} strokeWidth={3} className="-ml-2.5" />
-      </button>
-
-      <div
-        ref={pistaRef}
-        className="tira-ejercicios-rutina"
-        aria-label={`Ejercicio ${indiceVisible + 1} de ${grupos.length}`}
-      >
-        {grupos.map((grupo, indice) => (
-          <button
-            key={grupo[0].sesionEjercicioId}
-            type="button"
-            ref={indice === indiceVisible ? casilleroActivoRef : undefined}
-            onClick={() => irA(indice)}
-            className="casillero-ejercicio-rutina"
-            data-activo={indice === indiceVisible}
-            data-completo={grupo.every((ej) => ej.completado)}
-            aria-label={`Ir al ejercicio ${indice + 1}: ${grupo.map((ej) => ej.nombre).join(" + ")}`}
-            aria-current={indice === indiceVisible ? "step" : undefined}
-            data-encurso={indice === indiceActivo}
-          >
-            {indice === indiceActivo ? (
-              /* El ejercicio que toca AHORA no lleva número: lleva las dos
-                 flechitas corriendo hacia adelante, que es lo que se ve de
-                 lejos con el celular apoyado en el piso. */
-              <span className="flechas-ejercicio-en-curso" aria-hidden="true">
-                <ChevronRight size={11} strokeWidth={3.5} />
-                <ChevronRight size={11} strokeWidth={3.5} />
-              </span>
-            ) : grupo.every((ej) => ej.completado) ? (
-              <Check size={13} strokeWidth={3.5} />
-            ) : (
-              indice + 1
-            )}
-          </button>
-        ))}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => irA(Math.min(grupos.length - 1, indiceVisible + 1))}
-        disabled={indiceVisible === grupos.length - 1}
-        className="boton-navegacion-ejercicio boton-navegacion-adelante"
-        data-recomendado={grupoVisible.every((ej) => ej.completado) ? "true" : "false"}
-        aria-label="Ejercicio siguiente"
-        title="Ejercicio siguiente"
-      >
-        <ChevronRight size={17} strokeWidth={3} />
-        <ChevronRight size={17} strokeWidth={3} className="-ml-2.5" />
-      </button>
-    </nav>
-  ) : null;
+  const grupoSiguiente = grupos[indiceVisible + 1] ?? null;
 
   return (
     <>
@@ -291,50 +198,37 @@ export function SesionEjercicios({
         grupos.map(renderizarGrupo)
       ) : grupoVisible ? (
         <section className="modo-entrenamiento-enfocado space-y-2" aria-label="Ejercicio actual">
-          <header className="cabecera-foco-entrenamiento">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="etiqueta-musculo-foco truncate">
-                  {musculosVisible || (grupoVisible.length > 1 ? "Técnica combinada" : "Ejercicio")}
-                </p>
-                <span className="separador-foco" aria-hidden />
-                <p className="contador-ejercicio-foco">
-                  {indiceVisible + 1}/{grupos.length}
-                </p>
-              </div>
-              <h1 className="titulo-ejercicio-foco">{tituloVisible}</h1>
-              <p className="estado-serie-foco">
-                {seriesHechasVisible >= totalSeriesVisible && totalSeriesVisible > 0
-                  ? "Todas las series completadas"
-                  : grupoVisible.length > 1
-                    ? `Paso ${siguienteSerieVisible} de ${totalSeriesVisible}`
-                    : `Serie ${siguienteSerieVisible} de ${totalSeriesVisible}`}
-              </p>
-            </div>
-            <IlustracionEjercicio
-              ilustracionSlug={null}
-              grupoMuscular={grupoVisible[0].grupoMuscular}
-              nombre={tituloVisible}
-              tamano={34}
-            />
-          </header>
-
-          <div className="progreso-series-foco" aria-label={`${seriesHechasVisible} de ${totalSeriesVisible} series completadas`}>
-            {Array.from({ length: totalSeriesVisible }, (_, indice) => (
-              <span
-                key={indice}
-                data-estado={
-                  indice < seriesHechasVisible
-                    ? "completa"
-                    : indice === seriesHechasVisible
-                      ? "actual"
-                      : "pendiente"
-                }
-              />
-            ))}
-          </div>
-
           {renderizarGrupo(grupoVisible)}
+
+          {grupoSiguiente && (
+            <div className="vista-siguiente-ejercicio">
+              <CuadroFotoReferencia
+                ilustracionSlug={grupoSiguiente[0].ilustracionSlug}
+                fotoMiniaturaUrl={grupoSiguiente[0].fotoMiniaturaUrl}
+                fotoCompletaUrl={grupoSiguiente[0].fotoCompletaUrl}
+                videoUrl={grupoSiguiente[0].videoUrl}
+                videoCloudflareUid={grupoSiguiente[0].videoCloudflareUid}
+                videoCloudflareEstado={grupoSiguiente[0].videoCloudflareEstado}
+                videoCloudflareMiniaturaUrl={grupoSiguiente[0].videoCloudflareMiniaturaUrl}
+                nombre={grupoSiguiente[0].nombre}
+                sesionEjercicioId={grupoSiguiente[0].sesionEjercicioId}
+                ejercicioId={grupoSiguiente[0].ejercicioId}
+                fotoCuadradaX={grupoSiguiente[0].fotoCuadradaX}
+                fotoCuadradaY={grupoSiguiente[0].fotoCuadradaY}
+                compacto
+                tamanoCompacto={52}
+              />
+              <button
+                type="button"
+                onClick={() => irA(indiceVisible + 1)}
+                aria-label={`Ver siguiente ejercicio: ${grupoSiguiente.map((ejercicio) => ejercicio.nombre).join(" + ")}`}
+              >
+                <span>Siguiente</span>
+                <strong>{grupoSiguiente.map((ejercicio) => ejercicio.nombre).join(" + ")}</strong>
+                <ChevronRight size={21} />
+              </button>
+            </div>
+          )}
 
         </section>
       ) : null}
@@ -343,10 +237,6 @@ export function SesionEjercicios({
           corrección: no hay ejercicio "en curso" que seguir ni entrenamiento
           que cerrar. De la corrección se sale con "Listo, terminé de
           corregir", que la pantalla pone arriba de las opciones. */}
-      {montado && !soloLectura && !modoCorreccion && navegacion
-        ? createPortal(navegacion, document.body)
-        : null}
-
       {!soloLectura && !modoCorreccion && (
         <>
           {/* "Guardar" suelto ya no existe: guardar y completar el ejercicio
