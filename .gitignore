@@ -48,3 +48,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# archivos de trabajo temporales (logs de dev, extracciones, previews)
+/tmp/
