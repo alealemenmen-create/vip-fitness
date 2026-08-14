@@ -213,7 +213,7 @@ export function MomentoImpulsoEnVivo({
                   disabled={avisandoAle}
                   className="min-h-10 w-full rounded-xl border border-vip/35 bg-vip/10 px-3 text-micro font-bold text-vip disabled:opacity-50"
                 >
-                  {avisandoAle ? "Avisando a Ale..." : "Avisar a Ale para que me guie"}
+                  {avisandoAle ? "Pidiendo ayuda..." : "Pídele ayuda a Ale"}
                 </button>
                 {asistencia.error && <p className="mt-1 text-micro text-error">{asistencia.error}</p>}
               </form>
