@@ -17,6 +17,7 @@ export type SerieBorrador = {
   numero: number;
   peso: string;
   reps: string;
+  rir?: string;
   realizada: boolean;
   esPesoCorporal: boolean;
 };

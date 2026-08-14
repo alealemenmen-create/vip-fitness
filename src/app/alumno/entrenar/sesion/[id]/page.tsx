@@ -4,8 +4,6 @@ import { Card } from "@/components/ui/Card";
 import { SesionEjercicios } from "@/components/student/SesionEjercicios";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { VolverAEntrenar } from "@/components/student/VolverAEntrenar";
-import { CronometroSesion } from "@/components/student/CronometroSesion";
-import { CancelarSesionBoton } from "@/components/student/CancelarSesionBoton";
 import { SalidaGuiadaSesion } from "@/components/student/SalidaGuiadaSesion";
 import { CierreAutomaticoSesion } from "@/components/student/CierreAutomaticoSesion";
 import { ReabrirSesionBoton } from "@/components/student/ReabrirSesionBoton";
@@ -135,10 +133,7 @@ export default async function SesionPage({
           compacto
           accion={
             !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura && rutinaIniciada ? (
-              <div className="flex items-center gap-1.5">
-                <CronometroSesion horaInicio={sesion.rutinaIniciadaEn!} />
-                <CancelarSesionBoton sesionId={sesion.id} compacto tieneProgreso={completados > 0} />
-              </div>
+              <p className="text-caption font-semibold tabular-nums text-text-secondary">{completados}/{total}</p>
             ) : null
           }
         />
@@ -172,9 +167,6 @@ export default async function SesionPage({
                 ))}
               </div>
             </div>
-            <p className="text-micro shrink-0 font-semibold tabular-nums text-text-secondary">
-              {completados}/{total}
-            </p>
           </div>
         )}
       </div>

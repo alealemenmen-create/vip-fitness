@@ -142,6 +142,7 @@ export const SesionGrupoCard = forwardRef<
             numero,
             peso: String(datos.get(`peso_${numero}${sufijo}`) ?? ""),
             reps: String(datos.get(`reps_${numero}${sufijo}`) ?? ""),
+            rir: String(datos.get(`rir_${numero}${sufijo}`) ?? ""),
             realizada: datos.get(`realizada_${numero}${sufijo}`) === "true",
             esPesoCorporal: datos.get(`peso_corporal_${numero}${sufijo}`) === "true",
           };
@@ -165,6 +166,7 @@ export const SesionGrupoCard = forwardRef<
       pesoKg: local.peso ? Number(local.peso.replace(",", ".")) : null,
       esPesoCorporal: local.esPesoCorporal,
       repsRealizadas: local.reps ? Number(local.reps) : null,
+      rirEstimado: local.rir ? Number(local.rir) : null,
       realizada: local.realizada,
     };
   }

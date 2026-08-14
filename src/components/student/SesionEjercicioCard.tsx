@@ -1410,11 +1410,11 @@ export const FilaSerie = forwardRef<
     onGuardar();
   }
 
-  function ajustarCampo(nombre: string, incremento: number) {
+  function ajustarCampo(nombre: string, incremento: number, maximo = Number.POSITIVE_INFINITY) {
     const input = filaDomRef.current?.querySelector<HTMLInputElement>(`input[name="${nombre}"]`);
     if (!input || input.disabled) return;
     const actual = Number(input.value.replace(",", ".")) || 0;
-    const siguiente = Math.max(0, actual + incremento);
+    const siguiente = Math.min(maximo, Math.max(0, actual + incremento));
     input.value = Number.isInteger(siguiente) ? String(siguiente) : siguiente.toFixed(1);
     input.dispatchEvent(new Event("change", { bubbles: true }));
   }
@@ -1519,6 +1519,22 @@ export const FilaSerie = forwardRef<
             <button type="button" onClick={() => ajustarCampo(`reps_${numero}${sufijoNombre}`, 1)} aria-label="Subir repeticiones">+</button>
           )}
         </div>
+        {modoDestacado && (
+          <div className="control-rir-serie">
+            <span>RIR</span>
+            <button type="button" onClick={() => ajustarCampo(`rir_${numero}${sufijoNombre}`, -1, 5)} aria-label="Bajar RIR">−</button>
+            <input
+              name={`rir_${numero}${sufijoNombre}`}
+              type="number"
+              min="0"
+              max="5"
+              inputMode="numeric"
+              aria-label="Repeticiones en reserva"
+              defaultValue={inicial?.rirEstimado ?? 2}
+            />
+            <button type="button" onClick={() => ajustarCampo(`rir_${numero}${sufijoNombre}`, 1, 5)} aria-label="Subir RIR">+</button>
+          </div>
+        )}
         {!soloLectura && (
           <button
             type="button"
@@ -1836,6 +1852,7 @@ export const SesionEjercicioCard = forwardRef<
         numero: n,
         peso: String(datos.get(`peso_${n}`) ?? ""),
         reps: String(datos.get(`reps_${n}`) ?? ""),
+        rir: String(datos.get(`rir_${n}`) ?? ""),
         realizada: datos.get(`realizada_${n}`) === "true",
         esPesoCorporal: datos.get(`peso_corporal_${n}`) === "true",
       })),
@@ -1879,6 +1896,7 @@ export const SesionEjercicioCard = forwardRef<
         pesoKg: delBorrador.peso ? Number(delBorrador.peso) : null,
         esPesoCorporal: delBorrador.esPesoCorporal,
         repsRealizadas: delBorrador.reps ? Number(delBorrador.reps) : null,
+        rirEstimado: delBorrador.rir ? Number(delBorrador.rir) : null,
         realizada: delBorrador.realizada,
       };
     }
@@ -2347,22 +2365,6 @@ export const SesionEjercicioCard = forwardRef<
 
       {!modoEnfocado && <TarjetaImpulsoVip recomendacion={recomendacionImpulso} />}
 
-      {ultimoTexto && (
-        <p className="registro-anterior-foco text-micro mb-1.5 text-text-tertiary">
-          <span>Último registro</span>
-          <strong>{ultimoTexto}</strong>
-          <small>{ejercicio.ultimoRegistro?.fecha}</small>
-        </p>
-      )}
-      <p className="objetivo-serie-foco">
-        <span>Objetivo</span>
-        <strong>
-          {pesoSugeridoEfectivo != null ? `${pesoSugeridoEfectivo} kg · ` : ""}
-          {ejercicio.repsProgramadas}{esTiempo ? " seg" : " reps"}
-        </strong>
-        <small>{ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s de descanso` : "Sin descanso"}</small>
-      </p>
-
       {modoEnfocado && (
         <div className="selector-series-foco" aria-label="Seleccionar serie">
           {filas.map((numero) => (
@@ -2379,6 +2381,22 @@ export const SesionEjercicioCard = forwardRef<
           ))}
         </div>
       )}
+
+      {ultimoTexto && (
+        <p className="registro-anterior-foco text-micro mb-1.5 text-text-tertiary">
+          <span>Último registro</span>
+          <strong>{ultimoTexto}</strong>
+          <small>{ejercicio.ultimoRegistro?.fecha}</small>
+        </p>
+      )}
+      <p className="objetivo-serie-foco">
+        <span>Objetivo</span>
+        <strong>
+          {pesoSugeridoEfectivo != null ? `${pesoSugeridoEfectivo} kg · ` : ""}
+          {ejercicio.repsProgramadas}{esTiempo ? " seg" : " reps"}
+        </strong>
+        <small>{ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s de descanso` : "Sin descanso"}</small>
+      </p>
 
       {soloLectura ? (
         <div className="space-y-1">

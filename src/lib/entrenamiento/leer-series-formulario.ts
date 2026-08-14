@@ -4,6 +4,7 @@ export type SerieFormulario = {
   peso_kg: number | null;
   es_peso_corporal: boolean;
   reps_realizadas: number | null;
+  rir_estimado: number | null;
   realizada: boolean;
 };
 
@@ -36,12 +37,16 @@ export function leerSeriesFormulario(
     const realizada = formData.get(`realizada_${numero}${sufijo}`) === "true";
     const peso = esPesoCorporal ? null : numeroOpcional(formData.get(`peso_${numero}${sufijo}`), true);
     const reps = numeroOpcional(formData.get(`reps_${numero}${sufijo}`), false);
+    const rir = numeroOpcional(formData.get(`rir_${numero}${sufijo}`), false);
 
     if (peso !== null && (!Number.isFinite(peso) || peso < 0 || peso > 1000)) {
       return { ok: false, error: "Ingresa un peso válido entre 0 y 1000 kg." };
     }
     if (reps !== null && (!Number.isInteger(reps) || reps < 0 || reps > 10000)) {
       return { ok: false, error: "Ingresa repeticiones válidas." };
+    }
+    if (rir !== null && (!Number.isInteger(rir) || rir < 0 || rir > 5)) {
+      return { ok: false, error: "El RIR debe estar entre 0 y 5." };
     }
     if (realizada) seriesRealizadas++;
     if (peso === null && reps === null && !esPesoCorporal && !realizada) continue;
@@ -52,6 +57,7 @@ export function leerSeriesFormulario(
       peso_kg: peso,
       es_peso_corporal: esPesoCorporal,
       reps_realizadas: reps,
+      rir_estimado: rir,
       realizada,
     });
   }

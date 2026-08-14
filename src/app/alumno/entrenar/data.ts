@@ -493,6 +493,7 @@ export type SerieRealizada = {
   pesoKg: number | null;
   esPesoCorporal: boolean;
   repsRealizadas: number | null;
+  rirEstimado: number | null;
   /** El alumno marcó esta serie puntual como hecha — distinto de haber
    * cargado peso/reps, que puede pasar sin haberla completado de verdad. */
   realizada: boolean;
@@ -795,7 +796,7 @@ export async function obtenerSesionCompleta(
   const { data: todasLasSeries } = sesionEjercicioIds.length
     ? await supabase
         .from("series_realizadas")
-        .select("sesion_ejercicio_id, numero_serie, peso_kg, es_peso_corporal, reps_realizadas, realizada")
+        .select("sesion_ejercicio_id, numero_serie, peso_kg, es_peso_corporal, reps_realizadas, realizada, rir_estimado")
         .in("sesion_ejercicio_id", sesionEjercicioIds)
     : { data: [] };
 
@@ -807,6 +808,7 @@ export async function obtenerSesionCompleta(
       pesoKg: s.peso_kg,
       esPesoCorporal: s.es_peso_corporal,
       repsRealizadas: s.reps_realizadas,
+      rirEstimado: s.rir_estimado,
       realizada: s.realizada,
     });
     seriesPorEjercicio.set(s.sesion_ejercicio_id, arr);

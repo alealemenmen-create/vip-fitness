@@ -28,4 +28,22 @@ describe("leerSeriesFormulario", () => {
       error: "Ingresa un peso válido entre 0 y 1000 kg.",
     });
   });
+
+  it("guarda el RIR de cada serie y rechaza valores fuera de 0 a 5", () => {
+    const valido = new FormData();
+    valido.set("peso_1", "24");
+    valido.set("reps_1", "10");
+    valido.set("rir_1", "2");
+    expect(leerSeriesFormulario(valido, "ejercicio-a", 1, "")).toMatchObject({
+      ok: true,
+      filas: [{ rir_estimado: 2 }],
+    });
+
+    const invalido = new FormData();
+    invalido.set("rir_1", "6");
+    expect(leerSeriesFormulario(invalido, "ejercicio-a", 1, "")).toEqual({
+      ok: false,
+      error: "El RIR debe estar entre 0 y 5.",
+    });
+  });
 });

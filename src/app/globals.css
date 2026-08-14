@@ -3470,6 +3470,45 @@ input[type="number"] {
   align-self: center;
   background: rgba(255, 255, 255, .08);
 }
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto 38px 34px 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+}
+.control-rir-serie > span {
+  margin-right: 5px;
+  color: var(--color-text-secondary);
+  font-size: calc(13px * var(--escala-texto));
+  font-weight: 620;
+  letter-spacing: .08em;
+}
+.control-rir-serie button {
+  display: grid;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, .035);
+  font-size: 20px;
+}
+.control-rir-serie input {
+  width: 34px;
+  color: var(--color-text);
+  background: transparent;
+  font-size: calc(16px * var(--escala-texto));
+  font-weight: 650;
+  text-align: center;
+  outline: none;
+  appearance: textfield;
+}
+.control-rir-serie input::-webkit-inner-spin-button,
+.control-rir-serie input::-webkit-outer-spin-button { appearance: none; }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso {
   grid-column: 1 / -1;
   width: 100%;
@@ -3491,8 +3530,7 @@ input[type="number"] {
 }
 .tarjeta-ejercicio-enfocada .boton-completar-ejercicio { display: none; }
 .tarjeta-ejercicio-enfocada .acciones-secundarias-ejercicio {
-  margin-top: 9px;
-  opacity: .68;
+  display: none;
 }
 .vista-siguiente-ejercicio {
   display: flex;
