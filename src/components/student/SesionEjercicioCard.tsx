@@ -1082,25 +1082,42 @@ export const FilaSerie = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // `restante` no está en las dependencias de abajo (solo se recrea el
+  // intervalo si cambia `descansando`/`activo`), así que el tick necesita
+  // este ref para leer el valor de VERDAD en vez del que quedó cerrado en
+  // el closure del efecto.
+  const restanteRef = useRef(restante);
+  useEffect(() => {
+    restanteRef.current = restante;
+  }, [restante]);
+
   // Cuenta regresiva controlada por efecto: solo corre si esta serie es la
   // "activa" del ejercicio — al arrancar el descanso de otra serie, esta
   // queda pausada sola (restante se congela donde iba).
   useEffect(() => {
     if (!descansando || !activo) return;
     const id = setInterval(() => {
-      setRestante((prev) => {
-        if (prev === null || prev <= 1) {
-          limpiarDescanso(sesionId, sesionEjercicioId, numero);
-          avisarFinDescanso();
-          setAvisandoSiguiente(true);
-          if (!avisadoRef.current) {
-            avisadoRef.current = true;
-            onCicloCompleto(numero);
-          }
-          return null;
+      const actual = restanteRef.current;
+      if (actual === null) return;
+      if (actual <= 1) {
+        // `onCicloCompleto` actualiza estado de SesionEjercicioCard (el
+        // padre): tiene que dispararse desde acá, el tick del timer, y no
+        // desde DENTRO del actualizador de `setRestante` de arriba — un
+        // actualizador de useState tiene que ser puro, y llamar al setState
+        // de otro componente ahí adentro es justo lo que React prohíbe
+        // ("Cannot update a component while rendering a different
+        // component").
+        setRestante(null);
+        limpiarDescanso(sesionId, sesionEjercicioId, numero);
+        avisarFinDescanso();
+        setAvisandoSiguiente(true);
+        if (!avisadoRef.current) {
+          avisadoRef.current = true;
+          onCicloCompleto(numero);
         }
-        return prev - 1;
-      });
+      } else {
+        setRestante(actual - 1);
+      }
     }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1116,17 +1133,28 @@ export const FilaSerie = forwardRef<
    * penalizar). Se resetea apenas se arranca la siguiente serie o el
    * descanso de esta se reinicia.
    *
-   * Se puede frenar tocando el aviso mismo (`excesoPausado`): antes la única
+   * Se puede frenar tocando el aviso mismo (`excesoResuelto`): antes la única
    * forma de que parara de sumar era arrancar la serie siguiente de verdad,
    * sin margen para decir "ya me di cuenta, dejá de penalizar" sin
    * comprometerse a seguir. Tocarlo congela el contador donde está — lo ya
    * penalizado queda, pero no sigue creciendo. */
   const [segundosExceso, setSegundosExceso] = useState(0);
-  const [excesoPausado, setExcesoPausado] = useState(false);
-  /** Congelado porque hay señales de que el alumno está en la pantalla. Es
-   * distinto de `excesoPausado` (freno manual) solo para poder decirlo bien
-   * en el aviso. */
-  const [presente, setPresente] = useState(true);
+  /** Mismo motivo que `restanteRef`: el intervalo de abajo no tiene
+   * `segundosExceso` en sus dependencias, así que necesita leer el valor
+   * real desde acá en vez de un closure viejo. */
+  const segundosExcesoRef = useRef(0);
+  /** Candado de una sola vía: en cuanto se detecta al alumno (toque o volver
+   * a la app) mientras el exceso está corriendo, esto pasa a `true` y el
+   * contador NO vuelve a arrancar para esta serie, pase lo que pase después
+   * (pantalla apagada, `visibilitychange`, silencio). Antes se pausaba y
+   * reanudaba con cada toque —"acumulador de tramos ausentes"—, y una
+   * alumna (Constanza) reportó justo esto: volvía de ejecutar la serie,
+   * la detectaba, y el reloj se le reactivaba solo un rato después con la
+   * pantalla otra vez apagada. Detectado una vez, resuelto para siempre en
+   * esta serie — solo se vuelve a armar cuando arranca el descanso de la
+   * PRÓXIMA (el efecto de abajo lo resetea apenas deja de aplicar). También
+   * sirve como freno manual: tocar el aviso llama a la misma función. */
+  const [excesoResuelto, setExcesoResuelto] = useState(false);
   /** Momento de la última señal humana. Arranca en 0 y lo llena el efecto de
    * abajo al montar: `Date.now()` en el render rompe la pureza (y el HTML del
    * servidor no tiene reloj del alumno). */
@@ -1143,9 +1171,8 @@ export const FilaSerie = forwardRef<
   useEffect(() => {
     if (soloLectura) return;
     // Solo se toca el ref, nunca el estado: un scroll dispara decenas de
-    // eventos por segundo y no puede costar un re-render cada uno. Quien mira
-    // el ref es el tick de una vez por segundo del contador, que es también
-    // quien actualiza `presente` para la pantalla.
+    // eventos por segundo y no puede costar un re-render cada uno. Quien lee
+    // el ref es el tick de una vez por segundo del contador de exceso.
     const marcar = () => {
       ultimaSenalRef.current = Date.now();
     };
@@ -1155,7 +1182,9 @@ export const FilaSerie = forwardRef<
     const alCambiarVisibilidad = () => {
       // Se fue de la app: eso no es estar frente a la pantalla, y el reloj
       // tiene que correr. La señal vieja se descarta para que el contador
-      // arranque ya y no espere la ventana de gracia.
+      // arranque ya, sin esperar los MS_PRESENCIA de gracia de un toque
+      // viejo. Volver SÍ cuenta como detección (queda en manos del efecto de
+      // `excesoResuelto`, que lee `document.hidden` en cada tick).
       ultimaSenalRef.current = document.hidden ? 0 : Date.now();
     };
     const opciones = { passive: true, capture: true } as const;
@@ -1175,8 +1204,13 @@ export const FilaSerie = forwardRef<
     };
   }, [soloLectura]);
 
-  function alternarPausaExceso() {
-    setExcesoPausado((prev) => !prev);
+  /** Freno manual: tocar el aviso cuenta como la misma detección que un toque
+   * cualquiera en la pantalla (ver el efecto de arriba, `marcar`) — resuelve
+   * el exceso ya mismo en vez de esperar al próximo tick del intervalo. Una
+   * sola vía: no existe "reanudar", tocarlo de nuevo no vuelve a armar el
+   * contador (ver el comentario de `excesoResuelto`). */
+  function resolverExceso() {
+    setExcesoResuelto(true);
   }
   useEffect(() => {
     if (
@@ -1188,34 +1222,46 @@ export const FilaSerie = forwardRef<
       !descansoSegundos
     ) {
       tramosNotificadosRef.current = 0;
+      segundosExcesoRef.current = 0;
       setSegundosExceso(0);
-      setExcesoPausado(false);
+      setExcesoResuelto(false);
       return;
     }
-    if (excesoPausado) return;
-    // Acumulador y no "ahora menos el origen": el contador se congela y se
-    // reanuda muchas veces por descanso (cada toque lo frena), así que el
-    // tiempo penalizado es la suma de los tramos en que NO hubo nadie, no el
-    // reloj de pared desde que terminó el descanso.
+    if (excesoResuelto) return;
+    // Acumulador y no "ahora menos el origen": mientras no se detecte al
+    // alumno, el tiempo penalizado suma segundo a segundo.
     const id = setInterval(() => {
-      const enPantalla = !document.hidden && Date.now() - ultimaSenalRef.current <= MS_PRESENCIA;
-      setPresente(enPantalla);
-      if (enPantalla) return;
-      setSegundosExceso((prev) => {
-        const siguiente = prev + 1;
-        const tramos = Math.floor(siguiente / PUNTOS_VIP.descansoSegundosPorTramo);
-        // Solo se manda al servidor cuando se cruza un tramo nuevo, no cada
-        // segundo — el indicador visual sí se actualiza cada segundo.
-        if (tramos > tramosNotificadosRef.current) {
-          tramosNotificadosRef.current = tramos;
-          void penalizarExcesoDescanso(sesionEjercicioId, numero, tramos);
-        }
-        return siguiente;
-      });
+      const detectado = !document.hidden && Date.now() - ultimaSenalRef.current <= MS_PRESENCIA;
+      if (detectado) {
+        // Detectado una vez, resuelto para siempre en esta serie: se corta
+        // el intervalo (cambia `excesoResuelto`, dependencia de este efecto)
+        // y no se vuelve a armar aunque después la pantalla se apague, la
+        // app pase a segundo plano o no haya más señales. Solo el próximo
+        // descanso (la siguiente serie) vuelve a habilitarlo, vía el reset
+        // de arriba.
+        setExcesoResuelto(true);
+        return;
+      }
+      // `penalizarExcesoDescanso` es una Server Action: llamarla desde DENTRO
+      // de un actualizador de useState es el mismo error que `onCicloCompleto`
+      // más arriba (ver ese comentario) — acá pasaba con el servidor en vez
+      // del padre, mismo síntoma ("Cannot update a component while rendering
+      // a different component"). Por eso el valor sale de un ref y no de la
+      // forma funcional de `setSegundosExceso`.
+      const siguiente = segundosExcesoRef.current + 1;
+      segundosExcesoRef.current = siguiente;
+      setSegundosExceso(siguiente);
+      const tramos = Math.floor(siguiente / PUNTOS_VIP.descansoSegundosPorTramo);
+      // Solo se manda al servidor cuando se cruza un tramo nuevo, no cada
+      // segundo — el indicador visual sí se actualiza cada segundo.
+      if (tramos > tramosNotificadosRef.current) {
+        tramosNotificadosRef.current = tramos;
+        void penalizarExcesoDescanso(sesionEjercicioId, numero, tramos);
+      }
     }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activo, descansando, soloLectura, excesoPausado]);
+  }, [activo, descansando, soloLectura, excesoResuelto]);
   const tramosExcedidos = Math.floor(segundosExceso / PUNTOS_VIP.descansoSegundosPorTramo);
 
   // Las flechas se apagan solas: son un empujón, no un estado en el que la fila
@@ -1555,46 +1601,39 @@ export const FilaSerie = forwardRef<
           </button>
         )}
       </div>
-      {segundosExceso > 0 && (
+      {segundosExceso > 0 && !excesoResuelto && (
         // Aviso chico, en vivo desde el segundo 1: primero avisa que el reloj
         // corre, y recién cuando se cruza el primer tramo (ver
         // PUNTOS_VIP.descansoSegundosPorTramo) muestra los puntos perdidos.
-        // Tocable: frena el contador donde está sin obligar a arrancar la
-        // siguiente serie (lo ya penalizado no se revierte).
-        //
-        // Rojo solo cuando de verdad está corriendo. Congelado —a mano o
-        // porque el alumno está en la pantalla— no es una alarma, y pintarlo
-        // igual hacía que el aviso gritara todo el tiempo lo mismo.
+        // Tocable: resuelve el exceso ya mismo, lo mismo que si se hubiera
+        // detectado solo — de una sola vía, no existe "reanudar" (ver
+        // `excesoResuelto`). Lo ya penalizado no se revierte.
         <button
           type="button"
-          onClick={alternarPausaExceso}
-          className={`mt-1 text-left text-micro underline decoration-dotted ${
-            excesoPausado || presente ? "text-text-tertiary" : "text-error"
-          }`}
+          onClick={resolverExceso}
+          className="mt-1 text-left text-micro text-error underline decoration-dotted"
         >
-          {excesoPausado
-            ? tramosExcedidos > 0
-              ? `Detenido — perdiste ${Math.min(
-                  PUNTOS_VIP.descansoPenalizacionMaxima,
-                  tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
-                )} pts · toca para reanudar`
-              : "Detenido · toca para reanudar"
-            : presente
-              ? // Congelado solo porque hay señales de que sigue en la pantalla.
-                // Decirlo importa: si no, el número quieto parece un error.
-                tramosExcedidos > 0
-                ? `En pausa mientras estás en la pantalla · ${Math.min(
-                    PUNTOS_VIP.descansoPenalizacionMaxima,
-                    tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
-                  )} pts descontados`
-                : "En pausa mientras estás en la pantalla"
-              : tramosExcedidos > 0
-              ? `Te pasaste del descanso: -${Math.min(
-                  PUNTOS_VIP.descansoPenalizacionMaxima,
-                  tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
-                )} pts · toca para frenar`
-              : `Descansaste ${segundosExceso}s de más · toca para frenar`}
+          {tramosExcedidos > 0
+            ? `Te pasaste del descanso: -${Math.min(
+                PUNTOS_VIP.descansoPenalizacionMaxima,
+                tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
+              )} pts · toca para frenar`
+            : `Descansaste ${segundosExceso}s de más · toca para frenar`}
         </button>
+      )}
+      {segundosExceso > 0 && excesoResuelto && (
+        // Ya se detectó al alumno (toque, volver a la app, o el freno
+        // manual de arriba): esto queda así hasta que arranque el descanso
+        // de la próxima serie, sin importar lo que pase con la pantalla
+        // mientras tanto.
+        <p className="mt-1 text-micro text-text-tertiary">
+          {tramosExcedidos > 0
+            ? `Detectado a tiempo — quedaron ${Math.min(
+                PUNTOS_VIP.descansoPenalizacionMaxima,
+                tramosExcedidos * PUNTOS_VIP.descansoPenalizacionPorTramo
+              )} pts descontados`
+            : "Detectado a tiempo, ya no descuenta"}
+        </p>
       )}
     </div>
   );
