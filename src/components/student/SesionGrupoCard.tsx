@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from "react";
-import { Check, ChevronLeft, ChevronRight, Info, NotebookPen, Repeat, Timer } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Info, NotebookPen, Repeat, Timer } from "lucide-react";
 import { guardarSeriesGrupo, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import {
@@ -65,9 +65,13 @@ export const SesionGrupoCard = forwardRef<
     soloLectura: boolean;
     activo?: boolean;
     modoEnfocado?: boolean;
+    onAnterior?: () => void;
+    onSiguiente?: () => void;
+    hayAnterior?: boolean;
+    haySiguiente?: boolean;
     onDificultadRespondida?: () => void;
   }
->(function SesionGrupoCard({ ejercicios, sesionId, soloLectura, activo = false, modoEnfocado = false, onDificultadRespondida }, ref) {
+>(function SesionGrupoCard({ ejercicios, sesionId, soloLectura, activo = false, modoEnfocado = false, onAnterior, onSiguiente, hayAnterior = false, haySiguiente = false, onDificultadRespondida }, ref) {
   const [state, formAction, pending] = useActionState(guardarSeriesGrupo, initialState);
   const n = ejercicios.length;
   const completoTodo = ejercicios.every((e) => e.completado);
@@ -138,6 +142,16 @@ export const SesionGrupoCard = forwardRef<
     Array.from({ length: ejercicio.seriesProgramadas }, (_, indice) => indice + 1)
       .every((numero) => seriesHechas[pos].has(numero))
   );
+
+  // Rediseño en tarjetas apiladas (modo enfocado): en vez de mostrar los
+  // pasos intercalados de a uno, se ve toda la ronda actual junta — un
+  // ejercicio por tarjeta. `rondaActualNumero` es la ronda del paso que
+  // toca ahora (o la última si el grupo ya se completó).
+  const rondaActualNumero = pasoQueToca?.numero ?? maxRondas;
+  const pasosDeRondaActual = pasos.filter((paso) => paso.numero === rondaActualNumero);
+  /** Tarjetas ya hechas que el alumno cerró a mano para no ver sus números
+   * todo el tiempo — arranca abierto por defecto (como en la referencia). */
+  const [colapsadosManual, setColapsadosManual] = useState<Set<number>>(() => new Set());
 
   function respaldarLocal() {
     const form = formRef.current;
@@ -337,7 +351,7 @@ export const SesionGrupoCard = forwardRef<
           {grupoTecnica.etiqueta}
         </span>
       )}
-      <div className={`mb-2 grid gap-2 ${modoEnfocado ? "cabecera-grupo-enfocado" : "grid-cols-2"}`}>
+      <div className={`mb-2 grid gap-2 ${modoEnfocado ? "hidden" : "grid-cols-2"}`}>
         {ejercicios.map((ej, pos) => (
           <div key={ej.sesionEjercicioId} className="flex min-w-0 items-center gap-1.5">
             <CuadroFotoReferencia
@@ -383,23 +397,25 @@ export const SesionGrupoCard = forwardRef<
         ))}
       </div>
 
-      <div className="radius-control mb-1.5 flex items-stretch overflow-hidden border border-border bg-surface-2">
-        <Dato icono={<Repeat size={13} />} valor={String(maxRondas)} etiqueta="Rondas" />
-        <Dato
-          icono={<Timer size={13} />}
-          valor={descansoRonda ? `${descansoRonda}s` : "—"}
-          etiqueta="Desc. entre rondas"
-        />
-      </div>
+      {!modoEnfocado && (
+        <div className="radius-control mb-1.5 flex items-stretch overflow-hidden border border-border bg-surface-2">
+          <Dato icono={<Repeat size={13} />} valor={String(maxRondas)} etiqueta="Rondas" />
+          <Dato
+            icono={<Timer size={13} />}
+            valor={descansoRonda ? `${descansoRonda}s` : "—"}
+            etiqueta="Desc. entre rondas"
+          />
+        </div>
+      )}
 
-      {modoEnfocado && grupoTecnica && (
-        <div className="secuencia-tecnica-foco">
-          <strong>
-            {ejercicios.map((ejercicio, pos) => `${LETRAS[pos]} · ${ejercicio.nombre}`).join("  →  ")}
-          </strong>
-          <span>
-            Sin descanso entre ejercicios. Descansa al terminar {LETRAS[n - 1]} y repite la ronda.
-          </span>
+      {modoEnfocado && (onAnterior || onSiguiente) && (
+        <div className="navegacion-ejercicios-junto-foto">
+          <button type="button" onClick={onAnterior} disabled={!hayAnterior} aria-label="Ejercicio anterior">
+            ← Anterior
+          </button>
+          <button type="button" onClick={onSiguiente} disabled={!haySiguiente} aria-label="Siguiente ejercicio">
+            Siguiente →
+          </button>
         </div>
       )}
 
@@ -471,69 +487,178 @@ export const SesionGrupoCard = forwardRef<
                 </span>
               ))}
 
-              <div className="encabezado-pasos-grupo mb-1 flex items-center justify-between gap-2">
-                <p className="text-micro font-bold tracking-wide text-vip">SERIES INTERCALADAS</p>
-                {pasoQueToca && (
-                  <p className="text-micro text-text-secondary">
-                    Ahora: {LETRAS[pasoQueToca.pos]} · serie {pasoQueToca.numero}
-                  </p>
-                )}
-              </div>
-
-              {modoEnfocado && (
-                <>
-                  <div className="navegacion-paso-tecnica">
-                    <button
-                      type="button"
-                      onClick={() => setIndicePasoVisible((actual) => Math.max(0, actual - 1))}
-                      disabled={indicePasoVisible === 0}
-                      aria-label="Paso anterior de la técnica"
-                    >
-                      <ChevronLeft size={17} />
-                    </button>
-                    <strong>
-                      {LETRAS[pasos[indicePasoVisible]?.pos ?? 0]} · serie {pasos[indicePasoVisible]?.numero ?? 1}
-                      <small> de {pasos.length} pasos</small>
-                    </strong>
-                    <button
-                      type="button"
-                      onClick={() => setIndicePasoVisible((actual) => Math.min(pasos.length - 1, actual + 1))}
-                      disabled={indicePasoVisible >= pasos.length - 1}
-                      aria-label="Paso siguiente de la técnica"
-                    >
-                      <ChevronRight size={17} />
-                    </button>
-                  </div>
-                  <div className="selector-series-foco" aria-label="Seleccionar paso de la técnica">
-                    {pasos.map((paso, indice) => (
-                      <button
-                        key={`${paso.pos}-${paso.numero}`}
-                        type="button"
-                        onClick={() => setIndicePasoVisible(indice)}
-                        data-estado={
-                          seriesHechas[paso.pos].has(paso.numero)
-                            ? "completa"
-                            : indice === indicePasoVisible
-                              ? "actual"
-                              : "pendiente"
-                        }
-                        aria-label={`Ver ${LETRAS[paso.pos]}, serie ${paso.numero}`}
-                        aria-current={indice === indicePasoVisible ? "step" : undefined}
-                      >
-                        <span />
-                      </button>
-                    ))}
-                  </div>
-                </>
+              {!modoEnfocado && (
+                <div className="encabezado-pasos-grupo mb-1 flex items-center justify-between gap-2">
+                  <p className="text-micro font-bold tracking-wide text-vip">SERIES INTERCALADAS</p>
+                  {pasoQueToca && (
+                    <p className="text-micro text-text-secondary">
+                      Ahora: {LETRAS[pasoQueToca.pos]} · serie {pasoQueToca.numero}
+                    </p>
+                  )}
+                </div>
               )}
 
-              {pasos.map((paso, indicePaso) => {
+              {!modoEnfocado && (
+                <div className="selector-series-foco" aria-label="Seleccionar paso de la técnica">
+                  {pasos.map((paso, indice) => (
+                    <button
+                      key={`${paso.pos}-${paso.numero}`}
+                      type="button"
+                      onClick={() => setIndicePasoVisible(indice)}
+                      data-estado={
+                        seriesHechas[paso.pos].has(paso.numero)
+                          ? "completa"
+                          : indice === indicePasoVisible
+                            ? "actual"
+                            : "pendiente"
+                      }
+                      aria-label={`Ver ${LETRAS[paso.pos]}, serie ${paso.numero}`}
+                      aria-current={indice === indicePasoVisible ? "step" : undefined}
+                    >
+                      <span />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Rediseño pedido por Alejandro (captura de referencia): en vez del
+                  paso-a-paso intercalado (1A, 1B, 2A, 2B...) se ven los ejercicios
+                  de LA RONDA ACTUAL apilados en tarjetas — el ya hecho arriba con
+                  su check, el que toca ahora abierto y editable, los que faltan
+                  colapsados. Reusa `FilaSerie` tal cual (descanso, exceso, aviso,
+                  Impulso VIP): nada de esa lógica se reimplementa acá, solo cambia
+                  el envoltorio visual. */}
+              {modoEnfocado && (
+                <div className="ronda-grupo-foco">
+                  <p className="ronda-grupo-foco-titulo">
+                    Ronda {rondaActualNumero} de {maxRondas}
+                  </p>
+                  <div className="ronda-grupo-foco-info">
+                    <Info size={16} aria-hidden />
+                    <p>
+                      <strong>Haz los {n} ejercicios seguidos.</strong>
+                      <span>
+                        {" "}Descansa al terminar el {LETRAS[n - 1]} y repite la ronda.
+                      </span>
+                    </p>
+                  </div>
+
+                  {pasosDeRondaActual.map((paso) => {
+                    const ej = ejercicios[paso.pos];
+                    const hecho = seriesHechas[paso.pos].has(paso.numero);
+                    const esActual = pasoQueToca?.pos === paso.pos && pasoQueToca?.numero === paso.numero;
+                    const colapsadoManual = colapsadosManual.has(paso.pos);
+                    const abierto = esActual || (hecho && !colapsadoManual);
+                    return (
+                      <div
+                        key={`${paso.pos}-${paso.numero}-${montado ? "local" : "server"}`}
+                        className="tarjeta-paso-grupo-foco"
+                        data-estado={hecho ? "completa" : esActual ? "actual" : "pendiente"}
+                      >
+                        <div className="cabecera-tarjeta-paso-grupo">
+                          <span className="numero-paso-grupo">
+                            {hecho ? <Check size={15} strokeWidth={3} /> : paso.pos + 1}
+                          </span>
+                          <CuadroFotoReferencia
+                            ilustracionSlug={ej.ilustracionSlug}
+                            fotoMiniaturaUrl={ej.fotoMiniaturaUrl}
+                            fotoCompletaUrl={ej.fotoCompletaUrl}
+                            videoUrl={ej.videoUrl}
+                            videoCloudflareUid={ej.videoCloudflareUid}
+                            videoCloudflareEstado={ej.videoCloudflareEstado}
+                            videoCloudflareMiniaturaUrl={ej.videoCloudflareMiniaturaUrl}
+                            nombre={ej.nombre}
+                            sesionEjercicioId={ej.sesionEjercicioId}
+                            ejercicioId={ej.ejercicioId}
+                            fotoPanoramaX={ej.fotoPanoramaX}
+                            fotoPanoramaY={ej.fotoPanoramaY}
+                            fotoCuadradaX={ej.fotoCuadradaX}
+                            fotoCuadradaY={ej.fotoCuadradaY}
+                            compacto
+                            tamanoCompacto={52}
+                          />
+                          <span className="info-paso-grupo">
+                            <strong>{ej.nombre}</strong>
+                            <small>
+                              {ej.grupoMuscular ? `${ETIQUETAS_GRUPO_MUSCULAR[ej.grupoMuscular]} · ` : ""}
+                              {ej.seriesProgramadas}× {ej.repsProgramadas}
+                            </small>
+                          </span>
+                          {hecho && (
+                            <button
+                              type="button"
+                              className="boton-chevron-paso-grupo"
+                              onClick={() => {
+                                setColapsadosManual((actuales) => {
+                                  const copia = new Set(actuales);
+                                  if (copia.has(paso.pos)) copia.delete(paso.pos);
+                                  else copia.add(paso.pos);
+                                  return copia;
+                                });
+                              }}
+                              aria-expanded={abierto}
+                              aria-label={abierto ? "Ocultar detalle" : "Mostrar detalle"}
+                            >
+                              <ChevronDown
+                                size={16}
+                                className="chevron-paso-grupo"
+                                style={{ transform: abierto ? "rotate(180deg)" : undefined }}
+                              />
+                            </button>
+                          )}
+                        </div>
+                        {abierto && (
+                          <div
+                            ref={(nodo) => {
+                              if (nodo) filaNodoRef.current[paso.pos].set(paso.numero, nodo);
+                              else filaNodoRef.current[paso.pos].delete(paso.numero);
+                            }}
+                          >
+                            <FilaSerie
+                              ref={(handle) => {
+                                if (handle) filasRef.current[paso.pos].set(paso.numero, handle);
+                                else filasRef.current[paso.pos].delete(paso.numero);
+                              }}
+                              numero={paso.numero}
+                              sufijoNombre={sufijoDe(paso.pos)}
+                              inicial={serieInicial(paso.pos, paso.numero)}
+                              repsObjetivo={objetivoRepsPorPos[paso.pos]}
+                              pesoSugerido={pesoSugeridoPorPos[paso.pos]}
+                              esTiempo={esTiempoPorPos[paso.pos]}
+                              descansoSegundos={ej.descansoSegundos}
+                              temporizadorDescanso={ej.temporizadorDescanso}
+                              soloLectura={soloLectura}
+                              sesionId={sesionId}
+                              sesionEjercicioId={ej.sesionEjercicioId}
+                              activo={serieActiva?.pos === paso.pos && serieActiva?.numero === paso.numero}
+                              esLaQueToca={esActual}
+                              onIniciar={alIniciar(paso.pos)}
+                              onCicloCompleto={alCompletarCiclo(paso.pos)}
+                              onCicloDeshecho={alDeshacerCiclo(paso.pos)}
+                              onGuardar={guardarAhora}
+                              colorGrupoTecnica={grupoTecnica?.color}
+                              modoDestacado={esActual}
+                              // Solo el ÚLTIMO ejercicio del grupo descansa de verdad — A y B
+                              // (o A y B de una triserie) encadenan directo al siguiente, sin
+                              // cronómetro, sea cual sea la ronda. Pedido de Alejandro: "primer
+                              // ejercicio avanza, segundo avanza, tercero descansa".
+                              saltaDescanso={paso.pos !== n - 1}
+                              textoAlSaltarDescanso="Avanza"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {!modoEnfocado && pasos.map((paso, indicePaso) => {
                 const ej = ejercicios[paso.pos];
                 return (
                   <div
                     key={`${paso.pos}-${paso.numero}-${montado ? "local" : "server"}`}
-                    className={modoEnfocado ? "contenedor-serie-foco" : undefined}
-                    data-visible={!modoEnfocado || indicePaso === indicePasoVisible ? "true" : "false"}
+                    data-visible={indicePaso === indicePasoVisible ? "true" : "false"}
                   >
                     <div className="mb-0.5 flex items-center gap-1">
                       <span className="text-micro font-bold text-vip">{LETRAS[paso.pos]}</span>
@@ -568,7 +693,7 @@ export const SesionGrupoCard = forwardRef<
                         onCicloDeshecho={alDeshacerCiclo(paso.pos)}
                         onGuardar={guardarAhora}
                         colorGrupoTecnica={grupoTecnica?.color}
-                        modoDestacado={modoEnfocado && indicePaso === indicePasoVisible}
+                        modoDestacado={indicePaso === indicePasoVisible}
                       />
                     </div>
                   </div>

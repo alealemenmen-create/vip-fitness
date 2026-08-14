@@ -3,6 +3,8 @@
 import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal, flushSync } from "react-dom";
 import {
+  ArrowLeft,
+  ArrowRight,
   Check,
   ChevronDown,
   ChevronRight,
@@ -14,7 +16,6 @@ import {
   Maximize2,
   X,
   AlertCircle,
-  Info,
   Save,
   Target,
   Zap,
@@ -931,6 +932,16 @@ export const FilaSerie = forwardRef<
      * demás siguen montadas en el formulario, pero esta usa controles grandes
      * y una acción única de Guardar serie. */
     modoDestacado?: boolean;
+    /** No corre cronómetro de descanso al completar esta fila — se guarda y
+     * pasa directo a lo que sigue. Dos casos la piden: la última serie de un
+     * ejercicio suelto (no hay otra serie después) y CUALQUIER serie de un
+     * ejercicio que no sea el último de una biserie/triserie (ahí se
+     * encadena directo al siguiente ejercicio, sin descansar — pedido de
+     * Alejandro: "primer ejercicio avanza, segundo avanza, tercero
+     * descansa"). El botón dice `textoAlSaltarDescanso` en vez de
+     * "Descanso". */
+    saltaDescanso?: boolean;
+    textoAlSaltarDescanso?: string;
   }
 >(function FilaSerie(
   {
@@ -954,6 +965,8 @@ export const FilaSerie = forwardRef<
     sufijoNombre = "",
     tecnicaDeEstaSerie = null,
     modoDestacado = false,
+    saltaDescanso = false,
+    textoAlSaltarDescanso = "Guarda y avanza",
   },
   ref
 ) {
@@ -1414,7 +1427,10 @@ export const FilaSerie = forwardRef<
     flushSync(() => setRealizada(true));
     // Sin cronómetro, marcar la serie la cierra y pasa a la siguiente, igual
     // que un ejercicio sin descanso programado: no hay reloj que esperar.
-    if (temporizadorDescanso && descansoSegundos && descansoSegundos > 0) {
+    // La ÚLTIMA serie tampoco corre cronómetro — pedido de Alejandro: no
+    // hace falta descansar ahí, guarda y avanza directo (a la encuesta de
+    // dificultad / siguiente ejercicio).
+    if (!saltaDescanso && temporizadorDescanso && descansoSegundos && descansoSegundos > 0) {
       // Este toque es el gesto del usuario que habilita el audio: el pitido va a
       // sonar dentro de un temporizador, y para entonces ya no hay gesto que
       // valga. Ver `prepararAviso`.
@@ -1666,7 +1682,7 @@ export const FilaSerie = forwardRef<
                 <span className="flex flex-col items-center leading-tight">
                   <span className={modoDestacado ? "guardar-serie-foco" : undefined}>
                     {modoDestacado && <Save size={18} />}
-                    {modoDestacado ? "Guardar" : "Descanso"}
+                    {modoDestacado ? (saltaDescanso ? textoAlSaltarDescanso : "Descanso") : "Descanso"}
                   </span>
                   {!modoDestacado && descansoSegundos ? (
                     <span className="boton-descanso-segundos">{modoDestacado ? `y descansar ${descansoSegundos}s` : `${descansoSegundos}s`}</span>
@@ -1730,9 +1746,18 @@ export const SesionEjercicioCard = forwardRef<
      * el brillo corriendo, para que se note de lejos en cuál está parado. */
     activo?: boolean;
     modoEnfocado?: boolean;
+    /** Nombres de los ejercicios que faltan después de este, en orden —
+     * se muestran chiquitos debajo del nombre, en modo enfocado. */
+    proximosNombres?: string[];
+    /** Navegación entre ejercicios de la sesión — vive acá, al lado de la
+     * foto, en vez de una barra aparte abajo (pedido de Alejandro). */
+    onAnterior?: () => void;
+    onSiguiente?: () => void;
+    hayAnterior?: boolean;
+    haySiguiente?: boolean;
     onDificultadRespondida?: () => void;
   }
->(function SesionEjercicioCard({ ejercicio, sesionId, soloLectura, activo = false, modoEnfocado = false, onDificultadRespondida }, ref) {
+>(function SesionEjercicioCard({ ejercicio, sesionId, soloLectura, activo = false, modoEnfocado = false, proximosNombres = [], onAnterior, onSiguiente, hayAnterior = false, haySiguiente = false, onDificultadRespondida }, ref) {
   const [state, formAction, pending] = useActionState(guardarSeries, initialState);
   // Abierto de entrada el que está en curso y los ya terminados (para poder
   // revisar lo que se levantó); en modo lectura, todos.
@@ -2228,6 +2253,9 @@ export const SesionEjercicioCard = forwardRef<
           {modoEnfocado && (
             <>
               <div className="referencia-foco-compacta relative shrink-0">
+                <p className="orden-grupo-sobre-foto">
+                  {ejercicio.orden} · {ejercicio.grupoMuscular ? ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular].toUpperCase() : "EJERCICIO"}
+                </p>
                 <CuadroFotoReferencia
                   ilustracionSlug={ejercicio.ilustracionSlug}
                   fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
@@ -2250,36 +2278,30 @@ export const SesionEjercicioCard = forwardRef<
                 />
               </div>
               <div className="guia-ejercicio-foco">
-                <p>
-                  {ejercicio.orden} · {ejercicio.grupoMuscular ? ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular].toUpperCase() : "EJERCICIO"}
-                </p>
                 <h2>{ejercicio.nombre}</h2>
-                <div className="selector-series-foco" aria-label="Seleccionar serie">
-                  {filas.map((numero) => {
-                    const esImpulso = intervencionesImpulso.some(
-                      (intervencion) => intervencion.serieObjetivo === numero && intervencion.estado !== "cancelada"
-                    );
-                    return (
-                      <button
-                        key={numero}
-                        type="button"
-                        onClick={() => setSerieVisibleNumero(numero)}
-                        data-estado={seriesHechas.has(numero) ? "completa" : numero === serieVisibleNumero ? "actual" : "pendiente"}
-                        data-impulso={esImpulso ? "true" : "false"}
-                        aria-label={`Ver serie ${numero}${esImpulso ? ", con Impulso VIP" : ""}`}
-                        aria-current={numero === serieVisibleNumero ? "step" : undefined}
-                      >
-                        <span />
-                        <small>Serie {numero}</small>
-                      </button>
-                    );
-                  })}
-                </div>
-                <span className="impulso-serie-foco" data-activo={impulsoEnSerieVisible ? "true" : "false"}>
-                  <Zap size={19} fill="currentColor" aria-hidden />
-                  Impulso VIP
-                  <Info size={13} />
-                </span>
+                {proximosNombres.length > 0 && (
+                  <p className="siguiente-ejercicio-foco">
+                    Sigue: <strong>{proximosNombres[0]}</strong>
+                  </p>
+                )}
+                {/* Impulso VIP ya no vive acá como placa fija: pedido de
+                    Alejandro, "sacalo de donde está" — ahora el rayo morado
+                    aparece SOLO encima de la rayita de la serie que le toca
+                    (ver selector-series-foco más abajo), para no anunciar
+                    algo especial en un ejercicio entero cuando en realidad
+                    es una sola serie la que va a ser distinta. El aviso con
+                    la instrucción sigue apareciendo solo, al llegar esa
+                    serie (`MomentoImpulsoEnVivo`, sin cambios). */}
+                {(onAnterior || onSiguiente) && (
+                  <div className="navegacion-ejercicios-junto-foto">
+                    <button type="button" onClick={onAnterior} disabled={!hayAnterior} aria-label="Ejercicio anterior">
+                      <ArrowLeft size={14} /> Anterior
+                    </button>
+                    <button type="button" onClick={onSiguiente} disabled={!haySiguiente} aria-label="Siguiente ejercicio">
+                      Siguiente <ArrowRight size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -2436,6 +2458,37 @@ export const SesionEjercicioCard = forwardRef<
         </p>
       </div>
 
+      {modoEnfocado && (
+        <div className="selector-series-foco selector-series-movido" aria-label="Seleccionar serie">
+          {filas.map((numero) => {
+            const esImpulso = intervencionesImpulso.some(
+              (intervencion) => intervencion.serieObjetivo === numero && intervencion.estado !== "cancelada"
+            );
+            const hecha = seriesHechas.has(numero);
+            return (
+              <button
+                key={numero}
+                type="button"
+                onClick={() => setSerieVisibleNumero(numero)}
+                data-estado={hecha ? "completa" : numero === serieVisibleNumero ? "actual" : "pendiente"}
+                data-impulso={esImpulso ? "true" : "false"}
+                aria-label={`Ver serie ${numero}${esImpulso ? ", con Impulso VIP" : ""}${hecha ? ", completada" : ""}`}
+                aria-current={numero === serieVisibleNumero ? "step" : undefined}
+              >
+                {esImpulso && !hecha && (
+                  <Zap size={13} fill="currentColor" aria-hidden className="rayo-impulso-serie" />
+                )}
+                <span />
+                <small>
+                  {hecha && <Check size={9} strokeWidth={3} aria-hidden />}
+                  Serie {numero}
+                </small>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {modoEnfocado && tecnica &&
         (!ejercicio.tecnicaSeries || tecnicaAplicaASerie(ejercicio.tecnicaSeries, serieVisibleNumero)) && (
           <button
@@ -2543,6 +2596,7 @@ export const SesionEjercicioCard = forwardRef<
                     : null
                 }
                 modoDestacado={modoEnfocado && serieVisibleNumero === n}
+                saltaDescanso={n === cantidadSeriesVisible}
               />
             </div>
           ))}

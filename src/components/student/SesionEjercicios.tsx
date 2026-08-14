@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ArrowRight, Check, ChevronRight, List, LockKeyhole, X } from "lucide-react";
+import { Check, ChevronRight, List, LockKeyhole, X } from "lucide-react";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
 import { SesionGrupoCard } from "@/components/student/SesionGrupoCard";
 import { resolverGrupoTecnica, tamanoGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 
 /**
@@ -163,7 +164,7 @@ export function SesionEjercicios({
     if (indice >= 0 && indice < grupos.length - 1) irA(indice + 1);
   };
 
-  const renderizarGrupo = (grupo: EjercicioSesion[]) => {
+  const renderizarGrupo = (grupo: EjercicioSesion[], conNavegacion = false) => {
     if (grupo.length >= 2) {
       const activo = !modoCorreccion && (
         grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId) || gruposDesbloqueados.has(grupo[0].sesionEjercicioId)
@@ -182,6 +183,14 @@ export function SesionEjercicios({
           soloLectura={soloLectura}
           activo={activo}
           modoEnfocado={!soloLectura && !modoCorreccion}
+          {...(conNavegacion
+            ? {
+                onAnterior: () => irA(indiceVisible - 1),
+                onSiguiente: () => irA(indiceVisible + 1),
+                hayAnterior: !!grupoAnterior,
+                haySiguiente: !!grupoSiguiente,
+              }
+            : null)}
           onDificultadRespondida={() => avanzarDesdeEncuesta(grupo)}
         />
       );
@@ -201,6 +210,17 @@ export function SesionEjercicios({
           grupo[0].sesionEjercicioId === ejercicioActivoId || gruposDesbloqueados.has(grupo[0].sesionEjercicioId)
         )}
         modoEnfocado={!soloLectura && !modoCorreccion}
+        proximosNombres={grupos
+          .slice(grupos.findIndex((g) => g[0].sesionEjercicioId === grupo[0].sesionEjercicioId) + 1)
+          .map((g) => g.map((ej) => ej.nombre).join(" + "))}
+        {...(conNavegacion
+          ? {
+              onAnterior: () => irA(indiceVisible - 1),
+              onSiguiente: () => irA(indiceVisible + 1),
+              hayAnterior: !!grupoAnterior,
+              haySiguiente: !!grupoSiguiente,
+            }
+          : null)}
         onDificultadRespondida={() => avanzarDesdeEncuesta(grupo)}
       />
     );
@@ -221,6 +241,24 @@ export function SesionEjercicios({
     setToquesDesbloqueo(0);
   };
   const indiceEjercicioVisible = Math.max(0, ejercicios.findIndex((ejercicio) => ejercicio.sesionEjercicioId === grupoVisible?.[0]?.sesionEjercicioId));
+  // Mismo cálculo que usa el servidor al Finalizar (`calcularPuntosEntrenamiento`
+  // en lib/ranking/reglas.ts): proporcional a ejercicios completados, no
+  // todo-o-nada. Acá solo se PREVISUALIZA — los puntos reales se confirman
+  // recién al finalizar la sesión.
+  const puntosRankedPreparados = calcularPuntosEntrenamiento(completados, total);
+  const porcentajeRutina = total > 0 ? Math.round((completados / total) * 100) : 0;
+
+  // La corona de la cabecera (fuera de este árbol, en Logo.tsx) suma estos
+  // puntos "preparados" a su saldo mientras dura la sesión, para que se vea
+  // subir en vivo — igual que el título, que ya viaja por el mismo mecanismo.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("vip:puntos-en-vivo", { detail: puntosRankedPreparados }));
+  }, [puntosRankedPreparados]);
+  useEffect(() => {
+    return () => {
+      window.dispatchEvent(new CustomEvent("vip:puntos-en-vivo", { detail: 0 }));
+    };
+  }, []);
 
   return (
     <>
@@ -234,11 +272,11 @@ export function SesionEjercicios({
         <section className="modo-entrenamiento-enfocado" aria-label="Ejercicio actual">
           <header className="cabecera-sesion-foco">
             <p>{tituloSesion}</p>
-            <div className="progreso-sesion-foco" aria-label={`Ejercicio ${indiceEjercicioVisible + 1} de ${ejercicios.length}`}>
+            <div className="progreso-ranked-foco" aria-label={`Rutina completada al ${porcentajeRutina}%`}>
               <span>
-                <i style={{ width: `${((indiceEjercicioVisible + 1) / Math.max(1, ejercicios.length)) * 100}%` }} />
+                <i style={{ width: `${porcentajeRutina}%` }} />
               </span>
-              <strong>{indiceEjercicioVisible + 1}/{ejercicios.length}</strong>
+              <strong>{porcentajeRutina}%</strong>
             </div>
           </header>
           <button
@@ -252,7 +290,7 @@ export function SesionEjercicios({
           </button>
 
           <div className="contenedor-grupo-bloqueable" data-bloqueado={grupoVisibleBloqueado ? "true" : "false"}>
-            {renderizarGrupo(grupoVisible)}
+            {renderizarGrupo(grupoVisible, true)}
             {grupoVisibleBloqueado && (
               <button
                 type="button"
@@ -267,25 +305,6 @@ export function SesionEjercicios({
                 </span>
               </button>
             )}
-          </div>
-
-          <div className="navegacion-ejercicios-foco">
-            <button type="button" onClick={() => irA(indiceVisible - 1)} disabled={!grupoAnterior}>
-              <ArrowLeft size={22} />
-              <span>Anterior</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => irA(indiceVisible + 1)}
-              disabled={!grupoSiguiente}
-              aria-label={grupoSiguiente ? `Ver siguiente ejercicio: ${grupoSiguiente.map((ejercicio) => ejercicio.nombre).join(" + ")}` : "No hay otro ejercicio"}
-            >
-              <span>
-                <strong>{grupoSiguiente ? "Siguiente ejercicio" : "Último ejercicio"}</strong>
-                <small>{grupoSiguiente?.map((ejercicio) => ejercicio.nombre).join(" + ") ?? "Fin de la rutina"}</small>
-              </span>
-              <ArrowRight size={23} />
-            </button>
           </div>
 
         </section>

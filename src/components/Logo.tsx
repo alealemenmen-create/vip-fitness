@@ -108,6 +108,18 @@ export function Logo({
     window.addEventListener("vip:titulo-rutina", actualizar);
     return () => window.removeEventListener("vip:titulo-rutina", actualizar);
   }, []);
+  // Puntos Ranked "preparados" de la sesión en curso (ver SesionEjercicios.tsx):
+  // se suman al saldo de la corona para que se vea subir en vivo mientras se
+  // entrena. Son una previsualización — los puntos reales recién se confirman
+  // al Finalizar, esto no escribe nada en la base.
+  const [puntosEnVivo, setPuntosEnVivo] = useState(0);
+  useEffect(() => {
+    const actualizar = (evento: Event) => {
+      setPuntosEnVivo((evento as CustomEvent<number>).detail ?? 0);
+    };
+    window.addEventListener("vip:puntos-en-vivo", actualizar);
+    return () => window.removeEventListener("vip:puntos-en-vivo", actualizar);
+  }, []);
   const resolvedHeight = height ?? (compact ? 44 : pathname === "/alumno/inicio" ? 70 : 36);
   const spacing = compact ? "rounded-xl px-5 py-2.5" : "rounded-2xl px-6 py-4";
 
@@ -122,9 +134,12 @@ export function Logo({
           <b>{numeroSesion || "VIP"}</b>
           {nombreDia.length > 0 && <span>{nombreDia.join(" · ")}</span>}
         </span>
-        <span className="puntos-rutina-activa" aria-label={`${puntosVip.toLocaleString("es-CL")} puntos VIP`}>
+        <span
+          className="puntos-rutina-activa"
+          aria-label={`${(puntosVip + puntosEnVivo).toLocaleString("es-CL")} puntos VIP`}
+        >
           <Crown size={14} fill="currentColor" />
-          <strong>{puntosVip.toLocaleString("es-CL")}</strong>
+          <strong>{(puntosVip + puntosEnVivo).toLocaleString("es-CL")}</strong>
         </span>
         {corner}
       </div>

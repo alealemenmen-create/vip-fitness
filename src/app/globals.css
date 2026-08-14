@@ -1,9 +1,9 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 /*
-  VIP FITNESS — Design System (rediseño 2026)
-  Inspiración Apple / Linear / Notion / Whoop: negro OLED puro, acento dorado
-  VIP, radios grandes, tipografía SF Pro Display / Inter en escala estricta.
+  VIP FITNESS â€” Design System (rediseÃ±o 2026)
+  InspiraciÃ³n Apple / Linear / Notion / Whoop: negro OLED puro, acento dorado
+  VIP, radios grandes, tipografÃ­a SF Pro Display / Inter en escala estricta.
 */
 :root {
   --color-bg: #000000;
@@ -14,24 +14,24 @@
   --color-text: #ffffff;
   --color-text-secondary: #a1a7b3;
   --color-text-tertiary: #6f7682;
-  /* Ámbar exacto del logo VIP Fitness Center (el rayo y "FITNESS"). Antes era
-     un dorado apagado #d4af37; se subió al tono vivo del gimnasio. */
+  /* Ãmbar exacto del logo VIP Fitness Center (el rayo y "FITNESS"). Antes era
+     un dorado apagado #d4af37; se subiÃ³ al tono vivo del gimnasio. */
   --color-vip: #ffa100;
-  /* Morado: color propio de la pantalla Entrenar (tira de días, botón de
-     empezar/continuar, temporizador). En el resto de la app manda el ámbar
-     del logo — decisión del usuario para que se parezca al gimnasio. */
+  /* Morado: color propio de la pantalla Entrenar (tira de dÃ­as, botÃ³n de
+     empezar/continuar, temporizador). En el resto de la app manda el Ã¡mbar
+     del logo â€” decisiÃ³n del usuario para que se parezca al gimnasio. */
   --color-acento: #8b5cf6;
   --color-acento-fuerte: #a78bfa;
   --color-acento-suave: rgba(139, 91, 246, 0.14);
   --color-error: #ff4d4f;
   --color-success: #22c55e;
-  /* Amarillo de "vas a medias" (51-69%) en los círculos de Tu Semana. */
+  /* Amarillo de "vas a medias" (51-69%) en los cÃ­rculos de Tu Semana. */
   --color-warning: #f5b301;
 
-  /* Un color por familia de técnica encadenada (superserie, biserie,
-     triserie, giant set, circuito) — ver `resolverGrupoTecnica` en
-     SesionEjercicioCard.tsx. Fijos en los 3 temas de botón: son una señal de
-     agrupación, no de identidad de marca, así que no cambian con el acento. */
+  /* Un color por familia de tÃ©cnica encadenada (superserie, biserie,
+     triserie, giant set, circuito) â€” ver `resolverGrupoTecnica` en
+     SesionEjercicioCard.tsx. Fijos en los 3 temas de botÃ³n: son una seÃ±al de
+     agrupaciÃ³n, no de identidad de marca, asÃ­ que no cambian con el acento. */
   --color-tecnica-superserie: #3b82f6;
   --color-tecnica-biserie: #a855f7;
   --color-tecnica-triserie: #ec4899;
@@ -39,11 +39,11 @@
   --color-tecnica-circuito: #14b8a6;
 
   /*
-    Macros de Alimentación. NO son colores fijos: cada uno se tiñe con el
-    acento del tema activo (--color-vip), así la misma pantalla se siente VIP,
-    Lady o Espejo sin tocar una línea de TSX. Los anclajes están lo bastante
-    separados en tono como para distinguirse aun teñidos.
-    Las calorías van directo con el acento: son el dato principal.
+    Macros de AlimentaciÃ³n. NO son colores fijos: cada uno se tiÃ±e con el
+    acento del tema activo (--color-vip), asÃ­ la misma pantalla se siente VIP,
+    Lady o Espejo sin tocar una lÃ­nea de TSX. Los anclajes estÃ¡n lo bastante
+    separados en tono como para distinguirse aun teÃ±idos.
+    Las calorÃ­as van directo con el acento: son el dato principal.
   */
   --macro-cal: var(--color-vip);
   --macro-prot: color-mix(in srgb, var(--color-vip) 22%, var(--color-acento-fuerte));
@@ -54,7 +54,7 @@
   --radius-control: 18px;
 }
 
-/* Tema claro — mismo acento VIP, superficies invertidas. Se activa poniendo
+/* Tema claro â€” mismo acento VIP, superficies invertidas. Se activa poniendo
    data-theme="light" en <html> (ver ThemeToggle.tsx). */
 :root[data-theme="light"] {
   --color-bg: #f4f5f7;
@@ -68,21 +68,21 @@
 }
 
 /*
-  Las tarjetas que muestran al modelo van SIEMPRE en oscuro, también con el
-  tema claro: la del día en Entrenar y la de "TU ENTRENAMIENTO" en Inicio.
+  Las tarjetas que muestran al modelo van SIEMPRE en oscuro, tambiÃ©n con el
+  tema claro: la del dÃ­a en Entrenar y la de "TU ENTRENAMIENTO" en Inicio.
 
-  No es un capricho estético. Las fotos del modelo son de estudio sobre fondo
-  NEGRO, y el recorte que les quitó el fondo no pudo separar del todo el
+  No es un capricho estÃ©tico. Las fotos del modelo son de estudio sobre fondo
+  NEGRO, y el recorte que les quitÃ³ el fondo no pudo separar del todo el
   cuerpo: la barba, el short y las sombras son casi tan negras como el fondo.
-  Peor todavía, las zonas transparentes que quedaron dentro del cuerpo
-  conectan con el borde de la imagen por el hueco entre las piernas, así que
-  no hay relleno de agujeros que las recupere — se probó. Sobre blanco todo
+  Peor todavÃ­a, las zonas transparentes que quedaron dentro del cuerpo
+  conectan con el borde de la imagen por el hueco entre las piernas, asÃ­ que
+  no hay relleno de agujeros que las recupere â€” se probÃ³. Sobre blanco todo
   eso se ve como manchas; sobre negro lo transparente vuelve a ser el fondo
   del estudio y la foto se ve igual que la original.
 
   Se redefinen las variables en vez de pisar clase por clase: todo lo de
   adentro (`bg-surface`, `text-text`, `border-border`, y el degradado de
-  FotoDiaEntrenamiento, que lee `--color-surface`) se adapta solo. El ámbar y
+  FotoDiaEntrenamiento, que lee `--color-surface`) se adapta solo. El Ã¡mbar y
   el morado no se tocan: son iguales en los dos temas.
 */
 .tarjeta-modelo-oscura {
@@ -96,8 +96,8 @@
 
 /* Variante para la tarjeta de ejercicio en Entrenar: mismo negro de base,
    pero con los recuadros internos (fila de Series/Reps/Descanso/Tempo, el
-   cuadro vacío de foto, la nota) más oscuros — se pedía que no se vieran
-   grises al lado de la tarjeta negra — y el texto secundario/terciario más
+   cuadro vacÃ­o de foto, la nota) mÃ¡s oscuros â€” se pedÃ­a que no se vieran
+   grises al lado de la tarjeta negra â€” y el texto secundario/terciario mÃ¡s
    claro, para que contraste mejor sobre tanto negro. */
 .tarjeta-ejercicio-oscura {
   --color-surface-2: #0c0d10;
@@ -140,7 +140,7 @@ body {
 }
 /* Mostrar/ocultar la barra lateral del panel del entrenador (ver
    AlternarPanelLateral.tsx). El atributo lo escribe ese componente en el
-   <html>; acá solo se traduce a qué se ve. */
+   <html>; acÃ¡ solo se traduce a quÃ© se ve. */
 @media (min-width: 768px) {
   :root[data-panel-admin="oculto"] .admin-sidebar {
     display: none;
@@ -149,9 +149,9 @@ body {
 .boton-mostrar-panel-lateral {
   display: none;
 }
-/* El botón para volver a abrirla aparece solo cuando está cerrada. Flotante y
-   arriba a la izquierda, que es de donde salió la barra: queda claro qué va a
-   pasar al tocarlo. En el celular vertical no se muestra nunca — ahí manda la
+/* El botÃ³n para volver a abrirla aparece solo cuando estÃ¡ cerrada. Flotante y
+   arriba a la izquierda, que es de donde saliÃ³ la barra: queda claro quÃ© va a
+   pasar al tocarlo. En el celular vertical no se muestra nunca â€” ahÃ­ manda la
    barra de abajo, no la lateral. */
 @media (min-width: 768px) {
   :root[data-panel-admin="oculto"] .boton-mostrar-panel-lateral {
@@ -171,18 +171,18 @@ body {
     box-shadow: 0 10px 24px -16px rgba(0, 0, 0, 0.8);
   }
 }
-/* Con la barra cerrada, el contenido arranca donde estaba el botón: sin esto
-   el botón flotante tapaba el título de la pantalla. */
+/* Con la barra cerrada, el contenido arranca donde estaba el botÃ³n: sin esto
+   el botÃ³n flotante tapaba el tÃ­tulo de la pantalla. */
 @media (min-width: 768px) {
   :root[data-panel-admin="oculto"] .admin-shell main {
     padding-left: 56px;
   }
 }
-/* La navegación NUNCA puede desaparecer del todo.
-   La barra de íconos de abajo es `md:hidden` porque en pantalla grande manda
+/* La navegaciÃ³n NUNCA puede desaparecer del todo.
+   La barra de Ã­conos de abajo es `md:hidden` porque en pantalla grande manda
    la barra lateral. Pero al poder cerrarse la lateral, quedaba un panel sin
-   una sola forma de navegar salvo el botoncito flotante — "¿dónde están los
-   íconos?". Con la lateral cerrada, los íconos vuelven. */
+   una sola forma de navegar salvo el botoncito flotante â€” "Â¿dÃ³nde estÃ¡n los
+   Ã­conos?". Con la lateral cerrada, los Ã­conos vuelven. */
 @media (min-width: 768px) {
   :root[data-panel-admin="oculto"] .barra-iconos-admin {
     display: block;
@@ -192,14 +192,14 @@ body {
   }
 }
 
-/* TELÉFONO ACOSTADO.
-   Ancho de computador (>768px) pero alto de teléfono (~390-430px). Ahí la
+/* TELÃ‰FONO ACOSTADO.
+   Ancho de computador (>768px) pero alto de telÃ©fono (~390-430px). AhÃ­ la
    barra lateral se comportaba como en un escritorio: se quedaba como columna
-   fija, le comía 288px a un ancho que ya era poco, y su propio contenido no
-   entraba en el alto. Reportado tal cual: "aparece ese panel lateral y se daña
+   fija, le comÃ­a 288px a un ancho que ya era poco, y su propio contenido no
+   entraba en el alto. Reportado tal cual: "aparece ese panel lateral y se daÃ±a
    todo el contenido, y apenas se ve".
-   Solución: en pantallas bajas la lateral NUNCA es columna. O está oculta, o
-   se superpone por encima del contenido como un cajón. El contenido conserva
+   SoluciÃ³n: en pantallas bajas la lateral NUNCA es columna. O estÃ¡ oculta, o
+   se superpone por encima del contenido como un cajÃ³n. El contenido conserva
    siempre el ancho completo. */
 @media (min-width: 768px) and (max-height: 560px) {
   .admin-shell .admin-sidebar {
@@ -210,12 +210,12 @@ body {
     z-index: 50;
     width: 250px;
     overflow-y: auto;
-    /* Sombra enorme a modo de fondo oscuro: separa el cajón del contenido sin
+    /* Sombra enorme a modo de fondo oscuro: separa el cajÃ³n del contenido sin
        necesitar un elemento nuevo ni tocar el layout. */
     box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.55);
   }
-  /* Los íconos de abajo quedan siempre, con o sin cajón abierto: en horizontal
-     es la única navegación cómoda y no puede depender de recordar un botón. */
+  /* Los Ã­conos de abajo quedan siempre, con o sin cajÃ³n abierto: en horizontal
+     es la Ãºnica navegaciÃ³n cÃ³moda y no puede depender de recordar un botÃ³n. */
   .barra-iconos-admin {
     display: block;
     left: 50%;
@@ -226,7 +226,7 @@ body {
   :root[data-panel-admin="oculto"] .admin-shell main {
     padding-left: 16px;
   }
-  /* Con tan poco alto, el encabezado del cajón no puede llevarse la mitad. */
+  /* Con tan poco alto, el encabezado del cajÃ³n no puede llevarse la mitad. */
   .admin-shell .admin-sidebar .admin-profile-card {
     display: none;
   }
@@ -312,10 +312,10 @@ button:disabled,
   `.pantalla-scroll`, que usa el layout de alumno).
 
   iOS Safari desengancha lo que es `position: fixed` MIENTRAS dura el gesto de
-  scroll del documento y recién lo vuelve a poner en su lugar cuando el dedo se
-  levanta. Con la página entera scrolleando, eso hacía que la barra de íconos y
-  la cabecera se fueran con el contenido —se levantaban al arrastrar y la
-  cabecera llegaba a desaparecer—, y ni `fixed` ni `sticky` lo evitan: el
+  scroll del documento y reciÃ©n lo vuelve a poner en su lugar cuando el dedo se
+  levanta. Con la pÃ¡gina entera scrolleando, eso hacÃ­a que la barra de Ã­conos y
+  la cabecera se fueran con el contenido â€”se levantaban al arrastrar y la
+  cabecera llegaba a desaparecerâ€”, y ni `fixed` ni `sticky` lo evitan: el
   problema es que el que scrollea sea el documento. Encerrando el scroll en un
   hijo, el viewport queda quieto y no hay nada que desenganchar.
 */
@@ -328,13 +328,13 @@ body {
 
 /*
   El zoom de pantalla (ver --zoom-pantalla arriba). Va en <html> para que
-  alcance también a lo que se dibuja por portal a <body> —el menú del
-  engranaje, los modales—: si fuera en el shell de cada layout, esos quedarían
-  del tamaño original y se notaría el desajuste.
+  alcance tambiÃ©n a lo que se dibuja por portal a <body> â€”el menÃº del
+  engranaje, los modalesâ€”: si fuera en el shell de cada layout, esos quedarÃ­an
+  del tamaÃ±o original y se notarÃ­a el desajuste.
 
-  La división compensa el propio zoom: `height: 100%` se resuelve contra el
-  viewport y DESPUÉS `zoom` lo multiplica, así que sin dividir, con el zoom en
-  0.8 la app ocuparía el 80% de la pantalla y quedaría una franja muerta abajo.
+  La divisiÃ³n compensa el propio zoom: `height: 100%` se resuelve contra el
+  viewport y DESPUÃ‰S `zoom` lo multiplica, asÃ­ que sin dividir, con el zoom en
+  0.8 la app ocuparÃ­a el 80% de la pantalla y quedarÃ­a una franja muerta abajo.
 */
 html {
   zoom: var(--zoom-pantalla);
@@ -342,42 +342,42 @@ html {
 }
 
 /*
-  Bloqueo de orientación vertical, aunque el alumno tenga el bloqueo de
-  rotación del teléfono APAGADO.
+  Bloqueo de orientaciÃ³n vertical, aunque el alumno tenga el bloqueo de
+  rotaciÃ³n del telÃ©fono APAGADO.
 
   No hay forma nativa confiable de lograr esto en iOS: `screen.orientation.lock()`
-  no está implementado en Safari (ni en modo standalone), y Safari tampoco
-  respeta el campo `orientation` del manifest de la PWA (que sí se agregó en
-  manifest.ts, por si ayuda en Android — ahí `orientation.lock()` tampoco
-  aplica fuera de fullscreen, pero el manifest sí se respeta). La única forma
+  no estÃ¡ implementado en Safari (ni en modo standalone), y Safari tampoco
+  respeta el campo `orientation` del manifest de la PWA (que sÃ­ se agregÃ³ en
+  manifest.ts, por si ayuda en Android â€” ahÃ­ `orientation.lock()` tampoco
+  aplica fuera de fullscreen, pero el manifest sÃ­ se respeta). La Ãºnica forma
   que funciona en cualquier navegador, sin depender de ninguna API, es esta:
-  cuando el viewport queda en horizontal, se rota TODO el `<html>` -90° para
+  cuando el viewport queda en horizontal, se rota TODO el `<html>` -90Â° para
   que se siga viendo vertical.
 
-  Por qué en `html` y no en un wrapper: al ponerle `transform` a `html`, se
-  vuelve el "contenedor" de cualquier `position: fixed` de toda la app (así
-  funciona el spec de CSS) — que es exactamente lo que ya usan los layouts de
+  Por quÃ© en `html` y no en un wrapper: al ponerle `transform` a `html`, se
+  vuelve el "contenedor" de cualquier `position: fixed` de toda la app (asÃ­
+  funciona el spec de CSS) â€” que es exactamente lo que ya usan los layouts de
   /alumno y /admin (`fixed inset-0`) y los modales con `createPortal` a
-  `document.body`. Sin esto, esos elementos se seguirían midiendo contra el
-  viewport real (horizontal) en vez de contra el rectángulo rotado.
+  `document.body`. Sin esto, esos elementos se seguirÃ­an midiendo contra el
+  viewport real (horizontal) en vez de contra el rectÃ¡ngulo rotado.
 
   Los `!important` son necesarios: `<html>` ya trae `h-full` de Tailwind
-  (clase, más específica que un selector de elemento) y sin forzarlo esta
+  (clase, mÃ¡s especÃ­fica que un selector de elemento) y sin forzarlo esta
   regla pierde en landscape.
 
-  `(pointer: coarse)` limita esto a pantallas táctiles (celulares/tablets):
-  sin esa condición, cualquier ventana de navegador de escritorio más ancha
-  que alta —lo normal— también entra en "orientation: landscape" y queda
-  rotada, aunque nadie giró nada.
+  `(pointer: coarse)` limita esto a pantallas tÃ¡ctiles (celulares/tablets):
+  sin esa condiciÃ³n, cualquier ventana de navegador de escritorio mÃ¡s ancha
+  que alta â€”lo normalâ€” tambiÃ©n entra en "orientation: landscape" y queda
+  rotada, aunque nadie girÃ³ nada.
 */
 @media screen and (orientation: landscape) and (pointer: coarse) {
   html {
     position: absolute !important;
     top: 100% !important;
     left: 0 !important;
-    /* Divididos por el zoom, por lo mismo que la regla de <html> de más
+    /* Divididos por el zoom, por lo mismo que la regla de <html> de mÃ¡s
        arriba: las unidades de viewport se resuelven primero y `zoom` las
-       multiplica después. */
+       multiplica despuÃ©s. */
     width: calc(100vh / var(--zoom-pantalla)) !important;
     height: calc(100vw / var(--zoom-pantalla)) !important;
     transform: rotate(-90deg) !important;
@@ -387,7 +387,7 @@ html {
 }
 
 /*
-  El único que scrollea. `-webkit-overflow-scrolling: touch` conserva el
+  El Ãºnico que scrollea. `-webkit-overflow-scrolling: touch` conserva el
   desplazamiento con inercia, que se pierde al sacar el scroll del documento.
 */
 .pantalla-scroll {
@@ -396,18 +396,18 @@ html {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  /* Fuerza este contenedor a su propia capa de composición. Sin esto, Safari
-     de iOS a veces no repinta a tiempo durante un scroll rápido: por una
-     fracción de segundo se alcanza a ver el contenido que ya pasó de largo,
-     asomando por detrás de la cabecera pegajosa (`sticky`) de arriba, como
-     una franja de texto viejo. El transform va ACÁ, en el contenedor que
-     scrollea — no en la cabecera `sticky` misma: eso se probó antes y
-     rompió el `sticky` directamente en Safari (dejaba de pegarse). Puesto
-     en el padre, arregla el repintado sin tocar cómo se calcula el sticky. */
+  /* Fuerza este contenedor a su propia capa de composiciÃ³n. Sin esto, Safari
+     de iOS a veces no repinta a tiempo durante un scroll rÃ¡pido: por una
+     fracciÃ³n de segundo se alcanza a ver el contenido que ya pasÃ³ de largo,
+     asomando por detrÃ¡s de la cabecera pegajosa (`sticky`) de arriba, como
+     una franja de texto viejo. El transform va ACÃ, en el contenedor que
+     scrollea â€” no en la cabecera `sticky` misma: eso se probÃ³ antes y
+     rompiÃ³ el `sticky` directamente en Safari (dejaba de pegarse). Puesto
+     en el padre, arregla el repintado sin tocar cÃ³mo se calcula el sticky. */
   transform: translateZ(0);
-  /* Scrollbar nativo oculto: mismo criterio que `.tira-dias` más abajo. El
+  /* Scrollbar nativo oculto: mismo criterio que `.tira-dias` mÃ¡s abajo. El
      navegador la dibuja blanca por defecto, y contra el fondo oscuro de toda
-     la app queda como una franja pegada al borde derecho. El scroll táctil
+     la app queda como una franja pegada al borde derecho. El scroll tÃ¡ctil
      (que es como se usa esto, ver el comentario de arriba) sigue andando
      igual sin la barra visible. */
   scrollbar-width: none;
@@ -419,10 +419,10 @@ html {
 
 /*
   Los <input type="date"> los dibuja el navegador con su propio layout
-  interno (texto + ícono de calendario), asumiendo fondo claro por defecto.
-  Sobre nuestro fondo oscuro el ícono quedaba negro sobre negro y el texto se
-  veía descentrado/"movido" — color-scheme le avisa al navegador qué paleta
-  usar para sus controles nativos, así que ajusta las dos cosas de una vez.
+  interno (texto + Ã­cono de calendario), asumiendo fondo claro por defecto.
+  Sobre nuestro fondo oscuro el Ã­cono quedaba negro sobre negro y el texto se
+  veÃ­a descentrado/"movido" â€” color-scheme le avisa al navegador quÃ© paleta
+  usar para sus controles nativos, asÃ­ que ajusta las dos cosas de una vez.
 */
 input[type="date"] {
   color-scheme: dark;
@@ -445,42 +445,42 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 
 /*
-  Tamaño de texto — el alumno lo elige desde el menú del engranaje (ver
-  MenuAlumno.tsx). Multiplica TODA la escala tipográfica de una vez, así que
-  basta con que cada tamaño se escriba multiplicado por esta variable.
+  TamaÃ±o de texto â€” el alumno lo elige desde el menÃº del engranaje (ver
+  MenuAlumno.tsx). Multiplica TODA la escala tipogrÃ¡fica de una vez, asÃ­ que
+  basta con que cada tamaÃ±o se escriba multiplicado por esta variable.
 
   Se guarda en localStorage ("vip-escala-texto") y se aplica sobre <html> antes
   del primer paint, igual que el tema (ver layout.tsx). Existe porque buena
-  parte de los alumnos son personas mayores: el pellizco para hacer zoom está
-  bloqueado en celular (ver `viewport` en layout.tsx), y esta es la única forma
+  parte de los alumnos son personas mayores: el pellizco para hacer zoom estÃ¡
+  bloqueado en celular (ver `viewport` en layout.tsx), y esta es la Ãºnica forma
   de agrandar la letra sin descuadrar la pantalla.
 
   La misma variable sirve para lo contrario. El entrenador arma rutinas de 30
-  ejercicios desde el teléfono y pidió poder ACHICAR para que entre más de un
+  ejercicios desde el telÃ©fono y pidiÃ³ poder ACHICAR para que entre mÃ¡s de un
   vistazo (ver ZoomPanel.tsx, junto al toggle claro/oscuro del panel). Por eso
   el rango va de 0.75 a 1.3 y no de 1 para arriba.
 
   --------------------------------------------------------------------------
-  ZOOM DE PANTALLA (--zoom-pantalla) — distinto de lo de arriba.
+  ZOOM DE PANTALLA (--zoom-pantalla) â€” distinto de lo de arriba.
 
   Pedido de Alejandro, tres veces: "que achique TODO, no solo la letra". Con
-  --escala-texto sola, las tarjetas quedaban del mismo tamaño con la letra
-  chica adentro, que es lo contrario de lo que se busca: lo que él quiere es
-  que entre más cosa en la pantalla.
+  --escala-texto sola, las tarjetas quedaban del mismo tamaÃ±o con la letra
+  chica adentro, que es lo contrario de lo que se busca: lo que Ã©l quiere es
+  que entre mÃ¡s cosa en la pantalla.
 
-  Por qué `zoom` y no `transform: scale()`: `zoom` REFLUYE el layout (todo se
-  recalcula al tamaño nuevo, los textos vuelven a cortar donde corresponde) y
-  respeta `position: fixed`. `transform` solo dibuja más chico el mismo layout
-  —quedan bordes en blanco y los `fixed` se rompen— y además convertiría a
+  Por quÃ© `zoom` y no `transform: scale()`: `zoom` REFLUYE el layout (todo se
+  recalcula al tamaÃ±o nuevo, los textos vuelven a cortar donde corresponde) y
+  respeta `position: fixed`. `transform` solo dibuja mÃ¡s chico el mismo layout
+  â€”quedan bordes en blanco y los `fixed` se rompenâ€” y ademÃ¡s convertirÃ­a a
   <html> en contenedor de todos los `fixed` de la app, que es justo lo que el
-  bloqueo de orientación de más abajo ya hace a propósito y con cuidado.
+  bloqueo de orientaciÃ³n de mÃ¡s abajo ya hace a propÃ³sito y con cuidado.
 
-  Por qué acá y no escalando el font-size de <html>: Tailwind mide los
-  espaciados en rem, así que eso escalaría paddings y gaps, pero la app tiene
-  ~266 tamaños de letra escritos en px fijo (`text-[11px]`) que se quedarían
+  Por quÃ© acÃ¡ y no escalando el font-size de <html>: Tailwind mide los
+  espaciados en rem, asÃ­ que eso escalarÃ­a paddings y gaps, pero la app tiene
+  ~266 tamaÃ±os de letra escritos en px fijo (`text-[11px]`) que se quedarÃ­an
   del mismo porte. `zoom` los agarra a todos sin tocar 266 lugares.
 
-  --escala-texto queda en 1 y no se toca: si el zoom achica y además la letra
+  --escala-texto queda en 1 y no se toca: si el zoom achica y ademÃ¡s la letra
   se multiplica por su cuenta, se escala dos veces y no cuadra nada.
 */
 :root {
@@ -488,14 +488,14 @@ input[type="date"]::-webkit-date-and-time-value {
   --zoom-pantalla: 1;
 
   /* Alto del encabezado fijo del alumno (logo + campanita + engranaje, ver
-     src/app/alumno/layout.tsx): marca de 34 px más pt-1 y pb-2. Las cabeceras
-     propias de cada pestaña se pegan a esta altura para quedar justo debajo
-     en vez de por detrás. No depende de --escala-texto: el bloque no tiene
-     texto que crezca, solo el cuadrito de la marca y dos íconos. */
+     src/app/alumno/layout.tsx): marca de 34 px mÃ¡s pt-1 y pb-2. Las cabeceras
+     propias de cada pestaÃ±a se pegan a esta altura para quedar justo debajo
+     en vez de por detrÃ¡s. No depende de --escala-texto: el bloque no tiene
+     texto que crezca, solo el cuadrito de la marca y dos Ã­conos. */
   --alto-cabecera-alumno: 46px;
 }
 
-/* Escala tipográfica estricta — no usar tamaños fuera de esta lista, y
+/* Escala tipogrÃ¡fica estricta â€” no usar tamaÃ±os fuera de esta lista, y
    siempre multiplicados por --escala-texto. */
 .text-h1 {
   font-size: calc(42px * var(--escala-texto));
@@ -533,11 +533,11 @@ input[type="date"]::-webkit-date-and-time-value {
   line-height: 1.3;
 }
 /*
-  El escalón más chico de la escala. Existe por la línea de tiempo de Nutrición:
+  El escalÃ³n mÃ¡s chico de la escala. Existe por la lÃ­nea de tiempo de NutriciÃ³n:
   24 franjas horarias que pueden tener varias comidas cada una, donde el alto de
-  cada fila decide cuántas horas se ven de una. Con `caption` en todo, una hora
+  cada fila decide cuÃ¡ntas horas se ven de una. Con `caption` en todo, una hora
   con tres comidas empujaba el resto fuera de pantalla.
-  Es el piso: nada más chico que esto, que ya está en el límite de lo legible en
+  Es el piso: nada mÃ¡s chico que esto, que ya estÃ¡ en el lÃ­mite de lo legible en
   un celular.
 */
 .text-micro {
@@ -547,12 +547,12 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 
 /*
-  Tema de botones — el alumno lo elige desde el menú (ver MenuAlumno.tsx),
+  Tema de botones â€” el alumno lo elige desde el menÃº (ver MenuAlumno.tsx),
   independiente del tema claro/oscuro. Se aplica con data-tema-boton en
-  <html> (persistido en localStorage "vip-tema-boton", leído en layout.tsx
+  <html> (persistido en localStorage "vip-tema-boton", leÃ­do en layout.tsx
   antes del primer paint igual que el tema claro/oscuro):
-  - "espejo" (por defecto): espejo negro con acento ámbar.
-  - "vip": degradado ámbar sólido de la marca.
+  - "espejo" (por defecto): espejo negro con acento Ã¡mbar.
+  - "vip": degradado Ã¡mbar sÃ³lido de la marca.
   - "masculino" (Steel Fit): acero y grafito, serio.
   - "femenino" (Lady Fit): degradado rosa-lila.
 */
@@ -560,10 +560,10 @@ input[type="date"]::-webkit-date-and-time-value {
   --btn-bg: linear-gradient(155deg, #060606 0%, #1d1d20 50%, #060606 100%);
   --btn-color: var(--color-vip);
   --btn-border: rgba(255, 161, 0, 0.5);
-  /* Placa del logo: Espejo es negro sólido con el logotipo a color completo
-     (decisión del usuario — nada de vidrio ni degradado, que se vea serio).
-     VIP mantiene el ámbar de siempre y Lady la tiñe de rosa — cada tema de
-     botón conserva su placa propia. */
+  /* Placa del logo: Espejo es negro sÃ³lido con el logotipo a color completo
+     (decisiÃ³n del usuario â€” nada de vidrio ni degradado, que se vea serio).
+     VIP mantiene el Ã¡mbar de siempre y Lady la tiÃ±e de rosa â€” cada tema de
+     botÃ³n conserva su placa propia. */
   --logo-plate-bg: #000000;
 }
 :root[data-tema-boton="vip"] {
@@ -578,8 +578,8 @@ input[type="date"]::-webkit-date-and-time-value {
 
 /*
   Placa del logo: plana en los tres temas (el brillo tipo Windows Aero que
-  tenía Espejo se sacó — el usuario lo pidió más serio, sin vidrio encima).
-  Solo cambia el color de fondo (arriba) y la alineación: Espejo lleva el
+  tenÃ­a Espejo se sacÃ³ â€” el usuario lo pidiÃ³ mÃ¡s serio, sin vidrio encima).
+  Solo cambia el color de fondo (arriba) y la alineaciÃ³n: Espejo lleva el
   logo a la izquierda, VIP y Lady lo mantienen centrado.
 */
 .placa-logo-aero {
@@ -593,9 +593,9 @@ input[type="date"]::-webkit-date-and-time-value {
   justify-content: center;
 }
 
-/* Cuál de las dos imágenes del logo se muestra (ver Logo.tsx): es el mismo
-   archivo en los tres temas — Espejo lo deja a color completo sobre negro,
-   VIP y Lady lo tiñen de negro plano vía filtro. Se decide por CSS y no por
+/* CuÃ¡l de las dos imÃ¡genes del logo se muestra (ver Logo.tsx): es el mismo
+   archivo en los tres temas â€” Espejo lo deja a color completo sobre negro,
+   VIP y Lady lo tiÃ±en de negro plano vÃ­a filtro. Se decide por CSS y no por
    JS para que no haya parpadeo del logo equivocado en el primer render. */
 .logo-vip-lady {
   display: none;
@@ -607,12 +607,12 @@ input[type="date"]::-webkit-date-and-time-value {
   display: block;
 }
 /*
-  "VIP", "Steel Fit" y "Lady" no son solo el color del botón: reemplazan el
-  acento ámbar de TODA la app (--color-vip alimenta text-vip/bg-vip/border-vip
-  vía el @theme inline de abajo, más los estilos inline que usan
-  var(--color-vip)), y además le sacan el "espejo negro" a los paneles premium
-  (mensaje del día, Ranked, ejercicio activo) reemplazándolo por vidrio del
-  color del tema. "Espejo" es el look original — no se toca nada.
+  "VIP", "Steel Fit" y "Lady" no son solo el color del botÃ³n: reemplazan el
+  acento Ã¡mbar de TODA la app (--color-vip alimenta text-vip/bg-vip/border-vip
+  vÃ­a el @theme inline de abajo, mÃ¡s los estilos inline que usan
+  var(--color-vip)), y ademÃ¡s le sacan el "espejo negro" a los paneles premium
+  (mensaje del dÃ­a, Ranked, ejercicio activo) reemplazÃ¡ndolo por vidrio del
+  color del tema. "Espejo" es el look original â€” no se toca nada.
 */
 :root[data-tema-boton="vip"] {
   --btn-bg: linear-gradient(135deg, #ffc247 0%, #ffa100 55%, #ff8a00 100%);
@@ -620,12 +620,12 @@ input[type="date"]::-webkit-date-and-time-value {
   --btn-border: rgba(0, 0, 0, 0.15);
   --color-vip: #ffb700;
 }
-/* Steel Fit: acero y grafito. Pedido explícito de Alejandro — "colores
-   masculinos, de señor más serio" — como contraparte de Lady Fit, con el
-   mismo nivel de identidad propia (paleta entera, no solo el botón) pero
-   frío y sobrio en vez de cálido y pastel. No se toca --cristal-azul: el
+/* Steel Fit: acero y grafito. Pedido explÃ­cito de Alejandro â€” "colores
+   masculinos, de seÃ±or mÃ¡s serio" â€” como contraparte de Lady Fit, con el
+   mismo nivel de identidad propia (paleta entera, no solo el botÃ³n) pero
+   frÃ­o y sobrio en vez de cÃ¡lido y pastel. No se toca --cristal-azul: el
    tinte de las placas de vidrio del admin YA es azul acero por defecto (ver
-   más abajo), así que Steel Fit hereda ese tinte sin pisarlo. */
+   mÃ¡s abajo), asÃ­ que Steel Fit hereda ese tinte sin pisarlo. */
 :root[data-tema-boton="masculino"] {
   --color-bg: #12161c;
   --color-surface: #1b212a;
@@ -666,7 +666,7 @@ input[type="date"]::-webkit-date-and-time-value {
 
 /* Lady Fit luminoso: una personalidad completa, no solo botones rosados.
    Conserva los mismos tokens y componentes del portal; por eso no duplica ni
-   altera ninguna lógica de entrenamiento, nutrición o progreso. */
+   altera ninguna lÃ³gica de entrenamiento, nutriciÃ³n o progreso. */
 :root[data-theme="light"][data-tema-boton="femenino"] {
   color-scheme: light;
   --color-bg: #faf7f8;
@@ -686,8 +686,8 @@ input[type="date"]::-webkit-date-and-time-value {
   --color-warning: #b88735;
 }
 
-/* Steel Fit en claro: gris azulado frío, no el mismo blanco cálido de Lady
-   Fit — sigue leyéndose serio con el fondo invertido. */
+/* Steel Fit en claro: gris azulado frÃ­o, no el mismo blanco cÃ¡lido de Lady
+   Fit â€” sigue leyÃ©ndose serio con el fondo invertido. */
 :root[data-theme="light"][data-tema-boton="masculino"] {
   color-scheme: light;
   --color-bg: #f2f5f8;
@@ -743,10 +743,10 @@ input[type="date"]::-webkit-date-and-time-value {
   border-color: rgba(255, 138, 192, 0.5) !important;
 }
 /*
-  Botones de acción del alumno (empezar/continuar entrenamiento, completar
-  seguimiento, registrar comidas). Sin barrido continuo — solo un brillo que
+  Botones de acciÃ³n del alumno (empezar/continuar entrenamiento, completar
+  seguimiento, registrar comidas). Sin barrido continuo â€” solo un brillo que
   cruza en loop, lenta (~3s por vuelta) para no marear, igual en los tres
-  temas de botones — cada uno la ve con su propio color de fondo.
+  temas de botones â€” cada uno la ve con su propio color de fondo.
 */
 .btn-accion {
   position: relative;
@@ -783,11 +783,11 @@ input[type="date"]::-webkit-date-and-time-value {
 
 /*
   Barrido de luz ("shimmer"): una franja clara cruza el elemento de izquierda a
-  derecha cada tantos segundos. Es CSS puro — sin JavaScript ni imágenes, lo
-  dibuja la GPU, así que no pesa. Se aplica sobre el elemento con
+  derecha cada tantos segundos. Es CSS puro â€” sin JavaScript ni imÃ¡genes, lo
+  dibuja la GPU, asÃ­ que no pesa. Se aplica sobre el elemento con
   .brillo-barrido (necesita position relative y overflow hidden, ya incluidos).
-  La duración se puede pisar con la variable --barrido-duracion (ver
-  .brillo-barrido-lento) donde el brillo por defecto distrae de más.
+  La duraciÃ³n se puede pisar con la variable --barrido-duracion (ver
+  .brillo-barrido-lento) donde el brillo por defecto distrae de mÃ¡s.
 */
 .brillo-barrido {
   position: relative;
@@ -818,14 +818,14 @@ input[type="date"]::-webkit-date-and-time-value {
     transform: translateX(100%);
   }
 }
-/* Versión más pausada del barrido, para botones grandes que se miran fijo
-   (guardar progreso, finalizar entrenamiento) — el usuario pidió que no sea
-   tan rápido para no molestar la vista. */
+/* VersiÃ³n mÃ¡s pausada del barrido, para botones grandes que se miran fijo
+   (guardar progreso, finalizar entrenamiento) â€” el usuario pidiÃ³ que no sea
+   tan rÃ¡pido para no molestar la vista. */
 .brillo-barrido-lento {
   --barrido-duracion: 9s;
 }
 
-/* Quien pidió menos animación en su teléfono no ve el barrido. */
+/* Quien pidiÃ³ menos animaciÃ³n en su telÃ©fono no ve el barrido. */
 @media (prefers-reduced-motion: reduce) {
   .brillo-barrido::after {
     animation: none;
@@ -833,17 +833,17 @@ input[type="date"]::-webkit-date-and-time-value {
   }
 }
 
-/* Degradado de identidad: botón del menú. */
+/* Degradado de identidad: botÃ³n del menÃº. */
 .degradado-vip {
   background: linear-gradient(135deg, #6d28d9 0%, #a21caf 55%, #db2777 100%);
 }
 
 /*
-  Superficie "espejo negro" con un tinte ámbar transparente. Es la identidad
-  visual compartida entre el mensaje del día (IA) y los cuadros de Ranked VIP
+  Superficie "espejo negro" con un tinte Ã¡mbar transparente. Es la identidad
+  visual compartida entre el mensaje del dÃ­a (IA) y los cuadros de Ranked VIP
   en Inicio, para que se sientan parte del mismo sistema en vez de cada uno
-  con su propio color (antes: ámbar sólido para el mensaje, morado para
-  Ranked). El tinte es apenas visible a propósito — el usuario lo pidió "más
+  con su propio color (antes: Ã¡mbar sÃ³lido para el mensaje, morado para
+  Ranked). El tinte es apenas visible a propÃ³sito â€” el usuario lo pidiÃ³ "mÃ¡s
   transparente".
 */
 .panel-vip-espejo {
@@ -855,16 +855,16 @@ input[type="date"]::-webkit-date-and-time-value {
   );
   border: 1px solid rgba(255, 161, 0, 0.22);
 }
-/* Variante con el borde ámbar bien marcado, para cuadros puntuales que
-   quieren destacar más que el resto (ej. total del día en Comer). */
+/* Variante con el borde Ã¡mbar bien marcado, para cuadros puntuales que
+   quieren destacar mÃ¡s que el resto (ej. total del dÃ­a en Comer). */
 .panel-vip-espejo-borde {
   border: 1px solid rgba(255, 161, 0, 0.55);
   box-shadow: 0 0 0 1px rgba(255, 161, 0, 0.12);
 }
 
-/* Mensaje del día: espejo negro con un tinte ámbar más presente que el resto
-   de los paneles (este sí puede llamar la atención, es el mensaje motivador)
-   pero estático — sin barrido de luz, que mareaba. */
+/* Mensaje del dÃ­a: espejo negro con un tinte Ã¡mbar mÃ¡s presente que el resto
+   de los paneles (este sÃ­ puede llamar la atenciÃ³n, es el mensaje motivador)
+   pero estÃ¡tico â€” sin barrido de luz, que mareaba. */
 .mensaje-dia {
   background: linear-gradient(
     120deg,
@@ -876,9 +876,9 @@ input[type="date"]::-webkit-date-and-time-value {
   box-shadow: 0 0 0 1px rgba(255, 161, 0, 0.06), 0 8px 24px -12px rgba(255, 161, 0, 0.25);
 }
 
-/* Efecto de movimiento del mensaje del día: un resplandor que "respira"
-   (crece y se achica el brillo del borde), no una franja que cruza — el
-   barrido de luz mareaba y se sacó. Lento a propósito. */
+/* Efecto de movimiento del mensaje del dÃ­a: un resplandor que "respira"
+   (crece y se achica el brillo del borde), no una franja que cruza â€” el
+   barrido de luz mareaba y se sacÃ³. Lento a propÃ³sito. */
 .mensaje-dia-movimiento {
   animation: respiracion-vip 4.5s ease-in-out infinite;
 }
@@ -902,14 +902,14 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 
 /* Resplandor "que respira" para el emblema de cada rango en la tarjeta
-   RANKED VIP — mismo lenguaje/velocidad que el mensaje del día
+   RANKED VIP â€” mismo lenguaje/velocidad que el mensaje del dÃ­a
    (.mensaje-dia-movimiento), pero con el color propio del rango: los valores
    --brillo-suave/--brillo-fuerte los calcula el componente (EmblemaRango) a
-   partir de rango.color, más intensos cuanto más alto el rango.
+   partir de rango.color, mÃ¡s intensos cuanto mÃ¡s alto el rango.
    Va con drop-shadow (no box-shadow): el resplandor sigue el contorno real
-   del hexágono de la medalla en vez de dibujar un círculo detrás — eso
+   del hexÃ¡gono de la medalla en vez de dibujar un cÃ­rculo detrÃ¡s â€” eso
    dejaba un anillo/disco visible en las esquinas transparentes de la imagen,
-   que el usuario pidió explícitamente sacar. */
+   que el usuario pidiÃ³ explÃ­citamente sacar. */
 .emblema-rango-movimiento {
   animation: respiracion-rango 4.5s ease-in-out infinite;
 }
@@ -928,7 +928,7 @@ input[type="date"]::-webkit-date-and-time-value {
   }
 }
 
-/* Más volumen/profundidad para las tarjetas de Ranked VIP — sombra marcada
+/* MÃ¡s volumen/profundidad para las tarjetas de Ranked VIP â€” sombra marcada
    abajo + un filo de luz arriba, para que no se vean planas. */
 .efecto-3d {
   box-shadow:
@@ -937,10 +937,10 @@ input[type="date"]::-webkit-date-and-time-value {
     inset 0 -3px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Ranked es la sala competitiva de la app: conserva la identidad ámbar de
-   VIP, pero usa cristal negro facetado, profundidad de casino y señales de
-   premio. Vive siempre en oscuro (también si el resto está en tema claro),
-   igual que las tarjetas de modelo: así las medallas mantienen su contraste. */
+/* Ranked es la sala competitiva de la app: conserva la identidad Ã¡mbar de
+   VIP, pero usa cristal negro facetado, profundidad de casino y seÃ±ales de
+   premio. Vive siempre en oscuro (tambiÃ©n si el resto estÃ¡ en tema claro),
+   igual que las tarjetas de modelo: asÃ­ las medallas mantienen su contraste. */
 .ranked-casino {
   --color-surface: #0d1015;
   --color-surface-2: #151922;
@@ -1123,7 +1123,7 @@ input[type="date"]::-webkit-date-and-time-value {
   border-radius: var(--radius-control);
 }
 
-/* Scrollbar delgada y discreta para listas internas — no la oculta del todo,
+/* Scrollbar delgada y discreta para listas internas â€” no la oculta del todo,
    solo la afina para que no distraiga. */
 .scrollbar-fina {
   scrollbar-width: thin;
@@ -1140,7 +1140,7 @@ input[type="date"]::-webkit-date-and-time-value {
   background: transparent;
 }
 
-/* Sin barra nativa — usada donde el riel propio (`.riel-scroll-vip` más
+/* Sin barra nativa â€” usada donde el riel propio (`.riel-scroll-vip` mÃ¡s
    abajo) la reemplaza por completo, ej. el Top 15 de Ranking VIP en Inicio. */
 .scrollbar-oculta {
   scrollbar-width: none;
@@ -1150,11 +1150,11 @@ input[type="date"]::-webkit-date-and-time-value {
   display: none;
 }
 
-/* Riel de scroll propio: un pulso ámbar en vez del gris nativo del
+/* Riel de scroll propio: un pulso Ã¡mbar en vez del gris nativo del
    navegador, mismo lenguaje de color que la barra de progreso de rango
-   (`.barra-progreso-relleno` más abajo). "Motivadora" acá es a propósito
-   sutil — una animación grande al costado de una lista que ya scrollea con
-   inercia se sentiría más ruidosa que útil. */
+   (`.barra-progreso-relleno` mÃ¡s abajo). "Motivadora" acÃ¡ es a propÃ³sito
+   sutil â€” una animaciÃ³n grande al costado de una lista que ya scrollea con
+   inercia se sentirÃ­a mÃ¡s ruidosa que Ãºtil. */
 .riel-scroll-vip {
   position: absolute;
   top: 0;
@@ -1189,9 +1189,9 @@ input[type="date"]::-webkit-date-and-time-value {
   }
 }
 
-/* Anillo ámbar sutil para el muñeco/foto de grupo muscular en la cabecera del
-   ejercicio — el mismo trazo fino con el que la identidad VIP enmarca fotos
-   de perfil y emblemas, aplicado acá sin agrandar el ícono. */
+/* Anillo Ã¡mbar sutil para el muÃ±eco/foto de grupo muscular en la cabecera del
+   ejercicio â€” el mismo trazo fino con el que la identidad VIP enmarca fotos
+   de perfil y emblemas, aplicado acÃ¡ sin agrandar el Ã­cono. */
 .anillo-vip-suave {
   padding: 2px;
   background: linear-gradient(
@@ -1201,9 +1201,9 @@ input[type="date"]::-webkit-date-and-time-value {
   );
 }
 
-/* Tarjeta de la técnica del ejercicio: antes un párrafo suelto, ahora un
+/* Tarjeta de la tÃ©cnica del ejercicio: antes un pÃ¡rrafo suelto, ahora un
    cuadro con su propio fondo y borde para que se lea como una pieza de
-   información aparte, no como continuación del texto de arriba. */
+   informaciÃ³n aparte, no como continuaciÃ³n del texto de arriba. */
 .tarjeta-tecnica {
   padding: 6px 9px;
   border-radius: 12px;
@@ -1216,8 +1216,8 @@ input[type="date"]::-webkit-date-and-time-value {
 
 /* Meta de Impulso VIP: mismo cuadro que tarjeta-tecnica, con un acento a la
    izquierda para que se lea como la pieza motivadora que es, no un dato
-   más entre otros. La variante "alerta" (Regla E, revisión requerida) usa
-   el color de warning en vez del VIP — no es una meta, es una pausa. */
+   mÃ¡s entre otros. La variante "alerta" (Regla E, revisiÃ³n requerida) usa
+   el color de warning en vez del VIP â€” no es una meta, es una pausa. */
 .tarjeta-impulso-vip {
   padding: 6px 9px;
   border-radius: 12px;
@@ -1234,8 +1234,8 @@ input[type="date"]::-webkit-date-and-time-value {
   border-left: 3px solid var(--color-warning);
 }
 
-/* Píldora de la técnica ("Rest-Pause", "Drop Set", "Tempo") en la cabecera
-   del ejercicio — antes era texto plano gris, ahora un chip que se lee como
+/* PÃ­ldora de la tÃ©cnica ("Rest-Pause", "Drop Set", "Tempo") en la cabecera
+   del ejercicio â€” antes era texto plano gris, ahora un chip que se lee como
    una etiqueta, igual que en la referencia. */
 .pill-tecnica {
   padding: 2px 9px;
@@ -1250,12 +1250,12 @@ input[type="date"]::-webkit-date-and-time-value {
   background: rgba(0, 0, 0, 0.04);
 }
 
-/* Técnica que corre en ESTA serie y no en todo el ejercicio (migración 0073).
-   Va adentro de la fila de la serie, entre el número y los campos de carga, y
-   compite por un renglón que ya está lleno: por eso es más chica y más angosta
-   que .pill-tecnica, y se trunca en vez de empujar los campos. En ámbar y no
-   en el gris de la píldora de arriba porque acá sí es un aviso — cambia cómo
-   se hace justo la serie que el alumno está por cargar. */
+/* TÃ©cnica que corre en ESTA serie y no en todo el ejercicio (migraciÃ³n 0073).
+   Va adentro de la fila de la serie, entre el nÃºmero y los campos de carga, y
+   compite por un renglÃ³n que ya estÃ¡ lleno: por eso es mÃ¡s chica y mÃ¡s angosta
+   que .pill-tecnica, y se trunca en vez de empujar los campos. En Ã¡mbar y no
+   en el gris de la pÃ­ldora de arriba porque acÃ¡ sÃ­ es un aviso â€” cambia cÃ³mo
+   se hace justo la serie que el alumno estÃ¡ por cargar. */
 .pill-tecnica-serie {
   max-width: 7.5rem;
   overflow: hidden;
@@ -1271,9 +1271,9 @@ input[type="date"]::-webkit-date-and-time-value {
   border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
 }
 
-/* Píldoras seleccionables: dificultad percibida y, dentro del panel de
-   dolor, intensidad (esas van dentro de un <label> con un radio oculto —
-   por eso el segundo selector, con :has, además del data-activo directo). */
+/* PÃ­ldoras seleccionables: dificultad percibida y, dentro del panel de
+   dolor, intensidad (esas van dentro de un <label> con un radio oculto â€”
+   por eso el segundo selector, con :has, ademÃ¡s del data-activo directo). */
 .pill-dificultad {
   padding: 5px 10px;
   border-radius: 9999px;
@@ -1302,7 +1302,7 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 
 /* Modo de entrenamiento enfocado: conserva el negro premium de las tarjetas,
-   pero concentra el color y la atención en un solo ejercicio. */
+   pero concentra el color y la atenciÃ³n en un solo ejercicio. */
 .modo-entrenamiento-enfocado {
   position: relative;
 }
@@ -1352,7 +1352,7 @@ input[type="date"]::-webkit-date-and-time-value {
   font-weight: 800;
 }
 .navegacion-modo-enfocado {
-  /* Las flechas ocupan lo mínimo y se van a los extremos; todo el ancho que
+  /* Las flechas ocupan lo mÃ­nimo y se van a los extremos; todo el ancho que
      sobra es para la tira de ejercicios del medio. */
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -1362,23 +1362,23 @@ input[type="date"]::-webkit-date-and-time-value {
 .navegacion-modo-enfocado-fija {
   position: fixed;
   left: 50%;
-  /* Reportado: "el cuadro negro está muy sobre los íconos". Antes entraba
+  /* Reportado: "el cuadro negro estÃ¡ muy sobre los Ã­conos". Antes entraba
      12px dentro del aire de la barra inferior y quedaba montado encima. Ahora
      apoya 2px POR ENCIMA de ella: se lee como una segunda barra de la misma
      familia, no como un parche pegado arriba. */
   bottom: calc(var(--alto-nav-alumno, 82px) + 2px);
   z-index: 39;
   width: min(calc(100% - 24px), 416px);
-  /* Más baja: era un bloque grueso encima de los íconos. */
+  /* MÃ¡s baja: era un bloque grueso encima de los Ã­conos. */
   padding: 5px 7px;
-  /* Mismo lenguaje visual que .panel-aero-inferior (la barra de íconos): el
+  /* Mismo lenguaje visual que .panel-aero-inferior (la barra de Ã­conos): el
      mismo tinte VIP abajo, el mismo degradado oscuro y el mismo desenfoque.
-     Con el negro plano de antes eran dos materiales distintos peleándose. */
+     Con el negro plano de antes eran dos materiales distintos peleÃ¡ndose. */
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 18px;
-  /* Pedido de Alejandro: "ilumina más, entre morado y dorado". Toma los
-     mismos dos colores que ya usan las flechas de atrás (violeta) y adelante
-     (dorado VIP) — la barra entera queda como el punto medio entre las dos,
+  /* Pedido de Alejandro: "ilumina mÃ¡s, entre morado y dorado". Toma los
+     mismos dos colores que ya usan las flechas de atrÃ¡s (violeta) y adelante
+     (dorado VIP) â€” la barra entera queda como el punto medio entre las dos,
      en vez de un tercer color inventado. */
   background:
     linear-gradient(180deg, rgba(25, 26, 30, 0.78), rgba(9, 10, 13, 0.9));
@@ -1390,8 +1390,8 @@ input[type="date"]::-webkit-date-and-time-value {
   transform: translateX(-50%);
   animation: none;
 }
-/* Respiración lenta, no un parpadeo duro: "llamativa" pero sin competir con
-   el único aviso que sí tiene que parpadear en la app (sesión sin cerrar,
+/* RespiraciÃ³n lenta, no un parpadeo duro: "llamativa" pero sin competir con
+   el Ãºnico aviso que sÃ­ tiene que parpadear en la app (sesiÃ³n sin cerrar,
    ver .punto-sesion-sin-cerrar). */
 @keyframes iluminacion-navegacion-ejercicio {
   0%, 100% {
@@ -1415,7 +1415,7 @@ input[type="date"]::-webkit-date-and-time-value {
   }
 }
 /* Doble flecha fluorescente a cada extremo: violeta para volver, verde VIP
-   para avanzar. Se pidieron "más llamativas" — el glow es lo que las hace
+   para avanzar. Se pidieron "mÃ¡s llamativas" â€” el glow es lo que las hace
    encontrables de un vistazo con el celular en el piso, sin leer nada. */
 .boton-navegacion-ejercicio {
   display: flex;
@@ -1452,7 +1452,7 @@ input[type="date"]::-webkit-date-and-time-value {
   filter: none;
   animation: none;
 }
-/* La segunda flecha sale un pelo después que la primera: leen como una sola
+/* La segunda flecha sale un pelo despuÃ©s que la primera: leen como una sola
    corriendo hacia el lado, no como dos parpadeando juntas. */
 .boton-navegacion-ejercicio svg:last-child {
   animation-delay: 160ms;
@@ -1498,11 +1498,11 @@ input[type="date"]::-webkit-date-and-time-value {
   0%, 48% { transform: translateX(-180%) rotate(18deg); }
   72%, 100% { transform: translateX(650%) rotate(18deg); }
 }
-/* Pasaba desapercibida: un recuadro ámbar tenue entre otros recuadros. Y es
-   justamente el aviso que no se puede perder — mientras no lo vea, la sesión
+/* Pasaba desapercibida: un recuadro Ã¡mbar tenue entre otros recuadros. Y es
+   justamente el aviso que no se puede perder â€” mientras no lo vea, la sesiÃ³n
    queda abierta y no le suma puntos. Ahora es rojo, late, y el borde recorre
-   un resplandor. Es el único elemento de la app con este tratamiento, a
-   propósito: si mañana algo más parpadea, este deja de significar nada. */
+   un resplandor. Es el Ãºnico elemento de la app con este tratamiento, a
+   propÃ³sito: si maÃ±ana algo mÃ¡s parpadea, este deja de significar nada. */
 .franja-sesion-sin-cerrar {
   position: relative;
   padding: 10px 12px;
@@ -1528,7 +1528,7 @@ input[type="date"]::-webkit-date-and-time-value {
   }
 }
 /* El punto rojo late a contratiempo del recuadro: dos ritmos distintos llaman
-   más la atención que dos iguales. */
+   mÃ¡s la atenciÃ³n que dos iguales. */
 .punto-sesion-sin-cerrar {
   display: inline-block;
   width: 9px;
@@ -1553,9 +1553,9 @@ input[type="date"]::-webkit-date-and-time-value {
   }
 }
 
-/* Recordatorio de sesión abierta al volver de otra app. Va POR ENCIMA de la
-   barra de navegación de ejercicios y no bloquea nada: es un aviso, no una
-   decisión. */
+/* Recordatorio de sesiÃ³n abierta al volver de otra app. Va POR ENCIMA de la
+   barra de navegaciÃ³n de ejercicios y no bloquea nada: es un aviso, no una
+   decisiÃ³n. */
 .aviso-sesion-abierta {
   position: fixed;
   left: 50%;
@@ -1574,7 +1574,7 @@ input[type="date"]::-webkit-date-and-time-value {
 
 /* La rutina entera dentro de la barra: un casillero por ejercicio, en orden.
    Se desplaza sola cuando no entran todos (ver el scrollIntoView del
-   componente); la barra de scroll se esconde porque acá el gesto es táctil. */
+   componente); la barra de scroll se esconde porque acÃ¡ el gesto es tÃ¡ctil. */
 .tira-ejercicios-rutina {
   display: flex;
   align-items: center;
@@ -1582,7 +1582,7 @@ input[type="date"]::-webkit-date-and-time-value {
      flechas; con muchos, se desborda y se desplaza SIN comerse el primero
      (que es lo que hace un `center` a secas cuando el contenido no entra). */
   justify-content: safe center;
-  /* La separación se adapta al ancho libre: con tres ejercicios quedan bien
+  /* La separaciÃ³n se adapta al ancho libre: con tres ejercicios quedan bien
      despegados, con diez se juntan lo justo para que entren igual. */
   gap: clamp(4px, 1.8vw, 11px);
   overflow-x: auto;
@@ -1591,8 +1591,8 @@ input[type="date"]::-webkit-date-and-time-value {
   padding: 2px 4px;
   /* Con zoom Grande o rutinas largas, la tira no entra entera (ver el
      comentario en SesionEjercicios.tsx) y hay que deslizarla. Sin esto el
-     último casillero cortaba en seco justo contra la flecha, como si la
-     rutina terminara ahí — el desvanecido avisa que sigue de largo. Se pinta
+     Ãºltimo casillero cortaba en seco justo contra la flecha, como si la
+     rutina terminara ahÃ­ â€” el desvanecido avisa que sigue de largo. Se pinta
      siempre, entre o no entre todo: si no hace falta, no se nota. */
   mask-image: linear-gradient(to right, transparent, black 10px, black calc(100% - 10px), transparent);
   -webkit-mask-image: linear-gradient(to right, transparent, black 10px, black calc(100% - 10px), transparent);
@@ -1600,7 +1600,7 @@ input[type="date"]::-webkit-date-and-time-value {
 .tira-ejercicios-rutina::-webkit-scrollbar {
   display: none;
 }
-/* Selector de técnica del editor de rutina (admin): tira deslizable en vez de
+/* Selector de tÃ©cnica del editor de rutina (admin): tira deslizable en vez de
    grilla que se envuelve, mismo criterio que `.tira-ejercicios-rutina`. */
 .tira-tecnicas {
   scrollbar-width: none;
@@ -1611,11 +1611,11 @@ input[type="date"]::-webkit-date-and-time-value {
 .casillero-ejercicio-rutina {
   display: grid;
   place-items: center;
-  /* Se reparten el ancho libre en vez de tener un tamaño fijo: una rutina de
+  /* Se reparten el ancho libre en vez de tener un tamaÃ±o fijo: una rutina de
      tres ejercicios muestra tres casilleros grandes y separados; una de diez,
      diez chicos que entran igual. El tope de 40px evita que con dos queden
-     como dos botones enormes, y el piso de 24px que con muchos el número se
-     recorte en un teléfono angosto. */
+     como dos botones enormes, y el piso de 24px que con muchos el nÃºmero se
+     recorte en un telÃ©fono angosto. */
   flex: 1 1 0;
   min-width: 24px;
   max-width: 40px;
@@ -1634,17 +1634,17 @@ input[type="date"]::-webkit-date-and-time-value {
   color: var(--color-vip);
   background: color-mix(in srgb, var(--color-vip) 12%, var(--color-surface-2));
 }
-/* El que se está mirando: borde violeta, el mismo acento que ya usa el modo
-   enfocado para "estás acá" (--focus-violet). Se distingue del verde de
-   "hecho" — un ejercicio puede estar activo y hecho a la vez. */
+/* El que se estÃ¡ mirando: borde violeta, el mismo acento que ya usa el modo
+   enfocado para "estÃ¡s acÃ¡" (--focus-violet). Se distingue del verde de
+   "hecho" â€” un ejercicio puede estar activo y hecho a la vez. */
 .casillero-ejercicio-rutina[data-activo="true"] {
   border-color: color-mix(in srgb, var(--color-acento) 70%, white 8%);
   color: #fff;
   background: color-mix(in srgb, var(--color-acento) 20%, var(--color-surface-2));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-acento) 45%, transparent);
 }
-/* El ejercicio que toca ahora, esté o no siendo mirado: ámbar, el color que
-   el modo enfocado reserva para "el próximo paso es este". */
+/* El ejercicio que toca ahora, estÃ© o no siendo mirado: Ã¡mbar, el color que
+   el modo enfocado reserva para "el prÃ³ximo paso es este". */
 .casillero-ejercicio-rutina[data-encurso="true"] {
   border-color: #f5a623;
   color: #ffd88a;
@@ -1667,21 +1667,21 @@ input[type="date"]::-webkit-date-and-time-value {
   animation-delay: 140ms;
 }
 
-/* Paleta y composición de la proyección aprobada: negro profundo, violeta
-   para información/descanso y ámbar solo para confirmar el siguiente paso.
+/* Paleta y composiciÃ³n de la proyecciÃ³n aprobada: negro profundo, violeta
+   para informaciÃ³n/descanso y Ã¡mbar solo para confirmar el siguiente paso.
 
-   Pedido de Alejandro: "el fondo negro... si colocas Lady Fit, solo verás
+   Pedido de Alejandro: "el fondo negro... si colocas Lady Fit, solo verÃ¡s
    todo en blanco y un recuadro negro al fondo, que no me gusta". Antes esta
-   paleta era hex fijo (negro/violeta/ámbar) sin importar el tema — se veía
-   bien en VIP porque el ámbar coincide con --color-vip, pero en Steel Fit y
+   paleta era hex fijo (negro/violeta/Ã¡mbar) sin importar el tema â€” se veÃ­a
+   bien en VIP porque el Ã¡mbar coincide con --color-vip, pero en Steel Fit y
    Lady Fit quedaba un cuadro negro ajeno en medio de un tema propio de otro
    color. Ahora --focus-* sale de los tokens del tema activo: bg/panel/panel-2
-   /border son un poco más oscuros que el resto de la app (`color-mix` con
-   negro, no un hex inventado — sigue leyéndose "más concentrado"), y
-   violeta/ámbar pasan a ser --color-acento/--color-vip, que ya cambian solos
+   /border son un poco mÃ¡s oscuros que el resto de la app (`color-mix` con
+   negro, no un hex inventado â€” sigue leyÃ©ndose "mÃ¡s concentrado"), y
+   violeta/Ã¡mbar pasan a ser --color-acento/--color-vip, que ya cambian solos
    con el tema. Antes estas variables se declaraban y no las usaba nadie
-   (`var(--focus-*)` no aparecía en ningún lado) — cada regla de acá abajo
-   tenía su propio hex suelto calcado a mano; ahora si señalan a lo mismo. */
+   (`var(--focus-*)` no aparecÃ­a en ningÃºn lado) â€” cada regla de acÃ¡ abajo
+   tenÃ­a su propio hex suelto calcado a mano; ahora si seÃ±alan a lo mismo. */
 .modo-entrenamiento-enfocado {
   --focus-bg: color-mix(in srgb, var(--color-bg) 85%, #000);
   --focus-panel: color-mix(in srgb, var(--color-surface) 85%, #000);
@@ -1692,10 +1692,10 @@ input[type="date"]::-webkit-date-and-time-value {
   --focus-green: var(--color-success);
 }
 
-/* Rutina activa: la información que orienta al alumno vive fuera de la
-   tarjeta de carga. El nombre, el músculo y la serie actual forman una sola
+/* Rutina activa: la informaciÃ³n que orienta al alumno vive fuera de la
+   tarjeta de carga. El nombre, el mÃºsculo y la serie actual forman una sola
    cabecera breve; debajo, cada trazo representa una serie real, aunque haya
-   3, 5 o una técnica encadenada con más pasos. */
+   3, 5 o una tÃ©cnica encadenada con mÃ¡s pasos. */
 .cabecera-foco-entrenamiento {
   display: flex;
   min-width: 0;
@@ -1781,7 +1781,7 @@ input[type="date"]::-webkit-date-and-time-value {
 .tarjeta-ejercicio-enfocada {
   /* Ya NO redefine --color-surface/--color-surface-2/--color-border: eso era
      lo que arrastraba a negro a cualquier hijo bien escrito que usara esos
-     tokens (ej. CuadroFotoReferencia), aunque ese hijo nunca pidió negro. */
+     tokens (ej. CuadroFotoReferencia), aunque ese hijo nunca pidiÃ³ negro. */
   border-color: var(--focus-border) !important;
   border-radius: 22px !important;
   background: var(--focus-bg) !important;
@@ -1963,8 +1963,8 @@ input[type="date"]::-webkit-date-and-time-value {
   background: var(--focus-panel-2);
 }
 .tarjeta-ejercicio-enfocada .fila-serie-contenido .campo-serie-plano input {
-  /* 14 y no 16: con tres dígitos de kilos (o "100" repeticiones) el número se
-     salía del recuadro en teléfonos angostos y quedaba tapado. */
+  /* 14 y no 16: con tres dÃ­gitos de kilos (o "100" repeticiones) el nÃºmero se
+     salÃ­a del recuadro en telÃ©fonos angostos y quedaba tapado. */
   font-size: calc(14px * var(--escala-texto));
   text-align: center;
 }
@@ -1991,21 +1991,21 @@ input[type="date"]::-webkit-date-and-time-value {
   border-color: color-mix(in srgb, var(--focus-green) 40%, transparent);
   background: color-mix(in srgb, var(--focus-green) 10%, transparent);
 }
-/* "Completar y guardar" — un solo botón para las dos cosas (antes había que
-   tocar este y además "Guardar", y nadie tocaba el segundo). Va en el color
-   que esta pantalla reserva para el próximo paso: con el borde verde
-   translúcido de antes se perdía entre las filas de series.
+/* "Completar y guardar" â€” un solo botÃ³n para las dos cosas (antes habÃ­a que
+   tocar este y ademÃ¡s "Guardar", y nadie tocaba el segundo). Va en el color
+   que esta pantalla reserva para el prÃ³ximo paso: con el borde verde
+   translÃºcido de antes se perdÃ­a entre las filas de series.
 
-   `var(--btn-bg)`/`var(--btn-color)` y no un ámbar fijo: son los mismos
-   tokens que ya arman los botones de acción del alumno (`.btn-accion`) y
+   `var(--btn-bg)`/`var(--btn-color)` y no un Ã¡mbar fijo: son los mismos
+   tokens que ya arman los botones de acciÃ³n del alumno (`.btn-accion`) y
    traen el contraste resuelto por tema (texto oscuro en VIP, casi blanco en
-   Steel Fit, ciruela en Lady Fit) — antes este botón quedaba ámbar puro sin
+   Steel Fit, ciruela en Lady Fit) â€” antes este botÃ³n quedaba Ã¡mbar puro sin
    importar el tema elegido. */
 .boton-completar-ejercicio {
   color: var(--btn-color);
   border: 1px solid transparent;
-  /* Letra chica y sin cortes: en teléfonos angostos "Completar y guardar"
-     con el cuerpo anterior se partía o se salía del botón. */
+  /* Letra chica y sin cortes: en telÃ©fonos angostos "Completar y guardar"
+     con el cuerpo anterior se partÃ­a o se salÃ­a del botÃ³n. */
   font-size: calc(12.5px * var(--escala-texto));
   letter-spacing: 0.01em;
   background: var(--btn-bg);
@@ -2013,7 +2013,7 @@ input[type="date"]::-webkit-date-and-time-value {
   transition: transform 140ms ease, box-shadow 180ms ease;
   animation: pulso-paso-guiado 2.2s ease-in-out infinite;
 }
-/* Acceso chico para reabrir la encuesta saltada. Discreto a propósito: vive
+/* Acceso chico para reabrir la encuesta saltada. Discreto a propÃ³sito: vive
    entre las acciones secundarias del ejercicio (Nota / Alguna molestia) y no
    compite con "Completar y guardar". */
 .boton-encuesta-pendiente {
@@ -2044,8 +2044,8 @@ input[type="date"]::-webkit-date-and-time-value {
   50% { opacity: 1; box-shadow: 0 0 12px color-mix(in srgb, var(--color-vip) 70%, transparent); }
 }
 
-/* Aviso mínimo dentro de un ejercicio: deliberadamente intenso para que un
-   botón de 40 px reemplace la tarjeta completa sin pasar inadvertido. */
+/* Aviso mÃ­nimo dentro de un ejercicio: deliberadamente intenso para que un
+   botÃ³n de 40 px reemplace la tarjeta completa sin pasar inadvertido. */
 .rayo-impulso-vivo:not(:has(svg.lucide-check)) {
   animation: rayo-impulso-fuerte .72s cubic-bezier(.2,.8,.2,1) infinite;
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-vip) 65%, transparent);
@@ -2099,8 +2099,8 @@ input[type="date"]::-webkit-date-and-time-value {
   }
 }
 /* El ajuste de accesibilidad crece hacia abajo, nunca encima de otro control.
-   En tamaño normal las cuatro series caben en una pantalla; al elegir texto
-   cómodo o grande, el botón baja a su propia línea y aparece el scroll. */
+   En tamaÃ±o normal las cuatro series caben en una pantalla; al elegir texto
+   cÃ³modo o grande, el botÃ³n baja a su propia lÃ­nea y aparece el scroll. */
 html[data-escala-texto="1.15"] .tarjeta-ejercicio-enfocada .fila-serie,
 html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie {
   padding: 10px;
@@ -2134,14 +2134,14 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   }
 }
 
-/* Botón compacto de descanso y cuenta regresiva de cada serie. */
+/* BotÃ³n compacto de descanso y cuenta regresiva de cada serie. */
 /*
-  Filas de carga de series. El fondo plano gris se veía barato al lado del resto
-  de la pantalla, así que cada pieza está armada con la misma receta: un
-  degradado vertical muy suave, una línea de luz de 1 px arriba (el brillo del
+  Filas de carga de series. El fondo plano gris se veÃ­a barato al lado del resto
+  de la pantalla, asÃ­ que cada pieza estÃ¡ armada con la misma receta: un
+  degradado vertical muy suave, una lÃ­nea de luz de 1 px arriba (el brillo del
   borde superior, como si la pieza tuviera canto) y una sombra corta abajo. Es
-  lo que da la sensación de material en vez de rectángulo pintado.
-  Al completarse, la fila se tiñe de ámbar en vez de cambiar de forma: nada se
+  lo que da la sensaciÃ³n de material en vez de rectÃ¡ngulo pintado.
+  Al completarse, la fila se tiÃ±e de Ã¡mbar en vez de cambiar de forma: nada se
   mueve de lugar, solo cambia de temperatura.
 */
 .fila-serie {
@@ -2186,14 +2186,14 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   marca un barrido de luz que cruza de izquierda a derecha cada dos segundos y
   medio. Cuando termina su descanso, el barrido se corre solo a la serie de
   abajo; al cerrarse el ejercicio, aparece en la primera serie del siguiente.
-  Es lo único que se mueve en la pantalla: con el celular apoyado en el banco,
-  el ojo va ahí sin buscar.
+  Es lo Ãºnico que se mueve en la pantalla: con el celular apoyado en el banco,
+  el ojo va ahÃ­ sin buscar.
 */
 .fila-serie[data-activa="true"] {
-  /* Todo el cuadro se tiñe de ámbar, no solo el borde — mismo recurso que
-     `data-descansando` (un poco más suave, para distinguir "te toca ahora"
-     de "estás descansando"), más un resplandor que respira alrededor de
-     toda la fila. Nada se desplaza — mismo lenguaje que "Iniciar rutina". */
+  /* Todo el cuadro se tiÃ±e de Ã¡mbar, no solo el borde â€” mismo recurso que
+     `data-descansando` (un poco mÃ¡s suave, para distinguir "te toca ahora"
+     de "estÃ¡s descansando"), mÃ¡s un resplandor que respira alrededor de
+     toda la fila. Nada se desplaza â€” mismo lenguaje que "Iniciar rutina". */
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--color-vip) 13%, transparent) 0%,
@@ -2222,9 +2222,9 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   }
 }
 
-/* Descansando: fondo ámbar tibio de punta a punta, como la referencia — no
+/* Descansando: fondo Ã¡mbar tibio de punta a punta, como la referencia â€” no
    solo el borde marcado, toda la fila se calienta de color mientras corre
-   la cuenta regresiva, para que se distinga de un vistazo de las demás. */
+   la cuenta regresiva, para que se distinga de un vistazo de las demÃ¡s. */
 .fila-serie[data-descansando="true"] {
   background: linear-gradient(
     180deg,
@@ -2233,13 +2233,13 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   );
   border-color: color-mix(in srgb, var(--color-vip) 60%, transparent);
 }
-/* Se pidió sacar el barrido (la franja de luz que cruzaba la fila) — ahora
-   lo que marca "esta serie toca ahora" es solo el resplandor fijo del botón
+/* Se pidiÃ³ sacar el barrido (la franja de luz que cruzaba la fila) â€” ahora
+   lo que marca "esta serie toca ahora" es solo el resplandor fijo del botÃ³n
    de la derecha (ver `.boton-descanso[data-estado="pendiente"]`), sin nada
    en movimiento. */
 
-/* El número de serie: disco con canto, no un círculo de contorno. Hecho pasa a
-   ámbar sólido con el número en negro — el contraste más fuerte de la fila. */
+/* El nÃºmero de serie: disco con canto, no un cÃ­rculo de contorno. Hecho pasa a
+   Ã¡mbar sÃ³lido con el nÃºmero en negro â€” el contraste mÃ¡s fuerte de la fila. */
 .numero-serie {
   display: flex;
   align-items: center;
@@ -2267,7 +2267,7 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
 }
 
 /* Campo plano de carga/reps, como la referencia: sin caja ni fondo propio,
-   solo el número grande y la unidad chica al lado — el separador vertical
+   solo el nÃºmero grande y la unidad chica al lado â€” el separador vertical
    entre los dos campos (.separador-serie) es lo que los distingue, no una
    caja para cada uno. */
 .campo-serie-plano {
@@ -2317,12 +2317,12 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
 }
 
 /*
-  Botón de descanso. Está hecho con el MISMO material que los campos de carga y
-  repeticiones de su fila —mismo alto, mismo radio, mismo canto de luz— porque
-  los tres son la misma pieza vista tres veces; antes era una píldora negra
-  pegada al costado y se leía como algo de otra pantalla.
+  BotÃ³n de descanso. EstÃ¡ hecho con el MISMO material que los campos de carga y
+  repeticiones de su fila â€”mismo alto, mismo radio, mismo canto de luzâ€” porque
+  los tres son la misma pieza vista tres veces; antes era una pÃ­ldora negra
+  pegada al costado y se leÃ­a como algo de otra pantalla.
   Lo que cambia entre estados es el color y lo que pasa adentro, nunca la forma:
-  el botón no se mueve de lugar ni cambia de tamaño mientras corre el descanso.
+  el botÃ³n no se mueve de lugar ni cambia de tamaÃ±o mientras corre el descanso.
 */
 .boton-descanso {
   position: relative;
@@ -2333,7 +2333,7 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   width: 88px;
   flex-shrink: 0;
   /* min-height y no height: con la escala de texto grande el contenido crece y
-     con alto fijo se salía del botón. */
+     con alto fijo se salÃ­a del botÃ³n. */
   min-height: 30px;
   padding: 3px 7px;
   border-radius: 9px;
@@ -2341,8 +2341,8 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--color-text);
-  /* Plano, sin degradado ni sombra interna — se pidió sacar el efecto 3D/
-     relieve que tenían estos botones. El color y el borde siguen marcando
+  /* Plano, sin degradado ni sombra interna â€” se pidiÃ³ sacar el efecto 3D/
+     relieve que tenÃ­an estos botones. El color y el borde siguen marcando
      cada estado, solo cambia la forma de "material" a "chip" liso. */
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -2356,7 +2356,7 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   border-color: var(--color-border);
 }
 
-/* El contenido va por encima de la barra que se vacía. */
+/* El contenido va por encima de la barra que se vacÃ­a. */
 .boton-descanso-contenido {
   position: relative;
   z-index: 1;
@@ -2379,7 +2379,7 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   color: color-mix(in srgb, var(--color-vip) 75%, var(--color-text-tertiary));
 }
 
-/* Pendiente: insinuado en ámbar, no negro. Es el único botón de la fila que hay
+/* Pendiente: insinuado en Ã¡mbar, no negro. Es el Ãºnico botÃ³n de la fila que hay
    que tocar, y tiene que pedirlo sin gritar. */
 .boton-descanso[data-estado="pendiente"] {
   color: var(--color-vip);
@@ -2387,8 +2387,8 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   border-color: color-mix(in srgb, var(--color-vip) 55%, transparent);
   /* Resplandor que respira, mismo lenguaje que "Iniciar rutina" en Entrenar
      (.boton-entrenar-pulso / respiracion-entrenar): sin barrido que cruce el
-     botón, solo el brillo creciendo y bajando en el lugar — es la señal de
-     "esta serie toca ahora, tocá acá". */
+     botÃ³n, solo el brillo creciendo y bajando en el lugar â€” es la seÃ±al de
+     "esta serie toca ahora, tocÃ¡ acÃ¡". */
   animation: respiracion-entrenar 2.6s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2398,15 +2398,15 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   }
 }
 
-/* Ejercicio encadenado (superserie/biserie/triserie/circuito): el botón de
+/* Ejercicio encadenado (superserie/biserie/triserie/circuito): el botÃ³n de
    la serie que toca ahora suma un segundo resplandor con el color de la
    familia (ver `--color-glow-tecnica`, inyectado desde SesionEjercicioCard),
-   además del ámbar de siempre — así se distingue de lejos que este
+   ademÃ¡s del Ã¡mbar de siempre â€” asÃ­ se distingue de lejos que este
    ejercicio va pegado a otro. */
 .boton-descanso[data-grupo-tecnica="true"][data-estado="pendiente"] {
   border-color: var(--color-glow-tecnica);
-  /* Propio keyframe: el que respira solo con ámbar no incluye el anillo del
-     color de grupo, y una animación pisa cualquier box-shadow estático que
+  /* Propio keyframe: el que respira solo con Ã¡mbar no incluye el anillo del
+     color de grupo, y una animaciÃ³n pisa cualquier box-shadow estÃ¡tico que
      se le ponga aparte. */
   animation: respiracion-entrenar-grupo 2.6s ease-in-out infinite;
 }
@@ -2434,7 +2434,7 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   color: color-mix(in srgb, var(--color-vip) 70%, var(--color-text-tertiary));
 }
 
-/* Corriendo: el número grande al frente y la barra vaciándose por detrás. */
+/* Corriendo: el nÃºmero grande al frente y la barra vaciÃ¡ndose por detrÃ¡s. */
 .boton-descanso[data-estado="corriendo"] {
   border-color: color-mix(in srgb, var(--color-vip) 55%, transparent);
 }
@@ -2444,9 +2444,9 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   letter-spacing: -0.02em;
 }
 /*
-  La barra que se vacía. Va anclada a la IZQUIERDA y se acorta con los segundos:
+  La barra que se vacÃ­a. Va anclada a la IZQUIERDA y se acorta con los segundos:
   se lee como algo que se consume, no como una carga que avanza.
-  La transición de 1s lineal empalma con el tick del contador, así baja parejo
+  La transiciÃ³n de 1s lineal empalma con el tick del contador, asÃ­ baja parejo
   en vez de a saltos de un segundo.
 */
 .boton-descanso-relleno {
@@ -2463,9 +2463,9 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   transition: width 1s linear;
 }
 
-/* En pausa: todo se apaga a gris. Lo que se ve es que ACÁ no está corriendo el
-   tiempo, porque arrancó el descanso de otra serie o todavía no es su turno.
-   Píldora chata, sin borde marcado — como la referencia, "Pendiente" se lee
+/* En pausa: todo se apaga a gris. Lo que se ve es que ACÃ no estÃ¡ corriendo el
+   tiempo, porque arrancÃ³ el descanso de otra serie o todavÃ­a no es su turno.
+   PÃ­ldora chata, sin borde marcado â€” como la referencia, "Pendiente" se lee
    como estado inerte, no como algo para tocar ya. */
 .boton-descanso[data-estado="pausado"] {
   color: var(--color-text-tertiary);
@@ -2478,13 +2478,13 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   background: rgba(0, 0, 0, 0.05);
 }
 
-/* Botón para empezar el día en Entrenar: es el llamado a la acción más
-   importante de toda la app (arrancar a entrenar), así que lleva más
-   insistencia que un .btn-accion común. Mismo lenguaje que
+/* BotÃ³n para empezar el dÃ­a en Entrenar: es el llamado a la acciÃ³n mÃ¡s
+   importante de toda la app (arrancar a entrenar), asÃ­ que lleva mÃ¡s
+   insistencia que un .btn-accion comÃºn. Mismo lenguaje que
    .mensaje-dia-movimiento (resplandor "que respira", no un barrido), pero
-   más rápido — ahí es ambiental, acá tiene que insistir. color-mix con
-   var(--color-vip) y no un rgba fijo: así el resplandor cambia solo con los
-   3 temas de botón (Espejo/VIP/Lady), igual que el resto del botón. */
+   mÃ¡s rÃ¡pido â€” ahÃ­ es ambiental, acÃ¡ tiene que insistir. color-mix con
+   var(--color-vip) y no un rgba fijo: asÃ­ el resplandor cambia solo con los
+   3 temas de botÃ³n (Espejo/VIP/Lady), igual que el resto del botÃ³n. */
 .boton-entrenar-pulso {
   animation: respiracion-entrenar 2.6s ease-in-out infinite;
 }
@@ -2505,9 +2505,9 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   }
 }
 
-/* Confirmar: serie fuera de turno, a mitad del semibloqueo de 3 toques. Ámbar
-   de "pendiente" pero con el borde lleno y un pulso — tiene que sentirse
-   distinto de "tocá acá para arrancar", más parecido a "seguí tocando para
+/* Confirmar: serie fuera de turno, a mitad del semibloqueo de 3 toques. Ãmbar
+   de "pendiente" pero con el borde lleno y un pulso â€” tiene que sentirse
+   distinto de "tocÃ¡ acÃ¡ para arrancar", mÃ¡s parecido a "seguÃ­ tocando para
    confirmar que es en serio". */
 .boton-descanso[data-estado="confirmar"] {
   color: var(--color-vip);
@@ -2530,10 +2530,10 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   }
 }
 
-/* Confirmar cancelar descanso: primer toque sobre un descanso QUE ESTÁ
-   CORRIENDO — antes cancelaba de un solo toque (deshacía la serie marcada).
+/* Confirmar cancelar descanso: primer toque sobre un descanso QUE ESTÃ
+   CORRIENDO â€” antes cancelaba de un solo toque (deshacÃ­a la serie marcada).
    Pedido de Alejandro: que un roce accidental no lo tire abajo solo. Rojo de
-   advertencia y no ámbar: acá "seguir tocando" deshace algo, es lo opuesto de
+   advertencia y no Ã¡mbar: acÃ¡ "seguir tocando" deshace algo, es lo opuesto de
    "confirmar" (que construye hacia adelante). */
 .boton-descanso[data-estado="confirmar-cancelar-descanso"] {
   color: var(--color-error);
@@ -2555,14 +2555,14 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   }
 }
 
-/* Avisando: terminó el descanso. Ámbar lleno y las tres flechas cayendo hacia
-   lo que sigue, que es lo único que hay que hacer en ese momento. */
+/* Avisando: terminÃ³ el descanso. Ãmbar lleno y las tres flechas cayendo hacia
+   lo que sigue, que es lo Ãºnico que hay que hacer en ese momento. */
 .boton-descanso[data-estado="avisando"] {
   color: #000;
   background: var(--color-vip);
   border-color: transparent;
-  /* Sin inset (eso era el relieve/3D) — el resplandor de afuera se mantiene,
-     porque avisa algo (terminó el descanso), no es una textura de material. */
+  /* Sin inset (eso era el relieve/3D) â€” el resplandor de afuera se mantiene,
+     porque avisa algo (terminÃ³ el descanso), no es una textura de material. */
   box-shadow: 0 0 16px color-mix(in srgb, var(--color-vip) 45%, transparent);
 }
 .flechas-seguir {
@@ -2586,9 +2586,9 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   }
 }
 
-/* Hecha: casillero cuadrado ámbar con tilde, como la referencia — en vez de
-   la píldora ancha "Listo". Se achica y centra sobre sí mismo en vez de
-   ocupar el ancho de siempre: los 96px eran para el texto, un ícono solo no
+/* Hecha: casillero cuadrado Ã¡mbar con tilde, como la referencia â€” en vez de
+   la pÃ­ldora ancha "Listo". Se achica y centra sobre sÃ­ mismo en vez de
+   ocupar el ancho de siempre: los 96px eran para el texto, un Ã­cono solo no
    los necesita. */
 .boton-descanso[data-estado="hecha"],
 .boton-descanso[data-estado="confirmar-deshacer"] {
@@ -2604,7 +2604,7 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
 }
 
 /* Semibloqueo de 2 toques para deshacer una serie ya hecha: el primer toque
-   no la desmarca, solo hace pulsar el casillero — recién el segundo toque
+   no la desmarca, solo hace pulsar el casillero â€” reciÃ©n el segundo toque
    (dentro de los 2s) la deshace de verdad. */
 .boton-descanso[data-estado="confirmar-deshacer"] {
   animation: confirmar-pulso 0.5s ease-in-out infinite;
@@ -2624,30 +2624,30 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
 }
 
 /*
-  Barra de avance de la sesión: tres olas de luz corriendo sobre el relleno
-  ámbar. Son tres elementos con el mismo recorrido y la animación desfasada un
+  Barra de avance de la sesiÃ³n: tres olas de luz corriendo sobre el relleno
+  Ã¡mbar. Son tres elementos con el mismo recorrido y la animaciÃ³n desfasada un
   tercio del ciclo cada una, y no un degradado repetido: el ancho del relleno
-  cambia con el porcentaje, y con un patrón repetido la cantidad de olas a la
-  vista cambiaba con él. Así siempre son tres, esté al 10% o al 90%.
+  cambia con el porcentaje, y con un patrÃ³n repetido la cantidad de olas a la
+  vista cambiaba con Ã©l. AsÃ­ siempre son tres, estÃ© al 10% o al 90%.
 */
 .barra-progreso-relleno {
   position: relative;
   overflow: hidden;
   /* Fuerza una capa propia. Sin esto, en Chrome de Android la barra se pintaba
      una vez y se quedaba "pegada": el navegador no repintaba el interior de un
-     elemento cuyo `width` estaba en transición dentro de una cabecera fija. */
+     elemento cuyo `width` estaba en transiciÃ³n dentro de una cabecera fija. */
   transform: translateZ(0);
 }
 .ola-progreso {
   position: absolute;
   top: 0;
   bottom: 0;
-  /* Anima transform y nada más, y avisa antes: es lo que mantiene la ola en el
+  /* Anima transform y nada mÃ¡s, y avisa antes: es lo que mantiene la ola en el
      compositor y no en el hilo principal, que es donde se trababa en el celular. */
   will-change: transform;
   backface-visibility: hidden;
   /* Ancho relativo al relleno: en una barra corta la ola se angosta con ella y
-     sigue leyéndose como un destello y no como un bloque blanco. */
+     sigue leyÃ©ndose como un destello y no como un bloque blanco. */
   width: 32%;
   background: linear-gradient(
     90deg,
@@ -2669,7 +2669,7 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
     transform: translateX(412%);
   }
 }
-/* El usuario ya dijo una vez que el pulso del botón de descanso "mareaba": si
+/* El usuario ya dijo una vez que el pulso del botÃ³n de descanso "mareaba": si
    el sistema pide menos movimiento, la barra se queda quieta y llena. */
 @media (prefers-reduced-motion: reduce) {
   .ola-progreso {
@@ -2714,10 +2714,10 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   }
 }
 
-/* Transición suave del visor de foto ampliada (FotoReferenciaAmpliable): el
+/* TransiciÃ³n suave del visor de foto ampliada (FotoReferenciaAmpliable): el
    fondo se desvanece y la foto entra con un leve acercamiento, en vez de
-   aparecer de golpe. Solo de entrada — al cerrar, el modal se desmonta al
-   toque, que es lo esperado para un cierre rápido. */
+   aparecer de golpe. Solo de entrada â€” al cerrar, el modal se desmonta al
+   toque, que es lo esperado para un cierre rÃ¡pido. */
 .animate-visor-fondo {
   animation: visor-fondo-entrada 0.22s ease-out;
 }
@@ -2750,11 +2750,11 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
 }
 
 /* -------------------------------------------------------------------------
-   AVISO DEL ICONO DE TÉCNICA (SesionEjercicioCard)
+   AVISO DEL ICONO DE TÃ‰CNICA (SesionEjercicioCard)
 
-   Reemplaza el modal que se abría solo al pasar el ejercicio a activo.
-   Ahora solo el botón "!" parpadea unas vueltas con una etiqueta al lado y
-   se esconde a los 4s (ver `avisoTecnica` en el componente) — el alumno
+   Reemplaza el modal que se abrÃ­a solo al pasar el ejercicio a activo.
+   Ahora solo el botÃ³n "!" parpadea unas vueltas con una etiqueta al lado y
+   se esconde a los 4s (ver `avisoTecnica` en el componente) â€” el alumno
    decide si lo toca, nada le tapa la pantalla.
    ---------------------------------------------------------------------- */
 .parpadeo-icono-tecnica {
@@ -2793,16 +2793,16 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
 }
 
 /* -------------------------------------------------------------------------
-   BURBUJA DE TÉCNICA (SesionEjercicioCard)
+   BURBUJA DE TÃ‰CNICA (SesionEjercicioCard)
 
    Flota en el CENTRO de la pantalla, no pegada abajo: es lo que el alumno
-   tiene que leer ANTES de hacer la serie, así que se planta en el medio y el
-   fondo se oscurece lo justo para que se siga viendo dónde estaba.
+   tiene que leer ANTES de hacer la serie, asÃ­ que se planta en el medio y el
+   fondo se oscurece lo justo para que se siga viendo dÃ³nde estaba.
    ---------------------------------------------------------------------- */
 .fondo-burbuja-tecnica {
-  /* Más claro que el resto de los modales de la app (que van en /70 o /90):
-     acá el fondo NO estorba, ubica — el alumno tiene que reconocer el
-     ejercicio detrás mientras lee la técnica. El desenfoque separa las dos
+  /* MÃ¡s claro que el resto de los modales de la app (que van en /70 o /90):
+     acÃ¡ el fondo NO estorba, ubica â€” el alumno tiene que reconocer el
+     ejercicio detrÃ¡s mientras lee la tÃ©cnica. El desenfoque separa las dos
      capas sin necesidad de tapar. */
   background: rgba(0, 0, 0, 0.42);
   -webkit-backdrop-filter: blur(2px);
@@ -2814,7 +2814,7 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   position: relative;
   /* Por encima de los rayos, que son un hermano suyo dentro de la capa (ver
      `.rayos-reto`): sin esto los haces cruzan por delante del texto y la
-     explicación queda ilegible. Encontrado verificando en el navegador. */
+     explicaciÃ³n queda ilegible. Encontrado verificando en el navegador. */
   z-index: 1;
   animation: burbuja-tecnica-entra 0.4s cubic-bezier(0.34, 1.5, 0.64, 1);
 }
@@ -2830,14 +2830,14 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
 }
 
 /*
-  Variante RETO: solo cuando la técnica es una de las que exigen de verdad
-  (drop set, rest-pause, al fallo... — las que reconoce glosario-tecnicas.ts).
+  Variante RETO: solo cuando la tÃ©cnica es una de las que exigen de verdad
+  (drop set, rest-pause, al fallo... â€” las que reconoce glosario-tecnicas.ts).
   Pedido de Alejandro: "que provoque hacerlo, que sienta que va a hacer algo
-  muy bueno, entre reto y desafío".
+  muy bueno, entre reto y desafÃ­o".
 
-  Entra con un golpe (overshoot + un grado de rotación que se corrige sola),
+  Entra con un golpe (overshoot + un grado de rotaciÃ³n que se corrige sola),
   no con un fundido: el gesto tiene que leerse como un impacto, no como la
-  aparición de un cartel más.
+  apariciÃ³n de un cartel mÃ¡s.
 */
 .burbuja-tecnica-reto {
   animation: burbuja-reto-entra 0.52s cubic-bezier(0.22, 1.4, 0.36, 1);
@@ -2861,7 +2861,7 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
 }
 
 /* Onda expansiva: un anillo que sale del borde de la burbuja y se apaga. Una
-   sola vez (`forwards`) — repetirla la volvería decorado de fondo en vez de
+   sola vez (`forwards`) â€” repetirla la volverÃ­a decorado de fondo en vez de
    un golpe de entrada. */
 .onda-reto {
   position: absolute;
@@ -2885,22 +2885,22 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   }
 }
 
-/* Rayos detrás de la burbuja: un abanico que gira lento y se desvanece. El
+/* Rayos detrÃ¡s de la burbuja: un abanico que gira lento y se desvanece. El
    `conic-gradient` con paradas duras dibuja los haces sin necesidad de un
    SVG ni de 12 divs.
 
    Va como hermano de la burbuja DENTRO de la capa del modal, no adentro de la
-   burbuja: adentro quedaba pintado por delante del cuerpo y del botón (solo la
-   cabecera tiene `relative`, así que los haces cruzaban sobre la explicación y
-   la dejaban ilegible — visto en el navegador). Como hermano, con la burbuja
-   en `z-index: 1`, salen por detrás y asoman alrededor, que es el efecto que
+   burbuja: adentro quedaba pintado por delante del cuerpo y del botÃ³n (solo la
+   cabecera tiene `relative`, asÃ­ que los haces cruzaban sobre la explicaciÃ³n y
+   la dejaban ilegible â€” visto en el navegador). Como hermano, con la burbuja
+   en `z-index: 1`, salen por detrÃ¡s y asoman alrededor, que es el efecto que
    se buscaba. */
 .rayos-reto {
   position: absolute;
   left: 50%;
   top: 50%;
   /* Medida propia y no un % del padre: el padre ahora es la capa a pantalla
-     completa, donde 190% se iría muy lejos del borde de la burbuja. */
+     completa, donde 190% se irÃ­a muy lejos del borde de la burbuja. */
   width: min(150vw, 620px);
   aspect-ratio: 1;
   translate: -50% -50%;
@@ -2933,7 +2933,7 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
     color-mix(in srgb, var(--color-vip) 42%, transparent) 330deg 336deg,
     transparent 336deg 360deg
   );
-  /* Se apaga hacia afuera: sin esto los rayos cortan en seco en un círculo. */
+  /* Se apaga hacia afuera: sin esto los rayos cortan en seco en un cÃ­rculo. */
   mask-image: radial-gradient(circle, #000 22%, transparent 62%);
   -webkit-mask-image: radial-gradient(circle, #000 22%, transparent 62%);
   animation: rayos-reto-girar 1.1s ease-out forwards;
@@ -2952,8 +2952,8 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   }
 }
 
-/* El nombre de la técnica: un destello que lo recorre una vez, para que el
-   ojo caiga ahí primero y no en el texto largo de abajo. */
+/* El nombre de la tÃ©cnica: un destello que lo recorre una vez, para que el
+   ojo caiga ahÃ­ primero y no en el texto largo de abajo. */
 .titulo-reto {
   background: linear-gradient(
     100deg,
@@ -2985,8 +2985,8 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   .titulo-reto {
     animation: none;
   }
-  /* Los rayos y la onda son puro movimiento: sin animación no aportan nada,
-     así que directamente no se dibujan. */
+  /* Los rayos y la onda son puro movimiento: sin animaciÃ³n no aportan nada,
+     asÃ­ que directamente no se dibujan. */
   .rayos-reto,
   .onda-reto {
     display: none;
@@ -3044,8 +3044,8 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
   }
 }
 
-/* iOS Safari hace zoom automático al enfocar un input con font-size menor a
-   16px. Se fuerza el mínimo de 16px aquí para todos de una vez (la escala de
+/* iOS Safari hace zoom automÃ¡tico al enfocar un input con font-size menor a
+   16px. Se fuerza el mÃ­nimo de 16px aquÃ­ para todos de una vez (la escala de
    texto solo puede agrandarlo, nunca bajarlo de 16). */
 input,
 select,
@@ -3053,8 +3053,8 @@ textarea {
   font-size: calc(16px * var(--escala-texto));
 }
 
-/* Los inputs numéricos (peso, reps) se llenan a mano — se quitan las
-   flechitas nativas de subir/bajar, que además tapaban el texto. */
+/* Los inputs numÃ©ricos (peso, reps) se llenan a mano â€” se quitan las
+   flechitas nativas de subir/bajar, que ademÃ¡s tapaban el texto. */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -3066,8 +3066,8 @@ input[type="number"] {
 }
 
 /*
-  Tema claro minimalista: superficies cálidas, contraste cómodo y profundidad
-  discreta. Se reducen brillos y movimiento para que una sesión larga no
+  Tema claro minimalista: superficies cÃ¡lidas, contraste cÃ³modo y profundidad
+  discreta. Se reducen brillos y movimiento para que una sesiÃ³n larga no
   canse la vista, sin cambiar la personalidad del tema oscuro.
 */
 :root[data-theme="light"] .placa-logo-aero {
@@ -3119,28 +3119,28 @@ input[type="number"] {
 }
 
 /* Los `loading.tsx` de las pantallas de alumno (y su esqueleto,
-   PantallaCargando) se sacaron enteros — no solo el fundido de 320 ms de
-   acá. En Next 16.2.12 + Turbopack, cualquier carga FRÍA (no una navegación
+   PantallaCargando) se sacaron enteros â€” no solo el fundido de 320 ms de
+   acÃ¡. En Next 16.2.12 + Turbopack, cualquier carga FRÃA (no una navegaciÃ³n
    de cliente) de una ruta con `loading.tsx` se queda con la pantalla casi en
-   blanco para siempre: el contenido real SÍ llega en el HTML (queda en el
+   blanco para siempre: el contenido real SÃ llega en el HTML (queda en el
    DOM dentro de un `<div hidden id="S:...">`) pero el script que lo revela
-   nunca corre. Se confirmó con `document.body.innerText` vacío + el nodo
-   con `display:none` real, en varias rutas (Inicio, Entrenar, la sesión de
-   un entrenamiento), y se probó de punta a punta: sacando el `loading.tsx`
-   de la ruta, la misma carga fría renderiza completo.
-   Esto reemplaza una decisión anterior (ver el commit) que prefería
-   mantenerlos por el prefetch instantáneo entre pestañas — un cambio de
-   pestaña un poco menos instantáneo es preferible a una pantalla rota de
-   verdad en cualquier apertura fría (PWA recién abierta, notificación,
-   pull-to-refresh, iOS reanudando la pestaña). Si una versión más nueva de
-   Next soluciona el bug de raíz, se puede reconsiderar. */
+   nunca corre. Se confirmÃ³ con `document.body.innerText` vacÃ­o + el nodo
+   con `display:none` real, en varias rutas (Inicio, Entrenar, la sesiÃ³n de
+   un entrenamiento), y se probÃ³ de punta a punta: sacando el `loading.tsx`
+   de la ruta, la misma carga frÃ­a renderiza completo.
+   Esto reemplaza una decisiÃ³n anterior (ver el commit) que preferÃ­a
+   mantenerlos por el prefetch instantÃ¡neo entre pestaÃ±as â€” un cambio de
+   pestaÃ±a un poco menos instantÃ¡neo es preferible a una pantalla rota de
+   verdad en cualquier apertura frÃ­a (PWA reciÃ©n abierta, notificaciÃ³n,
+   pull-to-refresh, iOS reanudando la pestaÃ±a). Si una versiÃ³n mÃ¡s nueva de
+   Next soluciona el bug de raÃ­z, se puede reconsiderar. */
 
-/* ── Alimentación: tira de días y línea de tiempo ──────────────────────────
-   La tira de fechas se arrastra con el dedo, así que la barra de scroll
-   sobra: ocupa alto y en móvil no se usa. `overscroll-behavior-x: contain`
-   evita que arrastrar la tira dispare el "volver atrás" del navegador, y
+/* â”€â”€ AlimentaciÃ³n: tira de dÃ­as y lÃ­nea de tiempo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   La tira de fechas se arrastra con el dedo, asÃ­ que la barra de scroll
+   sobra: ocupa alto y en mÃ³vil no se usa. `overscroll-behavior-x: contain`
+   evita que arrastrar la tira dispare el "volver atrÃ¡s" del navegador, y
    `touch-action: pan-x` deja que un gesto principalmente vertical siga
-   scrolleando la página en vez de quedar atrapado en la tira. */
+   scrolleando la pÃ¡gina en vez de quedar atrapado en la tira. */
 .tira-dias {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -3156,8 +3156,8 @@ input[type="number"] {
   scroll-snap-align: center;
 }
 
-/* Línea punteada que une las horas. Va de fondo y no como borde para poder
-   recortarla en la primera y la última fila sin romper la alineación. */
+/* LÃ­nea punteada que une las horas. Va de fondo y no como borde para poder
+   recortarla en la primera y la Ãºltima fila sin romper la alineaciÃ³n. */
 .linea-horas {
   background-image: linear-gradient(
     to bottom,
@@ -3168,14 +3168,14 @@ input[type="number"] {
   background-repeat: repeat-y;
 }
 
-/* La barra fija de búsqueda se apoya sobre la navegación inferior; en iPhone
-   hay que sumarle el área segura o queda debajo del indicador de inicio. */
+/* La barra fija de bÃºsqueda se apoya sobre la navegaciÃ³n inferior; en iPhone
+   hay que sumarle el Ã¡rea segura o queda debajo del indicador de inicio. */
 .franja-segura-inferior {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Entrada del panel inferior de Alimentación: sube y aparece a la vez, corto
-   (220 ms) para que se sienta inmediato y no como una animación de más. */
+/* Entrada del panel inferior de AlimentaciÃ³n: sube y aparece a la vez, corto
+   (220 ms) para que se sienta inmediato y no como una animaciÃ³n de mÃ¡s. */
 @keyframes subir-hoja {
   from {
     opacity: 0;
@@ -3195,8 +3195,8 @@ input[type="number"] {
   }
 }
 
-/* Alta de una comida en la línea de tiempo: aparece corrida hacia abajo para
-   que se note de dónde salió, sin mover el resto de la pantalla. */
+/* Alta de una comida en la lÃ­nea de tiempo: aparece corrida hacia abajo para
+   que se note de dÃ³nde saliÃ³, sin mover el resto de la pantalla. */
 @keyframes entrar-comida {
   from {
     opacity: 0;
@@ -3213,7 +3213,7 @@ input[type="number"] {
 
 /* Relevo de los consejos de entrenamiento (ver ConsejoEntrenamiento.tsx): el
    texto nuevo entra suave en vez de reemplazar al anterior de golpe, que
-   distraía en medio de una serie. */
+   distraÃ­a en medio de una serie. */
 @keyframes aparecer-consejo {
   from {
     opacity: 0;
@@ -3241,7 +3241,7 @@ input[type="number"] {
   animation: puntos-vip-entrada 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-/* Portada premium: vidrio negro con halo oro/violeta y un patrón diagonal muy
+/* Portada premium: vidrio negro con halo oro/violeta y un patrÃ³n diagonal muy
    fino. Se mantiene oscura en ambos temas para conservar la misma identidad
    de alto rendimiento que las fotos de estudio. */
 .identidad-vip-premium {
@@ -3288,8 +3288,8 @@ input[type="number"] {
     0 10px 22px -18px color-mix(in srgb, var(--color-vip) 70%, transparent);
 }
 
-/* Tarjeta del modelo: filo de premio, profundidad negra y luz cálida controlada
-   alrededor del CTA. No agrega movimiento permanente ni tapa la fotografía. */
+/* Tarjeta del modelo: filo de premio, profundidad negra y luz cÃ¡lida controlada
+   alrededor del CTA. No agrega movimiento permanente ni tapa la fotografÃ­a. */
 .tarjeta-entrenamiento-premium {
   border: 1px solid color-mix(in srgb, var(--color-vip) 28%, #292c33);
   background:
@@ -3303,9 +3303,9 @@ input[type="number"] {
     inset 0 -1px 0 rgba(0, 0, 0, 0.8);
 }
 
-/* La foto original del modelo conserva un rectángulo negro del estudio. Un
+/* La foto original del modelo conserva un rectÃ¡ngulo negro del estudio. Un
    fundido corto en los cuatro bordes lo integra al degradado de la tarjeta sin
-   borrar barba, short ni sombras, que también son casi negras. */
+   borrar barba, short ni sombras, que tambiÃ©n son casi negras. */
 .foto-modelo-integrada {
   overflow: hidden;
   right: -4px !important;
@@ -3319,9 +3319,9 @@ input[type="number"] {
   filter: brightness(1.08) contrast(1.18) saturate(1.12) drop-shadow(0 0 12px color-mix(in srgb, var(--color-vip) 18%, transparent));
 }
 
-/* Segunda iteración del modo guiado: reproduce la composición aprobada.
-   Solo la serie elegida ocupa espacio; las demás permanecen montadas en el
-   formulario para conservar borradores, correcciones y guardado automático. */
+/* Segunda iteraciÃ³n del modo guiado: reproduce la composiciÃ³n aprobada.
+   Solo la serie elegida ocupa espacio; las demÃ¡s permanecen montadas en el
+   formulario para conservar borradores, correcciones y guardado automÃ¡tico. */
 .tarjeta-ejercicio-enfocada {
   padding: 16px !important;
   border: 1px solid rgba(255, 255, 255, .13) !important;
@@ -3371,12 +3371,6 @@ input[type="number"] {
   color: var(--color-text-secondary);
   font-size: calc(13px * var(--escala-texto));
   font-weight: 560;
-}
-.tarjeta-ejercicio-enfocada .guia-ejercicio-foco .impulso-serie-foco {
-  margin-top: 8px;
-  color: color-mix(in srgb, var(--color-acento) 72%, white);
-  font-size: calc(12px * var(--escala-texto));
-  font-weight: 650;
 }
 .tarjeta-ejercicio-enfocada .registro-anterior-foco,
 .tarjeta-ejercicio-enfocada .objetivo-serie-foco {
@@ -3644,8 +3638,16 @@ input[type="number"] {
   font-weight: 500;
 }
 .tarjeta-ejercicio-enfocada .boton-completar-ejercicio { display: none; }
+/* Nota y "Alguna molestia" NO se pierden en el modo enfocado — antes quedaban
+   ocultas acá. Se muestran chicas y discretas, angostadas para no tocar el
+   borde redondeado de la tarjeta (antes quedaban pegadas a las esquinas). */
 .tarjeta-ejercicio-enfocada .acciones-secundarias-ejercicio {
-  display: none;
+  margin: 10px 2px 0 !important;
+}
+.tarjeta-ejercicio-enfocada .accion-secundaria-ejercicio,
+.tarjeta-ejercicio-enfocada .acciones-secundarias-ejercicio .accion-secundaria-ejercicio {
+  border-color: rgba(255, 255, 255, .08);
+  background: #101113;
 }
 .vista-siguiente-ejercicio {
   display: flex;
@@ -3819,10 +3821,10 @@ input[type="number"] {
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input { font-size: calc(36px * var(--escala-texto)); }
 }
 
-/* Entrenar usa el lenguaje tipográfico de una app deportiva editorial:
+/* Entrenar usa el lenguaje tipogrÃ¡fico de una app deportiva editorial:
    SF Pro en iPhone (la fuente nativa de las referencias) e Inter como
-   reemplazo métrico en los demás equipos. El alcance es deliberadamente
-   local; no cambia el panel del entrenador ni las otras áreas del alumno. */
+   reemplazo mÃ©trico en los demÃ¡s equipos. El alcance es deliberadamente
+   local; no cambia el panel del entrenador ni las otras Ã¡reas del alumno. */
 .entrenar-minimalista {
   font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, var(--font-body), sans-serif;
   font-variant-numeric: tabular-nums;
@@ -3830,8 +3832,8 @@ input[type="number"] {
   text-rendering: geometricPrecision;
 }
 
-/* CTA de Entrenar: cristal ámbar real, no una pastilla opaca. El fondo de la
-   rutina se percibe detrás, pero el tinte oscuro mantiene legible el texto. */
+/* CTA de Entrenar: cristal Ã¡mbar real, no una pastilla opaca. El fondo de la
+   rutina se percibe detrÃ¡s, pero el tinte oscuro mantiene legible el texto. */
 .boton-iniciar-cristal-vip {
   color: #1b1105;
   border: 1px solid rgba(255, 224, 155, 0.78);
@@ -3846,8 +3848,8 @@ input[type="number"] {
   backdrop-filter: blur(14px) saturate(125%);
 }
 
-/* En teléfonos bajos la doble cabecera (logo + sesiones) conserva más área
-   útil sin perder ninguna etiqueta ni acción. */
+/* En telÃ©fonos bajos la doble cabecera (logo + sesiones) conserva mÃ¡s Ã¡rea
+   Ãºtil sin perder ninguna etiqueta ni acciÃ³n. */
 @media (max-height: 700px) {
   .selector-sesiones-fijo {
     padding-top: 0;
@@ -3860,8 +3862,8 @@ input[type="number"] {
     row-gap: 0.125rem;
   }
 }
-/* La espalda tiene una silueta más angosta en su fotografía que Pecho. Este
-   encuadre la acerca sin tocar el alto de la tarjeta ni invadir su información. */
+/* La espalda tiene una silueta mÃ¡s angosta en su fotografÃ­a que Pecho. Este
+   encuadre la acerca sin tocar el alto de la tarjeta ni invadir su informaciÃ³n. */
 .foto-modelo-espalda {
   right: -2px !important;
   width: 132px !important;
@@ -3869,14 +3871,14 @@ input[type="number"] {
   transform-origin: 72% 0%;
 }
 
-/* Marco Aero del alumno. El contenido pasa por debajo de la navegación fija y
+/* Marco Aero del alumno. El contenido pasa por debajo de la navegaciÃ³n fija y
    se percibe como color y forma difuminados, nunca como texto legible. El halo
-   usa el acento activo, así Espejo, VIP y Lady comparten material sin perder
+   usa el acento activo, asÃ­ Espejo, VIP y Lady comparten material sin perder
    personalidad. */
 /* Cristal, no vidrio ahumado.
    Antes el fondo iba de 0.72 a 0.90 de opacidad: con eso el desenfoque casi no
-   se notaba y las placas se leían como paneles negros, no como vidrio. Ahora
-   son translúcidas de verdad (se ve pasar el contenido por debajo) y el
+   se notaba y las placas se leÃ­an como paneles negros, no como vidrio. Ahora
+   son translÃºcidas de verdad (se ve pasar el contenido por debajo) y el
    desenfoque hace el trabajo pesado.
    El tinte azul de mar (`--cristal-azul`) es lo que evita que un vidrio tan
    transparente se vea gris sucio: le da temperatura sin competir con el verde
@@ -3898,11 +3900,11 @@ input[type="number"] {
   width: calc(100% - 8px);
   margin-top: 4px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  /* Mismo redondeo que la barra de navegación de ejercicios: con 28px el
-     encabezado se leía como una píldora y las dos piezas no combinaban. */
+  /* Mismo redondeo que la barra de navegaciÃ³n de ejercicios: con 28px el
+     encabezado se leÃ­a como una pÃ­ldora y las dos piezas no combinaban. */
   border-radius: 20px;
   /* Ojo al tocar esto: esta regla PISA el `background` de la regla compartida
-     de arriba. Cambiar solo allá no se ve. */
+     de arriba. Cambiar solo allÃ¡ no se ve. */
   background:
     radial-gradient(circle at 24% 0%, color-mix(in srgb, var(--color-vip) 12%, transparent), transparent 48%),
     linear-gradient(180deg, rgba(var(--cristal-azul), 0.16), rgba(var(--cristal-azul), 0.05)),
@@ -3926,14 +3928,14 @@ input[type="number"] {
   display: none;
 }
 /*
-  Botón flotante de reporte de fallas (ver BotonReportarBug.tsx). Va pegado al
-  borde derecho, JUSTO encima de la barra de navegación: es lo único que queda
-  siempre disponible en todas las pantallas del alumno, así que no puede
-  taparle un botón real a ninguna.
+  BotÃ³n flotante de reporte de fallas (ver BotonReportarBug.tsx). Va pegado al
+  borde derecho, JUSTO encima de la barra de navegaciÃ³n: es lo Ãºnico que queda
+  siempre disponible en todas las pantallas del alumno, asÃ­ que no puede
+  taparle un botÃ³n real a ninguna.
 
-  El alto de la barra (~74px) más su separación del borde se suman al área
-  segura del teléfono (la franja del gesto de inicio en iPhone), porque si no
-  el botón queda por debajo del alcance del pulgar en pantallas con notch.
+  El alto de la barra (~74px) mÃ¡s su separaciÃ³n del borde se suman al Ã¡rea
+  segura del telÃ©fono (la franja del gesto de inicio en iPhone), porque si no
+  el botÃ³n queda por debajo del alcance del pulgar en pantallas con notch.
 */
 .boton-reportar-bug {
   right: 10px;
@@ -3944,7 +3946,7 @@ input[type="number"] {
   opacity: 1;
 }
 /* En una pantalla de escritorio ancha la barra inferior no compite por el
-   mismo lugar: el botón puede bajar a la esquina de siempre. */
+   mismo lugar: el botÃ³n puede bajar a la esquina de siempre. */
 @media (min-width: 768px) {
   .boton-reportar-bug {
     bottom: calc(16px + env(safe-area-inset-bottom, 0px));
@@ -4125,8 +4127,8 @@ input[type="number"] {
   font-size: calc(10px * var(--escala-texto));
 }
 
-/* El menú lateral se convierte en una burbuja flotante translúcida, con la
-   misma expansión desde la esquina que inspiró la propuesta. */
+/* El menÃº lateral se convierte en una burbuja flotante translÃºcida, con la
+   misma expansiÃ³n desde la esquina que inspirÃ³ la propuesta. */
 :root:not([data-tema-boton]) .contenedor-menu-alumno {
   align-items: flex-start;
   justify-content: flex-end;
@@ -4461,9 +4463,9 @@ input[type="number"] {
   }
 }
 
-/* Inicio 2026: Impulso VIP reemplaza el mensaje genérico con la próxima
-   acción útil del alumno. El violeta lo diferencia de Entrenamiento y Arena
-   sin competir con el ámbar de las llamadas a la acción. */
+/* Inicio 2026: Impulso VIP reemplaza el mensaje genÃ©rico con la prÃ³xima
+   acciÃ³n Ãºtil del alumno. El violeta lo diferencia de Entrenamiento y Arena
+   sin competir con el Ã¡mbar de las llamadas a la acciÃ³n. */
 .impulso-inicio {
   background:
     radial-gradient(circle at 9% 0%, color-mix(in srgb, var(--color-acento) 24%, transparent), transparent 42%),
@@ -4472,7 +4474,7 @@ input[type="number"] {
 }
 
 /* Arena VIP: superficie de premio. La corona grande es ambiental y el Top 15
-   queda ordenado en una cuadrícula fija: podio grande y perseguidores compactos,
+   queda ordenado en una cuadrÃ­cula fija: podio grande y perseguidores compactos,
    sin carrusel ni desplazamiento lateral. */
 .arena-vip {
   background:
@@ -4491,11 +4493,11 @@ input[type="number"] {
   .puntos-vip-entrada { animation: none; }
 }
 
-/* Impresión (ej. Mi Historial): el shell del alumno es `fixed inset-0` con
-   scroll interno (ver el comentario grande en layout.tsx sobre por qué), lo
-   que en pantalla está perfecto pero en una hoja impresa recorta todo lo que
-   no entra en un viewport — hay que devolver el flujo normal del documento
-   solo durante la impresión, además de esconder cabecera/menú/barra inferior
+/* ImpresiÃ³n (ej. Mi Historial): el shell del alumno es `fixed inset-0` con
+   scroll interno (ver el comentario grande en layout.tsx sobre por quÃ©), lo
+   que en pantalla estÃ¡ perfecto pero en una hoja impresa recorta todo lo que
+   no entra en un viewport â€” hay que devolver el flujo normal del documento
+   solo durante la impresiÃ³n, ademÃ¡s de esconder cabecera/menÃº/barra inferior
    y cualquier burbuja flotante, que no tienen nada que hacer en el papel. */
 @media print {
   .imprimir-oculto {
@@ -4516,8 +4518,8 @@ input[type="number"] {
     height: auto !important;
     padding-bottom: 0 !important;
   }
-  /* Fuerza la paleta clara para el papel sin importar el tema activo — con
-     el tema oscuro, `--color-text` es blanco y quedaría invisible sobre una
+  /* Fuerza la paleta clara para el papel sin importar el tema activo â€” con
+     el tema oscuro, `--color-text` es blanco y quedarÃ­a invisible sobre una
      hoja blanca. Mismos valores que `:root[data-theme="light"]` arriba. */
   :root {
     --color-bg: #f4f5f7;
@@ -4576,8 +4578,8 @@ input[type="number"] {
 }
 
 /* -------------------------------------------------------------------------
-   Rutina activa · réplica de la referencia aprobada (14/08/2026).
-   Solo afecta el modo enfocado. Lectura y corrección conservan su UI.
+   Rutina activa Â· rÃ©plica de la referencia aprobada (14/08/2026).
+   Solo afecta el modo enfocado. Lectura y correcciÃ³n conservan su UI.
    ------------------------------------------------------------------------- */
 .marca-vip-entrenamiento {
   position: relative;
@@ -4708,37 +4710,36 @@ input[type="number"] {
   position: relative;
   z-index: 31;
   margin: 0 0 10px;
-  padding-top: 0;
+  padding-top: 6px;
   pointer-events: none;
 }
 .cabecera-sesion-foco > p {
   display: none;
 }
-.progreso-sesion-foco {
+.progreso-ranked-foco {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   gap: 8px;
 }
-.progreso-sesion-foco > span {
+.progreso-ranked-foco > span {
   height: 3px;
-  margin-top: 1px;
   overflow: hidden;
   border-radius: 999px;
   background: rgba(255,255,255,.13);
 }
-.progreso-sesion-foco i {
+.progreso-ranked-foco i {
   display: block;
   height: 100%;
   border-radius: inherit;
   background: #e9bd36;
   box-shadow: 0 0 8px rgba(233,189,54,.3);
 }
-.progreso-sesion-foco strong {
-  margin-top: 7px;
+.progreso-ranked-foco strong {
   color: #eac443;
   font-size: calc(13px * var(--escala-texto));
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .modo-entrenamiento-enfocado {
@@ -4803,24 +4804,110 @@ input[type="number"] {
 .tarjeta-ejercicio-enfocada .guia-ejercicio-foco {
   display: flex;
   min-width: 0;
+  height: 100%;
   flex-direction: column;
+  align-items: flex-start;
   justify-content: flex-start;
   padding: 8px 0 0;
 }
-.tarjeta-ejercicio-enfocada .guia-ejercicio-foco > p {
-  margin: 0;
-  color: #e8bd39;
-  font-size: calc(10px * var(--escala-texto));
-  font-weight: 700;
-  letter-spacing: .025em;
-}
 .tarjeta-ejercicio-enfocada .guia-ejercicio-foco h2 {
-  margin: 13px 0 15px;
+  margin: 0 0 4px;
   color: #f6f6f7;
   font-size: calc(21px * var(--escala-texto));
   font-weight: 720;
   line-height: 1.08;
   letter-spacing: -.035em;
+}
+/* "1 · PIERNAS" ya no va al lado del nombre: se centra arriba, flotando
+   sobre la foto, para dejar todo el ancho de la columna al nombre. */
+.orden-grupo-sobre-foto {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  z-index: 5;
+  margin: 0;
+  padding: 3px 9px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  color: #f6d570;
+  background: rgba(6,7,8,.72);
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 700;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.siguiente-ejercicio-foco {
+  margin: 0 0 8px;
+  color: #86868c;
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 540;
+}
+.siguiente-ejercicio-foco strong {
+  color: #b7b7ba;
+  font-weight: 650;
+}
+.navegacion-ejercicios-junto-foto {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  /* Empujado al fondo de la columna (que ahora mide lo mismo que la foto,
+     ver `.guia-ejercicio-foco { height: 100% }`), para que quede a la altura
+     del borde inferior de la foto — pedido de Alejandro. */
+  margin-top: auto !important;
+}
+.navegacion-ejercicios-junto-foto button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 999px;
+  color: #cfcfd2;
+  background: #101113;
+  font-size: calc(10.5px * var(--escala-texto));
+  font-weight: 620;
+}
+.navegacion-ejercicios-junto-foto button:disabled { opacity: .35; }
+.proximos-ejercicios-foco {
+  display: flex;
+  overflow-x: auto;
+  gap: 6px;
+  margin: 0 0 2px;
+  padding: 0 0 2px;
+  list-style: none;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.proximos-ejercicios-foco::-webkit-scrollbar { display: none; }
+.proximos-ejercicios-foco li {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 999px;
+  color: #86868c;
+  font-size: calc(9.5px * var(--escala-texto));
+  font-weight: 560;
+  white-space: nowrap;
+}
+.selector-series-movido {
+  margin: 12px 0 !important;
+  padding: 6px 2px !important;
+  gap: 8px !important;
+}
+.selector-series-movido button span { height: 7px !important; }
+.selector-series-movido button[data-estado="completa"] span {
+  box-shadow: 0 0 9px color-mix(in srgb, var(--color-serie) 75%, transparent) !important;
+}
+.selector-series-movido button small {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
 }
 .tarjeta-ejercicio-enfocada .selector-series-foco {
   display: flex;
@@ -4830,6 +4917,7 @@ input[type="number"] {
 }
 .tarjeta-ejercicio-enfocada .selector-series-foco button {
   --color-serie: #45e57b;
+  position: relative;
   display: grid;
   min-width: 0;
   flex: 1 1 0;
@@ -4837,6 +4925,18 @@ input[type="number"] {
   padding: 7px 0 2px;
   color: color-mix(in srgb, var(--color-serie) 75%, #b7b7ba);
   opacity: .58;
+}
+/* El rayo de Impulso VIP vive SOLO acá, encima de la rayita de la serie que
+   toca — no como placa aparte (pedido de Alejandro: no anunciar el ejercicio
+   entero cuando en realidad es una sola serie la especial). */
+.rayo-impulso-serie {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ad32ff;
+  filter: drop-shadow(0 0 6px rgba(173,50,255,.85));
+  animation: rayo-impulso-encendido .82s ease-in-out infinite;
 }
 .tarjeta-ejercicio-enfocada .selector-series-foco button:nth-child(2) { --color-serie: #ffd12f; }
 .tarjeta-ejercicio-enfocada .selector-series-foco button:nth-child(3) { --color-serie: #2dccff; }
@@ -4871,36 +4971,156 @@ input[type="number"] {
   text-align: center;
   white-space: nowrap;
 }
-.impulso-serie-foco {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 15px !important;
-  color: #9a9a9f !important;
-  font-size: calc(12px * var(--escala-texto)) !important;
-  font-weight: 540 !important;
-}
-.impulso-serie-foco > svg:first-child { color: #5f6065; filter: none; }
-.impulso-serie-foco > svg:last-child { color: #67676b; }
-.impulso-serie-foco[data-activo="true"] > svg:first-child {
-  color: #ad32ff;
-  filter: drop-shadow(0 0 7px rgba(173,50,255,.9));
-}
 @keyframes pulso-impulso-serie {
   0%, 100% { filter: drop-shadow(0 0 0 rgba(182,77,255,0)); transform: scale(1); }
   45% { filter: drop-shadow(0 0 8px rgba(182,77,255,.9)); transform: scale(1.06); }
 }
-.impulso-serie-foco[data-activo="true"],
 .selector-series-foco button[data-impulso="true"][data-estado="actual"] {
   animation: pulso-impulso-serie 1.15s ease-in-out infinite;
 }
 @keyframes rayo-impulso-encendido {
-  0%, 100% { transform: scale(1) rotate(-3deg); filter: drop-shadow(0 0 5px #ad32ff) drop-shadow(0 0 11px rgba(173,50,255,.72)); }
-  42% { transform: scale(1.42) rotate(3deg); filter: drop-shadow(0 -3px 4px #f1a8ff) drop-shadow(0 0 12px #ad32ff) drop-shadow(0 0 24px rgba(173,50,255,.95)); }
-  64% { transform: scale(1.2) rotate(-5deg); filter: drop-shadow(0 -5px 7px #d85dff) drop-shadow(0 0 17px #7d19e8); }
+  0%, 100% { transform: translateX(-50%) scale(1) rotate(-3deg); filter: drop-shadow(0 0 5px #ad32ff) drop-shadow(0 0 11px rgba(173,50,255,.72)); }
+  42% { transform: translateX(-50%) scale(1.35) rotate(3deg); filter: drop-shadow(0 -3px 4px #f1a8ff) drop-shadow(0 0 12px #ad32ff) drop-shadow(0 0 24px rgba(173,50,255,.95)); }
+  64% { transform: translateX(-50%) scale(1.15) rotate(-5deg); filter: drop-shadow(0 -5px 7px #d85dff) drop-shadow(0 0 17px #7d19e8); }
 }
-.impulso-serie-foco[data-activo="true"] > svg:first-child {
-  animation: rayo-impulso-encendido .82s ease-in-out infinite;
+
+/* Biserie/triserie en modo enfocado: tarjetas apiladas, una por ejercicio de
+   la ronda actual — pedido de Alejandro con captura de referencia exacta. */
+.ronda-grupo-foco {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ronda-grupo-foco-titulo {
+  margin: 2px 0 0;
+  color: #f6f6f7;
+  font-size: calc(19px * var(--escala-texto));
+  font-weight: 720;
+  letter-spacing: -.02em;
+}
+.ronda-grupo-foco-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 14px;
+  background: rgba(255,255,255,.03);
+}
+.ronda-grupo-foco-info svg { flex-shrink: 0; margin-top: 1px; color: #8a8a8f; }
+.ronda-grupo-foco-info p {
+  margin: 0;
+  color: #b7b7ba;
+  font-size: calc(12px * var(--escala-texto));
+  line-height: 1.4;
+}
+.ronda-grupo-foco-info strong { color: #e6e6e8; font-weight: 650; }
+.tarjeta-paso-grupo-foco {
+  border: 1.5px solid rgba(255,255,255,.1);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255,255,255,.015);
+}
+.tarjeta-paso-grupo-foco[data-estado="completa"] {
+  border-color: rgba(69,229,123,.45);
+  background: rgba(69,229,123,.05);
+}
+.tarjeta-paso-grupo-foco[data-estado="actual"] {
+  border-color: rgba(233,189,54,.6);
+  background: rgba(233,189,54,.06);
+  box-shadow: 0 0 0 1px rgba(233,189,54,.15), 0 10px 24px -18px rgba(233,189,54,.35);
+}
+.cabecera-tarjeta-paso-grupo {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  text-align: left;
+}
+.numero-paso-grupo {
+  display: grid;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 50%;
+  color: #cfcfd2;
+  background: rgba(255,255,255,.08);
+  font-size: calc(12px * var(--escala-texto));
+  font-weight: 700;
+}
+.tarjeta-paso-grupo-foco[data-estado="completa"] .numero-paso-grupo {
+  color: #06180c;
+  background: #45e57b;
+}
+.tarjeta-paso-grupo-foco[data-estado="actual"] .numero-paso-grupo {
+  color: #241a02;
+  background: #e9bd36;
+}
+.cabecera-tarjeta-paso-grupo .referencia-compacta,
+.cabecera-tarjeta-paso-grupo > span:nth-child(2) {
+  flex-shrink: 0;
+}
+.info-paso-grupo {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+.info-paso-grupo strong {
+  overflow: hidden;
+  color: #f1f1f2;
+  font-size: calc(14px * var(--escala-texto));
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.info-paso-grupo small {
+  color: #8a8a8f;
+  font-size: calc(11.5px * var(--escala-texto));
+}
+.boton-chevron-paso-grupo {
+  display: grid;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  margin: -6px;
+}
+.chevron-paso-grupo {
+  flex-shrink: 0;
+  color: #8a8a8f;
+  transition: transform .2s ease;
+}
+.tarjeta-paso-grupo-foco .fila-serie {
+  padding: 0 10px 10px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+/* Más compacta que la del ejercicio suelto (pedido de Alejandro: "un poco
+   más compacto de manera vertical") — acá conviven varias tarjetas en la
+   misma pantalla, no hay lugar de sobra para los números grandes. */
+.tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano {
+  min-height: 54px !important;
+}
+.tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .campo-serie-plano input {
+  height: 34px !important;
+  font-size: calc(27px * var(--escala-texto)) !important;
+}
+.tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .grupo-campo-serie > button {
+  min-height: 30px !important;
+}
+.tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .separador-serie {
+  height: 88px !important;
+}
+.tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .control-rir-serie {
+  margin-top: 6px !important;
+  padding-top: 6px !important;
+}
+.tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .boton-descanso {
+  min-height: 42px !important;
+  margin-top: 8px !important;
 }
 
 .contenedor-grupo-bloqueable { position: relative; }
@@ -5033,6 +5253,9 @@ input[type="number"] {
   background: linear-gradient(100deg, rgba(104,75,20,.55), rgba(48,38,20,.55));
   box-shadow: inset 0 1px 0 rgba(255,226,135,.12), 0 4px 12px rgba(170,112,17,.06);
 }
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="pendiente"] {
+  animation: none !important;
+}
 .guardar-serie-foco {
   display: inline-flex;
   align-items: center;
@@ -5090,7 +5313,8 @@ input[type="number"] {
 .navegacion-ejercicios-foco button:disabled { opacity: .3; }
 .boton-ver-rutina-foco {
   position: fixed;
-  top: calc(25px + env(safe-area-inset-top, 0px));
+  top: auto;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   right: max(9px, calc((100vw - 440px) / 2 + 8px));
   z-index: 34;
   width: 38px;
@@ -5114,8 +5338,8 @@ input[type="number"] {
 }
 
 /* En pantallas bajas (o con la interfaz ampliada), la rutina cambia sola a
-   densidad compacta para conservar ejercicio, controles y navegación dentro
-   del alto útil, por encima de la barra inferior. */
+   densidad compacta para conservar ejercicio, controles y navegaciÃ³n dentro
+   del alto Ãºtil, por encima de la barra inferior. */
 @media (max-height: 1000px) {
   .cabecera-sesion-foco { margin-bottom: 7px; }
   .tarjeta-ejercicio-enfocada .cabecera-ejercicio {
@@ -5132,7 +5356,6 @@ input[type="number"] {
   .tarjeta-ejercicio-enfocada .guia-ejercicio-foco { padding-top: 4px; }
   .tarjeta-ejercicio-enfocada .guia-ejercicio-foco h2 { margin: 7px 0 8px; font-size: calc(18px * var(--escala-texto)); }
   .tarjeta-ejercicio-enfocada .selector-series-foco button { gap: 3px; padding-top: 4px; }
-  .impulso-serie-foco { margin-top: 8px !important; }
   .resumen-serie-foco { margin-bottom: 8px; }
   .tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco,
   .tarjeta-ejercicio-enfocada .resumen-serie-foco .objetivo-serie-foco { min-height: 38px; }
@@ -5154,7 +5377,6 @@ input[type="number"] {
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta > button,
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta > div { height: 145px !important; }
   .tarjeta-ejercicio-enfocada .guia-ejercicio-foco h2 { margin: 5px 0 5px; font-size: calc(16px * var(--escala-texto)); }
-  .impulso-serie-foco { margin-top: 5px !important; }
   .resumen-serie-foco { margin-bottom: 6px; }
   .tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco,
   .tarjeta-ejercicio-enfocada .resumen-serie-foco .objetivo-serie-foco { min-height: 34px; }
@@ -5177,7 +5399,7 @@ input[type="number"] {
 }
 
 /* Desde Mi avance el informe se muestra sobre la app, para que una pantalla
-   pensada para mÃ³vil no comprima la hoja A4 antes de imprimirla. */
+   pensada para mÃƒÂ³vil no comprima la hoja A4 antes de imprimirla. */
 .informe-vip-modal {
   position: fixed;
   inset: 0;
@@ -5186,7 +5408,7 @@ input[type="number"] {
   padding-inline: 1rem;
 }
 
-/* El informe se abre encima de Mi avance: la navegaciÃ³n del alumno no debe
+/* El informe se abre encima de Mi avance: la navegaciÃƒÂ³n del alumno no debe
    cubrir la vista previa ni distraer antes de guardar el PDF. */
 .shell-alumno:has(.informe-vip-modal) > .panel-aero-superior,
 .shell-alumno:has(.informe-vip-modal) > .imprimir-oculto {
