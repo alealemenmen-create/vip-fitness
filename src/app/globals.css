@@ -1370,29 +1370,25 @@ input[type="date"]::-webkit-date-and-time-value {
   z-index: 39;
   width: min(calc(100% - 24px), 416px);
   /* Más baja: era un bloque grueso encima de los íconos. */
-  padding: 3px 5px;
+  padding: 5px 7px;
   /* Mismo lenguaje visual que .panel-aero-inferior (la barra de íconos): el
      mismo tinte VIP abajo, el mismo degradado oscuro y el mismo desenfoque.
      Con el negro plano de antes eran dos materiales distintos peleándose. */
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
   /* Pedido de Alejandro: "ilumina más, entre morado y dorado". Toma los
      mismos dos colores que ya usan las flechas de atrás (violeta) y adelante
      (dorado VIP) — la barra entera queda como el punto medio entre las dos,
      en vez de un tercer color inventado. */
   background:
-    radial-gradient(circle at 12% 30%, color-mix(in srgb, #7c3cff 30%, transparent), transparent 62%),
-    radial-gradient(circle at 88% 100%, color-mix(in srgb, var(--color-vip) 30%, transparent), transparent 62%),
-    linear-gradient(180deg, rgba(24, 25, 30, 0.78), rgba(8, 9, 12, 0.9));
+    linear-gradient(180deg, rgba(25, 26, 30, 0.78), rgba(9, 10, 13, 0.9));
   box-shadow:
-    0 10px 26px -18px rgba(0, 0, 0, 0.7),
-    0 0 20px -4px color-mix(in srgb, #7c3cff 55%, transparent),
-    0 0 20px -4px color-mix(in srgb, var(--color-vip) 55%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 10px 28px -18px rgba(0, 0, 0, 0.82),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
   -webkit-backdrop-filter: blur(20px) saturate(145%);
   backdrop-filter: blur(20px) saturate(145%);
   transform: translateX(-50%);
-  animation: iluminacion-navegacion-ejercicio 2.6s ease-in-out infinite;
+  animation: none;
 }
 /* Respiración lenta, no un parpadeo duro: "llamativa" pero sin competir con
    el único aviso que sí tiene que parpadear en la app (sesión sin cerrar,
@@ -1437,24 +1433,24 @@ input[type="date"]::-webkit-date-and-time-value {
   transition: border-color 160ms ease, color 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
 }
 .boton-navegacion-atras:not(:disabled) {
-  border-color: rgba(160, 90, 255, 0.55);
-  color: #c39bff;
-  background: color-mix(in srgb, #7c3cff 14%, var(--color-surface));
-  box-shadow: 0 0 14px rgba(124, 60, 255, 0.32);
+  border-color: color-mix(in srgb, var(--color-border) 86%, transparent);
+  color: color-mix(in srgb, var(--color-acento) 62%, white);
+  background: color-mix(in srgb, var(--color-acento) 7%, var(--color-surface));
+  box-shadow: none;
 }
 .boton-navegacion-atras:not(:disabled) svg {
-  filter: drop-shadow(0 0 6px rgba(160, 90, 255, 0.85));
-  animation: deslizar-flechas-atras 1.6s ease-in-out infinite;
+  filter: none;
+  animation: none;
 }
 .boton-navegacion-adelante:not(:disabled) {
-  border-color: color-mix(in srgb, var(--color-vip) 55%, transparent);
-  color: var(--color-vip);
-  background: color-mix(in srgb, var(--color-vip) 12%, var(--color-surface));
-  box-shadow: 0 0 14px color-mix(in srgb, var(--color-vip) 32%, transparent);
+  border-color: color-mix(in srgb, var(--color-vip) 34%, var(--color-border));
+  color: color-mix(in srgb, var(--color-vip) 74%, white);
+  background: color-mix(in srgb, var(--color-vip) 8%, var(--color-surface));
+  box-shadow: none;
 }
 .boton-navegacion-adelante:not(:disabled) svg {
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-vip) 85%, transparent));
-  animation: deslizar-flechas-adelante 1.6s ease-in-out infinite;
+  filter: none;
+  animation: none;
 }
 /* La segunda flecha sale un pelo después que la primera: leen como una sola
    corriendo hacia el lado, no como dos parpadeando juntas. */
@@ -1642,10 +1638,10 @@ input[type="date"]::-webkit-date-and-time-value {
    enfocado para "estás acá" (--focus-violet). Se distingue del verde de
    "hecho" — un ejercicio puede estar activo y hecho a la vez. */
 .casillero-ejercicio-rutina[data-activo="true"] {
-  border-color: #7c3cff;
+  border-color: color-mix(in srgb, var(--color-acento) 70%, white 8%);
   color: #fff;
-  background: color-mix(in srgb, #7c3cff 26%, var(--color-surface-2));
-  box-shadow: 0 0 0 1px #7c3cff, 0 0 12px rgba(124, 60, 255, 0.5);
+  background: color-mix(in srgb, var(--color-acento) 20%, var(--color-surface-2));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-acento) 45%, transparent);
 }
 /* El ejercicio que toca ahora, esté o no siendo mirado: ámbar, el color que
    el modo enfocado reserva para "el próximo paso es este". */
@@ -1655,7 +1651,7 @@ input[type="date"]::-webkit-date-and-time-value {
   background: color-mix(in srgb, #f5a623 18%, var(--color-surface-2));
 }
 .casillero-ejercicio-rutina[data-encurso="true"][data-activo="true"] {
-  box-shadow: 0 0 0 1px #f5a623, 0 0 14px rgba(245, 166, 35, 0.55);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-vip) 48%, transparent);
 }
 .flechas-ejercicio-en-curso {
   display: flex;
@@ -1695,6 +1691,69 @@ input[type="date"]::-webkit-date-and-time-value {
   --focus-amber: var(--color-vip);
   --focus-green: var(--color-success);
 }
+
+/* Rutina activa: la información que orienta al alumno vive fuera de la
+   tarjeta de carga. El nombre, el músculo y la serie actual forman una sola
+   cabecera breve; debajo, cada trazo representa una serie real, aunque haya
+   3, 5 o una técnica encadenada con más pasos. */
+.cabecera-foco-entrenamiento {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px 3px 2px;
+}
+.etiqueta-musculo-foco {
+  color: color-mix(in srgb, var(--color-vip) 72%, white);
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 750;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.separador-foco {
+  width: 3px;
+  height: 3px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--color-text-tertiary);
+}
+.contador-ejercicio-foco,
+.estado-serie-foco {
+  color: var(--color-text-tertiary);
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.titulo-ejercicio-foco {
+  margin-top: 3px;
+  color: var(--color-text);
+  font-size: calc(21px * var(--escala-texto));
+  font-weight: 720;
+  letter-spacing: -.025em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+.estado-serie-foco { margin-top: 5px; }
+.progreso-series-foco {
+  display: flex;
+  gap: 5px;
+  padding: 0 3px 4px;
+}
+.progreso-series-foco > span {
+  height: 3px;
+  min-width: 8px;
+  flex: 1 1 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+.progreso-series-foco > span[data-estado="completa"] {
+  background: color-mix(in srgb, var(--color-success) 75%, white 8%);
+}
+.progreso-series-foco > span[data-estado="actual"] {
+  background: color-mix(in srgb, var(--color-vip) 80%, white 12%);
+  box-shadow: 0 0 9px color-mix(in srgb, var(--color-vip) 42%, transparent);
+}
 .modo-entrenamiento-enfocado::before {
   background:
     radial-gradient(circle at 8% 8%, color-mix(in srgb, var(--focus-violet) 22%, transparent), transparent 50%),
@@ -1728,9 +1787,27 @@ input[type="date"]::-webkit-date-and-time-value {
   background: var(--focus-bg) !important;
   box-shadow: 0 22px 50px -34px color-mix(in srgb, var(--focus-violet) 75%, transparent);
 }
+.tarjeta-grupo-enfocada {
+  border: 1px solid var(--focus-border);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--focus-bg) 96%, transparent);
+  box-shadow: 0 20px 46px -36px color-mix(in srgb, var(--focus-violet) 65%, transparent);
+}
+.cabecera-grupo-enfocado {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  padding-block: 2px 8px;
+  border-bottom: 1px solid var(--focus-border);
+}
+.encabezado-pasos-grupo {
+  padding-top: 5px;
+}
 .tarjeta-ejercicio-enfocada .cabecera-ejercicio {
-  flex-direction: column-reverse;
-  gap: 8px;
+  min-height: 78px;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--focus-border);
 }
 .tarjeta-ejercicio-enfocada .tecnica-ejercicio-enfocada {
   padding: 5px 8px;
@@ -1753,6 +1830,70 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 .tarjeta-ejercicio-enfocada .cabecera-ejercicio > div {
   width: 100%;
+}
+.tarjeta-ejercicio-enfocada .referencia-foco-compacta {
+  display: flex;
+  width: 104px !important;
+  align-items: stretch;
+}
+.tarjeta-ejercicio-enfocada .referencia-foco-compacta > button,
+.tarjeta-ejercicio-enfocada .referencia-foco-compacta > div {
+  width: 104px !important;
+  min-height: 78px !important;
+  height: 78px !important;
+  aspect-ratio: auto !important;
+  border-radius: 14px !important;
+}
+.tarjeta-ejercicio-enfocada .referencia-foco-compacta .aviso-etiqueta-tecnica {
+  display: none;
+}
+.tarjeta-ejercicio-enfocada .guia-ejercicio-foco {
+  display: flex;
+  width: auto;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 6px;
+}
+.tarjeta-ejercicio-enfocada .guia-ejercicio-foco p {
+  color: var(--color-text-tertiary);
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.tarjeta-ejercicio-enfocada .guia-ejercicio-foco strong {
+  margin-top: 2px;
+  color: var(--color-text);
+  font-size: calc(16px * var(--escala-texto));
+  font-weight: 680;
+}
+.tarjeta-ejercicio-enfocada .guia-ejercicio-foco span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  color: var(--color-text-secondary);
+  font-size: calc(10px * var(--escala-texto));
+}
+.tarjeta-ejercicio-enfocada .registro-anterior-foco {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 2px 2px 7px;
+  border-bottom: 1px solid var(--focus-border);
+}
+.tarjeta-ejercicio-enfocada .registro-anterior-foco strong {
+  color: var(--color-text-secondary);
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 650;
+}
+.tarjeta-ejercicio-enfocada .registro-anterior-foco small {
+  grid-column: 1 / -1;
+  color: var(--color-text-tertiary);
+  font-size: calc(9px * var(--escala-texto));
 }
 .tarjeta-ejercicio-enfocada .cabecera-ejercicio > button,
 .tarjeta-ejercicio-enfocada .cabecera-ejercicio > div[title] {

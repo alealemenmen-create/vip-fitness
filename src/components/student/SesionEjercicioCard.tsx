@@ -2111,52 +2111,64 @@ export const SesionEjercicioCard = forwardRef<
               con el botón de técnica sobrepuesto como antes — acá sí hay
               lugar de sobra. */}
           {modoEnfocado && (
-            <div className="relative shrink-0">
-              <CuadroFotoReferencia
-                ilustracionSlug={ejercicio.ilustracionSlug}
-                fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
-                fotoCompletaUrl={ejercicio.fotoCompletaUrl}
-                videoUrl={ejercicio.videoUrl}
-                videoCloudflareUid={ejercicio.videoCloudflareUid}
-                videoCloudflareEstado={ejercicio.videoCloudflareEstado}
-                videoCloudflareMiniaturaUrl={ejercicio.videoCloudflareMiniaturaUrl}
-                nombre={ejercicio.nombre}
-                sesionEjercicioId={ejercicio.sesionEjercicioId}
-                ejercicioId={ejercicio.ejercicioId}
-                fotoPanoramaX={ejercicio.fotoPanoramaX}
-                fotoPanoramaY={ejercicio.fotoPanoramaY}
-                fotoCuadradaX={ejercicio.fotoCuadradaX}
-                fotoCuadradaY={ejercicio.fotoCuadradaY}
-                destacado
-                reproducirAutomaticamente={activo && !soloLectura}
-              />
-              {tecnica && (
-                <div className="absolute bottom-1.5 left-1.5 z-[4] flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMostrarTecnica(true);
-                      setAvisoTecnica(false);
-                    }}
-                    aria-haspopup="dialog"
-                    aria-label="Ver técnica sugerida"
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/60 text-vip backdrop-blur-sm active:scale-95 ${
-                      avisoTecnica ? "parpadeo-icono-tecnica" : ""
-                    }`}
-                  >
-                    <AlertCircle size={16} strokeWidth={2.5} />
-                  </button>
-                  {avisoTecnica && (
-                    <span
-                      aria-hidden
-                      className="aviso-etiqueta-tecnica whitespace-nowrap rounded-full bg-black/60 px-2 py-1 text-[11px] font-semibold text-vip backdrop-blur-sm"
+            <>
+              <div className="referencia-foco-compacta relative shrink-0">
+                <CuadroFotoReferencia
+                  ilustracionSlug={ejercicio.ilustracionSlug}
+                  fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
+                  fotoCompletaUrl={ejercicio.fotoCompletaUrl}
+                  videoUrl={ejercicio.videoUrl}
+                  videoCloudflareUid={ejercicio.videoCloudflareUid}
+                  videoCloudflareEstado={ejercicio.videoCloudflareEstado}
+                  videoCloudflareMiniaturaUrl={ejercicio.videoCloudflareMiniaturaUrl}
+                  nombre={ejercicio.nombre}
+                  sesionEjercicioId={ejercicio.sesionEjercicioId}
+                  ejercicioId={ejercicio.ejercicioId}
+                  fotoPanoramaX={ejercicio.fotoPanoramaX}
+                  fotoPanoramaY={ejercicio.fotoPanoramaY}
+                  fotoCuadradaX={ejercicio.fotoCuadradaX}
+                  fotoCuadradaY={ejercicio.fotoCuadradaY}
+                  destacado
+                  reproducirAutomaticamente={activo && !soloLectura}
+                />
+                {tecnica && (
+                  <div className="absolute bottom-1.5 left-1.5 z-[4] flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMostrarTecnica(true);
+                        setAvisoTecnica(false);
+                      }}
+                      aria-haspopup="dialog"
+                      aria-label="Ver técnica sugerida"
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/60 text-vip backdrop-blur-sm active:scale-95 ${
+                        avisoTecnica ? "parpadeo-icono-tecnica" : ""
+                      }`}
                     >
-                      Técnica sugerida
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
+                      <AlertCircle size={16} strokeWidth={2.5} />
+                    </button>
+                    {avisoTecnica && (
+                      <span
+                        aria-hidden
+                        className="aviso-etiqueta-tecnica whitespace-nowrap rounded-full bg-black/60 px-2 py-1 text-[11px] font-semibold text-vip backdrop-blur-sm"
+                      >
+                        Técnica sugerida
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="guia-ejercicio-foco">
+                <p>Objetivo</p>
+                <strong>
+                  {ejercicio.seriesProgramadas} × {ejercicio.repsProgramadas}{esTiempo ? " seg" : " reps"}
+                </strong>
+                <span>
+                  <Timer size={12} />
+                  {ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s de descanso` : "Sin descanso programado"}
+                </span>
+              </div>
+            </>
           )}
         </div>
 
@@ -2292,11 +2304,13 @@ export const SesionEjercicioCard = forwardRef<
       {/* El tempo ya se muestra arriba, como 4ta columna de la fila de datos
           (junto a Series/Reps/Descanso) — acá no se repite. */}
 
-      <TarjetaImpulsoVip recomendacion={recomendacionImpulso} />
+      {!modoEnfocado && <TarjetaImpulsoVip recomendacion={recomendacionImpulso} />}
 
       {ultimoTexto && (
-        <p className="text-micro mb-1.5 text-text-tertiary">
-          Último registro: {ultimoTexto} ({ejercicio.ultimoRegistro?.fecha})
+        <p className="registro-anterior-foco text-micro mb-1.5 text-text-tertiary">
+          <span>Último registro</span>
+          <strong>{ultimoTexto}</strong>
+          <small>{ejercicio.ultimoRegistro?.fecha}</small>
         </p>
       )}
 

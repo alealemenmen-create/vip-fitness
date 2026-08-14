@@ -64,9 +64,10 @@ export const SesionGrupoCard = forwardRef<
     sesionId: string;
     soloLectura: boolean;
     activo?: boolean;
+    modoEnfocado?: boolean;
     onDificultadRespondida?: () => void;
   }
->(function SesionGrupoCard({ ejercicios, sesionId, soloLectura, activo = false, onDificultadRespondida }, ref) {
+>(function SesionGrupoCard({ ejercicios, sesionId, soloLectura, activo = false, modoEnfocado = false, onDificultadRespondida }, ref) {
   const [state, formAction, pending] = useActionState(guardarSeriesGrupo, initialState);
   const n = ejercicios.length;
   const completoTodo = ejercicios.every((e) => e.completado);
@@ -298,7 +299,7 @@ export const SesionGrupoCard = forwardRef<
       // "trabados" acá). El fondo negro real que necesitaba el ícono de
       // respaldo (recorte transparente del modelo) sigue puesto aparte,
       // inline, en IlustracionEjercicio/FONDO_FOTO_GRUPO.
-      className={`p-3 ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
+      className={`p-3 ${modoEnfocado ? "tarjeta-grupo-enfocada" : ""} ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
       style={grupoTecnica ? ({ "--color-glow-tecnica": grupoTecnica.color } as React.CSSProperties) : undefined}
     >
       {/* Cabecera única para el grupo: la etiqueta de técnica (coloreada por
@@ -317,7 +318,7 @@ export const SesionGrupoCard = forwardRef<
           {grupoTecnica.etiqueta}
         </span>
       )}
-      <div className="mb-2 grid grid-cols-2 gap-2">
+      <div className={`mb-2 grid gap-2 ${modoEnfocado ? "cabecera-grupo-enfocado" : "grid-cols-2"}`}>
         {ejercicios.map((ej, pos) => (
           <div key={ej.sesionEjercicioId} className="flex min-w-0 items-center gap-1.5">
             <CuadroFotoReferencia
@@ -336,6 +337,7 @@ export const SesionGrupoCard = forwardRef<
               fotoCuadradaX={ej.fotoCuadradaX}
               fotoCuadradaY={ej.fotoCuadradaY}
               compacto
+              tamanoCompacto={modoEnfocado ? 60 : 44}
             />
             <div className="min-w-0">
               <p className="text-micro font-bold leading-tight text-vip">{LETRAS[pos]}</p>
@@ -400,7 +402,7 @@ export const SesionGrupoCard = forwardRef<
             );
           })}
 
-          {ejercicios.map((ej) => (
+          {!modoEnfocado && ejercicios.map((ej) => (
             <TarjetaImpulsoVip key={ej.sesionEjercicioId} recomendacion={ej.recomendacionImpulso} />
           ))}
 
@@ -437,7 +439,14 @@ export const SesionGrupoCard = forwardRef<
                 </span>
               ))}
 
-              <p className="text-micro mb-1 font-bold tracking-wide text-vip">SERIES INTERCALADAS</p>
+              <div className="encabezado-pasos-grupo mb-1 flex items-center justify-between gap-2">
+                <p className="text-micro font-bold tracking-wide text-vip">SERIES INTERCALADAS</p>
+                {pasoQueToca && (
+                  <p className="text-micro text-text-secondary">
+                    Ahora: {LETRAS[pasoQueToca.pos]} · serie {pasoQueToca.numero}
+                  </p>
+                )}
+              </div>
 
               {pasos.map((paso) => {
                 const ej = ejercicios[paso.pos];

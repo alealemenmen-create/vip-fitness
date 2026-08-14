@@ -176,6 +176,7 @@ export function SesionEjercicios({
           sesionId={sesionId}
           soloLectura={soloLectura}
           activo={activo}
+          modoEnfocado={!soloLectura && !modoCorreccion}
           onDificultadRespondida={() => avanzarDesdeEncuesta(grupo)}
         />
       );
@@ -200,6 +201,15 @@ export function SesionEjercicios({
 
   const grupoVisible = grupos[indiceVisible] ?? grupos[0];
   const tituloVisible = grupoVisible?.map((ej) => ej.nombre).join(" + ") ?? "Entrenamiento";
+  const totalSeriesVisible = grupoVisible?.reduce((totalGrupo, ejercicio) => totalGrupo + ejercicio.seriesProgramadas, 0) ?? 0;
+  const seriesHechasVisible = grupoVisible?.reduce(
+    (totalGrupo, ejercicio) => totalGrupo + ejercicio.series.filter((serie) => serie.realizada).length,
+    0
+  ) ?? 0;
+  const siguienteSerieVisible = Math.min(seriesHechasVisible + 1, Math.max(totalSeriesVisible, 1));
+  const musculosVisible = Array.from(
+    new Set(grupoVisible?.map((ejercicio) => ejercicio.grupoMuscular).filter(Boolean) ?? [])
+  ).join(" + ");
 
   /* Los puntitos de antes decían "vas por el 3 de 7" pero no cuál era cada
      uno, así que para revisar un ejercicio había que ir tocando Siguiente a
@@ -281,19 +291,47 @@ export function SesionEjercicios({
         grupos.map(renderizarGrupo)
       ) : grupoVisible ? (
         <section className="modo-entrenamiento-enfocado space-y-2" aria-label="Ejercicio actual">
-          <div className="flex min-w-0 items-center gap-2 px-1">
+          <header className="cabecera-foco-entrenamiento">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="etiqueta-musculo-foco truncate">
+                  {musculosVisible || (grupoVisible.length > 1 ? "Técnica combinada" : "Ejercicio")}
+                </p>
+                <span className="separador-foco" aria-hidden />
+                <p className="contador-ejercicio-foco">
+                  {indiceVisible + 1}/{grupos.length}
+                </p>
+              </div>
+              <h1 className="titulo-ejercicio-foco">{tituloVisible}</h1>
+              <p className="estado-serie-foco">
+                {seriesHechasVisible >= totalSeriesVisible && totalSeriesVisible > 0
+                  ? "Todas las series completadas"
+                  : grupoVisible.length > 1
+                    ? `Paso ${siguienteSerieVisible} de ${totalSeriesVisible}`
+                    : `Serie ${siguienteSerieVisible} de ${totalSeriesVisible}`}
+              </p>
+            </div>
             <IlustracionEjercicio
               ilustracionSlug={null}
               grupoMuscular={grupoVisible[0].grupoMuscular}
               nombre={tituloVisible}
-              tamano={30}
+              tamano={34}
             />
-            <div className="min-w-0 flex-1">
-              <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
-                Ejercicio {indiceVisible + 1} de {grupos.length}
-              </p>
-              <p className="text-caption truncate font-semibold text-vip">{tituloVisible}</p>
-            </div>
+          </header>
+
+          <div className="progreso-series-foco" aria-label={`${seriesHechasVisible} de ${totalSeriesVisible} series completadas`}>
+            {Array.from({ length: totalSeriesVisible }, (_, indice) => (
+              <span
+                key={indice}
+                data-estado={
+                  indice < seriesHechasVisible
+                    ? "completa"
+                    : indice === seriesHechasVisible
+                      ? "actual"
+                      : "pendiente"
+                }
+              />
+            ))}
           </div>
 
           {renderizarGrupo(grupoVisible)}
