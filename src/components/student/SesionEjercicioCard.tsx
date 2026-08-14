@@ -5,6 +5,7 @@ import { createPortal, flushSync } from "react-dom";
 import {
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Play,
   Timer,
@@ -2222,7 +2223,25 @@ export const SesionEjercicioCard = forwardRef<
                   {ejercicio.orden} · {ejercicio.grupoMuscular ? ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular].toUpperCase() : "EJERCICIO"}
                 </p>
                 <h2>{ejercicio.nombre}</h2>
-                <strong>Serie {serieVisibleNumero} de {ejercicio.seriesProgramadas}</strong>
+                <div className="navegacion-serie-cabecera">
+                  <button
+                    type="button"
+                    onClick={() => setSerieVisibleNumero((actual) => Math.max(1, actual - 1))}
+                    disabled={serieVisibleNumero === 1}
+                    aria-label="Ver serie anterior"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <strong>Serie {serieVisibleNumero} de {ejercicio.seriesProgramadas}</strong>
+                  <button
+                    type="button"
+                    onClick={() => setSerieVisibleNumero((actual) => Math.min(ejercicio.seriesProgramadas, actual + 1))}
+                    disabled={serieVisibleNumero === ejercicio.seriesProgramadas}
+                    aria-label="Ver serie siguiente"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
                 {(intervencionesImpulso.some((intervencion) => intervencion.serieObjetivo === serieVisibleNumero)) && (
                   <span className="impulso-serie-foco">⚡ Impulso VIP</span>
                 )}

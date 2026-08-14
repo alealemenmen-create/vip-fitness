@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, ChevronRight, List, X } from "lucide-react";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { CuadroFotoReferencia, SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
 import { SesionGrupoCard } from "@/components/student/SesionGrupoCard";
@@ -126,6 +127,7 @@ export function SesionEjercicios({
     grupos.findIndex((grupo) => grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId))
   );
   const [indiceVisible, setIndiceVisible] = useState(indiceActivo);
+  const [mostrarRutina, setMostrarRutina] = useState(false);
 
   /**
    * Cambiar de ejercicio guarda lo que haya cargado en el que se deja.
@@ -198,6 +200,16 @@ export function SesionEjercicios({
         grupos.map(renderizarGrupo)
       ) : grupoVisible ? (
         <section className="modo-entrenamiento-enfocado space-y-2" aria-label="Ejercicio actual">
+          <button
+            type="button"
+            onClick={() => setMostrarRutina(true)}
+            className="boton-ver-rutina-foco"
+            aria-label="Ver toda la rutina"
+          >
+            <List size={18} />
+            <span>Rutina</span>
+          </button>
+
           {renderizarGrupo(grupoVisible)}
 
           {grupoSiguiente && (
@@ -232,6 +244,53 @@ export function SesionEjercicios({
 
         </section>
       ) : null}
+
+      {mostrarRutina && createPortal(
+        <div className="fondo-mapa-rutina" role="dialog" aria-modal="true" aria-label="Toda la rutina">
+          <button type="button" className="cerrar-fondo-mapa" onClick={() => setMostrarRutina(false)} aria-label="Cerrar vista de rutina" />
+          <section className="mapa-rutina-activa">
+            <header>
+              <div>
+                <p>Entrenamiento actual</p>
+                <h2>Toda la rutina</h2>
+              </div>
+              <button type="button" onClick={() => setMostrarRutina(false)} aria-label="Cerrar">
+                <X size={20} />
+              </button>
+            </header>
+            <div className="lista-mapa-rutina">
+              {grupos.map((grupo, indice) => {
+                const completa = grupo.every((ejercicio) => ejercicio.completado);
+                const totalSeriesGrupo = grupo.reduce((totalGrupo, ejercicio) => totalGrupo + ejercicio.seriesProgramadas, 0);
+                const hechasGrupo = grupo.reduce(
+                  (totalGrupo, ejercicio) => totalGrupo + ejercicio.series.filter((serie) => serie.realizada).length,
+                  0
+                );
+                return (
+                  <button
+                    key={grupo[0].sesionEjercicioId}
+                    type="button"
+                    onClick={() => {
+                      irA(indice);
+                      setMostrarRutina(false);
+                    }}
+                    data-estado={completa ? "completa" : indice === indiceActivo ? "actual" : "pendiente"}
+                    aria-current={indice === indiceVisible ? "step" : undefined}
+                  >
+                    <span className="numero-mapa-rutina">{completa ? <Check size={15} /> : indice + 1}</span>
+                    <span className="texto-mapa-rutina">
+                      <strong>{grupo.map((ejercicio) => ejercicio.nombre).join(" + ")}</strong>
+                      <small>{hechasGrupo}/{totalSeriesGrupo} series · {completa ? "Hecho" : indice === indiceActivo ? "Te toca ahora" : "Pendiente"}</small>
+                    </span>
+                    <ChevronRight size={18} />
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </div>,
+        document.body
+      )}
 
       {/* Ni barra de navegación ni "Finalizar entrenamiento" en una
           corrección: no hay ejercicio "en curso" que seguir ni entrenamiento
