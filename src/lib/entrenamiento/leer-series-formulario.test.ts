@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { leerSeriesFormulario } from "./leer-series-formulario";
+import {
+  estanCompletasLasSeriesAsignadas,
+  leerSeriesFormulario,
+  resolverCantidadSeriesRegistro,
+  type SerieFormulario,
+} from "./leer-series-formulario";
 
 describe("leerSeriesFormulario", () => {
   it("mantiene separados los pesos A y B de una biserie", () => {
@@ -45,5 +50,29 @@ describe("leerSeriesFormulario", () => {
       ok: false,
       error: "El RIR debe estar entre 0 y 5.",
     });
+  });
+
+  it("acepta hasta tres series extra sin permitir reducir las programadas", () => {
+    expect(resolverCantidadSeriesRegistro(3, 4, true)).toBe(4);
+    expect(resolverCantidadSeriesRegistro(3, 99, true)).toBe(6);
+    expect(resolverCantidadSeriesRegistro(3, 1, true)).toBe(3);
+    expect(resolverCantidadSeriesRegistro(3, 6, false)).toBe(3);
+    expect(resolverCantidadSeriesRegistro(3, Number.NaN, true)).toBe(3);
+  });
+
+  it("las extras no reemplazan una serie programada faltante ni se vuelven obligatorias", () => {
+    const serie = (numero_serie: number, realizada = true): SerieFormulario => ({
+      sesion_ejercicio_id: "ejercicio-a",
+      numero_serie,
+      peso_kg: 20,
+      es_peso_corporal: false,
+      reps_realizadas: 10,
+      rir_estimado: 2,
+      realizada,
+    });
+
+    expect(estanCompletasLasSeriesAsignadas([serie(1), serie(2), serie(4)], 3)).toBe(false);
+    expect(estanCompletasLasSeriesAsignadas([serie(1), serie(2), serie(3)], 3)).toBe(true);
+    expect(estanCompletasLasSeriesAsignadas([serie(1), serie(2), serie(3), serie(4, false)], 3)).toBe(true);
   });
 });

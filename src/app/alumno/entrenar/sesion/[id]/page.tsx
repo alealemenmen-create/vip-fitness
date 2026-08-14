@@ -14,6 +14,7 @@ import { sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerSesionCompleta, tienePedidoDeBorradoPendiente } from "../../data";
 import { terminarCorreccion } from "../../actions";
 import { SincronizarIndicacionesAle } from "@/components/student/SincronizarIndicacionesAle";
+import Link from "next/link";
 
 // El aviso de fin de descanso lo programa `programarAvisoDescanso` (Server
 // Action de esta página, ver push-actions.ts) con `after()`: el servidor
@@ -133,7 +134,15 @@ export default async function SesionPage({
           compacto
           accion={
             !esDescanso && sesion.estado === "en_progreso" && !vistaSoloLectura && rutinaIniciada ? (
-              <p className="text-caption font-semibold tabular-nums text-text-secondary">{completados}/{total}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-caption font-semibold tabular-nums text-text-secondary">{completados}/{total}</p>
+                <Link
+                  href="/alumno/entrenar"
+                  className="rounded-full border border-border bg-surface-2 px-3 py-1.5 text-caption font-semibold text-text-secondary"
+                >
+                  Salir
+                </Link>
+              </div>
             ) : null
           }
         />

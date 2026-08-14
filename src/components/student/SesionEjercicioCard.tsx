@@ -1759,6 +1759,9 @@ export const SesionEjercicioCard = forwardRef<
   const [seriesHechas, setSeriesHechas] = useState<ReadonlySet<number>>(
     () => new Set(ejercicio.series.filter((s) => s.realizada).map((s) => s.numeroSerie))
   );
+  const [cantidadSeriesVisible, setCantidadSeriesVisible] = useState(
+    () => Math.max(ejercicio.seriesProgramadas, ...ejercicio.series.map((serie) => serie.numeroSerie), 0)
+  );
   const [serieVisibleNumero, setSerieVisibleNumero] = useState(
     () => Array.from({ length: ejercicio.seriesProgramadas }, (_, indice) => indice + 1)
       .find((numero) => !ejercicio.series.some((serie) => serie.numeroSerie === numero && serie.realizada)) ?? 1
@@ -1794,7 +1797,7 @@ export const SesionEjercicioCard = forwardRef<
    * fila). */
   const filaNodoRef = useRef(new Map<number, HTMLDivElement>());
 
-  const filas = Array.from({ length: ejercicio.seriesProgramadas }, (_, i) => i + 1);
+  const filas = Array.from({ length: cantidadSeriesVisible }, (_, i) => i + 1);
   // La meta de reps de Impulso VIP (si hay una aprobada) manda por sobre el
   // techo del rango del PDF — mismo criterio que el peso: sin recomendación
   // aprobada, el comportamiento de precarga queda igual que siempre.
@@ -1809,10 +1812,17 @@ export const SesionEjercicioCard = forwardRef<
    * como el siguiente ejercicio pasa a ser el activo, el barrido reaparece en
    * su primera serie. Nunca hay dos encendidas a la vez en toda la sesión.
    */
+  const primeraExtraPendiente = filas.find(
+    (numero) => numero > ejercicio.seriesProgramadas && !seriesHechas.has(numero)
+  ) ?? null;
+  const programadasHechas = Array.from(
+    { length: ejercicio.seriesProgramadas },
+    (_, indice) => indice + 1
+  ).every((numero) => seriesHechas.has(numero));
   const serieQueToca =
     activo && !soloLectura && !ejercicio.completado
-      ? (filas.find((n) => !seriesHechas.has(n)) ?? null)
-      : null;
+      ? (filas.find((n) => n <= ejercicio.seriesProgramadas && !seriesHechas.has(n)) ?? primeraExtraPendiente)
+      : primeraExtraPendiente;
 
   // Respaldo local: se lee DESPUÉS de montar (localStorage no existe en el
   // servidor, leerlo durante el render rompería la hidratación).
@@ -2232,11 +2242,13 @@ export const SesionEjercicioCard = forwardRef<
                   >
                     <ChevronLeft size={16} />
                   </button>
-                  <strong>Serie {serieVisibleNumero} de {ejercicio.seriesProgramadas}</strong>
+                  <strong>
+                    {serieVisibleNumero > ejercicio.seriesProgramadas ? "Serie extra" : "Serie"} {serieVisibleNumero} de {cantidadSeriesVisible}
+                  </strong>
                   <button
                     type="button"
-                    onClick={() => setSerieVisibleNumero((actual) => Math.min(ejercicio.seriesProgramadas, actual + 1))}
-                    disabled={serieVisibleNumero === ejercicio.seriesProgramadas}
+                    onClick={() => setSerieVisibleNumero((actual) => Math.min(cantidadSeriesVisible, actual + 1))}
+                    disabled={serieVisibleNumero === cantidadSeriesVisible}
                     aria-label="Ver serie siguiente"
                   >
                     <ChevronRight size={16} />
@@ -2417,6 +2429,19 @@ export const SesionEjercicioCard = forwardRef<
         <small>{ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s de descanso` : "Sin descanso"}</small>
       </p>
 
+      {modoEnfocado && tecnica &&
+        (!ejercicio.tecnicaSeries || tecnicaAplicaASerie(ejercicio.tecnicaSeries, serieVisibleNumero)) && (
+          <button
+            type="button"
+            className="protocolo-tecnica-foco"
+            onClick={() => setMostrarTecnica(true)}
+          >
+            <span>{explicacion?.etiqueta ?? "Técnica de esta serie"}</span>
+            <strong>{tecnica.texto}</strong>
+            <small>Ver cómo ejecutarla</small>
+          </button>
+        )}
+
       {soloLectura ? (
         <div className="space-y-1">
           {ejercicio.series.map((s) => (
@@ -2461,6 +2486,8 @@ export const SesionEjercicioCard = forwardRef<
           <input type="hidden" name="sesion_ejercicio_id" value={ejercicio.sesionEjercicioId} />
           <input type="hidden" name="sesion_id" value={sesionId} />
           <input type="hidden" name="cantidad_series" value={ejercicio.seriesProgramadas} />
+          <input type="hidden" name="cantidad_series_registradas" value={cantidadSeriesVisible} />
+          <input type="hidden" name="permitir_series_extra" value="true" />
 
           {/* La etiqueta "SERIES" que iba acá se sacó: la fila de números
               (1, 2, 3...) ya deja claro qué es sin hacer falta el rótulo —
@@ -2512,6 +2539,39 @@ export const SesionEjercicioCard = forwardRef<
               />
             </div>
           ))}
+
+          {modoEnfocado && (
+            <div className="acciones-series-extra">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!programadasHechas) return;
+                  const siguiente = cantidadSeriesVisible + 1;
+                  if (siguiente > ejercicio.seriesProgramadas + 3) return;
+                  setCantidadSeriesVisible(siguiente);
+                  setSerieVisibleNumero(siguiente);
+                }}
+                disabled={!programadasHechas || cantidadSeriesVisible >= ejercicio.seriesProgramadas + 3}
+                title={!programadasHechas ? "Completa primero las series programadas" : undefined}
+              >
+                + Añadir serie extra
+              </button>
+              {cantidadSeriesVisible > ejercicio.seriesProgramadas &&
+                !seriesHechas.has(cantidadSeriesVisible) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const anterior = cantidadSeriesVisible - 1;
+                      setCantidadSeriesVisible(anterior);
+                      setSerieVisibleNumero(Math.min(serieVisibleNumero, anterior));
+                      window.requestAnimationFrame(() => formRef.current?.requestSubmit());
+                    }}
+                  >
+                    Quitar extra
+                  </button>
+                )}
+            </div>
+          )}
 
           {/* Con TODAS las series marcadas el ejercicio ya se cierra solo: el
               guardado automático manda `seriesRealizadas === cantidad` y el

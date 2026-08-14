@@ -12,6 +12,37 @@ export type SeriesFormularioLeidas =
   | { ok: true; filas: SerieFormulario[]; seriesRealizadas: number }
   | { ok: false; error: string };
 
+export const MAXIMO_SERIES_EXTRA = 3;
+
+/**
+ * El programa del entrenador sigue siendo la base inmutable. Durante la
+ * ejecución el alumno puede registrar hasta tres series adicionales, pero un
+ * campo manipulado nunca puede reducir la prescripción ni crear volumen sin
+ * límite.
+ */
+export function resolverCantidadSeriesRegistro(
+  asignadas: number,
+  solicitadas: number,
+  permiteExtras: boolean
+): number {
+  const base = Number.isFinite(asignadas) ? Math.max(0, Math.trunc(asignadas)) : 0;
+  if (!permiteExtras) return base;
+  const pedido = Number.isFinite(solicitadas) ? Math.trunc(solicitadas) : base;
+  return Math.min(base + MAXIMO_SERIES_EXTRA, Math.max(base, pedido));
+}
+
+/** Las series extra se registran, pero no convierten una prescripción
+ * incompleta en completada ni vuelven obligatoria una decisión voluntaria. */
+export function estanCompletasLasSeriesAsignadas(
+  filas: SerieFormulario[],
+  cantidadAsignada: number
+): boolean {
+  if (cantidadAsignada <= 0) return false;
+  return Array.from({ length: cantidadAsignada }, (_, indice) => indice + 1).every(
+    (numero) => filas.some((fila) => fila.numero_serie === numero && fila.realizada)
+  );
+}
+
 function numeroOpcional(valor: FormDataEntryValue | null, decimal: boolean): number | null {
   const texto = String(valor ?? "").trim();
   if (!texto) return null;

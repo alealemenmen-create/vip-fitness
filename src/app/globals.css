@@ -3420,6 +3420,95 @@ input[type="number"] {
   background: color-mix(in srgb, var(--color-vip) 82%, white);
   box-shadow: 0 0 10px color-mix(in srgb, var(--color-vip) 42%, transparent);
 }
+.protocolo-tecnica-foco {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  margin-top: 8px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--color-vip) 28%, transparent);
+  border-radius: 14px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-vip) 7%, transparent);
+  text-align: left;
+}
+.protocolo-tecnica-foco span {
+  color: var(--color-vip);
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 720;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.protocolo-tecnica-foco strong {
+  font-size: calc(12px * var(--escala-texto));
+  font-weight: 600;
+}
+.protocolo-tecnica-foco small {
+  color: var(--color-text-tertiary);
+  font-size: calc(9px * var(--escala-texto));
+}
+.acciones-series-extra {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 11px 0 4px;
+}
+.acciones-series-extra button {
+  min-height: 36px;
+  color: var(--color-text-secondary);
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 620;
+}
+.acciones-series-extra button:last-child:not(:first-child) {
+  color: var(--color-text-tertiary);
+}
+.acciones-series-extra button:disabled { opacity: .35; }
+.navegacion-paso-tecnica {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+}
+.navegacion-paso-tecnica > button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  color: var(--color-text-secondary);
+  background: rgba(255,255,255,.025);
+}
+.navegacion-paso-tecnica > button:disabled { opacity: .28; }
+.navegacion-paso-tecnica > strong {
+  color: var(--color-text);
+  font-size: calc(13px * var(--escala-texto));
+  font-weight: 650;
+  text-align: center;
+}
+.navegacion-paso-tecnica > strong small {
+  color: var(--color-text-tertiary);
+  font-weight: 520;
+}
+.secuencia-tecnica-foco {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 7px;
+  padding: 11px 12px;
+  border-left: 2px solid var(--color-glow-tecnica, var(--color-vip));
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-glow-tecnica, var(--color-vip)) 7%, transparent);
+}
+.secuencia-tecnica-foco strong {
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 680;
+}
+.secuencia-tecnica-foco span {
+  color: var(--color-text-tertiary);
+  font-size: calc(10px * var(--escala-texto));
+  line-height: 1.35;
+}
 .contenedor-serie-foco[data-visible="false"] { display: none; }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] {
   padding: 17px 4px 4px;

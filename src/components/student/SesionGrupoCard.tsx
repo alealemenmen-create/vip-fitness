@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from "react";
-import { Check, ChevronRight, Info, NotebookPen, Repeat, Timer } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Info, NotebookPen, Repeat, Timer } from "lucide-react";
 import { guardarSeriesGrupo, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import {
@@ -106,16 +106,19 @@ export const SesionGrupoCard = forwardRef<
   const [confirmandoDeVerdad, setConfirmandoDeVerdad] = useState(false);
   const filasRef = useRef<Map<number, FilaSerieHandle>[]>(ejercicios.map(() => new Map()));
   const filaNodoRef = useRef<Map<number, HTMLDivElement>[]>(ejercicios.map(() => new Map()));
+  const [cantidadesSeries, setCantidadesSeries] = useState(() => ejercicios.map((ejercicio) =>
+    Math.max(ejercicio.seriesProgramadas, ...ejercicio.series.map((serie) => serie.numeroSerie), 0)
+  ));
 
   // La secuencia intercalada: 1A, 1B, 1C, 2A, 2B, 2C... Si un ejercicio
   // tiene menos series programadas que los demás (caso raro, pero no
   // imposible), sus rondas de más simplemente no tienen "pareja" y se
   // muestran solas.
   const pasos: Paso[] = [];
-  const maxRondas = Math.max(...ejercicios.map((e) => e.seriesProgramadas));
+  const maxRondas = Math.max(...cantidadesSeries);
   for (let ronda = 1; ronda <= maxRondas; ronda++) {
     for (let pos = 0; pos < n; pos++) {
-      if (ronda <= ejercicios[pos].seriesProgramadas) pasos.push({ pos, numero: ronda });
+      if (ronda <= cantidadesSeries[pos]) pasos.push({ pos, numero: ronda });
     }
   }
   const [indicePasoVisible, setIndicePasoVisible] = useState(
@@ -124,10 +127,17 @@ export const SesionGrupoCard = forwardRef<
     )))
   );
 
+  const pasoExtraPendiente = pasos.find(
+    (paso) => paso.numero > ejercicios[paso.pos].seriesProgramadas && !seriesHechas[paso.pos].has(paso.numero)
+  ) ?? null;
   const pasoQueToca =
     activo && !soloLectura && !completoTodo
-      ? (pasos.find((p) => !seriesHechas[p.pos].has(p.numero)) ?? null)
-      : null;
+      ? (pasos.find((paso) => paso.numero <= ejercicios[paso.pos].seriesProgramadas && !seriesHechas[paso.pos].has(paso.numero)) ?? pasoExtraPendiente)
+      : pasoExtraPendiente;
+  const programadasGrupoHechas = ejercicios.every((ejercicio, pos) =>
+    Array.from({ length: ejercicio.seriesProgramadas }, (_, indice) => indice + 1)
+      .every((numero) => seriesHechas[pos].has(numero))
+  );
 
   function respaldarLocal() {
     const form = formRef.current;
@@ -136,7 +146,7 @@ export const SesionGrupoCard = forwardRef<
     ejercicios.forEach((ej, pos) => {
       const sufijo = sufijoDe(pos);
       guardarBorrador(sesionId, ej.sesionEjercicioId, {
-        series: Array.from({ length: ej.seriesProgramadas }, (_, indice) => {
+        series: Array.from({ length: cantidadesSeries[pos] }, (_, indice) => {
           const numero = indice + 1;
           return {
             numero,
@@ -382,6 +392,17 @@ export const SesionGrupoCard = forwardRef<
         />
       </div>
 
+      {modoEnfocado && grupoTecnica && (
+        <div className="secuencia-tecnica-foco">
+          <strong>
+            {ejercicios.map((ejercicio, pos) => `${LETRAS[pos]} · ${ejercicio.nombre}`).join("  →  ")}
+          </strong>
+          <span>
+            Sin descanso entre ejercicios. Descansa al terminar {LETRAS[n - 1]} y repite la ronda.
+          </span>
+        </div>
+      )}
+
       {!expandido ? (
         <button
           type="button"
@@ -445,6 +466,8 @@ export const SesionGrupoCard = forwardRef<
                 <span key={ej.sesionEjercicioId}>
                   <input type="hidden" name={`sesion_ejercicio_id${sufijoDe(pos)}`} value={ej.sesionEjercicioId} />
                   <input type="hidden" name={`cantidad_series${sufijoDe(pos)}`} value={ej.seriesProgramadas} />
+                  <input type="hidden" name={`cantidad_series_registradas${sufijoDe(pos)}`} value={cantidadesSeries[pos]} />
+                  <input type="hidden" name={`permitir_series_extra${sufijoDe(pos)}`} value="true" />
                 </span>
               ))}
 
@@ -458,26 +481,50 @@ export const SesionGrupoCard = forwardRef<
               </div>
 
               {modoEnfocado && (
-                <div className="selector-series-foco" aria-label="Seleccionar paso de la técnica">
-                  {pasos.map((paso, indice) => (
+                <>
+                  <div className="navegacion-paso-tecnica">
                     <button
-                      key={`${paso.pos}-${paso.numero}`}
                       type="button"
-                      onClick={() => setIndicePasoVisible(indice)}
-                      data-estado={
-                        seriesHechas[paso.pos].has(paso.numero)
-                          ? "completa"
-                          : indice === indicePasoVisible
-                            ? "actual"
-                            : "pendiente"
-                      }
-                      aria-label={`Ver ${LETRAS[paso.pos]}, serie ${paso.numero}`}
-                      aria-current={indice === indicePasoVisible ? "step" : undefined}
+                      onClick={() => setIndicePasoVisible((actual) => Math.max(0, actual - 1))}
+                      disabled={indicePasoVisible === 0}
+                      aria-label="Paso anterior de la técnica"
                     >
-                      <span />
+                      <ChevronLeft size={17} />
                     </button>
-                  ))}
-                </div>
+                    <strong>
+                      {LETRAS[pasos[indicePasoVisible]?.pos ?? 0]} · serie {pasos[indicePasoVisible]?.numero ?? 1}
+                      <small> de {pasos.length} pasos</small>
+                    </strong>
+                    <button
+                      type="button"
+                      onClick={() => setIndicePasoVisible((actual) => Math.min(pasos.length - 1, actual + 1))}
+                      disabled={indicePasoVisible >= pasos.length - 1}
+                      aria-label="Paso siguiente de la técnica"
+                    >
+                      <ChevronRight size={17} />
+                    </button>
+                  </div>
+                  <div className="selector-series-foco" aria-label="Seleccionar paso de la técnica">
+                    {pasos.map((paso, indice) => (
+                      <button
+                        key={`${paso.pos}-${paso.numero}`}
+                        type="button"
+                        onClick={() => setIndicePasoVisible(indice)}
+                        data-estado={
+                          seriesHechas[paso.pos].has(paso.numero)
+                            ? "completa"
+                            : indice === indicePasoVisible
+                              ? "actual"
+                              : "pendiente"
+                        }
+                        aria-label={`Ver ${LETRAS[paso.pos]}, serie ${paso.numero}`}
+                        aria-current={indice === indicePasoVisible ? "step" : undefined}
+                      >
+                        <span />
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
 
               {pasos.map((paso, indicePaso) => {
@@ -527,6 +574,39 @@ export const SesionGrupoCard = forwardRef<
                   </div>
                 );
               })}
+
+              {modoEnfocado && (
+                <div className="acciones-series-extra">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!programadasGrupoHechas) return;
+                      if (cantidadesSeries.some((cantidad, pos) => cantidad >= ejercicios[pos].seriesProgramadas + 3)) return;
+                      setCantidadesSeries((actuales) => actuales.map((cantidad) => cantidad + 1));
+                      setIndicePasoVisible(pasos.length);
+                    }}
+                    disabled={!programadasGrupoHechas || cantidadesSeries.some((cantidad, pos) => cantidad >= ejercicios[pos].seriesProgramadas + 3)}
+                    title={!programadasGrupoHechas ? "Completa primero todas las rondas programadas" : undefined}
+                  >
+                    + Añadir ronda extra
+                  </button>
+                  {cantidadesSeries.some((cantidad, pos) => cantidad > ejercicios[pos].seriesProgramadas) &&
+                    ejercicios.every((_, pos) => !seriesHechas[pos].has(cantidadesSeries[pos])) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCantidadesSeries((actuales) => actuales.map((cantidad, pos) =>
+                            Math.max(ejercicios[pos].seriesProgramadas, cantidad - 1)
+                          ));
+                          setIndicePasoVisible((actual) => Math.max(0, Math.min(actual, pasos.length - n - 1)));
+                          window.requestAnimationFrame(() => formRef.current?.requestSubmit());
+                        }}
+                      >
+                        Quitar ronda
+                      </button>
+                    )}
+                </div>
+              )}
 
               {!completoTodo &&
                 (confirmandoIncompleto ? (

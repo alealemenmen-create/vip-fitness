@@ -19,7 +19,12 @@ import { leerDatosCumplimiento } from "@/lib/impulso-vip/congelar";
 import { resolverCumplimiento } from "@/lib/impulso-vip/motor";
 import type { ReglaImpulso } from "@/lib/impulso-vip/tipos";
 import type { DificultadPercibidaImpulso } from "@/lib/supabase/types";
-import { leerSeriesFormulario } from "@/lib/entrenamiento/leer-series-formulario";
+import {
+  estanCompletasLasSeriesAsignadas,
+  leerSeriesFormulario,
+  MAXIMO_SERIES_EXTRA,
+  resolverCantidadSeriesRegistro,
+} from "@/lib/entrenamiento/leer-series-formulario";
 import { ESTADOS_CORREGIBLES, sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerEstadoPlanMensual } from "@/lib/planes-entrenamiento-servidor";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -428,11 +433,22 @@ async function guardarUnEjercicio(
   const seriesAsignadas = (
     asignacion?.rutina_dia_ejercicios as { series_programadas: number } | null | undefined
   )?.series_programadas;
-  const cantidad = seriesAsignadas ?? Number(formData.get(`cantidad_series${sufijo}`) || 0);
+  const cantidadAsignada = seriesAsignadas ?? Number(formData.get(`cantidad_series${sufijo}`) || 0);
+  // Una serie extra es una decisión del alumno durante el entrenamiento, no
+  // una modificación silenciosa de la rutina del entrenador. Se aceptan como
+  // máximo tres y solo cuando el formulario lo declara expresamente. Las
+  // extras se guardan, pero nunca se usan para decidir si cumplió lo pautado.
+  const pideExtras = formData.get(`permitir_series_extra${sufijo}`) === "true";
+  const cantidadSolicitada = Number(formData.get(`cantidad_series_registradas${sufijo}`) || cantidadAsignada);
+  const cantidadRegistro = resolverCantidadSeriesRegistro(
+    cantidadAsignada,
+    cantidadSolicitada,
+    pideExtras
+  );
 
-  const leidas = leerSeriesFormulario(formData, sesionEjercicioId, cantidad, sufijo);
+  const leidas = leerSeriesFormulario(formData, sesionEjercicioId, cantidadRegistro, sufijo);
   if (!leidas.ok) return { error: leidas.error };
-  const { filas, seriesRealizadas } = leidas;
+  const { filas } = leidas;
 
   if (filas.length > 0) {
     const { error } = await supabase
@@ -440,11 +456,21 @@ async function guardarUnEjercicio(
       .upsert(filas, { onConflict: "sesion_ejercicio_id,numero_serie" });
     if (error) return { error: "No fue posible guardar las series. Revisa tu conexión e intenta nuevamente." };
   }
+  if (pideExtras) {
+    // Si quitó una extra que había llegado a guardarse (por ejemplo la marcó,
+    // la deshizo y luego tocó "Quitar extra"), no debe reaparecer al recargar.
+    await supabase
+      .from("series_realizadas")
+      .delete()
+      .eq("sesion_ejercicio_id", sesionEjercicioId)
+      .gt("numero_serie", cantidadRegistro)
+      .lte("numero_serie", cantidadAsignada + MAXIMO_SERIES_EXTRA);
+  }
 
   // El ejercicio solo cuenta como realizado si TODAS sus series están
   // marcadas como hechas — cargar un peso/reps por sí solo no alcanza, y
   // dejar algunas sin marcar significa que quedó incompleto.
-  const completado = cantidad > 0 && seriesRealizadas === cantidad;
+  const completado = estanCompletasLasSeriesAsignadas(filas, cantidadAsignada);
   const { error: errorNota } = await supabase
     .from("sesion_ejercicios")
     .update({
