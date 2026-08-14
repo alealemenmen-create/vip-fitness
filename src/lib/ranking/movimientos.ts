@@ -185,23 +185,31 @@ export async function registrarEntrenamiento({
   fecha,
   completados,
   total,
+  descansoDesactivadoPorAlumno = false,
 }: {
   alumnoId: string;
   sesionId: string;
   fecha: string;
   completados: number;
   total: number;
+  // true solo cuando el ALUMNO apagó su propio temporizador de descanso — si
+  // lo apagó el entrenador (ej. razón médica), nunca penaliza.
+  descansoDesactivadoPorAlumno?: boolean;
 }) {
-  const puntos = calcularPuntosEntrenamiento(completados, total);
+  const puntos = descansoDesactivadoPorAlumno
+    ? PUNTOS_VIP.entrenamientoSinDescansoPorAlumno
+    : calcularPuntosEntrenamiento(completados, total);
   return guardarRecompensaInmutable({
     alumnoId,
     clave: `entrenamiento:${sesionId}`,
     categoria: "entrenamiento",
     puntos,
     titulo: "Entrenamiento finalizado",
-    detalle: `${completados} de ${total} ejercicios completados`,
+    detalle: descansoDesactivadoPorAlumno
+      ? "Entrenaste con tu propio temporizador de descanso apagado"
+      : `${completados} de ${total} ejercicios completados`,
     fecha,
-    metadata: { sesionId, completados, total },
+    metadata: { sesionId, completados, total, descansoDesactivadoPorAlumno },
   });
 }
 

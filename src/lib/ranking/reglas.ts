@@ -25,6 +25,10 @@ export const PUNTOS_VIP = {
   descansoSegundosPorTramo: 20,
   descansoPenalizacionPorTramo: 3,
   descansoPenalizacionMaxima: 30,
+  // El alumno apagó su propio temporizador de descanso (no el entrenador):
+  // reemplaza el bono normal de "Entrenamiento finalizado" (hasta 300) por
+  // esta penalización fija, sin importar cuántos ejercicios completó.
+  entrenamientoSinDescansoPorAlumno: -50,
 } as const;
 
 export type CumplimientoImpulso = "cumplida" | "superada" | "parcial" | "no_cumplida";

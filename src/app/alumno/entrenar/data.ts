@@ -787,10 +787,15 @@ export async function obtenerSesionCompleta(
   // comportamiento de siempre.
   const { data: preferencias } = await supabase
     .from("alumno_perfil")
-    .select("temporizador_descanso")
+    .select("temporizador_descanso, segundos_descanso_preferido")
     .eq("user_id", alumnoId)
     .maybeSingle();
   const temporizadorDescanso = preferencias?.temporizador_descanso ?? true;
+  // Si el alumno eligió un número fijo, reemplaza el descanso_segundos de
+  // CADA ejercicio (incluidas técnicas encadenadas con 0s explícito) — así
+  // lo pidió Alejandro después de que se le advirtiera el riesgo con
+  // superseries. `null` = sin preferencia, manda lo que programó el entrenador.
+  const segundosDescansoPreferido = preferencias?.segundos_descanso_preferido ?? null;
 
   const { data: todasLasSeries } = sesionEjercicioIds.length
     ? await supabase
@@ -921,7 +926,7 @@ export async function obtenerSesionCompleta(
       nombre: prog.nombre,
       seriesProgramadas: prog.series_programadas,
       repsProgramadas: prog.reps_programadas,
-      descansoSegundos: prog.descanso_segundos,
+      descansoSegundos: segundosDescansoPreferido ?? prog.descanso_segundos,
       temporizadorDescanso,
       tecnicaTipo: prog.tecnica_tipo,
       tecnicaSeries: normalizarTecnicaSeries(prog.tecnica_series, prog.series_programadas),
