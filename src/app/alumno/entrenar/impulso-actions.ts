@@ -9,7 +9,6 @@ import type { MomentoAlertaImpulso } from "@/lib/supabase/types";
 import type { ResultadoIntervencionImpulso } from "@/lib/supabase/types";
 import { calibrarCierreControlado } from "@/lib/impulso-vip/en-vivo";
 import { evaluarTecnicaIntensiva } from "@/lib/impulso-vip/elegibilidad";
-import { avisarSolicitudAsistencia } from "@/lib/impulso-vip/avisos-entrenador";
 import type { TipoIntervencionImpulso } from "@/lib/supabase/types";
 
 export type ReportarDolorState = { error: string | null; ok: boolean };
@@ -464,12 +463,6 @@ export async function solicitarAsistenciaAle(
   });
   if (error?.code === "23505") return { error: null, ok: true };
   if (error) return { error: "No pudimos avisarle a Ale. Intenta nuevamente.", ok: false };
-
-  await avisarSolicitudAsistencia({
-    alumnoId,
-    sesionEjercicioId: intervencion.sesion_ejercicio_id,
-  }).catch(() => {});
-
   return { error: null, ok: true };
 }
 
