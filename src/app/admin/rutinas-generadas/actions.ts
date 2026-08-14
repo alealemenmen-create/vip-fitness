@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
@@ -27,38 +28,77 @@ export type RutinaDelAlumno = {
   id: string;
   nombre: string;
   activa: boolean;
+  archivada: boolean;
   creadaEn: string;
   dias: number;
   ejercicios: number;
 };
 
-export async function listarRutinasDeAlumno(alumnoId: string): Promise<RutinaDelAlumno[]> {
+export async function listarRutinasDeAlumno(
+  alumnoId: string,
+  incluirArchivadas = false
+): Promise<RutinaDelAlumno[]> {
   await requireRol(["entrenador", "admin"]);
   if (!alumnoId) return [];
   const supabase = await createClient();
   const db = supabase as unknown as SupabaseClient;
 
-  const { data } = await db
+  let consulta = db
     .from("rutinas")
-    .select("id, nombre, activa, created_at, rutina_dias(id, tipo, rutina_dia_ejercicios(id))")
-    .eq("alumno_id", alumnoId)
-    .order("created_at", { ascending: false })
-    .limit(40);
+    .select("id, nombre, activa, archivada, created_at, rutina_dias(id, tipo, rutina_dia_ejercicios(id))")
+    .eq("alumno_id", alumnoId);
+  if (!incluirArchivadas) consulta = consulta.eq("archivada", false);
+
+  const { data } = await consulta.order("created_at", { ascending: false }).limit(40);
 
   type FilaDia = { id: string; tipo: string; rutina_dia_ejercicios: { id: string }[] | null };
-  return ((data ?? []) as { id: string; nombre: string; activa: boolean; created_at: string; rutina_dias: FilaDia[] | null }[]).map(
-    (r) => {
-      const dias = r.rutina_dias ?? [];
-      return {
-        id: r.id,
-        nombre: r.nombre,
-        activa: r.activa,
-        creadaEn: r.created_at,
-        dias: dias.filter((d) => d.tipo === "entrenamiento").length,
-        ejercicios: dias.reduce((total, d) => total + (d.rutina_dia_ejercicios?.length ?? 0), 0),
-      };
+  return (
+    (data ?? []) as {
+      id: string;
+      nombre: string;
+      activa: boolean;
+      archivada: boolean;
+      created_at: string;
+      rutina_dias: FilaDia[] | null;
+    }[]
+  ).map((r) => {
+    const dias = r.rutina_dias ?? [];
+    return {
+      id: r.id,
+      nombre: r.nombre,
+      activa: r.activa,
+      archivada: r.archivada,
+      creadaEn: r.created_at,
+      dias: dias.filter((d) => d.tipo === "entrenamiento").length,
+      ejercicios: dias.reduce((total, d) => total + (d.rutina_dia_ejercicios?.length ?? 0), 0),
+    };
+  });
+}
+
+export type ArchivarRutinaState = { ok: boolean; error: string | null };
+
+/** Archiva u oculta una rutina del listado normal, sin borrar nada — las
+ * sesiones ya entrenadas y los puntos VIP (atados a la sesión, no a la
+ * rutina) quedan intactos. No se puede archivar la rutina activa: primero
+ * hay que publicar otra o desactivarla. */
+export async function archivarRutina(rutinaId: string, archivar: boolean): Promise<ArchivarRutinaState> {
+  await requireRol(["entrenador", "admin"]);
+  if (!rutinaId) return { ok: false, error: "Falta la rutina." };
+  const supabase = await createClient();
+  const db = supabase as unknown as SupabaseClient;
+
+  if (archivar) {
+    const { data: rutina } = await db.from("rutinas").select("activa").eq("id", rutinaId).maybeSingle();
+    if (rutina?.activa) {
+      return { ok: false, error: "No se puede archivar la rutina activa del alumno." };
     }
-  );
+  }
+
+  const { error } = await db.from("rutinas").update({ archivada: archivar }).eq("id", rutinaId);
+  if (error) return { ok: false, error: "No se pudo actualizar la rutina." };
+
+  revalidatePath("/admin/rutinas-generadas");
+  return { ok: true, error: null };
 }
 
 export type RutinaAbierta = { ok: true; rutina: RutinaExtraida } | { ok: false; error: string };
