@@ -23,8 +23,6 @@ import { leerSeriesFormulario } from "@/lib/entrenamiento/leer-series-formulario
 import { ESTADOS_CORREGIBLES, sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerEstadoPlanMensual } from "@/lib/planes-entrenamiento-servidor";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { after } from "next/server";
-import { avisarPropuestaImpulsoCercana } from "@/lib/impulso-vip/avisos-entrenador";
 
 const DIFICULTADES_VALIDAS = new Set(["muy_facil", "facil", "justo", "dificil", "fallo"]);
 type TrainingDb = ReturnType<typeof createAdminClient>;
@@ -286,7 +284,6 @@ export async function cancelarYEmpezarOtroDia(formData: FormData): Promise<void>
         alumnoId,
         sesionEjercicios: ejerciciosSesion ?? [],
       }).catch(() => null);
-      after(() => avisarPropuestaImpulsoCercana({ sesionId, alumnoId }).catch(() => {}));
     }
   }
   revalidatePath("/alumno/entrenar");
@@ -328,7 +325,6 @@ export async function iniciarRutinaDesdeCalendario(formData: FormData): Promise<
     alumnoId,
     sesionEjercicios: ejerciciosSesion ?? [],
   }).catch(() => null);
-  after(() => avisarPropuestaImpulsoCercana({ sesionId, alumnoId }).catch(() => {}));
   revalidatePath("/alumno/entrenar");
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   redirect(`/alumno/entrenar/sesion/${sesionId}`);
@@ -373,10 +369,6 @@ export async function iniciarRutina(formData: FormData): Promise<void> {
     alumnoId,
     sesionEjercicios: ejerciciosSesion ?? [],
   }).catch(() => null);
-
-  // Al empezar, una propuesta situada entre los dos primeros ejercicios deja
-  // una ventana aproximada de 10–20 minutos para que Ale la revise.
-  after(() => avisarPropuestaImpulsoCercana({ sesionId, alumnoId }).catch(() => {}));
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
 }
@@ -534,13 +526,6 @@ export async function guardarSeries(
 
   const resultado = await guardarUnEjercicio(supabase, formData, "", sesionId);
   if (resultado.error) return resultado;
-  if (resultado.completado && resultado.sesionEjercicioId) {
-    after(() => avisarPropuestaImpulsoCercana({
-      sesionId,
-      alumnoId,
-      despuesDeEjercicioId: resultado.sesionEjercicioId,
-    }).catch(() => {}));
-  }
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/inicio");
@@ -571,20 +556,10 @@ export async function guardarSeriesGrupo(
     return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
   }
 
-  let ultimoCompletadoId: string | undefined;
   for (let i = 0; i < cantidad; i++) {
     const sufijo = i === 0 ? "" : `_${i}`;
     const resultado = await guardarUnEjercicio(supabase, formData, sufijo, sesionId);
     if (resultado.error) return resultado;
-    if (resultado.completado) ultimoCompletadoId = resultado.sesionEjercicioId;
-  }
-
-  if (ultimoCompletadoId) {
-    after(() => avisarPropuestaImpulsoCercana({
-      sesionId,
-      alumnoId,
-      despuesDeEjercicioId: ultimoCompletadoId,
-    }).catch(() => {}));
   }
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
