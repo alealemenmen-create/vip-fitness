@@ -203,7 +203,7 @@ export function MomentoImpulsoEnVivo({
                       ? "Ale no esta disponible ahora. Haz la serie normal, sin tecnica intensa y con una repeticion en reserva."
                       : estadoAsistencia?.estado === "vencida"
                         ? "La solicitud vencio. Continua con una serie normal y segura."
-                        : "Le llegó la notificación a Ale. Puedes continuar de forma segura mientras responde."}
+                        : "Ale recibio el aviso. Puedes continuar de forma segura mientras responde."}
               </p>
             ) : (
               <form action={asistenciaAction} className="mt-2">
@@ -213,7 +213,7 @@ export function MomentoImpulsoEnVivo({
                   disabled={avisandoAle}
                   className="min-h-10 w-full rounded-xl border border-vip/35 bg-vip/10 px-3 text-micro font-bold text-vip disabled:opacity-50"
                 >
-                  {avisandoAle ? "Llamando a Ale..." : "Llamar a Ale · le suena el teléfono"}
+                  {avisandoAle ? "Avisando a Ale..." : "Avisar a Ale para que me guie"}
                 </button>
                 {asistencia.error && <p className="mt-1 text-micro text-error">{asistencia.error}</p>}
               </form>
