@@ -16,7 +16,7 @@ import { SaldoIAPanel } from "@/components/admin/SaldoIAPanel";
 import { GavetaConfig } from "@/components/admin/GavetaConfig";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
-import { Bell, Bot, Bug, ChevronRight, CircleDollarSign, ClipboardList, FileText, Images, LogIn, Megaphone, ShieldAlert, Sparkles, Trash2, Trophy, WandSparkles } from "lucide-react";
+import { Bell, Bot, Bug, ChevronRight, CircleDollarSign, ClipboardCheck, ClipboardList, FileText, Images, LogIn, Megaphone, ShieldAlert, Sparkles, Trash2, Trophy, WandSparkles } from "lucide-react";
 import { obtenerHallazgosPendientes } from "@/lib/auditoria/data";
 import { obtenerIngresos } from "@/lib/ingresos/data";
 import { obtenerResumenAlertasGastos } from "@/lib/gastos/data";
@@ -79,6 +79,20 @@ export default async function ConfiguracionAdminPage() {
         <p className="text-[11px] text-text-tertiary">Atajos a las áreas de control más utilizadas.</p>
       </div>
       <div className="grid gap-3 lg:grid-cols-3">
+      <Link href="/admin/pendientes" className="block h-full">
+        <Card className="flex items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-vip/15 text-vip">
+            <ClipboardCheck size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="text-secondary block font-semibold text-text">Pendientes</span>
+            <span className="text-caption block text-text-tertiary">
+              Solicitudes, auditoría, errores, borrados y gastos, en un solo lugar
+            </span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
+        </Card>
+      </Link>
       <Link href="/admin/ejercicios" className="block h-full">
         <Card className="flex items-center gap-3 p-4">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#a78bfa]/15 text-[#a78bfa]">

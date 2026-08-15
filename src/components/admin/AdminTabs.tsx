@@ -7,6 +7,7 @@ import {
   Bell,
   Bot,
   Bug,
+  ClipboardCheck,
   ClipboardList,
   CircleDollarSign,
   Dumbbell,
@@ -84,6 +85,7 @@ const SIDEBAR_GROUPS = [
   {
     label: "Sistema",
     items: [
+      { href: "/admin/pendientes", label: "Pendientes", icon: ClipboardCheck, section: "pendientes" },
       { href: "/admin/auditoria", label: "Auditoría", icon: ShieldCheck, section: "auditoria" },
       { href: "/admin/reportes", label: "Errores reportados", icon: Bug, section: "reportes" },
       { href: "/admin/borrados", label: "Pedidos de borrado", icon: Trash2, section: "borrados" },
@@ -96,6 +98,7 @@ const SIDEBAR_GROUPS = [
 
 const MORE_PREFIXES = [
   "/admin/configuracion",
+  "/admin/pendientes",
   "/admin/puntos",
   "/admin/rutinas-generadas",
   "/admin/ejercicios",
