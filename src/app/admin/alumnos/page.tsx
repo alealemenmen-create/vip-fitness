@@ -8,7 +8,7 @@ import { ListaEntrenadores } from "@/components/admin/ListaEntrenadores";
 import { AvisosNotasIA } from "@/components/admin/AvisosNotasIA";
 import { AvisoSolicitudes } from "@/components/admin/AvisoSolicitudes";
 import { SugerenciasHoy } from "@/components/admin/SugerenciasHoy";
-import { obtenerReportes, obtenerAvisosNotasIA, type EstadoAlumno } from "./data";
+import { obtenerReportes, obtenerAvisosNotasIA, type EstadoAlumno, type PrioridadAlumno } from "./data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { TituloPestana } from "@/components/admin/TituloPestana";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
@@ -77,9 +77,12 @@ export default async function AlumnosPage({
   const entrenadores = entrenadoresData ?? [];
 
   // Los que necesitan atención primero: es lo que el entrenador tiene que ver
-  // al entrar, sin buscar entre toda la lista.
+  // al entrar, sin buscar entre toda la lista. La prioridad manda (Ahora >
+  // Hoy > Esta semana > Sin acción); a igual prioridad, el semáforo viejo
+  // desempata entre destacado y normal.
+  const ORDEN_PRIORIDAD: Record<PrioridadAlumno, number> = { ahora: 0, hoy: 1, esta_semana: 2, sin_accion: 3 };
   const ORDEN: Record<EstadoAlumno, number> = { atencion: 0, normal: 1, destacado: 2 };
-  reportes.sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado]);
+  reportes.sort((a, b) => ORDEN_PRIORIDAD[a.prioridad] - ORDEN_PRIORIDAD[b.prioridad] || ORDEN[a.estado] - ORDEN[b.estado]);
 
   const sinRutina = reportes.filter((r) => r.motivo === "Sin rutina activa asignada").length;
   const aRevisar = reportes.filter(

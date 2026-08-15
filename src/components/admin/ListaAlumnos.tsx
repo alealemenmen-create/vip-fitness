@@ -19,7 +19,26 @@ import { Card } from "@/components/ui/Card";
 import { TarjetaReporteAlumno } from "./TarjetaReporteAlumno";
 import { actualizarPlanRapido, type FormState } from "@/app/admin/alumnos/actions";
 import { PLANES_ENTRENAMIENTO } from "@/lib/planes-entrenamiento";
-import type { ReporteAlumno } from "@/app/admin/alumnos/data";
+import type { PrioridadAlumno, ReporteAlumno } from "@/app/admin/alumnos/data";
+
+// `data.ts` importa "server-only" — acá va la copia liviana de la etiqueta,
+// no un import de valor de ese módulo (rompería el build de este client
+// component). Ver PrioridadAlumno en app/admin/alumnos/data.ts.
+const ETIQUETA_PRIORIDAD: Record<PrioridadAlumno, string> = {
+  ahora: "Ahora",
+  hoy: "Hoy",
+  esta_semana: "Esta semana",
+  sin_accion: "Sin acción",
+};
+
+const ORDEN_PRIORIDAD: Record<PrioridadAlumno, number> = { ahora: 0, hoy: 1, esta_semana: 2, sin_accion: 3 };
+
+const CLASE_PRIORIDAD: Record<PrioridadAlumno, string> = {
+  ahora: "border-error/30 bg-error/10 text-error",
+  hoy: "border-warning/30 bg-warning/10 text-warning",
+  esta_semana: "border-[#3b82f6]/30 bg-[#3b82f6]/10 text-[#60a5fa]",
+  sin_accion: "border-border bg-surface-2 text-text-tertiary",
+};
 
 export type FiltroAlumnos = "todos" | "sin_rutina" | "seguimiento" | "al_dia" | "destacados";
 
@@ -49,6 +68,15 @@ function estadoVisual(reporte: ReporteAlumno) {
     return { etiqueta: "Destacado", clase: "border-vip/25 bg-vip/10 text-vip", Icon: Star };
   }
   return { etiqueta: "Al día", clase: "border-success/25 bg-success/10 text-success", Icon: CircleCheck };
+}
+
+/** Chip de prioridad real (Ahora/Hoy/Esta semana), aparte del semáforo de
+ * arriba — ver PrioridadAlumno en app/admin/alumnos/data.ts. No se muestra
+ * para "sin_accion": la mayoría estable no necesita un chip gris repetido en
+ * cada fila. */
+function prioridadVisual(reporte: ReporteAlumno) {
+  if (reporte.prioridad === "sin_accion") return null;
+  return { etiqueta: ETIQUETA_PRIORIDAD[reporte.prioridad], clase: CLASE_PRIORIDAD[reporte.prioridad] };
 }
 
 const ESTADO_INICIAL_PLAN: FormState = { error: null, ok: false };
@@ -172,15 +200,17 @@ export function ListaAlumnos({
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLocaleLowerCase("es");
-    return reportes.filter(
-      (reporte) =>
-        pertenece(reporte, filtro) &&
-        (filtroPlan === "todos" ||
-          (filtroPlan === "sin_plan" ? reporte.planCodigo === null : reporte.planDiasSemana === filtroPlan)) &&
-        (!q ||
-          reporte.nombre.toLocaleLowerCase("es").includes(q) ||
-          reporte.objetivo?.toLocaleLowerCase("es").includes(q))
-    );
+    return reportes
+      .filter(
+        (reporte) =>
+          pertenece(reporte, filtro) &&
+          (filtroPlan === "todos" ||
+            (filtroPlan === "sin_plan" ? reporte.planCodigo === null : reporte.planDiasSemana === filtroPlan)) &&
+          (!q ||
+            reporte.nombre.toLocaleLowerCase("es").includes(q) ||
+            reporte.objetivo?.toLocaleLowerCase("es").includes(q))
+      )
+      .sort((a, b) => ORDEN_PRIORIDAD[a.prioridad] - ORDEN_PRIORIDAD[b.prioridad]);
   }, [reportes, busqueda, filtro, filtroPlan]);
 
   const porPagina = vista === "compacta" ? 16 : 8;
@@ -355,6 +385,7 @@ export function ListaAlumnos({
           <div className="divide-y divide-border">
             {visibles.map((reporte) => {
               const visual = estadoVisual(reporte);
+              const prioridad = prioridadVisual(reporte);
               return (
                 <div
                   key={reporte.alumnoId}
@@ -382,11 +413,16 @@ export function ListaAlumnos({
                   </div>
 
                   <div className="min-w-0 md:flex md:items-center md:gap-2">
+                    {prioridad && (
+                      <span className={`inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-bold ${prioridad.clase}`}>
+                        {prioridad.etiqueta}
+                      </span>
+                    )}
                     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${visual.clase}`}>
                       <visual.Icon size={11} /> {visual.etiqueta}
                     </span>
                     <EditorPlanRapido reporte={reporte} />
-                    <p className="mt-1 truncate text-xs text-text-secondary md:mt-0">{reporte.motivo}</p>
+                    <p className="mt-1 truncate text-xs text-text-secondary md:mt-0">{reporte.razonPrioridad}</p>
                   </div>
 
                   <div className="flex items-center justify-between gap-3 text-xs md:block">

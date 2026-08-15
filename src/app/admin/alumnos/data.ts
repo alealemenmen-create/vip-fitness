@@ -9,8 +9,30 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 export type EstadoAlumno = "atencion" | "normal" | "destacado";
 
+/**
+ * Prioridad real, no un semáforo binario. Con 61 de 68 alumnos en "atención"
+ * (ver INSTRUCTIVO_CLAUDE_REORDENO_PANEL_ENTRENADOR.md, sección 7.3), ese
+ * estado dejó de priorizar nada — todos se veían igual de urgentes. Estos
+ * cuatro niveles reordenan lo mismo que ya calculaba `estado`/`motivo` según
+ * qué tan urgente es cada señal, para que el entrenador sepa a quién mirar
+ * primero sin abrir 61 fichas.
+ */
+export type PrioridadAlumno = "ahora" | "hoy" | "esta_semana" | "sin_accion";
+
+export const ETIQUETA_PRIORIDAD: Record<PrioridadAlumno, string> = {
+  ahora: "Ahora",
+  hoy: "Hoy",
+  esta_semana: "Esta semana",
+  sin_accion: "Sin acción",
+};
+
 export type IndicadorAlumno = {
   estado: EstadoAlumno;
+  prioridad: PrioridadAlumno;
+  /** Frase corta que explica la prioridad — la misma idea que `motivo`, pero
+   * puede diferir cuando una señal más urgente (ej. acceso bloqueado) pisa al
+   * motivo original del semáforo estado/atención. */
+  razonPrioridad: string;
   /** Cumplimiento de entrenamiento del mes calendario, 0-100+. */
   pctSesiones: number;
   sesionesHechas: number;
@@ -80,7 +102,7 @@ export async function obtenerIndicadores(
         .gte("fecha", desde7),
       supabase
         .from("alumno_perfil")
-        .select("user_id, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana")
+        .select("user_id, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana, acceso_bloqueado")
         .in("user_id", alumnoIds),
     ]);
 
@@ -93,6 +115,9 @@ export async function obtenerIndicadores(
         perfil.dias_entrenamiento_semana
       ),
     ])
+  );
+  const accesoBloqueadoPorAlumno = new Set(
+    (perfilesPlan ?? []).filter((perfil) => perfil.acceso_bloqueado).map((perfil) => perfil.user_id)
   );
 
   // Días de entrenamiento por alumno → cupo mensual (días/semana × 4).
@@ -204,8 +229,38 @@ export async function obtenerIndicadores(
       motivo = `${pctSesiones}% de sus sesiones del mes`;
     }
 
+    // Mismas señales que ya calculó el semáforo estado/motivo de arriba, solo
+    // que acá no compiten en un empate binario ("atención" para todos por
+    // igual) — se ordenan por qué tan urgente es actuar. "Ahora" es lo que
+    // bloquea o pone en riesgo real la operación (acceso cortado, nunca
+    // entrenó, sin rutina). "Hoy" es lo que conviene resolver en la jornada
+    // pero no bloquea nada. "Esta semana" es seguimiento, no urgencia.
+    let prioridad: PrioridadAlumno = "sin_accion";
+    let razonPrioridad = motivo;
+
+    if (accesoBloqueadoPorAlumno.has(alumnoId)) {
+      prioridad = "ahora";
+      razonPrioridad = "Acceso a la app bloqueado";
+    } else if (diasSemana === 0) {
+      prioridad = "ahora";
+    } else if (diasSinEntrenar === null) {
+      prioridad = "ahora";
+    } else if (diasSinEntrenar >= config.diasSinEntrenarAlerta) {
+      prioridad = "hoy";
+    } else if (sesionesAsignadas > 0 && pctSesiones < config.pctEntrenamientoAtencion) {
+      prioridad = "hoy";
+    } else if (sesionesAsignadas > 0 && diasConComida <= config.diasComidaAtencion) {
+      prioridad = "hoy";
+    } else if (sesionesAsignadas === 0) {
+      // Recién empezando: no es urgente, pero conviene tenerlo en la mira
+      // esta semana, no perderlo de vista hasta el próximo corte del mes.
+      prioridad = "esta_semana";
+    }
+
     indicadores.set(alumnoId, {
       estado,
+      prioridad,
+      razonPrioridad,
       pctSesiones,
       sesionesHechas,
       sesionesAsignadas,
@@ -399,8 +454,22 @@ export async function obtenerReportes(
       .map((s) => s.molestias?.trim())
       .filter((m): m is string => Boolean(m));
 
+    // Dolor o molestia reportada es una señal real (sección 7.3 del
+    // instructivo de reorganización) que el semáforo estado/atención no mira
+    // — un alumno "al día" en asistencia puede seguir entrenando lastimado
+    // sin que nada lo marque. No pisa "ahora" (eso queda para lo que bloquea
+    // de verdad la operación), pero sube a "hoy" si estaba más abajo.
+    const prioridad =
+      molestias.length > 0 && (indicador.prioridad === "esta_semana" || indicador.prioridad === "sin_accion")
+        ? "hoy"
+        : indicador.prioridad;
+    const razonPrioridad =
+      prioridad !== indicador.prioridad ? `Reportó una molestia: "${molestias[0]}"` : indicador.razonPrioridad;
+
     return {
       ...indicador,
+      prioridad,
+      razonPrioridad,
       alumnoId: alumno.id,
       nombre: alumno.nombre,
       objetivo: alumno.objetivo,
