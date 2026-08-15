@@ -13,6 +13,7 @@ import {
   leerAsistenteArmado,
   limpiarAsistenteArmado,
 } from "@/lib/generador-rutinas/asistente-armado-local";
+import { guardarUltimoAlumnoElegido, leerUltimoAlumnoElegido } from "@/lib/admin/ultimo-alumno-local";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { PatronMovimiento } from "@/lib/rutinas/patrones";
 import type { CodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
@@ -203,7 +204,22 @@ export function ArmarRutinaPanel({
     // la hidratación (mismo patrón que ZoomPanel/ThemeToggle).
     const id = window.setTimeout(() => {
       const guardado = leerAsistenteArmado<EstadoAsistente>();
-      if (!guardado) return;
+      if (!guardado || guardado.seleccionados.length === 0) {
+        // Sin borrador propio (o con uno vacío, sin alumno todavía): retoma
+        // al último elegido en Armar rutina, Documentos o Rutinas hechas —
+        // ver ultimo-alumno-local.ts. Solo la selección, el resto del
+        // asistente arranca en blanco.
+        const ultimoId = leerUltimoAlumnoElegido();
+        if (ultimoId && alumnos.some((a) => a.id === ultimoId)) {
+          setSeleccionados(new Set([ultimoId]));
+          const encontrado = alumnos.find((a) => a.id === ultimoId);
+          if (encontrado) {
+            setDias(encontrado.plan?.diasSemana ?? encontrado.dias ?? 3);
+            setMinutos(encontrado.minutos ?? 60);
+          }
+        }
+        return;
+      }
       setSeleccionados(new Set(guardado.seleccionados));
       setNivel(guardado.nivel);
       setDias(guardado.dias);
@@ -223,6 +239,7 @@ export function ArmarRutinaPanel({
     }, 0);
     return () => window.clearTimeout(id);
     // Solo al montar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -309,7 +326,10 @@ export function ArmarRutinaPanel({
     setSeleccionados((previos) => {
       const copia = new Set(previos);
       if (copia.has(id)) copia.delete(id);
-      else copia.add(id);
+      else {
+        copia.add(id);
+        guardarUltimoAlumnoElegido(id);
+      }
 
       const grupo = alumnos.filter((a) => copia.has(a.id));
       if (grupo.length > 0) {

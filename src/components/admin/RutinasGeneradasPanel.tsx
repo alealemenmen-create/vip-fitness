@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { guardarUltimoAlumnoElegido, leerUltimoAlumnoElegido } from "@/lib/admin/ultimo-alumno-local";
 import { ArchiveRestore, ArrowLeft, ArrowRightLeft, Archive, FileText, Search, Star, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
@@ -91,7 +92,25 @@ export function RutinasGeneradasPanel({
     setError(null);
     setVerArchivadas(false);
     recargarRutinas(elegido.id, false);
+    guardarUltimoAlumnoElegido(elegido.id);
   };
+
+  // Retoma al último alumno elegido en Armar rutina, Documentos o esta misma
+  // pantalla en otra pestaña — ver ultimo-alumno-local.ts. Solo al montar y
+  // solo si todavía no hay nadie elegido: no debe pisar una selección que el
+  // entrenador ya hizo a mano en esta carga.
+  useEffect(() => {
+    if (alumno) return;
+    const ultimoId = leerUltimoAlumnoElegido();
+    if (!ultimoId) return;
+    const encontrado = alumnos.find((a) => a.id === ultimoId);
+    // react-hooks/set-state-in-effect: falso positivo — lee localStorage,
+    // que no existe en el servidor (mismo caso documentado en
+    // SesionEjercicioCard.tsx y GaleriaEjercicios.tsx).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (encontrado) elegirAlumno(encontrado);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const alternarArchivadas = () => {
     if (!alumno) return;

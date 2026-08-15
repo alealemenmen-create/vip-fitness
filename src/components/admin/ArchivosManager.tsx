@@ -22,6 +22,7 @@ import { EstadoCoherenciaMacros } from "@/components/admin/EstadoCoherenciaMacro
 import { SelectorAlumnos } from "@/components/admin/SelectorAlumnos";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { AlumnoParaAsignar } from "@/lib/documentos/tipos";
+import { guardarUltimoAlumnoElegido, leerUltimoAlumnoElegido } from "@/lib/admin/ultimo-alumno-local";
 
 /** El estado inicial vive acá, NO en el archivo de acciones: ese lleva
  * "use server" y solo puede exportar funciones asíncronas. Un objeto exportado
@@ -244,6 +245,28 @@ export function ArchivosManager({
   const [destinatarios, setDestinatarios] = useState<Set<string>>(
     new Set(alumnoId ? [alumnoId] : [])
   );
+
+  // Sin alumno de ficha: retoma al último elegido en Armar rutina o Rutinas
+  // hechas (ver ultimo-alumno-local.ts, sección 9.1 del instructivo de
+  // reorganización del panel) en vez de arrancar sin nadie marcado.
+  useEffect(() => {
+    if (alumnoId) return;
+    const ultimoId = leerUltimoAlumnoElegido();
+    if (ultimoId && alumnos.some((a) => a.id === ultimoId)) {
+      // react-hooks/set-state-in-effect: falso positivo — lee localStorage,
+      // que no existe en el servidor (mismo caso documentado en
+      // SesionEjercicioCard.tsx y GaleriaEjercicios.tsx).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDestinatarios(new Set([ultimoId]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const cambiarDestinatarios = (nuevo: Set<string>) => {
+    setDestinatarios(nuevo);
+    const elegidos = [...nuevo];
+    if (elegidos.length > 0) guardarUltimoAlumnoElegido(elegidos[elegidos.length - 1]);
+  };
 
   const [rutina, accionRutina, subiendoRutina] = useActionState(
     subirRutinaAVariosAlumnos,
@@ -487,7 +510,7 @@ export function ArchivosManager({
           <PanelSelector
             alumnos={alumnos}
             destinatarios={destinatarios}
-            onCambiar={setDestinatarios}
+            onCambiar={cambiarDestinatarios}
             onCerrar={() => setSelectorAbierto(null)}
           />
         )}
@@ -636,7 +659,7 @@ export function ArchivosManager({
           <PanelSelector
             alumnos={alumnos}
             destinatarios={destinatarios}
-            onCambiar={setDestinatarios}
+            onCambiar={cambiarDestinatarios}
             onCerrar={() => setSelectorAbierto(null)}
           />
         )}
