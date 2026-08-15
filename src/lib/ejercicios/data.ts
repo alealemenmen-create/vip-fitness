@@ -103,3 +103,46 @@ export const obtenerBiblioteca = unstable_cache(leerBiblioteca, ["biblioteca-eje
 export function obtenerBibliotecaSinCache(): Promise<Ejercicio[]> {
   return leerBiblioteca();
 }
+
+export type FusionEjercicio = {
+  id: string;
+  originalNombre: string;
+  duplicadoNombre: string;
+  usosTrasladados: number;
+  fusionadoEn: string;
+  deshecho: boolean;
+};
+
+const DIAS_VENTANA_RESTAURACION = 30;
+
+/**
+ * Historial reciente de fusiones de duplicados (ver `ejercicio_fusiones`,
+ * migración 0093) — sección 8.7 del instructivo de reorganización del panel:
+ * "permite restaurar desde la ficha del ejercicio" durante un período
+ * definido. Devuelve `[]` sin reventar si la migración todavía no corrió
+ * contra esta base — mismo criterio que `/admin/gastos` y `/admin/reportes`.
+ */
+export async function obtenerHistorialFusiones(): Promise<FusionEjercicio[]> {
+  const admin = createAdminClient();
+  const desde = new Date(Date.now() - DIAS_VENTANA_RESTAURACION * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await admin
+    .from("ejercicio_fusiones")
+    .select("id,original_nombre,duplicado_nombre,rutina_dia_ejercicios_ids,fusionado_en,deshecho_en")
+    .gte("fusionado_en", desde)
+    .order("fusionado_en", { ascending: false })
+    .limit(20);
+  if (error) {
+    if (error.code !== "PGRST205" && error.code !== "42P01") {
+      console.error("[ejercicios] no se pudo leer el historial de fusiones:", error.message);
+    }
+    return [];
+  }
+  return (data ?? []).map((fila) => ({
+    id: fila.id,
+    originalNombre: fila.original_nombre,
+    duplicadoNombre: fila.duplicado_nombre,
+    usosTrasladados: (fila.rutina_dia_ejercicios_ids ?? []).length,
+    fusionadoEn: fila.fusionado_en,
+    deshecho: fila.deshecho_en !== null,
+  }));
+}

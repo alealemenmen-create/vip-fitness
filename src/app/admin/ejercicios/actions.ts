@@ -767,7 +767,7 @@ export async function combinarEjerciciosDuplicados(
   _prevState: CombinarDuplicadosState,
   formData: FormData,
 ): Promise<CombinarDuplicadosState> {
-  await requireRol(["entrenador", "admin"]);
+  const sesion = await requireRol(["entrenador", "admin"]);
   const idA = String(formData.get("original_id") || "");
   const idB = String(formData.get("duplicado_id") || "");
   if (!idA || !idB || idA === idB) return { error: "Elige dos ejercicios distintos.", ok: false };
@@ -786,7 +786,8 @@ export async function combinarEjerciciosDuplicados(
   const duplicado = original.id === sugerido.id ? otro : sugerido;
   if (!original.activo || !duplicado.activo) return { error: "Uno de los ejercicios ya no está activo.", ok: false };
 
-  const aliases = [...new Set([...(original.aliases ?? []), duplicado.nombre, ...(duplicado.aliases ?? [])])]
+  const aliasesAntes = original.aliases ?? [];
+  const aliases = [...new Set([...aliasesAntes, duplicado.nombre, ...(duplicado.aliases ?? [])])]
     .filter((alias) => normalizar(alias) !== normalizar(original.nombre));
   const { error: errorOriginal } = await supabase.from("ejercicios").update({
     aliases,
@@ -797,14 +798,91 @@ export async function combinarEjerciciosDuplicados(
   }).eq("id", original.id);
   if (errorOriginal) return { error: "No se pudo preparar el ejercicio original.", ok: false };
 
+  // Se leen los IDs exactos ANTES de reasignar — es lo único que permite
+  // deshacer con precisión después (ver ejercicio_fusiones, migración 0093):
+  // sin esta lista, "restaurar" no podría distinguir las filas que eran del
+  // duplicado de las que ya apuntaban al original por otro motivo.
+  const { data: filasAfectadas } = await supabase
+    .from("rutina_dia_ejercicios")
+    .select("id")
+    .eq("ejercicio_id", duplicado.id);
+  const idsFilasAfectadas = (filasAfectadas ?? []).map((fila) => fila.id);
+
   const { error: errorRutinas } = await supabase.from("rutina_dia_ejercicios").update({ ejercicio_id: original.id }).eq("ejercicio_id", duplicado.id);
   if (errorRutinas) return { error: "No se pudieron trasladar las rutinas al ejercicio original.", ok: false };
 
   const { error: errorDesactivar } = await supabase.from("ejercicios").update({ activo: false }).eq("id", duplicado.id);
   if (errorDesactivar) return { error: "Las rutinas quedaron asociadas, pero no se pudo ocultar el duplicado.", ok: false };
 
+  // Best-effort: si la migración 0093 todavía no corrió contra esta base, la
+  // tabla no existe y esto falla en silencio — la fusión en sí ya se hizo
+  // bien, el historial es una red de seguridad extra, no algo que deba
+  // tumbar la operación principal.
+  const { error: errorHistorial } = await supabase.from("ejercicio_fusiones").insert({
+    original_id: original.id,
+    original_nombre: original.nombre,
+    duplicado_id: duplicado.id,
+    duplicado_nombre: duplicado.nombre,
+    aliases_antes: aliasesAntes,
+    rutina_dia_ejercicios_ids: idsFilasAfectadas,
+    fusionado_por: sesion.userId,
+  });
+  if (errorHistorial) console.error("[ejercicios] no se pudo registrar el historial de fusión:", errorHistorial.message);
+
   avisarCambios();
-  return { error: null, ok: true, mensaje: `${duplicado.nombre} quedó combinado con ${original.nombre}.` };
+  return {
+    error: null,
+    ok: true,
+    mensaje: `${duplicado.nombre} quedó combinado con ${original.nombre}${idsFilasAfectadas.length > 0 ? ` (${idsFilasAfectadas.length} uso${idsFilasAfectadas.length === 1 ? "" : "s"} en rutinas trasladados)` : ""}.`,
+  };
+}
+
+export type DeshacerFusionState = { error: string | null; ok: boolean; mensaje?: string };
+
+/** Restaura una fusión: reactiva el duplicado, le devuelve exactamente las
+ * filas de rutina que se le habían trasladado, y quita del original solo los
+ * alias que esta fusión había agregado (nunca los que ya tenía antes). Solo
+ * deshace fusiones propias — no reescribe el historial de otro entrenador. */
+export async function deshacerFusionEjercicios(
+  _prevState: DeshacerFusionState,
+  formData: FormData,
+): Promise<DeshacerFusionState> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+  const fusionId = String(formData.get("fusion_id") || "");
+  if (!fusionId) return { error: "Falta el identificador de la fusión.", ok: false };
+
+  const supabase = await createClient();
+  const { data: fusion, error: errorLectura } = await supabase
+    .from("ejercicio_fusiones")
+    .select("id,original_id,duplicado_id,duplicado_nombre,aliases_antes,rutina_dia_ejercicios_ids,deshecho_en")
+    .eq("id", fusionId)
+    .maybeSingle();
+  if (errorLectura || !fusion) return { error: "No se encontró esa fusión en el historial.", ok: false };
+  if (fusion.deshecho_en) return { error: "Esta fusión ya se había restaurado antes.", ok: false };
+  if (!fusion.duplicado_id) return { error: "El ejercicio combinado ya no existe, no se puede restaurar.", ok: false };
+
+  if (fusion.rutina_dia_ejercicios_ids.length > 0) {
+    const { error: errorRestituir } = await supabase
+      .from("rutina_dia_ejercicios")
+      .update({ ejercicio_id: fusion.duplicado_id })
+      .in("id", fusion.rutina_dia_ejercicios_ids);
+    if (errorRestituir) return { error: "No se pudieron devolver las rutinas al ejercicio original.", ok: false };
+  }
+
+  const { error: errorReactivar } = await supabase.from("ejercicios").update({ activo: true }).eq("id", fusion.duplicado_id);
+  if (errorReactivar) return { error: "Las rutinas volvieron, pero no se pudo reactivar el ejercicio.", ok: false };
+
+  const { error: errorAliases } = await supabase.from("ejercicios").update({ aliases: fusion.aliases_antes }).eq("id", fusion.original_id);
+  if (errorAliases) console.error("[ejercicios] no se pudieron restaurar los alias originales:", errorAliases.message);
+
+  const { error: errorMarcar } = await supabase
+    .from("ejercicio_fusiones")
+    .update({ deshecho_en: new Date().toISOString(), deshecho_por: sesion.userId })
+    .eq("id", fusionId);
+  if (errorMarcar) console.error("[ejercicios] no se pudo marcar la fusión como deshecha:", errorMarcar.message);
+
+  avisarCambios();
+  return { error: null, ok: true, mensaje: `${fusion.duplicado_nombre} quedó restaurado.` };
 }
 
 export type ActualizarPerfilImpulsoState = { error: string | null; ok: boolean };

@@ -1976,6 +1976,38 @@ export interface Database {
         };
         Relationships: [];
       };
+      // 0093_ejercicio_fusiones_historial.sql — historial de fusiones de
+      // ejercicios duplicados, con lo necesario para deshacer con precisión
+      // (las filas exactas de rutina_dia_ejercicios que se reasignaron).
+      ejercicio_fusiones: {
+        Row: {
+          id: string;
+          original_id: string;
+          original_nombre: string;
+          duplicado_id: string | null;
+          duplicado_nombre: string;
+          aliases_antes: string[];
+          rutina_dia_ejercicios_ids: string[];
+          fusionado_por: string;
+          fusionado_en: string;
+          deshecho_en: string | null;
+          deshecho_por: string | null;
+        };
+        Insert: {
+          original_id: string;
+          original_nombre: string;
+          duplicado_id?: string | null;
+          duplicado_nombre: string;
+          aliases_antes?: string[];
+          rutina_dia_ejercicios_ids?: string[];
+          fusionado_por: string;
+        };
+        Update: {
+          deshecho_en?: string | null;
+          deshecho_por?: string | null;
+        };
+        Relationships: [];
+      };
       push_suscripciones: {
         Row: {
           id: string;

@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useRef, useState, type PointerEvent
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge, CircleAlert, LibraryBig, ClipboardCheck } from "lucide-react";
+import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge, CircleAlert, LibraryBig, ClipboardCheck, Undo2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import {
@@ -28,6 +28,8 @@ import {
   type VincularNombreRutinaState,
   combinarEjerciciosDuplicados,
   type CombinarDuplicadosState,
+  deshacerFusionEjercicios,
+  type DeshacerFusionState,
 } from "@/app/admin/ejercicios/actions";
 import { normalizar } from "@/lib/alimentos/emparejar";
 import { Button } from "@/components/ui/Button";
@@ -39,6 +41,7 @@ import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio"
 import { ModalVideo } from "@/components/student/ModalVideo";
 import { CuadroFotoReferencia } from "@/components/student/SesionEjercicioCard";
 import type { UsoEjercicioInventario } from "@/lib/ejercicios/inventario";
+import type { FusionEjercicio } from "@/lib/ejercicios/data";
 
 const ETIQUETAS_GRUPO: Record<string, string> = {
   pecho: "Pecho",
@@ -257,6 +260,7 @@ export type ReporteFotoPendiente = {
 
 const ESTADO_INICIAL_VINCULO: VincularNombreRutinaState = { error: null, ok: false };
 const ESTADO_INICIAL_COMBINAR: CombinarDuplicadosState = { error: null, ok: false };
+const ESTADO_INICIAL_DESHACER: DeshacerFusionState = { error: null, ok: false };
 
 function firmaPosibleDuplicado(nombre: string): string {
   return normalizar(nombre)
@@ -288,6 +292,42 @@ function CombinarDuplicadoForm({ original, duplicado }: { original: Ejercicio; d
       {state.error && <p className="text-micro mt-1 text-error">{state.error}</p>}
       {state.ok && <p className="text-micro mt-1 text-success">{state.mensaje}</p>}
     </form>
+  );
+}
+
+function FusionHistorialCard({ fusion }: { fusion: FusionEjercicio }) {
+  const [state, action, pending] = useActionState(deshacerFusionEjercicios, ESTADO_INICIAL_DESHACER);
+  const fecha = new Date(fusion.fusionadoEn).toLocaleDateString("es-CL", { day: "2-digit", month: "short" });
+
+  return (
+    <div className="radius-control flex items-center gap-2 border border-border bg-surface p-2.5">
+      <div className="min-w-0 flex-1">
+        <p className="text-caption text-text">
+          <strong className="text-text">{fusion.duplicadoNombre}</strong> → {fusion.originalNombre}
+        </p>
+        <p className="text-micro text-text-tertiary">
+          {fecha}
+          {fusion.usosTrasladados > 0 && ` · ${fusion.usosTrasladados} uso${fusion.usosTrasladados === 1 ? "" : "s"} trasladado${fusion.usosTrasladados === 1 ? "" : "s"}`}
+        </p>
+        {state.error && <p className="text-micro mt-1 text-error">{state.error}</p>}
+        {state.ok && <p className="text-micro mt-1 text-success">{state.mensaje}</p>}
+      </div>
+      {fusion.deshecho || state.ok ? (
+        <span className="shrink-0 text-micro font-semibold text-text-tertiary">Restaurado</span>
+      ) : (
+        <form
+          action={action}
+          onSubmit={(evento) => {
+            if (!window.confirm(`¿Restaurar "${fusion.duplicadoNombre}"? Vuelve a activarse y recupera sus usos en rutinas.`)) evento.preventDefault();
+          }}
+        >
+          <input type="hidden" name="fusion_id" value={fusion.id} />
+          <button type="submit" disabled={pending} className="radius-control flex shrink-0 items-center gap-1 border border-border px-2 py-1 text-[9px] font-semibold text-text-secondary disabled:opacity-50">
+            <Undo2 size={11} /> {pending ? "Restaurando…" : "Deshacer"}
+          </button>
+        </form>
+      )}
+    </div>
   );
 }
 
@@ -370,11 +410,13 @@ export function GaleriaEjercicios({
   reportes = [],
   usosPorEjercicio = {},
   nombresRutinaSinVincular = [],
+  historialFusiones = [],
 }: {
   ejercicios: Ejercicio[];
   reportes?: ReporteFotoPendiente[];
   usosPorEjercicio?: Record<string, UsoEjercicioInventario>;
   nombresRutinaSinVincular?: { nombre: string; cantidad: number }[];
+  historialFusiones?: FusionEjercicio[];
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [editando, setEditando] = useState<Ejercicio | null>(null);
@@ -640,15 +682,37 @@ export function GaleriaEjercicios({
                 <div key={grupo.map((item) => item.id).join(":")} className="radius-control border border-border bg-surface p-2.5">
                   <p className="text-caption font-bold text-text">Original sugerido: <span className="text-vip">{original.nombre}</span></p>
                   <p className="text-micro text-text-tertiary">{conFoto ? "Tiene foto propia" : original.ilustracionSlug ? "Tiene ilustración original" : "Sin foto propia"}</p>
-                  {variantes.map((duplicado) => (
-                    <div key={duplicado.id} className="mt-2 border-t border-border pt-2">
-                      <p className="text-caption text-text-secondary">Posible variante: <strong className="text-text">{duplicado.nombre}</strong></p>
-                      <CombinarDuplicadoForm original={original} duplicado={duplicado} />
-                    </div>
-                  ))}
+                  {variantes.map((duplicado) => {
+                    const usos = usosPorEjercicio[duplicado.id]?.cantidad ?? 0;
+                    return (
+                      <div key={duplicado.id} className="mt-2 border-t border-border pt-2">
+                        <p className="text-caption text-text-secondary">Posible variante: <strong className="text-text">{duplicado.nombre}</strong></p>
+                        {usos > 0 && (
+                          <p className="text-micro mt-0.5 text-warning">
+                            Afecta {usos} {usos === 1 ? "uso" : "usos"} en rutinas — se trasladan al original.
+                          </p>
+                        )}
+                        <CombinarDuplicadoForm original={original} duplicado={duplicado} />
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}
+          </div>
+        </details>
+      )}
+
+      {pestana === "pendientes" && historialFusiones.length > 0 && (
+        <details className="rounded-[20px] border border-border bg-surface p-3">
+          <summary className="flex cursor-pointer list-none items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-surface-2 text-text-secondary"><Undo2 size={16} /></span>
+            <span className="min-w-0 flex-1"><span className="text-caption block font-bold text-text">Historial de fusiones</span><span className="text-micro block text-text-tertiary">Últimos 30 días · se puede restaurar</span></span>
+          </summary>
+          <div className="mt-2 space-y-2">
+            {historialFusiones.map((fusion) => (
+              <FusionHistorialCard key={fusion.id} fusion={fusion} />
+            ))}
           </div>
         </details>
       )}
