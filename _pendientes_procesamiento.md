@@ -1,53 +1,43 @@
 # Pendientes para el procesamiento final de fotos
 
-## Grupos con foto duplicada (elegir 1 de las 2) — pendiente de comparar
-- remo-mancuerna: 005-remo-con-mancuerna.jpg | Remo con mancuerna.jpg
-- elevacion-piernas: 017-elevacion-de-piernas.jpg | Elevación de piernas.jpg
-- press-militar: 025-press-militar.jpg | Press militar.jpg
-- extension-triceps-sobre-cabeza: 045-extension-sobre-la-cabeza.jpg | Extensión sobre la cabeza.jpg
-- hip-thrust: 048-hip-thrust.jpg | Hip Thrust.jpg
-- subida-cajon: 084-step-up.jpg | Step Up.jpg
-- sentadilla-libre-trasera: Sentadilla libre trasera.jpg | Super squat.jpg
+Estado al 14/08: todos los ítems de este documento fueron revisados y
+aplicados (o ya estaban correctos de una sesión anterior). Detalle abajo.
 
-## Match manual (nombre de archivo no calza literal pero es correcto)
-- Aducción.jpg -> aductores
-- Pulldown unilateral.jpg -> jalon-neutro
-- push  up.jpg -> flexiones
-- 039-press-de-hombros-con-mancuernas.jpg -> press-hombro-mancuernas (NO es duplicado de Press plano con mancuernas)
-- Remo Hammer.jpg -> remo-hammer (NO es duplicado de Remo T-Bar)
-- Extensión unilateral.jpg -> extension-triceps-unilateral (NO es duplicado de Extensión de cuádriceps unilateral)
+## Grupos con foto duplicada — resuelto
+- remo-mancuerna: ya tenía una foto correcta (una tercera toma distinta a
+  las dos candidatas). No se tocó.
+- elevacion-piernas: los archivos de staging ya no existen; asumido resuelto
+  en una sesión previa.
+- press-militar: **corregido** — el recorte cuadrado cortaba cabeza y barra.
+  Reprocesado desde `025-press-militar.jpg`.
+- extension-triceps-sobre-cabeza (slug real: `triceps-sobre-cabeza`): ya
+  estaba correcto.
+- hip-thrust: ya estaba correcto. El candidato perdedor ya estaba marcado
+  `DESCARTADA-hip-thrust-barra.jpg` de una sesión previa.
+- subida-cajon (Step Up): **corregido** — tenía la foto de otro ejercicio.
+  Reprocesado desde `Step Up.jpg`. El candidato perdedor ya estaba marcado
+  `DESCARTADA-step-up-cajon.jpg`.
+- sentadilla-libre-trasera: ya estaba correcto. El candidato perdedor ya
+  estaba marcado `DESCARTADA-super-squat-maquina.jpg`.
 
+## Match manual — resuelto (reprocesados desde staging)
+- Aducción.jpg -> aductores ✓
+- Pulldown unilateral.jpg -> jalon-neutro ✓ (estaba MAL: tenía una foto de
+  curl con mancuernas)
+- push up.jpg -> flexiones ✓
+- 039-press-de-hombros-con-mancuernas.jpg -> press-hombro-mancuernas ✓
+- Remo Hammer.jpg -> remo-hammer ✓
+- Extensión unilateral.jpg -> extension-triceps-unilateral ✓
 
-- **Gemelos**: solo hay UNA foto de gemelos. El usuario la renombró con los tres
-  nombres a la vez. Al procesar, copiar esa misma imagen final a los tres
-  slugs de ilustración:
-  - `gemelos` (Gemelos de pie)
-  - `gemelos-sentado` (Gemelos sentado)
-  - `gemelos-prensa` (Gemelos en prensa)
+## Casos especiales — ya estaban todos resueltos, sin cambios
+- Gemelos (gemelos / gemelos-sentado / gemelos-prensa): mismo archivo
+  copiado a los 3 slugs, confirmado por hash idéntico.
+- Sentadilla goblet: la genérica "Sentadilla" no usa la foto goblet: correcto.
+- Curl femoral sentado/pie: mismo archivo en ambos slugs, confirmado por hash.
+- Prensa 45° / horizontal: `ilustracion_slug` compartido ya en la base.
+- Push Press: `ilustracion_slug` ya apunta a `sentadilla-frontal` en la base.
 
-- **Sentadilla goblet**: las fotos con mancuerna sostenida al pecho (goblet
-  hold) NO son "Sentadilla" genérica — son `sentadilla-goblet` (Sentadilla
-  goblet), que ya existe en la base. Reasignar esas fotos a ese slug en vez
-  del genérico "Sentadilla".
-
-- **Curl femoral sentado / de pie**: solo hay UNA foto ("Curl femoral sentado
-  de pie.jpg", mal nombrada, se refiere a las dos). Copiar la misma imagen
-  final a los dos slugs:
-  - `curl-femoral-sentado` (Curl femoral sentado)
-  - `curl-femoral-pie` (Curl femoral de pie)
-
-- **Prensa 45° / Prensa horizontal**: en el gimnasio del usuario NO hay
-  prensa horizontal. Usar la foto de "Prensa 45°" también para cualquier
-  referencia a "Prensa horizontal" — no crear un ejercicio nuevo separado,
-  solo reusar la imagen de `prensa` / `prensa-inclinada` (comparten
-  ilustracion_slug 'prensa') para ese caso.
-
-- **Push Press**: no hay foto propia. Reusar "Sentadilla frontal.jpg" también
-  para Push Press (mismo patrón que gemelos: una imagen, dos ejercicios).
-
-- **Sentadilla libre trasera**: la foto ex D5F5C083 (que pasó por "Push
-  Press" antes de aclararse) en realidad es esta — sentadilla con barra
-  trasera. Ya renombrada a "Sentadilla libre trasera.jpg". OJO: ya existía
-  otro archivo "Super squat.jpg", que es alias del mismo ejercicio
-  (`sentadilla-libre-trasera`) — quedan DOS candidatas para el mismo slug,
-  hay que comparar y elegir una en el paso de duplicados.
+## Herramienta nueva
+Se agregó `scripts/procesar-foto-ejercicio.mjs` para repetir este proceso
+(staging -> `public/ejercicios-completas/<slug>.webp` + recorte cuadrado en
+`public/ejercicios/<slug>.webp`) si aparecen más fotos para asignar.

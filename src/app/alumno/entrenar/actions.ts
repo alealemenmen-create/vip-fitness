@@ -29,8 +29,6 @@ import {
 import { ESTADOS_CORREGIBLES, sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerEstadoPlanMensual } from "@/lib/planes-entrenamiento-servidor";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { after } from "next/server";
-import { avisarPropuestaImpulsoCercana } from "@/lib/impulso-vip/avisos-entrenador";
 
 const DIFICULTADES_VALIDAS = new Set(["muy_facil", "facil", "justo", "dificil", "fallo"]);
 type TrainingDb = ReturnType<typeof createAdminClient>;
@@ -47,14 +45,15 @@ export async function actualizarTemporizadorDescansoAlumno(
     return { ok: false, error: "La opción de descanso no es válida." };
   }
   const temporizadorActivo = modo !== "libre";
-  const descansoPersonalizado = typeof modo === "number" ? modo : null;
+  const segundosPreferidos = typeof modo === "number" ? modo : null;
 
   const supabase = createAdminClient();
   const { error } = await supabase
     .from("alumno_perfil")
     .update({
       temporizador_descanso: temporizadorActivo,
-      descanso_personalizado_segundos: descansoPersonalizado,
+      temporizador_descanso_desactivado_por_alumno: !temporizadorActivo,
+      segundos_descanso_preferido: segundosPreferidos,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", alumnoId);
@@ -64,7 +63,7 @@ export async function actualizarTemporizadorDescansoAlumno(
     // El interruptor original (0087) sí existe: se guarda igual y la duración
     // elegida queda aplicada a esta sesión desde el cliente, en vez de mostrar
     // un error al alumno por una migración pendiente del entorno.
-    const faltaColumnaNueva = error.code === "PGRST204" || /descanso_personalizado_segundos/i.test(error.message);
+    const faltaColumnaNueva = error.code === "PGRST204" || /segundos_descanso_preferido|temporizador_descanso_desactivado_por_alumno/i.test(error.message);
     if (!faltaColumnaNueva) {
       console.error("[entrenar] no se pudo actualizar temporizador_descanso:", error.message);
       return { ok: false, error: "No fue posible ajustar el descanso. Intenta nuevamente." };
@@ -366,7 +365,6 @@ export async function cancelarYEmpezarOtroDia(formData: FormData): Promise<void>
         alumnoId,
         sesionEjercicios: ejerciciosSesion ?? [],
       }).catch(() => null);
-      after(() => avisarPropuestaImpulsoCercana({ sesionId, alumnoId }).catch(() => {}));
     }
   }
   revalidatePath("/alumno/entrenar");
@@ -408,7 +406,6 @@ export async function iniciarRutinaDesdeCalendario(formData: FormData): Promise<
     alumnoId,
     sesionEjercicios: ejerciciosSesion ?? [],
   }).catch(() => null);
-  after(() => avisarPropuestaImpulsoCercana({ sesionId, alumnoId }).catch(() => {}));
   revalidatePath("/alumno/entrenar");
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   redirect(`/alumno/entrenar/sesion/${sesionId}`);
@@ -453,10 +450,6 @@ export async function iniciarRutina(formData: FormData): Promise<void> {
     alumnoId,
     sesionEjercicios: ejerciciosSesion ?? [],
   }).catch(() => null);
-
-  // Al empezar, una propuesta situada entre los dos primeros ejercicios deja
-  // una ventana aproximada de 10–20 minutos para que Ale la revise.
-  after(() => avisarPropuestaImpulsoCercana({ sesionId, alumnoId }).catch(() => {}));
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
 }
@@ -661,13 +654,6 @@ export async function guardarSeries(
 
   const resultado = await guardarUnEjercicio(supabase, formData, "", sesionId, alumnoId);
   if (resultado.error) return resultado;
-  if (resultado.completado && resultado.sesionEjercicioId) {
-    after(() => avisarPropuestaImpulsoCercana({
-      sesionId,
-      alumnoId,
-      despuesDeEjercicioId: resultado.sesionEjercicioId,
-    }).catch(() => {}));
-  }
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/inicio");
@@ -698,20 +684,10 @@ export async function guardarSeriesGrupo(
     return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
   }
 
-  let ultimoCompletadoId: string | undefined;
   for (let i = 0; i < cantidad; i++) {
     const sufijo = i === 0 ? "" : `_${i}`;
     const resultado = await guardarUnEjercicio(supabase, formData, sufijo, sesionId, alumnoId);
     if (resultado.error) return resultado;
-    if (resultado.completado) ultimoCompletadoId = resultado.sesionEjercicioId;
-  }
-
-  if (ultimoCompletadoId) {
-    after(() => avisarPropuestaImpulsoCercana({
-      sesionId,
-      alumnoId,
-      despuesDeEjercicioId: ultimoCompletadoId,
-    }).catch(() => {}));
   }
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
@@ -774,7 +750,7 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
   if (soloLectura) redirect("/alumno/entrenar");
 
   const supabase = createAdminClient();
-  const [{ data: sesion }, { data: ejercicios }] = await Promise.all([
+  const [{ data: sesion }, { data: ejercicios }, { data: alumnoPerfil }] = await Promise.all([
     supabase
       .from("sesiones_entrenamiento")
       .select("id, fecha, estado, rutina_iniciada_en")
@@ -782,6 +758,11 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
       .eq("alumno_id", alumnoId)
       .maybeSingle(),
     supabase.from("sesion_ejercicios").select("completado").eq("sesion_id", sesionId),
+    supabase
+      .from("alumno_perfil")
+      .select("temporizador_descanso_desactivado_por_alumno")
+      .eq("user_id", alumnoId)
+      .maybeSingle(),
   ]);
   if (!sesion) redirect("/alumno/entrenar");
   if (sesion.estado !== "en_progreso") redirect(`/alumno/entrenar/sesion/${sesionId}`);
@@ -816,6 +797,7 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
     fecha: sesion.fecha,
     completados,
     total,
+    descansoDesactivadoPorAlumno: alumnoPerfil?.temporizador_descanso_desactivado_por_alumno === true,
   });
 
   // Bono de Impulso VIP: solo si de verdad hubo metas evaluadas (ver

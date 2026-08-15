@@ -458,6 +458,14 @@ export async function actualizarPerfilAlumno(
       // apagado. Se invierte acá y no en la base para que la columna se lea
       // sola: `temporizador_descanso` true es el comportamiento normal.
       temporizador_descanso: formData.get("sin_temporizador_descanso") !== "on",
+      // El entrenador lo está tocando él mismo desde acá — nunca penaliza,
+      // sin importar en qué quedó. Solo penaliza cuando el ALUMNO lo apaga
+      // desde su propio botón (ver src/app/alumno/perfil/actions.ts).
+      temporizador_descanso_desactivado_por_alumno: false,
+      // A diferencia de plan_entrenamiento_pausado, no depende de tener un
+      // plan asignado: corta el acceso a toda la app igual.
+      acceso_bloqueado: formData.get("acceso_bloqueado") === "on",
+      acceso_bloqueado_motivo: String(formData.get("acceso_bloqueado_motivo") || "").trim() || null,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", alumnoId);

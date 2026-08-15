@@ -10,7 +10,7 @@ import type { ResultadoIntervencionImpulso } from "@/lib/supabase/types";
 import { calibrarCierreControlado } from "@/lib/impulso-vip/en-vivo";
 import { evaluarTecnicaIntensiva } from "@/lib/impulso-vip/elegibilidad";
 import type { TipoIntervencionImpulso } from "@/lib/supabase/types";
-import { avisarSolicitudAsistencia } from "@/lib/impulso-vip/avisos-entrenador";
+import { avisarResultadoIntervencion, avisarSolicitudAsistencia } from "@/lib/impulso-vip/avisos-entrenador";
 
 export type ReportarDolorState = { error: string | null; ok: boolean };
 
@@ -188,7 +188,7 @@ export async function calibrarIntervencionEnVivo(
     supabase
       .from("sesion_ejercicios")
       .select(
-        "rutina_dia_ejercicios(ejercicio_id, ejercicios(impulso_intensidad_maxima, impulso_tecnicas_permitidas, impulso_requiere_supervision, impulso_perfil_revisado))"
+        "rutina_dia_ejercicios(ejercicio_id, ejercicios(impulso_intensidad_maxima, impulso_tecnicas_permitidas, impulso_perfil_revisado))"
       )
       .eq("id", intervencion.sesion_ejercicio_id)
       .maybeSingle(),
@@ -226,12 +226,10 @@ export async function calibrarIntervencionEnVivo(
     ejercicios: {
       impulso_intensidad_maxima: "ninguna" | "baja" | "media" | "alta";
       impulso_tecnicas_permitidas: TipoIntervencionImpulso[];
-      impulso_requiere_supervision: boolean;
       impulso_perfil_revisado: boolean;
     } | {
       impulso_intensidad_maxima: "ninguna" | "baja" | "media" | "alta";
       impulso_tecnicas_permitidas: TipoIntervencionImpulso[];
-      impulso_requiere_supervision: boolean;
       impulso_perfil_revisado: boolean;
     }[] | null;
   };
@@ -253,7 +251,6 @@ export async function calibrarIntervencionEnVivo(
     intensidadMaxima: ejercicioBiblioteca?.impulso_intensidad_maxima ?? "ninguna",
     tecnicasPermitidas: ejercicioBiblioteca?.impulso_tecnicas_permitidas ?? [],
     tecnicasConRetroceso: (memoriaTecnicas ?? []).map((fila) => fila.tecnica as TipoIntervencionImpulso),
-    requiereSupervision: ejercicioBiblioteca?.impulso_requiere_supervision ?? true,
     experiencia: perfil?.experiencia ?? null,
     tieneRestriccionMedica:
       !!perfil?.requiere_revision || !!perfil?.lesiones_diagnosticadas?.trim() || !!perfil?.condiciones_medicas?.trim(),
@@ -557,5 +554,13 @@ export async function resolverIntervencionEnVivo(
     .in("estado", ["preparada", "mostrada"]);
 
   if (error) return { error: "No pudimos guardar el resultado. Intenta nuevamente.", ok: false, verificada: false };
+
+  await avisarResultadoIntervencion({
+    intervencionId,
+    alumnoId,
+    sesionEjercicioId: intervencion.sesion_ejercicio_id,
+    resultado,
+  }).catch(() => {});
+
   return { error: null, ok: true, verificada };
 }

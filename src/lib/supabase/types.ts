@@ -82,7 +82,12 @@ export interface Database {
   public: {
     Tables: {
       perfiles: {
-        Row: { id: string; nombre: string; rol: Rol; created_at: string };
+        Row: {
+          id: string;
+          nombre: string;
+          rol: Rol;
+          created_at: string;
+        };
         Insert: { id: string; nombre: string; rol: Rol; created_at?: string };
         Update: { nombre?: string; rol?: Rol };
         Relationships: [];
@@ -111,7 +116,16 @@ export interface Database {
           plan_entrenamiento_pausado: boolean;
           // 0087_temporizador_descanso_por_alumno.sql
           temporizador_descanso: boolean;
-          descanso_personalizado_segundos: number | null;
+          // 0091_temporizador_descanso_por_alumno_penalizacion.sql — true
+          // solo si fue el ALUMNO quien lo apagó (no el entrenador).
+          temporizador_descanso_desactivado_por_alumno: boolean;
+          // 0092_segundos_descanso_preferido.sql — si no es null, reemplaza
+          // el descanso_segundos de CADA ejercicio (ver alumno/entrenar/data.ts).
+          segundos_descanso_preferido: number | null;
+          // 0090_acceso_bloqueado_alumno.sql — corta el acceso a TODA la
+          // app (ej. no pagó), distinto de plan_entrenamiento_pausado.
+          acceso_bloqueado: boolean;
+          acceso_bloqueado_motivo: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -134,7 +148,10 @@ export interface Database {
           dias_entrenamiento_semana?: number | null;
           plan_entrenamiento_pausado?: boolean;
           temporizador_descanso?: boolean;
-          descanso_personalizado_segundos?: number | null;
+          temporizador_descanso_desactivado_por_alumno?: boolean;
+          segundos_descanso_preferido?: number | null;
+          acceso_bloqueado?: boolean;
+          acceso_bloqueado_motivo?: string | null;
         };
         Update: {
           entrenador_id?: string | null;
@@ -151,9 +168,12 @@ export interface Database {
           plan_entrenamiento?: CodigoPlanEntrenamiento | null;
           sesiones_mensuales?: number | null;
           dias_entrenamiento_semana?: number | null;
+          acceso_bloqueado?: boolean;
+          acceso_bloqueado_motivo?: string | null;
           plan_entrenamiento_pausado?: boolean;
           temporizador_descanso?: boolean;
-          descanso_personalizado_segundos?: number | null;
+          temporizador_descanso_desactivado_por_alumno?: boolean;
+          segundos_descanso_preferido?: number | null;
           updated_at?: string;
         };
         Relationships: [
@@ -583,6 +603,9 @@ export interface Database {
           version: number;
           created_by: string | null;
           created_at: string;
+          // 0089_archivar_rutinas.sql — oculta del listado de "Rutinas hechas"
+          // sin borrar nada; no afecta sesiones ni puntos.
+          archivada: boolean;
         };
         Insert: {
           alumno_id: string;
@@ -590,8 +613,9 @@ export interface Database {
           activa?: boolean;
           version?: number;
           created_by?: string | null;
+          archivada?: boolean;
         };
-        Update: { nombre?: string; activa?: boolean; version?: number };
+        Update: { nombre?: string; activa?: boolean; version?: number; archivada?: boolean };
         Relationships: [];
       };
       rutina_dias: {

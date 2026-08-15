@@ -7,7 +7,6 @@ const base = {
   intensidadMaxima: "media" as const,
   tecnicasPermitidas: ["drop_set" as const],
   tecnicasConRetroceso: [],
-  requiereSupervision: false,
   experiencia: "intermedio" as const,
   tieneRestriccionMedica: false,
   dolorActivo: false,
@@ -33,8 +32,10 @@ describe("evaluarTecnicaIntensiva", () => {
     expect(resultado.motivosBloqueo).toContain("perfil_ejercicio_sin_revisar");
   });
 
-  it("no agrega una segunda tecnica intensa en la misma sesion", () => {
-    expect(evaluarTecnicaIntensiva({ ...base, tecnicasIntensasSesion: 1 }).tecnica).toBeNull();
+  it("permite hasta 3 tecnicas intensas por sesion, no mas", () => {
+    expect(evaluarTecnicaIntensiva({ ...base, tecnicasIntensasSesion: 1 }).tecnica).toBe("drop_set");
+    expect(evaluarTecnicaIntensiva({ ...base, tecnicasIntensasSesion: 2 }).tecnica).toBe("drop_set");
+    expect(evaluarTecnicaIntensiva({ ...base, tecnicasIntensasSesion: 3 }).tecnica).toBeNull();
   });
 
   it("no repite una tecnica que la memoria marco para retroceder", () => {
@@ -49,8 +50,25 @@ describe("evaluarTecnicaIntensiva", () => {
       intensidadMaxima: "alta",
       experiencia: "avanzado",
       tecnicasPermitidas: ["rest_pause"],
-      requiereSupervision: true,
     });
     expect(resultado).toMatchObject({ tecnica: "rest_pause", requiereSupervision: true });
+  });
+
+  it("fuerza supervision en las tres tecnicas intensas, sin importar configuracion del ejercicio", () => {
+    expect(evaluarTecnicaIntensiva(base).requiereSupervision).toBe(true);
+    const restPause = evaluarTecnicaIntensiva({
+      ...base,
+      intensidadMaxima: "alta",
+      experiencia: "avanzado",
+      tecnicasPermitidas: ["rest_pause"],
+    });
+    expect(restPause.requiereSupervision).toBe(true);
+    const falloControlado = evaluarTecnicaIntensiva({
+      ...base,
+      intensidadMaxima: "alta",
+      experiencia: "avanzado",
+      tecnicasPermitidas: ["fallo_controlado"],
+    });
+    expect(falloControlado.requiereSupervision).toBe(true);
   });
 });

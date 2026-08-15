@@ -38,7 +38,12 @@ import { resolverIlustracion, resolverFotoCompleta } from "@/lib/ejercicios/ilus
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { repsObjetivo, esEjercicioDeTiempo } from "@/lib/entrenamiento/reps";
 import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
-import { guardarDescanso, leerDescanso, limpiarDescanso } from "@/lib/entrenamiento/descanso";
+import {
+  descansoPausadoTermino,
+  guardarDescanso,
+  leerDescanso,
+  limpiarDescanso,
+} from "@/lib/entrenamiento/descanso";
 import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import { etiquetaSeriesTecnica, tecnicaAplicaASerie } from "@/lib/entrenamiento/tecnica-series";
 import { explicacionTecnica } from "@/lib/entrenamiento/glosario-tecnicas";
@@ -1252,6 +1257,38 @@ export const FilaSerie = forwardRef<
         setRestante(actual - 1);
       }
     }, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [descansando, activo]);
+
+  // Descanso pausado porque OTRA serie tomó el turno. El intervalo de arriba
+  // solo corre para la fila activa, así que sin esto el ciclo de esta serie
+  // no se cerraba nunca: `onCicloCompleto` no se llamaba jamás y la tarjeta
+  // seguía contándola como pendiente —marcando en ámbar una serie ya hecha y
+  // pidiendo confirmar series "faltantes"— aunque el alumno la hubiera
+  // marcado y el servidor ya la tuviera guardada.
+  //
+  // En una biserie esto no es un caso raro sino EL flujo normal: se alterna A
+  // y B, y cada "Listo" pausa para siempre el descanso del anterior. Así se
+  // rompía una biserie entera (reporte de Cristian Muñoz, 14/08).
+  //
+  // Se resuelve contra la hora real de fin guardada en localStorage, no
+  // contra un contador propio, para que un descanso pausado termine cuando
+  // de verdad le tocaba. Sin sonido ni aviso de "seguí acá": el alumno ya
+  // está en otra serie, avisarle de este descanso sería ruido.
+  useEffect(() => {
+    if (!descansando || activo) return;
+    const resolver = () => {
+      if (!descansoPausadoTermino(leerDescanso(sesionId, sesionEjercicioId, numero))) return;
+      limpiarDescanso(sesionId, sesionEjercicioId, numero);
+      setRestante(null);
+      if (!avisadoRef.current) {
+        avisadoRef.current = true;
+        onCicloCompleto(numero);
+      }
+    };
+    resolver();
+    const id = setInterval(resolver, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [descansando, activo]);

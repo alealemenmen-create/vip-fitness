@@ -69,14 +69,14 @@ const obtenerSesion = cache(async (): Promise<SesionActual | null> => {
  * traerlos juntos. Se piden anidados y queda un solo round-trip.
  */
 const obtenerSesionConAlumno = cache(
-  async (): Promise<{ sesion: SesionActual; esAlumno: boolean } | null> => {
+  async (): Promise<{ sesion: SesionActual; esAlumno: boolean; accesoBloqueado: boolean } | null> => {
     const userId = await obtenerUserId();
     if (!userId) return null;
 
     const supabase = await createClient();
     const { data: perfil } = await supabase
       .from("perfiles")
-      .select("nombre, rol, alumno_perfil!alumno_perfil_user_id_fkey(user_id)")
+      .select("nombre, rol, alumno_perfil!alumno_perfil_user_id_fkey(user_id, acceso_bloqueado)")
       .eq("id", userId)
       .single();
 
@@ -85,12 +85,14 @@ const obtenerSesionConAlumno = cache(
     // PostgREST devuelve la relación como arreglo o como objeto según la
     // cardinalidad que infiera; `alumno_perfil.user_id` es primary key, así
     // que puede venir de cualquiera de las dos formas.
-    const ficha = perfil.alumno_perfil as unknown;
-    const esAlumno = Array.isArray(ficha) ? ficha.length > 0 : ficha !== null;
+    const ficha = perfil.alumno_perfil as { acceso_bloqueado: boolean } | { acceso_bloqueado: boolean }[] | null;
+    const fichaFila = Array.isArray(ficha) ? ficha[0] : ficha;
+    const esAlumno = fichaFila !== undefined && fichaFila !== null;
 
     return {
       sesion: { userId, nombre: perfil.nombre, rol: perfil.rol },
       esAlumno,
+      accesoBloqueado: fichaFila?.acceso_bloqueado === true,
     };
   }
 );
@@ -125,7 +127,7 @@ export const requireAlumno = cache(async (): Promise<ContextoAlumno> => {
 
   if (!contexto) redirect("/login");
 
-  const { sesion, esAlumno } = contexto;
+  const { sesion, esAlumno, accesoBloqueado } = contexto;
   const esEntrenador = sesion.rol === "entrenador" || sesion.rol === "admin";
 
   if (esEntrenador) {
@@ -151,6 +153,12 @@ export const requireAlumno = cache(async (): Promise<ContextoAlumno> => {
   if (!esAlumno) {
     redirect(esEntrenador ? "/admin/alumnos" : "/login");
   }
+
+  // Bloqueo por el entrenador (ej. membresía sin pagar) — solo corta el
+  // acceso del propio alumno, nunca la vista "como alumno" del entrenador
+  // (esa ya salió por la rama de arriba). `/acceso-bloqueado` está fuera de
+  // /alumno/* a propósito, para no heredar el resto de los gates de ese layout.
+  if (accesoBloqueado) redirect("/acceso-bloqueado");
 
   return {
     alumnoId: sesion.userId,

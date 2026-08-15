@@ -25,12 +25,10 @@ export const PUNTOS_VIP = {
   descansoSegundosPorTramo: 20,
   descansoPenalizacionPorTramo: 3,
   descansoPenalizacionMaxima: 30,
-  // Técnica de entrenamiento asignada por el entrenador (drop set,
-  // rest-pause, superserie, biserie, triserie...) cumplida de verdad: solo
-  // cuenta cuando el alumno responde "Estuvo muy difícil" a la encuesta de
-  // dificultad de ESE ejercicio — es la única respuesta que asume que la
-  // hizo con esfuerzo real. "No pude completarla" es una alerta, no un
-  // logro, y nunca puntúa acá. Una vez por ejercicio (pedido de Alejandro).
+  // El alumno apagó su propio temporizador de descanso (no el entrenador):
+  // reemplaza el bono normal de "Entrenamiento finalizado" (hasta 300) por
+  // esta penalización fija, sin importar cuántos ejercicios completó.
+  entrenamientoSinDescansoPorAlumno: -50,
   tecnicaAsignadaCumplida: 15,
 } as const;
 

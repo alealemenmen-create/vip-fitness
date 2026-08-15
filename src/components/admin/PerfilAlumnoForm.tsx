@@ -18,6 +18,8 @@ export function PerfilAlumnoForm({
   diasSemana,
   planPausado,
   temporizadorDescanso,
+  accesoBloqueado,
+  accesoBloqueadoMotivo,
 }: {
   alumnoId: string;
   objetivo: string | null;
@@ -27,11 +29,14 @@ export function PerfilAlumnoForm({
   diasSemana: number | null;
   planPausado: boolean;
   temporizadorDescanso: boolean;
+  accesoBloqueado: boolean;
+  accesoBloqueadoMotivo: string | null;
 }) {
   const [state, formAction, pending] = useActionState(actualizarPerfilAlumno, initialState);
   const [plan, setPlan] = useState<CodigoPlanEntrenamiento | "">(planEntrenamiento ?? "");
   const [sesiones, setSesiones] = useState<number | "">(sesionesMensuales ?? "");
   const [dias, setDias] = useState<number | "">(diasSemana ?? "");
+  const [bloqueado, setBloqueado] = useState(accesoBloqueado);
 
   return (
     <form action={formAction} className="space-y-1.5">
@@ -96,6 +101,30 @@ export function PerfilAlumnoForm({
           </span>
         </span>
       </label>
+      <label className="radius-control flex items-start gap-2 border border-error/30 bg-error/5 px-2.5 py-2 text-caption text-text-secondary">
+        <input
+          type="checkbox"
+          name="acceso_bloqueado"
+          checked={bloqueado}
+          onChange={(event) => setBloqueado(event.target.checked)}
+          className="mt-0.5"
+        />
+        <span>
+          Bloquear acceso a la app
+          <span className="text-micro mt-0.5 block text-text-tertiary">
+            Ej. membresía sin pagar. No borra ni oculta nada de su historial — solo no puede
+            entrar hasta que lo destildes.
+          </span>
+        </span>
+      </label>
+      {bloqueado && (
+        <Input
+          name="acceso_bloqueado_motivo"
+          defaultValue={accesoBloqueadoMotivo ?? ""}
+          placeholder="Motivo interno (opcional, no lo ve el alumno)"
+          className="!py-1.5 text-caption"
+        />
+      )}
       <div>
         <label className="text-[9px] mb-0.5 block text-text-tertiary">OBJETIVO</label>
         <Select name="objetivo" defaultValue={objetivo ?? ""} className="!py-1.5 text-caption">

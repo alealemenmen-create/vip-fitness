@@ -5,6 +5,7 @@ import { requireAlumno } from "@/lib/auth";
 import { DatosPersonalesForm } from "@/components/student/DatosPersonalesForm";
 import { CambiarMiPassword } from "@/components/admin/CambiarMiPassword";
 import { CambiarCorreoForm } from "@/components/admin/CambiarCorreoForm";
+import { TemporizadorDescansoToggle } from "@/components/student/TemporizadorDescansoToggle";
 import { Card } from "@/components/ui/Card";
 import { obtenerDatosPersonales } from "./data";
 import { cambiarMiCorreo } from "./actions";
@@ -13,7 +14,14 @@ export default async function PerfilPage() {
   const { alumnoId, soloLectura } = await requireAlumno();
   const supabase = await createClient();
 
-  const datos = await obtenerDatosPersonales(supabase, alumnoId);
+  const [datos, { data: alumnoPerfil }] = await Promise.all([
+    obtenerDatosPersonales(supabase, alumnoId),
+    supabase
+      .from("alumno_perfil")
+      .select("temporizador_descanso, segundos_descanso_preferido")
+      .eq("user_id", alumnoId)
+      .maybeSingle(),
+  ]);
 
   return (
     <div className="space-y-4 pb-8">
@@ -31,6 +39,10 @@ export default async function PerfilPage() {
       ) : (
         <>
           <DatosPersonalesForm datos={datos} />
+          <TemporizadorDescansoToggle
+            activoInicial={alumnoPerfil?.temporizador_descanso ?? true}
+            segundosPreferidoInicial={alumnoPerfil?.segundos_descanso_preferido ?? null}
+          />
           <CambiarMiPassword />
           <Card>
             <p className="text-caption mb-3 text-text-tertiary">MI CORREO</p>

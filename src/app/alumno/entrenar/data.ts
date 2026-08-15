@@ -553,8 +553,7 @@ export type EjercicioSesion = {
   seriesProgramadas: number;
   repsProgramadas: string;
   descansoSegundos: number | null;
-  /** Null conserva los segundos que indicó el entrenador; un número es la
-   * duración elegida por el alumno para sus descansos con reloj. */
+  /** Duración elegida por el alumno; null conserva la referencia del entrenador. */
   descansoPersonalizadoSegundos: number | null;
   /** false: este alumno entrena sin cuenta regresiva entre series (interruptor
    * del entrenador, migración 0087). Los segundos de arriba se siguen
@@ -791,16 +790,20 @@ export async function obtenerSesionCompleta(
   // comportamiento de siempre.
   const { data: preferencias } = await supabase
     .from("alumno_perfil")
-    .select("temporizador_descanso, descanso_personalizado_segundos")
+    .select("temporizador_descanso, segundos_descanso_preferido")
     .eq("user_id", alumnoId)
     .maybeSingle();
   const temporizadorDescanso = preferencias?.temporizador_descanso ?? true;
-  const descansoPersonalizadoSegundos = preferencias?.descanso_personalizado_segundos ?? null;
+  // Si el alumno eligió un número fijo, reemplaza el descanso_segundos de
+  // CADA ejercicio (incluidas técnicas encadenadas con 0s explícito) — así
+  // lo pidió Alejandro después de que se le advirtiera el riesgo con
+  // superseries. `null` = sin preferencia, manda lo que programó el entrenador.
+  const segundosDescansoPreferido = preferencias?.segundos_descanso_preferido ?? null;
 
   const { data: todasLasSeries } = sesionEjercicioIds.length
     ? await supabase
         .from("series_realizadas")
-        .select("sesion_ejercicio_id, numero_serie, peso_kg, es_peso_corporal, reps_realizadas, realizada, rir_estimado")
+        .select("sesion_ejercicio_id, numero_serie, peso_kg, es_peso_corporal, reps_realizadas, rir_estimado, realizada")
         .in("sesion_ejercicio_id", sesionEjercicioIds)
     : { data: [] };
 
@@ -927,8 +930,8 @@ export async function obtenerSesionCompleta(
       nombre: prog.nombre,
       seriesProgramadas: prog.series_programadas,
       repsProgramadas: prog.reps_programadas,
-      descansoSegundos: prog.descanso_segundos,
-      descansoPersonalizadoSegundos,
+      descansoSegundos: segundosDescansoPreferido ?? prog.descanso_segundos,
+      descansoPersonalizadoSegundos: segundosDescansoPreferido,
       temporizadorDescanso,
       tecnicaTipo: prog.tecnica_tipo,
       tecnicaSeries: normalizarTecnicaSeries(prog.tecnica_series, prog.series_programadas),

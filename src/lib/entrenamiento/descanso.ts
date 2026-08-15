@@ -81,6 +81,24 @@ export function hayDescansoVencido(sesionId: string): boolean {
   }
 }
 
+/**
+ * ¿Un descanso que quedó PAUSADO —otra serie tomó el turno— ya cumplió su
+ * tiempo?
+ *
+ * Pura y con `ahora` inyectable para poder probarla. La usa el efecto de
+ * `FilaSerie` que cierra el ciclo de una serie cuyo descanso dejó de mirarse:
+ * el contador visible solo corre para la fila activa, así que una fila pausada
+ * necesita resolverse contra la hora real de fin y no contra un contador
+ * propio que ya no tickea.
+ *
+ * `finEn === null` cuenta como terminado: si no hay hora de fin guardada no
+ * queda nada que esperar, y dejar la serie pendiente para siempre es
+ * exactamente el bug que rompía las biseries (ver el comentario del efecto).
+ */
+export function descansoPausadoTermino(finEn: number | null, ahora: number = Date.now()): boolean {
+  return finEn === null || ahora >= finEn;
+}
+
 export function limpiarDescanso(
   sesionId: string,
   sesionEjercicioId: string,

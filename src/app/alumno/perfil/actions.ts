@@ -88,6 +88,66 @@ export async function guardarDatosPersonales(
 }
 
 /**
+ * El alumno prende/apaga su propio temporizador de descanso — antes solo lo
+ * tocaba el entrenador. Apagarlo desde acá marca
+ * `temporizador_descanso_desactivado_por_alumno = true`, que en
+ * `finalizarSesion` (`alumno/entrenar/actions.ts`) cambia el bono normal de
+ * "Entrenamiento finalizado" (hasta 300 puntos) por una penalización fija de
+ * -50 — el aviso antes de confirmar vive en el componente del cliente, no acá.
+ */
+export async function actualizarTemporizadorDescansoAlumno(activo: boolean): Promise<void> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("alumno_perfil")
+    .update({
+      temporizador_descanso: activo,
+      temporizador_descanso_desactivado_por_alumno: !activo,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", alumnoId);
+
+  if (error) {
+    console.error("[perfil] no se pudo guardar temporizador_descanso:", error.message);
+    return;
+  }
+
+  revalidatePath("/alumno/perfil");
+  revalidatePath("/alumno/entrenar");
+}
+
+const SEGUNDOS_DESCANSO_VALIDOS = new Set([45, 60, 90, 120, 150]);
+
+/**
+ * El alumno elige un número fijo de segundos de descanso que reemplaza el
+ * `descanso_segundos` programado por el entrenador en TODOS sus ejercicios
+ * (o `null` para volver a lo que el entrenador programó, ejercicio por
+ * ejercicio — el comportamiento de siempre). Lo consume
+ * `obtenerSesionCompleta` en `alumno/entrenar/data.ts`.
+ */
+export async function actualizarSegundosDescansoPreferido(segundos: number | null): Promise<void> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return;
+  if (segundos !== null && !SEGUNDOS_DESCANSO_VALIDOS.has(segundos)) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("alumno_perfil")
+    .update({ segundos_descanso_preferido: segundos, updated_at: new Date().toISOString() })
+    .eq("user_id", alumnoId);
+
+  if (error) {
+    console.error("[perfil] no se pudo guardar segundos_descanso_preferido:", error.message);
+    return;
+  }
+
+  revalidatePath("/alumno/perfil");
+  revalidatePath("/alumno/entrenar");
+}
+
+/**
  * Guarda el tema de botones elegido en la cuenta (además de localStorage, que
  * sigue aplicándolo al instante sin esperar esta ida y vuelta al servidor).
  * Sin esto, entrar desde otro dispositivo o con el navegador limpio volvía

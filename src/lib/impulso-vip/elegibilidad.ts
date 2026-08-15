@@ -9,7 +9,6 @@ export interface EvaluarTecnicaIntensivaInput {
   intensidadMaxima: IntensidadImpulso;
   tecnicasPermitidas: TipoIntervencionEnVivo[];
   tecnicasConRetroceso: TipoIntervencionEnVivo[];
-  requiereSupervision: boolean;
   experiencia: NivelExperiencia | null;
   tieneRestriccionMedica: boolean;
   dolorActivo: boolean;
@@ -39,16 +38,16 @@ export function evaluarTecnicaIntensiva(
   if (input.dolorActivo) bloqueos.push("dolor_activo");
   if (!input.registroConfiable) bloqueos.push("registro_no_verificable");
   if (input.rirCalibracion <= 0) bloqueos.push("sin_margen_en_serie_anterior");
-  if (input.tecnicasIntensasSesion >= 1) bloqueos.push("limite_sesion_alcanzado");
+  if (input.tecnicasIntensasSesion >= 3) bloqueos.push("limite_sesion_alcanzado");
   if (bloqueos.length > 0) return { tecnica: null, requiereSupervision: false, motivosBloqueo: bloqueos };
 
   const retroceder = new Set(input.tecnicasConRetroceso);
   const permitidas = new Set(input.tecnicasPermitidas.filter((tecnica) => !retroceder.has(tecnica)));
   if (input.intensidadMaxima === "alta" && input.experiencia === "avanzado" && permitidas.has("rest_pause")) {
-    return { tecnica: "rest_pause", requiereSupervision: input.requiereSupervision, motivosBloqueo: [] };
+    return { tecnica: "rest_pause", requiereSupervision: true, motivosBloqueo: [] };
   }
   if (permitidas.has("drop_set")) {
-    return { tecnica: "drop_set", requiereSupervision: input.requiereSupervision, motivosBloqueo: [] };
+    return { tecnica: "drop_set", requiereSupervision: true, motivosBloqueo: [] };
   }
   // El fallo dinamico necesita autorizacion alta explicita; nunca es el
   // respaldo generico cuando no se reconoce otra tecnica.
