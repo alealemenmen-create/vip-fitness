@@ -16,21 +16,33 @@ import { SaldoIAPanel } from "@/components/admin/SaldoIAPanel";
 import { GavetaConfig } from "@/components/admin/GavetaConfig";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
-import { Bell, Bot, ChevronRight, CircleDollarSign, FileText, Images, LogIn, Megaphone, ShieldAlert, Sparkles, Trophy } from "lucide-react";
+import { Bell, Bot, Bug, ChevronRight, CircleDollarSign, ClipboardList, FileText, Images, LogIn, Megaphone, ShieldAlert, Sparkles, Trash2, Trophy, WandSparkles } from "lucide-react";
 import { obtenerHallazgosPendientes } from "@/lib/auditoria/data";
 import { obtenerIngresos } from "@/lib/ingresos/data";
 import { obtenerResumenAlertasGastos } from "@/lib/gastos/data";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function ConfiguracionAdminPage() {
   await requireRol(["entrenador", "admin"]);
+  const supabase = await createClient();
   // El saldo va aparte del `Promise.all`, no adentro: sumarlo como noveno
   // elemento hacía que TypeScript perdiera la inferencia de la tupla y tratara
   // todo el resultado como `any[]` (el build lo rechaza aunque `tsc --noEmit`
   // lo dejara pasar). Arranca igual antes de esperar al grupo, así que no
   // agrega ni un milisegundo de espera.
   const saldoPromesa = obtenerSaldoIA();
-  const [config, supervision, registro, asistente, hallazgos, { resumen: ingresos }, gastosAlerta] =
-    await Promise.all([
+  const [
+    config,
+    supervision,
+    registro,
+    asistente,
+    hallazgos,
+    { resumen: ingresos },
+    gastosAlerta,
+    { count: solicitudesPendientes },
+    { count: reportesPendientes },
+    { count: borradosPendientes },
+  ] = await Promise.all([
       obtenerConfiguracionReconocimientos(),
       obtenerConfiguracionSupervision(),
       obtenerConfiguracionRegistro(),
@@ -38,6 +50,18 @@ export default async function ConfiguracionAdminPage() {
       obtenerHallazgosPendientes(),
       obtenerIngresos("semana"),
       obtenerResumenAlertasGastos(),
+      supabase
+        .from("solicitudes_registro")
+        .select("id", { count: "exact", head: true })
+        .eq("estado", "pendiente"),
+      supabase
+        .from("reportes_bugs")
+        .select("id", { count: "exact", head: true })
+        .eq("estado", "pendiente"),
+      supabase
+        .from("solicitudes_borrado_sesion")
+        .select("id", { count: "exact", head: true })
+        .eq("estado", "pendiente"),
     ]);
   const saldoIA = await saldoPromesa;
   const activosAhora = ingresos.filter((r) => r.estado === "en_gimnasio").length;
@@ -187,6 +211,58 @@ export default async function ConfiguracionAdminPage() {
             <span className="text-secondary block font-semibold text-text">Actualizaciones</span>
             <span className="text-caption block text-text-tertiary">Qué se arregló o se agregó en la app, en orden</span>
           </span>
+          <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
+        </Card>
+      </Link>
+      {/* Estas cuatro faltaban acá: en el celular "Más" es la única puerta a
+          todo lo que no entra en la barra de abajo, y sin tarjeta solo se
+          llegaba escribiendo la URL a mano. */}
+      <Link href="/admin/solicitudes" className="block h-full">
+        <Card className="flex h-full items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-vip/15 text-vip"><ClipboardList size={20} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="text-secondary block font-semibold text-text">Solicitudes</span>
+            <span className="text-caption block text-text-tertiary">
+              {solicitudesPendientes ? `${solicitudesPendientes} pendiente${solicitudesPendientes === 1 ? "" : "s"} de aprobar` : "Pedidos de inscripción nuevos"}
+            </span>
+          </span>
+          {!!solicitudesPendientes && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-error" />}
+          <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
+        </Card>
+      </Link>
+      <Link href="/admin/generador" className="block h-full">
+        <Card className="flex h-full items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-vip/15 text-vip"><WandSparkles size={20} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="text-secondary block font-semibold text-text">Generador de rutinas</span>
+            <span className="text-caption block text-text-tertiary">Armar una rutina nueva por cuestionario/reglas</span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
+        </Card>
+      </Link>
+      <Link href="/admin/reportes" className="block h-full">
+        <Card className="flex h-full items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-error/15 text-error"><Bug size={20} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="text-secondary block font-semibold text-text">Errores reportados</span>
+            <span className="text-caption block text-text-tertiary">
+              {reportesPendientes ? `${reportesPendientes} sin resolver` : "Lo que los alumnos avisan desde la app"}
+            </span>
+          </span>
+          {!!reportesPendientes && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-error" />}
+          <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
+        </Card>
+      </Link>
+      <Link href="/admin/borrados" className="block h-full">
+        <Card className="flex h-full items-center gap-3 p-4">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-warning/15 text-warning"><Trash2 size={20} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="text-secondary block font-semibold text-text">Pedidos de borrado</span>
+            <span className="text-caption block text-text-tertiary">
+              {borradosPendientes ? `${borradosPendientes} pendiente${borradosPendientes === 1 ? "" : "s"} de revisar` : "Sesiones que un alumno pidió borrar"}
+            </span>
+          </span>
+          {!!borradosPendientes && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-error" />}
           <ChevronRight size={18} className="shrink-0 text-text-tertiary" />
         </Card>
       </Link>
