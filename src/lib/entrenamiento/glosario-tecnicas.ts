@@ -14,6 +14,11 @@ export type EntradaGlosarioTecnica = {
   etiqueta: string;
   patron: RegExp;
   explicacion: string;
+  /** Técnica que conviene hacer con alguien cerca — al fallo, drop set,
+   * rest-pause... Dispara un aviso motivador aparte, apenas arranca la
+   * serie (pedido de Alejandro: "que le diga pídele ayuda a otro
+   * entrenador", como el mensaje de Impulso VIP pero para esto). */
+  requiereAyuda?: boolean;
 };
 
 // Orden de prioridad: de más específico a más genérico. "Drop set" antes que
@@ -24,31 +29,36 @@ const GLOSARIO: EntradaGlosarioTecnica[] = [
     etiqueta: "Drop set",
     patron: /drop\s*set|dropset/i,
     explicacion:
-      "Al llegar al fallo técnico (o a las repeticiones indicadas), baja el peso entre 20% y 30% de inmediato, sin descansar, y sigue hasta un nuevo fallo. Repite la descarga tantas veces como pida tu rutina — cada bajada de peso cuenta como parte de la misma serie.",
+      "Al llegar al fallo técnico (o a las repeticiones indicadas), baja el peso entre 20% y 30% de inmediato, sin descansar, y sigue hasta un nuevo fallo. Repite la descarga tantas veces como pida tu rutina — cada bajada de peso cuenta como parte de la misma serie. Pide ayuda a tu entrenador o a un compañero para esta serie.",
+    requiereAyuda: true,
   },
   {
     etiqueta: "Rest-pause",
     patron: /rest.?pause/i,
     explicacion:
-      "Lleva la serie cerca del fallo, descansa 10 a 20 segundos sin soltar el peso, y suma unas repeticiones más. Repite esa micro-pausa 1 o 2 veces dentro de la misma serie antes de dar por terminado el set.",
+      "Lleva la serie cerca del fallo, descansa 10 a 20 segundos sin soltar el peso, y suma unas repeticiones más. Repite esa micro-pausa 1 o 2 veces dentro de la misma serie antes de dar por terminado el set. Pide ayuda a tu entrenador o a un compañero para esta serie.",
+    requiereAyuda: true,
   },
   {
     etiqueta: "Myo-reps",
     patron: /myo/i,
     explicacion:
-      "Una primera serie de activación cerca del fallo, seguida de mini-series de 3 a 5 repeticiones con descansos muy cortos (10 a 20 segundos) entre cada una, hasta que ya no completes el mínimo pedido.",
+      "Una primera serie de activación cerca del fallo, seguida de mini-series de 3 a 5 repeticiones con descansos muy cortos (10 a 20 segundos) entre cada una, hasta que ya no completes el mínimo pedido. Pide ayuda a tu entrenador o a un compañero para esta serie.",
+    requiereAyuda: true,
   },
   {
     etiqueta: "Cluster",
     patron: /cluster/i,
     explicacion:
-      "Divide la serie en mini-bloques de 1 a 3 repeticiones con descansos cortos (10 a 20 segundos) entre cada bloque — sostienes más peso total del que aguantarías en una serie continua.",
+      "Divide la serie en mini-bloques de 1 a 3 repeticiones con descansos cortos (10 a 20 segundos) entre cada bloque — sostienes más peso total del que aguantarías en una serie continua. Pide ayuda a tu entrenador o a un compañero para esta serie.",
+    requiereAyuda: true,
   },
   {
     etiqueta: "AMRAP",
     patron: /amrap|m[aá]ximo posible/i,
     explicacion:
-      "Haz tantas repeticiones de buena técnica como puedas — \"as many reps as possible\". Para apenas la técnica empiece a fallar, no antes: la cuenta la decide tu forma, no tu voluntad.",
+      "Haz tantas repeticiones de buena técnica como puedas — \"as many reps as possible\". Para apenas la técnica empiece a fallar, no antes: la cuenta la decide tu forma, no tu voluntad. Pide ayuda a tu entrenador o a un compañero para esta serie.",
+    requiereAyuda: true,
   },
   {
     etiqueta: "Serie descendente",
@@ -60,13 +70,15 @@ const GLOSARIO: EntradaGlosarioTecnica[] = [
     etiqueta: "Al fallo",
     patron: /\bfallo\b/i,
     explicacion:
-      "Haz repeticiones hasta que la técnica correcta ya no te dé para una más — el fallo es técnico, no que el peso se caiga al piso.",
+      "Haz repeticiones hasta que la técnica correcta ya no te dé para una más — el fallo es técnico, no que el peso se caiga al piso. Pide ayuda a tu entrenador o a un compañero para esta serie.",
+    requiereAyuda: true,
   },
   {
     etiqueta: "Burnout",
     patron: /burnout|agotamiento/i,
     explicacion:
-      "Cierra el ejercicio con una serie final al fallo absoluto, casi siempre con menos peso que las anteriores. Es la última serie de este ejercicio — no hay otra después.",
+      "Cierra el ejercicio con una serie final al fallo absoluto, casi siempre con menos peso que las anteriores. Es la última serie de este ejercicio — no hay otra después. Pide ayuda a tu entrenador o a un compañero para esta serie.",
+    requiereAyuda: true,
   },
   {
     etiqueta: "Superserie",

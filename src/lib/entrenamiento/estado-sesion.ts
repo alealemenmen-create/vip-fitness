@@ -30,3 +30,12 @@ export type EstadoCorregible = (typeof ESTADOS_CORREGIBLES)[number];
 export function sePuedeCorregir(estado: string | null | undefined): estado is EstadoCorregible {
   return typeof estado === "string" && (ESTADOS_CORREGIBLES as readonly string[]).includes(estado);
 }
+
+/**
+ * Días completos desde que arrancó la rutina. Vive fuera de cualquier
+ * componente a propósito: `Date.now()` llamado directo en el cuerpo de un
+ * Server Component rompe la regla de pureza de React (ver AvisoSesionColgada).
+ */
+export function diasDesdeInicio(horaInicio: string): number {
+  return Math.floor((Date.now() - new Date(horaInicio).getTime()) / (24 * 60 * 60 * 1000));
+}

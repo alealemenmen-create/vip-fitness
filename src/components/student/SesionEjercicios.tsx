@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronRight, List, LockKeyhole, X } from "lucide-react";
+import { Check, ChevronRight, ChevronsLeft, ChevronsRight, X } from "lucide-react";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
 import { SesionGrupoCard } from "@/components/student/SesionGrupoCard";
+import { ControlDescansoSesion } from "@/components/student/ControlDescansoSesion";
 import { resolverGrupoTecnica, tamanoGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
@@ -97,6 +98,7 @@ export function SesionEjercicios({
   completados,
   total,
   modoCorreccion = false,
+  accionCancelarSesion,
 }: {
   ejercicios: EjercicioSesion[];
   sesionId: string;
@@ -121,24 +123,49 @@ export function SesionEjercicios({
   modoCorreccion?: boolean;
   completados: number;
   total: number;
+  /** Acción excepcional de sesión, ubicada junto al ejercicio en curso para
+   * no dejar un bloque grande al final de la pantalla. */
+  accionCancelarSesion?: ReactNode;
 }) {
   const handles = useRef(new Map<string, SesionEjercicioCardHandle>());
-  const ejercicioActivoId = calcularActivo(ejercicios);
+  const seccionEnfocadaRef = useRef<HTMLElement>(null);
   const grupos = agruparPorTecnica(ejercicios);
+  const [gruposTerminadosEnVista, setGruposTerminadosEnVista] = useState<Set<string>>(() => new Set());
   const indiceActivo = Math.max(
     0,
-    grupos.findIndex((grupo) => grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId))
+    grupos.findIndex((grupo) => grupo.some((ej) =>
+      !ej.completado && !gruposTerminadosEnVista.has(ej.sesionEjercicioId)
+    ))
   );
   const [indiceVisible, setIndiceVisible] = useState(indiceActivo);
   const [mostrarRutina, setMostrarRutina] = useState(false);
-  const [gruposDesbloqueados, setGruposDesbloqueados] = useState<Set<string>>(
-    () => new Set(grupos[indiceActivo]?.[0] ? [grupos[indiceActivo][0].sesionEjercicioId] : [])
-  );
-  const [toquesDesbloqueo, setToquesDesbloqueo] = useState(0);
+  const [avisoBloqueo, setAvisoBloqueo] = useState(false);
+  const [avisandoSiguienteEjercicio, setAvisandoSiguienteEjercicio] = useState(false);
+  const [preferenciaDescansoLocal, setPreferenciaDescansoLocal] = useState<
+    "libre" | "entrenador" | 40 | 60 | 90 | 120 | null
+  >(null);
+  const avisoSiguienteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hayGrupoSiguienteRef = useRef(false);
   useEffect(() => {
     if (!tituloSesion) return;
     window.dispatchEvent(new CustomEvent("vip:titulo-rutina", { detail: tituloSesion }));
   }, [tituloSesion]);
+
+  /**
+   * Al montar, la tarjeta activa hace su propio `scrollIntoView({block:
+   * "start"})` (ver SesionEjercicioCard) — corre en cada activación, también
+   * en la primerísima. Si arriba de la tarjeta hay un aviso (ej.
+   * AvisoSesionColgada, "esta rutina lleva días sin cerrarse"), ese scroll
+   * inicial lo empuja detrás de la cabecera fija antes de que el alumno
+   * llegue a leerlo. Solo pasa en el montaje: cada avance real entre
+   * ejercicios sigue centrándose solo, como corresponde. Los efectos de los
+   * hijos corren antes que este (orden hijo→padre en el montaje), así que
+   * llega justo después y cancela cualquier scroll suave en curso.
+   */
+  useEffect(() => {
+    const scroll = seccionEnfocadaRef.current?.closest<HTMLElement>(".pantalla-scroll");
+    if (scroll) scroll.scrollTo({ top: 0, behavior: "auto" });
+  }, []);
 
   /**
    * Cambiar de ejercicio guarda lo que haya cargado en el que se deja.
@@ -148,80 +175,116 @@ export function SesionEjercicios({
    * en el respaldo del teléfono. Ahora cada movimiento por la barra los manda
    * también al servidor — y ese es el reemplazo real del botón "Guardar" que
    * se sacó, sin pedirle al alumno que se acuerde de nada.
-   */
+  */
   const irA = (indice: number) => {
     handles.current.forEach((handle) => handle.guardar());
-    if (indice < indiceVisible) {
-      const claveAnterior = grupos[indice]?.[0]?.sesionEjercicioId;
-      if (claveAnterior) setGruposDesbloqueados((actuales) => new Set(actuales).add(claveAnterior));
-    }
+    // Solo navegar a OTRO ejercicio reposiciona la vista. Una serie, un
+    // descanso o un refresco del formulario nunca deben subir la tarjeta por
+    // debajo del progreso fijo.
+    const scroll = seccionEnfocadaRef.current?.closest<HTMLElement>(".pantalla-scroll");
+    if (scroll) scroll.scrollTo({ top: 0, behavior: "auto" });
     setIndiceVisible(indice);
-    setToquesDesbloqueo(0);
+    setAvisoBloqueo(false);
   };
 
   const avanzarDesdeEncuesta = (grupo: EjercicioSesion[]) => {
     const indice = grupos.findIndex((actual) => actual[0].sesionEjercicioId === grupo[0].sesionEjercicioId);
-    if (indice >= 0 && indice < grupos.length - 1) irA(indice + 1);
+    if (indice >= 0 && indice < grupos.length - 1) {
+      setGruposTerminadosEnVista((actuales) => {
+        const copia = new Set(actuales);
+        grupo.forEach((ejercicio) => copia.add(ejercicio.sesionEjercicioId));
+        return copia;
+      });
+      irA(indice + 1);
+    }
+  };
+
+  const marcarGrupoTerminadoEnVista = (grupo: EjercicioSesion[]) => {
+    setGruposTerminadosEnVista((actuales) => {
+      const copia = new Set(actuales);
+      grupo.forEach((ejercicio) => copia.add(ejercicio.sesionEjercicioId));
+      return copia;
+    });
   };
 
   const renderizarGrupo = (grupo: EjercicioSesion[], conNavegacion = false) => {
-    if (grupo.length >= 2) {
-      const activo = !modoCorreccion && (
-        grupo.some((ej) => ej.sesionEjercicioId === ejercicioActivoId) || gruposDesbloqueados.has(grupo[0].sesionEjercicioId)
-      );
+    const grupoConDescansoElegido = preferenciaDescansoLocal === null
+      ? grupo
+      : grupo.map((ejercicio) => ({
+          ...ejercicio,
+          temporizadorDescanso: preferenciaDescansoLocal !== "libre",
+          descansoPersonalizadoSegundos:
+            typeof preferenciaDescansoLocal === "number" ? preferenciaDescansoLocal : null,
+        }));
+    if (grupoConDescansoElegido.length >= 2) {
+      const indiceGrupo = grupos.findIndex((actual) => actual[0].sesionEjercicioId === grupo[0].sesionEjercicioId);
+      const activo = !modoCorreccion && indiceGrupo === indiceActivo;
       return (
         <SesionGrupoCard
-          key={grupo[0].sesionEjercicioId}
+          key={grupoConDescansoElegido[0].sesionEjercicioId}
           ref={(handle) => {
-            for (const ej of grupo) {
+            for (const ej of grupoConDescansoElegido) {
               if (handle) handles.current.set(ej.sesionEjercicioId, handle);
               else handles.current.delete(ej.sesionEjercicioId);
             }
           }}
-          ejercicios={grupo}
+          ejercicios={grupoConDescansoElegido}
           sesionId={sesionId}
           soloLectura={soloLectura}
           activo={activo}
           modoEnfocado={!soloLectura && !modoCorreccion}
-          {...(conNavegacion
-            ? {
-                onAnterior: () => irA(indiceVisible - 1),
-                onSiguiente: () => irA(indiceVisible + 1),
-                hayAnterior: !!grupoAnterior,
-                haySiguiente: !!grupoSiguiente,
-              }
-            : null)}
           onDificultadRespondida={() => avanzarDesdeEncuesta(grupo)}
+          onGrupoCompletado={() => marcarGrupoTerminadoEnVista(grupo)}
+          esUltimoGrupoDeRutina={conNavegacion && indiceVisible === grupos.length - 1}
+          onVerRutina={conNavegacion ? () => setMostrarRutina(true) : undefined}
         />
       );
     }
 
     return (
       <SesionEjercicioCard
-        key={grupo[0].sesionEjercicioId}
+        key={grupoConDescansoElegido[0].sesionEjercicioId}
         ref={(handle) => {
-          if (handle) handles.current.set(grupo[0].sesionEjercicioId, handle);
-          else handles.current.delete(grupo[0].sesionEjercicioId);
+          if (handle) handles.current.set(grupoConDescansoElegido[0].sesionEjercicioId, handle);
+          else handles.current.delete(grupoConDescansoElegido[0].sesionEjercicioId);
         }}
-        ejercicio={grupo[0]}
+        ejercicio={grupoConDescansoElegido[0]}
         sesionId={sesionId}
         soloLectura={soloLectura}
-        activo={!modoCorreccion && (
-          grupo[0].sesionEjercicioId === ejercicioActivoId || gruposDesbloqueados.has(grupo[0].sesionEjercicioId)
-        )}
-        modoEnfocado={!soloLectura && !modoCorreccion}
-        proximosNombres={grupos
-          .slice(grupos.findIndex((g) => g[0].sesionEjercicioId === grupo[0].sesionEjercicioId) + 1)
-          .map((g) => g.map((ej) => ej.nombre).join(" + "))}
-        {...(conNavegacion
-          ? {
-              onAnterior: () => irA(indiceVisible - 1),
-              onSiguiente: () => irA(indiceVisible + 1),
-              hayAnterior: !!grupoAnterior,
-              haySiguiente: !!grupoSiguiente,
-            }
-          : null)}
+        activo={!modoCorreccion && grupos.findIndex((actual) => actual[0].sesionEjercicioId === grupo[0].sesionEjercicioId) === indiceActivo}
+          modoEnfocado={!soloLectura && !modoCorreccion}
+          proximosNombres={grupos
+          .slice(grupos.findIndex((g) => g[0].sesionEjercicioId === grupoConDescansoElegido[0].sesionEjercicioId) + 1)
+          .map((g) => ({
+            nombre: g.map((ej) => ej.nombre).join(" + "),
+            fotoMiniaturaUrl: g[0].fotoMiniaturaUrl ?? g[0].fotoCompletaUrl ?? g[0].videoCloudflareMiniaturaUrl,
+            ilustracionSlug: g[0].ilustracionSlug,
+          }))}
         onDificultadRespondida={() => avanzarDesdeEncuesta(grupo)}
+        onVerRutina={conNavegacion ? () => setMostrarRutina(true) : undefined}
+        esUltimoEjercicioDeRutina={conNavegacion && indiceVisible === grupos.length - 1}
+        accionesBajoNota={conNavegacion ? (
+          <>
+            {accionCancelarSesion && !soloLectura && !modoCorreccion && (
+              <div className="accion-cancelar-sesion-cercana">{accionCancelarSesion}</div>
+            )}
+            <ControlDescansoSesion
+              temporizadorActivo={
+                preferenciaDescansoLocal === "libre"
+                  ? false
+                  : preferenciaDescansoLocal !== null
+                    ? true
+                    : (grupoConDescansoElegido[0]?.temporizadorDescanso ?? true)
+              }
+              descansoPersonalizadoSegundos={
+                typeof preferenciaDescansoLocal === "number"
+                  ? preferenciaDescansoLocal
+                  : (grupoConDescansoElegido[0]?.descansoPersonalizadoSegundos ?? null)
+              }
+              onCambio={setPreferenciaDescansoLocal}
+            />
+          </>
+        ) : undefined}
       />
     );
   };
@@ -229,16 +292,106 @@ export function SesionEjercicios({
   const grupoVisible = grupos[indiceVisible] ?? grupos[0];
   const grupoAnterior = grupos[indiceVisible - 1] ?? null;
   const grupoSiguiente = grupos[indiceVisible + 1] ?? null;
-  const claveGrupoVisible = grupoVisible?.[0]?.sesionEjercicioId ?? "";
-  const grupoVisibleBloqueado = !!claveGrupoVisible && !gruposDesbloqueados.has(claveGrupoVisible);
-  const tocarParaDesbloquear = () => {
-    const siguienteConteo = toquesDesbloqueo + 1;
-    if (siguienteConteo < 3) {
-      setToquesDesbloqueo(siguienteConteo);
-      return;
-    }
-    setGruposDesbloqueados((actuales) => new Set(actuales).add(claveGrupoVisible));
-    setToquesDesbloqueo(0);
+  // Se puede recorrer toda la sesión con las flechas, pero un ejercicio no se
+  // registra hasta completar los grupos anteriores. La protección es visual y
+  // no un candado de tres toques: sirve para mirar sin modificar por error.
+  const grupoVisibleBloqueado = grupos
+    .slice(0, indiceVisible)
+    .some((grupo) => grupo.some((ejercicio) => !ejercicio.completado && !gruposTerminadosEnVista.has(ejercicio.sesionEjercicioId)));
+
+  /* El RIR cambia de posición con el tamaño de pantalla y con el zoom. Las
+     flechas del ejercicio individual se miden contra ese control real, no
+     contra un porcentaje fijo del viewport. */
+  /* A zoom normal un ejercicio individual no presenta un scroll vacío. Si el
+     teléfono es bajo, o el alumno aumenta el tamaño, se conserva el scroll
+     vertical para no cortar información. */
+  useEffect(() => {
+    const seccion = seccionEnfocadaRef.current;
+    const scroll = seccion?.closest<HTMLElement>(".pantalla-scroll");
+    if (!seccion || !scroll) return;
+    let marco = 0;
+    const actualizar = () => {
+      window.cancelAnimationFrame(marco);
+      marco = window.requestAnimationFrame(() => {
+        const zoomNormal = document.documentElement.getAttribute("data-zoom-pantalla") === "1";
+        const barraInferior = document.querySelector<HTMLElement>(".panel-aero-inferior");
+        const limiteVisible = barraInferior
+          ? barraInferior.getBoundingClientRect().top - 8
+          : scroll.getBoundingClientRect().bottom - 8;
+        /* No decidimos por scrollHeight: incluye el espacio de seguridad reservado
+           para la barra inferior, aunque el ejercicio ya esté totalmente visible. */
+        const cabe = seccion.getBoundingClientRect().bottom <= limiteVisible;
+        /* Los grupos encadenados pueden crecer cuando avanza una ronda o se
+           abre el descanso. Por eso solo un ejercicio individual se bloquea
+           sin scroll; biseries, triseries y superseries siempre conservan su
+           recorrido y el centrado del paso activo. */
+        const esGrupo = Boolean(seccion.querySelector(".tarjeta-grupo-enfocada"));
+        const ajustada = zoomNormal && !esGrupo && cabe;
+        scroll.dataset.entrenamientoAjustado = ajustada ? "true" : "false";
+        // Con una tarjeta que ya cabe no existe una posición útil distinta de
+        // cero. Esto neutraliza tanto la restauración de scroll del navegador
+        // como el anclaje que puede disparar el cambio de estado del descanso.
+        if (ajustada && scroll.scrollTop !== 0) scroll.scrollTo({ top: 0, behavior: "auto" });
+      });
+    };
+    const observador = new ResizeObserver(actualizar);
+    observador.observe(seccion);
+    observador.observe(scroll);
+    const observadorHtml = new MutationObserver(actualizar);
+    observadorHtml.observe(document.documentElement, { attributes: true, attributeFilter: ["data-zoom-pantalla", "style"] });
+    actualizar();
+    const restaurarVistaAjustada = () => {
+      if (scroll.dataset.entrenamientoAjustado === "true" && scroll.scrollTop !== 0) {
+        scroll.scrollTo({ top: 0, behavior: "auto" });
+      }
+    };
+    scroll.addEventListener("scroll", restaurarVistaAjustada, { passive: true });
+    // Las imágenes de referencia y la barra inferior terminan de medir luego
+    // del primer frame; una segunda medición evita dejar un scroll residual.
+    const revisionDiferida = window.setTimeout(actualizar, 260);
+    // Safari y algunos WebViews restauran el scroll DESPUÉS de montar React.
+    // Se corrige en tres momentos sin afectar las vistas que sí necesitan
+    // desplazarse (zoom alto, biseries extensas, etc.).
+    const revisionesRestauracion = [0, 350, 1100].map((demora) =>
+      window.setTimeout(restaurarVistaAjustada, demora)
+    );
+    return () => {
+      window.cancelAnimationFrame(marco);
+      window.clearTimeout(revisionDiferida);
+      revisionesRestauracion.forEach((id) => window.clearTimeout(id));
+      scroll.removeEventListener("scroll", restaurarVistaAjustada);
+      observador.disconnect();
+      observadorHtml.disconnect();
+      delete scroll.dataset.entrenamientoAjustado;
+    };
+  }, [indiceVisible, grupoVisible.length, grupoVisible[0]?.sesionEjercicioId]);
+
+  useEffect(() => {
+    hayGrupoSiguienteRef.current = Boolean(grupoSiguiente);
+  }, [grupoSiguiente]);
+
+  useEffect(() => {
+    const mostrarAvisoSiguiente = () => {
+      // En el último ejercicio no hay dirección a la cual guiar; la señal solo
+      // aparece cuando la doble flecha derecha realmente puede llevar al paso
+      // que continúa.
+      if (!hayGrupoSiguienteRef.current) return;
+      setAvisandoSiguienteEjercicio(true);
+      if (avisoSiguienteTimeoutRef.current) clearTimeout(avisoSiguienteTimeoutRef.current);
+      avisoSiguienteTimeoutRef.current = setTimeout(() => {
+        setAvisandoSiguienteEjercicio(false);
+        avisoSiguienteTimeoutRef.current = null;
+      }, 4000);
+    };
+    window.addEventListener("vip:avisar-siguiente-ejercicio", mostrarAvisoSiguiente);
+    return () => {
+      window.removeEventListener("vip:avisar-siguiente-ejercicio", mostrarAvisoSiguiente);
+      if (avisoSiguienteTimeoutRef.current) clearTimeout(avisoSiguienteTimeoutRef.current);
+    };
+  }, []);
+  const avisarBloqueo = () => {
+    setAvisoBloqueo(true);
+    window.setTimeout(() => setAvisoBloqueo(false), 2200);
   };
   const indiceEjercicioVisible = Math.max(0, ejercicios.findIndex((ejercicio) => ejercicio.sesionEjercicioId === grupoVisible?.[0]?.sesionEjercicioId));
   // Mismo cálculo que usa el servidor al Finalizar (`calcularPuntosEntrenamiento`
@@ -267,45 +420,86 @@ export function SesionEjercicios({
           diferencia está adentro de las tarjetas, que en corrección siguen
           siendo editables. */}
       {soloLectura || modoCorreccion ? (
-        grupos.map(renderizarGrupo)
+        grupos.map((grupo) => renderizarGrupo(grupo))
       ) : grupoVisible ? (
-        <section className="modo-entrenamiento-enfocado" aria-label="Ejercicio actual">
+        <section ref={seccionEnfocadaRef} className="modo-entrenamiento-enfocado" aria-label="Ejercicio actual">
           <header className="cabecera-sesion-foco">
             <p>{tituloSesion}</p>
-            <div className="progreso-ranked-foco" aria-label={`Rutina completada al ${porcentajeRutina}%`}>
-              <span>
-                <i style={{ width: `${porcentajeRutina}%` }} />
-              </span>
-              <strong>{porcentajeRutina}%</strong>
+            <div className="fila-progreso-y-menu">
+              <div
+                className="progreso-rutina-orientado"
+                aria-label={`${grupoVisible.length > 1 ? `Bloque ${indiceVisible + 1} de ${grupos.length}` : `Ejercicio ${indiceEjercicioVisible + 1} de ${ejercicios.length}`}. Rutina completada al ${porcentajeRutina}%`}
+              >
+                <div className="linea-segmentos-progreso">
+                  <div className="riel-progreso-onda" aria-hidden="true">
+                    <span
+                      className="relleno-progreso-onda"
+                      style={{ width: `${porcentajeRutina}%` }}
+                    >
+                      <span className="onda-progreso-lenta" />
+                    </span>
+                  </div>
+                  <small>{porcentajeRutina}%</small>
+                </div>
+              </div>
             </div>
           </header>
-          <button
-            type="button"
-            onClick={() => setMostrarRutina(true)}
-            className="boton-ver-rutina-foco"
-            aria-label="Ver toda la rutina"
-          >
-            <List size={18} />
-            <span>Rutina</span>
-          </button>
 
           <div className="contenedor-grupo-bloqueable" data-bloqueado={grupoVisibleBloqueado ? "true" : "false"}>
             {renderizarGrupo(grupoVisible, true)}
             {grupoVisibleBloqueado && (
               <button
                 type="button"
-                className="bloqueo-ejercicio-siguiente"
-                onClick={tocarParaDesbloquear}
-                aria-label={`Ejercicio bloqueado. ${3 - toquesDesbloqueo} ${3 - toquesDesbloqueo === 1 ? "toque" : "toques"} para habilitarlo`}
-              >
-                <span><LockKeyhole size={16} /></span>
-                <span className="texto-bloqueo-ejercicio">
-                  <strong>Registro bloqueado</strong>
-                  <small>{toquesDesbloqueo === 0 ? "Toca 3 veces para habilitar" : `${3 - toquesDesbloqueo} ${3 - toquesDesbloqueo === 1 ? "toque más" : "toques más"}`}</small>
-                </span>
-              </button>
+                className="cristal-ejercicio-siguiente"
+                onClick={avisarBloqueo}
+                aria-label="Termina la serie anterior o márcala como hecha para registrar este ejercicio"
+              />
+            )}
+            {grupoVisibleBloqueado && avisoBloqueo && (
+              <p className="aviso-ejercicio-siguiente" role="status">
+                Termina la serie anterior o márcala como hecha para registrar aquí.
+              </p>
             )}
           </div>
+          {grupoVisible.length >= 2 && <div className="acciones-excepcionales-sesion">
+            {accionCancelarSesion && !soloLectura && !modoCorreccion && (
+              <div className="accion-cancelar-sesion-cercana">{accionCancelarSesion}</div>
+            )}
+            <ControlDescansoSesion
+              temporizadorActivo={
+                preferenciaDescansoLocal === "libre"
+                  ? false
+                  : preferenciaDescansoLocal !== null
+                    ? true
+                    : (grupoVisible[0]?.temporizadorDescanso ?? true)
+              }
+              descansoPersonalizadoSegundos={
+                typeof preferenciaDescansoLocal === "number"
+                  ? preferenciaDescansoLocal
+                  : (grupoVisible[0]?.descansoPersonalizadoSegundos ?? null)
+              }
+              onCambio={setPreferenciaDescansoLocal}
+            />
+          </div>}
+          <nav className="navegacion-flotante-sesion" aria-label="Navegar entre ejercicios">
+            <button
+              type="button"
+              onClick={() => irA(indiceVisible - 1)}
+              disabled={!grupoAnterior}
+              aria-label="Ejercicio anterior"
+            >
+              <ChevronsLeft size={79} strokeWidth={0.45} />
+            </button>
+            <button
+              type="button"
+              onClick={() => irA(indiceVisible + 1)}
+              disabled={!grupoSiguiente}
+              aria-label="Siguiente ejercicio"
+              data-aviso-siguiente={avisandoSiguienteEjercicio ? "true" : undefined}
+            >
+              <ChevronsRight size={79} strokeWidth={0.45} />
+            </button>
+          </nav>
 
         </section>
       ) : null}

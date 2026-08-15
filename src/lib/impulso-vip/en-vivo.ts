@@ -37,7 +37,37 @@ export interface CalcularIntervencionEnVivoInput {
   > & { estado: "propuesta" | "aprobada" | "bloqueada" | "modificada" };
 }
 
-export const MAX_EJERCICIOS_CON_IMPULSO_EN_VIVO = 3;
+/**
+ * Un alumno no debe recibir retos por cuota. La base es uno por sesión; el
+ * segundo se gana con ejecuciones verificadas y consistentes. Dos mantiene el
+ * efecto sorpresa y evita que Impulso se convierta en ruido diario.
+ */
+export const MAX_EJERCICIOS_CON_IMPULSO_EN_VIVO = 2;
+export const MIN_EJERCICIOS_CON_IMPULSO_EN_VIVO = 1;
+
+export type EvidenciaImpulsoReciente = {
+  resultado: ResultadoIntervencionEnVivo | null;
+  verificacion: "datos" | "declarada" | "entrenador" | null;
+};
+
+/**
+ * Determina cuántos retos automáticos puede recibir el alumno en esta sesión.
+ * No usamos kilos absolutos: 25 kg puede ser excelente para una persona y
+ * poco para otra. La señal justa es cumplir la prescripción que recibió y
+ * dejar datos completos. Cuatro retos seguidos logrados y verificados indican
+ * que puede asumir un segundo desafío sin convertirlo en castigo.
+ */
+export function resolverCupoImpulsoSesion(
+  historial: readonly EvidenciaImpulsoReciente[]
+): number {
+  const ventana = historial.slice(0, 4);
+  const preparadoParaSegundoReto = ventana.length === 4 && ventana.every(
+    (reto) => reto.resultado === "lograda" && reto.verificacion === "datos"
+  );
+  return preparadoParaSegundoReto
+    ? MAX_EJERCICIOS_CON_IMPULSO_EN_VIVO
+    : MIN_EJERCICIOS_CON_IMPULSO_EN_VIVO;
+}
 
 export function calcularIntervencionesEnVivo(
   input: CalcularIntervencionEnVivoInput

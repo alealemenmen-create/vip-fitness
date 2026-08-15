@@ -1,13 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, EstadoRecomendacionImpulso } from "@/lib/supabase/types";
-import { calcularIntervencionesEnVivo, MAX_EJERCICIOS_CON_IMPULSO_EN_VIVO } from "./en-vivo";
+import { calcularIntervencionesEnVivo, resolverCupoImpulsoSesion } from "./en-vivo";
 import type { Recomendacion } from "./tipos";
 
 type SupabaseServerClient = SupabaseClient<Database>;
 
 /**
  * Prepara los momentos permitidos de un ejercicio. La politica global limita
- * a tres ejercicios destacados por sesion; dentro de uno largo puede haber
+ * al cupo adaptativo del alumno: uno por defecto y dos solo cuando viene
+ * cumpliendo retos con datos verificables. Dentro de uno largo puede haber
  * orientacion intermedia y un solo reto final.
  */
 export async function asegurarIntervencionEnVivo(
@@ -51,6 +52,18 @@ export async function asegurarIntervencionEnVivo(
   } | null;
   if (!programa || !recomendacionTipada) return;
 
+  // El nivel se calcula a partir de retos ya cerrados, no por el peso
+  // absoluto. Así un alumno pequeño y uno fuerte reciben la misma evaluación
+  // justa: cumplir su propia prescripción con datos completos.
+  const { data: retosRecientes } = await supabase
+    .from("impulso_vip_intervenciones")
+    .select("resultado, verificacion")
+    .eq("alumno_id", params.alumnoId)
+    .eq("estado", "resuelta")
+    .order("resuelta_en", { ascending: false })
+    .limit(4);
+  const cupoSesion = resolverCupoImpulsoSesion(retosRecientes ?? []);
+
   // Si este ejercicio todavia no tiene ningun momento, primero comprueba el
   // limite de la sesion. La creacion y la reparacion llaman esta funcion en
   // orden para que el resultado sea estable y no dependa de carreras.
@@ -66,7 +79,7 @@ export async function asegurarIntervencionEnVivo(
         .select("sesion_ejercicio_id")
         .in("sesion_ejercicio_id", ids);
       const destacados = new Set((momentosSesion ?? []).map((m) => m.sesion_ejercicio_id));
-      if (destacados.size >= MAX_EJERCICIOS_CON_IMPULSO_EN_VIVO) return;
+      if (destacados.size >= cupoSesion) return;
     }
   }
 
@@ -103,5 +116,77 @@ export async function asegurarIntervencionEnVivo(
     }))
   );
   // 23505: otra peticion la creo entre la consulta y el insert.
+  if (error && error.code !== "23505") throw error;
+}
+
+/** Umbral de "ya no es nuevo" — confirmado con Alejandro: 5 sesiones de
+ * historial, contadas en sesiones (no en días de calendario, porque varía
+ * cuánto entrena cada alumno por semana). */
+const SESIONES_MINIMAS_PARA_GARANTIA = 5;
+
+/**
+ * Garantiza al menos UN momento Impulso VIP en la sesión para alumnos que ya
+ * vienen entrenando y registrando en serio — nunca para alguien que recién
+ * arranca (ahí no hay de dónde partir, y forzar algo sería ilógico, tal cual
+ * lo pidió Alejandro).
+ *
+ * Se llama DESPUÉS de que `asegurarIntervencionEnVivo` ya recorrió todos los
+ * ejercicios de la sesión con las reglas normales (recomendación aprobada,
+ * 3+ series, sin técnica ya asignada...). Si por la combinación de ejercicios
+ * de ese día ninguno terminó calificando, esto elige el último ejercicio
+ * elegible (3+ series, sin técnica del entrenador) y fuerza un cierre
+ * controlado ahí — es la estrategia de conexión del entrenador con el
+ * alumno, no un adorno: "que no digan que este juego está sentado ahí y
+ * solo los ve".
+ */
+export async function garantizarMomentoMinimoSesion(
+  supabase: SupabaseServerClient,
+  params: {
+    alumnoId: string;
+    sesionId: string;
+    /** Ejercicios de la sesión, ya en orden de rutina. */
+    sesionEjercicios: { id: string; seriesProgramadas: number; tecnicaTipo: string | null }[];
+  }
+): Promise<void> {
+  const ids = params.sesionEjercicios.map((e) => e.id);
+  if (ids.length === 0) return;
+
+  const { data: existentes } = await supabase
+    .from("impulso_vip_intervenciones")
+    .select("sesion_ejercicio_id")
+    .in("sesion_ejercicio_id", ids);
+  if (existentes && existentes.length > 0) return; // ya hay al menos uno, nada que forzar.
+
+  const { count: sesionesPrevias } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id", { count: "exact", head: true })
+    .eq("alumno_id", params.alumnoId)
+    .neq("id", params.sesionId)
+    .in("estado", ["completada", "finalizada_incompleta"]);
+  if (!sesionesPrevias || sesionesPrevias < SESIONES_MINIMAS_PARA_GARANTIA) return;
+
+  // El último ejercicio elegible del día, no el primero: es el que queda
+  // más fresco en la sesión y coincide con el criterio que ya usa el motor
+  // normal (el cierre suele ir en la última serie del ejercicio).
+  const elegible = [...params.sesionEjercicios]
+    .reverse()
+    .find((e) => e.seriesProgramadas >= 3 && !e.tecnicaTipo?.trim());
+  if (!elegible) return;
+
+  const { error } = await supabase.from("impulso_vip_intervenciones").insert({
+    sesion_ejercicio_id: elegible.id,
+    alumno_id: params.alumnoId,
+    serie_objetivo: elegible.seriesProgramadas,
+    tipo: "cierre_controlado",
+    origen: "metodo_ale",
+    firma: "Metodo de Ale Mendoza",
+    instruccion:
+      "Esta es la serie que cuenta: busca superar tu ejecución anterior sin perder recorrido ni control. Si la técnica se rompe, detente.",
+    motivo: "Garantía mínima de sesión: llevas historial suficiente como para que hoy también haya un momento Impulso VIP.",
+    prescripcion: { detenerSiPierdeTecnica: true },
+    motor_version: "en_vivo_v1",
+    decision_data: { origenDecision: "garantia_minima_sesion" },
+  });
+  // 23505: otra peticion ya lo creo.
   if (error && error.code !== "23505") throw error;
 }

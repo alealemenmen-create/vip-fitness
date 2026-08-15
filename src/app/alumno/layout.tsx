@@ -139,7 +139,7 @@ export default async function AlumnoLayout({ children }: { children: React.React
             compact
             puntosVip={puntosVip}
             corner={
-              <div className="flex items-center gap-2">
+              <div className="utilidades-acciones-rutina flex items-center gap-2">
                 <CampanaNoticias sinVer={noticiasSinVer} />
                 <MenuAlumno nombre={nombreAlumnoPublicado(contexto.nombre)} />
               </div>

@@ -77,7 +77,7 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
   const abrir = () => {
     setClaro(document.documentElement.getAttribute("data-theme") === "light");
     const tb = document.documentElement.getAttribute("data-tema-boton");
-    setTemaBoton(tb === "vip" || tb === "femenino" ? tb : "espejo");
+    setTemaBoton(tb === "vip" || tb === "masculino" || tb === "femenino" ? tb : "espejo");
     const e = parseFloat(
       document.documentElement.style.getPropertyValue("--zoom-pantalla") || "1"
     );

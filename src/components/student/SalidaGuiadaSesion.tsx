@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/Button";
 import { finalizarSesion } from "@/app/alumno/entrenar/actions";
 import { programarAvisoSesionSinCerrar } from "@/app/alumno/entrenar/push-actions";
 import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
-import { hayDescansoVencido } from "@/lib/entrenamiento/descanso";
 import { BotonFinalizarSesion } from "@/components/student/BotonFinalizarSesion";
 
 /**
@@ -43,11 +42,6 @@ export function SalidaGuiadaSesion({
   total: number;
 }) {
   const [destino, setDestino] = useState<string | null>(null);
-  /** Se fue a otra pestaña/app y volvió: aviso suave, sin bloquear nada. */
-  const [volvio, setVolvio] = useState(false);
-  /** Además tenía un descanso corriendo cuando se fue. Cambia el mensaje: no
-   * es lo mismo "seguí donde lo dejaste" que "el reloj corrió sin vos". */
-  const [descansoCorrio, setDescansoCorrio] = useState(false);
   /** Ya decidió salir: deja pasar la próxima navegación sin volver a preguntar. */
   const permitidoRef = useRef(false);
   /** El recordatorio push se programa una sola vez por visita: cada llamada
@@ -108,25 +102,12 @@ export function SalidaGuiadaSesion({
     window.addEventListener("beforeunload", alCerrar);
 
     // 4. Se fue a otra pestaña o a otra app (WhatsApp entre serie y serie es
-    //    lo normal) y volvió. Acá NO se bloquea nada: solo un recordatorio al
-    //    pie de que la sesión sigue abierta, porque volver y olvidarse es
-    //    justo como quedan las sesiones sin cerrar. Solo si estuvo afuera más
-    //    de dos minutos: mirar una notificación no merece un cartel.
-    let salioEn = 0;
+    //    lo normal). Acá NO se bloquea nada — el aviso al volver ("tu
+    //    descanso siguió corriendo") se sacó, molestaba (pedido de
+    //    Alejandro). Lo único que queda es programar el recordatorio push
+    //    por si no vuelve nunca a esta pantalla.
     const alCambiarVisibilidad = () => {
-      if (document.visibilityState === "hidden") {
-        salioEn = Date.now();
-        // Se fue de la app. Acá es donde se pierde de verdad al alumno: puede
-        // no volver nunca a esta pantalla, así que el recordatorio se programa
-        // ahora y lo entrega el sistema operativo aunque cierre todo.
-        programarAviso();
-        return;
-      }
-      if (salioEn && Date.now() - salioEn > 120_000) {
-        setDescansoCorrio(hayDescansoVencido(sesionId));
-        setVolvio(true);
-      }
-      salioEn = 0;
+      if (document.visibilityState === "hidden") programarAviso();
     };
     document.addEventListener("visibilitychange", alCambiarVisibilidad);
 
@@ -149,36 +130,7 @@ export function SalidaGuiadaSesion({
     window.location.href = ir;
   };
 
-  if (!destino) {
-    if (!volvio) return null;
-    return createPortal(
-      <div className="aviso-sesion-abierta" role="status">
-        <p className="text-caption font-semibold text-warning">
-          {descansoCorrio ? "Tu descanso siguió corriendo" : "Tu entrenamiento sigue abierto"}
-        </p>
-        {/* Decir "nada se perdió" mientras el contador de exceso descontaba
-            puntos por ese mismo rato era mentirle en la cara. La penalización
-            se queda como está —es lo que hace que el alumno vuelva y no se
-            enfríe— pero el aviso ahora dice lo que de verdad pasó, y le
-            recuerda dónde está el botón para frenarla. */}
-        <p className="text-micro mt-0.5 text-text-secondary">
-          {descansoCorrio
-            ? "Mientras no estabas el reloj corrió y descontó. Ya se detuvo al volver: mientras estés en la pantalla no descuenta nada."
-            : completa
-              ? `Terminaste los ${total} ejercicios. Ciérralo para cobrar tus +${puntos} pts.`
-              : `Llevas ${completados} de ${total}. Sigue donde lo dejaste.`}
-        </p>
-        <button
-          type="button"
-          onClick={() => setVolvio(false)}
-          className="text-micro mt-1.5 text-text-tertiary underline"
-        >
-          Entendido
-        </button>
-      </div>,
-      document.body
-    );
-  }
+  if (!destino) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 p-4 backdrop-blur-sm sm:items-center">
@@ -210,17 +162,24 @@ export function SalidaGuiadaSesion({
         </div>
 
         <div className="flex flex-col gap-2">
+          {!sinTocar && !completa && (
+            <Button type="button" variant="primary" size="sm" className="w-full" onClick={() => setDestino(null)}>
+              Seguir entrenando
+            </Button>
+          )}
           {!sinTocar && (
             <form action={finalizarSesion}>
               <input type="hidden" name="sesion_id" value={sesionId} />
-              <BotonFinalizarSesion variant={completa ? "accion" : "primary"} size="sm" className="w-full">
+              <BotonFinalizarSesion variant={completa ? "accion" : "secondary"} size="sm" className="w-full">
                 {completa ? `Cerrar y sumar +${puntos} pts` : `Finalizar así (+${puntos} pts)`}
               </BotonFinalizarSesion>
             </form>
           )}
-          <Button type="button" variant="secondary" size="sm" className="w-full" onClick={() => setDestino(null)}>
-            Seguir entrenando
-          </Button>
+          {(sinTocar || completa) && (
+            <Button type="button" variant="secondary" size="sm" className="w-full" onClick={() => setDestino(null)}>
+              Seguir entrenando
+            </Button>
+          )}
           <button
             type="button"
             onClick={salir}

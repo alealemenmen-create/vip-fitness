@@ -111,6 +111,7 @@ export interface Database {
           plan_entrenamiento_pausado: boolean;
           // 0087_temporizador_descanso_por_alumno.sql
           temporizador_descanso: boolean;
+          descanso_personalizado_segundos: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -133,6 +134,7 @@ export interface Database {
           dias_entrenamiento_semana?: number | null;
           plan_entrenamiento_pausado?: boolean;
           temporizador_descanso?: boolean;
+          descanso_personalizado_segundos?: number | null;
         };
         Update: {
           entrenador_id?: string | null;
@@ -151,6 +153,7 @@ export interface Database {
           dias_entrenamiento_semana?: number | null;
           plan_entrenamiento_pausado?: boolean;
           temporizador_descanso?: boolean;
+          descanso_personalizado_segundos?: number | null;
           updated_at?: string;
         };
         Relationships: [

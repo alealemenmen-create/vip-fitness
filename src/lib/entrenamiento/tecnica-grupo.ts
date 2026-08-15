@@ -18,7 +18,8 @@ export function resolverGrupoTecnica(tecnicaTipo: string | null | undefined): Gr
   if (t.includes("biserie") || t.includes("biset"))
     return { color: "var(--color-tecnica-biserie)", etiqueta: "Biserie" };
   if (t.includes("triserie")) return { color: "var(--color-tecnica-triserie)", etiqueta: "Triserie" };
-  if (t.includes("giant set")) return { color: "var(--color-tecnica-giant)", etiqueta: "Giant Set" };
+  if (t.includes("giant set") || t.includes("giantset") || t.includes("serie gigante"))
+    return { color: "var(--color-tecnica-giant)", etiqueta: "Giant Set" };
   if (t.includes("circuito") || t.includes("tabata"))
     return { color: "var(--color-tecnica-circuito)", etiqueta: "Circuito" };
   return null;

@@ -1477,11 +1477,11 @@ input[type="date"]::-webkit-date-and-time-value {
 .boton-finalizar-celebracion {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.42);
-  background: linear-gradient(135deg, #f5a400 0%, #ffd65a 52%, var(--color-vip) 100%);
+  border: 1px solid rgba(113, 246, 158, 0.62);
+  background: linear-gradient(135deg, #2fcf6d 0%, #56ee91 55%, #9bf3b5 100%);
   box-shadow:
-    0 12px 30px rgba(245, 164, 0, 0.24),
-    0 0 24px color-mix(in srgb, var(--color-vip) 28%, transparent),
+    0 12px 30px rgba(47, 207, 109, 0.24),
+    0 0 24px rgba(69, 229, 123, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
   transition: transform 150ms ease, box-shadow 180ms ease;
 }
@@ -1793,10 +1793,86 @@ input[type="date"]::-webkit-date-and-time-value {
   background: color-mix(in srgb, var(--focus-bg) 96%, transparent);
   box-shadow: 0 20px 46px -36px color-mix(in srgb, var(--focus-violet) 65%, transparent);
 }
+.boton-finalizar-incompleta {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 9px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  color: rgba(255,255,255,.62);
+  background: rgba(255,255,255,.025);
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 650;
+}
+.boton-finalizar-incompleta small {
+  color: rgba(255,255,255,.4);
+  font-size: calc(8px * var(--escala-texto));
+  font-weight: 550;
+  text-align: right;
+}
 .cabecera-grupo-enfocado {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  padding-block: 2px 8px;
+  display: grid;
+  gap: 8px;
+  padding: 2px 0 10px;
   border-bottom: 1px solid var(--focus-border);
+}
+.cabecera-grupo-enfocado[data-cantidad="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cabecera-grupo-enfocado[data-cantidad="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cabecera-grupo-enfocado[data-cantidad="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cabecera-grupo-enfocado:not([data-cantidad="2"]):not([data-cantidad="3"]):not([data-cantidad="4"]) {
+  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+}
+.ejercicio-cabecera-grupo-foco {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+.ejercicio-cabecera-grupo-foco > button {
+  align-self: center;
+  box-shadow: 0 8px 18px -14px rgba(0,0,0,.9);
+}
+.texto-cabecera-grupo-foco {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  text-align: center;
+}
+.texto-cabecera-grupo-foco p {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  color: rgba(255,255,255,.96);
+  font-size: calc(12px * var(--escala-texto));
+  font-weight: 700;
+  line-height: 1.15;
+}
+.texto-cabecera-grupo-foco p span {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--color-glow-tecnica) 70%, transparent);
+  border-radius: 50%;
+  color: var(--color-glow-tecnica);
+  background: color-mix(in srgb, var(--color-glow-tecnica) 13%, transparent);
+  font-size: calc(9px * var(--escala-texto));
+}
+.texto-cabecera-grupo-foco small {
+  overflow: hidden;
+  color: rgba(255,255,255,.61);
+  font-size: calc(9px * var(--escala-texto));
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .encabezado-pasos-grupo {
   padding-top: 5px;
@@ -1868,12 +1944,6 @@ input[type="date"]::-webkit-date-and-time-value {
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
-}
-.tarjeta-ejercicio-enfocada .guia-ejercicio-foco strong {
-  margin-top: 2px;
-  color: var(--color-text);
-  font-size: calc(16px * var(--escala-texto));
-  font-weight: 680;
 }
 .navegacion-serie-cabecera {
   display: flex;
@@ -2017,38 +2087,159 @@ input[type="date"]::-webkit-date-and-time-value {
    entre las acciones secundarias del ejercicio (Nota / Alguna molestia) y no
    compite con "Completar y guardar". */
 .boton-encuesta-pendiente {
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px dashed color-mix(in srgb, var(--color-vip) 42%, transparent);
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid rgba(194,91,255,.52);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--color-vip) 7%, transparent);
-  color: var(--color-text-secondary);
+  background: linear-gradient(105deg, rgba(125,25,232,.2), rgba(194,91,255,.09));
+  color: rgba(247,235,255,.94);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 0 16px rgba(173,50,255,.12);
   font-size: calc(11px * var(--escala-texto));
-  font-weight: 600;
+  font-weight: 680;
 }
-.disco-impulso-parpadeo {
+.rayo-encuesta-impulso {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: var(--color-vip);
-  color: #000;
-  font-size: 7px;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  animation: latido-disco-impulso 1.7s ease-in-out infinite;
+  width: 20px;
+  height: 20px;
+  color: #d891ff;
+  filter: drop-shadow(0 0 5px rgba(194,91,255,.78));
+  animation: rayo-encuesta-impulso 2.4s ease-in-out infinite;
 }
-@keyframes latido-disco-impulso {
-  0%, 100% { opacity: 0.55; box-shadow: 0 0 0 rgba(190, 242, 50, 0); }
-  50% { opacity: 1; box-shadow: 0 0 12px color-mix(in srgb, var(--color-vip) 70%, transparent); }
+@keyframes rayo-encuesta-impulso {
+  0%, 100% { transform: scale(.92); opacity: .72; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+.tarjeta-ejercicio-enfocada .cierre-ejercicio-foco {
+  display: grid;
+  gap: 8px;
+  margin-top: 9px;
+}
+.tarjeta-ejercicio-enfocada .estado-finalizacion-ejercicio {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 10px;
+  border: 1px solid rgba(69,229,123,.3);
+  border-radius: 10px;
+  background: rgba(69,229,123,.08);
+  color: #69e99a;
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 720;
+  line-height: 1;
+}
+.tarjeta-ejercicio-enfocada .estado-finalizacion-ejercicio[data-guardando="true"] {
+  border-color: rgba(255,209,47,.26);
+  background: rgba(255,209,47,.07);
+  color: #f4d55c;
 }
 
 /* Aviso mÃ­nimo dentro de un ejercicio: deliberadamente intenso para que un
    botÃ³n de 40 px reemplace la tarjeta completa sin pasar inadvertido. */
 .rayo-impulso-vivo:not(:has(svg.lucide-check)) {
-  animation: rayo-impulso-fuerte .72s cubic-bezier(.2,.8,.2,1) infinite;
+  animation: rayo-impulso-fuerte 1.65s cubic-bezier(.2,.8,.2,1) infinite;
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-vip) 65%, transparent);
+}
+/* En reposo el rayo es una burbuja sobre la transición hacia los campos, no
+   una fila propia. Recupera altura útil para Peso/Repeticiones sin perder un
+   objetivo táctil grande ni tapar sus etiquetas laterales. */
+.burbuja-impulso-vivo {
+  position: relative;
+  z-index: 4;
+  height: 0;
+  margin: 0 !important;
+}
+.burbuja-impulso-vivo .rayo-impulso-vivo {
+  position: absolute;
+  top: -17px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-color: rgba(191, 95, 255, .74);
+  background: linear-gradient(145deg, rgba(36,18,53,.98), rgba(15,14,20,.98));
+  box-shadow: 0 0 0 3px rgba(8,8,11,.76), 0 0 19px rgba(168,56,255,.46);
+  animation-name: rayo-impulso-burbuja;
+}
+@keyframes rayo-impulso-burbuja {
+  0%, 100% { transform: translateX(-50%) scale(.92) rotate(-4deg); opacity: .72; filter: brightness(.9); }
+  42% { transform: translateX(-50%) scale(1.12) rotate(4deg); opacity: 1; filter: brightness(1.4); }
+  58% { transform: translateX(-50%) scale(1.03) rotate(0); opacity: 1; filter: brightness(1.15); }
+}
+/* El rayo en reposo pertenece a la serie especial: se ancla justo debajo de
+   su cápsula morada y no repite una línea de ayuda que ya aparecerá completa
+   al abrir la indicación. */
+.momento-especial-serie:has(+ .burbuja-impulso-vivo) {
+  margin-bottom: 1px;
+}
+.momento-especial-serie:has(+ .burbuja-impulso-vivo) p {
+  display: none;
+}
+.momento-especial-serie + .burbuja-impulso-vivo .rayo-impulso-vivo {
+  /* Ficha morada del Impulso: visualmente pertenece a la cápsula de aviso y
+     no a los controles de la serie. */
+  top: -29px;
+  left: 70%;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px !important;
+  border-color: rgba(212, 149, 255, .64) !important;
+  color: #160a22 !important;
+  background: linear-gradient(145deg, #c377ff 0%, #8d35ed 52%, #6720c6 100%) !important;
+  box-shadow: 0 0 10px rgba(168, 56, 255, .34), inset 0 1px 0 rgba(255,255,255,.42) !important;
+}
+.momento-especial-serie + .burbuja-impulso-vivo .rayo-impulso-vivo svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 3;
+}
+/* Una vez aceptado, el botón conserva el estado sin seguir pulsando ni
+   robando atención durante la ejecución de la serie. */
+.rayo-impulso-vivo[data-reto-aceptado="true"] {
+  animation: none !important;
+  filter: none !important;
+  opacity: .88;
+  transform: translateX(-50%) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.3) !important;
+}
+.halo-pantalla-impulso-vip {
+  position: fixed;
+  inset: 6px;
+  z-index: 70;
+  border: 1px solid rgba(172, 80, 255, .68);
+  border-radius: 22px;
+  /* Un único marco luminoso. El centro se mantiene transparente para que la
+     energía se lea en el borde y no lave instrucciones ni números. */
+  background: transparent;
+  box-shadow:
+    0 0 8px rgba(136, 48, 239, .58),
+    0 0 18px rgba(245, 194, 71, .18);
+  opacity: .76;
+  pointer-events: none;
+  animation: halo-impulso-vip 2.8s ease-in-out infinite;
+}
+.halo-pantalla-impulso-vip::before {
+  display: none;
+}
+.halo-pantalla-impulso-vip::after {
+  display: none;
+}
+@keyframes halo-impulso-vip {
+  0%, 100% {
+    opacity: .7;
+    border-color: rgba(172, 80, 255, .58);
+    box-shadow: 0 0 7px rgba(136, 48, 239, .48), 0 0 15px rgba(245, 194, 71, .12);
+  }
+  46% {
+    opacity: 1;
+    border-color: rgba(245, 194, 71, .9);
+    box-shadow: 0 0 11px rgba(168, 56, 255, .82), 0 0 24px rgba(245, 194, 71, .42);
+  }
+  63% {
+    opacity: .9;
+    border-color: rgba(190, 105, 255, .82);
+    box-shadow: 0 0 10px rgba(168, 56, 255, .68), 0 0 19px rgba(245, 194, 71, .25);
+  }
 }
 @keyframes rayo-impulso-fuerte {
   0%, 100% { transform: scale(.92) rotate(-4deg); opacity: .72; filter: brightness(.9); box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-vip) 65%, transparent); }
@@ -2057,9 +2248,11 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 @media (prefers-reduced-motion: reduce) {
   .rayo-impulso-vivo { animation: none !important; opacity: 1; }
+  .halo-pantalla-impulso-vip,
+  .halo-pantalla-impulso-vip::before { animation: none; opacity: .78; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .disco-impulso-parpadeo { animation: none; opacity: 1; }
+  .rayo-encuesta-impulso { animation: none; opacity: 1; }
 }
 
 .panel-cerrar-incompleto {
@@ -2101,17 +2294,17 @@ input[type="date"]::-webkit-date-and-time-value {
 /* El ajuste de accesibilidad crece hacia abajo, nunca encima de otro control.
    En tamaÃ±o normal las cuatro series caben en una pantalla; al elegir texto
    cÃ³modo o grande, el botÃ³n baja a su propia lÃ­nea y aparece el scroll. */
-html[data-escala-texto="1.15"] .tarjeta-ejercicio-enfocada .fila-serie,
-html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie {
+html[data-zoom-pantalla="1.15"] .tarjeta-ejercicio-enfocada .fila-serie,
+html[data-zoom-pantalla="1.3"] .tarjeta-ejercicio-enfocada .fila-serie {
   padding: 10px;
 }
-html[data-escala-texto="1.15"] .tarjeta-ejercicio-enfocada .fila-serie-contenido,
-html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido {
+html[data-zoom-pantalla="1.15"] .tarjeta-ejercicio-enfocada .fila-serie-contenido,
+html[data-zoom-pantalla="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido {
   grid-template-columns: 34px minmax(0, 1fr) 1px minmax(0, 1fr);
   gap: 10px;
 }
-html[data-escala-texto="1.15"] .tarjeta-ejercicio-enfocada .fila-serie-contenido .boton-descanso,
-html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido .boton-descanso {
+html[data-zoom-pantalla="1.15"] .tarjeta-ejercicio-enfocada .fila-serie-contenido .boton-descanso,
+html[data-zoom-pantalla="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido .boton-descanso {
   grid-column: 1 / -1;
   width: 100%;
   min-height: 52px;
@@ -2290,6 +2483,19 @@ html[data-escala-texto="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido 
 .campo-serie-plano input::placeholder {
   color: var(--color-text-tertiary);
   font-weight: 600;
+}
+/* Conservamos las sugerencias de valores que ofrece el navegador, pero nunca
+   su capa blanca de autofill: al elegir un peso el campo debe seguir siendo
+   parte del panel oscuro, no parecer vacío ni desconectado del control. */
+.campo-serie-plano input:-webkit-autofill,
+.campo-serie-plano input:-webkit-autofill:hover,
+.campo-serie-plano input:-webkit-autofill:focus,
+.campo-serie-plano input:autofill {
+  -webkit-text-fill-color: var(--color-text);
+  caret-color: var(--color-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--focus-panel-2) inset;
+  box-shadow: 0 0 0 1000px var(--focus-panel-2) inset;
+  transition: background-color 9999s ease-out 0s;
 }
 .campo-serie-plano input:disabled {
   opacity: 0.4;
@@ -3366,12 +3572,6 @@ input[type="number"] {
   letter-spacing: -.025em;
   line-height: 1.08;
 }
-.tarjeta-ejercicio-enfocada .guia-ejercicio-foco strong {
-  margin-top: 9px;
-  color: var(--color-text-secondary);
-  font-size: calc(13px * var(--escala-texto));
-  font-weight: 560;
-}
 .tarjeta-ejercicio-enfocada .registro-anterior-foco,
 .tarjeta-ejercicio-enfocada .objetivo-serie-foco {
   display: grid;
@@ -3523,6 +3723,13 @@ input[type="number"] {
   gap: 15px;
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .numero-serie { display: none; }
+/* La pastilla de técnica inline (ej. "Rest-pause") también se oculta en modo
+   destacado: en foco ya hay un bloque dedicado más abajo (protocolo-tecnica-foco)
+   con el texto completo. Sin ocultarla acá, quedaba como hijo extra del grid de
+   3 columnas [peso, separador, reps] y rompía todo el layout — el peso terminaba
+   flotando arriba a la derecha y las reps abajo a la izquierda. Bug real
+   encontrado probando la app, no solo estético. */
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .pill-tecnica-serie { display: none; }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3570,7 +3777,7 @@ input[type="number"] {
   border-radius: 13px;
   color: var(--color-text);
   background: rgba(255, 255, 255, .025);
-  font-size: 27px;
+  font-size: calc(27px * var(--escala-texto));
   font-weight: 350;
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie {
@@ -3579,10 +3786,9 @@ input[type="number"] {
   align-self: center;
   background: rgba(255, 255, 255, .08);
 }
-.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie {
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .fila-rir-navegacion {
   grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: auto 38px 34px 38px;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -3590,6 +3796,25 @@ input[type="number"] {
   padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, .08);
 }
+.control-rir-serie {
+  display: grid;
+  grid-template-columns: auto 38px 34px 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.boton-navegacion-junto-rir {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 10px;
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, .035);
+}
+.boton-navegacion-junto-rir:disabled { opacity: .3; }
 .control-rir-serie > span {
   margin-right: 5px;
   color: var(--color-text-secondary);
@@ -3604,7 +3829,7 @@ input[type="number"] {
   border-radius: 10px;
   color: var(--color-text-secondary);
   background: rgba(255, 255, 255, .035);
-  font-size: 20px;
+  font-size: calc(20px * var(--escala-texto));
 }
 .control-rir-serie input {
   width: 34px;
@@ -3637,7 +3862,6 @@ input[type="number"] {
   font-size: calc(9px * var(--escala-texto));
   font-weight: 500;
 }
-.tarjeta-ejercicio-enfocada .boton-completar-ejercicio { display: none; }
 /* Nota y "Alguna molestia" NO se pierden en el modo enfocado — antes quedaban
    ocultas acá. Se muestran chicas y discretas, angostadas para no tocar el
    borde redondeado de la tarjeta (antes quedaban pegadas a las esquinas). */
@@ -3648,6 +3872,16 @@ input[type="number"] {
 .tarjeta-ejercicio-enfocada .acciones-secundarias-ejercicio .accion-secundaria-ejercicio {
   border-color: rgba(255, 255, 255, .08);
   background: #101113;
+}
+.tarjeta-ejercicio-enfocada .acciones-secundarias-ejercicio .accion-cerrar-ejercicio {
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  color: var(--color-text-tertiary);
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: inherit;
+  line-height: 1.1;
+  text-align: center;
 }
 .vista-siguiente-ejercicio {
   display: flex;
@@ -3680,39 +3914,46 @@ input[type="number"] {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* La línea de avance y el acceso a la lista comparten una misma fila: la
+   lista queda claramente a la derecha, sin cruzarse con el progreso. */
+.fila-progreso-y-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+.fila-progreso-y-menu .progreso-ranked-foco,
+.fila-progreso-y-menu .progreso-rutina-orientado { width: 100%; flex: 1; }
 .boton-ver-rutina-foco {
-  position: fixed;
-  top: calc(var(--alto-cabecera-alumno, 68px) + 92px);
-  right: max(9px, calc((100vw - 440px) / 2 + 6px));
-  z-index: 35;
+  position: relative;
+  z-index: 1;
   display: grid;
-  width: 48px;
-  height: 48px;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 16px;
-  color: var(--color-text);
-  background: rgba(13, 14, 17, .76);
-  box-shadow: 0 12px 28px -18px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .08);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
+  width: 44px;
+  height: 34px;
+  flex: 0 0 44px;
+  color: rgba(255,255,255,.88);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 10px;
+  background: rgba(255,255,255,.035);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
 }
-.boton-ver-rutina-foco span {
-  margin-top: -9px;
-  font-size: calc(8px * var(--escala-texto));
-  font-weight: 650;
-}
+/* Mismo tipo de apertura que el panel de configuración (MenuAlumno): anclado
+   arriba a la derecha, entra con fade + scale desde ahí — pedido de
+   Alejandro, "esa animación de despliegue está muy mala, quiero uno así
+   como el panel de configuración". */
 .fondo-mapa-rutina {
   position: fixed;
   inset: 0;
   z-index: 80;
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 12px;
-  background: rgba(0, 0, 0, .7);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: max(64px, env(safe-area-inset-top)) 12px 90px;
+  background: rgba(0, 0, 0, .55);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
 .cerrar-fondo-mapa {
   position: absolute;
@@ -3728,6 +3969,11 @@ input[type="number"] {
   border-radius: 24px;
   background: linear-gradient(180deg, #17181b, #0d0e10);
   box-shadow: 0 28px 80px rgba(0, 0, 0, .65);
+  transform-origin: top right;
+  animation: espejo-menu-entra 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mapa-rutina-activa { animation: none; }
 }
 .mapa-rutina-activa > header {
   display: flex;
@@ -4694,6 +4940,17 @@ input[type="number"] {
 .shell-alumno:has(.modo-entrenamiento-enfocado) > .panel-aero-superior button { pointer-events: auto; }
 .shell-alumno:has(.modo-entrenamiento-enfocado) > .pantalla-scroll {
   padding-top: calc(58px + env(safe-area-inset-top, 0px));
+  /* `auto` crea desplazamiento únicamente si el ejercicio es más alto que el
+     espacio útil. El eje horizontal se recorta para que el zoom no convierta
+     un desborde de una tarjeta en scroll lateral de toda la rutina. */
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+}
+.shell-alumno:has(.modo-entrenamiento-enfocado) {
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
 }
 .logo-rutina-activa > div:last-child {
   gap: 10px;
@@ -4707,10 +4964,14 @@ input[type="number"] {
   background: rgba(7,8,9,.72) !important;
 }
 .cabecera-sesion-foco {
-  position: relative;
-  z-index: 31;
-  margin: 0 0 10px;
-  padding-top: 6px;
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  isolation: isolate;
+  margin: 0 0 7px;
+  padding: 5px 0 7px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  background: linear-gradient(180deg, rgba(8,9,10,.98) 0%, rgba(8,9,10,.94) 76%, rgba(8,9,10,.72) 100%);
   pointer-events: none;
 }
 .cabecera-sesion-foco > p {
@@ -4741,9 +5002,72 @@ input[type="number"] {
   font-weight: 600;
   white-space: nowrap;
 }
+.progreso-rutina-orientado {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  padding: 5px 0 4px;
+}
+.texto-progreso-rutina {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.texto-progreso-rutina strong {
+  color: #ececef;
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 680;
+}
+.linea-segmentos-progreso small {
+  color: #eac443;
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 700;
+  line-height: 1;
+  transform: translateY(-2px);
+}
+.linea-segmentos-progreso {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+.riel-progreso-onda {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #282a2e;
+  box-shadow: inset 0 1px 1px rgba(0,0,0,.42);
+}
+.relleno-progreso-onda {
+  position: relative;
+  display: block;
+  min-width: 5px;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #45e57b, #aee36a 58%, #ffd12f);
+  box-shadow: 0 0 8px rgba(111,228,111,.22);
+  transition: width .45s ease;
+}
+.onda-progreso-lenta {
+  position: absolute;
+  inset: -3px auto -3px -45%;
+  width: 55%;
+  border-radius: 50%;
+  background: repeating-radial-gradient(ellipse at center, rgba(255,255,255,.32) 0 1px, transparent 2px 6px);
+  opacity: .58;
+  animation: onda-progreso-sutil 8s linear infinite;
+}
+@keyframes onda-progreso-sutil {
+  from { transform: translateX(-30%); }
+  to { transform: translateX(310%); }
+}
 
 .modo-entrenamiento-enfocado {
-  margin-inline: -10px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-inline: 0;
   color: #f5f5f6;
 }
 .modo-entrenamiento-enfocado::before { display: none; }
@@ -4764,6 +5088,7 @@ input[type="number"] {
   gap: 15px !important;
   margin: 0 !important;
   padding: 0 0 18px !important;
+  border-bottom: 0 !important;
   align-items: stretch !important;
 }
 .tarjeta-ejercicio-enfocada .referencia-foco-compacta {
@@ -4781,7 +5106,7 @@ input[type="number"] {
   aspect-ratio: .72;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,.28) !important;
-  border-radius: 18px !important;
+  border-radius: 16px !important;
   background: #050606 !important;
 }
 .tarjeta-ejercicio-enfocada .referencia-foco-compacta img {
@@ -4802,50 +5127,93 @@ input[type="number"] {
   background: rgba(6,7,8,.78) !important;
 }
 .tarjeta-ejercicio-enfocada .guia-ejercicio-foco {
+  position: relative;
   display: flex;
   min-width: 0;
   height: 100%;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
-  padding: 8px 0 0;
+  padding: 0 0 76px;
 }
 .tarjeta-ejercicio-enfocada .guia-ejercicio-foco h2 {
-  margin: 0 0 4px;
-  color: #f6f6f7;
-  font-size: calc(21px * var(--escala-texto));
-  font-weight: 720;
+  max-width: calc(100% - 31px);
+  margin: 0 0 6px;
+  color: #fff;
+  font-size: calc(24px * var(--escala-texto));
+  font-weight: 750;
   line-height: 1.08;
   letter-spacing: -.035em;
+  text-shadow: 0 1px 10px rgba(255,255,255,.12);
 }
-/* "1 · PIERNAS" ya no va al lado del nombre: se centra arriba, flotando
-   sobre la foto, para dejar todo el ancho de la columna al nombre. */
-.orden-grupo-sobre-foto {
-  position: absolute;
-  top: 6px;
-  left: 50%;
-  z-index: 5;
-  margin: 0;
-  padding: 3px 9px;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  color: #f6d570;
-  background: rgba(6,7,8,.72);
-  font-size: calc(9px * var(--escala-texto));
-  font-weight: 700;
-  letter-spacing: .04em;
-  white-space: nowrap;
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+.tarjeta-ejercicio-enfocada .contexto-ejercicio-foco {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 9px;
+  color: #fff !important;
+  font-family: inherit !important;
+  font-size: calc(7px * var(--escala-texto)) !important;
+  font-weight: 620 !important;
+  white-space: normal;
 }
+.tarjeta-ejercicio-enfocada .contexto-ejercicio-foco span { display: inline; }
 .siguiente-ejercicio-foco {
-  margin: 0 0 8px;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  width: 100%;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,.08);
   color: #86868c;
   font-size: calc(11px * var(--escala-texto));
   font-weight: 540;
 }
+.cabecera-siguiente-ejercicio {
+  display: flex;
+  width: 54px;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+}
+.cabecera-siguiente-ejercicio small {
+  color: #85858b;
+  font-size: calc(8px * var(--escala-texto));
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+.contenido-siguiente-ejercicio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 35px;
+}
+.contenido-siguiente-ejercicio strong {
+  color: #c9c9cc;
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 720;
+  text-transform: uppercase;
+}
+.miniatura-siguiente-ejercicio {
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,.1);
+}
+/* "Sigue:" y el nombre del ejercicio van al mismo tamaño — pedido de
+   Alejandro, antes el nombre quedaba mucho más grande que la etiqueta. */
 .siguiente-ejercicio-foco strong {
   color: #b7b7ba;
+  font-size: calc(11px * var(--escala-texto));
   font-weight: 650;
 }
 .navegacion-ejercicios-junto-foto {
@@ -4873,27 +5241,6 @@ input[type="number"] {
   font-weight: 620;
 }
 .navegacion-ejercicios-junto-foto button:disabled { opacity: .35; }
-.proximos-ejercicios-foco {
-  display: flex;
-  overflow-x: auto;
-  gap: 6px;
-  margin: 0 0 2px;
-  padding: 0 0 2px;
-  list-style: none;
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.proximos-ejercicios-foco::-webkit-scrollbar { display: none; }
-.proximos-ejercicios-foco li {
-  flex: 0 0 auto;
-  padding: 3px 8px;
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 999px;
-  color: #86868c;
-  font-size: calc(9.5px * var(--escala-texto));
-  font-weight: 560;
-  white-space: nowrap;
-}
 .selector-series-movido {
   margin: 12px 0 !important;
   padding: 6px 2px !important;
@@ -4942,7 +5289,6 @@ input[type="number"] {
 .tarjeta-ejercicio-enfocada .selector-series-foco button:nth-child(3) { --color-serie: #2dccff; }
 .tarjeta-ejercicio-enfocada .selector-series-foco button:nth-child(4) { --color-serie: #ff7a32; }
 .tarjeta-ejercicio-enfocada .selector-series-foco button:nth-child(5n) { --color-serie: #8b7bff; }
-.tarjeta-ejercicio-enfocada .selector-series-foco button[data-impulso="true"] { --color-serie: #ad32ff; }
 .tarjeta-ejercicio-enfocada .selector-series-foco button[data-estado="actual"],
 .tarjeta-ejercicio-enfocada .selector-series-foco button[data-estado="completa"] { opacity: 1; }
 .tarjeta-ejercicio-enfocada .selector-series-foco button span {
@@ -4983,38 +5329,369 @@ input[type="number"] {
   42% { transform: translateX(-50%) scale(1.35) rotate(3deg); filter: drop-shadow(0 -3px 4px #f1a8ff) drop-shadow(0 0 12px #ad32ff) drop-shadow(0 0 24px rgba(173,50,255,.95)); }
   64% { transform: translateX(-50%) scale(1.15) rotate(-5deg); filter: drop-shadow(0 -5px 7px #d85dff) drop-shadow(0 0 17px #7d19e8); }
 }
+.boton-ver-rutina-en-siguiente {
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  color: rgba(255,255,255,.9);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 9px;
+  background: rgba(255,255,255,.035);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+.accion-cancelar-sesion-cercana {
+  margin-inline: 2px;
+}
+
+/* Las series son cápsulas rellenas con las mismas tonalidades que ya usaba
+   la pantalla. El color identifica la serie; check y relieve identifican el
+   estado, para que una serie azul pendiente no parezca completada. */
+.tarjeta-ejercicio-enfocada .selector-series-movido {
+  gap: 8px !important;
+  margin: 10px 0 8px !important;
+  padding: 0 !important;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador {
+  --color-serie: #45e57b;
+  display: grid;
+  min-width: 0;
+  flex: 1 1 0;
+  gap: 4px;
+  justify-items: center;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(2) { --color-serie: #ffd12f; }
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(3) { --color-serie: #2dccff; }
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(4) { --color-serie: #ff7a32; }
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(5n) { --color-serie: #8b7bff; }
+.tarjeta-ejercicio-enfocada .selector-series-movido button {
+  --color-serie: inherit;
+  display: grid;
+  width: 100%;
+  height: 22px;
+  min-height: 22px;
+  overflow: hidden;
+  place-items: center;
+  padding: 2px 3px;
+  border: 1px solid #35383d;
+  border-radius: 10px;
+  color: #85898f;
+  background: #1c1f23;
+  opacity: 1;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido button > span:not(.resumen-registro-serie) { display: none; }
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="completa"] {
+  color: #06090b;
+  border-color: var(--color-serie);
+  background: var(--color-serie);
+  box-shadow: 0 0 13px color-mix(in srgb, var(--color-serie) 50%, transparent), inset 0 1px 0 rgba(255,255,255,.3);
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .resumen-registro-serie {
+  display: -webkit-box;
+  height: auto !important;
+  max-width: 100%;
+  max-height: 15px;
+  overflow: hidden;
+  color: #06090b;
+  font-size: calc(7px * var(--escala-texto));
+  font-weight: 780;
+  line-height: 1.06;
+  text-align: center;
+  text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-reinicio="true"] {
+  color: #f4f4f6;
+  border-color: rgba(255,255,255,.76);
+  background: #30343a;
+  box-shadow: 0 0 10px rgba(255,255,255,.12);
+  animation: confirmar-reinicio-serie .8s ease-in-out infinite;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-reinicio="true"] svg { color: #fff; }
+@keyframes confirmar-reinicio-serie {
+  0%, 100% { opacity: .68; }
+  50% { opacity: 1; }
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="actual"] {
+  color: #06090b;
+  background: var(--color-serie);
+  border-color: var(--color-serie);
+  box-shadow: 0 0 17px color-mix(in srgb, var(--color-serie) 58%, transparent), 0 0 4px color-mix(in srgb, var(--color-serie) 75%, transparent), inset 0 1px 0 rgba(255,255,255,.35);
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="pendiente"] {
+  color: #85898f;
+  border-color: #35383d;
+  background: #1c1f23;
+  box-shadow: none;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-impulso="true"][data-estado="actual"],
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-impulso="true"][data-estado="completa"] {
+  outline: 1px solid rgba(173,50,255,.78);
+  outline-offset: 2px;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-especial="true"][data-estado="actual"] {
+  color: #fff;
+  border-color: #c25bff;
+  outline: 1px solid rgba(224,149,255,.98);
+  outline-offset: 2px;
+  background: linear-gradient(135deg, #7d19e8, #c25bff);
+  box-shadow: 0 0 19px rgba(173,50,255,.82), 0 0 33px rgba(173,50,255,.36), inset 0 1px 0 rgba(255,255,255,.42);
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .etiqueta-serie-indicador {
+  display: flex;
+  min-height: 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--color-serie);
+  font-size: calc(8px * var(--escala-texto));
+  font-weight: 720;
+  line-height: 1;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador[data-especial="true"] .etiqueta-serie-indicador {
+  color: #e0a1ff;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador[data-reinicio="true"] .etiqueta-serie-indicador {
+  color: #fff;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .rayo-impulso-serie {
+  top: 5px;
+  right: 6px;
+  left: auto;
+  transform: none;
+  animation: rayo-impulso-compacto 1.2s ease-in-out infinite;
+}
+@keyframes rayo-impulso-compacto {
+  0%, 100% { transform: scale(1) rotate(-3deg); filter: drop-shadow(0 0 4px rgba(173,50,255,.65)); }
+  50% { transform: scale(1.12) rotate(3deg); filter: drop-shadow(0 0 8px rgba(173,50,255,.9)); }
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="pendiente"] .rayo-impulso-serie { display: none; }
+
+/* A partir de seis series, la misma fila se mantiene en una sola línea.
+   El registro se abrevia (10kg×15r) desde React para que no haga crecer la
+   cápsula ni desplace el resto de la pantalla en teléfonos angostos. */
+.tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] {
+  gap: 4px !important;
+  margin: 7px 0 5px !important;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] .selector-serie-indicador {
+  gap: 2px;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] button {
+  height: 17px;
+  min-height: 17px;
+  padding: 1px 2px;
+  border-radius: 7px;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] .resumen-registro-serie {
+  display: block;
+  max-height: none;
+  overflow: hidden;
+  font-size: calc(6.5px * var(--escala-texto));
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -.035em;
+  text-overflow: clip;
+  text-wrap: nowrap;
+  white-space: nowrap;
+  -webkit-line-clamp: 1;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] .etiqueta-serie-indicador {
+  min-height: 8px;
+  gap: 1px;
+  font-size: calc(7px * var(--escala-texto));
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] .etiqueta-serie-indicador svg {
+  width: 8px;
+  height: 8px;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] .rayo-impulso-serie {
+  top: 2px;
+  right: 3px;
+  width: 10px;
+  height: 10px;
+}
+.resumen-impulso-serie,
+.aviso-ayuda-tecnica-compacto {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 8px;
+  padding: 6px 9px;
+  border: 1px solid color-mix(in srgb, var(--color-acento) 40%, transparent);
+  border-radius: 999px;
+  color: var(--color-acento-fuerte);
+  background: color-mix(in srgb, var(--color-acento) 13%, #0b0c0e);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-acento) 9%, transparent);
+  font-size: calc(9px * var(--escala-texto));
+  line-height: 1.15;
+}
+.resumen-impulso-serie strong,
+.aviso-ayuda-tecnica-compacto strong { font-weight: 800; }
+.resumen-impulso-serie small {
+  margin-left: auto;
+  color: color-mix(in srgb, var(--color-acento-fuerte) 70%, #aaa);
+  font-size: inherit;
+  white-space: nowrap;
+}
+.aviso-ayuda-tecnica-compacto {
+  border-radius: 11px;
+  line-height: 1.3;
+}
+.momento-especial-serie {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin: 0 0 8px;
+}
+.momento-especial-serie .resumen-impulso-serie {
+  width: fit-content;
+  min-height: 21px;
+  margin: 0;
+  padding: 4px 9px;
+  border-color: rgba(190,92,255,.62);
+  border-radius: 999px;
+  color: #eebeff;
+  background: linear-gradient(90deg, rgba(108,31,172,.38), rgba(173,50,255,.22));
+  box-shadow: 0 0 16px rgba(173,50,255,.28), inset 0 1px 0 rgba(255,255,255,.12);
+  font-size: calc(8px * var(--escala-texto));
+  font-weight: 650;
+}
+.momento-especial-serie .resumen-impulso-serie svg {
+  color: #c25bff;
+  filter: drop-shadow(0 0 4px rgba(194,91,255,.95));
+}
+.momento-especial-serie .resumen-impulso-serie strong { color: #f1c8ff; }
+.momento-especial-serie p {
+  margin: 0;
+  color: rgba(255,255,255,.82);
+  font-size: calc(8px * var(--escala-texto));
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* El protagonismo del Impulso se concentra en su propia tarjeta. El fondo
+   casi negro funciona como "zona de lectura": conserva el contraste aunque
+   el borde del teléfono esté pulsando con violeta y oro. */
+.momento-impulso-vivo {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(135deg, rgba(70, 22, 100, .9) 0%, rgba(13, 12, 18, .97) 48%, rgba(41, 29, 10, .94) 100%) !important;
+  border-color: rgba(203, 104, 255, .58) !important;
+  box-shadow: 0 0 0 1px rgba(245, 197, 82, .1), 0 14px 28px rgba(0, 0, 0, .3), 0 0 20px rgba(162, 44, 255, .18) !important;
+}
+.momento-impulso-vivo > * {
+  position: relative;
+  z-index: 1;
+}
+.momento-impulso-vivo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(105deg, rgba(255,255,255,.045), transparent 31%, transparent 70%, rgba(248, 198, 74, .07));
+}
+.momento-impulso-vivo .text-text,
+.momento-impulso-vivo .text-text-secondary {
+  color: #fff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+}
+.momento-impulso-vivo > div > button {
+  background: linear-gradient(145deg, #c869ff, #7d19e8) !important;
+  color: #12061d !important;
+  box-shadow: 0 0 0 1px rgba(255, 224, 141, .35), 0 0 18px rgba(188, 79, 255, .45) !important;
+}
 
 /* Biserie/triserie en modo enfocado: tarjetas apiladas, una por ejercicio de
    la ronda actual — pedido de Alejandro con captura de referencia exacta. */
 .ronda-grupo-foco {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 .ronda-grupo-foco-titulo {
-  margin: 2px 0 0;
+  margin: 0;
   color: #f6f6f7;
-  font-size: calc(19px * var(--escala-texto));
+  font-size: calc(15px * var(--escala-texto));
   font-weight: 720;
   letter-spacing: -.02em;
+  white-space: nowrap;
 }
-.ronda-grupo-foco-info {
+.ronda-grupo-foco-titulo strong {
+  color: #45e57b;
+  font-variant-numeric: tabular-nums;
+}
+.ronda-grupo-foco-titulo small {
+  margin-left: 3px;
+  color: rgba(255,255,255,.55);
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 650;
+  letter-spacing: 0;
+}
+.ronda-grupo-control {
   display: flex;
+  min-width: 0;
   align-items: flex-start;
-  gap: 9px;
-  padding: 10px 12px;
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 14px;
-  background: rgba(255,255,255,.03);
+  gap: 10px;
+  padding: 0 0 2px;
 }
-.ronda-grupo-foco-info svg { flex-shrink: 0; margin-top: 1px; color: #8a8a8f; }
-.ronda-grupo-foco-info p {
+.ronda-grupo-control .ronda-grupo-foco-titulo {
+  padding-top: 1px;
+  transform: translateY(-2px);
+}
+.selector-rondas-grupo {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: flex-end;
+  gap: 7px;
   margin: 0;
-  color: #b7b7ba;
-  font-size: calc(12px * var(--escala-texto));
-  line-height: 1.4;
+  padding: 0;
+  list-style: none;
 }
-.ronda-grupo-foco-info strong { color: #e6e6e8; font-weight: 650; }
+.selector-rondas-grupo li {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+  text-align: center;
+}
+.selector-rondas-grupo li > span {
+  display: block;
+  height: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 8px;
+  background: #202328;
+  box-shadow: inset 0 1px 1px rgba(0,0,0,.42);
+}
+.selector-rondas-grupo li > span i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #39d973, #52ee8a);
+  box-shadow: 0 0 10px rgba(69,229,123,.55);
+  transition: width .38s ease;
+}
+.selector-rondas-grupo li[data-estado="actual"] > span {
+  border-color: rgba(69,229,123,.42);
+}
+.selector-rondas-grupo li > b {
+  color: rgba(255,255,255,.55);
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 750;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.selector-rondas-grupo li[data-estado="actual"] > b { color: #62e692; }
+.selector-rondas-grupo li[data-estado="completa"] > b { color: #4de982; }
 .tarjeta-paso-grupo-foco {
   border: 1.5px solid rgba(255,255,255,.1);
   border-radius: 16px;
@@ -5026,9 +5703,10 @@ input[type="number"] {
   background: rgba(69,229,123,.05);
 }
 .tarjeta-paso-grupo-foco[data-estado="actual"] {
-  border-color: rgba(233,189,54,.6);
-  background: rgba(233,189,54,.06);
-  box-shadow: 0 0 0 1px rgba(233,189,54,.15), 0 10px 24px -18px rgba(233,189,54,.35);
+  border-color: color-mix(in srgb, var(--color-glow-tecnica) 68%, white);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-glow-tecnica) 9%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-glow-tecnica) 20%, transparent), 0 8px 18px -18px color-mix(in srgb, var(--color-glow-tecnica) 65%, transparent);
 }
 .cabecera-tarjeta-paso-grupo {
   display: flex;
@@ -5039,6 +5717,7 @@ input[type="number"] {
   text-align: left;
 }
 .numero-paso-grupo {
+  position: relative;
   display: grid;
   flex-shrink: 0;
   width: 26px;
@@ -5050,13 +5729,24 @@ input[type="number"] {
   font-size: calc(12px * var(--escala-texto));
   font-weight: 700;
 }
+.numero-paso-grupo[data-impulso="true"] {
+  box-shadow: 0 0 0 1.5px #ad32ff, 0 0 9px rgba(173,50,255,.6);
+}
+.rayo-impulso-paso-grupo {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  color: #ad32ff;
+  filter: drop-shadow(0 0 4px rgba(173,50,255,.9));
+}
 .tarjeta-paso-grupo-foco[data-estado="completa"] .numero-paso-grupo {
   color: #06180c;
   background: #45e57b;
 }
 .tarjeta-paso-grupo-foco[data-estado="actual"] .numero-paso-grupo {
-  color: #241a02;
-  background: #e9bd36;
+  color: #fff;
+  background: var(--color-glow-tecnica);
+  box-shadow: 0 0 9px color-mix(in srgb, var(--color-glow-tecnica) 60%, transparent);
 }
 .cabecera-tarjeta-paso-grupo .referencia-compacta,
 .cabecera-tarjeta-paso-grupo > span:nth-child(2) {
@@ -5095,8 +5785,15 @@ input[type="number"] {
   transition: transform .2s ease;
 }
 .tarjeta-paso-grupo-foco .fila-serie {
-  padding: 0 10px 10px;
+  padding: 0 10px 8px;
   border-top: 1px solid rgba(255,255,255,.06);
+}
+.tarjeta-paso-grupo-foco[data-estado="actual"] .cabecera-tarjeta-paso-grupo {
+  gap: 8px;
+  padding: 7px 8px;
+}
+.tarjeta-paso-grupo-foco[data-estado="actual"] .fila-serie {
+  padding: 0 8px 5px;
 }
 /* Más compacta que la del ejercicio suelto (pedido de Alejandro: "un poco
    más compacto de manera vertical") — acá conviven varias tarjetas en la
@@ -5114,104 +5811,512 @@ input[type="number"] {
 .tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .separador-serie {
   height: 88px !important;
 }
+.tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .fila-rir-navegacion {
+  min-height: 26px !important;
+  height: 26px;
+  margin-top: 2px !important;
+  padding-top: 0 !important;
+}
 .tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .control-rir-serie {
-  margin-top: 6px !important;
-  padding-top: 6px !important;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  transform: scale(.78);
+  transform-origin: center;
+}
+.tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .control-rir-serie button {
+  width: 22px;
+  height: 20px;
+  font-size: calc(12px * var(--escala-texto));
+}
+.tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .control-rir-serie input {
+  width: 22px;
+  font-size: calc(12px * var(--escala-texto));
 }
 .tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .boton-descanso {
-  min-height: 42px !important;
-  margin-top: 8px !important;
+  min-height: 18px !important;
+  height: 18px !important;
+  margin-top: 1px !important;
+  font-size: calc(8px * var(--escala-texto));
 }
 
 .contenedor-grupo-bloqueable { position: relative; }
-.contenedor-grupo-bloqueable[data-bloqueado="true"] .panel-ejecucion-foco {
+.cristal-ejercicio-siguiente {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  width: 100%;
+  border: 0;
+  border-radius: 16px;
+  background: rgba(10,11,13,.42);
+  -webkit-backdrop-filter: blur(1.5px);
+  backdrop-filter: blur(1.5px);
+}
+.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir,
+.tarjeta-paso-grupo-foco .fila-rir-navegacion .boton-navegacion-junto-rir {
+  z-index: 14;
+  pointer-events: auto;
+}
+.navegacion-flotante-sesion {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
   pointer-events: none;
 }
-.bloqueo-ejercicio-siguiente {
+.navegacion-flotante-sesion button {
   position: absolute;
-  top: 57%;
-  left: 50%;
-  z-index: 12;
-  display: flex;
-  width: min(250px, calc(100% - 42px));
-  min-height: 48px;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  padding: 7px 13px;
-  transform: translate(-50%, -50%);
-  border: 1px solid rgba(232,189,56,.48);
-  border-radius: 999px;
-  color: #f2f2f3;
-  background: rgba(8,9,10,.78);
-  box-shadow: 0 7px 22px rgba(0,0,0,.32), 0 0 16px rgba(232,189,56,.08);
-}
-.bloqueo-ejercicio-siguiente > span {
+  top: 62svh;
   display: grid;
-  width: 30px;
-  height: 30px;
-  flex: none;
+  width: 90px;
+  height: 79px;
   place-items: center;
-  border: 1px solid rgba(232,189,56,.5);
-  border-radius: 50%;
-  color: #efc84d;
-  background: rgba(232,189,56,.09);
-}
-.bloqueo-ejercicio-siguiente > .texto-bloqueo-ejercicio {
-  display: flex;
-  width: auto;
-  height: auto;
-  min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
   border: 0;
   border-radius: 0;
+  color: rgba(255,255,255,.62);
+  background: transparent;
+  box-shadow: none;
+  pointer-events: auto;
+  transform: translateY(-50%);
+}
+.navegacion-flotante-sesion button:first-child {
+  left: -14px;
+}
+.navegacion-flotante-sesion button:last-child {
+  right: -14px;
+}
+.navegacion-flotante-sesion button:disabled { opacity: .28; }
+.navegacion-flotante-sesion svg {
+  width: 79px;
+  height: 79px;
+  filter: drop-shadow(0 0 2px rgba(255,255,255,.12));
+}
+.navegacion-flotante-sesion button:first-child svg {
+  animation: flecha-rir-izquierda 3.8s ease-in-out infinite;
+}
+.navegacion-flotante-sesion button:last-child svg {
+  animation: flecha-rir-derecha 3.8s ease-in-out infinite;
+}
+/* Al cerrar la última serie no aparece otra flecha debajo de la tarjeta: la
+   misma señal vive en la doble flecha que ya lleva al ejercicio siguiente. */
+.navegacion-flotante-sesion button[data-aviso-siguiente="true"] {
+  color: rgba(255,255,255,.98);
+}
+.navegacion-flotante-sesion button[data-aviso-siguiente="true"] svg {
+  animation: aviso-siguiente-derecha .85s cubic-bezier(.35,.05,.25,1) infinite;
+  filter: drop-shadow(0 0 7px rgba(255,255,255,.62));
+}
+.control-descanso-sesion {
+  position: relative;
+  z-index: 16;
+  display: flex;
+  justify-content: flex-end;
+  min-height: 17px;
+  margin: 1px 3px 0;
+}
+.control-descanso-sesion-enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  color: color-mix(in srgb, var(--color-text-tertiary) 78%, transparent);
+  background: transparent;
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: underline;
+  text-decoration-color: rgba(255,255,255,.13);
+  text-underline-offset: 2px;
+}
+.control-descanso-sesion-enlace:active { opacity: .65; }
+.control-descanso-sesion-panel {
+  position: absolute;
+  right: 0;
+  top: 20px;
+  width: min(245px, calc(100vw - 30px));
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 10px;
+  color: var(--color-text);
+  background: rgba(20,21,24,.97);
+  box-shadow: 0 14px 30px rgba(0,0,0,.36);
+}
+.control-descanso-sesion-titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: rgba(255,255,255,.9);
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 700;
+}
+.control-descanso-sesion-titulo button {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 0;
+  color: var(--color-text-tertiary);
   background: transparent;
 }
-.bloqueo-ejercicio-siguiente strong { font-size: calc(11px * var(--escala-texto)); line-height: 1.1; }
-.bloqueo-ejercicio-siguiente small { margin-top: 2px; color: #b4b4b8; font-size: calc(9px * var(--escala-texto)); line-height: 1.1; }
+.control-descanso-sesion-panel > p {
+  margin: 5px 0 8px;
+  color: var(--color-text-secondary);
+  font-size: calc(9px * var(--escala-texto));
+  line-height: 1.35;
+}
+.control-descanso-sesion-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.control-descanso-sesion-segundos { grid-template-columns: repeat(4, 1fr); margin-top: 5px; }
+.control-descanso-sesion-opciones button {
+  min-height: 26px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 7px;
+  color: var(--color-text-secondary);
+  background: rgba(255,255,255,.035);
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 650;
+}
+.control-descanso-sesion-opciones button[data-activo="true"] {
+  border-color: color-mix(in srgb, var(--color-vip) 56%, transparent);
+  color: #fff6c5;
+  background: color-mix(in srgb, var(--color-vip) 14%, transparent);
+}
+.control-descanso-sesion-opciones button:disabled { opacity: .55; }
+.control-descanso-sesion-error { color: var(--color-error) !important; }
+
+/* Cierre visual de Entrenar: las barras fijas usan el mismo grafito y el mismo
+   radio contenido de los controles de la rutina. La cabecera deja de ser
+   transparente para que el scroll nunca atraviese el logo. */
+:root .shell-alumno > .panel-aero-superior:has(.logo-rutina-activa) {
+  overflow: hidden !important;
+  border: 0 !important;
+  background: linear-gradient(180deg, #111315 0%, #0a0b0c 100%) !important;
+  box-shadow: 0 7px 18px rgba(0,0,0,.28) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+:root .shell-alumno > .panel-aero-superior:has(.logo-rutina-activa)::before {
+  content: none !important;
+  display: none !important;
+}
+.logo-rutina-activa { min-height: 46px; }
+.puntos-rutina-activa {
+  height: 38px;
+  flex: 0 1 auto;
+  gap: 6px;
+  margin: 0 7px 0 5px;
+  padding: 0 5px 0 0;
+  color: #f0cc58;
+  white-space: nowrap;
+}
+.insignia-puntos-rutina {
+  position: relative;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid rgba(239,200,77,.55);
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(239,200,77,.2), rgba(239,200,77,.035));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 0 10px rgba(239,200,77,.1);
+}
+.insignia-puntos-rutina > svg:last-child {
+  position: absolute;
+  color: #ffdb63;
+}
+.insignia-puntos-rutina > svg:first-child { width: 23px; height: 23px; }
+.insignia-puntos-rutina > svg:last-child { width: 11px; height: 11px; }
+.puntos-rutina-activa strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #efc84d;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: calc(13px * var(--escala-texto));
+  font-weight: 700;
+  letter-spacing: .025em;
+  text-overflow: ellipsis;
+}
+.shell-alumno:has(.modo-entrenamiento-enfocado) > .pantalla-scroll {
+  padding-top: calc(52px + env(safe-area-inset-top, 0px));
+}
+.accion-cancelar-sesion-cercana {
+  display: flex;
+  justify-content: flex-start;
+  margin: 0 2px !important;
+}
+.acciones-excepcionales-sesion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  min-height: 18px;
+  align-items: center;
+  gap: 10px;
+  margin: 0 2px !important;
+}
+.acciones-excepcionales-sesion .control-descanso-sesion {
+  min-height: 0;
+  margin: 0;
+}
+.acciones-excepcionales-sesion .accion-cancelar-sesion-cercana {
+  min-width: 0;
+}
+.acciones-excepcionales-sesion .accion-cancelar-sesion-cercana > button {
+  width: auto !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  padding-block: 0 !important;
+}
+.accion-cancelar-sesion-enlace {
+  justify-content: flex-start;
+  width: auto;
+  height: 18px;
+  min-height: 18px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+/* Cierre editorial de la sesión: el panel de entrenamiento ya tiene una
+   jerarquía fuerte. La navegación se vuelve una base silenciosa, no otra
+   tarjeta protagonista. El acento dorado indica dónde está el alumno sin
+   recurrir a la cápsula gris pesada. */
+.shell-alumno:has(.modo-entrenamiento-enfocado) .panel-aero-inferior {
+  border-color: rgba(150, 163, 174, .18);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #0e1012 0%, #08090a 100%);
+  box-shadow: 0 12px 28px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.045);
+}
+.shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-aero {
+  gap: 2px;
+  padding: 5px 7px 6px;
+}
+.shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero {
+  position: relative;
+  min-height: 47px;
+  padding: 5px 3px 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #717985;
+}
+.shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero-activo {
+  color: #f3f4f5;
+  border-color: rgba(239, 200, 77, .12);
+  background: linear-gradient(180deg, rgba(239,200,77,.09), rgba(239,200,77,.025));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045);
+}
+.shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero-activo::after {
+  top: 0;
+  right: 28%;
+  left: 28%;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: #efc84d;
+  box-shadow: 0 0 7px rgba(239,200,77,.32);
+}
+.shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero .icono-navegacion-aero {
+  width: 19px;
+  height: 19px;
+}
+.shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero-activo .icono-navegacion-aero {
+  color: #efc84d;
+  filter: drop-shadow(0 0 4px rgba(239,200,77,.2));
+}
+.shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero .etiqueta-nav-normal,
+.shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero .etiqueta-nav-espejo {
+  font-size: calc(9px * var(--escala-texto));
+}
+
+/* Al terminar, el éxito pasa a ser la lectura principal. Los valores se
+   mantienen disponibles para corregir la última serie, pero dejan de ocupar
+   el tamaño de un paso de ejecución activo. */
+.tarjeta-ejercicio-enfocada:has(.estado-finalizacion-ejercicio:not([data-guardando="true"])) .cierre-ejercicio-foco {
+  gap: 5px;
+  margin-top: 7px;
+}
+.tarjeta-ejercicio-enfocada:has(.estado-finalizacion-ejercicio:not([data-guardando="true"])) .estado-finalizacion-ejercicio {
+  min-height: 30px;
+  border-color: rgba(105,233,154,.22);
+  background: linear-gradient(90deg, rgba(69,229,123,.1), rgba(69,229,123,.025));
+  letter-spacing: .02em;
+}
+.tarjeta-ejercicio-enfocada:has(.estado-finalizacion-ejercicio:not([data-guardando="true"])) .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano {
+  min-height: 62px;
+}
+.tarjeta-ejercicio-enfocada:has(.estado-finalizacion-ejercicio:not([data-guardando="true"])) .fila-serie[data-destacada="true"] .campo-serie-plano input {
+  height: 42px;
+  font-size: calc(31px * var(--escala-texto));
+}
+.tarjeta-ejercicio-enfocada:has(.estado-finalizacion-ejercicio:not([data-guardando="true"])) .fila-serie[data-destacada="true"] .grupo-campo-serie > button {
+  min-height: 20px;
+  font-size: calc(14px * var(--escala-texto));
+}
+
+/* Los puntos siguen presentes, pero ceden el protagonismo al ejercicio. */
+.shell-alumno:has(.modo-entrenamiento-enfocado) .puntos-rutina-activa {
+  height: 34px;
+  gap: 5px;
+  margin-right: 5px;
+}
+.shell-alumno:has(.modo-entrenamiento-enfocado) .insignia-puntos-rutina {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+.shell-alumno:has(.modo-entrenamiento-enfocado) .insignia-puntos-rutina > svg:first-child { width: 20px; height: 20px; }
+.shell-alumno:has(.modo-entrenamiento-enfocado) .insignia-puntos-rutina > svg:last-child { width: 9px; height: 9px; }
+.shell-alumno:has(.modo-entrenamiento-enfocado) .puntos-rutina-activa strong { font-size: calc(12px * var(--escala-texto)); }
+
+/* Siguiente ejercicio es contexto y no una segunda llamada a la acción: se
+   mantiene legible, con la foto intacta, pero se integra al borde inferior de
+   la ficha de forma más silenciosa. */
+.tarjeta-ejercicio-enfocada .siguiente-ejercicio-foco {
+  border-top-color: rgba(255,255,255,.055);
+  background: linear-gradient(90deg, rgba(255,255,255,.018), transparent 68%);
+}
+.tarjeta-ejercicio-enfocada .cabecera-siguiente-ejercicio small { color: #74747b; }
+.tarjeta-ejercicio-enfocada .contenido-siguiente-ejercicio strong { color: #a8a8ad; }
+.tarjeta-ejercicio-enfocada .miniatura-siguiente-ejercicio { opacity: .88; }
+.accion-cancelar-sesion-cercana .flex {
+  justify-content: flex-start;
+  text-align: left;
+}
+:root .shell-alumno .panel-aero-inferior {
+  left: 10px;
+  right: 10px;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  overflow: hidden;
+  border: 1px solid rgba(160, 177, 188, .22);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #111315 0%, #0a0b0c 100%);
+  box-shadow: 0 14px 34px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.055);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root .shell-alumno .navegacion-aero {
+  gap: 3px;
+  padding: 5px 6px;
+}
+:root .shell-alumno .item-navegacion-aero {
+  gap: 1px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  border-radius: 9px;
+  text-shadow: none;
+}
+:root .shell-alumno .item-navegacion-aero-activo {
+  border-color: rgba(255,255,255,.09);
+  background: linear-gradient(145deg, rgba(102,105,108,.94), rgba(72,75,78,.96));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 4px 10px rgba(0,0,0,.18);
+}
+:root .shell-alumno .item-navegacion-aero-activo::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 22%;
+  left: 22%;
+  height: 1px;
+  background: rgba(239,200,77,.58);
+}
+:root .shell-alumno .icono-navegacion-aero {
+  width: 20px;
+  height: 20px;
+  filter: none;
+}
+:root .shell-alumno .item-navegacion-aero-activo .icono-navegacion-aero {
+  color: #f0c94f;
+  filter: drop-shadow(0 0 5px rgba(239,200,77,.25));
+}
+.aviso-ejercicio-siguiente {
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  left: 18px;
+  z-index: 15;
+  margin: 0;
+  padding: 8px 11px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(255,255,255,.17);
+  border-radius: 10px;
+  color: rgba(250,250,251,.94);
+  background: rgba(22,23,26,.9);
+  box-shadow: 0 10px 25px rgba(0,0,0,.34);
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: center;
+  pointer-events: none;
+}
 
 .resumen-serie-foco {
+  display: grid;
   overflow: hidden;
-  margin: 0 0 13px;
-  border: 1px solid rgba(255,255,255,.13);
-  border-radius: 17px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0 0 9px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
   background: linear-gradient(110deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
 }
 .tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco,
 .tarjeta-ejercicio-enfocada .resumen-serie-foco .objetivo-serie-foco {
   display: grid;
-  min-height: 49px;
-  grid-template-columns: 27px 84px 10px minmax(0, 1fr);
+  min-height: 34px;
+  min-width: 0;
+  grid-template-columns: 15px max-content 6px minmax(0, 1fr);
   align-items: center;
-  gap: 0 5px;
+  gap: 3px;
   margin: 0;
-  padding: 0 14px;
+  padding: 0 7px;
   border: 0;
   color: #a5a5a9;
 }
 .tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco {
-  border-bottom: 1px solid rgba(255,255,255,.07);
+  border-right: 1px solid rgba(255,255,255,.045);
 }
+.resumen-serie-foco svg { grid-row: auto; width: 14px; height: 14px; }
+.resumen-serie-foco i { display: block; }
+.resumen-serie-foco strong { grid-column: auto; overflow: hidden; text-overflow: ellipsis; }
 .resumen-serie-foco svg { color: #e8bd39; }
 .resumen-serie-foco span,
 .resumen-serie-foco strong,
 .resumen-serie-foco i {
   color: #a7a7ab !important;
-  font-size: calc(11px * var(--escala-texto)) !important;
+  font-size: calc(9px * var(--escala-texto)) !important;
   font-style: normal;
   font-weight: 520 !important;
 }
 .resumen-serie-foco strong { white-space: nowrap; }
+.tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco > span,
+.tarjeta-ejercicio-enfocada .resumen-serie-foco .objetivo-serie-foco > span {
+  color: rgba(255,255,255,.9) !important;
+  overflow: hidden;
+  font-size: calc(10px * var(--escala-texto)) !important;
+  font-weight: 700 !important;
+  letter-spacing: .02em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco > strong,
+.tarjeta-ejercicio-enfocada .resumen-serie-foco .objetivo-serie-foco > strong {
+  color: rgba(255,255,255,.9) !important;
+  min-width: 0;
+  font-size: calc(10px * var(--escala-texto)) !important;
+  font-weight: 700 !important;
+  letter-spacing: .01em;
+  font-variant-numeric: tabular-nums;
+}
+.tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco > i,
+.tarjeta-ejercicio-enfocada .resumen-serie-foco .objetivo-serie-foco > i {
+  color: rgba(255,255,255,.78) !important;
+  font-size: calc(10px * var(--escala-texto)) !important;
+  font-weight: 700 !important;
+}
 
 .panel-ejecucion-foco {
   margin: 0;
-  padding: 11px 13px 8px;
-  border: 1px solid rgba(255,255,255,.13);
-  border-bottom: 0;
-  border-radius: 17px 17px 0 0;
+  padding: 11px 13px 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
   background: linear-gradient(120deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
   box-shadow: none !important;
+  overflow: visible;
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] {
   padding: 0 !important;
@@ -5221,58 +6326,176 @@ input[type="number"] {
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .fila-serie-contenido {
   grid-template-columns: minmax(0,1fr) 1px minmax(0,1fr);
+  align-items: stretch;
   gap: 14px;
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano {
-  min-height: 83px;
+  min-height: 108px;
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input {
-  height: 54px;
-  font-size: calc(39px * var(--escala-texto));
+  height: 74px;
+  font-size: calc(50px * var(--escala-texto));
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button {
-  min-height: 42px;
+  min-height: 28px;
   border-color: rgba(255,255,255,.13);
-  border-radius: 12px;
+  border-radius: 14px;
   background: rgba(255,255,255,.025);
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie {
-  height: 132px;
-  background: rgba(255,255,255,.07);
+  height: auto;
+  align-self: stretch;
+  background: rgba(255,255,255,.09);
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie {
-  margin-top: 13px;
-  padding-top: 12px;
+  grid-template-columns: auto 30px 28px 30px;
+  min-height: 36px;
+  margin-top: 11px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 12px;
+  background: rgba(255,255,255,.018);
+}
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie > span {
+  font-size: calc(10px * var(--escala-texto));
+}
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie button {
+  width: 30px;
+  height: 28px;
+  border-radius: 9px;
+  font-size: calc(16px * var(--escala-texto));
+}
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie input {
+  width: 28px;
+  font-size: calc(14px * var(--escala-texto));
+}
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .fila-rir-navegacion {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 84px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 11px;
+  padding: 7px 0 0;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+.tarjeta-ejercicio-enfocada .fila-rir-navegacion .control-rir-serie { margin-top: 0; }
+.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir {
+  position: absolute;
+  top: calc(50% + 10px);
+  display: grid;
+  width: 90px;
+  height: 79px;
+  place-items: center;
+  border: 0 !important;
+  border-radius: 0;
+  color: rgba(255,255,255,.92);
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: translateY(-50%);
+}
+.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir:first-child { left: -12px; }
+.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir:last-child { right: -12px; }
+.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir svg {
+  width: 79px;
+  height: 79px;
+  filter: drop-shadow(0 0 3px rgba(255,255,255,.25));
+}
+.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir:first-child svg {
+  animation: flecha-rir-izquierda 3.8s ease-in-out infinite;
+}
+.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir:last-child svg {
+  animation: flecha-rir-derecha 3.8s ease-in-out infinite;
+}
+@keyframes flecha-rir-izquierda {
+  0%, 100% { transform: translateX(1px); opacity: .56; }
+  50% { transform: translateX(-3px); opacity: 1; }
+}
+@keyframes flecha-rir-derecha {
+  0%, 100% { transform: translateX(-1px); opacity: .56; }
+  50% { transform: translateX(3px); opacity: 1; }
+}
+@keyframes aviso-siguiente-derecha {
+  0%, 100% { transform: translateX(-1px); opacity: .6; }
+  48% { transform: translateX(9px); opacity: 1; }
+  64% { transform: translateX(7px); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onda-progreso-lenta { animation: none; }
+  .tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir svg { animation: none; }
+  .navegacion-flotante-sesion svg { animation: none; }
+  .navegacion-flotante-sesion button[data-aviso-siguiente="true"] svg { animation: none; }
+  .tarjeta-ejercicio-enfocada .selector-series-movido button[data-reinicio="true"] { animation: none; }
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso {
-  min-height: 51px;
-  margin-top: 14px;
-  border: 1px solid rgba(201,159,51,.55);
-  border-radius: 14px;
-  color: #e9c45d;
-  background: linear-gradient(100deg, rgba(104,75,20,.55), rgba(48,38,20,.55));
-  box-shadow: inset 0 1px 0 rgba(255,226,135,.12), 0 4px 12px rgba(170,112,17,.06);
+  min-height: 44px;
+  margin-top: 10px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 12px;
+  color: #f1f1f3;
+  background: linear-gradient(100deg, rgba(255,255,255,.055), rgba(255,255,255,.025));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 4px 12px rgba(0,0,0,.12);
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="pendiente"] {
   animation: none !important;
+}
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="pendiente"],
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="corriendo"],
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="pausado"] {
+  min-height: 48px;
+}
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="hecha"],
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="confirmar-deshacer"] {
+  width: 44px;
+  min-height: 44px;
+  margin-left: auto;
+  border: 1px solid rgba(78,231,131,.78);
+  border-radius: 12px;
+  color: #062a15;
+  background: #4ee783;
+  box-shadow: 0 0 14px rgba(78,231,131,.32), inset 0 1px 0 rgba(255,255,255,.4);
+}
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="hecha"] svg,
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="confirmar-deshacer"] svg {
+  width: 25px;
+  height: 25px;
+  stroke-width: 3.4;
 }
 .guardar-serie-foco {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  font-size: calc(14px * var(--escala-texto));
+  gap: 8px;
+  font-size: calc(12px * var(--escala-texto));
   font-weight: 650;
 }
+.llamada-descanso-espera {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: inherit;
+}
+.llamada-descanso-espera svg {
+  flex: 0 0 auto;
+  color: rgba(255,255,255,.92);
+  filter: drop-shadow(0 0 5px rgba(255,255,255,.16));
+}
+.llamada-descanso-espera > span {
+  font-size: calc(12px * var(--escala-texto));
+  font-weight: 700;
+  letter-spacing: .015em;
+}
+.llamada-descanso-espera-pausada { opacity: .62; }
 .navegacion-ejercicios-foco {
   display: grid;
   grid-template-columns: minmax(0, 30%) minmax(0, 70%);
   gap: 10px;
-  margin: 0;
+  margin: 10px 0 0;
   padding: 0 13px 13px;
   border: 1px solid rgba(255,255,255,.13);
-  border-top: 0;
-  border-radius: 0 0 17px 17px;
+  border-radius: 16px;
   background: linear-gradient(120deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
 }
 .navegacion-ejercicios-foco > button {
@@ -5311,21 +6534,61 @@ input[type="number"] {
   white-space: nowrap;
 }
 .navegacion-ejercicios-foco button:disabled { opacity: .3; }
-.boton-ver-rutina-foco {
-  position: fixed;
-  top: auto;
-  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-  right: max(9px, calc((100vw - 440px) / 2 + 8px));
-  z-index: 34;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: rgba(9,10,11,.88);
-}
-.boton-ver-rutina-foco span { display: none; }
-.tarjeta-ejercicio-enfocada .protocolo-tecnica-foco,
 .tarjeta-ejercicio-enfocada .acciones-series-extra {
   display: none;
+}
+.tarjeta-ejercicio-enfocada .protocolo-tecnica-foco {
+  display: inline-flex;
+  width: auto;
+  align-items: center;
+  margin: 0 0 8px;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--color-acento) 38%, transparent);
+  border-radius: 999px;
+  color: var(--color-acento-fuerte);
+  background: color-mix(in srgb, var(--color-acento) 13%, transparent);
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 750;
+}
+.tarjeta-ejercicio-enfocada .protocolo-tecnica-foco strong,
+.tarjeta-ejercicio-enfocada .protocolo-tecnica-foco small { display: none; }
+
+/* El entrenamiento no depende de un ancho fijo: en móvil conserva el borde
+   cómodo y, desde tablet, aprovecha el ancho extra sin estirar la lectura
+   hasta el borde. También evita que un cambio de zoom deje un hijo más ancho
+   que la pantalla de la sesión. */
+.modo-entrenamiento-enfocado {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+@media (min-width: 600px) {
+  .shell-alumno:has(.modo-entrenamiento-enfocado) > .pantalla-scroll {
+    max-width: 720px !important;
+    padding-inline: 20px !important;
+  }
+  .modo-entrenamiento-enfocado {
+    margin-inline: 0;
+  }
+  .navegacion-flotante-sesion button:first-child {
+    left: -14px;
+  }
+  .navegacion-flotante-sesion button:last-child {
+    right: -14px;
+  }
+}
+
+/* iPhone 13/S25 y los tamaños equivalentes: el margen lateral baja apenas
+   cuando el zoom de pantalla reduce el viewport, pero los controles nunca
+   adquieren ancho extra ni generan scroll horizontal. */
+@media (max-width: 390px) {
+  .tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] {
+    gap: 3px !important;
+  }
+  .tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] button {
+    height: 16px;
+    min-height: 16px;
+    border-radius: 6px;
+  }
 }
 
 @media (max-width: 360px) {
@@ -5353,18 +6616,18 @@ input[type="number"] {
     height: 168px !important;
     aspect-ratio: auto;
   }
-  .tarjeta-ejercicio-enfocada .guia-ejercicio-foco { padding-top: 4px; }
-  .tarjeta-ejercicio-enfocada .guia-ejercicio-foco h2 { margin: 7px 0 8px; font-size: calc(18px * var(--escala-texto)); }
+  .tarjeta-ejercicio-enfocada .guia-ejercicio-foco { padding-top: 0; }
+  .tarjeta-ejercicio-enfocada .guia-ejercicio-foco h2 { margin: 0 0 8px; font-size: calc(22px * var(--escala-texto)); }
   .tarjeta-ejercicio-enfocada .selector-series-foco button { gap: 3px; padding-top: 4px; }
   .resumen-serie-foco { margin-bottom: 8px; }
   .tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco,
-  .tarjeta-ejercicio-enfocada .resumen-serie-foco .objetivo-serie-foco { min-height: 38px; }
+  .tarjeta-ejercicio-enfocada .resumen-serie-foco .objetivo-serie-foco { min-height: 34px; }
   .panel-ejecucion-foco { padding-top: 7px; }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano { min-height: 61px; }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input { height: 38px; font-size: calc(30px * var(--escala-texto)); }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 34px; }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie { height: 101px; }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie { margin-top: 7px; padding-top: 7px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano { min-height: 84px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input { height: 58px; font-size: calc(42px * var(--escala-texto)); }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 22px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie { height: auto; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie { margin-top: 8px; padding-top: 4px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso { min-height: 42px; margin-top: 8px; }
   .navegacion-ejercicios-foco { gap: 7px; padding: 0 10px 9px; }
   .navegacion-ejercicios-foco > button { min-height: 45px; }
@@ -5376,19 +6639,69 @@ input[type="number"] {
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta,
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta > button,
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta > div { height: 145px !important; }
-  .tarjeta-ejercicio-enfocada .guia-ejercicio-foco h2 { margin: 5px 0 5px; font-size: calc(16px * var(--escala-texto)); }
+  .tarjeta-ejercicio-enfocada .guia-ejercicio-foco h2 { margin: 5px 0 5px; font-size: calc(20px * var(--escala-texto)); }
   .resumen-serie-foco { margin-bottom: 6px; }
   .tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco,
   .tarjeta-ejercicio-enfocada .resumen-serie-foco .objetivo-serie-foco { min-height: 34px; }
   .panel-ejecucion-foco { padding-top: 5px; }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano { min-height: 52px; }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input { height: 32px; font-size: calc(27px * var(--escala-texto)); }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 31px; }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie { height: 87px; }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie { margin-top: 5px; padding-top: 5px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano { min-height: 71px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input { height: 49px; font-size: calc(37px * var(--escala-texto)); }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 20px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie { height: auto; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie { margin-top: 6px; padding-top: 3px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso { min-height: 38px; margin-top: 6px; }
   .navegacion-ejercicios-foco { padding-bottom: 6px; }
   .navegacion-ejercicios-foco > button { min-height: 40px; }
+}
+
+/* Registro de series: la cápsula conserva siempre el mismo alto, esté vacía
+   o muestre kilos y repeticiones. De 22px pasa a 13px (≈40% menos alto), y el
+   dato se mantiene en una sola línea para que no vuelva a engrosarla. */
+.tarjeta-ejercicio-enfocada .selector-series-movido button,
+.tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] button {
+  box-sizing: border-box;
+  height: 8px !important;
+  min-height: 8px !important;
+  padding: 0 2px !important;
+  border-radius: 6px;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .resumen-registro-serie,
+.tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] .resumen-registro-serie {
+  display: none;
+  max-height: 8px;
+  overflow: hidden;
+  font-size: calc(5.2px * var(--escala-texto));
+  line-height: 8px;
+  letter-spacing: -.025em;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-wrap: nowrap;
+  white-space: nowrap;
+  -webkit-line-clamp: 1;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador {
+  gap: 1px;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .etiqueta-serie-indicador {
+  min-height: 7px;
+  font-size: calc(6.4px * var(--escala-texto));
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .etiqueta-serie-indicador svg {
+  width: 7px;
+  height: 7px;
+}
+/* Pendiente o en curso: cápsula vacía. Solo una serie realizada rellena su
+   color; la excepción es Impulso VIP, que conserva su señal morada activa. */
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="pendiente"],
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="actual"]:not([data-especial="true"]) {
+  color: #85898f;
+  border-color: #35383d;
+  background: #1c1f23;
+  box-shadow: none;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador[data-estado="pendiente"] .etiqueta-serie-indicador,
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador[data-estado="actual"]:not([data-especial="true"]) .etiqueta-serie-indicador {
+  color: #85898f;
 }
 
 .informe-vip table th,
@@ -5421,4 +6734,1010 @@ input[type="number"] {
     min-height: 0 !important;
     padding: 0 !important;
   }
+}
+
+/* Ajustes finales de la sesión enfocada. Van al final porque la hoja contiene
+   variantes históricas de la barra inferior que, de otro modo, pisan esta
+   composición específica de Entrenar. */
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .panel-aero-inferior {
+  border-color: rgba(150, 163, 174, .18) !important;
+  border-radius: 12px !important;
+  background: linear-gradient(180deg, #0e1012 0%, #08090a 100%) !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-aero {
+  gap: 2px !important;
+  padding: 5px 7px 6px !important;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero {
+  position: relative;
+  min-height: 47px;
+  padding: 5px 3px 4px !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  color: #717985 !important;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero-activo {
+  color: #f3f4f5 !important;
+  border-color: rgba(239, 200, 77, .12) !important;
+  background: linear-gradient(180deg, rgba(239,200,77,.09), rgba(239,200,77,.025)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero-activo::after {
+  top: 0 !important;
+  right: 28% !important;
+  left: 28% !important;
+  height: 2px !important;
+  border-radius: 0 0 2px 2px;
+  background: #efc84d !important;
+  box-shadow: 0 0 7px rgba(239,200,77,.32);
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero .icono-navegacion-aero {
+  width: 19px !important;
+  height: 19px !important;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero-activo .icono-navegacion-aero {
+  color: #efc84d !important;
+  filter: drop-shadow(0 0 4px rgba(239,200,77,.2)) !important;
+}
+/* Peso y repeticiones se leen desde lejos: incluso al terminar el ejercicio
+   conservan su espacio y aumentan levemente. RIR y todo lo que está bajo su
+   separador se dejan intactos. */
+:root .tarjeta-ejercicio-enfocada:not(.tarjeta-grupo-enfocada) .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano {
+  min-height: clamp(70px, 10vh, 84px) !important;
+}
+:root .tarjeta-ejercicio-enfocada:not(.tarjeta-grupo-enfocada) .fila-serie[data-destacada="true"] .campo-serie-plano input {
+  height: clamp(49px, 7vh, 58px) !important;
+  font-size: clamp(40px, 6vh, 50px) !important;
+}
+
+/* Las flechas de ejercicios permanecen en los extremos, pero en la línea
+   del RIR — nunca debajo del botón finalizado. */
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-flotante-sesion button {
+  top: 56svh;
+}
+
+/* En tamaño normal se elimina solo el scroll que no tiene contenido que
+   mostrar. El atributo lo calcula la pantalla en tiempo real; zoom grande o
+   una pantalla baja mantienen el desplazamiento vertical. */
+.pantalla-scroll[data-entrenamiento-ajustado="true"] {
+  overflow-y: hidden !important;
+  overscroll-behavior-y: none;
+  overflow-anchor: none;
+}
+@supports (overflow: clip) {
+  .pantalla-scroll[data-entrenamiento-ajustado="true"] {
+    /* `clip` no conserva un desplazamiento interno restaurado por Safari. */
+    overflow: clip !important;
+  }
+}
+
+/* La sesión se lee como dos piezas del mismo sistema: cabecera y navegación.
+   Ambas protegen el contenido que pasa por detrás y usan el mismo grafito,
+   borde fino y radio contenido. La holgura superior evita que el porcentaje
+   quede escondido por la cabecera absoluta en pantallas bajas. */
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) > .panel-aero-superior:has(.logo-rutina-activa) {
+  top: max(6px, env(safe-area-inset-top, 0px)) !important;
+  width: calc(100% - 20px) !important;
+  margin: 0 !important;
+  box-sizing: border-box;
+  overflow: hidden !important;
+  border: 1px solid rgba(142, 157, 166, .24) !important;
+  border-radius: 12px !important;
+  background: linear-gradient(180deg, #15181a 0%, #0b0d0e 100%) !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .34) !important;
+}
+
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) > .pantalla-scroll {
+  /* La cabecera tiene 62 px reales; 70 deja una separación legible incluso
+     cuando el porcentaje está en la primera línea de contenido. */
+  padding-top: calc(70px + env(safe-area-inset-top, 0px)) !important;
+}
+
+@media (max-height: 800px) {
+  :root .shell-alumno:has(.modo-entrenamiento-enfocado) > .pantalla-scroll {
+    padding-top: calc(70px + env(safe-area-inset-top, 0px)) !important;
+  }
+}
+
+/* En la lectura normal un ejercicio simple está diseñado para verse completo;
+   no dejamos una barra de desplazamiento residual solo por el colchón de la
+   navegación. Las biseries, series gigantes y los tamaños ampliados conservan
+   el scroll por accesibilidad. */
+:root[data-zoom-pantalla="1"] .shell-alumno:has(.modo-entrenamiento-enfocado) > .pantalla-scroll[data-entrenamiento-ajustado="true"]:has(.tarjeta-ejercicio-enfocada):not(:has(.tarjeta-grupo-enfocada)) {
+  overflow-y: hidden !important;
+  overscroll-behavior-y: none;
+}
+
+/* Un Momento Impulso expandido añade instrucciones y una aceptación explícita:
+   ya no cabe en la composición compacta de una serie normal. En ese único
+   estado el desplazamiento vuelve a estar disponible y deja espacio bajo la
+   navegación fija para Nota, Molestia y "Inicié esta sesión por error". */
+:root[data-zoom-pantalla="1"] .shell-alumno:has(.modo-entrenamiento-enfocado) > .pantalla-scroll:has(.tarjeta-ejercicio-enfocada):has(.momento-impulso-vivo),
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) > .pantalla-scroll:has(.momento-impulso-vip) {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior-y: contain;
+  padding-bottom: calc(var(--alto-nav-alumno, 86px) + 104px) !important;
+}
+
+/* Las flechas son un carril de navegación, no una pieza del contenido: su
+   altura permanece idéntica entre un ejercicio, una biserie y una ronda. */
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-flotante-sesion button {
+  top: 63svh !important;
+}
+
+/* Reserva un carril real para el menú de ejercicios. El título puede bajar de
+   línea ("Sentadilla en" / "Smith") pero jamás invadir las tres líneas. */
+:root .tarjeta-ejercicio-enfocada:not(.tarjeta-grupo-enfocada) .guia-ejercicio-foco {
+  /* Carril reservado para el mapa de ejercicios: el botÃ³n queda siempre en
+     la esquina superior derecha, aunque el nombre ocupe dos lÃ­neas. */
+  padding-right: 50px !important;
+}
+:root .tarjeta-ejercicio-enfocada:not(.tarjeta-grupo-enfocada) .guia-ejercicio-foco h2 {
+  max-width: 100% !important;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+  line-height: 1.06;
+}
+:root .tarjeta-ejercicio-enfocada:not(.tarjeta-grupo-enfocada) .boton-ver-rutina-en-siguiente {
+  z-index: 2;
+  width: 38px;
+  height: 38px;
+  border-color: rgba(255, 255, 255, .22);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, .94);
+  background: #121517;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
+}
+:root .tarjeta-ejercicio-enfocada:not(.tarjeta-grupo-enfocada) .boton-ver-rutina-en-siguiente svg {
+  width: 23px;
+  height: 23px;
+}
+
+/* Biseries y series encadenadas: la composición hereda el mismo grafito
+   silencioso del ejercicio individual. A/B explican el orden; el color solo
+   comunica progreso, finalización o un Impulso VIP real. */
+:root .tarjeta-grupo-enfocada {
+  border-color: rgba(255, 255, 255, .13) !important;
+  border-radius: 16px !important;
+  background: #0b0d0e !important;
+  box-shadow: none !important;
+}
+:root .tarjeta-grupo-enfocada .cabecera-grupo-enfocado {
+  position: relative;
+  gap: 8px;
+  padding: 0 46px 8px 0;
+  border-color: rgba(255, 255, 255, .08);
+}
+:root .tarjeta-grupo-enfocada .boton-ver-rutina-grupo {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, .94);
+  background: #121517;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
+}
+:root .tarjeta-grupo-enfocada .boton-ver-rutina-grupo:disabled { opacity: .45; }
+:root .tarjeta-grupo-enfocada .ejercicio-cabecera-grupo-foco {
+  gap: 5px;
+}
+:root .tarjeta-grupo-enfocada .ejercicio-cabecera-grupo-foco > button {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .11);
+  border-radius: 10px;
+  background: #111416;
+  box-shadow: none;
+}
+:root .tarjeta-grupo-enfocada .texto-cabecera-grupo-foco {
+  gap: 2px;
+}
+:root .tarjeta-grupo-enfocada .texto-cabecera-grupo-foco p {
+  align-items: flex-start;
+  color: rgba(255, 255, 255, .9);
+  font-size: calc(12px * var(--escala-texto));
+  font-weight: 680;
+  line-height: 1.12;
+  text-align: left;
+}
+:root .tarjeta-grupo-enfocada .texto-cabecera-grupo-foco p span {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 5px;
+  color: rgba(255, 255, 255, .78);
+  background: #1c2023;
+  font-size: calc(9px * var(--escala-texto));
+}
+:root .tarjeta-grupo-enfocada .texto-cabecera-grupo-foco small {
+  color: rgba(255, 255, 255, .5);
+  font-size: calc(9px * var(--escala-texto));
+  text-align: left;
+}
+:root .tarjeta-grupo-enfocada .ronda-grupo-foco {
+  gap: 7px;
+}
+:root .tarjeta-grupo-enfocada .ronda-grupo-control {
+  align-items: center;
+  gap: 9px;
+  padding: 1px 0 3px;
+}
+:root .tarjeta-grupo-enfocada .ronda-grupo-foco-titulo {
+  color: rgba(255, 255, 255, .92);
+  font-size: calc(14px * var(--escala-texto));
+}
+:root .tarjeta-grupo-enfocada .ronda-grupo-foco-titulo strong { color: #50e48a; }
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo { gap: 6px; }
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo li > span {
+  height: 16px;
+  border-color: rgba(255, 255, 255, .14);
+  border-radius: 6px;
+  background: #1a1e21;
+}
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo li > span i {
+  background: linear-gradient(90deg, #31d875, #68eca0);
+  box-shadow: 0 0 8px rgba(78, 228, 138, .32);
+}
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco {
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 12px;
+  background: #111315;
+  box-shadow: none;
+}
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="completa"] {
+  border-color: rgba(80, 228, 138, .32);
+  background: linear-gradient(180deg, rgba(35, 112, 67, .14), #111614);
+}
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="actual"] {
+  border-color: rgba(230, 236, 238, .3);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #171b1d, #111315);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .055);
+}
+:root .tarjeta-grupo-enfocada .cabecera-tarjeta-paso-grupo,
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="actual"] .cabecera-tarjeta-paso-grupo {
+  gap: 8px;
+  padding: 8px 9px;
+}
+:root .tarjeta-grupo-enfocada .numero-paso-grupo,
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="actual"] .numero-paso-grupo {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  color: rgba(255, 255, 255, .82);
+  background: #22272a;
+  box-shadow: none;
+}
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="completa"] .numero-paso-grupo {
+  color: #062012;
+  background: #50e48a;
+}
+:root .tarjeta-grupo-enfocada .info-paso-grupo strong {
+  color: #f4f5f5;
+  font-size: calc(13px * var(--escala-texto));
+}
+:root .tarjeta-grupo-enfocada .info-paso-grupo small {
+  color: rgba(255, 255, 255, .5);
+  font-size: calc(10px * var(--escala-texto));
+}
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco .fila-serie,
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="actual"] .fila-serie {
+  padding: 0 9px 7px;
+  border-color: rgba(255, 255, 255, .07);
+}
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .boton-descanso {
+  min-height: 24px !important;
+  height: 24px !important;
+  margin-top: 3px !important;
+  font-size: calc(9px * var(--escala-texto));
+}
+
+/* La ronda es el equivalente de las cápsulas de serie: una lectura de estado
+   muy fina, no otro bloque vertical. */
+:root .tarjeta-grupo-enfocada .ronda-grupo-control {
+  display: block;
+  width: 100%;
+  padding: 0 0 3px;
+}
+:root .tarjeta-grupo-enfocada .ronda-grupo-foco-titulo {
+  display: flex;
+  height: 11px;
+  align-items: center;
+  font-size: calc(12px * var(--escala-texto));
+  letter-spacing: -.025em;
+  line-height: 11px;
+  transform: none;
+}
+:root .tarjeta-grupo-enfocada .ronda-grupo-foco-titulo small {
+  font-size: calc(9px * var(--escala-texto));
+}
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(34px, 1fr));
+  align-items: flex-start;
+  gap: 6px;
+}
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo li {
+  width: 100%;
+  min-width: 0;
+  gap: 2px;
+}
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo li > span {
+  height: 11px;
+  border-radius: 5px;
+}
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo li > b {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: calc(8px * var(--escala-texto));
+}
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo li > button {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+}
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo li > button > span {
+  display: block;
+  height: 11px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 5px;
+  background: #1a1e21;
+}
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo li > button > span i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #31d875, #68eca0);
+  box-shadow: 0 0 8px rgba(78, 228, 138, .32);
+}
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo li > button > b {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: rgba(255, 255, 255, .55);
+  font-size: calc(8px * var(--escala-texto));
+  font-weight: 750;
+}
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo li[data-estado="actual"] > button > b,
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo li[data-estado="completa"] > button > b { color: #55e58d; }
+
+/* La percepción queda asociada al paso que ya se hizo, sin un bloque de
+   encuesta aislado al final de una biserie o superserie. */
+:root .tarjeta-grupo-enfocada .encuesta-paso-grupo-foco {
+  margin: 0 8px 7px;
+}
+:root .tarjeta-grupo-enfocada .encuesta-paso-grupo-foco .boton-encuesta-pendiente {
+  min-height: 28px;
+  border-top: 1px solid rgba(255, 255, 255, .07);
+  color: rgba(255, 255, 255, .55);
+  font-size: calc(10px * var(--escala-texto));
+}
+:root .tarjeta-grupo-enfocada .selector-rondas-grupo li[data-estado="completa"] > b svg {
+  color: #55e58d;
+}
+
+/* En la biserie se compactan las tarjetas terminadas, no la decisión activa:
+   RIR y descanso recuperan la presencia táctil del ejercicio individual. */
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="actual"] .fila-serie[data-destacada="true"] .fila-rir-navegacion {
+  min-height: 52px !important;
+  height: 52px;
+  margin-top: 7px !important;
+  padding-top: 16px !important;
+}
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="actual"] .fila-serie[data-destacada="true"] .control-rir-serie {
+  padding-top: 0 !important;
+  transform: none;
+}
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="actual"] .fila-serie[data-destacada="true"] .control-rir-serie button {
+  width: 28px;
+  height: 26px;
+  font-size: calc(13px * var(--escala-texto));
+}
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="actual"] .fila-serie[data-destacada="true"] .control-rir-serie input {
+  width: 26px;
+  font-size: calc(13px * var(--escala-texto));
+}
+:root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="actual"] .fila-serie[data-destacada="true"] .boton-descanso {
+  min-height: 42px !important;
+  height: 42px !important;
+  margin-top: 6px !important;
+  font-size: calc(10px * var(--escala-texto));
+}
+
+/* Las notas pertenecen al ejercicio al que describen. Permanecen ausentes
+   hasta que se piden y un punto indica que ya existe una anotación. */
+:root .tarjeta-grupo-enfocada .boton-nota-paso-grupo {
+  position: relative;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  place-items: center;
+  margin: -3px 0;
+  border: 0;
+  border-radius: 7px;
+  color: rgba(255, 255, 255, .5);
+  background: transparent;
+}
+:root .tarjeta-grupo-enfocada .boton-nota-paso-grupo:hover,
+:root .tarjeta-grupo-enfocada .boton-nota-paso-grupo[aria-expanded="true"] {
+  color: rgba(255, 255, 255, .9);
+  background: rgba(255, 255, 255, .065);
+}
+:root .tarjeta-grupo-enfocada .boton-nota-paso-grupo[data-con-nota="true"]::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #53e28b;
+  box-shadow: 0 0 5px rgba(83, 226, 139, .75);
+}
+:root .tarjeta-grupo-enfocada .nota-paso-grupo-foco {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 8px 7px;
+  padding: 5px 7px;
+  border-top: 1px solid rgba(255, 255, 255, .07);
+  color: rgba(255, 255, 255, .42);
+}
+:root .tarjeta-grupo-enfocada .nota-paso-grupo-foco input {
+  min-height: 18px;
+  font-size: calc(11px * var(--escala-texto));
+}
+
+/* Una referencia sin foto se presenta como estado diseñado, nunca como una
+   imagen rota: mantiene la grilla A/B y deja claro que puede completarse. */
+:root .tarjeta-grupo-enfocada .ejercicio-cabecera-grupo-foco > button[aria-label^="Solicitar foto"] {
+  position: relative;
+  background: radial-gradient(circle at 50% 32%, rgba(239, 200, 77, .11), transparent 42%), #111416;
+}
+:root .tarjeta-grupo-enfocada .ejercicio-cabecera-grupo-foco > button[aria-label^="Solicitar foto"]::after {
+  content: "REFERENCIA";
+  position: absolute;
+  right: 0;
+  bottom: 7px;
+  left: 0;
+  color: rgba(255, 255, 255, .46);
+  font-size: 7px;
+  font-weight: 720;
+  letter-spacing: .11em;
+  text-align: center;
+}
+
+/* El tema claro no puede heredar la barra grafito de la sesión oscura. Mantiene
+   la misma jerarquía —base silenciosa y acento activo— con contraste legible
+   sobre superficies luminosas. */
+:root[data-theme="light"] .shell-alumno:has(.modo-entrenamiento-enfocado) .panel-aero-inferior {
+  border-color: rgba(41, 50, 61, .16) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(237,240,244,.98)) !important;
+  box-shadow: 0 12px 28px rgba(33,40,48,.16), inset 0 1px 0 rgba(255,255,255,.9) !important;
+}
+:root[data-theme="light"] .shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero {
+  color: #66717c !important;
+}
+:root[data-theme="light"] .shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero-activo {
+  color: #1f2933 !important;
+  border-color: color-mix(in srgb, var(--color-vip) 28%, transparent) !important;
+  background: color-mix(in srgb, var(--color-vip) 11%, transparent) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.82) !important;
+}
+:root[data-theme="light"] .shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero-activo .icono-navegacion-aero {
+  color: color-mix(in srgb, var(--color-vip) 74%, #6b4b00) !important;
+}
+
+/* Utilidades de la sesión: los puntos, avisos y ajustes forman un mismo
+   instrumento. Así dejan de competir como tres botones de estilos distintos
+   y el contador puede crecer sin invadir el nombre de la rutina. */
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .utilidades-rutina-activa {
+  display: flex;
+  height: 38px;
+  flex: 0 0 auto;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid rgba(142, 157, 166, .24);
+  border-radius: 11px;
+  background: #0d0f10;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .puntos-rutina-activa {
+  display: flex;
+  height: 100%;
+  /* Los puntos son un dato, no un texto decorativo: 2.000, 10.000 o 100.000
+     nunca se encogen ni se recortan. Si hace falta espacio, el nombre de la
+     rutina (que ya admite truncado) cede primero. */
+  flex: 0 0 max-content;
+  min-width: 58px;
+  max-width: none;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 0 9px;
+  border: 0;
+  border-right: 1px solid rgba(239, 200, 77, .20);
+  border-radius: 0;
+  color: #f0cc58;
+  background: linear-gradient(90deg, rgba(239, 200, 77, .105), rgba(239, 200, 77, .025));
+  box-shadow: none;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .insignia-puntos-rutina {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  place-items: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .insignia-puntos-rutina svg:first-child {
+  width: 19px;
+  height: 19px;
+  stroke-width: 1.75;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .insignia-puntos-rutina svg:last-child {
+  display: none;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .puntos-rutina-activa strong {
+  min-width: 0;
+  color: #f6d66d;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(10px, 3.35vw, 13px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: .01em;
+  line-height: 1;
+  overflow: visible;
+  white-space: nowrap;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .utilidades-acciones-rutina {
+  display: flex !important;
+  height: 100%;
+  align-items: stretch;
+  gap: 0 !important;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .utilidades-acciones-rutina > * {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: #aeb5bb !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .utilidades-acciones-rutina > * + * {
+  border-left: 1px solid rgba(142, 157, 166, .20) !important;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .utilidades-acciones-rutina button:hover,
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .utilidades-acciones-rutina button:focus-visible {
+  color: #f2f4f5 !important;
+  background: rgba(255, 255, 255, .055) !important;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .logo-rutina-activa .titulo-rutina-activa {
+  min-width: 0;
+}
+:root[data-theme="light"] .shell-alumno:has(.modo-entrenamiento-enfocado) .utilidades-rutina-activa {
+  border-color: rgba(41, 50, 61, .2);
+  background: #f6f7f8;
+}
+:root[data-theme="light"] .shell-alumno:has(.modo-entrenamiento-enfocado) .utilidades-acciones-rutina > * {
+  color: #56616b !important;
+}
+
+/* Cierre de rutina: una recompensa sobria, no un bloque verde genérico.
+   El oro comunica puntos VIP y el verde queda como una señal de logro. */
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .boton-finalizar-celebracion {
+  position: relative;
+  min-height: 86px;
+  overflow: hidden;
+  padding: 12px 11px;
+  border: 1px solid rgba(83, 226, 139, .34);
+  border-radius: 15px;
+  color: #f5f7f6;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(83, 226, 139, .20), transparent 42%),
+    linear-gradient(125deg, #102017, #111718 56%, #17150d);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 12px 27px rgba(0,0,0,.25);
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .boton-finalizar-celebracion::after {
+  inset: auto 0 0;
+  width: auto;
+  height: 2px;
+  transform: none;
+  opacity: .86;
+  background: linear-gradient(90deg, #4fe58b, #f0ca57 55%, transparent);
+  animation: none;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .finalizacion-sello {
+  position: relative;
+  display: grid;
+  width: 45px;
+  height: 45px;
+  flex: 0 0 45px;
+  place-items: center;
+  border: 1px solid rgba(240, 202, 87, .55);
+  border-radius: 12px;
+  color: #f2cd5d;
+  background: rgba(12, 17, 15, .58);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 0 18px rgba(240,202,87,.09);
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .finalizacion-sello svg:last-child {
+  position: absolute;
+  top: 4px;
+  right: 3px;
+  color: #63eb9a;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .finalizacion-texto {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .finalizacion-estado {
+  color: #71e9a3;
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 800;
+  letter-spacing: .12em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .finalizacion-titulo {
+  margin-top: 3px;
+  color: #fff;
+  font-size: calc(15px * var(--escala-texto));
+  font-weight: 760;
+  letter-spacing: -.025em;
+  line-height: 1.08;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .finalizacion-detalle {
+  margin-top: 3px;
+  color: rgba(255,255,255,.5);
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 580;
+  line-height: 1.1;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .finalizacion-puntos {
+  display: flex;
+  min-width: 50px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  color: #f2cd5d;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .finalizacion-puntos strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: calc(19px * var(--escala-texto));
+  font-weight: 700;
+  letter-spacing: -.03em;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .finalizacion-puntos small {
+  margin-top: 3px;
+  color: rgba(242,205,93,.72);
+  font-size: calc(7px * var(--escala-texto));
+  font-weight: 800;
+  letter-spacing: .09em;
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .finalizacion-avanzar {
+  display: grid;
+  width: 18px;
+  flex: 0 0 18px;
+  place-items: center;
+  color: rgba(255,255,255,.48);
+}
+:root .shell-alumno:has(.modo-entrenamiento-enfocado) .boton-finalizar-celebracion:active {
+  transform: scale(.985);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 7px 18px rgba(0,0,0,.28);
+}
+
+/* El final vive sobre toda la sesión: oscurece el entrenamiento, enciende el
+   contorno con los colores VIP y convierte la acreditación en un momento de
+   recompensa, no en un trámite. */
+.celebracion-final-fondo {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+  background: rgba(2, 4, 5, .90);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.celebracion-final-borde {
+  position: absolute;
+  inset: max(7px, env(safe-area-inset-top)) 7px max(7px, env(safe-area-inset-bottom));
+  border: 1px solid rgba(236, 199, 81, .55);
+  border-radius: 24px;
+  box-shadow:
+    inset 0 0 34px rgba(83,226,139,.19),
+    0 0 20px rgba(240,202,87,.24),
+    0 0 54px rgba(83,226,139,.20);
+  animation: celebracion-borde-vip 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes celebracion-borde-vip {
+  0%, 100% { opacity: .62; box-shadow: inset 0 0 26px rgba(83,226,139,.13), 0 0 12px rgba(240,202,87,.16); }
+  50% { opacity: 1; box-shadow: inset 0 0 48px rgba(83,226,139,.29), 0 0 28px rgba(240,202,87,.38), 0 0 68px rgba(83,226,139,.25); }
+}
+.celebracion-final-panel {
+  position: relative;
+  width: min(100%, 360px);
+  overflow: hidden;
+  padding: 29px 24px 22px;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 22px;
+  color: #f7f8f7;
+  background:
+    radial-gradient(circle at 50% -8%, rgba(240,202,87,.19), transparent 38%),
+    linear-gradient(155deg, #151b19, #0d1011 65%, #17140d);
+  box-shadow: 0 28px 80px rgba(0,0,0,.62), inset 0 1px 0 rgba(255,255,255,.065);
+  text-align: center;
+  animation: celebracion-panel-entra 420ms cubic-bezier(.16,.84,.28,1) both;
+}
+@keyframes celebracion-panel-entra {
+  from { opacity: 0; transform: translateY(16px) scale(.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.celebracion-final-emblema {
+  position: relative;
+  display: grid;
+  width: 66px;
+  height: 66px;
+  place-items: center;
+  margin: 0 auto 13px;
+  border: 1px solid rgba(240,202,87,.65);
+  border-radius: 22px;
+  color: #f1cb5b;
+  background: rgba(12,17,15,.62);
+  box-shadow: 0 0 28px rgba(240,202,87,.18), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.celebracion-final-emblema svg:last-child {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  color: #61e99a;
+}
+.celebracion-final-etiqueta {
+  margin: 0;
+  color: #71e9a3;
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.celebracion-final-panel h2 {
+  margin: 5px 0 0;
+  color: #fff;
+  font-size: calc(24px * var(--escala-texto));
+  font-weight: 760;
+  letter-spacing: -.035em;
+  line-height: 1.05;
+}
+.celebracion-final-resumen {
+  margin: 8px 0 17px;
+  color: rgba(255,255,255,.58);
+  font-size: calc(12px * var(--escala-texto));
+  line-height: 1.35;
+}
+.celebracion-final-puntos {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 13px;
+  border: 1px solid rgba(240,202,87,.25);
+  border-radius: 14px;
+  background: rgba(240,202,87,.065);
+}
+.celebracion-final-puntos span,
+.celebracion-final-puntos small {
+  color: rgba(242,205,93,.72);
+  font-size: calc(8px * var(--escala-texto));
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+.celebracion-final-puntos strong {
+  margin: 3px 0;
+  color: #f4d46c;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: calc(42px * var(--escala-texto));
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -.05em;
+  line-height: .95;
+}
+.celebracion-final-puntos small {
+  color: rgba(255,255,255,.42);
+  font-weight: 650;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+.celebracion-final-acciones { margin-top: 16px; }
+.celebracion-final-confirmar {
+  display: flex !important;
+  width: 100%;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid rgba(110,235,160,.65) !important;
+  border-radius: 13px !important;
+  color: #092015 !important;
+  background: linear-gradient(135deg, #48d982, #73edab) !important;
+  box-shadow: 0 10px 22px rgba(65,218,130,.18), inset 0 1px 0 rgba(255,255,255,.46);
+  font-weight: 800 !important;
+}
+.celebracion-final-volver {
+  margin-top: 11px;
+  border: 0;
+  color: rgba(255,255,255,.48);
+  background: transparent;
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 620;
+  text-decoration: underline;
+  text-decoration-color: rgba(255,255,255,.18);
+  text-underline-offset: 3px;
+}
+.celebracion-chispas span {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #f2cd5d;
+  box-shadow: 0 0 7px currentColor;
+  animation: chispa-celebracion 1.9s ease-in-out infinite;
+}
+.celebracion-chispas span:nth-child(1) { top: 19%; left: 12%; }
+.celebracion-chispas span:nth-child(2) { top: 12%; right: 16%; animation-delay: .35s; background: #63e99b; }
+.celebracion-chispas span:nth-child(3) { top: 45%; left: 7%; animation-delay: .8s; }
+.celebracion-chispas span:nth-child(4) { top: 49%; right: 9%; animation-delay: .5s; background: #63e99b; }
+.celebracion-chispas span:nth-child(5) { top: 70%; right: 17%; animation-delay: 1.1s; }
+@keyframes chispa-celebracion {
+  0%,100% { opacity: .18; transform: scale(.6); }
+  50% { opacity: 1; transform: scale(1.35); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .celebracion-final-borde,
+  .celebracion-final-panel,
+  .celebracion-chispas span { animation: none; }
+}
+
+/* Entrada de Entrenar: la misma materia oscura, filo preciso y acento VIP de
+   la sesión activa, pero con jerarquía de preparación en vez de controles de
+   ejecución. */
+.entrenar-minimalista {
+  --preparacion-borde: rgba(255,255,255,.1);
+  --preparacion-dorado: #f2cd5d;
+}
+.selector-sesiones-fijo {
+  border-color: rgba(255,255,255,.08) !important;
+  background: linear-gradient(180deg, rgba(16,18,20,.98), rgba(8,9,11,.96)) !important;
+  box-shadow: 0 12px 24px rgba(0,0,0,.32), inset 0 -1px 0 rgba(255,255,255,.035) !important;
+}
+.tira-sesiones-entrenar {
+  gap: 5px !important;
+  border-bottom: 0 !important;
+  padding: 2px 0 5px !important;
+}
+.tira-sesiones-entrenar .selector-sesion-item {
+  min-height: 48px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+}
+.tira-sesiones-entrenar .selector-sesion-item[data-activa="true"] {
+  border-color: rgba(242,205,93,.42);
+  background: linear-gradient(145deg, rgba(242,205,93,.14), rgba(255,255,255,.035)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 6px 16px rgba(0,0,0,.2);
+}
+.tira-sesiones-entrenar .selector-sesion-item[data-estado="completado"] {
+  background: rgba(80,226,142,.035) !important;
+}
+.tira-sesiones-entrenar .selector-sesion-item[data-activa="true"] .text-acento-fuerte,
+.tira-sesiones-entrenar .selector-sesion-item[data-activa="true"] .text-text {
+  color: var(--preparacion-dorado) !important;
+}
+.resumen-sesion-entrenar {
+  position: relative;
+  border-color: rgba(242,205,93,.38) !important;
+  border-radius: 17px !important;
+  box-shadow: 0 18px 36px -28px rgba(0,0,0,.96), inset 0 1px 0 rgba(255,255,255,.09) !important;
+}
+.resumen-sesion-entrenar::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgba(255,255,255,.045);
+  border-radius: 11px;
+  pointer-events: none;
+}
+.resumen-sesion-entrenar > * { position: relative; z-index: 1; }
+.lista-vista-previa {
+  overflow: hidden;
+  border: 1px solid var(--preparacion-borde);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(20,22,25,.86), rgba(10,11,13,.9));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.lista-vista-previa-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 0 12px;
+  border-bottom: 1px solid rgba(255,255,255,.075);
+  color: rgba(255,255,255,.72);
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 750;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.lista-vista-previa-cabecera span:last-child {
+  color: var(--preparacion-dorado);
+  font-size: calc(8px * var(--escala-texto));
+}
+.ejercicio-vista-previa {
+  position: relative;
+  min-height: 70px !important;
+  padding: 9px 10px !important;
+  transition: background .18s ease;
+}
+.ejercicio-vista-previa:hover { background: rgba(255,255,255,.025); }
+.ejercicio-vista-previa[data-encadenado="true"] {
+  background: linear-gradient(90deg, rgba(169,83,255,.09), transparent 64%);
+}
+.ejercicio-vista-previa[data-encadenado="true"]::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 11px;
+  bottom: 11px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(#bf72ff, rgba(191,114,255,.16));
+}
+.ejercicio-vista-previa[data-encadenado="true"] .text-\[\#ae8cff\] {
+  display: inline-flex;
+  padding: 3px 6px;
+  border: 1px solid rgba(190,114,255,.28);
+  border-radius: 999px;
+  background: rgba(175,87,255,.1);
+}
+.boton-iniciar-cristal-vip {
+  color: #69e9a0 !important;
+  border-color: rgba(78,222,135,.54) !important;
+  background: linear-gradient(135deg, rgba(18,53,36,.98), rgba(15,24,20,.98)) !important;
+  box-shadow: 0 10px 26px rgba(0,0,0,.42), inset 0 1px 0 rgba(177,255,205,.12), inset 0 -1px 0 rgba(0,0,0,.6) !important;
+}
+.boton-iniciar-cristal-vip:hover {
+  border-color: rgba(105,233,160,.9) !important;
+  background: linear-gradient(135deg, rgba(24,76,48,.98), rgba(17,31,24,.98)) !important;
+}
+@media (max-width: 350px) {
+  .tira-sesiones-entrenar { gap: 2px !important; }
+  .tira-sesiones-entrenar .selector-sesion-item { border-radius: 8px; }
+  .lista-vista-previa-cabecera { padding-inline: 9px; }
 }

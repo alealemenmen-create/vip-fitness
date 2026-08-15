@@ -29,11 +29,11 @@ export function CancelarSesionBoton({
         onClick={() => setConfirmando(true)}
         className={
           compacto
-            ? "radius-control flex h-8 shrink-0 items-center justify-center border border-border bg-surface-2 px-2 text-micro font-semibold text-text-secondary"
+            ? "accion-cancelar-sesion-enlace flex items-center bg-transparent px-0 text-[9px] font-normal text-text-tertiary/70 underline decoration-white/15 underline-offset-2"
             : "radius-control flex h-12 w-full items-center justify-center gap-2 text-body font-medium text-text-tertiary underline"
         }
       >
-        {compacto ? "Salir" : "Empecé este día por error"}
+        Inicié esta sesión por error
       </button>
 
       {confirmando &&
@@ -44,7 +44,7 @@ export function CancelarSesionBoton({
           >
             <Card padding="p-4" className="w-full max-w-sm space-y-3">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-body font-medium text-text">¿Iniciaste esta rutina por error?</p>
+                <p className="text-body font-medium text-text">¿Iniciaste esta sesión por error?</p>
                 <button
                   type="button"
                   aria-label="Cerrar"

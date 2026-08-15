@@ -1,13 +1,14 @@
 "use client";
 
-import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from "react";
+import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal, flushSync } from "react-dom";
 import {
-  ArrowLeft,
-  ArrowRight,
+  ChevronsLeft,
+  ChevronsRight,
   Check,
   ChevronDown,
   ChevronRight,
+  Menu,
   Play,
   Timer,
   Gauge,
@@ -22,6 +23,7 @@ import {
   TrendingUp,
   ShieldAlert,
   HeartCrack,
+  RotateCcw,
 } from "lucide-react";
 import Image from "next/image";
 import { Card } from "@/components/ui/Card";
@@ -62,9 +64,44 @@ export type SesionEjercicioCardHandle = {
  * Exportado: `SesionGrupoCard` lo usa para el mismo botón, por ejercicio. */
 export type FilaSerieHandle = {
   completarYa: (guardar?: boolean) => void;
+  /** `forzar` se reserva para una ronda completa ya validada por su tarjeta.
+   * `guardar=false` permite deshacer varios pasos y persistir una sola
+   * fotografÃ­a coherente del formulario al terminar. */
+  deshacerYa: (forzar?: boolean, guardar?: boolean) => void;
 };
 
 const initialState: GuardarSeriesState = { error: null };
+
+type RegistroSerieCompacto = {
+  peso: string;
+  reps: string;
+  rir: string;
+  esPesoCorporal: boolean;
+};
+
+function textoRegistroSerie(
+  registro: RegistroSerieCompacto | undefined,
+  esTiempo: boolean,
+  compacto = false,
+): string | null {
+  if (!registro) return null;
+  if (compacto) {
+    const pesoCorto = registro.esPesoCorporal
+      ? "PC"
+      : registro.peso ? `${registro.peso}kg` : "";
+    const repsCortas = registro.reps ? `${registro.reps}${esTiempo ? "s" : "r"}` : "";
+    const resumenCorto = [pesoCorto, repsCortas].filter(Boolean).join("×");
+    return resumenCorto || null;
+  }
+  const peso = registro.esPesoCorporal
+    ? "P. corporal"
+    : registro.peso ? `${registro.peso} kg` : "";
+  const reps = registro.reps ? `${registro.reps} ${esTiempo ? "seg" : "reps"}` : "";
+  const rir = registro.rir ? `RIR ${registro.rir}` : "";
+  if (!peso && !reps && !rir) return null;
+  const cargaYReps = [peso, reps].filter(Boolean).join(" × ");
+  return [cargaYReps, rir].filter(Boolean).join(" · ");
+}
 
 /** "01:15" en vez de "75s" — mismo dato, formato reloj como en la referencia. */
 function formatoRestante(segundos: number): string {
@@ -379,6 +416,16 @@ function FotoReferenciaAmpliable({
     { error: null, ok: false }
   );
   const srcAmpliada = srcCompleta ?? src;
+  // Una foto compacta puede ser una miniatura de 44px o la referencia grande
+  // de una biserie. Declarar siempre 44px hacía que Next pidiera una versión
+  // demasiado pequeña para las tarjetas A/B y se viera borrosa al ampliarla.
+  const tamanoImagen = destacado
+    ? "(max-width: 640px) calc(100vw - 56px), 520px"
+    : compacto
+      ? typeof tamano.width === "number"
+        ? `${tamano.width}px`
+        : "44px"
+      : "116px";
   /**
    * La foto grande de la tarjeta va con la ORIGINAL, no con la miniatura.
    *
@@ -420,7 +467,7 @@ function FotoReferenciaAmpliable({
           alt=""
           aria-hidden
           fill
-          sizes={destacado ? "(max-width: 640px) calc(100vw - 56px), 520px" : compacto ? "44px" : "116px"}
+          sizes={tamanoImagen}
           className="scale-125 object-cover opacity-80 blur-2xl"
           style={{ objectPosition: `${posicionX}% ${posicionY}%` }}
         />
@@ -428,7 +475,7 @@ function FotoReferenciaAmpliable({
           src={srcPrincipal}
           alt={`Foto de referencia de ${nombre}`}
           fill
-          sizes={destacado ? "(max-width: 640px) calc(100vw - 56px), 520px" : compacto ? "44px" : "116px"}
+          sizes={tamanoImagen}
           // Siempre `object-contain`: la persona del instructivo tiene que
           // entrar ENTERA en el cuadro. Con `object-cover` (lo que hacían las
           // fotos con miniatura recortada) el recorte automático le cortaba la
@@ -657,10 +704,9 @@ export function SelectorDificultad({
   nombreCampo?: string;
 }) {
   const [valor, setValor] = useState(valorInicial ?? "");
-  // "Ahora no" cierra la encuesta sin responder. Sin esta salida el modal era
-  // una trampa: ocupaba la pantalla entera, no tenía ningún botón de cerrar y
-  // el alumno que solo quería mirar el ejercicio quedaba obligado a inventar
-  // una respuesta para poder seguir.
+  // "Ahora no" no obliga a inventar una respuesta, pero sí continúa el flujo
+  // del entrenamiento: al cerrar la encuesta después de la última serie se
+  // avanza igual al ejercicio siguiente.
   const [omitido, setOmitido] = useState(false);
   /** La volvió a abrir a mano desde el botoncito de abajo. */
   const [reabierto, setReabierto] = useState(false);
@@ -685,7 +731,9 @@ export function SelectorDificultad({
           }}
           className="boton-encuesta-pendiente flex w-full items-center justify-center gap-1.5"
         >
-          <span className="disco-impulso-parpadeo">VIP</span>
+          <span className="rayo-encuesta-impulso" aria-hidden>
+            <Zap size={16} fill="currentColor" />
+          </span>
           ¿Cómo te fue en este ejercicio?
         </button>
       )}
@@ -716,7 +764,11 @@ export function SelectorDificultad({
                   ))}
                   <button
                     type="button"
-                    onClick={() => setOmitido(true)}
+                    onClick={() => {
+                      setOmitido(true);
+                      onGuardar();
+                      onResponder?.();
+                    }}
                     className="min-h-11 rounded-2xl text-sm font-semibold text-text-tertiary underline"
                   >
                     Ahora no
@@ -912,6 +964,10 @@ export const FilaSerie = forwardRef<
     /** Se canceló un descanso que ya había contado como completado: la serie
      * vuelve a estar pendiente y el barrido tiene que volver a ella. */
     onCicloDeshecho: (numero: number) => void;
+    /** Una serie ya registrada solo puede reabrirse si es la última hecha.
+     * Así nunca queda, por ejemplo, una serie 6 completada después de volver
+     * a dejar pendiente la serie 1. */
+    puedeDeshacer?: boolean;
     onIniciar: (numero: number) => void;
     /** Color de la familia de técnica encadenada (superserie/biserie/...),
      * si el ejercicio pertenece a una — el botón de la serie que toca ahora
@@ -942,6 +998,16 @@ export const FilaSerie = forwardRef<
      * "Descanso". */
     saltaDescanso?: boolean;
     textoAlSaltarDescanso?: string;
+    /** Etiqueta contextual antes de iniciar el descanso; las biseries la usan
+     * para aclarar que el reloj comienza al terminar el último paso. */
+    textoDescansoPendiente?: string;
+    /** Navegación entre ejercicios — solo se pinta cuando `modoDestacado`,
+     * flanqueando el control de RIR (pedido de Alejandro: van mejor ahí que
+     * junto a la foto). */
+    onAnterior?: () => void;
+    onSiguiente?: () => void;
+    hayAnterior?: boolean;
+    haySiguiente?: boolean;
   }
 >(function FilaSerie(
   {
@@ -959,6 +1025,7 @@ export const FilaSerie = forwardRef<
     esLaQueToca,
     onCicloCompleto,
     onCicloDeshecho,
+    puedeDeshacer = true,
     onIniciar,
     onGuardar,
     colorGrupoTecnica,
@@ -967,6 +1034,11 @@ export const FilaSerie = forwardRef<
     modoDestacado = false,
     saltaDescanso = false,
     textoAlSaltarDescanso = "Guarda y avanza",
+    textoDescansoPendiente,
+    onAnterior,
+    onSiguiente,
+    hayAnterior = false,
+    haySiguiente = false,
   },
   ref
 ) {
@@ -975,9 +1047,8 @@ export const FilaSerie = forwardRef<
   const [realizada, setRealizada] = useState(inicial?.realizada ?? false);
   const [restante, setRestante] = useState<number | null>(null);
   const avisadoRef = useRef(inicial?.realizada ?? false);
-  /** Ventana corta, apenas termina el descanso, en la que el botón muestra las
-   * flechas hacia abajo en vez de "Listo": es el empujón para seguir con lo que
-   * viene sin tener que buscarlo en la pantalla. */
+  /** Ventana corta, apenas termina el descanso, para señalar que continúa el
+   * flujo. En un ejercicio normal se expresa dentro de su propia fila. */
   const [avisandoSiguiente, setAvisandoSiguiente] = useState(false);
   /** Semibloqueo de series fuera de turno: tocar la serie que SÍ toca
    * (`esLaQueToca`) completa con un toque, como siempre. Cualquier otra
@@ -1031,9 +1102,25 @@ export const FilaSerie = forwardRef<
       }
       if (guardar) onGuardar();
     },
+    deshacerYa: (forzar = false, guardar = true) => {
+      if (!puedeDeshacer && !forzar) return;
+      limpiarDescanso(sesionId, sesionEjercicioId, numero);
+      flushSync(() => {
+        setRestante(null);
+        setRealizada(false);
+        setAvisandoSiguiente(false);
+      });
+      avisadoRef.current = false;
+      onCicloDeshecho(numero);
+      if (guardar) onGuardar();
+    },
   }));
 
   const descansando = restante !== null;
+  // En la pantalla enfocada solo se muestra una serie a la vez: tocar su
+  // reloj de Descanso es una intención explícita, así que no conserva el
+  // antiguo seguro de tres toques reservado para las filas abiertas.
+  const puedeIniciarDescanso = esLaQueToca || modoDestacado;
   /** Un solo atributo con el estado del botón, para que el CSS no tenga que
    * combinar tres data-* sueltos para decidir cómo pintarlo. */
   const estadoBoton = descansando
@@ -1053,7 +1140,7 @@ export const FilaSerie = forwardRef<
           // Fuera de turno se pinta como "pausado" (gris, apagado) en vez del
           // ámbar de "tocá acá" — es el semibloqueo visual: se ve que no es
           // esta la fila que corresponde, sin que deje de poder tocarse.
-          : !esLaQueToca
+          : !puedeIniciarDescanso
             ? "pausado"
             : "pendiente";
 
@@ -1380,6 +1467,10 @@ export const FilaSerie = forwardRef<
     }
 
     if (realizada) {
+      // Solo se puede corregir la última serie hecha. Las anteriores quedan
+      // como historial mientras exista una serie posterior, para mantener el
+      // orden real del entrenamiento.
+      if (!puedeDeshacer) return;
       // El check queda a mano del pulgar al lado de los campos: un toque de
       // más ahí lo desmarcaba sin querer. Mismo semibloqueo que las series
       // fuera de turno, pero con 2 toques (acá el error es más fácil de
@@ -1407,7 +1498,7 @@ export const FilaSerie = forwardRef<
       return;
     }
 
-    if (!esLaQueToca) {
+    if (!puedeIniciarDescanso) {
       const siguiente = tocandoConfirmacion + 1;
       if (siguiente < TOQUES_CONFIRMACION) {
         setTocandoConfirmacion(siguiente);
@@ -1476,7 +1567,6 @@ export const FilaSerie = forwardRef<
     >
       <input type="hidden" name={`peso_corporal_${numero}${sufijoNombre}`} value={esPesoCorporal ? "true" : "false"} />
       <input type="hidden" name={`realizada_${numero}${sufijoNombre}`} value={realizada ? "true" : "false"} />
-
       <div className="fila-serie-contenido flex items-center gap-1.5">
         {/* Número en disco y no "#1": con el celular apoyado y de reojo, la
             forma se distingue antes que el texto, y marca dónde arranca la fila. */}
@@ -1563,22 +1653,50 @@ export const FilaSerie = forwardRef<
           )}
         </div>
         {modoDestacado && (
-          <div className="control-rir-serie">
-            <span>RIR</span>
-            <button type="button" onClick={() => ajustarCampo(`rir_${numero}${sufijoNombre}`, -1, 5)} aria-label="Bajar RIR">−</button>
-            <input
-              name={`rir_${numero}${sufijoNombre}`}
-              type="number"
-              min="0"
-              max="5"
-              inputMode="numeric"
-              aria-label="Repeticiones en reserva"
-              defaultValue={inicial?.rirEstimado ?? 2}
-            />
-            <button type="button" onClick={() => ajustarCampo(`rir_${numero}${sufijoNombre}`, 1, 5)} aria-label="Subir RIR">+</button>
+          <div className="fila-rir-navegacion">
+            {(onAnterior || onSiguiente) && (
+              <button
+                type="button"
+                className="boton-navegacion-junto-rir"
+                onClick={onAnterior}
+                disabled={!hayAnterior}
+                aria-label="Ejercicio anterior"
+              >
+                <ChevronsLeft size={79} strokeWidth={0.8} />
+              </button>
+            )}
+            <div className="control-rir-serie">
+              <span>RIR</span>
+              <button type="button" onClick={() => ajustarCampo(`rir_${numero}${sufijoNombre}`, -1, 5)} aria-label="Bajar RIR">−</button>
+              <input
+                name={`rir_${numero}${sufijoNombre}`}
+                type="number"
+                min="0"
+                max="5"
+                inputMode="numeric"
+                aria-label="Repeticiones en reserva"
+                defaultValue={inicial?.rirEstimado ?? 2}
+              />
+              <button type="button" onClick={() => ajustarCampo(`rir_${numero}${sufijoNombre}`, 1, 5)} aria-label="Subir RIR">+</button>
+            </div>
+            {(onAnterior || onSiguiente) && (
+              <button
+                type="button"
+                className="boton-navegacion-junto-rir"
+                onClick={onSiguiente}
+                disabled={!haySiguiente}
+                aria-label="Siguiente ejercicio"
+              >
+                <ChevronsRight size={79} strokeWidth={0.8} />
+              </button>
+            )}
           </div>
         )}
-        {!soloLectura && (
+        {/* Una vez marcada, una serie se resume en su cápsula y su número; no
+            vuelve a ocupar el control principal con un cuadro y un check.
+            Durante el descanso el reloj sí se conserva, porque sigue siendo
+            una acción activa. */}
+        {!soloLectura && (!realizada || descansando) && (
           <button
             type="button"
             onClick={presionarListo}
@@ -1605,8 +1723,8 @@ export const FilaSerie = forwardRef<
                       : "Serie lista"
                   : tocandoConfirmacion > 0
                     ? `Esta no es la serie en turno — toca ${TOQUES_CONFIRMACION - tocandoConfirmacion} vez más para confirmar`
-                    : esLaQueToca
-                      ? "Empezar descanso"
+                    : puedeIniciarDescanso
+                      ? textoDescansoPendiente ?? "Empezar descanso"
                       : "Serie fuera de turno — tocar 3 veces para confirmar"
             }
           >
@@ -1678,21 +1796,33 @@ export const FilaSerie = forwardRef<
                     {TOQUES_CONFIRMACION - tocandoConfirmacion === 1 ? "vez" : "veces"} más
                   </span>
                 </span>
-              ) : esLaQueToca ? (
+              ) : puedeIniciarDescanso ? (
                 <span className="flex flex-col items-center leading-tight">
                   <span className={modoDestacado ? "guardar-serie-foco" : undefined}>
-                    {modoDestacado && <Save size={18} />}
-                    {modoDestacado ? (saltaDescanso ? textoAlSaltarDescanso : "Descanso") : "Descanso"}
+                    {modoDestacado && saltaDescanso ? (
+                      <>
+                        <Save size={18} />
+                        {textoAlSaltarDescanso}
+                      </>
+                    ) : (
+                      <span className="llamada-descanso-espera">
+                        <Timer size={modoDestacado ? 26 : 16} strokeWidth={1.8} aria-hidden />
+                        <span>{textoDescansoPendiente ?? "Descanso"}</span>
+                      </span>
+                    )}
                   </span>
                   {!modoDestacado && descansoSegundos ? (
                     <span className="boton-descanso-segundos">{modoDestacado ? `y descansar ${descansoSegundos}s` : `${descansoSegundos}s`}</span>
                   ) : null}
                 </span>
               ) : (
-                // Fuera de turno y todavía sin tocar: píldora neutra, como
-                // la referencia — el semibloqueo de 3 toques sigue igual,
-                // solo cambia de "Recupérate" apagado a esta etiqueta.
-                <span>Pendiente</span>
+                // Aunque esta serie no sea la que toca, el control se nombra
+                // por la acción que inicia. Evita el ambiguo "Pendiente" y
+                // mantiene el mismo gesto de descanso en toda la pantalla.
+                <span className="llamada-descanso-espera llamada-descanso-espera-pausada">
+                  <Timer size={modoDestacado ? 24 : 15} strokeWidth={1.8} aria-hidden />
+                  <span>Descanso</span>
+                </span>
               )}
             </span>
           </button>
@@ -1746,18 +1876,20 @@ export const SesionEjercicioCard = forwardRef<
      * el brillo corriendo, para que se note de lejos en cuál está parado. */
     activo?: boolean;
     modoEnfocado?: boolean;
-    /** Nombres de los ejercicios que faltan después de este, en orden —
-     * se muestran chiquitos debajo del nombre, en modo enfocado. */
-    proximosNombres?: string[];
-    /** Navegación entre ejercicios de la sesión — vive acá, al lado de la
-     * foto, en vez de una barra aparte abajo (pedido de Alejandro). */
-    onAnterior?: () => void;
-    onSiguiente?: () => void;
-    hayAnterior?: boolean;
-    haySiguiente?: boolean;
+    /** Ejercicios que faltan después de este, en orden — se muestra el
+     * inmediato siguiente, chiquito, con su miniatura, debajo del nombre. */
+    proximosNombres?: { nombre: string; fotoMiniaturaUrl: string | null; ilustracionSlug: string | null }[];
     onDificultadRespondida?: () => void;
+    /** Abre el mapa de ejercicios desde la tarjeta del ejercicio actual. */
+    onVerRutina?: () => void;
+    /** Último ejercicio del plan: su última serie abre la celebración final
+     * en vez de sugerir que existe otro ejercicio al cual avanzar. */
+    esUltimoEjercicioDeRutina?: boolean;
+    /** Acciones globales de la sesión que deben quedar inmediatamente debajo
+     * de Nota/Molestia en la ficha actual. */
+    accionesBajoNota?: ReactNode;
   }
->(function SesionEjercicioCard({ ejercicio, sesionId, soloLectura, activo = false, modoEnfocado = false, proximosNombres = [], onAnterior, onSiguiente, hayAnterior = false, haySiguiente = false, onDificultadRespondida }, ref) {
+>(function SesionEjercicioCard({ ejercicio, sesionId, soloLectura, activo = false, modoEnfocado = false, proximosNombres = [], onDificultadRespondida, onVerRutina, esUltimoEjercicioDeRutina = false, accionesBajoNota }, ref) {
   const [state, formAction, pending] = useActionState(guardarSeries, initialState);
   // Abierto de entrada el que está en curso y los ya terminados (para poder
   // revisar lo que se levantó); en modo lectura, todos.
@@ -1813,6 +1945,13 @@ export const SesionEjercicioCard = forwardRef<
   const [seriesHechas, setSeriesHechas] = useState<ReadonlySet<number>>(
     () => new Set(ejercicio.series.filter((s) => s.realizada).map((s) => s.numeroSerie))
   );
+  // Se llena en el momento de completar cada serie para que el selector de
+  // arriba pueda mostrar el resultado real, sin esperar a una recarga del
+  // servidor. Los datos iniciales siguen siendo el respaldo al reabrir una
+  // sesión ya registrada.
+  const [registrosCompactos, setRegistrosCompactos] = useState<ReadonlyMap<number, RegistroSerieCompacto>>(
+    () => new Map()
+  );
   const [cantidadSeriesVisible, setCantidadSeriesVisible] = useState(
     () => Math.max(ejercicio.seriesProgramadas, ...ejercicio.series.map((serie) => serie.numeroSerie), 0)
   );
@@ -1823,6 +1962,13 @@ export const SesionEjercicioCard = forwardRef<
   // Solo el descanso de esta serie corre — arrancar el de otra la pausa sola.
   const [serieActivaNumero, setSerieActivaNumero] = useState<number | null>(null);
   const [mostrandoSiguiente, setMostrandoSiguiente] = useState(false);
+  // El indicador de continuación pertenece a la navegación lateral, no debajo
+  // de la última serie. La pantalla contenedora decide si realmente existe un
+  // ejercicio siguiente y anima entonces su flecha derecha.
+  useEffect(() => {
+    if (!mostrandoSiguiente || !modoEnfocado) return;
+    window.dispatchEvent(new Event("vip:avisar-siguiente-ejercicio"));
+  }, [mostrandoSiguiente, modoEnfocado]);
   /**
    * ¿Se terminó este ejercicio recién, acá, en esta pantalla? Solo entonces se
    * abre sola la encuesta de dificultad.
@@ -1846,16 +1992,33 @@ export const SesionEjercicioCard = forwardRef<
    * verdad la hiciste?", con su propio aviso de que cuenta para el progreso. */
   const [confirmandoDeVerdad, setConfirmandoDeVerdad] = useState(false);
   const filasRef = useRef(new Map<number, FilaSerieHandle>());
+  // Una serie ya hecha se puede consultar sin riesgo. Para desmarcarla se
+  // requieren tres toques consecutivos: ver, confirmar y recién entonces
+  // deshacer. Evita perder un registro al navegar entre series.
+  const [seriePendienteReinicio, setSeriePendienteReinicio] = useState<{ numero: number; toques: 1 | 2 } | null>(null);
+  const reinicioSerieTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
   /** Nodo DOM de cada fila de serie, para centrarla en pantalla al terminar
    * la anterior — no confundir con `filasRef` (el handle imperativo de cada
    * fila). */
   const filaNodoRef = useRef(new Map<number, HTMLDivElement>());
 
+  useEffect(() => () => {
+    if (reinicioSerieTimeoutRef.current) clearTimeout(reinicioSerieTimeoutRef.current);
+  }, []);
+
   const filas = Array.from({ length: cantidadSeriesVisible }, (_, i) => i + 1);
+  const impulsoPantallaActivo = modoEnfocado
+    && !soloLectura
+    && !seriesHechas.has(serieVisibleNumero)
+    && intervencionesImpulso.some(
+      (intervencion) => intervencion.serieObjetivo === serieVisibleNumero && intervencion.estado !== "cancelada"
+    );
   // La meta de reps de Impulso VIP (si hay una aprobada) manda por sobre el
   // techo del rango del PDF — mismo criterio que el peso: sin recomendación
   // aprobada, el comportamiento de precarga queda igual que siempre.
   const objetivoReps = recomendacionAprobada?.repsObjetivoMax ?? repsObjetivo(ejercicio.repsProgramadas);
+  const descansoSegundosEfectivo = ejercicio.descansoPersonalizadoSegundos ?? ejercicio.descansoSegundos;
   const pesoObjetivoKg = pesoSugeridoEfectivo ?? (
     !ejercicio.ultimoRegistro?.esPesoCorporal ? ejercicio.ultimoRegistro?.pesoKg ?? null : null
   );
@@ -1890,10 +2053,6 @@ export const SesionEjercicioCard = forwardRef<
     activo && !soloLectura && !ejercicio.completado
       ? (filas.find((n) => n <= ejercicio.seriesProgramadas && !seriesHechas.has(n)) ?? primeraExtraPendiente)
       : primeraExtraPendiente;
-  const impulsoEnSerieVisible = intervencionesImpulso.some(
-    (intervencion) => intervencion.serieObjetivo === serieVisibleNumero && intervencion.estado !== "cancelada"
-  );
-
   // Respaldo local: se lee DESPUÉS de montar (localStorage no existe en el
   // servidor, leerlo durante el render rompería la hidratación).
   const [borrador, setBorrador] = useState<BorradorEjercicio | null>(null);
@@ -2017,16 +2176,6 @@ export const SesionEjercicioCard = forwardRef<
     guardar: () => formRef.current?.requestSubmit(),
   }));
 
-  useEffect(() => {
-    if (activo && !soloLectura) {
-      // "start" y no "center": centrada, la mitad de arriba de la tarjeta
-      // (foto, nombre, técnica) quedaba tapada arriba del todo de la
-      // pantalla — así entra completa, empezando justo debajo de la
-      // cabecera fija.
-      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [activo, soloLectura]);
-
   // Al terminar un ejercicio, el siguiente pasa a ser el activo tras revalidar:
   // se abre solo, sin que el alumno tenga que tocar nada con las manos ocupadas.
   // Solo abre — nunca cierra lo que el alumno abrió a mano.
@@ -2045,6 +2194,11 @@ export const SesionEjercicioCard = forwardRef<
    * regresa a ella. */
   function alDeshacerCicloSerie(numero: number) {
     completadasRef.current.delete(numero);
+    setRegistrosCompactos((prev) => {
+      const siguiente = new Map(prev);
+      siguiente.delete(numero);
+      return siguiente;
+    });
     // `enviadoRef` se resetea también: si el alumno deshace y vuelve a
     // completar, el aviso de "siguiente ejercicio" tiene que salir de nuevo.
     enviadoRef.current = false;
@@ -2056,7 +2210,57 @@ export const SesionEjercicioCard = forwardRef<
     setSerieVisibleNumero(numero);
   }
 
+  function seleccionarSerie(numero: number, hecha: boolean) {
+    setSerieVisibleNumero(numero);
+    if (!hecha) {
+      setSeriePendienteReinicio(null);
+      if (reinicioSerieTimeoutRef.current) clearTimeout(reinicioSerieTimeoutRef.current);
+      return;
+    }
+
+    // Se puede consultar una serie anterior, pero no reabrirla cuando ya hay
+    // otra más adelante registrada. Solo la última completada admite el gesto
+    // de tres toques para corregir un marcado por error.
+    const puedeReabrir = !Array.from(seriesHechas).some((serieHecha) => serieHecha > numero);
+    if (!puedeReabrir) {
+      setSeriePendienteReinicio(null);
+      if (reinicioSerieTimeoutRef.current) clearTimeout(reinicioSerieTimeoutRef.current);
+      return;
+    }
+
+    if (seriePendienteReinicio?.numero === numero && seriePendienteReinicio.toques === 2) {
+      if (reinicioSerieTimeoutRef.current) clearTimeout(reinicioSerieTimeoutRef.current);
+      reinicioSerieTimeoutRef.current = null;
+      setSeriePendienteReinicio(null);
+      filasRef.current.get(numero)?.deshacerYa();
+      return;
+    }
+
+    setSeriePendienteReinicio({
+      numero,
+      toques: seriePendienteReinicio?.numero === numero ? 2 : 1,
+    });
+    if (reinicioSerieTimeoutRef.current) clearTimeout(reinicioSerieTimeoutRef.current);
+    reinicioSerieTimeoutRef.current = setTimeout(() => {
+      setSeriePendienteReinicio(null);
+      reinicioSerieTimeoutRef.current = null;
+    }, 2400);
+  }
+
   function alCompletarCicloSerie(numero: number) {
+    const datos = formRef.current ? new FormData(formRef.current) : null;
+    if (datos) {
+      setRegistrosCompactos((prev) => {
+        const siguiente = new Map(prev);
+        siguiente.set(numero, {
+          peso: String(datos.get(`peso_${numero}`) ?? "").trim(),
+          reps: String(datos.get(`reps_${numero}`) ?? "").trim(),
+          rir: String(datos.get(`rir_${numero}`) ?? "").trim(),
+          esPesoCorporal: datos.get(`peso_corporal_${numero}`) === "true",
+        });
+        return siguiente;
+      });
+    }
     completadasRef.current.add(numero);
     setSeriesHechas((prev) => new Set(prev).add(numero));
     if (!enviadoRef.current && completadasRef.current.size === ejercicio.seriesProgramadas) {
@@ -2068,15 +2272,18 @@ export const SesionEjercicioCard = forwardRef<
       // tocar "Finalizar", el contador de exceso de descanso seguía
       // corriendo sobre una serie que ya terminó de verdad.
       setSerieActivaNumero(null);
-      // El aviso visual aparece antes de guardar; al revalidar, el siguiente
-      // ejercicio pasa a ser el activo y recibe el destello sutil. 400ms y no
-      // 1200: alcanza para que se note el aviso sin sentirse trabado — se
-      // pidió que pasar al siguiente ejercicio fuera más inmediato.
+      // No se envía todavía: el refresco que provoca el Server Action podía
+      // desmontar la encuesta recién abierta antes de que el alumno la viera.
+      // `SelectorDificultad` guarda y avanza al responder (o en "Ahora no"),
+      // así la transición siempre conserva la pregunta entre la última serie
+      // y el ejercicio siguiente.
       setMostrandoSiguiente(true);
-      window.setTimeout(() => {
-        formRef.current?.requestSubmit();
-        setMostrandoSiguiente(false);
-      }, 400);
+      if (esUltimoEjercicioDeRutina && modoEnfocado) {
+        // El guardado de la serie ya se dispara al terminar este callback. Un
+        // pequeño margen deja que la acción empiece antes de mostrar el cierre
+        // donde el alumno acreditará sus puntos.
+        window.setTimeout(() => window.dispatchEvent(new Event("vip:celebrar-final-rutina")), 420);
+      }
     } else {
       // Todavía queda otra serie de ESTE ejercicio: la centra en pantalla,
       // donde sea más cómodo verla, en vez de dejar que quede tapada arriba
@@ -2093,6 +2300,13 @@ export const SesionEjercicioCard = forwardRef<
     }
   }
 
+  const proximoEjercicio = proximosNombres[0] ?? null;
+  const ilustracionSiguiente = proximoEjercicio
+    ? resolverIlustracion(proximoEjercicio.ilustracionSlug, null)
+    : null;
+  const miniaturaSiguiente = proximoEjercicio?.fotoMiniaturaUrl
+    ?? (ilustracionSiguiente?.origen === "ilustracion" ? ilustracionSiguiente.src : null);
+
   return (
     <div
       ref={cardRef}
@@ -2103,6 +2317,10 @@ export const SesionEjercicioCard = forwardRef<
       // por debajo de esa barra en vez de después.
       style={{ scrollMarginTop: "calc(var(--alto-cabecera-alumno) + 130px)" }}
     >
+      {montado && impulsoPantallaActivo && createPortal(
+        <div className="halo-pantalla-impulso-vip" aria-hidden="true" />,
+        document.body
+      )}
       {/* Ya NO fuerza negro plano (`tarjeta-modelo-oscura`/`-ejercicio-oscura`
           quitadas): pedido de Alejandro — con los temas VIP/Steel Fit/Lady
           Fit, el negro fijo se veía "trabado" al lado del resto de la
@@ -2237,7 +2455,7 @@ export const SesionEjercicioCard = forwardRef<
               </p>
               <p className="mt-0.5 flex items-center justify-end gap-1 whitespace-nowrap text-micro leading-tight text-text-tertiary">
                 <Timer size={11} />
-                {ejercicio.descansoSegundos ? `${ejercicio.descansoSegundos}s` : "—"}
+                {descansoSegundosEfectivo ? `${descansoSegundosEfectivo}s` : "—"}
               </p>
               {ejercicio.tempo && (
                 <p className="mt-0.5 flex items-center justify-end gap-1 whitespace-nowrap text-micro leading-tight text-text-tertiary">
@@ -2253,9 +2471,6 @@ export const SesionEjercicioCard = forwardRef<
           {modoEnfocado && (
             <>
               <div className="referencia-foco-compacta relative shrink-0">
-                <p className="orden-grupo-sobre-foto">
-                  {ejercicio.orden} · {ejercicio.grupoMuscular ? ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular].toUpperCase() : "EJERCICIO"}
-                </p>
                 <CuadroFotoReferencia
                   ilustracionSlug={ejercicio.ilustracionSlug}
                   fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
@@ -2279,10 +2494,46 @@ export const SesionEjercicioCard = forwardRef<
               </div>
               <div className="guia-ejercicio-foco">
                 <h2>{ejercicio.nombre}</h2>
-                {proximosNombres.length > 0 && (
-                  <p className="siguiente-ejercicio-foco">
-                    Sigue: <strong>{proximosNombres[0]}</strong>
-                  </p>
+                <p className="contexto-ejercicio-foco">
+                  {ejercicio.seriesProgramadas}× {ejercicio.repsProgramadas}{esTiempo ? " seg" : ""}
+                  <span aria-hidden> · </span>
+                  {ejercicio.grupoMuscular ? ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular] : "Entrenamiento"}
+                  <span aria-hidden> · </span>
+                  Fuerza
+                </p>
+                {/* El acceso al mapa forma parte de la cabecera de cada ficha
+                    enfocada. No puede desaparecer por una variante de render;
+                    en la sesiÃ³n activa siempre recibe `onVerRutina` y abre la
+                    lista completa de ejercicios. */}
+                {modoEnfocado && (
+                  <button
+                    type="button"
+                    className="boton-ver-rutina-en-siguiente"
+                    onClick={onVerRutina}
+                    disabled={!onVerRutina}
+                    aria-label="Ver ejercicios de la rutina"
+                    title="Ver ejercicios de la rutina"
+                  >
+                    <Menu size={28} strokeWidth={1.45} />
+                  </button>
+                )}
+                {proximoEjercicio && (
+                  <div className="siguiente-ejercicio-foco">
+                    <span className="cabecera-siguiente-ejercicio">
+                      <small>Siguiente</small>
+                    </span>
+                    <span className="contenido-siguiente-ejercicio">
+                      {miniaturaSiguiente && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={miniaturaSiguiente}
+                          alt=""
+                          className="miniatura-siguiente-ejercicio"
+                        />
+                      )}
+                      <strong>{proximoEjercicio.nombre}</strong>
+                    </span>
+                  </div>
                 )}
                 {/* Impulso VIP ya no vive acá como placa fija: pedido de
                     Alejandro, "sacalo de donde está" — ahora el rayo morado
@@ -2292,16 +2543,6 @@ export const SesionEjercicioCard = forwardRef<
                     es una sola serie la que va a ser distinta. El aviso con
                     la instrucción sigue apareciendo solo, al llegar esa
                     serie (`MomentoImpulsoEnVivo`, sin cambios). */}
-                {(onAnterior || onSiguiente) && (
-                  <div className="navegacion-ejercicios-junto-foto">
-                    <button type="button" onClick={onAnterior} disabled={!hayAnterior} aria-label="Ejercicio anterior">
-                      <ArrowLeft size={14} /> Anterior
-                    </button>
-                    <button type="button" onClick={onSiguiente} disabled={!haySiguiente} aria-label="Siguiente ejercicio">
-                      Siguiente <ArrowRight size={14} />
-                    </button>
-                  </div>
-                )}
               </div>
             </>
           )}
@@ -2430,7 +2671,7 @@ export const SesionEjercicioCard = forwardRef<
             <span className="text-caption text-text-secondary">
               {ejercicio.seriesProgramadas} series · {ejercicio.repsProgramadas}
               {esTiempo ? " seg" : " reps"}
-              {ejercicio.descansoSegundos ? ` · ${ejercicio.descansoSegundos}s descanso` : ""}
+              {descansoSegundosEfectivo ? ` · ${descansoSegundosEfectivo}s descanso` : ""}
             </span>
             <ChevronRight size={16} className="shrink-0 text-vip" />
           </button>
@@ -2445,13 +2686,13 @@ export const SesionEjercicioCard = forwardRef<
         <p className="registro-anterior-foco">
           <Timer size={21} />
           <span>Última vez</span>
-          <i>·</i>
-          <strong>{ultimoTexto ?? "—"}</strong>
+          <i>—</i>
+          <strong>{ultimoTexto ?? ""}</strong>
         </p>
         <p className="objetivo-serie-foco">
           <Target size={21} />
           <span>Objetivo</span>
-          <i>·</i>
+          <i>{pesoObjetivoTexto === "— kg" ? "" : "—"}</i>
           <strong>
             {pesoObjetivoTexto} × {repsObjetivoTexto}
           </strong>
@@ -2459,48 +2700,112 @@ export const SesionEjercicioCard = forwardRef<
       </div>
 
       {modoEnfocado && (
-        <div className="selector-series-foco selector-series-movido" aria-label="Seleccionar serie">
+        <div
+          className="selector-series-foco selector-series-movido"
+          aria-label="Seleccionar serie"
+          data-cantidad={filas.length}
+          data-denso={filas.length >= 6 ? "true" : "false"}
+        >
           {filas.map((numero) => {
             const esImpulso = intervencionesImpulso.some(
               (intervencion) => intervencion.serieObjetivo === numero && intervencion.estado !== "cancelada"
             );
             const hecha = seriesHechas.has(numero);
+            const puedeReabrir = hecha && !Array.from(seriesHechas).some((serieHecha) => serieHecha > numero);
+            const esEspecialActiva = esImpulso && numero === serieVisibleNumero && !hecha;
+            const confirmarReinicio = hecha
+              && seriePendienteReinicio?.numero === numero
+              && seriePendienteReinicio.toques === 2;
+            const preparandoReinicio = hecha
+              && seriePendienteReinicio?.numero === numero
+              && seriePendienteReinicio.toques === 1;
+            const registroInicial = serieInicial(numero);
+            const resumenRegistro = hecha
+              ? textoRegistroSerie(
+                  registrosCompactos.get(numero) ?? (registroInicial
+                    ? {
+                        peso: registroInicial.pesoKg != null ? String(registroInicial.pesoKg) : "",
+                        reps: registroInicial.repsRealizadas != null ? String(registroInicial.repsRealizadas) : "",
+                        rir: registroInicial.rirEstimado != null ? String(registroInicial.rirEstimado) : "",
+                        esPesoCorporal: registroInicial.esPesoCorporal,
+                      }
+                  : undefined),
+                  esTiempo,
+                  filas.length >= 6,
+                )
+              : null;
+            const estado = hecha ? "completa" : numero === serieVisibleNumero ? "actual" : "pendiente";
             return (
-              <button
+              <div
                 key={numero}
-                type="button"
-                onClick={() => setSerieVisibleNumero(numero)}
-                data-estado={hecha ? "completa" : numero === serieVisibleNumero ? "actual" : "pendiente"}
-                data-impulso={esImpulso ? "true" : "false"}
-                aria-label={`Ver serie ${numero}${esImpulso ? ", con Impulso VIP" : ""}${hecha ? ", completada" : ""}`}
-                aria-current={numero === serieVisibleNumero ? "step" : undefined}
+                className="selector-serie-indicador"
+                data-estado={estado}
+                data-especial={esEspecialActiva ? "true" : "false"}
+                data-reinicio={confirmarReinicio ? "true" : "false"}
               >
-                {esImpulso && !hecha && (
-                  <Zap size={13} fill="currentColor" aria-hidden className="rayo-impulso-serie" />
-                )}
-                <span />
-                <small>
-                  {hecha && <Check size={9} strokeWidth={3} aria-hidden />}
-                  Serie {numero}
+                <button
+                  type="button"
+                  onClick={() => seleccionarSerie(numero, hecha)}
+                  data-estado={estado}
+                  data-impulso={esImpulso ? "true" : "false"}
+                  data-especial={esImpulso ? "true" : "false"}
+                  data-reinicio={confirmarReinicio ? "true" : "false"}
+                  aria-label={confirmarReinicio
+                    ? `Toca una vez más para desmarcar la serie ${numero}`
+                    : preparandoReinicio
+                      ? `Toca otra vez para confirmar que quieres desmarcar la serie ${numero}`
+                      : `Ver serie ${numero}${esImpulso ? ", con Impulso VIP" : ""}${hecha ? puedeReabrir ? ", completada; requiere tres toques para desmarcar" : ", completada; bloqueada porque ya hay una serie posterior" : ""}`}
+                  aria-current={numero === serieVisibleNumero ? "step" : undefined}
+                >
+                  {esEspecialActiva && (
+                    <Zap size={13} fill="currentColor" aria-hidden className="rayo-impulso-serie" />
+                  )}
+                  {resumenRegistro && (
+                    <span className="resumen-registro-serie">{resumenRegistro}</span>
+                  )}
+                </button>
+                <small className="etiqueta-serie-indicador">
+                  {hecha && (confirmarReinicio
+                    ? <RotateCcw size={10} strokeWidth={2.5} aria-hidden />
+                    : <Check size={10} strokeWidth={3} aria-hidden />)}
+                  {numero}
                 </small>
-              </button>
+              </div>
             );
           })}
         </div>
       )}
 
-      {modoEnfocado && tecnica &&
-        (!ejercicio.tecnicaSeries || tecnicaAplicaASerie(ejercicio.tecnicaSeries, serieVisibleNumero)) && (
-          <button
-            type="button"
-            className="protocolo-tecnica-foco"
-            onClick={() => setMostrarTecnica(true)}
-          >
-            <span>{explicacion?.etiqueta ?? "Técnica de esta serie"}</span>
-            <strong>{tecnica.texto}</strong>
-            <small>Ver cómo ejecutarla</small>
-          </button>
-        )}
+      {modoEnfocado && (() => {
+        const intervencion = intervencionesImpulso.find(
+          (item) => item.serieObjetivo === serieVisibleNumero && item.estado !== "cancelada"
+        );
+        if (!intervencion) return null;
+
+        const peso = typeof intervencion?.prescripcion.pesoKg === "number" ? intervencion.prescripcion.pesoKg : null;
+        const resumen = intervencion
+          ? peso !== null
+            ? `sube a ${peso} kg`
+            : intervencion.tipo === "rest_pause"
+              ? "rest-pause"
+              : intervencion.tipo === "drop_set"
+                ? "drop set"
+                : intervencion.tipo === "fallo_controlado"
+                  ? "fallo técnico"
+                  : "serie especial"
+          : "serie especial";
+        return (
+          <div className="momento-especial-serie" role="note">
+            <div className="resumen-impulso-serie">
+              <Zap size={13} fill="currentColor" aria-hidden />
+              <strong>Impulso VIP</strong>
+              <span aria-hidden>·</span>
+              <span>{resumen}</span>
+            </div>
+            <p>Pide ayuda a tu entrenador o a un compañero.</p>
+          </div>
+        );
+      })()}
 
       {soloLectura ? (
         <div className="space-y-1">
@@ -2576,7 +2881,7 @@ export const SesionEjercicioCard = forwardRef<
                 repsObjetivo={objetivoReps}
                 pesoSugerido={pesoSugeridoEfectivo}
                 esTiempo={esTiempo}
-                descansoSegundos={ejercicio.descansoSegundos}
+                descansoSegundos={descansoSegundosEfectivo}
                 temporizadorDescanso={ejercicio.temporizadorDescanso}
                 soloLectura={soloLectura}
                 sesionId={sesionId}
@@ -2586,6 +2891,7 @@ export const SesionEjercicioCard = forwardRef<
                 onIniciar={setSerieActivaNumero}
                 onCicloCompleto={alCompletarCicloSerie}
                 onCicloDeshecho={alDeshacerCicloSerie}
+                puedeDeshacer={!Array.from(seriesHechas).some((serieHecha) => serieHecha > n)}
                 onGuardar={guardarAhora}
                 colorGrupoTecnica={grupoTecnica?.color}
                 // Solo cuando la técnica va en series puntuales: con
@@ -2597,6 +2903,11 @@ export const SesionEjercicioCard = forwardRef<
                 }
                 modoDestacado={modoEnfocado && serieVisibleNumero === n}
                 saltaDescanso={n === cantidadSeriesVisible}
+                textoAlSaltarDescanso={
+                  esUltimoEjercicioDeRutina && n === cantidadSeriesVisible
+                    ? "Guardar y finalizar tu rutina"
+                    : "Guardar y avanzar"
+                }
               />
             </div>
           ))}
@@ -2641,7 +2952,7 @@ export const SesionEjercicioCard = forwardRef<
               así que desaparece apenas deja de tener sentido. Sigue estando
               mientras falten series, que es su uso real: saltarse los
               descansos y dar el ejercicio por terminado. */}
-          {!ejercicio.completado && seriesHechas.size < ejercicio.seriesProgramadas && (
+          {!ejercicio.completado && seriesHechas.size < ejercicio.seriesProgramadas && (!modoEnfocado || confirmandoIncompleto) && (
             confirmandoIncompleto ? (
               confirmandoDeVerdad ? (
                 <div className="panel-cerrar-incompleto space-y-2">
@@ -2724,29 +3035,37 @@ export const SesionEjercicioCard = forwardRef<
           {/* Se pregunta una sola vez, cuando ya se hicieron todas las
               series de este ejercicio — no antes, para no interrumpir el
               ritmo mientras el alumno todavía está entrenando. */}
-          <SelectorDificultad
-            valorInicial={ejercicio.dificultadPercibida}
-            disabled={seriesHechas.size < ejercicio.seriesProgramadas}
-            onGuardar={guardarAhora}
-            forzarModal={modoEnfocado && recienCompletado}
-            onResponder={onDificultadRespondida}
-          />
+          <div className="cierre-ejercicio-foco">
+            <SelectorDificultad
+              valorInicial={ejercicio.dificultadPercibida}
+              disabled={seriesHechas.size < ejercicio.seriesProgramadas}
+              onGuardar={guardarAhora}
+              // El último gesto de toda la rutina abre la celebración. La
+              // encuesta sigue disponible al volver, pero no compite con ese
+              // cierre especial encima de la pantalla.
+              forzarModal={modoEnfocado && recienCompletado && !esUltimoEjercicioDeRutina}
+              onResponder={() => {
+                setMostrandoSiguiente(false);
+                onDificultadRespondida?.();
+              }}
+            />
 
-          {state.error && <p className="text-caption text-error">{state.error}</p>}
-          {/* El instructivo largo ("marca cada serie al terminarla…") se sacó:
-              ocupaba tres líneas debajo de CADA ejercicio para explicar algo
-              que se entiende al primer toque, y era lo que empujaba fuera de
-              pantalla la cabecera del ejercicio siguiente. */}
-          {(pending || ejercicio.completado) && (
-            <p className="text-micro text-center text-text-tertiary">
-              {pending ? "Guardando…" : "Ejercicio finalizado ✓"}
-            </p>
-          )}
+            {state.error && <p className="text-caption text-error">{state.error}</p>}
+            {/* El instructivo largo ("marca cada serie al terminarla…") se sacó:
+                ocupaba tres líneas debajo de CADA ejercicio para explicar algo
+                que se entiende al primer toque, y era lo que empujaba fuera de
+                pantalla la cabecera del ejercicio siguiente. */}
+            {(pending || ejercicio.completado) && (
+              <p className="estado-finalizacion-ejercicio" data-guardando={pending ? "true" : "false"}>
+                {pending ? "Guardando…" : "Ejercicio finalizado ✓"}
+              </p>
+            )}
+          </div>
         </form>
         </>
       )}
       {!soloLectura && (
-        <div className="acciones-secundarias-ejercicio mt-1.5 grid grid-cols-2 gap-2">
+        <div className={`acciones-secundarias-ejercicio mt-1.5 grid gap-2 ${modoEnfocado && !ejercicio.completado && seriesHechas.size < ejercicio.seriesProgramadas && !confirmandoIncompleto ? "grid-cols-3" : "grid-cols-2"}`}>
           <label className="accion-secundaria-ejercicio flex min-w-0 items-center gap-1.5 px-2">
             <NotebookPen size={13} className="shrink-0 text-text-tertiary" />
             <input
@@ -2765,27 +3084,22 @@ export const SesionEjercicioCard = forwardRef<
             sesionEjercicioId={ejercicio.sesionEjercicioId}
             diaEjercicioId={ejercicio.diaEjercicioId}
           />
+          {modoEnfocado && !ejercicio.completado && seriesHechas.size < ejercicio.seriesProgramadas && !confirmandoIncompleto && (
+            <button
+              type="button"
+              onClick={marcarEjercicioListo}
+              aria-label="Cerrar ejercicio sin completar todas las series"
+              className="accion-secundaria-ejercicio accion-cerrar-ejercicio min-w-0"
+            >
+              Cerrar sin completar
+            </button>
+          )}
         </div>
       )}
+      {accionesBajoNota && <div className="acciones-excepcionales-sesion mt-1">{accionesBajoNota}</div>}
           </>
         )}
       </Card>
-      {mostrandoSiguiente && (
-        <div
-          className="indicador-siguiente-ejercicio"
-          role="status"
-          aria-label="Siguiente ejercicio"
-        >
-          {[0, 1, 2].map((indice) => (
-            <ChevronDown
-              key={indice}
-              size={18}
-              className="flecha-siguiente-ejercicio"
-              style={{ animationDelay: `${indice * 140}ms` }}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 });

@@ -5,16 +5,21 @@ import { SesionEjercicios } from "@/components/student/SesionEjercicios";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { VolverAEntrenar } from "@/components/student/VolverAEntrenar";
 import { SalidaGuiadaSesion } from "@/components/student/SalidaGuiadaSesion";
-import { CierreAutomaticoSesion } from "@/components/student/CierreAutomaticoSesion";
 import { ReabrirSesionBoton } from "@/components/student/ReabrirSesionBoton";
 import { EliminarSesionBoton } from "@/components/student/EliminarSesionBoton";
+import { CancelarSesionBoton } from "@/components/student/CancelarSesionBoton";
 import { RefrescarRecomendaciones } from "@/components/student/RefrescarRecomendaciones";
 import { BotonIniciarRutinaFijo } from "@/components/student/BotonIniciarRutinaFijo";
-import { sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
+import { sePuedeCorregir, diasDesdeInicio } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerSesionCompleta, tienePedidoDeBorradoPendiente } from "../../data";
 import { terminarCorreccion } from "../../actions";
 import { SincronizarIndicacionesAle } from "@/components/student/SincronizarIndicacionesAle";
+import { AvisoSesionColgada } from "@/components/student/AvisoSesionColgada";
 import Link from "next/link";
+
+// Más de esto y ya no es "seguí donde quedaste", es una sesión que el
+// alumno se olvidó de cerrar hace días — ver AvisoSesionColgada.
+const DIAS_SESION_COLGADA = 1;
 
 // El aviso de fin de descanso lo programa `programarAvisoDescanso` (Server
 // Action de esta página, ver push-actions.ts) con `after()`: el servidor
@@ -71,6 +76,14 @@ export default async function SesionPage({
    * rutina, y no es la idea" (Alejandro).
    */
   const enCorreccion = !vistaSoloLectura && sesion.corrigiendoDesde !== null;
+  const diasSinCerrar = diasDesdeInicio(sesion.horaInicio);
+  const sesionColgada =
+    !esDescanso &&
+    sesion.estado === "en_progreso" &&
+    rutinaIniciada &&
+    !vistaSoloLectura &&
+    !enCorreccion &&
+    diasSinCerrar >= DIAS_SESION_COLGADA;
   const sesionSoloLectura =
     (sesion.estado !== "en_progreso" && !enCorreccion) || vistaSoloLectura || bloqueadaPorIniciar;
   const completados = sesion.ejercicios.filter((e) => e.completado).length;
@@ -99,6 +112,7 @@ export default async function SesionPage({
       {sesion.estado === "en_progreso" && !vistaSoloLectura && (
         <RefrescarRecomendaciones sesionId={sesion.id} />
       )}
+      {sesionColgada && <AvisoSesionColgada sesionId={sesion.id} dias={diasSinCerrar} />}
       {aviso === "pedido-enviado" && (
         <Card padding="p-3" className="border border-success/40 bg-success/10">
           <p className="text-caption font-semibold text-success">Tu pedido llegó a tu entrenador</p>
@@ -204,6 +218,11 @@ export default async function SesionPage({
           modoCorreccion={enCorreccion}
           completados={completados}
           total={total}
+          accionCancelarSesion={
+            sesion.estado === "en_progreso" && !vistaSoloLectura && !enCorreccion ? (
+              <CancelarSesionBoton sesionId={sesion.id} tieneProgreso={completados > 0} compacto />
+            ) : null
+          }
         />
       )}
 
@@ -252,9 +271,6 @@ export default async function SesionPage({
         <>
           <SalidaGuiadaSesion sesionId={sesion.id} completados={completados} total={total} />
           {/* Todo hecho: el cierre aparece solo, sin buscarlo. */}
-          {total > 0 && completados >= total && (
-            <CierreAutomaticoSesion sesionId={sesion.id} total={total} />
-          )}
         </>
       )}
 

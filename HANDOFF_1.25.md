@@ -172,8 +172,14 @@ que este cambio se despliegue; no toca movimientos ya guardados en
 
 ## Pendientes, en orden de importancia
 
-1. **Probar en el teléfono real** (arrastrado del 1.24, sigue sin hacerse):
-   - El candado de descanso excedido en un descanso real de principio a fin.
+1. **Probar en el teléfono real** (arrastrado del 1.24):
+   - ~~El candado de descanso excedido en un descanso real de principio a
+     fin.~~ **Probado el 14/08 en la app instalada (PWA) real: funciona,
+     avisa al terminar el descanso.** Ojo: en el navegador normal del
+     teléfono (sin instalar como app) el aviso puede fallar en silencio —
+     iOS/Android limitan notificaciones y vibración fuera de la PWA
+     instalada. Si vuelve a fallar, confirmar primero si es en la app
+     instalada o en el navegador suelto.
    - Que "Pídele ayuda a Ale" manda la notificación de verdad.
    - El interruptor de temporizador por alumno.
 2. **La demo de Impulso VIP En Vivo** (arrastrado desde el 1.22): revisión

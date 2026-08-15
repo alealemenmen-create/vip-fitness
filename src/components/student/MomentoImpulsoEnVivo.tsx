@@ -1,23 +1,18 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useState, useTransition } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 import { Check, ShieldAlert, Target, Zap } from "lucide-react";
 import {
   calibrarIntervencionEnVivo,
-  consultarEstadoAsistenciaAle,
   marcarIntervencionMostrada,
   resolverIntervencionEnVivo,
-  solicitarAsistenciaAle,
   type CalibrarIntervencionState,
   type ResolverIntervencionState,
-  type SolicitarAsistenciaState,
-  type EstadoAsistenciaAlumno,
 } from "@/app/alumno/entrenar/impulso-actions";
 import type { IntervencionImpulsoEnVivo } from "@/app/alumno/entrenar/data";
 
 const inicial: ResolverIntervencionState = { error: null, ok: false, verificada: false };
 const inicialCalibracion: CalibrarIntervencionState = { error: null, ok: false, instruccion: null, tipo: null, prescripcion: null };
-const inicialAsistencia: SolicitarAsistenciaState = { error: null, ok: false };
 
 export function MomentoImpulsoEnVivo({
   intervencion,
@@ -34,19 +29,13 @@ export function MomentoImpulsoEnVivo({
     inicialCalibracion
   );
   const [resultadoElegido, setResultadoElegido] = useState<string | null>(intervencion?.resultado ?? null);
-  const [asistencia, asistenciaAction, avisandoAle] = useActionState(
-    solicitarAsistenciaAle,
-    inicialAsistencia
-  );
-  const [estadoAsistencia, setEstadoAsistencia] = useState<EstadoAsistenciaAlumno>(null);
   const [expandido, setExpandido] = useState(false);
-  const [, iniciarConsultaAsistencia] = useTransition();
+  const [retoAceptado, setRetoAceptado] = useState(false);
   const esOrientacion = intervencion?.tipo === "tempo_controlado";
   const esPersonalAle = intervencion?.origen === "personal_ale" || intervencion?.origen === "preparada_por_ale";
   const tipoActual = calibracion.tipo ?? intervencion?.tipo ?? null;
   const tecnicaIntensiva = tipoActual === "drop_set" || tipoActual === "rest_pause" || tipoActual === "fallo_controlado";
   const prescripcionActual = calibracion.prescripcion ?? intervencion?.prescripcion ?? {};
-  const requiereSupervision = prescripcionActual.requiereSupervision === true;
   const listaParaMostrar = !!intervencion
     && (esOrientacion || esPersonalAle || intervencion.calibrada || calibracion.ok || intervencion.estado !== "preparada");
   const resuelta = state.ok || intervencion?.estado === "resuelta";
@@ -57,34 +46,18 @@ export function MomentoImpulsoEnVivo({
     startTransition(() => void marcarIntervencionMostrada(intervencion.id));
   }, [intervencion, visible, listaParaMostrar]);
 
-  useEffect(() => {
-    if (!intervencion || !visible || serieTerminada) return;
-    let activo = true;
-    const consultar = () => {
-      iniciarConsultaAsistencia(async () => {
-        const estado = await consultarEstadoAsistenciaAle(intervencion.id).catch(() => null);
-        if (activo && estado) setEstadoAsistencia(estado);
-      });
-    };
-    consultar();
-    const id = window.setInterval(consultar, 8_000);
-    return () => {
-      activo = false;
-      window.clearInterval(id);
-    };
-  }, [intervencion, visible, serieTerminada, asistencia.ok]);
-
   if (!intervencion || !visible || intervencion.estado === "cancelada") return null;
 
   // En reposo ocupa solo el rayo. La instrucción se abre al tocarlo y el
   // formulario de resultado se abre solo cuando termina la serie objetivo.
   if (!mostrarExpandido) {
     return (
-      <div className="mb-1.5 flex justify-center">
+      <div className="burbuja-impulso-vivo mb-1.5 flex justify-center">
         <button
           type="button"
           onClick={() => setExpandido(true)}
           className={`rayo-impulso-vivo relative grid size-10 place-items-center rounded-full border ${resuelta ? "border-success/35 bg-success/10 text-success" : "border-vip/55 bg-vip/15 text-vip"}`}
+          data-reto-aceptado={retoAceptado ? "true" : "false"}
           aria-label={resuelta ? "Ver resultado de Impulso VIP" : `Abrir indicación de Impulso VIP para la serie ${intervencion.serieObjetivo}`}
           title={resuelta ? "Resultado registrado" : "Indicación de Ale"}
         >
@@ -187,42 +160,28 @@ export function MomentoImpulsoEnVivo({
             <Target size={12} className="text-vip" /> {intervencion.firma}
           </p>
           {!serieTerminada && (
-            asistencia.ok || estadoAsistencia ? (
-              <p className={`mt-2 rounded-xl border px-3 py-2 text-micro font-semibold ${
-                estadoAsistencia?.estado === "voy" || estadoAsistencia?.estado === "atendida"
-                  ? "border-success/30 bg-success/10 text-success"
-                  : estadoAsistencia?.estado === "no_disponible" || estadoAsistencia?.estado === "vencida"
-                    ? "border-warning/30 bg-warning/10 text-warning"
-                    : "border-vip/25 bg-vip/10 text-vip"
-              }`}>
-                {estadoAsistencia?.estado === "voy"
-                  ? "Ale respondio: voy para alla."
-                  : estadoAsistencia?.estado === "atendida"
-                    ? "Ale marco esta asistencia como atendida."
-                    : estadoAsistencia?.estado === "no_disponible"
-                      ? "Ale no esta disponible ahora. Haz la serie normal, sin tecnica intensa y con una repeticion en reserva."
-                      : estadoAsistencia?.estado === "vencida"
-                        ? "La solicitud vencio. Continua con una serie normal y segura."
-                        : "Ale recibio el aviso. Puedes continuar de forma segura mientras responde."}
-              </p>
-            ) : (
-              <form action={asistenciaAction} className="mt-2">
-                <input type="hidden" name="intervencion_id" value={intervencion.id} />
-                <button
-                  type="submit"
-                  disabled={avisandoAle}
-                  className="min-h-10 w-full rounded-xl border border-vip/35 bg-vip/10 px-3 text-micro font-bold text-vip disabled:opacity-50"
-                >
-                  {avisandoAle ? "Pidiendo ayuda..." : "Pídele ayuda a Ale"}
-                </button>
-                {asistencia.error && <p className="mt-1 text-micro text-error">{asistencia.error}</p>}
-              </form>
-            )
-          )}
-          {requiereSupervision && !serieTerminada && estadoAsistencia?.estado !== "voy" && estadoAsistencia?.estado !== "atendida" && (
-            <p className="mt-2 text-micro font-semibold leading-snug text-warning">
-              Esta técnica requiere supervisión. No la ejecutes hasta que Ale confirme; si no responde, haz la serie normal.
+            <p className="mt-2 rounded-xl border border-vip/45 bg-black/25 px-3 py-2 text-center">
+              <span className="flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-vip">
+                <ShieldAlert size={13} strokeWidth={2.8} aria-hidden />
+                Supervisión obligatoria
+              </span>
+              <span className="mt-1 block text-micro font-semibold leading-snug text-white">
+                Realiza esta serie con tu entrenador vigilando.
+              </span>
             </p>
+          )}
+          {!serieTerminada && (
+            <button
+              type="button"
+              onClick={() => {
+                setRetoAceptado(true);
+                setExpandido(false);
+              }}
+              className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-vip/55 bg-vip/15 px-3 text-caption font-extrabold text-vip shadow-[0_0_18px_color-mix(in_srgb,var(--color-vip)_16%,transparent)] active:scale-[.98]"
+            >
+              <Check size={15} strokeWidth={3} aria-hidden />
+              Acepto el reto
+            </button>
           )}
         </div>
       </div>

@@ -57,7 +57,9 @@ function TiraDias({
           <Fragment key={n.numero}>
             <button
               onClick={() => onSeleccionar(n.numero)}
-              className="relative flex min-w-0 flex-1 shrink-0 flex-col items-center gap-1 px-0.5 py-1.5 transition-colors duration-200 ease-in-out"
+              data-estado={n.estado}
+              data-activa={activo ? "true" : "false"}
+              className="selector-sesion-item relative flex min-w-0 flex-1 shrink-0 flex-col items-center gap-1 px-0.5 py-1.5 transition-colors duration-200 ease-in-out"
               style={{ background: "transparent" }}
             >
               {/* "ÚLTIMA" en vez de "SESIÓN" en la que acaba de hacer: es el
@@ -234,7 +236,7 @@ export function CalendarioEntrenamiento({
 
       {/* Tarjeta principal del día. `tarjeta-modelo-oscura` la mantiene en
           oscuro también con el tema claro — ver el porqué en globals.css. */}
-      <div className="tarjeta-modelo-oscura tarjeta-entrenamiento-premium tarjeta-presentacion-compacta radius-card overflow-hidden bg-surface">
+      <div className="tarjeta-modelo-oscura tarjeta-entrenamiento-premium resumen-sesion-entrenar tarjeta-presentacion-compacta radius-card overflow-hidden bg-surface">
         <div className="relative flex min-h-[76px] flex-col justify-end overflow-hidden px-3 py-2">
           {descanso ? (
             <div className="pointer-events-none absolute right-4 top-3 opacity-30">
@@ -315,9 +317,22 @@ function ListaEjerciciosPrevia({ vista }: { vista: NonNullable<DiaVistaPrevia> }
     );
   }
   return (
-    <div className="border-y border-white/[0.07]" aria-label="Ejercicios de la sesión seleccionada">
-      {vista.ejercicios.map((ejercicio) => (
-        <article key={ejercicio.id} className="flex min-h-[78px] items-center gap-3 border-b border-white/[0.07] px-1.5 py-2.5 last:border-b-0">
+    <section className="lista-vista-previa" aria-label="Ejercicios de la sesión seleccionada">
+      <div className="lista-vista-previa-cabecera">
+        <span>Lo que harás hoy</span>
+        <span>{vista.ejercicios.length} ejercicios</span>
+      </div>
+      {vista.ejercicios.map((ejercicio, indice) => {
+        const tecnicaAnterior = indice > 0 ? vista.ejercicios[indice - 1]?.tecnicaTipo : null;
+        const tecnicaSiguiente = vista.ejercicios[indice + 1]?.tecnicaTipo ?? null;
+        const tecnicaEncadenada = !!ejercicio.tecnicaTipo && (tecnicaAnterior === ejercicio.tecnicaTipo || tecnicaSiguiente === ejercicio.tecnicaTipo);
+        return (
+        <article
+          key={ejercicio.id}
+          data-tecnica={ejercicio.tecnicaTipo?.toLowerCase() ?? undefined}
+          data-encadenado={tecnicaEncadenada ? "true" : "false"}
+          className="ejercicio-vista-previa flex min-h-[78px] items-center gap-3 border-b border-white/[0.07] px-1.5 py-2.5 last:border-b-0"
+        >
           <CuadroFotoReferencia
             ilustracionSlug={ejercicio.ilustracionSlug}
             fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
@@ -350,8 +365,9 @@ function ListaEjerciciosPrevia({ vista }: { vista: NonNullable<DiaVistaPrevia> }
             )}
           </div>
         </article>
-      ))}
-    </div>
+        );
+      })}
+    </section>
   );
 }
 
@@ -374,7 +390,7 @@ function AccionEntrenamientoFija({
   if (actual.estado === "en_progreso" && actual.sesionId) {
     return createPortal(
       <div className="fixed inset-x-0 bottom-[calc(var(--alto-nav-alumno,110px)+12px)] z-30 mx-auto w-full max-w-md px-4">
-        <Link href={`/alumno/entrenar/sesion/${actual.sesionId}`} className="boton-iniciar-cristal-vip flex h-12 w-full items-center justify-center gap-2 rounded-[11px] text-[14px] font-bold tracking-[-0.02em]">
+        <Link href={`/alumno/entrenar/sesion/${actual.sesionId}`} className="boton-iniciar-cristal-vip flex h-11 w-full items-center justify-center gap-2 rounded-[11px] text-[14px] font-bold tracking-[-0.02em]">
           Continuar rutina <ChevronRight size={17} />
         </Link>
       </div>,
@@ -399,7 +415,7 @@ function AccionEntrenamientoFija({
         <input type="hidden" name="numero_calendario" value={actual.numero} />
         <button
           type="submit"
-          className="boton-iniciar-cristal-vip flex h-12 w-full items-center justify-center gap-2 rounded-[11px] text-[14px] font-bold tracking-[-0.02em] transition active:scale-[0.99]"
+          className="boton-iniciar-cristal-vip flex h-11 w-full items-center justify-center gap-2 rounded-[11px] text-[14px] font-bold tracking-[-0.02em] transition active:scale-[0.99]"
         >
           <Play size={17} strokeWidth={2.6} /> Iniciar rutina
         </button>

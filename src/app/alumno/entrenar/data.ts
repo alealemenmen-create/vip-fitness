@@ -553,6 +553,9 @@ export type EjercicioSesion = {
   seriesProgramadas: number;
   repsProgramadas: string;
   descansoSegundos: number | null;
+  /** Null conserva los segundos que indicó el entrenador; un número es la
+   * duración elegida por el alumno para sus descansos con reloj. */
+  descansoPersonalizadoSegundos: number | null;
   /** false: este alumno entrena sin cuenta regresiva entre series (interruptor
    * del entrenador, migración 0087). Los segundos de arriba se siguen
    * mostrando como referencia, pero no corre ningún reloj ni se descuentan
@@ -788,10 +791,11 @@ export async function obtenerSesionCompleta(
   // comportamiento de siempre.
   const { data: preferencias } = await supabase
     .from("alumno_perfil")
-    .select("temporizador_descanso")
+    .select("temporizador_descanso, descanso_personalizado_segundos")
     .eq("user_id", alumnoId)
     .maybeSingle();
   const temporizadorDescanso = preferencias?.temporizador_descanso ?? true;
+  const descansoPersonalizadoSegundos = preferencias?.descanso_personalizado_segundos ?? null;
 
   const { data: todasLasSeries } = sesionEjercicioIds.length
     ? await supabase
@@ -924,6 +928,7 @@ export async function obtenerSesionCompleta(
       seriesProgramadas: prog.series_programadas,
       repsProgramadas: prog.reps_programadas,
       descansoSegundos: prog.descanso_segundos,
+      descansoPersonalizadoSegundos,
       temporizadorDescanso,
       tecnicaTipo: prog.tecnica_tipo,
       tecnicaSeries: normalizarTecnicaSeries(prog.tecnica_series, prog.series_programadas),

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { calcularIntervencionEnVivo, calcularIntervencionesEnVivo, calibrarCierreControlado } from "./en-vivo";
+import {
+  calcularIntervencionEnVivo,
+  calcularIntervencionesEnVivo,
+  calibrarCierreControlado,
+  resolverCupoImpulsoSesion,
+} from "./en-vivo";
 
 const base = {
   seriesProgramadas: 4,
@@ -54,6 +59,31 @@ describe("calcularIntervencionesEnVivo", () => {
     const resultado = calcularIntervencionesEnVivo({ ...base, seriesProgramadas: 5 });
     expect(resultado.map((i) => i.serieObjetivo)).toEqual([3, 5]);
     expect(resultado[0].prescripcion.requiereResultado).toBe(false);
+  });
+});
+
+describe("resolverCupoImpulsoSesion", () => {
+  it("mantiene un solo reto para un alumno nuevo o con datos incompletos", () => {
+    expect(resolverCupoImpulsoSesion([])).toBe(1);
+    expect(
+      resolverCupoImpulsoSesion([
+        { resultado: "lograda", verificacion: "datos" },
+        { resultado: "lograda", verificacion: "declarada" },
+        { resultado: "lograda", verificacion: "datos" },
+        { resultado: "lograda", verificacion: "datos" },
+      ])
+    ).toBe(1);
+  });
+
+  it("habilita un segundo reto solo tras cuatro logros consecutivos verificados", () => {
+    expect(
+      resolverCupoImpulsoSesion([
+        { resultado: "lograda", verificacion: "datos" },
+        { resultado: "lograda", verificacion: "datos" },
+        { resultado: "lograda", verificacion: "datos" },
+        { resultado: "lograda", verificacion: "datos" },
+      ])
+    ).toBe(2);
   });
 });
 

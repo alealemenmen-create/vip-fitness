@@ -11,9 +11,10 @@ import {
   calcularYRegistrarPuntosImpulso,
   registrarEntrenamiento,
   registrarPenalizacionDescanso,
+  registrarTecnicaCumplida,
 } from "@/lib/ranking/movimientos";
 import { generarYGuardarRecomendacion } from "@/lib/impulso-vip/data";
-import { asegurarIntervencionEnVivo } from "@/lib/impulso-vip/en-vivo-data";
+import { asegurarIntervencionEnVivo, garantizarMomentoMinimoSesion } from "@/lib/impulso-vip/en-vivo-data";
 import { entregarIndicacionesProgramadas } from "@/lib/impulso-vip/manual-data";
 import { leerDatosCumplimiento } from "@/lib/impulso-vip/congelar";
 import { resolverCumplimiento } from "@/lib/impulso-vip/motor";
@@ -33,6 +34,61 @@ import { avisarPropuestaImpulsoCercana } from "@/lib/impulso-vip/avisos-entrenad
 
 const DIFICULTADES_VALIDAS = new Set(["muy_facil", "facil", "justo", "dificil", "fallo"]);
 type TrainingDb = ReturnType<typeof createAdminClient>;
+
+/** Preferencia personal durante el entrenamiento: no cambia la rutina del
+ * entrenador ni sus segundos de referencia; solo decide si el alumno quiere
+ * que corra la cuenta regresiva y la regla de puntos por excederse. */
+export async function actualizarTemporizadorDescansoAlumno(
+  modo: "libre" | "entrenador" | 40 | 60 | 90 | 120
+): Promise<{ ok: boolean; error: string | null; personalizacionTemporal?: boolean }> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return { ok: false, error: "No puedes cambiar el descanso en modo solo lectura." };
+  if (modo !== "libre" && modo !== "entrenador" && ![40, 60, 90, 120].includes(modo)) {
+    return { ok: false, error: "La opción de descanso no es válida." };
+  }
+  const temporizadorActivo = modo !== "libre";
+  const descansoPersonalizado = typeof modo === "number" ? modo : null;
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("alumno_perfil")
+    .update({
+      temporizador_descanso: temporizadorActivo,
+      descanso_personalizado_segundos: descansoPersonalizado,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", alumnoId);
+
+  if (error) {
+    // La app puede estar apuntando a una base que todavía no recibió 0089.
+    // El interruptor original (0087) sí existe: se guarda igual y la duración
+    // elegida queda aplicada a esta sesión desde el cliente, en vez de mostrar
+    // un error al alumno por una migración pendiente del entorno.
+    const faltaColumnaNueva = error.code === "PGRST204" || /descanso_personalizado_segundos/i.test(error.message);
+    if (!faltaColumnaNueva) {
+      console.error("[entrenar] no se pudo actualizar temporizador_descanso:", error.message);
+      return { ok: false, error: "No fue posible ajustar el descanso. Intenta nuevamente." };
+    }
+    const { error: errorBase } = await supabase
+      .from("alumno_perfil")
+      .update({ temporizador_descanso: temporizadorActivo, updated_at: new Date().toISOString() })
+      .eq("user_id", alumnoId);
+    if (errorBase) {
+      console.error("[entrenar] no se pudo guardar el temporizador base:", errorBase.message);
+      return { ok: false, error: "No fue posible ajustar el descanso. Intenta nuevamente." };
+    }
+    // No revalidamos acá: la preferencia de segundos vive temporalmente en el
+    // estado de la pantalla hasta que 0089 exista, y una revalidación la
+    // desmontaría antes de que el alumno pueda usarla.
+    return { ok: true, error: null, personalizacionTemporal: true };
+  }
+
+  // La ruta actual recibe el nuevo dato en la misma respuesta de la Server
+  // Action: las filas cancelan un reloj que estuviera corriendo y dejan de
+  // registrar descuentos si se eligió descanso libre.
+  revalidatePath("/alumno/entrenar/sesion/[id]", "page");
+  return { ok: true, error: null };
+}
 
 async function buscarOtraSesionRealEnProgreso(
   supabase: TrainingDb,
@@ -128,7 +184,11 @@ async function crearOEntrarSesion(
   // rutina de diez, todas dentro de la espera que el alumno ve al tocar "Ver
   // entrenamiento".
   const [{ data: ejercicios }, { data: perfilAlumno }] = await Promise.all([
-    supabase.from("rutina_dia_ejercicios").select("id, orden").eq("dia_id", diaId).order("orden"),
+    supabase
+      .from("rutina_dia_ejercicios")
+      .select("id, orden, series_programadas, tecnica_tipo")
+      .eq("dia_id", diaId)
+      .order("orden"),
     supabase.from("alumno_perfil").select("objetivo").eq("user_id", alumnoId).maybeSingle(),
   ]);
 
@@ -181,6 +241,21 @@ async function crearOEntrarSesion(
           alumnoId,
         }).catch(() => null);
       }
+      // Si con las reglas normales ningún ejercicio del día terminó con un
+      // momento Impulso VIP, y el alumno ya tiene historial de sobra, se
+      // garantiza uno igual — ver el comentario de la función.
+      const datosPorAsignacion = new Map(
+        ejercicios.map((e) => [e.id, { seriesProgramadas: e.series_programadas, tecnicaTipo: e.tecnica_tipo }])
+      );
+      await garantizarMomentoMinimoSesion(supabase, {
+        alumnoId,
+        sesionId: sesion.id,
+        sesionEjercicios: ordenados.map((se) => ({
+          id: se.id,
+          seriesProgramadas: datosPorAsignacion.get(se.dia_ejercicio_id)?.seriesProgramadas ?? 0,
+          tecnicaTipo: datosPorAsignacion.get(se.dia_ejercicio_id)?.tecnicaTipo ?? null,
+        })),
+      }).catch(() => null);
     }
   }
 
@@ -404,7 +479,8 @@ async function guardarUnEjercicio(
   supabase: TrainingDb,
   formData: FormData,
   sufijo: string,
-  sesionId: string
+  sesionId: string,
+  alumnoId: string
 ): Promise<{ error: string | null; completado?: boolean; sesionEjercicioId?: string }> {
   const sesionEjercicioId = String(formData.get(`sesion_ejercicio_id${sufijo}`) || "");
   const notaEjercicio = String(formData.get(`nota_ejercicio${sufijo}`) || "").trim();
@@ -425,14 +501,17 @@ async function guardarUnEjercicio(
   // fila no tiene el vínculo esperado (dato huérfano, no un caso normal).
   const { data: asignacion } = await supabase
     .from("sesion_ejercicios")
-    .select("rutina_dia_ejercicios(series_programadas)")
+    .select("rutina_dia_ejercicios(series_programadas, tecnica_tipo)")
     .eq("id", sesionEjercicioId)
     .eq("sesion_id", sesionId)
     .maybeSingle();
   if (!asignacion) return { error: "El ejercicio no pertenece a esta sesión." };
   const seriesAsignadas = (
-    asignacion?.rutina_dia_ejercicios as { series_programadas: number } | null | undefined
+    asignacion?.rutina_dia_ejercicios as { series_programadas: number; tecnica_tipo: string | null } | null | undefined
   )?.series_programadas;
+  const tecnicaTipo = (
+    asignacion?.rutina_dia_ejercicios as { series_programadas: number; tecnica_tipo: string | null } | null | undefined
+  )?.tecnica_tipo;
   const cantidadAsignada = seriesAsignadas ?? Number(formData.get(`cantidad_series${sufijo}`) || 0);
   // Una serie extra es una decisión del alumno durante el entrenamiento, no
   // una modificación silenciosa de la rutina del entrenador. Se aceptan como
@@ -470,7 +549,16 @@ async function guardarUnEjercicio(
   // El ejercicio solo cuenta como realizado si TODAS sus series están
   // marcadas como hechas — cargar un peso/reps por sí solo no alcanza, y
   // dejar algunas sin marcar significa que quedó incompleto.
-  const completado = estanCompletasLasSeriesAsignadas(filas, cantidadAsignada);
+  // Confirmamos contra las filas persistidas, no solo contra los campos que
+  // estaban montados en pantalla. En una superserie la ronda anterior puede
+  // estar oculta al guardar la siguiente, pero nunca debe perder su progreso.
+  const { data: filasPersistidas, error: errorLecturaSeries } = await supabase
+    .from("series_realizadas")
+    .select("sesion_ejercicio_id, numero_serie, peso_kg, es_peso_corporal, reps_realizadas, rir_estimado, realizada")
+    .eq("sesion_ejercicio_id", sesionEjercicioId);
+  if (errorLecturaSeries) return { error: "No fue posible confirmar las series guardadas. Intenta nuevamente." };
+  const seriesGuardadas = filasPersistidas ?? [];
+  const completado = estanCompletasLasSeriesAsignadas(seriesGuardadas, cantidadAsignada);
   const { error: errorNota } = await supabase
     .from("sesion_ejercicios")
     .update({
@@ -496,13 +584,26 @@ async function guardarUnEjercicio(
     if (errorSinDificultad) return { error: "No fue posible guardar. Revisa tu conexión e intenta nuevamente." };
   }
 
+  // Técnica de entrenamiento asignada (drop set, rest-pause, biserie,
+  // triserie...) cumplida con esfuerzo real: solo "Estuvo muy difícil"
+  // cuenta — "No pude completarla" es una alerta, no un logro. Nunca debe
+  // impedir guardar el resto del ejercicio si falla.
+  if (dificultadPercibida === "dificil" && tecnicaTipo?.trim()) {
+    await registrarTecnicaCumplida({
+      alumnoId,
+      sesionEjercicioId,
+      fecha: hoyISO(),
+      tecnicaTipo,
+    }).catch(() => null);
+  }
+
   // Impulso VIP: solo al completar el ejercicio (no en cada guardado
   // parcial) se resuelve si cumplió, superó o no la meta congelada al
   // empezar la sesión. Es best-effort: si la recomendación no existe (motor
   // desactivado para este ejercicio, o migración 0043 sin correr todavía),
   // no hay nada que resolver y el guardado normal ya terminó bien.
   if (completado) {
-    await resolverCumplimientoImpulso(supabase, sesionEjercicioId, filas).catch(() => null);
+    await resolverCumplimientoImpulso(supabase, sesionEjercicioId, seriesGuardadas).catch(() => null);
   }
 
   return { error: null, completado, sesionEjercicioId };
@@ -558,7 +659,7 @@ export async function guardarSeries(
     return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
   }
 
-  const resultado = await guardarUnEjercicio(supabase, formData, "", sesionId);
+  const resultado = await guardarUnEjercicio(supabase, formData, "", sesionId, alumnoId);
   if (resultado.error) return resultado;
   if (resultado.completado && resultado.sesionEjercicioId) {
     after(() => avisarPropuestaImpulsoCercana({
@@ -600,7 +701,7 @@ export async function guardarSeriesGrupo(
   let ultimoCompletadoId: string | undefined;
   for (let i = 0; i < cantidad; i++) {
     const sufijo = i === 0 ? "" : `_${i}`;
-    const resultado = await guardarUnEjercicio(supabase, formData, sufijo, sesionId);
+    const resultado = await guardarUnEjercicio(supabase, formData, sufijo, sesionId, alumnoId);
     if (resultado.error) return resultado;
     if (resultado.completado) ultimoCompletadoId = resultado.sesionEjercicioId;
   }

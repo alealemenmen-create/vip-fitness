@@ -26,7 +26,7 @@ export function BotonFinalizarSesion({
   textoEnviando = "Guardando…",
 }: {
   children: React.ReactNode;
-  variant?: "primary" | "accion";
+  variant?: "primary" | "accion" | "secondary";
   size?: "sm" | "lg";
   className?: string;
   textoEnviando?: string;

@@ -1,7 +1,8 @@
 "use client";
 
 import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from "react";
-import { Check, ChevronDown, ChevronRight, Info, NotebookPen, Repeat, Timer } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown, ChevronRight, Info, Menu, NotebookPen, Repeat, Timer, Zap } from "lucide-react";
 import { guardarSeriesGrupo, type GuardarSeriesState } from "@/app/alumno/entrenar/actions";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import {
@@ -30,6 +31,9 @@ const suscribirSinCambios = () => () => {};
 /** Letras para identificar cada ejercicio del grupo — hasta 8 (giant set
  * grande), más que eso ya no tiene sentido como técnica encadenada. */
 const LETRAS = "ABCDEFGH".split("");
+function etiquetaPaso(pos: number): string {
+  return LETRAS[pos] ?? String(pos + 1);
+}
 
 /** Sufijo de campo por posición dentro del grupo: "" para el primero,
  * "_1", "_2"... para el resto (ver `guardarSeriesGrupo` en actions.ts, que
@@ -39,6 +43,16 @@ function sufijoDe(pos: number): string {
 }
 
 type Paso = { pos: number; numero: number };
+type RegistroRonda = {
+  peso: string;
+  reps: string;
+  rir: string;
+  esPesoCorporal: boolean;
+  realizada: boolean;
+};
+function clavePaso(paso: Paso): string {
+  return `${paso.pos}:${paso.numero}`;
+}
 
 /**
  * Tarjeta combinada para una técnica encadenada (biserie, triserie, giant
@@ -65,17 +79,24 @@ export const SesionGrupoCard = forwardRef<
     soloLectura: boolean;
     activo?: boolean;
     modoEnfocado?: boolean;
-    onAnterior?: () => void;
-    onSiguiente?: () => void;
-    hayAnterior?: boolean;
-    haySiguiente?: boolean;
     onDificultadRespondida?: () => void;
+    onGrupoCompletado?: () => void;
+    /** Si este bloque es el último de la rutina, su último paso cierra la
+     * sesión en vez de iniciar un descanso sin siguiente ejercicio. */
+    esUltimoGrupoDeRutina?: boolean;
+    /** Mapa de toda la rutina. Debe existir tambiÃ©n en biseries, triseries
+     * y series gigantes; no solo en ejercicios individuales. */
+    onVerRutina?: () => void;
   }
->(function SesionGrupoCard({ ejercicios, sesionId, soloLectura, activo = false, modoEnfocado = false, onAnterior, onSiguiente, hayAnterior = false, haySiguiente = false, onDificultadRespondida }, ref) {
+>(function SesionGrupoCard({ ejercicios, sesionId, soloLectura, activo = false, modoEnfocado = false, onDificultadRespondida, onGrupoCompletado, esUltimoGrupoDeRutina = false, onVerRutina }, ref) {
   const [state, formAction, pending] = useActionState(guardarSeriesGrupo, initialState);
   const n = ejercicios.length;
   const completoTodo = ejercicios.every((e) => e.completado);
-  const [expandido, setExpandido] = useState(activo || soloLectura || completoTodo);
+  // En entrenamiento enfocado el bloque encadenado siempre se presenta
+  // completo. Al llegar a una biserie con las flechas antes de que le toque,
+  // `activo` es false; si dependiéramos de él, se escondían sus fotos y la
+  // ronda detrás de un resumen plegado.
+  const [expandido, setExpandido] = useState(modoEnfocado || activo || soloLectura || completoTodo);
 
   const grupoTecnica = ejercicios.map((e) => resolverGrupoTecnica(e.tecnicaTipo)).find((g) => g) ?? null;
   const etiquetaGrupo = grupoTecnica?.etiqueta ?? "Técnica encadenada";
@@ -93,6 +114,23 @@ export const SesionGrupoCard = forwardRef<
   const [seriesHechas, setSeriesHechas] = useState<ReadonlySet<number>[]>(() =>
     completadasRef.current.map((s) => new Set(s))
   );
+  /* Las tarjetas enfocadas muestran solo la ronda actual para ahorrar alto.
+     Este respaldo mantiene los campos de rondas ya hechas dentro del <form>:
+     si se desmontan sin esto, el guardado de la ronda 3 mandaba A1/A2 como
+     vacÃ­as y el servidor volvÃ­a a dejar la superserie incompleta. */
+  const [registrosRondas, setRegistrosRondas] = useState<Map<string, RegistroRonda>>(() => {
+    const iniciales = new Map<string, RegistroRonda>();
+    ejercicios.forEach((ejercicio, pos) => ejercicio.series.forEach((serie) => {
+      iniciales.set(clavePaso({ pos, numero: serie.numeroSerie }), {
+        peso: serie.pesoKg == null ? "" : String(serie.pesoKg),
+        reps: serie.repsRealizadas == null ? "" : String(serie.repsRealizadas),
+        rir: serie.rirEstimado == null ? "" : String(serie.rirEstimado),
+        esPesoCorporal: serie.esPesoCorporal,
+        realizada: serie.realizada,
+      });
+    }));
+    return iniciales;
+  });
   const [encuestasRespondidas, setEncuestasRespondidas] = useState<ReadonlySet<number>>(
     () => new Set(ejercicios.flatMap((ej, pos) => (ej.dificultadPercibida ? [pos] : [])))
   );
@@ -102,6 +140,7 @@ export const SesionGrupoCard = forwardRef<
    * el grupo se terminó recién acá. Navegar con Anterior/Siguiente hasta una
    * biserie ya hecha no la vuelve a disparar. */
   const [recienCompletado, setRecienCompletado] = useState(false);
+  const grupoCompletadoNotificadoRef = useRef(false);
   /** Pidió cerrar el grupo con series sin hacer: se le muestra qué implica. */
   const [confirmandoIncompleto, setConfirmandoIncompleto] = useState(false);
   /** Mismo criterio que en la tarjeta de ejercicio suelto (ver el comentario
@@ -125,11 +164,25 @@ export const SesionGrupoCard = forwardRef<
       if (ronda <= cantidadesSeries[pos]) pasos.push({ pos, numero: ronda });
     }
   }
+  // El grupo tiene una secuencia real (1A → 1B → 2A...). Un paso solo puede
+  // reabrirse si no existe otro registrado después de él; de lo contrario se
+  // rompería el orden de la ronda al desmarcar una serie antigua.
+  const puedeDeshacerPaso = (paso: Paso) => {
+    const indice = pasos.findIndex((item) => item.pos === paso.pos && item.numero === paso.numero);
+    return indice < 0 || !pasos.slice(indice + 1).some((item) => seriesHechas[item.pos].has(item.numero));
+  };
   const [indicePasoVisible, setIndicePasoVisible] = useState(
     () => Math.max(0, pasos.findIndex((paso) => !ejercicios[paso.pos].series.some(
       (serie) => serie.numeroSerie === paso.numero && serie.realizada
     )))
   );
+  const [rondaVista, setRondaVista] = useState<number | null>(null);
+  /** Igual que las cÃ¡psulas de series: una ronda terminada se consulta con un
+   * toque, pero tres toques intencionales permiten corregir LA ÃšLTIMA ronda
+   * hecha. Nunca se abre una antigua debajo de una ronda posterior, porque
+   * eso dejarÃ­a la secuencia A â†’ B â†’ C en un estado imposible. */
+  const [rondaPendienteReinicio, setRondaPendienteReinicio] = useState<{ numero: number; toques: number } | null>(null);
+  const reinicioRondaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const pasoExtraPendiente = pasos.find(
     (paso) => paso.numero > ejercicios[paso.pos].seriesProgramadas && !seriesHechas[paso.pos].has(paso.numero)
@@ -138,20 +191,110 @@ export const SesionGrupoCard = forwardRef<
     activo && !soloLectura && !completoTodo
       ? (pasos.find((paso) => paso.numero <= ejercicios[paso.pos].seriesProgramadas && !seriesHechas[paso.pos].has(paso.numero)) ?? pasoExtraPendiente)
       : pasoExtraPendiente;
+  // Si se está mirando un grupo bloqueado o ya hecho, no existe un paso que
+  // "toque" registrar. Igual destacamos una fila para anclar las flechas de
+  // sesión en la misma posición del RIR que en un ejercicio individual.
+  const pasoResaltado = pasoQueToca
+    ?? pasos.find((paso) => !seriesHechas[paso.pos].has(paso.numero))
+    ?? pasos.at(-1)
+    ?? null;
   const programadasGrupoHechas = ejercicios.every((ejercicio, pos) =>
     Array.from({ length: ejercicio.seriesProgramadas }, (_, indice) => indice + 1)
       .every((numero) => seriesHechas[pos].has(numero))
   );
 
+  // Recupera de forma segura una superserie que tiene todas sus filas hechas
+  // pero cuya cabecera llegó desactualizada (`completado=false`). Así un
+  // guardado anterior no puede dejar al siguiente ejercicio inaccesible.
+  useEffect(() => {
+    if (!modoEnfocado || soloLectura || completoTodo || !programadasGrupoHechas || recienCompletado) return;
+    setRecienCompletado(true);
+    if (!grupoCompletadoNotificadoRef.current) {
+      grupoCompletadoNotificadoRef.current = true;
+      onGrupoCompletado?.();
+    }
+    const frame = window.requestAnimationFrame(() => guardarAhora());
+    return () => window.cancelAnimationFrame(frame);
+  }, [modoEnfocado, soloLectura, completoTodo, programadasGrupoHechas, recienCompletado, onGrupoCompletado]);
+
   // Rediseño en tarjetas apiladas (modo enfocado): en vez de mostrar los
   // pasos intercalados de a uno, se ve toda la ronda actual junta — un
   // ejercicio por tarjeta. `rondaActualNumero` es la ronda del paso que
   // toca ahora (o la última si el grupo ya se completó).
-  const rondaActualNumero = pasoQueToca?.numero ?? maxRondas;
+  const rondaActualNumero = rondaVista ?? pasoResaltado?.numero ?? maxRondas;
   const pasosDeRondaActual = pasos.filter((paso) => paso.numero === rondaActualNumero);
+  const rondas = Array.from({ length: maxRondas }, (_, indice) => {
+    const numero = indice + 1;
+    const pasosDeRonda = pasos.filter((paso) => paso.numero === numero);
+    const hechas = pasosDeRonda.filter((paso) => seriesHechas[paso.pos].has(paso.numero)).length;
+    const completa = pasosDeRonda.length > 0 && hechas === pasosDeRonda.length;
+    return {
+      numero,
+      estado: completa ? "completa" : numero === rondaActualNumero ? "actual" : "pendiente",
+      progreso: pasosDeRonda.length > 0 ? (hechas / pasosDeRonda.length) * 100 : 0,
+    } as const;
+  });
+  const impulsoPantallaActivo = modoEnfocado
+    && !soloLectura
+    && pasoResaltado !== null
+    && !seriesHechas[pasoResaltado.pos].has(pasoResaltado.numero)
+    && ejercicios[pasoResaltado.pos].intervencionesImpulso.some(
+      (intervencion) => intervencion.serieObjetivo === pasoResaltado.numero && intervencion.estado !== "cancelada"
+    );
   /** Tarjetas ya hechas que el alumno cerró a mano para no ver sus números
    * todo el tiempo — arranca abierto por defecto (como en la referencia). */
   const [colapsadosManual, setColapsadosManual] = useState<Set<number>>(() => new Set());
+  const [notasAbiertas, setNotasAbiertas] = useState<Set<number>>(() => new Set());
+
+  useEffect(() => () => {
+    if (reinicioRondaTimeoutRef.current) clearTimeout(reinicioRondaTimeoutRef.current);
+  }, []);
+
+  function seleccionarRonda(numero: number, completa: boolean) {
+    setRondaVista(numero);
+    if (!completa) {
+      setRondaPendienteReinicio(null);
+      if (reinicioRondaTimeoutRef.current) clearTimeout(reinicioRondaTimeoutRef.current);
+      return;
+    }
+
+    // Solo se puede corregir la Ãºltima ronda que tenga registros: igual que
+    // una serie individual, las anteriores quedan consultables como historial.
+    const hayPosteriorHecha = pasos.some((paso) =>
+      paso.numero > numero && seriesHechas[paso.pos].has(paso.numero)
+    );
+    if (hayPosteriorHecha) {
+      setRondaPendienteReinicio(null);
+      if (reinicioRondaTimeoutRef.current) clearTimeout(reinicioRondaTimeoutRef.current);
+      return;
+    }
+
+    if (rondaPendienteReinicio?.numero === numero && rondaPendienteReinicio.toques === 2) {
+      if (reinicioRondaTimeoutRef.current) clearTimeout(reinicioRondaTimeoutRef.current);
+      reinicioRondaTimeoutRef.current = null;
+      setRondaPendienteReinicio(null);
+      const pasosDeRonda = pasos.filter((paso) => paso.numero === numero);
+      // La regla de orden ya se verificÃ³ para la ronda completa. Por eso se
+      // fuerza el deshacer de A/B/C como una sola acciÃ³n y se guarda una vez.
+      pasosDeRonda.forEach((paso) => filasRef.current[paso.pos].get(paso.numero)?.deshacerYa(true, false));
+      enviadoRef.current = false;
+      setRecienCompletado(false);
+      setMostrandoSiguiente(false);
+      setSerieActiva(null);
+      guardarAhora();
+      return;
+    }
+
+    setRondaPendienteReinicio({
+      numero,
+      toques: rondaPendienteReinicio?.numero === numero ? 2 : 1,
+    });
+    if (reinicioRondaTimeoutRef.current) clearTimeout(reinicioRondaTimeoutRef.current);
+    reinicioRondaTimeoutRef.current = setTimeout(() => {
+      setRondaPendienteReinicio(null);
+      reinicioRondaTimeoutRef.current = null;
+    }, 2400);
+  }
 
   function respaldarLocal() {
     const form = formRef.current;
@@ -178,8 +321,24 @@ export const SesionGrupoCard = forwardRef<
 
   function guardarAhora() {
     respaldarLocal();
-    enviadoRef.current = true;
     formRef.current?.requestSubmit();
+  }
+
+  function registrarRondaEnFormulario(pos: number, numero: number, realizada: boolean) {
+    const datos = formRef.current ? new FormData(formRef.current) : null;
+    const sufijo = sufijoDe(pos);
+    const registro: RegistroRonda = {
+      peso: String(datos?.get(`peso_${numero}${sufijo}`) ?? ""),
+      reps: String(datos?.get(`reps_${numero}${sufijo}`) ?? ""),
+      rir: String(datos?.get(`rir_${numero}${sufijo}`) ?? ""),
+      esPesoCorporal: datos?.get(`peso_corporal_${numero}${sufijo}`) === "true",
+      realizada,
+    };
+    setRegistrosRondas((actuales) => {
+      const copia = new Map(actuales);
+      copia.set(clavePaso({ pos, numero }), registro);
+      return copia;
+    });
   }
 
   function serieInicial(pos: number, numero: number) {
@@ -196,11 +355,17 @@ export const SesionGrupoCard = forwardRef<
   }
 
   function alIniciar(pos: number) {
-    return (numero: number) => setSerieActiva({ pos, numero });
+    return (numero: number) => {
+      // Si se estaba consultando una ronda anterior, al tocar un control
+      // volvemos al flujo real: la tarjeta que se ejecuta manda en pantalla.
+      setRondaVista(null);
+      setSerieActiva({ pos, numero });
+    };
   }
 
   function alDeshacerCiclo(pos: number) {
     return (numero: number) => {
+      registrarRondaEnFormulario(pos, numero, false);
       completadasRef.current[pos].delete(numero);
       enviadoRef.current = false;
       setSeriesHechas((prev) => {
@@ -213,6 +378,7 @@ export const SesionGrupoCard = forwardRef<
 
   function alCompletarCiclo(pos: number) {
     return (numero: number) => {
+      registrarRondaEnFormulario(pos, numero, true);
       completadasRef.current[pos].add(numero);
       setSeriesHechas((prev) => {
         const copia = prev.map((s) => new Set(s));
@@ -225,24 +391,31 @@ export const SesionGrupoCard = forwardRef<
       if (!enviadoRef.current && totalHecho === totalPasos) {
         enviadoRef.current = true;
         setRecienCompletado(true);
+        // El siguiente bloque no debe esperar la revalidación del servidor
+        // para habilitarse: todas las series locales ya quedaron completas.
+        if (!grupoCompletadoNotificadoRef.current) {
+          grupoCompletadoNotificadoRef.current = true;
+          onGrupoCompletado?.();
+        }
+        if (esUltimoGrupoDeRutina && modoEnfocado) {
+          window.setTimeout(() => window.dispatchEvent(new Event("vip:celebrar-final-rutina")), 420);
+        }
         // Ver el mismo fix en SesionEjercicioCard: sin esto, la última fila
         // se quedaba "activa" para siempre y el contador de exceso de
         // descanso seguía corriendo sobre una serie ya terminada.
         setSerieActiva(null);
+        // Igual que en el ejercicio individual: primero se muestra la
+        // encuesta y recién al responderla (o al omitirla) se guarda y se
+        // avanza. Si se revalida antes, el modal puede desmontarse y el
+        // alumno queda en el bloque ya terminado.
         setMostrandoSiguiente(true);
-        window.setTimeout(() => {
-          guardarAhora();
-          setMostrandoSiguiente(false);
-        }, 400);
       } else {
         const idxActual = pasos.findIndex((p) => p.pos === pos && p.numero === numero);
         const siguiente = pasos.slice(idxActual + 1).find((p) => !completadasRef.current[p.pos].has(p.numero));
         if (siguiente) {
           const indiceSiguiente = pasos.findIndex((paso) => paso.pos === siguiente.pos && paso.numero === siguiente.numero);
           if (indiceSiguiente >= 0) setIndicePasoVisible(indiceSiguiente);
-          window.requestAnimationFrame(() => {
-            filaNodoRef.current[siguiente.pos].get(siguiente.numero)?.scrollIntoView({ behavior: "smooth", block: "center" });
-          });
+          setRondaVista(null);
         }
       }
     };
@@ -282,12 +455,32 @@ export const SesionGrupoCard = forwardRef<
     if (activo && !soloLectura) setExpandido(true);
   }, [activo, soloLectura]);
 
+  // El paso activo se centra DESPUÉS de que React abre su tarjeta. Hacerlo
+  // dentro del callback de completar corría antes de pintar el siguiente paso
+  // y por eso en iPhone a veces no se movía nada.
+  /** Centra dentro de `.pantalla-scroll`, no en el documento. iOS puede
+   * interpretar `scrollIntoView` como un scroll general y dejar la ficha
+   * detrÃ¡s de la cabecera fija; este cÃ¡lculo mueve solo el contenedor real. */
+  function centrarPasoActivo(paso: Paso, behavior: ScrollBehavior = "smooth") {
+    const nodo = filaNodoRef.current[paso.pos].get(paso.numero);
+    const scroll = nodo?.closest<HTMLElement>(".pantalla-scroll");
+    if (!nodo || !scroll) return;
+    const marco = scroll.getBoundingClientRect();
+    const ficha = nodo.getBoundingClientRect();
+    const margen = 16;
+    const desfaseIdeal = Math.max(margen, (scroll.clientHeight - ficha.height) / 2);
+    const siguienteTop = scroll.scrollTop + ficha.top - marco.top - desfaseIdeal;
+    scroll.scrollTo({ top: Math.max(0, siguienteTop), behavior });
+  }
+
+  // Esperamos al render que abre la fila nueva. Una ronda consultada a mano
+  // no se interrumpe; al tocar para continuar, `alIniciar` vuelve al paso
+  // efectivo y esta misma regla lo centra de nuevo.
   useEffect(() => {
-    if (activo && !soloLectura) {
-      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activo]);
+    if (!modoEnfocado || !pasoResaltado || rondaVista !== null) return;
+    const frame = window.requestAnimationFrame(() => centrarPasoActivo(pasoResaltado));
+    return () => window.cancelAnimationFrame(frame);
+  }, [modoEnfocado, pasoResaltado?.pos, pasoResaltado?.numero, rondaVista, serieActiva?.pos, serieActiva?.numero]);
 
   const esTiempoPorPos = ejercicios.map((e) => esEjercicioDeTiempo(e.repsProgramadas));
 
@@ -309,7 +502,9 @@ export const SesionGrupoCard = forwardRef<
   // anteriores encadenan directo), y es el que se muestra en la fila de
   // datos como resumen. Cada fila sigue usando el descanso de SU PROPIO
   // ejercicio, esto es solo el resumen de arriba.
-  const descansoRonda = ejercicios[n - 1]?.descansoSegundos ?? null;
+  const descansoEfectivo = (ejercicio: EjercicioSesion) =>
+    ejercicio.descansoPersonalizadoSegundos ?? ejercicio.descansoSegundos;
+  const descansoRonda = ejercicios[n - 1] ? descansoEfectivo(ejercicios[n - 1]) : null;
   const todasLasSeriesHechas = ejercicios.every(
     (ej, pos) => seriesHechas[pos].size >= ej.seriesProgramadas
   );
@@ -335,11 +530,15 @@ export const SesionGrupoCard = forwardRef<
       className={`p-3 ${modoEnfocado ? "tarjeta-ejercicio-enfocada tarjeta-grupo-enfocada" : ""} ${activo && !soloLectura ? "panel-ejercicio-activo" : ""}`}
       style={grupoTecnica ? ({ "--color-glow-tecnica": grupoTecnica.color } as React.CSSProperties) : undefined}
     >
+      {montado && impulsoPantallaActivo && createPortal(
+        <div className="halo-pantalla-impulso-vip" aria-hidden="true" />,
+        document.body
+      )}
       {/* Cabecera única para el grupo: la etiqueta de técnica (coloreada por
           familia, ver tecnica-grupo.ts) y los ejercicios lado a lado — antes
           cada uno tenía su propia cabecera completa y había que scrollear
           una entera para encontrar la siguiente. */}
-      {grupoTecnica && (
+      {grupoTecnica && !modoEnfocado && (
         <span
           className="pill-tecnica mb-1.5 inline-block"
           style={{
@@ -373,7 +572,7 @@ export const SesionGrupoCard = forwardRef<
               tamanoCompacto={modoEnfocado ? 60 : 44}
             />
             <div className="min-w-0">
-              <p className="text-micro font-bold leading-tight text-vip">{LETRAS[pos]}</p>
+              <p className="text-micro font-bold leading-tight text-vip">{etiquetaPaso(pos)}</p>
               <p className="text-caption leading-tight text-text">{ej.nombre}</p>
               {ej.grupoMuscular && (
                 <p className="text-micro leading-tight text-text-tertiary">
@@ -397,6 +596,50 @@ export const SesionGrupoCard = forwardRef<
         ))}
       </div>
 
+      {/* La biserie/triserie se lee primero como un bloque: A + B (o A + B +
+          C), con referencias grandes y el programa de cada movimiento. Así
+          se puede reconocer qué sigue antes de entrar a registrar la ronda. */}
+      {modoEnfocado && (
+        <div className="cabecera-grupo-enfocado" data-cantidad={n}>
+          {ejercicios.map((ej, pos) => (
+            <article key={ej.sesionEjercicioId} className="ejercicio-cabecera-grupo-foco">
+              <CuadroFotoReferencia
+                ilustracionSlug={ej.ilustracionSlug}
+                fotoMiniaturaUrl={ej.fotoMiniaturaUrl}
+                fotoCompletaUrl={ej.fotoCompletaUrl}
+                videoUrl={ej.videoUrl}
+                videoCloudflareUid={ej.videoCloudflareUid}
+                videoCloudflareEstado={ej.videoCloudflareEstado}
+                videoCloudflareMiniaturaUrl={ej.videoCloudflareMiniaturaUrl}
+                nombre={ej.nombre}
+                sesionEjercicioId={ej.sesionEjercicioId}
+                ejercicioId={ej.ejercicioId}
+                fotoPanoramaX={ej.fotoPanoramaX}
+                fotoPanoramaY={ej.fotoPanoramaY}
+                fotoCuadradaX={ej.fotoCuadradaX}
+                fotoCuadradaY={ej.fotoCuadradaY}
+                compacto
+                tamanoCompacto={n === 2 ? 132 : n === 3 ? 92 : n <= 6 ? 70 : 58}
+              />
+              <div className="texto-cabecera-grupo-foco">
+                <p><span>{etiquetaPaso(pos)}</span>{ej.nombre}</p>
+                {!modoEnfocado && <small>{ej.seriesProgramadas} series · {ej.repsProgramadas} repeticiones</small>}
+              </div>
+            </article>
+          ))}
+          <button
+            type="button"
+            className="boton-ver-rutina-grupo"
+            onClick={onVerRutina}
+            disabled={!onVerRutina}
+            aria-label="Ver ejercicios de la rutina"
+            title="Ver ejercicios de la rutina"
+          >
+            <Menu size={23} strokeWidth={1.45} />
+          </button>
+        </div>
+      )}
+
       {!modoEnfocado && (
         <div className="radius-control mb-1.5 flex items-stretch overflow-hidden border border-border bg-surface-2">
           <Dato icono={<Repeat size={13} />} valor={String(maxRondas)} etiqueta="Rondas" />
@@ -405,17 +648,6 @@ export const SesionGrupoCard = forwardRef<
             valor={descansoRonda ? `${descansoRonda}s` : "—"}
             etiqueta="Desc. entre rondas"
           />
-        </div>
-      )}
-
-      {modoEnfocado && (onAnterior || onSiguiente) && (
-        <div className="navegacion-ejercicios-junto-foto">
-          <button type="button" onClick={onAnterior} disabled={!hayAnterior} aria-label="Ejercicio anterior">
-            ← Anterior
-          </button>
-          <button type="button" onClick={onSiguiente} disabled={!haySiguiente} aria-label="Siguiente ejercicio">
-            Siguiente →
-          </button>
         </div>
       )}
 
@@ -436,7 +668,7 @@ export const SesionGrupoCard = forwardRef<
           {ejercicios.map((ej, pos) => {
             const tecnica = pos === 0 ? resolverTecnica(ej) : null;
             return (
-              tecnica && (
+              tecnica && !modoEnfocado && (
                 <div key={ej.sesionEjercicioId} className="tarjeta-tecnica mb-1.5 flex items-start gap-2">
                   <Info size={13} className="mt-0.5 shrink-0 text-vip" strokeWidth={2.5} />
                   <p className="text-micro leading-snug text-text-secondary">
@@ -457,7 +689,7 @@ export const SesionGrupoCard = forwardRef<
               {ejercicios.map((ej, pos) => (
                 <div key={ej.sesionEjercicioId} className="space-y-1">
                   <p className="text-micro font-semibold text-vip">
-                    {LETRAS[pos]} · {ej.nombre}
+                    {etiquetaPaso(pos)} · {ej.nombre}
                   </p>
                   {ej.series.map((s) => (
                     <div key={s.numeroSerie} className="text-secondary flex justify-between text-text">
@@ -487,12 +719,39 @@ export const SesionGrupoCard = forwardRef<
                 </span>
               ))}
 
+              {/* En foco solo se pinta la ronda visible. Los inputs de las
+                  demÃ¡s quedan ocultos pero siguen en el formulario: el
+                  servidor recibe la fotografÃ­a completa A1/B1/A2/B2... y no
+                  puede convertir una superserie ya terminada en incompleta. */}
+              {modoEnfocado && pasos
+                .filter((paso) => paso.numero !== rondaActualNumero)
+                .map((paso) => {
+                  const sufijo = sufijoDe(paso.pos);
+                  const inicial = serieInicial(paso.pos, paso.numero);
+                  const registro = registrosRondas.get(clavePaso(paso)) ?? {
+                    peso: inicial?.pesoKg == null ? "" : String(inicial.pesoKg),
+                    reps: inicial?.repsRealizadas == null ? "" : String(inicial.repsRealizadas),
+                    rir: inicial?.rirEstimado == null ? "" : String(inicial.rirEstimado),
+                    esPesoCorporal: inicial?.esPesoCorporal ?? false,
+                    realizada: inicial?.realizada ?? false,
+                  };
+                  return (
+                    <span key={`respaldo-${clavePaso(paso)}`} aria-hidden>
+                      <input type="hidden" name={`peso_${paso.numero}${sufijo}`} value={registro.peso} />
+                      <input type="hidden" name={`reps_${paso.numero}${sufijo}`} value={registro.reps} />
+                      <input type="hidden" name={`rir_${paso.numero}${sufijo}`} value={registro.rir} />
+                      <input type="hidden" name={`peso_corporal_${paso.numero}${sufijo}`} value={registro.esPesoCorporal ? "true" : "false"} />
+                      <input type="hidden" name={`realizada_${paso.numero}${sufijo}`} value={registro.realizada ? "true" : "false"} />
+                    </span>
+                  );
+                })}
+
               {!modoEnfocado && (
                 <div className="encabezado-pasos-grupo mb-1 flex items-center justify-between gap-2">
                   <p className="text-micro font-bold tracking-wide text-vip">SERIES INTERCALADAS</p>
                   {pasoQueToca && (
                     <p className="text-micro text-text-secondary">
-                      Ahora: {LETRAS[pasoQueToca.pos]} · serie {pasoQueToca.numero}
+                      Ahora: {etiquetaPaso(pasoQueToca.pos)} · serie {pasoQueToca.numero}
                     </p>
                   )}
                 </div>
@@ -512,7 +771,7 @@ export const SesionGrupoCard = forwardRef<
                             ? "actual"
                             : "pendiente"
                       }
-                      aria-label={`Ver ${LETRAS[paso.pos]}, serie ${paso.numero}`}
+                      aria-label={`Ver ${etiquetaPaso(paso.pos)}, serie ${paso.numero}`}
                       aria-current={indice === indicePasoVisible ? "step" : undefined}
                     >
                       <span />
@@ -530,25 +789,51 @@ export const SesionGrupoCard = forwardRef<
                   el envoltorio visual. */}
               {modoEnfocado && (
                 <div className="ronda-grupo-foco">
-                  <p className="ronda-grupo-foco-titulo">
-                    Ronda {rondaActualNumero} de {maxRondas}
-                  </p>
-                  <div className="ronda-grupo-foco-info">
-                    <Info size={16} aria-hidden />
-                    <p>
-                      <strong>Haz los {n} ejercicios seguidos.</strong>
-                      <span>
-                        {" "}Descansa al terminar el {LETRAS[n - 1]} y repite la ronda.
-                      </span>
-                    </p>
+                  <div className="ronda-grupo-control">
+                    <ol className="selector-rondas-grupo" aria-label={`Rondas: ${rondaActualNumero} de ${maxRondas}`}>
+                          {rondas.map((ronda) => (
+                            <li key={ronda.numero} data-estado={ronda.estado} aria-current={ronda.estado === "actual" ? "step" : undefined}>
+                              <button
+                                type="button"
+                                onClick={() => seleccionarRonda(ronda.numero, ronda.estado === "completa")}
+                                aria-label={`Ver ronda ${ronda.numero}${ronda.estado === "completa" ? ", completada; toca tres veces para corregir la Ãºltima ronda" : ""}`}
+                              >
+                                <span aria-hidden><i style={{ width: `${ronda.progreso}%` }} /></span>
+                                <b>
+                                  {ronda.numero}
+                                  {ronda.estado === "completa" && <Check size={9} strokeWidth={3} aria-label="Completada" />}
+                                </b>
+                              </button>
+                            </li>
+                          ))}
+                    </ol>
                   </div>
 
                   {pasosDeRondaActual.map((paso) => {
                     const ej = ejercicios[paso.pos];
                     const hecho = seriesHechas[paso.pos].has(paso.numero);
-                    const esActual = pasoQueToca?.pos === paso.pos && pasoQueToca?.numero === paso.numero;
+                    const inicialPaso = serieInicial(paso.pos, paso.numero);
+                    const registroPaso = registrosRondas.get(clavePaso(paso)) ?? {
+                      peso: inicialPaso?.pesoKg == null ? "" : String(inicialPaso.pesoKg),
+                      reps: inicialPaso?.repsRealizadas == null ? "" : String(inicialPaso.repsRealizadas),
+                      rir: inicialPaso?.rirEstimado == null ? "" : String(inicialPaso.rirEstimado),
+                      esPesoCorporal: inicialPaso?.esPesoCorporal ?? false,
+                      realizada: inicialPaso?.realizada ?? false,
+                    };
+                    const esActual = pasoResaltado?.pos === paso.pos && pasoResaltado?.numero === paso.numero;
                     const colapsadoManual = colapsadosManual.has(paso.pos);
-                    const abierto = esActual || (hecho && !colapsadoManual);
+                    /* Al terminar A, su registro deja de competir con el paso
+                       activo: queda como resumen compacto con check y se puede
+                       desplegar con su chevron si el alumno quiere revisarlo. */
+                    const abierto = esActual || (hecho && (colapsadoManual || rondaVista === paso.numero));
+                    // Impulso VIP en biserie/triserie: mismo rayo que en el
+                    // ejercicio suelto, sobre el número del paso — antes esta
+                    // pantalla no avisaba nada, aunque la recomendación sí se
+                    // aplicaba silenciosa al peso/reps precargados (encontrado
+                    // en auditoría contra `main`).
+                    const esImpulso = ej.intervencionesImpulso.some(
+                      (intervencion) => intervencion.serieObjetivo === paso.numero && intervencion.estado !== "cancelada"
+                    );
                     return (
                       <div
                         key={`${paso.pos}-${paso.numero}-${montado ? "local" : "server"}`}
@@ -556,34 +841,39 @@ export const SesionGrupoCard = forwardRef<
                         data-estado={hecho ? "completa" : esActual ? "actual" : "pendiente"}
                       >
                         <div className="cabecera-tarjeta-paso-grupo">
-                          <span className="numero-paso-grupo">
-                            {hecho ? <Check size={15} strokeWidth={3} /> : paso.pos + 1}
+                          <span className="numero-paso-grupo" data-impulso={esImpulso && !hecho ? "true" : "false"}>
+                            {esImpulso && !hecho && (
+                              <Zap size={12} fill="currentColor" className="rayo-impulso-paso-grupo" aria-hidden />
+                            )}
+                            {hecho ? <Check size={15} strokeWidth={3} /> : etiquetaPaso(paso.pos)}
                           </span>
-                          <CuadroFotoReferencia
-                            ilustracionSlug={ej.ilustracionSlug}
-                            fotoMiniaturaUrl={ej.fotoMiniaturaUrl}
-                            fotoCompletaUrl={ej.fotoCompletaUrl}
-                            videoUrl={ej.videoUrl}
-                            videoCloudflareUid={ej.videoCloudflareUid}
-                            videoCloudflareEstado={ej.videoCloudflareEstado}
-                            videoCloudflareMiniaturaUrl={ej.videoCloudflareMiniaturaUrl}
-                            nombre={ej.nombre}
-                            sesionEjercicioId={ej.sesionEjercicioId}
-                            ejercicioId={ej.ejercicioId}
-                            fotoPanoramaX={ej.fotoPanoramaX}
-                            fotoPanoramaY={ej.fotoPanoramaY}
-                            fotoCuadradaX={ej.fotoCuadradaX}
-                            fotoCuadradaY={ej.fotoCuadradaY}
-                            compacto
-                            tamanoCompacto={52}
-                          />
                           <span className="info-paso-grupo">
                             <strong>{ej.nombre}</strong>
                             <small>
-                              {ej.grupoMuscular ? `${ETIQUETAS_GRUPO_MUSCULAR[ej.grupoMuscular]} · ` : ""}
                               {ej.seriesProgramadas}× {ej.repsProgramadas}
+                              {hecho && (registroPaso.esPesoCorporal || registroPaso.peso) && (
+                                <> · {registroPaso.esPesoCorporal ? "Peso corporal" : `${registroPaso.peso} kg`}</>
+                              )}
+                              {hecho && registroPaso.rir && <> · RIR {registroPaso.rir}</>}
                             </small>
                           </span>
+                          <button
+                            type="button"
+                            className="boton-nota-paso-grupo"
+                            onClick={() => {
+                              setNotasAbiertas((actuales) => {
+                                const copia = new Set(actuales);
+                                if (copia.has(paso.pos)) copia.delete(paso.pos);
+                                else copia.add(paso.pos);
+                                return copia;
+                              });
+                            }}
+                            aria-expanded={notasAbiertas.has(paso.pos)}
+                            aria-label={notasAbiertas.has(paso.pos) ? `Ocultar nota de ${etiquetaPaso(paso.pos)}` : `Añadir nota a ${etiquetaPaso(paso.pos)}`}
+                            data-con-nota={borradoresLocales[paso.pos]?.nota || ej.notaEjercicio ? "true" : undefined}
+                          >
+                            <NotebookPen size={14} aria-hidden />
+                          </button>
                           {hecho && (
                             <button
                               type="button"
@@ -625,7 +915,7 @@ export const SesionGrupoCard = forwardRef<
                               repsObjetivo={objetivoRepsPorPos[paso.pos]}
                               pesoSugerido={pesoSugeridoPorPos[paso.pos]}
                               esTiempo={esTiempoPorPos[paso.pos]}
-                              descansoSegundos={ej.descansoSegundos}
+                              descansoSegundos={descansoEfectivo(ej)}
                               temporizadorDescanso={ej.temporizadorDescanso}
                               soloLectura={soloLectura}
                               sesionId={sesionId}
@@ -635,6 +925,7 @@ export const SesionGrupoCard = forwardRef<
                               onIniciar={alIniciar(paso.pos)}
                               onCicloCompleto={alCompletarCiclo(paso.pos)}
                               onCicloDeshecho={alDeshacerCiclo(paso.pos)}
+                              puedeDeshacer={puedeDeshacerPaso(paso)}
                               onGuardar={guardarAhora}
                               colorGrupoTecnica={grupoTecnica?.color}
                               modoDestacado={esActual}
@@ -642,8 +933,49 @@ export const SesionGrupoCard = forwardRef<
                               // (o A y B de una triserie) encadenan directo al siguiente, sin
                               // cronómetro, sea cual sea la ronda. Pedido de Alejandro: "primer
                               // ejercicio avanza, segundo avanza, tercero descansa".
-                              saltaDescanso={paso.pos !== n - 1}
-                              textoAlSaltarDescanso="Avanza"
+                              saltaDescanso={paso.pos !== n - 1 || esUltimoGrupoDeRutina}
+                              textoAlSaltarDescanso={
+                                paso.pos !== n - 1
+                                  ? "Avanza"
+                                  : esUltimoGrupoDeRutina
+                                    ? "Guardar y finalizar tu rutina"
+                                    : "Avanza"
+                              }
+                              // El botón ya está ubicado EN el último paso de
+                              // la ronda; "después de B" quedaba ambiguo y
+                              // parecía una instrucción cortada. Esta acción
+                              // dice exactamente qué ocurrirá al tocarla.
+                              textoDescansoPendiente={paso.pos === n - 1 ? "Terminar ronda y descansar" : undefined}
+                            />
+                          </div>
+                        )}
+                        {(notasAbiertas.has(paso.pos) || Boolean(borradoresLocales[paso.pos]?.nota ?? ej.notaEjercicio)) && (
+                          <label className="nota-paso-grupo-foco">
+                            <NotebookPen size={12} aria-hidden />
+                            <input
+                              name={`nota_ejercicio${sufijoDe(paso.pos)}`}
+                              type="text"
+                              placeholder="Añadir nota"
+                              defaultValue={borradoresLocales[paso.pos]?.nota ?? ej.notaEjercicio ?? ""}
+                              className="text-caption w-full min-w-0 bg-transparent text-text outline-none placeholder:text-text-tertiary"
+                            />
+                          </label>
+                        )}
+                        {!notasAbiertas.has(paso.pos) && !borradoresLocales[paso.pos]?.nota && !ej.notaEjercicio && (
+                          <input type="hidden" name={`nota_ejercicio${sufijoDe(paso.pos)}`} value="" />
+                        )}
+                        {hecho && (
+                          <div className="encuesta-paso-grupo-foco">
+                            <SelectorDificultad
+                              valorInicial={ej.dificultadPercibida}
+                              disabled={false}
+                              onGuardar={guardarAhora}
+                              forzarModal={recienCompletado && !esUltimoGrupoDeRutina && paso.pos === encuestaPendiente}
+                              onResponder={() => {
+                                setMostrandoSiguiente(false);
+                                alResponderEncuesta(paso.pos);
+                              }}
+                              nombreCampo={`dificultad_ejercicio${sufijoDe(paso.pos)}`}
                             />
                           </div>
                         )}
@@ -661,7 +993,7 @@ export const SesionGrupoCard = forwardRef<
                     data-visible={indicePaso === indicePasoVisible ? "true" : "false"}
                   >
                     <div className="mb-0.5 flex items-center gap-1">
-                      <span className="text-micro font-bold text-vip">{LETRAS[paso.pos]}</span>
+                      <span className="text-micro font-bold text-vip">{etiquetaPaso(paso.pos)}</span>
                       <span className="text-micro truncate text-text-tertiary">{ej.nombre}</span>
                     </div>
                     <div
@@ -681,7 +1013,7 @@ export const SesionGrupoCard = forwardRef<
                         repsObjetivo={objetivoRepsPorPos[paso.pos]}
                         pesoSugerido={pesoSugeridoPorPos[paso.pos]}
                         esTiempo={esTiempoPorPos[paso.pos]}
-                        descansoSegundos={ej.descansoSegundos}
+                        descansoSegundos={descansoEfectivo(ej)}
                         temporizadorDescanso={ej.temporizadorDescanso}
                         soloLectura={soloLectura}
                         sesionId={sesionId}
@@ -691,6 +1023,7 @@ export const SesionGrupoCard = forwardRef<
                         onIniciar={alIniciar(paso.pos)}
                         onCicloCompleto={alCompletarCiclo(paso.pos)}
                         onCicloDeshecho={alDeshacerCiclo(paso.pos)}
+                        puedeDeshacer={puedeDeshacerPaso(paso)}
                         onGuardar={guardarAhora}
                         colorGrupoTecnica={grupoTecnica?.color}
                         modoDestacado={indicePaso === indicePasoVisible}
@@ -799,6 +1132,17 @@ export const SesionGrupoCard = forwardRef<
                       </button>
                     </div>
                   )
+                ) : modoEnfocado ? (
+                  // Mismo caso que en SesionEjercicioCard.tsx: sin esto no hay
+                  // forma de cerrar la biserie/triserie con series pendientes
+                  // en el diseño en tarjetas apiladas.
+                  <button
+                    type="button"
+                    onClick={marcarGrupoListo}
+                    className="text-micro block w-full text-center text-text-tertiary underline decoration-dotted underline-offset-2"
+                  >
+                    Cerrar {etiquetaGrupo.toLowerCase()} con series pendientes
+                  </button>
                 ) : (
                   <button
                     type="button"
@@ -809,27 +1153,31 @@ export const SesionGrupoCard = forwardRef<
                   </button>
                 ))}
 
-              {ejercicios.map((ej, pos) => (
-                <div key={ej.sesionEjercicioId}>
-                  <SelectorDificultad
-                    valorInicial={ej.dificultadPercibida}
-                    disabled={seriesHechas[pos].size < ej.seriesProgramadas}
-                    onGuardar={guardarAhora}
-                    forzarModal={pos === encuestaPendiente}
-                    onResponder={() => alResponderEncuesta(pos)}
-                    nombreCampo={`dificultad_ejercicio${sufijoDe(pos)}`}
+              {!modoEnfocado && ejercicios.map((ej, pos) => (
+                <SelectorDificultad
+                  key={ej.sesionEjercicioId}
+                  valorInicial={ej.dificultadPercibida}
+                  disabled={seriesHechas[pos].size < ej.seriesProgramadas}
+                  onGuardar={guardarAhora}
+                  forzarModal={pos === encuestaPendiente}
+                  onResponder={() => {
+                    setMostrandoSiguiente(false);
+                    alResponderEncuesta(pos);
+                  }}
+                  nombreCampo={`dificultad_ejercicio${sufijoDe(pos)}`}
+                />
+              ))}
+              {!modoEnfocado && ejercicios.map((ej, pos) => (
+                <label key={`nota-${ej.sesionEjercicioId}`} className="radius-control mt-1 flex items-center gap-2 border border-border bg-surface-2 px-2.5 py-1.5">
+                  <NotebookPen size={14} className="shrink-0 text-text-tertiary" />
+                  <input
+                    name={`nota_ejercicio${sufijoDe(pos)}`}
+                    type="text"
+                    placeholder={`Nota de ${etiquetaPaso(pos)} (opcional)`}
+                    defaultValue={borradoresLocales[pos]?.nota ?? ej.notaEjercicio ?? ""}
+                    className="text-caption w-full min-w-0 bg-transparent text-text outline-none placeholder:text-text-tertiary"
                   />
-                  <label className="radius-control mt-1 flex items-center gap-2 border border-border bg-surface-2 px-2.5 py-1.5">
-                    <NotebookPen size={14} className="shrink-0 text-text-tertiary" />
-                    <input
-                      name={`nota_ejercicio${sufijoDe(pos)}`}
-                      type="text"
-                      placeholder={`Nota de ${LETRAS[pos]} (opcional)`}
-                      defaultValue={borradoresLocales[pos]?.nota ?? ej.notaEjercicio ?? ""}
-                      className="text-caption w-full min-w-0 bg-transparent text-text outline-none placeholder:text-text-tertiary"
-                    />
-                  </label>
-                </div>
+                </label>
               ))}
 
               {state.error && <p className="text-caption text-error">{state.error}</p>}

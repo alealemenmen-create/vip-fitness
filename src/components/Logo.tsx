@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Crown } from "lucide-react";
+import { Crown, Zap } from "lucide-react";
 
 /**
  * Pantallas que cambian la placa de ancho completo por un encabezado bajito:
@@ -134,14 +134,19 @@ export function Logo({
           <b>{numeroSesion || "VIP"}</b>
           {nombreDia.length > 0 && <span>{nombreDia.join(" · ")}</span>}
         </span>
-        <span
-          className="puntos-rutina-activa"
-          aria-label={`${(puntosVip + puntosEnVivo).toLocaleString("es-CL")} puntos VIP`}
-        >
-          <Crown size={14} fill="currentColor" />
-          <strong>{(puntosVip + puntosEnVivo).toLocaleString("es-CL")}</strong>
-        </span>
-        {corner}
+        <div className="utilidades-rutina-activa">
+          <span
+            className="puntos-rutina-activa"
+            aria-label={`${(puntosVip + puntosEnVivo).toLocaleString("es-CL")} puntos VIP`}
+          >
+            <span className="insignia-puntos-rutina" aria-hidden>
+              <Crown size={15} strokeWidth={1.7} />
+              <Zap size={8} fill="currentColor" strokeWidth={2.4} />
+            </span>
+            <strong>{(puntosVip + puntosEnVivo).toLocaleString("es-CL")}</strong>
+          </span>
+          {corner}
+        </div>
       </div>
     );
   }

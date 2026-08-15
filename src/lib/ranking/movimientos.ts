@@ -9,6 +9,42 @@ import { calcularPuntosAlimentacion, calcularPuntosEntrenamiento, calcularPuntos
  * puntaje de completar la sesión. `puntos` ya viene sumado y topeado por el
  * llamador (ver `calcularPuntosImpulso` y `PUNTOS_VIP.impulsoMaximoPorSesion`
  * en reglas.ts) — acá solo se persiste. */
+/**
+ * Técnica de entrenamiento (drop set, rest-pause, biserie, triserie...)
+ * asignada por el entrenador y cumplida con esfuerzo real — el alumno
+ * respondió "Estuvo muy difícil" a la encuesta de dificultad de ese
+ * ejercicio. Una vez por ejercicio (`tecnica:<sesionEjercicioId>`, inmutable:
+ * si después corrige la respuesta, los puntos ya dados no se retiran).
+ */
+export async function registrarTecnicaCumplida({
+  alumnoId,
+  sesionEjercicioId,
+  fecha,
+  tecnicaTipo,
+}: {
+  alumnoId: string;
+  sesionEjercicioId: string;
+  fecha: string;
+  tecnicaTipo: string;
+}) {
+  return guardarRecompensaInmutable({
+    alumnoId,
+    clave: `tecnica:${sesionEjercicioId}`,
+    categoria: "progreso",
+    puntos: PUNTOS_VIP.tecnicaAsignadaCumplida,
+    titulo: "Técnica cumplida",
+    detalle: `${tecnicaTipo}: la hiciste con esfuerzo real.`,
+    fecha,
+    metadata: { sesionEjercicioId, tecnicaTipo },
+  });
+}
+
+/** Bono de Impulso VIP al finalizar una sesión — misma clave que
+ * `entrenamiento:<sesionId>` en concepto (una fila por sesión, no por
+ * ejercicio) pero con su propia clave `impulso:<sesionId>` para no pisar el
+ * puntaje de completar la sesión. `puntos` ya viene sumado y topeado por el
+ * llamador (ver `calcularPuntosImpulso` y `PUNTOS_VIP.impulsoMaximoPorSesion`
+ * en reglas.ts) — acá solo se persiste. */
 export async function registrarImpulso({
   alumnoId,
   sesionId,

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Sparkles, Trophy } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { CheckCircle2, ChevronRight, Sparkles, Trophy } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Input";
@@ -24,9 +25,20 @@ export function FinalizarEntrenamiento({
 }) {
   const [abierto, setAbierto] = useState(false);
   const [ultimaConfirmacion, setUltimaConfirmacion] = useState(false);
-  const pendientes = total - completados;
-  const pct = total > 0 ? Math.round((completados / total) * 100) : 0;
-  const puntos = calcularPuntosEntrenamiento(completados, total);
+  const [celebracionForzada, setCelebracionForzada] = useState(false);
+  useEffect(() => {
+    const abrirCelebracion = () => {
+      setCelebracionForzada(true);
+      setAbierto(true);
+      setUltimaConfirmacion(true);
+    };
+    window.addEventListener("vip:celebrar-final-rutina", abrirCelebracion);
+    return () => window.removeEventListener("vip:celebrar-final-rutina", abrirCelebracion);
+  }, []);
+  const completadosParaCierre = celebracionForzada ? total : completados;
+  const pendientes = total - completadosParaCierre;
+  const pct = total > 0 ? Math.round((completadosParaCierre / total) * 100) : 0;
+  const puntos = calcularPuntosEntrenamiento(completadosParaCierre, total);
   // Reportado por varios alumnos: "mucho protocolo para finalizar". Las dos
   // pantallas de confirmación tienen sentido cuando quedan ejercicios sin
   // hacer (ahí sí hay algo que se pierde si finaliza por error), pero con
@@ -40,25 +52,48 @@ export function FinalizarEntrenamiento({
   };
 
   if (!abierto) {
+    if (compacto && !esDescanso && pendientes <= 0) {
+      return (
+        <button
+          type="button"
+          onClick={abrir}
+          className="boton-finalizar-celebracion group flex w-full items-center gap-3 text-left active:scale-[0.985]"
+        >
+          <span className="finalizacion-sello" aria-hidden>
+            <Trophy size={22} strokeWidth={1.8} />
+            <Sparkles size={10} strokeWidth={2.4} />
+          </span>
+          <span className="finalizacion-texto min-w-0 flex-1">
+            <span className="finalizacion-estado">
+              {completados === total ? "Rutina completada" : "Gran trabajo"}
+            </span>
+            <span className="finalizacion-titulo">Finalizar entrenamiento</span>
+            <span className="finalizacion-detalle">
+              {completadosParaCierre} de {total} ejercicios registrados
+            </span>
+          </span>
+          <span className="finalizacion-puntos">
+            <strong>+{puntos}</strong>
+            <small>PTS VIP</small>
+          </span>
+          <span className="finalizacion-avanzar" aria-hidden>
+            <ChevronRight size={18} strokeWidth={2} />
+          </span>
+        </button>
+      );
+    }
+
     if (compacto && !esDescanso) {
       return (
         <button
           type="button"
           onClick={abrir}
-          className="boton-finalizar-celebracion group flex min-h-[72px] w-full items-center gap-3 rounded-[20px] px-4 text-left text-black active:scale-[0.985]"
+          className="boton-finalizar-incompleta w-full text-left"
         >
-          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-black/15 ring-1 ring-black/15">
-            <Trophy size={23} strokeWidth={2.6} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="flex items-center gap-1 text-micro font-black uppercase tracking-[0.15em]">
-              <Sparkles size={12} /> {completados === total ? "¡Rutina completada!" : "¡Gran trabajo!"}
-            </span>
-            <span className="mt-0.5 block text-base font-black leading-tight">Finalizar entrenamiento</span>
-          </span>
-          <span className="shrink-0 rounded-full bg-black px-2.5 py-1.5 text-sm font-black text-vip">
-            +{puntos} pts
-          </span>
+          <span>Finalizar rutina incompleta</span>
+          <small>
+            {pendientes} {pendientes === 1 ? "ejercicio pendiente" : "ejercicios pendientes"} · {completados}/{total} completados
+          </small>
         </button>
       );
     }
@@ -67,6 +102,47 @@ export function FinalizarEntrenamiento({
       <Button variant="accion" size={compacto ? "xs" : "lg"} onClick={abrir} className="w-full">
         {esDescanso ? "Marcar día como completado" : `Finalizar y sumar +${puntos} pts`}
       </Button>
+    );
+  }
+
+  // El cierre de una rutina completa es un hito, no otra tarjeta más abajo.
+  // Se presenta sobre la sesión para que el alumno vea claramente la
+  // recompensa antes de acreditarla, sin pedir una segunda confirmación fría.
+  if (compacto && !esDescanso && pendientes <= 0) {
+    return createPortal(
+      <div className="celebracion-final-fondo" role="dialog" aria-modal="true" aria-labelledby="celebracion-final-titulo">
+        <div className="celebracion-final-borde" aria-hidden />
+        <section className="celebracion-final-panel">
+          <div className="celebracion-chispas" aria-hidden>
+            <span /><span /><span /><span /><span />
+          </div>
+          <div className="celebracion-final-emblema" aria-hidden>
+            <Trophy size={34} strokeWidth={1.65} />
+            <Sparkles size={16} strokeWidth={2.2} />
+          </div>
+          <p className="celebracion-final-etiqueta">Entrenamiento completado</p>
+          <h2 id="celebracion-final-titulo">Excelente trabajo</h2>
+          <p className="celebracion-final-resumen">Completaste los {total} ejercicios de tu rutina.</p>
+          <div className="celebracion-final-puntos">
+            <span>RECOMPENSA VIP</span>
+            <strong>+{puntos}</strong>
+            <small>puntos para tu ranking</small>
+          </div>
+          <form action={finalizarSesion} className="celebracion-final-acciones">
+            <input type="hidden" name="sesion_id" value={sesionId} />
+            <BotonFinalizarSesion variant="primary" size="sm" className="celebracion-final-confirmar">
+              <CheckCircle2 size={18} strokeWidth={2.5} /> Acreditar mis puntos
+            </BotonFinalizarSesion>
+          </form>
+          <button type="button" className="celebracion-final-volver" onClick={() => {
+            setAbierto(false);
+            setCelebracionForzada(false);
+          }}>
+            Volver a revisar la rutina
+          </button>
+        </section>
+      </div>,
+      document.body
     );
   }
 
@@ -131,7 +207,7 @@ export function FinalizarEntrenamiento({
               setAbierto(false);
             }}
           >
-            Cancelar
+            {pendientes <= 0 ? "Revisar registros" : "Cancelar"}
           </Button>
         </div>
       </form>
