@@ -4,7 +4,8 @@ import { useActionState, useEffect, useMemo, useRef, useState, type PointerEvent
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge, CircleAlert, LibraryBig, ClipboardCheck, Undo2 } from "lucide-react";
+import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge, CircleAlert, LibraryBig, ClipboardCheck, Undo2, UploadCloud } from "lucide-react";
+import { CargaMasivaFotos } from "@/components/admin/CargaMasivaFotos";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import {
@@ -440,10 +441,10 @@ export function GaleriaEjercicios({
   // Un timestamp nunca se repite entre sesiones.
   // Antes todo (34 reportes, duplicados, 124 ejercicios) vivía apilado en una
   // sola pantalla de más de 40.000px de alto en celular — había que bajar
-  // muchísimo para llegar a la biblioteca de fotos. Se reparte en 3 pestañas
+  // muchísimo para llegar a la biblioteca de fotos. Se reparte en 4 pestañas
   // (sección 8.1 del instructivo de reorganización): Pendientes abre primero
   // si hay trabajo, si no abre Biblioteca directamente.
-  const [pestana, setPestana] = useState<"pendientes" | "biblioteca" | "referencia">(
+  const [pestana, setPestana] = useState<"pendientes" | "biblioteca" | "carga" | "referencia">(
     reportes.length > 0 ? "pendientes" : "biblioteca"
   );
   // Las tarjetas de resumen de la página enlazan con #anclas a secciones
@@ -561,6 +562,7 @@ export function GaleriaEjercicios({
           [
             { id: "pendientes" as const, etiqueta: "Pendientes", Icon: CircleAlert, cantidad: pendientesCantidad },
             { id: "biblioteca" as const, etiqueta: "Biblioteca", Icon: LibraryBig, cantidad: ejercicios.length },
+            { id: "carga" as const, etiqueta: "Carga masiva", Icon: UploadCloud, cantidad: null },
             { id: "referencia" as const, etiqueta: "Referencia", Icon: ClipboardCheck, cantidad: null },
           ]
         ).map(({ id, etiqueta, Icon, cantidad }) => {
@@ -716,6 +718,8 @@ export function GaleriaEjercicios({
           </div>
         </details>
       )}
+
+      {pestana === "carga" && <CargaMasivaFotos ejercicios={ejercicios} />}
 
       {pestana === "referencia" && (
         <details id="inventario-ejercicios" className="scroll-mt-28 rounded-[20px] border border-border bg-surface p-3" open>
