@@ -4924,6 +4924,15 @@ input[type="number"] {
   touch-action: pan-y;
 }
 .shell-alumno:has(.modo-entrenamiento-enfocado) {
+  /* El fondo negro del modo enfocado no lo pone la tarjeta (que se pinta
+     transparente a propósito, ver `.tarjeta-ejercicio-enfocada`), lo pone
+     este shell heredando `--color-bg`. En tema oscuro coincide con negro
+     por casualidad; en tema claro `--color-bg` se aclara y deja el fondo
+     real gris claro debajo del texto blanco fijo de esta pantalla —
+     invisible. Forzado acá, igual que los tokens de `.modo-entrenamiento-
+     -enfocado` (ver más abajo), para que este instrumento se vea siempre
+     igual sin importar el tema del resto de la app. */
+  background: #000 !important;
   overflow-x: hidden;
   overscroll-behavior-x: none;
 }
@@ -5040,6 +5049,22 @@ input[type="number"] {
 }
 
 .modo-entrenamiento-enfocado {
+  /* Instrumento SIEMPRE oscuro, sea cual sea el tema del resto de la app
+     (claro, Espejo, Steel Fit...): así se validó visualmente y así lo
+     asume el resto de esta hoja, que tiene texto en blanco fijo (#fff,
+     #f5f5f6) por toda esta sección. `--focus-bg` deriva de `--color-bg`
+     (src/app/globals.css:1686) y SÍ se aclaraba con el tema claro, pero el
+     texto blanco de acá abajo no lo seguía — quedaba invisible. Redeclarar
+     los tokens acá, con los valores oscuros de siempre, corrige eso sin
+     tener que cazar cada `color: #fff` suelto uno por uno.
+     Reportado por Alejandro: "con tema claro está roto". */
+  --color-bg: #000000 !important;
+  --color-surface: #121316 !important;
+  --color-surface-2: #1a1c20 !important;
+  --color-border: #262930 !important;
+  --color-text: #ffffff !important;
+  --color-text-secondary: #a1a7b3 !important;
+  --color-text-tertiary: #6f7682 !important;
   width: 100%;
   box-sizing: border-box;
   margin-inline: 0;
