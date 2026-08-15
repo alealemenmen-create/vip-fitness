@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useRef, useState, type PointerEvent
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge } from "lucide-react";
+import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge, CircleAlert, LibraryBig, ClipboardCheck } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import {
@@ -396,6 +396,30 @@ export function GaleriaEjercicios({
   // sesión nueva puede terminar pidiendo un "?r=1" que ya se había intentado
   // y fallado en una sesión anterior, chocando con esa misma caché vieja.
   // Un timestamp nunca se repite entre sesiones.
+  // Antes todo (34 reportes, duplicados, 124 ejercicios) vivía apilado en una
+  // sola pantalla de más de 40.000px de alto en celular — había que bajar
+  // muchísimo para llegar a la biblioteca de fotos. Se reparte en 3 pestañas
+  // (sección 8.1 del instructivo de reorganización): Pendientes abre primero
+  // si hay trabajo, si no abre Biblioteca directamente.
+  const [pestana, setPestana] = useState<"pendientes" | "biblioteca" | "referencia">(
+    reportes.length > 0 ? "pendientes" : "biblioteca"
+  );
+  // Las tarjetas de resumen de la página enlazan con #anclas a secciones
+  // puntuales (ver AdminStatCard en page.tsx) — ahora esas secciones viven
+  // adentro de una pestaña, así que el hash decide con cuál abrir. En un
+  // efecto y no en el useState inicial: leer `window.location.hash` durante
+  // el render rompe la pureza (el servidor no tiene hash) y desajusta la
+  // hidratación.
+  // react-hooks/set-state-in-effect: falso positivo, mismo caso que ya
+  // documentado en SesionEjercicioCard.tsx — lee estado externo (el hash de
+  // la URL) que no existe en el servidor, justo el uso que la propia
+  // documentación de React recomienda resolver en un efecto.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (window.location.hash === "#inventario-ejercicios") setPestana("referencia");
+    else if (window.location.hash === "#reportes-ejercicios") setPestana("pendientes");
+    else if (window.location.hash === "#biblioteca-ejercicios") setPestana("biblioteca");
+  }, []);
   const [erroresFoto, setErroresFoto] = useState<ReadonlySet<string>>(new Set());
   // Solo se lee dentro de su propio updater funcional (más abajo) — no hace
   // falta la variable de lectura acá afuera.
@@ -486,9 +510,48 @@ export function GaleriaEjercicios({
     return Array.from(grupos.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
   }, [reportes, ejercicios]);
 
+  const pendientesCantidad = reportesAgrupados.length + gruposDuplicados.length;
+
   return (
     <div className="space-y-3">
-      {reportes.length > 0 && (
+      <div role="tablist" aria-label="Secciones de la galería" className="flex gap-1.5 overflow-x-auto pb-1">
+        {(
+          [
+            { id: "pendientes" as const, etiqueta: "Pendientes", Icon: CircleAlert, cantidad: pendientesCantidad },
+            { id: "biblioteca" as const, etiqueta: "Biblioteca", Icon: LibraryBig, cantidad: ejercicios.length },
+            { id: "referencia" as const, etiqueta: "Referencia", Icon: ClipboardCheck, cantidad: null },
+          ]
+        ).map(({ id, etiqueta, Icon, cantidad }) => {
+          const activo = pestana === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={activo}
+              onClick={() => setPestana(id)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
+                activo ? "border-vip bg-vip text-black" : "border-border bg-surface-2 text-text-secondary hover:border-vip/40"
+              }`}
+            >
+              <Icon size={14} />
+              {etiqueta}
+              {cantidad !== null && cantidad > 0 && (
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activo ? "bg-black/15" : "bg-surface"}`}>{cantidad}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {pestana === "pendientes" && reportes.length === 0 && gruposDuplicados.length === 0 && (
+        <Card padding="p-4" className="text-center">
+          <p className="text-caption font-semibold text-text">Sin pendientes ahora mismo</p>
+          <p className="text-micro mt-1 text-text-tertiary">Ningún reporte de foto ni duplicado por revisar.</p>
+        </Card>
+      )}
+
+      {pestana === "pendientes" && reportes.length > 0 && (
         <section className="space-y-2 rounded-[20px] border border-error/35 bg-error/5 p-3">
           <div className="flex items-center gap-2">
             <span className="grid size-8 place-items-center rounded-full bg-error/15 text-error">
@@ -552,7 +615,7 @@ export function GaleriaEjercicios({
         </section>
       )}
 
-      {sinFoto > 0 && (
+      {pestana === "pendientes" && sinFoto > 0 && (
         <Card padding="p-2.5" className="flex items-center gap-2">
           <ImageIcon size={16} className="shrink-0 text-text-tertiary" />
           <p className="text-caption text-text-secondary">
@@ -561,7 +624,7 @@ export function GaleriaEjercicios({
         </Card>
       )}
 
-      {gruposDuplicados.length > 0 && (
+      {pestana === "pendientes" && gruposDuplicados.length > 0 && (
         <details className="rounded-[20px] border border-warning/40 bg-warning/5 p-3">
           <summary className="flex cursor-pointer list-none items-center gap-2">
             <span className="grid size-8 place-items-center rounded-full bg-warning/15 text-warning"><Merge size={16} /></span>
@@ -590,45 +653,47 @@ export function GaleriaEjercicios({
         </details>
       )}
 
-      <details id="inventario-ejercicios" className="scroll-mt-28 rounded-[20px] border border-border bg-surface p-3" open>
-        <summary className="flex cursor-pointer list-none items-center gap-2">
-          <span className="grid size-8 place-items-center rounded-full bg-vip/15 text-vip"><ListChecks size={17} /></span>
-          <span className="min-w-0 flex-1"><span className="text-caption block font-bold text-text">Lista completa de ejercicios</span><span className="text-micro block text-text-tertiary">Alfabética · foto real · presencia en rutinas</span></span>
-          <span className="rounded-full bg-surface-2 px-2 py-1 text-micro font-bold text-text-secondary">{ejercicios.length}</span>
-        </summary>
-        <button type="button" onClick={() => window.print()} className="radius-control mt-3 flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-[10px] font-semibold text-text-secondary">
-          <Printer size={13} /> Imprimir / guardar PDF
-        </button>
-        <div className="scrollbar-fina mt-3 max-h-[560px] overflow-y-auto rounded-xl border border-border">
-          {ejerciciosAlfabeticos.map((ejercicio) => {
-            const conFotoPropia = Boolean(ejercicio.fotoMiniaturaUrl || ejercicio.fotoCompletaUrl);
-            const uso = usosPorEjercicio[ejercicio.id];
-            return (
-              <button key={ejercicio.id} type="button" onClick={() => setEditando(ejercicio)} className="flex w-full items-start gap-2 border-b border-border/70 px-3 py-2.5 text-left last:border-0 hover:bg-surface-2">
-                <span className={`mt-1 size-2 shrink-0 rounded-full ${conFotoPropia ? "bg-success" : "bg-error"}`} />
-                <span className="min-w-0 flex-1">
-                  <span className="text-caption block font-semibold text-text">{ejercicio.nombre}</span>
-                  <span className="text-micro block text-text-tertiary">
-                    {uso?.cantidad
-                      ? `En ${uso.cantidad} entrada${uso.cantidad === 1 ? "" : "s"} de rutina${uso.nombres.length ? ` · nombres: ${uso.nombres.map((item) => item.nombre === ejercicio.nombre ? item.nombre : `${item.nombre} (${item.cantidad})`).join(", ")}` : ""}`
-                      : "No aparece vinculada en ninguna rutina"}
+      {pestana === "referencia" && (
+        <details id="inventario-ejercicios" className="scroll-mt-28 rounded-[20px] border border-border bg-surface p-3" open>
+          <summary className="flex cursor-pointer list-none items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-vip/15 text-vip"><ListChecks size={17} /></span>
+            <span className="min-w-0 flex-1"><span className="text-caption block font-bold text-text">Lista completa de ejercicios</span><span className="text-micro block text-text-tertiary">Alfabética · foto real · presencia en rutinas</span></span>
+            <span className="rounded-full bg-surface-2 px-2 py-1 text-micro font-bold text-text-secondary">{ejercicios.length}</span>
+          </summary>
+          <button type="button" onClick={() => window.print()} className="radius-control mt-3 flex items-center gap-1.5 border border-border px-2.5 py-1.5 text-[10px] font-semibold text-text-secondary">
+            <Printer size={13} /> Imprimir / guardar PDF
+          </button>
+          <div className="scrollbar-fina mt-3 max-h-[560px] overflow-y-auto rounded-xl border border-border">
+            {ejerciciosAlfabeticos.map((ejercicio) => {
+              const conFotoPropia = Boolean(ejercicio.fotoMiniaturaUrl || ejercicio.fotoCompletaUrl);
+              const uso = usosPorEjercicio[ejercicio.id];
+              return (
+                <button key={ejercicio.id} type="button" onClick={() => setEditando(ejercicio)} className="flex w-full items-start gap-2 border-b border-border/70 px-3 py-2.5 text-left last:border-0 hover:bg-surface-2">
+                  <span className={`mt-1 size-2 shrink-0 rounded-full ${conFotoPropia ? "bg-success" : "bg-error"}`} />
+                  <span className="min-w-0 flex-1">
+                    <span className="text-caption block font-semibold text-text">{ejercicio.nombre}</span>
+                    <span className="text-micro block text-text-tertiary">
+                      {uso?.cantidad
+                        ? `En ${uso.cantidad} entrada${uso.cantidad === 1 ? "" : "s"} de rutina${uso.nombres.length ? ` · nombres: ${uso.nombres.map((item) => item.nombre === ejercicio.nombre ? item.nombre : `${item.nombre} (${item.cantidad})`).join(", ")}` : ""}`
+                        : "No aparece vinculada en ninguna rutina"}
+                    </span>
                   </span>
-                </span>
-                <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${conFotoPropia ? "bg-success/12 text-success" : "bg-error/12 text-error"}`}>{conFotoPropia ? "CON FOTO" : "SIN FOTO"}</span>
-                <span className={`hidden shrink-0 rounded-full px-2 py-1 text-[9px] font-bold sm:block ${uso?.cantidad ? "bg-vip/12 text-vip" : "bg-surface-2 text-text-tertiary"}`}>{uso?.cantidad ? "EN RUTINAS" : "SIN USO"}</span>
-              </button>
-            );
-          })}
-        </div>
-        {nombresRutinaSinVincular.length > 0 && (
-          <details className="mt-3 rounded-xl border border-warning/35 bg-warning/5 p-3">
-            <summary className="cursor-pointer text-caption font-semibold text-warning">{nombresRutinaSinVincular.length} nombres de rutinas todavía sin enlazar a la galería</summary>
-            <p className="text-micro mt-1 text-text-tertiary">Abre un nombre, busca el ejercicio base y vincúlalo. Se corrigen todas sus apariciones y queda como alias para el futuro.</p>
-            <div className="mt-2">{nombresRutinaSinVincular.map((item) => <VincularNombreRutina key={item.nombre} item={item} ejercicios={ejerciciosAlfabeticos} />)}</div>
-          </details>
-        )}
-        <p className="text-micro mt-2 text-text-tertiary">Toca cualquier nombre para abrir su foto y sus datos. Los nombres de rutina se muestran tal como fueron escritos; el encabezado siempre usa el nombre oficial de la base.</p>
-      </details>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${conFotoPropia ? "bg-success/12 text-success" : "bg-error/12 text-error"}`}>{conFotoPropia ? "CON FOTO" : "SIN FOTO"}</span>
+                  <span className={`hidden shrink-0 rounded-full px-2 py-1 text-[9px] font-bold sm:block ${uso?.cantidad ? "bg-vip/12 text-vip" : "bg-surface-2 text-text-tertiary"}`}>{uso?.cantidad ? "EN RUTINAS" : "SIN USO"}</span>
+                </button>
+              );
+            })}
+          </div>
+          {nombresRutinaSinVincular.length > 0 && (
+            <details className="mt-3 rounded-xl border border-warning/35 bg-warning/5 p-3">
+              <summary className="cursor-pointer text-caption font-semibold text-warning">{nombresRutinaSinVincular.length} nombres de rutinas todavía sin enlazar a la galería</summary>
+              <p className="text-micro mt-1 text-text-tertiary">Abre un nombre, busca el ejercicio base y vincúlalo. Se corrigen todas sus apariciones y queda como alias para el futuro.</p>
+              <div className="mt-2">{nombresRutinaSinVincular.map((item) => <VincularNombreRutina key={item.nombre} item={item} ejercicios={ejerciciosAlfabeticos} />)}</div>
+            </details>
+          )}
+          <p className="text-micro mt-2 text-text-tertiary">Toca cualquier nombre para abrir su foto y sus datos. Los nombres de rutina se muestran tal como fueron escritos; el encabezado siempre usa el nombre oficial de la base.</p>
+        </details>
+      )}
 
       <section id="inventario-ejercicios-imprimible" className="hidden">
         <h1>Biblioteca oficial de ejercicios VIP Fitness</h1>
@@ -650,27 +715,29 @@ export function GaleriaEjercicios({
         #inventario-ejercicios-imprimible li { break-inside: avoid; margin-bottom: 3px; }
       }`}</style>
 
-      <div className="relative">
-        <Search
-          size={14}
-          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary"
-        />
-        <input
-          type="text"
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          placeholder="Buscar ejercicio..."
-          className="radius-control text-caption w-full border border-border bg-surface py-2 pl-8 pr-3 text-text"
-        />
-      </div>
+      {pestana === "biblioteca" && (
+        <>
+          <div className="relative">
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary"
+            />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar ejercicio..."
+              className="radius-control text-caption w-full border border-border bg-surface py-2 pl-8 pr-3 text-text"
+            />
+          </div>
 
-      <button
-        type="button"
-        onClick={() => setCreando("")}
-        className="radius-control flex w-full items-center justify-center gap-2 border border-dashed border-vip/50 py-3 text-secondary font-semibold text-vip"
-      >
-        <Plus size={16} /> Ejercicio nuevo, con foto
-      </button>
+          <button
+            type="button"
+            onClick={() => setCreando("")}
+            className="radius-control flex w-full items-center justify-center gap-2 border border-dashed border-vip/50 py-3 text-secondary font-semibold text-vip"
+          >
+            <Plus size={16} /> Ejercicio nuevo, con foto
+          </button>
 
       <div className="space-y-3">
         {filtrados.map((ej) => {
@@ -763,6 +830,8 @@ export function GaleriaEjercicios({
         <Card>
           <p className="text-body text-text-secondary">Ningún ejercicio coincide con la búsqueda.</p>
         </Card>
+      )}
+        </>
       )}
 
       {editando && (
