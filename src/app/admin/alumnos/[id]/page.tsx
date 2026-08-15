@@ -37,6 +37,8 @@ import { obtenerAlertasPendientes } from "@/lib/impulso-vip/data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { obtenerPanelIndicacionesAle } from "@/lib/impulso-vip/manual-data";
 import { IndicacionesAlePanel } from "@/components/admin/IndicacionesAlePanel";
+import { FichaAlumnoTabs } from "@/components/admin/FichaAlumnoTabs";
+import { PencilRuler } from "lucide-react";
 
 export default async function AlumnoDetallePage({
   params,
@@ -122,6 +124,7 @@ export default async function AlumnoDetallePage({
           </span>
         </Link>
         <div className="flex gap-2">
+          <Link href="/admin/armar-rutina" className="radius-control flex h-9 shrink-0 items-center gap-1.5 border border-vip/40 px-3 text-caption font-semibold text-vip"><PencilRuler size={14} /> <span className="hidden sm:inline">Armar rutina</span></Link>
           <Link href={`/admin/alumnos/${alumnoId}/seguimiento`} className="radius-control flex h-9 shrink-0 items-center gap-1.5 border border-vip/40 px-3 text-caption font-semibold text-vip"><Activity size={14} /> <span className="hidden sm:inline">Seguimiento</span></Link>
           <form action={entrarComoAlumno}>
             <input type="hidden" name="alumno_id" value={alumnoId} />
@@ -132,80 +135,98 @@ export default async function AlumnoDetallePage({
         </div>
       </div>
 
-      {indicador && (
-        <Card padding="p-3">
-          <p className="text-[10px] mb-1 text-text-tertiary">ESTADO DEL ALUMNO</p>
-          <DetalleEstadoAlumno indicador={indicador} />
-        </Card>
-      )}
-      <AlertasImpulsoVip alumnoId={alumnoId} alertas={alertasImpulso} />
-      <IndicacionesAlePanel alumnoId={alumnoId} objetivos={panelIndicaciones.objetivos} pendientes={panelIndicaciones.pendientes} />
-      <FichaAlumnoAdmin alumnoId={alumnoId} nombre={perfil?.nombre ?? "este alumno"} ficha={ficha} />
-
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
-        <section className="space-y-3" aria-label="Perfil y planificación del alumno">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Card padding="p-3">
-              <p className="text-[10px] mb-1 text-text-tertiary">NOMBRE</p>
-              <NombreEditable perfilId={alumnoId} nombre={perfil.nombre} />
-            </Card>
-            <Card padding="p-3">
-              <p className="text-[10px] mb-1 text-text-tertiary">PERFIL</p>
-              <PerfilAlumnoForm
-                alumnoId={alumnoId}
-                objetivo={alumnoPerfil?.objetivo ?? null}
-                proximoControlFecha={alumnoPerfil?.proximo_control_fecha ?? null}
-                planEntrenamiento={alumnoPerfil?.plan_entrenamiento ?? null}
-                sesionesMensuales={alumnoPerfil?.sesiones_mensuales ?? null}
-                diasSemana={alumnoPerfil?.dias_entrenamiento_semana ?? null}
-                planPausado={alumnoPerfil?.plan_entrenamiento_pausado ?? false}
-                temporizadorDescanso={alumnoPerfil?.temporizador_descanso ?? true}
-                accesoBloqueado={alumnoPerfil?.acceso_bloqueado ?? false}
-                accesoBloqueadoMotivo={alumnoPerfil?.acceso_bloqueado_motivo ?? null}
-              />
-            </Card>
-          </div>
-          <DatosPersonalesSoloLectura datos={datosPersonales} />
-          <NotasManager alumnoId={alumnoId} notasIniciales={notas ?? []} />
-        </section>
-
-        <section className="space-y-3" aria-label="Actividad y acceso del alumno">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">Actividad del alumno</p>
-          <PesoCorporalSoloLectura historial={historialPeso} />
-          <FotosSoloLectura fotos={fotos} />
-          <HistorialEntrenamiento rutinaActivaNombre={rutinaActiva?.nombre ?? null} sesiones={sesiones} />
-          {rutinaActiva && (
+      <FichaAlumnoTabs
+        secciones={{
+          resumen: (
             <>
-              <AplicarRutinaAOtrosAlumnos rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />
-              <CopiarRutinaAlumno rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />
+              {indicador && (
+                <Card padding="p-3">
+                  <p className="text-[10px] mb-1 text-text-tertiary">ESTADO DEL ALUMNO</p>
+                  <DetalleEstadoAlumno indicador={indicador} />
+                </Card>
+              )}
+              <AlertasImpulsoVip alumnoId={alumnoId} alertas={alertasImpulso} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Card padding="p-3">
+                  <p className="text-[10px] mb-1 text-text-tertiary">NOMBRE</p>
+                  <NombreEditable perfilId={alumnoId} nombre={perfil.nombre} />
+                </Card>
+                <Card padding="p-3">
+                  <p className="text-[10px] mb-1 text-text-tertiary">PERFIL</p>
+                  <PerfilAlumnoForm
+                    alumnoId={alumnoId}
+                    objetivo={alumnoPerfil?.objetivo ?? null}
+                    proximoControlFecha={alumnoPerfil?.proximo_control_fecha ?? null}
+                    planEntrenamiento={alumnoPerfil?.plan_entrenamiento ?? null}
+                    sesionesMensuales={alumnoPerfil?.sesiones_mensuales ?? null}
+                    diasSemana={alumnoPerfil?.dias_entrenamiento_semana ?? null}
+                    planPausado={alumnoPerfil?.plan_entrenamiento_pausado ?? false}
+                    temporizadorDescanso={alumnoPerfil?.temporizador_descanso ?? true}
+                    accesoBloqueado={alumnoPerfil?.acceso_bloqueado ?? false}
+                    accesoBloqueadoMotivo={alumnoPerfil?.acceso_bloqueado_motivo ?? null}
+                  />
+                </Card>
+              </div>
             </>
-          )}
-          <HistorialPuntosAlumno movimientos={movimientosPuntos} />
-          <ResumenComidas resumen={resumenComidas} />
-          <SeguimientoDiarioSoloLectura seguimientos={seguimientos} />
-
-          <div className="flex items-center justify-between pt-2">
-            <p className="text-[10px] text-text-tertiary">SUS DOCUMENTOS</p>
-            <Link href="/admin/documentos" className="text-[10px] font-medium text-vip underline">Subir o gestionar</Link>
-          </div>
-          <ListaDocumentos documentos={documentos} mensajeVacio="Todavía no le subiste documentos a este alumno." />
-          <CredencialesAlumno alumnoId={alumnoId} />
-          <Card padding="p-3">
-            <p className="text-[10px] mb-1 text-text-tertiary">CORREO DE ACCESO</p>
-            <CambiarCorreoForm accion={actualizarCorreoPerfil} camposOcultos={{ perfil_id: alumnoId }} />
-          </Card>
-          <Card padding="p-3">
-            <p className="text-[10px] mb-1 text-text-tertiary">ZONA DE RIESGO</p>
-            <EliminarPerfilBoton
-              accion={eliminarAlumno}
-              campoId="alumno_id"
-              valorId={alumnoId}
-              etiqueta="Eliminar alumno"
-              advertencia={`Esto borra para siempre la cuenta de ${nombreAlumnoPublicado(perfil.nombre)}: su acceso, rutinas, comidas, seguimiento, notas y ranking. No se puede deshacer.`}
-            />
-          </Card>
-        </section>
-      </div>
+          ),
+          plan: (
+            <>
+              <FichaAlumnoAdmin alumnoId={alumnoId} nombre={perfil?.nombre ?? "este alumno"} ficha={ficha} />
+              <HistorialEntrenamiento rutinaActivaNombre={rutinaActiva?.nombre ?? null} sesiones={sesiones} />
+              {rutinaActiva && (
+                <>
+                  <AplicarRutinaAOtrosAlumnos rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />
+                  <CopiarRutinaAlumno rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />
+                </>
+              )}
+            </>
+          ),
+          actividad: (
+            <>
+              <PesoCorporalSoloLectura historial={historialPeso} />
+              <FotosSoloLectura fotos={fotos} />
+              <HistorialPuntosAlumno movimientos={movimientosPuntos} />
+              <SeguimientoDiarioSoloLectura seguimientos={seguimientos} />
+            </>
+          ),
+          nutricion: <ResumenComidas resumen={resumenComidas} />,
+          comunicacion: (
+            <>
+              <IndicacionesAlePanel alumnoId={alumnoId} objetivos={panelIndicaciones.objetivos} pendientes={panelIndicaciones.pendientes} />
+              <NotasManager alumnoId={alumnoId} notasIniciales={notas ?? []} />
+            </>
+          ),
+          documentos: (
+            <>
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-[10px] text-text-tertiary">SUS DOCUMENTOS</p>
+                <Link href="/admin/documentos" className="text-[10px] font-medium text-vip underline">Subir o gestionar</Link>
+              </div>
+              <ListaDocumentos documentos={documentos} mensajeVacio="Todavía no le subiste documentos a este alumno." />
+            </>
+          ),
+          cuenta: (
+            <>
+              <DatosPersonalesSoloLectura datos={datosPersonales} />
+              <CredencialesAlumno alumnoId={alumnoId} />
+              <Card padding="p-3">
+                <p className="text-[10px] mb-1 text-text-tertiary">CORREO DE ACCESO</p>
+                <CambiarCorreoForm accion={actualizarCorreoPerfil} camposOcultos={{ perfil_id: alumnoId }} />
+              </Card>
+              <Card padding="p-3">
+                <p className="text-[10px] mb-1 text-text-tertiary">ZONA DE RIESGO</p>
+                <EliminarPerfilBoton
+                  accion={eliminarAlumno}
+                  campoId="alumno_id"
+                  valorId={alumnoId}
+                  etiqueta="Eliminar alumno"
+                  advertencia={`Esto borra para siempre la cuenta de ${nombreAlumnoPublicado(perfil.nombre)}: su acceso, rutinas, comidas, seguimiento, notas y ranking. No se puede deshacer.`}
+                />
+              </Card>
+            </>
+          ),
+        }}
+      />
     </div>
   );
 }
