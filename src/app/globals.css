@@ -5904,16 +5904,24 @@ input[type="number"] {
 }
 .control-descanso-sesion-enlace:active { opacity: .65; }
 .control-descanso-sesion-panel {
+  /* Abre hacia ARRIBA, no hacia abajo: este control vive pegado al piso de
+     la tarjeta (junto a "Cancelar sesión"), a centímetros de las flechas
+     flotantes de navegación (`.navegacion-flotante-sesion`, z-index 40).
+     Abriendo hacia abajo el panel quedaba tapado detrás de esas flechas —
+     reportado por Alejandro entrenando "Press de banca". z-index propio,
+     por encima de las flechas, para que ningún control cercano lo tape
+     nunca, se abra para donde se abra. */
   position: absolute;
+  z-index: 45;
   right: 0;
-  top: 20px;
+  bottom: 20px;
   width: min(245px, calc(100vw - 30px));
   padding: 10px;
   border: 1px solid rgba(255,255,255,.13);
   border-radius: 10px;
   color: var(--color-text);
   background: rgba(20,21,24,.97);
-  box-shadow: 0 14px 30px rgba(0,0,0,.36);
+  box-shadow: 0 -14px 30px rgba(0,0,0,.36);
 }
 .control-descanso-sesion-titulo {
   display: flex;
