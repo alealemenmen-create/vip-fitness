@@ -1318,162 +1318,6 @@ input[type="date"]::-webkit-date-and-time-value {
     radial-gradient(circle at 90% 30%, rgba(111, 72, 255, 0.16), transparent 48%);
   filter: blur(10px);
 }
-.cabecera-modo-enfocado {
-  display: flex;
-  min-height: 54px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--color-vip) 28%, var(--color-border));
-  border-radius: 16px;
-  background: linear-gradient(105deg, color-mix(in srgb, var(--color-vip) 10%, var(--color-surface)), var(--color-surface));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-.icono-modo-enfocado {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  flex: none;
-  place-items: center;
-  border-radius: 12px;
-  color: #07100a;
-  background: linear-gradient(135deg, #d7ff54, var(--color-vip));
-  box-shadow: 0 0 20px color-mix(in srgb, var(--color-vip) 38%, transparent);
-}
-.contador-modo-enfocado {
-  flex: none;
-  padding: 5px 9px;
-  border-radius: 999px;
-  color: var(--color-vip);
-  background: color-mix(in srgb, var(--color-vip) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-vip) 32%, transparent);
-  font-size: calc(12px * var(--escala-texto));
-  font-weight: 800;
-}
-.navegacion-modo-enfocado {
-  /* Las flechas ocupan lo mÃ­nimo y se van a los extremos; todo el ancho que
-     sobra es para la tira de ejercicios del medio. */
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px;
-}
-.navegacion-modo-enfocado-fija {
-  position: fixed;
-  left: 50%;
-  /* Reportado: "el cuadro negro estÃ¡ muy sobre los Ã­conos". Antes entraba
-     12px dentro del aire de la barra inferior y quedaba montado encima. Ahora
-     apoya 2px POR ENCIMA de ella: se lee como una segunda barra de la misma
-     familia, no como un parche pegado arriba. */
-  bottom: calc(var(--alto-nav-alumno, 82px) + 2px);
-  z-index: 39;
-  width: min(calc(100% - 24px), 416px);
-  /* MÃ¡s baja: era un bloque grueso encima de los Ã­conos. */
-  padding: 5px 7px;
-  /* Mismo lenguaje visual que .panel-aero-inferior (la barra de Ã­conos): el
-     mismo tinte VIP abajo, el mismo degradado oscuro y el mismo desenfoque.
-     Con el negro plano de antes eran dos materiales distintos peleÃ¡ndose. */
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 18px;
-  /* Pedido de Alejandro: "ilumina mÃ¡s, entre morado y dorado". Toma los
-     mismos dos colores que ya usan las flechas de atrÃ¡s (violeta) y adelante
-     (dorado VIP) â€” la barra entera queda como el punto medio entre las dos,
-     en vez de un tercer color inventado. */
-  background:
-    linear-gradient(180deg, rgba(25, 26, 30, 0.78), rgba(9, 10, 13, 0.9));
-  box-shadow:
-    0 10px 28px -18px rgba(0, 0, 0, 0.82),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  -webkit-backdrop-filter: blur(20px) saturate(145%);
-  backdrop-filter: blur(20px) saturate(145%);
-  transform: translateX(-50%);
-  animation: none;
-}
-/* RespiraciÃ³n lenta, no un parpadeo duro: "llamativa" pero sin competir con
-   el Ãºnico aviso que sÃ­ tiene que parpadear en la app (sesiÃ³n sin cerrar,
-   ver .punto-sesion-sin-cerrar). */
-@keyframes iluminacion-navegacion-ejercicio {
-  0%, 100% {
-    box-shadow:
-      0 10px 26px -18px rgba(0, 0, 0, 0.7),
-      0 0 20px -4px color-mix(in srgb, #7c3cff 55%, transparent),
-      0 0 20px -4px color-mix(in srgb, var(--color-vip) 55%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  }
-  50% {
-    box-shadow:
-      0 10px 26px -18px rgba(0, 0, 0, 0.7),
-      0 0 30px -2px color-mix(in srgb, #7c3cff 75%, transparent),
-      0 0 30px -2px color-mix(in srgb, var(--color-vip) 75%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .navegacion-modo-enfocado-fija {
-    animation: none;
-  }
-}
-/* Doble flecha fluorescente a cada extremo: violeta para volver, verde VIP
-   para avanzar. Se pidieron "mÃ¡s llamativas" â€” el glow es lo que las hace
-   encontrables de un vistazo con el celular en el piso, sin leer nada. */
-.boton-navegacion-ejercicio {
-  display: flex;
-  min-height: 32px;
-  width: 38px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  color: var(--color-text);
-  background: var(--color-surface);
-  font-size: calc(12px * var(--escala-texto));
-  font-weight: 700;
-  transition: border-color 160ms ease, color 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
-}
-.boton-navegacion-atras:not(:disabled) {
-  border-color: color-mix(in srgb, var(--color-border) 86%, transparent);
-  color: color-mix(in srgb, var(--color-acento) 62%, white);
-  background: color-mix(in srgb, var(--color-acento) 7%, var(--color-surface));
-  box-shadow: none;
-}
-.boton-navegacion-atras:not(:disabled) svg {
-  filter: none;
-  animation: none;
-}
-.boton-navegacion-adelante:not(:disabled) {
-  border-color: color-mix(in srgb, var(--color-vip) 34%, var(--color-border));
-  color: color-mix(in srgb, var(--color-vip) 74%, white);
-  background: color-mix(in srgb, var(--color-vip) 8%, var(--color-surface));
-  box-shadow: none;
-}
-.boton-navegacion-adelante:not(:disabled) svg {
-  filter: none;
-  animation: none;
-}
-/* La segunda flecha sale un pelo despuÃ©s que la primera: leen como una sola
-   corriendo hacia el lado, no como dos parpadeando juntas. */
-.boton-navegacion-ejercicio svg:last-child {
-  animation-delay: 160ms;
-}
-@keyframes deslizar-flechas-adelante {
-  0%, 100% { transform: translateX(-1.5px); opacity: 0.66; }
-  50% { transform: translateX(1.5px); opacity: 1; }
-}
-@keyframes deslizar-flechas-atras {
-  0%, 100% { transform: translateX(1.5px); opacity: 0.66; }
-  50% { transform: translateX(-1.5px); opacity: 1; }
-}
-.boton-navegacion-ejercicio:not(:disabled):active {
-  transform: scale(0.94);
-}
-.boton-navegacion-ejercicio:disabled {
-  opacity: 0.26;
-}
-.boton-navegacion-ejercicio:disabled svg {
-  animation: none;
-}
 .boton-finalizar-celebracion {
   position: relative;
   overflow: hidden;
@@ -1553,118 +1397,12 @@ input[type="date"]::-webkit-date-and-time-value {
   }
 }
 
-/* Recordatorio de sesiÃ³n abierta al volver de otra app. Va POR ENCIMA de la
-   barra de navegaciÃ³n de ejercicios y no bloquea nada: es un aviso, no una
-   decisiÃ³n. */
-.aviso-sesion-abierta {
-  position: fixed;
-  left: 50%;
-  bottom: calc(var(--alto-nav-alumno, 82px) + 52px);
-  z-index: 41;
-  width: min(calc(100% - 24px), 416px);
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(24, 25, 30, 0.94), rgba(8, 9, 12, 0.96));
-  box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.8);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
-  transform: translateX(-50%);
-}
-
-/* La rutina entera dentro de la barra: un casillero por ejercicio, en orden.
-   Se desplaza sola cuando no entran todos (ver el scrollIntoView del
-   componente); la barra de scroll se esconde porque acÃ¡ el gesto es tÃ¡ctil. */
-.tira-ejercicios-rutina {
-  display: flex;
-  align-items: center;
-  /* `safe center`: con pocos ejercicios la tira queda centrada entre las dos
-     flechas; con muchos, se desborda y se desplaza SIN comerse el primero
-     (que es lo que hace un `center` a secas cuando el contenido no entra). */
-  justify-content: safe center;
-  /* La separaciÃ³n se adapta al ancho libre: con tres ejercicios quedan bien
-     despegados, con diez se juntan lo justo para que entren igual. */
-  gap: clamp(4px, 1.8vw, 11px);
-  overflow-x: auto;
-  scrollbar-width: none;
-  scroll-behavior: smooth;
-  padding: 2px 4px;
-  /* Con zoom Grande o rutinas largas, la tira no entra entera (ver el
-     comentario en SesionEjercicios.tsx) y hay que deslizarla. Sin esto el
-     Ãºltimo casillero cortaba en seco justo contra la flecha, como si la
-     rutina terminara ahÃ­ â€” el desvanecido avisa que sigue de largo. Se pinta
-     siempre, entre o no entre todo: si no hace falta, no se nota. */
-  mask-image: linear-gradient(to right, transparent, black 10px, black calc(100% - 10px), transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, black 10px, black calc(100% - 10px), transparent);
-}
-.tira-ejercicios-rutina::-webkit-scrollbar {
-  display: none;
-}
-/* Selector de tÃ©cnica del editor de rutina (admin): tira deslizable en vez de
-   grilla que se envuelve, mismo criterio que `.tira-ejercicios-rutina`. */
+/* Selector de tÃ©cnica del editor de rutina (admin): tira deslizable. */
 .tira-tecnicas {
   scrollbar-width: none;
 }
 .tira-tecnicas::-webkit-scrollbar {
   display: none;
-}
-.casillero-ejercicio-rutina {
-  display: grid;
-  place-items: center;
-  /* Se reparten el ancho libre en vez de tener un tamaÃ±o fijo: una rutina de
-     tres ejercicios muestra tres casilleros grandes y separados; una de diez,
-     diez chicos que entran igual. El tope de 40px evita que con dos queden
-     como dos botones enormes, y el piso de 24px que con muchos el nÃºmero se
-     recorte en un telÃ©fono angosto. */
-  flex: 1 1 0;
-  min-width: 24px;
-  max-width: 40px;
-  aspect-ratio: 1 / 1;
-  border: 1px solid var(--color-border);
-  border-radius: 9px;
-  background: var(--color-surface-2);
-  color: var(--color-text-tertiary);
-  font-size: calc(11px * var(--escala-texto));
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  transition: border-color 160ms ease, color 160ms ease, background 160ms ease, box-shadow 160ms ease;
-}
-.casillero-ejercicio-rutina[data-completo="true"] {
-  border-color: color-mix(in srgb, var(--color-vip) 45%, transparent);
-  color: var(--color-vip);
-  background: color-mix(in srgb, var(--color-vip) 12%, var(--color-surface-2));
-}
-/* El que se estÃ¡ mirando: borde violeta, el mismo acento que ya usa el modo
-   enfocado para "estÃ¡s acÃ¡" (--focus-violet). Se distingue del verde de
-   "hecho" â€” un ejercicio puede estar activo y hecho a la vez. */
-.casillero-ejercicio-rutina[data-activo="true"] {
-  border-color: color-mix(in srgb, var(--color-acento) 70%, white 8%);
-  color: #fff;
-  background: color-mix(in srgb, var(--color-acento) 20%, var(--color-surface-2));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-acento) 45%, transparent);
-}
-/* El ejercicio que toca ahora, estÃ© o no siendo mirado: Ã¡mbar, el color que
-   el modo enfocado reserva para "el prÃ³ximo paso es este". */
-.casillero-ejercicio-rutina[data-encurso="true"] {
-  border-color: #f5a623;
-  color: #ffd88a;
-  background: color-mix(in srgb, #f5a623 18%, var(--color-surface-2));
-}
-.casillero-ejercicio-rutina[data-encurso="true"][data-activo="true"] {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-vip) 48%, transparent);
-}
-.flechas-ejercicio-en-curso {
-  display: flex;
-  align-items: center;
-  color: #ffd88a;
-}
-.flechas-ejercicio-en-curso svg {
-  filter: drop-shadow(0 0 5px rgba(245, 166, 35, 0.9));
-  animation: deslizar-flechas-adelante 1.4s ease-in-out infinite;
-}
-.flechas-ejercicio-en-curso svg:last-child {
-  margin-left: -5px;
-  animation-delay: 140ms;
 }
 
 /* Paleta y composiciÃ³n de la proyecciÃ³n aprobada: negro profundo, violeta
@@ -1692,101 +1430,6 @@ input[type="date"]::-webkit-date-and-time-value {
   --focus-green: var(--color-success);
 }
 
-/* Rutina activa: la informaciÃ³n que orienta al alumno vive fuera de la
-   tarjeta de carga. El nombre, el mÃºsculo y la serie actual forman una sola
-   cabecera breve; debajo, cada trazo representa una serie real, aunque haya
-   3, 5 o una tÃ©cnica encadenada con mÃ¡s pasos. */
-.cabecera-foco-entrenamiento {
-  display: flex;
-  min-width: 0;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 4px 3px 2px;
-}
-.etiqueta-musculo-foco {
-  color: color-mix(in srgb, var(--color-vip) 72%, white);
-  font-size: calc(10px * var(--escala-texto));
-  font-weight: 750;
-  letter-spacing: .11em;
-  text-transform: uppercase;
-}
-.separador-foco {
-  width: 3px;
-  height: 3px;
-  flex: none;
-  border-radius: 999px;
-  background: var(--color-text-tertiary);
-}
-.contador-ejercicio-foco,
-.estado-serie-foco {
-  color: var(--color-text-tertiary);
-  font-size: calc(10px * var(--escala-texto));
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.titulo-ejercicio-foco {
-  margin-top: 3px;
-  color: var(--color-text);
-  font-size: calc(21px * var(--escala-texto));
-  font-weight: 720;
-  letter-spacing: -.025em;
-  line-height: 1.08;
-  text-wrap: balance;
-}
-.estado-serie-foco { margin-top: 5px; }
-.progreso-series-foco {
-  display: flex;
-  gap: 5px;
-  padding: 0 3px 4px;
-}
-.progreso-series-foco > span {
-  height: 3px;
-  min-width: 8px;
-  flex: 1 1 0;
-  overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-border) 80%, transparent);
-}
-.progreso-series-foco > span[data-estado="completa"] {
-  background: color-mix(in srgb, var(--color-success) 75%, white 8%);
-}
-.progreso-series-foco > span[data-estado="actual"] {
-  background: color-mix(in srgb, var(--color-vip) 80%, white 12%);
-  box-shadow: 0 0 9px color-mix(in srgb, var(--color-vip) 42%, transparent);
-}
-.modo-entrenamiento-enfocado::before {
-  background:
-    radial-gradient(circle at 8% 8%, color-mix(in srgb, var(--focus-violet) 22%, transparent), transparent 50%),
-    radial-gradient(circle at 92% 34%, color-mix(in srgb, var(--focus-amber) 16%, transparent), transparent 46%);
-}
-.modo-entrenamiento-enfocado .cabecera-modo-enfocado {
-  border-color: color-mix(in srgb, var(--focus-violet) 42%, transparent);
-  background: linear-gradient(
-    115deg,
-    color-mix(in srgb, var(--focus-violet) 17%, transparent),
-    color-mix(in srgb, var(--focus-panel) 96%, transparent) 56%,
-    color-mix(in srgb, var(--focus-amber) 8%, transparent)
-  );
-}
-.modo-entrenamiento-enfocado .icono-modo-enfocado {
-  color: #fff;
-  background: linear-gradient(135deg, var(--focus-violet), color-mix(in srgb, var(--focus-violet) 55%, white));
-  box-shadow: 0 0 20px color-mix(in srgb, var(--focus-violet) 42%, transparent);
-}
-.modo-entrenamiento-enfocado .contador-modo-enfocado {
-  color: color-mix(in srgb, var(--focus-amber) 78%, white);
-  border-color: color-mix(in srgb, var(--focus-amber) 40%, transparent);
-  background: color-mix(in srgb, var(--focus-amber) 10%, transparent);
-}
-.tarjeta-ejercicio-enfocada {
-  /* Ya NO redefine --color-surface/--color-surface-2/--color-border: eso era
-     lo que arrastraba a negro a cualquier hijo bien escrito que usara esos
-     tokens (ej. CuadroFotoReferencia), aunque ese hijo nunca pidiÃ³ negro. */
-  border-color: var(--focus-border) !important;
-  border-radius: 22px !important;
-  background: var(--focus-bg) !important;
-  box-shadow: 0 22px 50px -34px color-mix(in srgb, var(--focus-violet) 75%, transparent);
-}
 .tarjeta-grupo-enfocada {
   border: 1px solid var(--focus-border);
   border-radius: 20px;
@@ -2243,13 +1886,6 @@ input[type="date"]::-webkit-date-and-time-value {
   box-shadow: 0 0 24px color-mix(in srgb, var(--color-vip) 40%, transparent);
   animation: pulso-paso-guiado 1.8s ease-in-out infinite;
 }
-.boton-navegacion-ejercicio[data-recomendado="true"] {
-  color: var(--btn-color);
-  border-color: transparent;
-  background: var(--btn-bg);
-  box-shadow: 0 0 22px color-mix(in srgb, var(--color-vip) 34%, transparent);
-  animation: pulso-paso-guiado 1.8s ease-in-out infinite;
-}
 @keyframes pulso-paso-guiado {
   0%, 100% { transform: scale(1); box-shadow: 0 0 18px color-mix(in srgb, var(--color-vip) 25%, transparent); }
   50% { transform: scale(1.012); box-shadow: 0 0 28px color-mix(in srgb, var(--color-vip) 50%, transparent); }
@@ -2287,8 +1923,7 @@ html[data-zoom-pantalla="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido
   font-size: calc(14px * var(--escala-texto));
 }
 @media (prefers-reduced-motion: reduce) {
-  .boton-completar-ejercicio[data-recomendado="true"],
-  .boton-navegacion-ejercicio[data-recomendado="true"] { animation: none; }
+  .boton-completar-ejercicio[data-recomendado="true"] { animation: none; }
 }
 @keyframes destello-ejercicio-activo {
   0%,
@@ -3500,18 +3135,6 @@ input[type="number"] {
   filter: brightness(1.08) contrast(1.18) saturate(1.12) drop-shadow(0 0 12px color-mix(in srgb, var(--color-vip) 18%, transparent));
 }
 
-/* Segunda iteraciÃ³n del modo guiado: reproduce la composiciÃ³n aprobada.
-   Solo la serie elegida ocupa espacio; las demÃ¡s permanecen montadas en el
-   formulario para conservar borradores, correcciones y guardado automÃ¡tico. */
-.tarjeta-ejercicio-enfocada {
-  padding: 16px !important;
-  border: 1px solid rgba(255, 255, 255, .13) !important;
-  border-radius: 22px !important;
-  background:
-    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--color-vip) 6%, transparent), transparent 34%),
-    linear-gradient(180deg, rgba(18, 18, 20, .98), rgba(11, 11, 13, .99)) !important;
-  box-shadow: 0 20px 50px -38px rgba(0, 0, 0, .9) !important;
-}
 .tarjeta-ejercicio-enfocada.panel-ejercicio-activo {
   animation: none !important;
 }
