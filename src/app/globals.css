@@ -6524,9 +6524,6 @@ input[type="number"] {
   white-space: nowrap;
 }
 .navegacion-ejercicios-foco button:disabled { opacity: .3; }
-.tarjeta-ejercicio-enfocada .acciones-series-extra {
-  display: none;
-}
 .tarjeta-ejercicio-enfocada .protocolo-tecnica-foco {
   display: inline-flex;
   width: auto;
