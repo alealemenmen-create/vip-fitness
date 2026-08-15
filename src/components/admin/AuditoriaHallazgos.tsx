@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ListChecks, Search } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, ListChecks, Search } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
@@ -122,6 +122,68 @@ function HallazgoCard({ hallazgo }: { hallazgo: HallazgoAuditoria }) {
   );
 }
 
+const POR_PAGINA = 15;
+
+/** Con 96 hallazgos pendientes de golpe (caso real medido el 15/08), listar
+ * todos sin paginar era exactamente "cientos de acciones simultáneas" que
+ * pide evitar la sección 9.4 del instructivo de reorganización del panel.
+ * Página fija de 15, mismo patrón que ya usa el directorio de Alumnos. */
+function SeccionPaginada({ hallazgos }: { hallazgos: HallazgoAuditoria[] }) {
+  const [pagina, setPagina] = useState(1);
+  const totalPaginas = Math.max(1, Math.ceil(hallazgos.length / POR_PAGINA));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const visibles = useMemo(
+    () => hallazgos.slice((paginaActual - 1) * POR_PAGINA, paginaActual * POR_PAGINA),
+    [hallazgos, paginaActual]
+  );
+
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center gap-1.5 text-caption text-text-tertiary">
+        <AlertTriangle size={14} />
+        {hallazgos.length === 0
+          ? "Nada pendiente de decisión"
+          : `${hallazgos.length} ${hallazgos.length === 1 ? "hallazgo espera" : "hallazgos esperan"} tu decisión`}
+      </div>
+      {hallazgos.length === 0 ? (
+        <Card padding="p-4" className="flex flex-col items-center gap-2 text-center">
+          <Search size={24} className="text-text-tertiary" />
+          <p className="text-caption text-text-secondary">
+            Nada que descartar ni penalizar en los últimos 90 días.
+          </p>
+        </Card>
+      ) : (
+        <>
+          {visibles.map((h) => <HallazgoCard key={`${h.tipo}:${h.referenciaId}`} hallazgo={h} />)}
+          {totalPaginas > 1 && (
+            <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+              <button
+                type="button"
+                disabled={paginaActual === 1}
+                onClick={() => setPagina((actual) => Math.max(1, actual - 1))}
+                className="flex items-center gap-1 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-secondary disabled:opacity-35"
+              >
+                <ChevronLeft size={14} /> Anterior
+              </button>
+              <span className="text-xs text-text-tertiary">
+                Página <strong className="text-text">{paginaActual}</strong> de {totalPaginas}
+              </span>
+              <button
+                type="button"
+                disabled={paginaActual === totalPaginas}
+                onClick={() => setPagina((actual) => Math.min(totalPaginas, actual + 1))}
+                className="flex items-center gap-1 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-secondary disabled:opacity-35"
+              >
+                Siguiente <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 /**
  * Lista de sospechas pendientes de revisión (ver `obtenerHallazgosPendientes`
  * en `lib/auditoria/data.ts`). Nunca actúa sola: cada tarjeta espera que el
@@ -151,24 +213,7 @@ export function AuditoriaHallazgos({ hallazgos }: { hallazgos: HallazgoAuditoria
 
   return (
     <div className="space-y-4">
-      <section className="space-y-2">
-        <div className="flex items-center gap-1.5 text-caption text-text-tertiary">
-          <AlertTriangle size={14} />
-          {paraDecidir.length === 0
-            ? "Nada pendiente de decisión"
-            : `${paraDecidir.length} ${paraDecidir.length === 1 ? "hallazgo espera" : "hallazgos esperan"} tu decisión`}
-        </div>
-        {paraDecidir.length === 0 ? (
-          <Card padding="p-4" className="flex flex-col items-center gap-2 text-center">
-            <Search size={24} className="text-text-tertiary" />
-            <p className="text-caption text-text-secondary">
-              Nada que descartar ni penalizar en los últimos 90 días.
-            </p>
-          </Card>
-        ) : (
-          paraDecidir.map((h) => <HallazgoCard key={`${h.tipo}:${h.referenciaId}`} hallazgo={h} />)
-        )}
-      </section>
+      <SeccionPaginada hallazgos={paraDecidir} />
 
       {rutinasPorRehacer.length > 0 && (
         <details className="space-y-2">
