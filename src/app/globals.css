@@ -6108,15 +6108,6 @@ input[type="number"] {
   background: linear-gradient(180deg, rgba(239,200,77,.09), rgba(239,200,77,.025));
   box-shadow: inset 0 1px 0 rgba(255,255,255,.045);
 }
-.shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero-activo::after {
-  top: 0;
-  right: 28%;
-  left: 28%;
-  height: 2px;
-  border-radius: 0 0 2px 2px;
-  background: #efc84d;
-  box-shadow: 0 0 7px rgba(239,200,77,.32);
-}
 .shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero .icono-navegacion-aero {
   width: 19px;
   height: 19px;
@@ -6211,15 +6202,6 @@ input[type="number"] {
   border-color: rgba(255,255,255,.09);
   background: linear-gradient(145deg, rgba(102,105,108,.94), rgba(72,75,78,.96));
   box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 4px 10px rgba(0,0,0,.18);
-}
-:root .shell-alumno .item-navegacion-aero-activo::after {
-  content: "";
-  position: absolute;
-  top: 4px;
-  right: 22%;
-  left: 22%;
-  height: 1px;
-  background: rgba(239,200,77,.58);
 }
 :root .shell-alumno .icono-navegacion-aero {
   width: 20px;
@@ -6770,15 +6752,6 @@ input[type="number"] {
   border-color: rgba(239, 200, 77, .12) !important;
   background: linear-gradient(180deg, rgba(239,200,77,.09), rgba(239,200,77,.025)) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.045) !important;
-}
-:root .shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero-activo::after {
-  top: 0 !important;
-  right: 28% !important;
-  left: 28% !important;
-  height: 2px !important;
-  border-radius: 0 0 2px 2px;
-  background: #efc84d !important;
-  box-shadow: 0 0 7px rgba(239,200,77,.32);
 }
 :root .shell-alumno:has(.modo-entrenamiento-enfocado) .item-navegacion-aero .icono-navegacion-aero {
   width: 19px !important;
