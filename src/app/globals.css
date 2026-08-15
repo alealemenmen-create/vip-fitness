@@ -2138,60 +2138,35 @@ input[type="date"]::-webkit-date-and-time-value {
 
 /* Aviso mÃ­nimo dentro de un ejercicio: deliberadamente intenso para que un
    botÃ³n de 40 px reemplace la tarjeta completa sin pasar inadvertido. */
-.rayo-impulso-vivo:not(:has(svg.lucide-check)) {
-  animation: rayo-impulso-fuerte 1.65s cubic-bezier(.2,.8,.2,1) infinite;
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-vip) 65%, transparent);
-}
-/* En reposo el rayo es una burbuja sobre la transición hacia los campos, no
-   una fila propia. Recupera altura útil para Peso/Repeticiones sin perder un
-   objetivo táctil grande ni tapar sus etiquetas laterales. */
 .burbuja-impulso-vivo {
-  position: relative;
-  z-index: 4;
-  height: 0;
-  margin: 0 !important;
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  margin: 3px 0 5px !important;
 }
 .burbuja-impulso-vivo .rayo-impulso-vivo {
-  position: absolute;
-  top: -17px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-color: rgba(191, 95, 255, .74);
-  background: linear-gradient(145deg, rgba(36,18,53,.98), rgba(15,14,20,.98));
-  box-shadow: 0 0 0 3px rgba(8,8,11,.76), 0 0 19px rgba(168,56,255,.46);
-  animation-name: rayo-impulso-burbuja;
+  min-height: 26px;
+  padding: 0 11px;
+  border-radius: 999px !important;
+  border-color: rgba(190, 105, 255, .72) !important;
+  color: #e5beff !important;
+  background: linear-gradient(100deg, rgba(139, 48, 229, .44), rgba(77, 23, 134, .7)) !important;
+  box-shadow: 0 0 11px rgba(168, 56, 255, .26), inset 0 1px 0 rgba(255,255,255,.15) !important;
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 760;
+  white-space: nowrap;
 }
-@keyframes rayo-impulso-burbuja {
-  0%, 100% { transform: translateX(-50%) scale(.92) rotate(-4deg); opacity: .72; filter: brightness(.9); }
-  42% { transform: translateX(-50%) scale(1.12) rotate(4deg); opacity: 1; filter: brightness(1.4); }
-  58% { transform: translateX(-50%) scale(1.03) rotate(0); opacity: 1; filter: brightness(1.15); }
-}
-/* El rayo en reposo pertenece a la serie especial: se ancla justo debajo de
-   su cápsula morada y no repite una línea de ayuda que ya aparecerá completa
-   al abrir la indicación. */
 .momento-especial-serie:has(+ .burbuja-impulso-vivo) {
-  margin-bottom: 1px;
-}
-.momento-especial-serie:has(+ .burbuja-impulso-vivo) p {
   display: none;
 }
-.momento-especial-serie + .burbuja-impulso-vivo .rayo-impulso-vivo {
-  /* Ficha morada del Impulso: visualmente pertenece a la cápsula de aviso y
-     no a los controles de la serie. */
-  top: -29px;
-  left: 70%;
-  width: 28px;
-  height: 28px;
-  border-radius: 10px !important;
-  border-color: rgba(212, 149, 255, .64) !important;
-  color: #160a22 !important;
-  background: linear-gradient(145deg, #c377ff 0%, #8d35ed 52%, #6720c6 100%) !important;
-  box-shadow: 0 0 10px rgba(168, 56, 255, .34), inset 0 1px 0 rgba(255,255,255,.42) !important;
+.selector-series-foco button[data-impulso="true"][data-estado="actual"],
+.burbuja-impulso-vivo .rayo-impulso-vivo:not([data-reto-aceptado="true"]) {
+  animation: pulso-impulso-unificado 1.15s ease-in-out infinite;
 }
-.momento-especial-serie + .burbuja-impulso-vivo .rayo-impulso-vivo svg {
-  width: 16px;
-  height: 16px;
-  stroke-width: 3;
+@keyframes pulso-impulso-unificado {
+  0%, 100% { transform: scale(1); filter: brightness(.94); }
+  45% { transform: scale(1.045); filter: brightness(1.2); }
 }
 /* Una vez aceptado, el botón conserva el estado sin seguir pulsando ni
    robando atención durante la ejecución de la serie. */
@@ -2199,7 +2174,7 @@ input[type="date"]::-webkit-date-and-time-value {
   animation: none !important;
   filter: none !important;
   opacity: .88;
-  transform: translateX(-50%) !important;
+  transform: none !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.3) !important;
 }
 .halo-pantalla-impulso-vip {
@@ -5322,7 +5297,7 @@ input[type="number"] {
   45% { filter: drop-shadow(0 0 8px rgba(182,77,255,.9)); transform: scale(1.06); }
 }
 .selector-series-foco button[data-impulso="true"][data-estado="actual"] {
-  animation: pulso-impulso-serie 1.15s ease-in-out infinite;
+  animation: pulso-impulso-unificado 1.15s ease-in-out infinite;
 }
 @keyframes rayo-impulso-encendido {
   0%, 100% { transform: translateX(-50%) scale(1) rotate(-3deg); filter: drop-shadow(0 0 5px #ad32ff) drop-shadow(0 0 11px rgba(173,50,255,.72)); }

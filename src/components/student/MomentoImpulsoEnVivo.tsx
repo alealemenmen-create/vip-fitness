@@ -40,6 +40,13 @@ export function MomentoImpulsoEnVivo({
     && (esOrientacion || esPersonalAle || intervencion.calibrada || calibracion.ok || intervencion.estado !== "preparada");
   const resuelta = state.ok || intervencion?.estado === "resuelta";
   const mostrarExpandido = expandido || (serieTerminada && !resuelta);
+  const pesoObjetivo = typeof intervencion.prescripcion?.pesoKg === "number"
+    ? `sube a ${intervencion.prescripcion.pesoKg} kg`
+    : intervencion.tipo === "rest_pause"
+      ? "rest-pause"
+      : intervencion.tipo === "drop_set"
+        ? "drop set"
+        : "serie especial";
 
   useEffect(() => {
     if (!intervencion || !visible || !listaParaMostrar || intervencion.estado !== "preparada") return;
@@ -56,12 +63,15 @@ export function MomentoImpulsoEnVivo({
         <button
           type="button"
           onClick={() => setExpandido(true)}
-          className={`rayo-impulso-vivo relative grid size-10 place-items-center rounded-full border ${resuelta ? "border-success/35 bg-success/10 text-success" : "border-vip/55 bg-vip/15 text-vip"}`}
+          className={`rayo-impulso-vivo relative inline-flex items-center justify-center gap-1.5 border ${resuelta ? "border-success/35 bg-success/10 text-success" : "border-vip/55 bg-vip/15 text-vip"}`}
           data-reto-aceptado={retoAceptado ? "true" : "false"}
           aria-label={resuelta ? "Ver resultado de Impulso VIP" : `Abrir indicación de Impulso VIP para la serie ${intervencion.serieObjetivo}`}
           title={resuelta ? "Resultado registrado" : "Indicación de Ale"}
         >
-          {resuelta ? <Check size={18} strokeWidth={3} /> : <Zap size={19} fill="currentColor" />}
+          {resuelta ? <Check size={14} strokeWidth={3} /> : <Zap size={14} fill="currentColor" />}
+          <strong>Impulso VIP</strong>
+          <span aria-hidden>·</span>
+          <span>{resuelta ? "resultado listo" : pesoObjetivo}</span>
         </button>
       </div>
     );
