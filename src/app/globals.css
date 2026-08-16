@@ -7997,3 +7997,22 @@ input[type="number"] {
   line-height: 1.25;
   text-align: center;
 }
+
+/* Encabezado de "Esta semana" / "Análisis completo" en Mi avance (reorden
+   2026-08-16): mismo dorado pálido que el resto de la pantalla, no el
+   ámbar de `--color-vip`. Sin borde ni caja propia — es un separador de
+   lectura, no otra tarjeta. */
+.eyebrow-avance {
+  color: #f2cd5d;
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.encabezado-acciones-semana {
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+.encabezado-acciones-semana .eyebrow-avance {
+  margin-bottom: 3px;
+}

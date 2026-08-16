@@ -11,7 +11,7 @@ import { PUNTOS_VIP } from "@/lib/ranking/reglas";
 import { semanaActualISO } from "@/lib/date";
 import { obtenerSeguimientoIntegral } from "@/lib/seguimiento/data";
 import type { PeriodoSeguimiento } from "@/lib/seguimiento/tipos";
-import { PanelSeguimiento } from "@/components/seguimiento/PanelSeguimiento";
+import { HeroAvance, DetalleAvance } from "@/components/seguimiento/PanelSeguimiento";
 
 export default async function ProgresoPage({ searchParams }: { searchParams: Promise<{ periodo?: string }> }) {
   const { alumnoId, nombre, soloLectura } = await requireAlumno();
@@ -36,20 +36,40 @@ export default async function ProgresoPage({ searchParams }: { searchParams: Pro
     (fotoEstaSemana ? PUNTOS_VIP.fotoSemanal : 0);
 
   return (
+    // Orden pensado con Alejandro (2026-08-16): el motivo semanal de entrar a
+    // esta pestaña es CHECK-IN (foto + peso), no leer el panel analítico
+    // completo. El hero de adherencia (identidad de la pantalla, engancha de
+    // un vistazo) queda arriba de todo; las acciones de la semana van justo
+    // debajo, antes del análisis largo — que sigue completo, solo que ahora
+    // es la parte de "profundizar" y no lo primero que hay que atravesar.
     <div className="space-y-6 pb-8">
-      {seguimiento && <PanelSeguimiento datos={seguimiento} modo="alumno" baseHref="/alumno/progreso" imprimirHref="/alumno/progreso/imprimir" />}
-      <div className="border-t border-border pt-5">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-text-tertiary">Actualizar evolución</p>
+      {seguimiento && (
+        <HeroAvance datos={seguimiento} modo="alumno" baseHref="/alumno/progreso" imprimirHref="/alumno/progreso/imprimir" />
+      )}
+
+      <div className="encabezado-acciones-semana">
+        <p className="eyebrow-avance">Esta semana</p>
+        <h2 className="text-h3 font-semibold text-text">Registra tu progreso</h2>
       </div>
       <MensajeMotivacional frase={frase} />
       <BarraPuntosVip
         puntos={puntosSeguimiento}
         maximo={PUNTOS_VIP.pesoSemanal + PUNTOS_VIP.fotoSemanal}
         etiqueta="Seguimiento semanal"
-        ayuda={`${pesoEstaSemana ? "Peso listo" : "Registra tu peso"} · ${fotoEstaSemana ? "Foto lista" : "Sube tu foto"}`}
+        ayuda={`${fotoEstaSemana ? "Foto lista" : "Sube tu foto"} · ${pesoEstaSemana ? "Peso listo" : "Registra tu peso"}`}
       />
-      <PesoCorporal historial={historial} soloLectura={soloLectura} />
+      {/* Foto antes que peso: es el ritual semanal en el que más se apoya
+          esta pantalla (antes/después, historial, semana actual) — pedido
+          explícito de Alejandro por sobre el orden anterior. */}
       <GaleriaProgreso semanas={semanas} soloLectura={soloLectura} />
+      <PesoCorporal historial={historial} soloLectura={soloLectura} />
+
+      {seguimiento && (
+        <div className="pt-2">
+          <p className="mb-3 eyebrow-avance">Análisis completo</p>
+          <DetalleAvance datos={seguimiento} modo="alumno" />
+        </div>
+      )}
     </div>
   );
 }

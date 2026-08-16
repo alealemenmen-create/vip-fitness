@@ -41,27 +41,30 @@ function Alerta({ alerta }: { alerta: AlertaSeguimiento }) {
   );
 }
 
-export function PanelSeguimiento({
+type PropsComunes = {
+  datos: SeguimientoIntegral;
+  modo: "alumno" | "entrenador";
+};
+
+/**
+ * Selector de período + hero de adherencia. Separado de `DetalleAvance`
+ * (pedido de Alejandro, 2026-08-16: reordenar Mi avance para que las
+ * acciones semanales —peso, foto— queden ARRIBA del análisis largo, no
+ * después) para poder intercalar esas acciones justo debajo del hero, en
+ * `/alumno/progreso`, sin tocar la ficha del entrenador — que sigue usando
+ * `PanelSeguimiento` de una pieza, en el orden de siempre.
+ */
+export function HeroAvance({
   datos,
   modo,
   baseHref,
-  mostrarRevision = false,
   imprimirHref,
-}: {
-  datos: SeguimientoIntegral;
-  modo: "alumno" | "entrenador";
+}: PropsComunes & {
   baseHref: string;
-  mostrarRevision?: boolean;
   imprimirHref?: string;
 }) {
   const r = datos.resumen;
   const nivel = NIVEL[r.nivel];
-  // Premium analítico solo para el alumno (instructivo §8): el entrenador ve
-  // este mismo panel dentro de la ficha del alumno en el Panel del
-  // Entrenador, que todavía no pasó por su propio rediseño (Fase 2 pendiente
-  // del instructivo del panel) — tocar el material acá lo dejaría a mitad de
-  // camino entre el sistema viejo y el nuevo. `premium` aísla el cambio a la
-  // única pantalla que ya está redecorada.
   const premium = modo === "alumno";
   return (
     <div className="space-y-4">
@@ -104,7 +107,26 @@ export function PanelSeguimiento({
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${premium ? "hero-avance-barra" : "bg-vip"}`} style={{ width: `${r.adherenciaGeneral ?? 0}%` }} /></div>
         <p className="mt-3 text-xs text-white/65">{datos.desde} al {datos.hasta} · datos reales de entrenamiento y alimentación separados del autorreporte.</p>
       </section>
+    </div>
+  );
+}
 
+/** El resto del análisis: indicadores, promedios, alertas, evolución,
+ * detalle diario y revisiones. En `/alumno/progreso` queda DEBAJO de las
+ * acciones semanales — es la parte de "profundizar", no la de todos los
+ * días. En la ficha del entrenador va justo después de `HeroAvance`, sin
+ * nada en el medio, igual que siempre. */
+export function DetalleAvance({
+  datos,
+  modo,
+  mostrarRevision = false,
+}: PropsComunes & {
+  mostrarRevision?: boolean;
+}) {
+  const r = datos.resumen;
+  const premium = modo === "alumno";
+  return (
+    <div className="space-y-4">
       <section className={`grid grid-cols-2 gap-2 lg:grid-cols-4 ${premium ? "indicadores-avance-premium" : ""}`}>
         <Metrica icono={<Dumbbell size={15} />} etiqueta="Entrenamiento" valor={valorPct(r.entrenamientoPct)} detalle={`${r.sesionesRealizadas}/${r.sesionesEsperadas || 0} sesiones · calidad ${valorPct(r.calidadSesionesPct)}`} />
         <Metrica icono={<Apple size={15} />} etiqueta="Nutrición" valor={valorPct(r.nutricionPct)} detalle={`${r.diasConAlimentacion}/${r.diasPeriodo} días registrados`} />
@@ -166,6 +188,19 @@ export function PanelSeguimiento({
       {datos.revisiones.length > 0 && <section className="space-y-2"><h3 className="text-caption font-semibold uppercase tracking-wide text-text-tertiary">Revisiones del entrenador</h3>{datos.revisiones.map((revision) => <Card key={revision.id} padding="p-3"><div className="flex items-center gap-2 text-vip"><Sparkles size={15} /><p className="text-caption font-semibold">{revision.desde} al {revision.hasta}</p></div><p className="mt-2 text-caption text-text">{revision.observacion}</p>{revision.decisionSiguientePlan && <p className="mt-1 text-caption text-text-secondary">Siguiente paso: {revision.decisionSiguientePlan}</p>}<p className="mt-2 text-[9px] text-text-tertiary">{revision.entrenadorNombre}</p></Card>)}</section>}
 
       {mostrarRevision && <Card padding="p-4"><h3 className="mb-1 text-card-title">Observación del entrenador</h3><p className="mb-3 text-caption text-text-secondary">Quedará vinculada a este período y visible para el alumno.</p><RevisionSeguimientoForm alumnoId={datos.alumnoId} periodo={datos.diasPeriodo} /></Card>}
+    </div>
+  );
+}
+
+/** Compuesto de siempre: hero + detalle, de una pieza. Lo sigue usando la
+ * ficha del entrenador (`/admin/alumnos/[id]/seguimiento`) sin cambios. */
+export function PanelSeguimiento(
+  props: PropsComunes & { baseHref: string; mostrarRevision?: boolean; imprimirHref?: string }
+) {
+  return (
+    <div className="space-y-4">
+      <HeroAvance {...props} />
+      <DetalleAvance {...props} />
     </div>
   );
 }
