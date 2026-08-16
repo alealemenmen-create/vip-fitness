@@ -7837,3 +7837,59 @@ input[type="number"] {
   border-radius: 10px;
   background: rgba(255,255,255,.02);
 }
+
+/* ==========================================================================
+   MI AVANCE — premium analítico
+   (INSTRUCTIVO_CLAUDE_REDISHENO_INICIO_CABEZAL.md §8, 2026-08-16)
+   Todo acá cuelga de `.hero-avance-premium` / clases hermanas, aplicadas
+   SOLO cuando `PanelSeguimiento` renderiza en modo="alumno" (ver el
+   componente): la misma pieza se usa dentro de la ficha del alumno en el
+   Panel del Entrenador, que todavía no pasó por su rediseño — este bloque no
+   le cambia una sola regla a esa vista.
+   ========================================================================== */
+.control-periodo-avance {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.periodo-avance-activo {
+  color: #1b1105;
+  background: linear-gradient(135deg, #f7dc86 0%, #f2cd5d 55%, #e0b23f 100%);
+}
+/* Mismo negro y borde fino que Entrenar, sin el halo ambar radial que tenía
+   antes ("Hero de adherencia... diagonales discretas de Entrenar" — no un
+   glow grande, que es justo lo que se viene sacando del resto del portal
+   toda esta sesión). La diagonal queda muy tenue: un guiño a la referencia,
+   no una repetición de su brillo. */
+.hero-avance-premium {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.08);
+  background: linear-gradient(150deg, #15161a 0%, #0d0e11 100%);
+}
+.hero-avance-premium::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    118deg,
+    transparent 0 34px,
+    rgba(242,205,93,.05) 35px,
+    transparent 36px 56px
+  );
+  pointer-events: none;
+}
+.hero-avance-eyebrow,
+.hero-avance-numero {
+  position: relative;
+  color: #f2cd5d;
+}
+.hero-avance-barra {
+  position: relative;
+  background: #f2cd5d;
+}
+/* Los 4 indicadores en superficies homogéneas, sin brillo propio por
+   tarjeta: mismo borde translúcido que el resto del sistema, no el
+   `border-border` que varía de fuerza entre temas. */
+.indicadores-avance-premium > div {
+  border-color: rgba(255,255,255,.07) !important;
+}

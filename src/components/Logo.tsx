@@ -15,7 +15,6 @@ import { Crown, Zap } from "lucide-react";
  * color de acento, igual que antes cuando era un <h1> aparte.
  */
 const RUTAS_COMPACTAS: [ruta: string, titulo?: ReactNode][] = [
-  ["/alumno/progreso", "Mi avance"],
   [
     "/alumno/ranked",
     <>
@@ -48,6 +47,11 @@ const RUTAS_CABECERA_HEXAGONAL: [ruta: string, titulo: ReactNode, prefijo?: bool
   // ya pone la marca.
   ["/alumno/entrenar", "Entrenamiento"],
   ["/alumno/comer", "Nutrición", true],
+  // Exacto, no prefijo: a diferencia de Nutrición, "Mi avance" no lleva
+  // parámetros en la RUTA (el período 7/14/30 va por `?periodo=`, que no
+  // afecta el pathname). `/alumno/progreso/imprimir` es una pantalla propia
+  // y aparte, pensada para verse sin el shell del alumno encima.
+  ["/alumno/progreso", "Mi avance"],
 ];
 
 /**
