@@ -121,11 +121,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Ojo: las reglas de Espejo están limitadas a `.shell-alumno`, así que
             el panel del entrenador se queda siempre con el tema VIP aunque el
             alumno elija el modo compacto. */}
-        {/* Cabezal de celular (instructivo §6): marca compacta, contexto y UNA
-            acción. Antes tenía cinco cosas peleando por 393 px —logotipo
-            horizontal, zoom, tema, "Mi rutina" y "Asistente"—, y las tres
-            primeras son ajustes, no trabajo. Tema, tamaño, mi rutina y cerrar
-            sesión viven ahora en Más, en un solo lugar coherente (§4.3). */}
+        {/* Cabezal de celular (instructivo §6): marca compacta, contexto y
+            acciones. Tema, tamaño y cerrar sesión siguen en Más (§4.3) — pero
+            "Mi rutina" vuelve acá arriba (pedido de Alejandro, 2026-08-16):
+            para quien entrena y entrena, es la acción que más usa apenas
+            entra, no algo que valga la pena esconder dos toques más adentro.
+            Queda como botón secundario (borde, no relleno) para no competir
+            con el dorado de Asistente; sin texto bajo 380px, igual que
+            Asistente, para no repetir el amontonamiento original. */}
         <header className="panel-aero-superior imprimir-oculto z-30 flex h-14 shrink-0 items-center gap-2.5 px-3 md:hidden">
           <Logo compact height={20} className="!w-[110px] !rounded-lg !px-2 !py-1" />
           <div className="min-w-0 flex-1">
@@ -136,6 +139,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               {nombrePublicado(sesion.nombre)}
             </p>
           </div>
+          {miAlumnoPerfil && (
+            <Link
+              href="/alumno/inicio"
+              aria-label="Ver mi rutina"
+              className="radius-control flex h-9 shrink-0 items-center gap-1.5 border border-white/15 px-2.5 text-[11px] font-semibold text-text-secondary"
+            >
+              <Dumbbell size={15} /> <span className="hidden min-[380px]:inline">Mi rutina</span>
+            </Link>
+          )}
           <Link
             href="/admin/asistente"
             aria-label="Abrir Asistente VIP"

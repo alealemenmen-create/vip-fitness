@@ -4957,29 +4957,39 @@ input[type="number"] {
   margin: 10px 0 8px !important;
   padding: 0 !important;
 }
+/* Paleta de series atenuada (pedido de Alejandro, 2026-08-16): los tonos de
+   neón (#45e57b, #ffd12f, #2dccff, #ff7a32, #8b7bff) competían con el resto
+   del sistema, ya de por sí discreto — y el morado de la rotación se
+   confundía con el morado de Impulso VIP, que tiene que ser la única señal
+   que salta a la vista. Los nuevos tonos son la misma familia pero
+   desaturada, más cerca del "grafito silencioso" del resto de la sesión;
+   el morado sale de la rotación por completo. */
 .tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador {
-  --color-serie: #45e57b;
+  --color-serie: #6bb98f;
   display: grid;
   min-width: 0;
   flex: 1 1 0;
   gap: 4px;
   justify-items: center;
 }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(2) { --color-serie: #ffd12f; }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(3) { --color-serie: #2dccff; }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(4) { --color-serie: #ff7a32; }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(5n) { --color-serie: #8b7bff; }
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(2) { --color-serie: #c9ab6f; }
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(3) { --color-serie: #6bacc0; }
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(4) { --color-serie: #c78a68; }
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(5n) { --color-serie: #8f96ad; }
 .tarjeta-ejercicio-enfocada .selector-series-movido button {
   --color-serie: inherit;
   display: grid;
   width: 100%;
-  height: 22px;
-  min-height: 22px;
+  /* Más finas — pedido explícito de que se lean como líneas, no como
+     píldoras/botones (venían de 22px, casi el doble de altas que su
+     versión "densa" de 6+ series). */
+  height: 15px;
+  min-height: 15px;
   overflow: hidden;
   place-items: center;
-  padding: 2px 3px;
+  padding: 1px 3px;
   border: 1px solid #35383d;
-  border-radius: 10px;
+  border-radius: 8px;
   color: #85898f;
   background: #1c1f23;
   opacity: 1;
@@ -5084,10 +5094,10 @@ input[type="number"] {
   gap: 2px;
 }
 .tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] button {
-  height: 17px;
-  min-height: 17px;
+  height: 12px;
+  min-height: 12px;
   padding: 1px 2px;
-  border-radius: 7px;
+  border-radius: 6px;
 }
 .tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] .resumen-registro-serie {
   display: block;
@@ -5711,7 +5721,7 @@ input[type="number"] {
 .shell-alumno:has(.modo-entrenamiento-enfocado) .panel-aero-inferior {
   border-color: rgba(150, 163, 174, .18);
   border-radius: 12px;
-  background: linear-gradient(180deg, #0e1012 0%, #08090a 100%);
+  background: linear-gradient(180deg, #08090a 0%, #030304 100%);
   box-shadow: 0 12px 28px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.045);
 }
 .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-aero {
@@ -5806,7 +5816,7 @@ input[type="number"] {
   overflow: hidden;
   border: 1px solid rgba(160, 177, 188, .22);
   border-radius: 14px;
-  background: linear-gradient(180deg, #111315 0%, #0a0b0c 100%);
+  background: linear-gradient(180deg, #0a0b0c 0%, #050506 100%);
   box-shadow: 0 14px 34px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.055);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -5968,12 +5978,24 @@ input[type="number"] {
 /* Bordes más delicados en toda la fila (pedido de Alejandro, 2026-08-16):
    los círculos −/+, la línea vertical entre Peso y Reps, y el chip de RIR
    bajan de opacidad para acompañar a las líneas de series de arriba, ya
-   casi imperceptibles. El grosor se queda en 1 px — ya era el mínimo. */
+   casi imperceptibles. El grosor se queda en 1 px — ya era el mínimo.
+   El símbolo −/+ en sí también baja de peso (350→280) y de tamaño
+   (27px→21px): a 27px/350 dominaba el botón entero y se leía pesado al
+   lado de un borde tan tenue — el símbolo competía con el borde en vez de
+   acompañarlo. */
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button {
-  min-height: 28px;
-  border-color: rgba(255,255,255,.08);
-  border-radius: 14px;
+  /* El área táctil no se achica junto con el símbolo — 42px queda igual que
+     antes de afinar la tipografía, solo cambia lo que se ve, no lo que se
+     toca. Radio y opacidad de borde igualados al chip de RIR y a Descanso
+     (12px, .07) — antes el círculo −/+ era el único a 14px/.08 de toda la
+     fila, una diferencia mínima pero real entre piezas que deberían leerse
+     como la misma familia. */
+  min-height: 42px;
+  border-color: rgba(255,255,255,.07);
+  border-radius: 12px;
   background: rgba(255,255,255,.02);
+  font-size: calc(21px * var(--escala-texto));
+  font-weight: 280;
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie {
   height: auto;
@@ -6016,7 +6038,13 @@ input[type="number"] {
 .tarjeta-ejercicio-enfocada .fila-rir-navegacion .control-rir-serie { margin-top: 0; }
 .tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir {
   position: absolute;
-  top: calc(50% + 10px);
+  /* Centrado real dentro de la fila (antes +10px la empujaba hacia abajo):
+     con la fila en 84px de alto y la flecha en 79px, ese corrimiento hacía
+     que el área táctil se saliera por debajo y se comiera un pedazo del
+     botón Descanso — tocar cerca del borde inferior de Descanso activaba la
+     flecha en vez de guardar la serie (pedido de Alejandro, 2026-08-16). El
+     tamaño visual de la flecha no cambia, solo dónde queda centrada. */
+  top: 50%;
   display: grid;
   width: 90px;
   height: 79px;
@@ -6067,11 +6095,11 @@ input[type="number"] {
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso {
   min-height: 44px;
   margin-top: 10px;
-  border: 1px solid rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.08);
   border-radius: 12px;
   color: #f1f1f3;
-  background: linear-gradient(100deg, rgba(255,255,255,.055), rgba(255,255,255,.025));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 4px 12px rgba(0,0,0,.12);
+  background: linear-gradient(100deg, rgba(255,255,255,.03), rgba(255,255,255,.012));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 4px 12px rgba(0,0,0,.12);
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="pendiente"] {
   animation: none !important;
@@ -6271,7 +6299,7 @@ input[type="number"] {
   .panel-ejecucion-foco { padding-top: 7px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano { min-height: 84px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input { height: 58px; font-size: calc(42px * var(--escala-texto)); }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 22px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 42px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie { height: auto; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie { margin-top: 8px; padding-top: 4px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso { min-height: 42px; margin-top: 8px; }
@@ -6292,7 +6320,7 @@ input[type="number"] {
   .panel-ejecucion-foco { padding-top: 5px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano { min-height: 71px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input { height: 49px; font-size: calc(37px * var(--escala-texto)); }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 20px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 38px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie { height: auto; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie { margin-top: 6px; padding-top: 3px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso { min-height: 38px; margin-top: 6px; }
@@ -6301,15 +6329,17 @@ input[type="number"] {
 }
 
 /* Registro de series: la cápsula conserva siempre el mismo alto, esté vacía
-   o muestre kilos y repeticiones. De 22px pasa a 13px (≈40% menos alto), y el
-   dato se mantiene en una sola línea para que no vuelva a engrosarla. */
+   o muestre kilos y repeticiones. De 22px a 13px, y de ahí 40% más finas
+   todavía (pedido de Alejandro, 2026-08-16) a 5px — el ancho no se toca, lo
+   controla flex:1 1 0 en el contenedor, no esta regla. El dato se mantiene
+   en una sola línea para que no vuelva a engrosarla. */
 .tarjeta-ejercicio-enfocada .selector-series-movido button,
 .tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] button {
   box-sizing: border-box;
-  height: 8px !important;
-  min-height: 8px !important;
+  height: 5px !important;
+  min-height: 5px !important;
   padding: 0 2px !important;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 .tarjeta-ejercicio-enfocada .selector-series-movido .resumen-registro-serie,
 .tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] .resumen-registro-serie {
@@ -6401,7 +6431,7 @@ input[type="number"] {
 :root .shell-alumno:has(.modo-entrenamiento-enfocado) .panel-aero-inferior {
   border-color: rgba(150, 163, 174, .18) !important;
   border-radius: 12px !important;
-  background: linear-gradient(180deg, #0e1012 0%, #08090a 100%) !important;
+  background: linear-gradient(180deg, #08090a 0%, #030304 100%) !important;
   box-shadow: 0 12px 28px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.045) !important;
 }
 :root .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-aero {
@@ -6515,6 +6545,14 @@ input[type="number"] {
    altura permanece idéntica entre un ejercicio, una biserie y una ronda. */
 :root .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-flotante-sesion button {
   top: 63svh !important;
+  /* El SVG de adentro se sigue viendo igual de alargado (79px + scaleY 2.2,
+     sin overflow:hidden) — lo que se achica acá es solo el ÁREA TÁCTIL del
+     botón, de 79px a 50px. A 63svh + 79px de alto, el borde inferior del
+     botón a veces caía encima del borde superior de "Descanso": tocar cerca
+     del borde de Descanso activaba la flecha en vez de guardar la serie
+     (pedido de Alejandro, 2026-08-16). Con menos alto, el mismo centro vertical
+     deja más margen de los dos lados sin tocar el gesto visual. */
+  height: 50px !important;
 }
 
 /* Reserva un carril real para el menú de ejercicios. El título puede bajar de
