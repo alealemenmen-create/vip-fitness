@@ -5,6 +5,7 @@ import { UploadCloud, Check, X, ImageIcon, Loader2 } from "lucide-react";
 import { subirFotoEjercicio } from "@/app/admin/ejercicios/actions";
 import type { Ejercicio } from "@/lib/ejercicios/tipos";
 import { normalizar } from "@/lib/alimentos/emparejar";
+import { emparejarEjercicio } from "@/lib/ejercicios/emparejar";
 
 type Confianza = "alta" | "revisar" | "sin_match";
 type EstadoFila = "pendiente" | "subiendo" | "ok" | "error";
@@ -21,41 +22,61 @@ type FilaCarga = {
   error: string | null;
 };
 
-/**
- * Empareja el nombre del archivo contra nombre/alias de cada ejercicio, con
- * la misma normalización que ya usa el resto de la app (`normalizar`, de
- * alimentos/emparejar.ts — no hay que inventar una segunda). A diferencia
- * del comparador de texto plano que usaba `firmaPosibleDuplicado`, este SÍ
- * mira los alias completos, que es donde vive la mayoría de los sinónimos
- * reales (inglés, jerga de gimnasio, variantes de escritura).
- *
- * Dedupe por `id`, no por cantidad de coincidencias: un ejercicio cuyo alias
- * repite literalmente su propio nombre (pasa varias veces en la biblioteca)
- * generaba un falso "ambiguo" — el mismo ejercicio contado dos veces no es
- * una ambigüedad real.
- */
-function emparejarPorNombre(nombreArchivo: string, ejercicios: Ejercicio[]): { candidato: string; coincidencias: Ejercicio[] } {
-  const candidato = nombreArchivo
+/** Recorta lo que sobra del nombre de archivo antes de emparejar: extensión,
+ * numeración de prefijo ("025-press-militar.jpg") y separadores. */
+function candidatoDeArchivo(nombreArchivo: string): string {
+  return nombreArchivo
     .replace(/\.(jpg|jpeg|png|webp|heic|heif)$/i, "")
     .replace(/^\d+[-_]/, "")
     .replace(/[_-]/g, " ")
     .trim();
-  const clave = normalizar(candidato);
-  const vistos = new Set<string>();
-  const coincidencias: Ejercicio[] = [];
-  for (const ejercicio of ejercicios) {
-    if (vistos.has(ejercicio.id)) continue;
-    const claves = [ejercicio.nombre, ...ejercicio.aliases].map(normalizar);
-    if (claves.includes(clave)) {
-      vistos.add(ejercicio.id);
-      coincidencias.push(ejercicio);
-    }
-  }
-  return { candidato, coincidencias };
 }
 
-/** Segundo intento, más débil, solo para SUGERIR opciones cuando no hubo
- * coincidencia exacta — nunca se autoaplica, el entrenador elige a mano. */
+/**
+ * Empareja el nombre del archivo con `emparejarEjercicio` — el mismo
+ * comparador que usa el resto de la galería (Mesa, reportes) y el importador
+ * de rutinas, en vez de un segundo matcher propio y más débil.
+ *
+ * Por qué importa reusarlo: `emparejarEjercicio` trae el veto de zona
+ * muscular y equipo (ver `lib/ejercicios/emparejar.ts`) que ya corrigió
+ * colisiones reales en producción — "extensión unilateral" (cuádriceps vs.
+ * tríceps) o "Press inclinado manc." cayendo en la barra. El comparador
+ * anterior de este archivo solo miraba coincidencia de texto exacta y no
+ * tenía ninguno de esos dos vetos: una foto de carga masiva SÍ podía
+ * terminar en el ejercicio equivocado por el mismo motivo que ya se había
+ * arreglado en todos los demás lugares de la app.
+ *
+ * `exacta`/`alta` de `emparejarEjercicio` (coincidencia única, sin ambigüedad)
+ * se preselecciona para "Aplicar todos los seguros"; `media` (coincidencia
+ * por palabras, bajo el umbral de certeza) pide confirmación con una sola
+ * sugerencia. Sin ningún emparejado, cae a `sugerirPorPalabras` — el último
+ * recurso semántico que pide el instructivo, que nunca se autoaplica.
+ */
+function emparejarPorNombreArchivo(
+  nombreArchivo: string,
+  ejercicios: Ejercicio[]
+): { candidato: string; ejercicioId: string | null; confianza: Confianza; sugerencias: Ejercicio[] } {
+  const candidato = candidatoDeArchivo(nombreArchivo);
+  const resultado = emparejarEjercicio(candidato, ejercicios);
+
+  if (resultado && resultado.confianza !== "media") {
+    return { candidato, ejercicioId: resultado.ejercicio.id, confianza: "alta", sugerencias: [] };
+  }
+  if (resultado) {
+    return { candidato, ejercicioId: null, confianza: "revisar", sugerencias: [resultado.ejercicio] };
+  }
+  const sugerencias = sugerirPorPalabras(nombreArchivo, ejercicios);
+  return {
+    candidato,
+    ejercicioId: null,
+    confianza: sugerencias.length > 0 ? "revisar" : "sin_match",
+    sugerencias,
+  };
+}
+
+/** Último recurso semántico (instructivo §8.4, paso 6): solo para SUGERIR
+ * opciones cuando `emparejarEjercicio` no encontró nada — nunca se
+ * autoaplica, el entrenador elige a mano. */
 function sugerirPorPalabras(nombreArchivo: string, ejercicios: Ejercicio[]): Ejercicio[] {
   const tokens = normalizar(nombreArchivo).split(" ").filter((t) => t.length > 3);
   if (tokens.length === 0) return [];
@@ -79,16 +100,14 @@ export function CargaMasivaFotos({ ejercicios }: { ejercicios: Ejercicio[] }) {
   const agregarArchivos = (lista: FileList | null) => {
     if (!lista) return;
     const nuevas: FilaCarga[] = Array.from(lista).map((archivo) => {
-      const { candidato, coincidencias } = emparejarPorNombre(archivo.name, ejercicios);
-      const sugerencias = coincidencias.length > 0 ? coincidencias : sugerirPorPalabras(archivo.name, ejercicios);
-      const confianza: Confianza = coincidencias.length === 1 ? "alta" : sugerencias.length > 0 ? "revisar" : "sin_match";
+      const { candidato, ejercicioId, confianza, sugerencias } = emparejarPorNombreArchivo(archivo.name, ejercicios);
       return {
         id: `${archivo.name}-${archivo.size}-${archivo.lastModified}`,
         archivo,
         previa: URL.createObjectURL(archivo),
         nombreCandidato: candidato,
         confianza,
-        ejercicioId: coincidencias.length === 1 ? coincidencias[0].id : null,
+        ejercicioId,
         sugerencias,
         estado: "pendiente",
         error: null,

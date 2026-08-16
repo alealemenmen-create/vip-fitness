@@ -2162,7 +2162,7 @@ function ModalSubirFoto({
           <EncuadreArrastrable src={imagenAMostrar} nombre="Vista cuadrada del alumno" formato="cuadrado" posicion={cuadrada} onChange={setCuadrada} onError={() => setPreviaRota(true)} />
           <label className="radius-control flex h-10 w-full cursor-pointer items-center justify-center gap-2 border border-border text-caption font-semibold text-text">
             <Camera size={15} /> Elegir o tomar otra foto
-            <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => {
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" className="sr-only" onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void elegirArchivo(f);
             }} />
@@ -2174,11 +2174,11 @@ function ModalSubirFoto({
             <Camera size={26} />
             <span className="text-caption">
               {previaRota
-                ? "No se pudo mostrar esta imagen. Elige una foto JPG o PNG."
+                ? "No se pudo mostrar esta imagen. Elige una foto JPG, PNG o HEIC."
                 : "Toca para elegir una foto"}
             </span>
           </span>
-          <input type="file" accept="image/jpeg,image/png,image/webp" className="absolute inset-0 h-full w-full opacity-0" onChange={(e) => {
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" className="absolute inset-0 h-full w-full opacity-0" onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) void elegirArchivo(f);
           }} />
@@ -2598,7 +2598,7 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
               <Camera size={26} />
               <span className="text-caption">
                 {previaRota
-                  ? "No se pudo mostrar esta imagen. Elige una foto JPG o PNG."
+                  ? "No se pudo mostrar esta imagen. Elige una foto JPG, PNG o HEIC."
                   : "Foto (opcional, se puede subir después)"}
               </span>
             </span>
@@ -2614,7 +2614,7 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
           )}
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
             // Ver comentario del mismo input en el modal de editar: sin
             // "capture" deja elegir entre cámara y galería.
             className="absolute inset-0 h-full w-full opacity-0"
