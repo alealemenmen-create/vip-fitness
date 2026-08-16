@@ -6544,15 +6544,14 @@ input[type="number"] {
 /* Las flechas son un carril de navegación, no una pieza del contenido: su
    altura permanece idéntica entre un ejercicio, una biserie y una ronda. */
 :root .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-flotante-sesion button {
-  top: 63svh !important;
-  /* El SVG de adentro se sigue viendo igual de alargado (79px + scaleY 2.2,
-     sin overflow:hidden) — lo que se achica acá es solo el ÁREA TÁCTIL del
-     botón, de 79px a 50px. A 63svh + 79px de alto, el borde inferior del
-     botón a veces caía encima del borde superior de "Descanso": tocar cerca
-     del borde de Descanso activaba la flecha en vez de guardar la serie
-     (pedido de Alejandro, 2026-08-16). Con menos alto, el mismo centro vertical
-     deja más margen de los dos lados sin tocar el gesto visual. */
-  height: 50px !important;
+  /* Un poco más arriba (61svh, antes 63) y un poco más bajo de alto (38px,
+     antes 50): la posición general no se toca, solo se agranda el colchón
+     contra "Descanso" — tocar el extremo del botón (que es largo, ocupa
+     casi todo el ancho) todavía activaba la flecha en vez de guardar la
+     serie (pedido de Alejandro, 2026-08-16). El trazo visual (79px +
+     scaleY 2.2, sin overflow:hidden) sigue exactamente igual. */
+  top: 61svh !important;
+  height: 38px !important;
 }
 
 /* Reserva un carril real para el menú de ejercicios. El título puede bajar de
