@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useRef, useState, type PointerEvent
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge, CircleAlert, LibraryBig, ClipboardCheck, Undo2, UploadCloud, Wrench, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge, CircleAlert, LibraryBig, ClipboardCheck, Undo2, UploadCloud, Wrench, ChevronLeft, ChevronRight, ShieldCheck, Link2Off, VideoOff, Copy } from "lucide-react";
 import { CargaMasivaFotos } from "@/components/admin/CargaMasivaFotos";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
@@ -595,7 +595,7 @@ export function GaleriaEjercicios({
   // muchísimo para llegar a la biblioteca de fotos. Se reparte en 4 pestañas
   // (sección 8.1 del instructivo de reorganización): Pendientes abre primero
   // si hay trabajo, si no abre Biblioteca directamente.
-  const [pestana, setPestana] = useState<"pendientes" | "mesa" | "biblioteca" | "carga" | "referencia">(
+  const [pestana, setPestana] = useState<"pendientes" | "mesa" | "biblioteca" | "carga" | "calidad" | "referencia">(
     reportes.length > 0 ? "pendientes" : "biblioteca"
   );
   // Las tarjetas de resumen de la página enlazan con #anclas a secciones
@@ -679,6 +679,36 @@ export function GaleriaEjercicios({
       })
       .sort((a, b) => a[0].nombre.localeCompare(b[0].nombre, "es", { sensitivity: "base" }));
   }, [ejercicios, usosPorEjercicio, paresEnDisputa]);
+  // Chequeo determinista (instructivo 8.5, "foto que ya está asignada a otro
+  // ejercicio"): dos ejercicios distintos apuntando exactamente a la misma
+  // URL de Storage casi siempre es un error de carga, no una coincidencia.
+  const fotosCompartidas = useMemo(() => {
+    const porUrl = new Map<string, Ejercicio[]>();
+    for (const ejercicio of ejercicios) {
+      for (const url of [ejercicio.fotoMiniaturaUrl, ejercicio.fotoCompletaUrl]) {
+        if (!url) continue;
+        const lista = porUrl.get(url) ?? [];
+        if (!lista.some((item) => item.id === ejercicio.id)) lista.push(ejercicio);
+        porUrl.set(url, lista);
+      }
+    }
+    const vistos = new Set<string>();
+    const grupos: { url: string; ejercicios: Ejercicio[] }[] = [];
+    for (const [url, lista] of porUrl) {
+      if (lista.length < 2) continue;
+      const clave = lista.map((item) => item.id).sort().join(":");
+      if (vistos.has(clave)) continue;
+      vistos.add(clave);
+      grupos.push({ url, ejercicios: lista });
+    }
+    return grupos.sort((a, b) => a.ejercicios[0].nombre.localeCompare(b.ejercicios[0].nombre, "es", { sensitivity: "base" }));
+  }, [ejercicios]);
+  // "video con error" (instructivo 8.5): estado persistido en la fila, no
+  // hace falta ninguna comprobación nueva del lado del cliente.
+  const videosConError = useMemo(
+    () => ejercicios.filter((e) => e.videoCloudflareEstado === "error").sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })),
+    [ejercicios],
+  );
   const reportesAgrupados = useMemo(() => {
     const grupos = new Map<string, {
       ids: string[];
@@ -713,7 +743,13 @@ export function GaleriaEjercicios({
     return Array.from(grupos.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
   }, [reportes, ejercicios]);
 
-  const pendientesCantidad = reportesAgrupados.length + gruposDuplicados.length + aliasEnDisputa.length;
+  const pendientesCantidad = reportesAgrupados.length;
+  // Los nombres de rutina sin vincular quedan fuera de esta cuenta a
+  // propósito: son un backlog de fondo (decenas o cientos, normal en
+  // cualquier momento), no defectos activos. Meterlos acá volvería la
+  // insignia de la pestaña una alarma falsa ("173 problemas") en vez de una
+  // señal real de calidad.
+  const calidadCantidad = gruposDuplicados.length + aliasEnDisputa.length + fotosCompartidas.length + videosConError.length + erroresFoto.size;
 
   const reportesPorEjercicio = useMemo(() => {
     const conteo: Record<string, number> = {};
@@ -756,6 +792,7 @@ export function GaleriaEjercicios({
             { id: "mesa" as const, etiqueta: "Mesa", Icon: Wrench, cantidad: faltanPorCompletar },
             { id: "biblioteca" as const, etiqueta: "Biblioteca", Icon: LibraryBig, cantidad: ejercicios.length },
             { id: "carga" as const, etiqueta: "Carga masiva", Icon: UploadCloud, cantidad: null },
+            { id: "calidad" as const, etiqueta: "Calidad", Icon: ShieldCheck, cantidad: calidadCantidad },
             { id: "referencia" as const, etiqueta: "Referencia", Icon: ClipboardCheck, cantidad: null },
           ]
         ).map(({ id, etiqueta, Icon, cantidad }) => {
@@ -781,40 +818,11 @@ export function GaleriaEjercicios({
         })}
       </div>
 
-      {pestana === "pendientes" && reportes.length === 0 && gruposDuplicados.length === 0 && aliasEnDisputa.length === 0 && (
+      {pestana === "pendientes" && reportes.length === 0 && (
         <Card padding="p-4" className="text-center">
           <p className="text-caption font-semibold text-text">Sin pendientes ahora mismo</p>
-          <p className="text-micro mt-1 text-text-tertiary">Ningún reporte de foto ni duplicado por revisar.</p>
+          <p className="text-micro mt-1 text-text-tertiary">Ningún reporte de foto por revisar.</p>
         </Card>
-      )}
-
-      {pestana === "pendientes" && aliasEnDisputa.length > 0 && (
-        <section className="space-y-2 rounded-[20px] border border-warning/45 bg-warning/5 p-3">
-          <div className="flex items-center gap-2">
-            <span className="grid size-8 place-items-center rounded-full bg-warning/15 text-warning">
-              <TriangleAlert size={17} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="text-caption block font-bold text-text">Nombres en disputa</span>
-              <span className="text-micro block text-text-tertiary">Un mismo alias en dos ejercicios distintos</span>
-            </span>
-            <span className="rounded-full bg-warning/15 px-2 py-1 text-micro font-bold text-warning">{aliasEnDisputa.length}</span>
-          </div>
-          <p className="text-micro text-text-tertiary">
-            Estos <strong className="text-text">no son duplicados</strong>: son dos ejercicios reales que comparten una palabra.
-            Elige de quién es y el otro la suelta — no se combina ni se borra nada.
-          </p>
-          <div className="space-y-2">
-            {aliasEnDisputa.map((disputa) => (
-              <AliasEnDisputaCard
-                key={`${disputa.alias}:${disputa.ejercicios.map((e) => e.id).join(":")}`}
-                alias={disputa.alias}
-                ejercicios={disputa.ejercicios}
-                usosPorEjercicio={usosPorEjercicio}
-              />
-            ))}
-          </div>
-        </section>
       )}
 
       {pestana === "pendientes" && reportes.length > 0 && (
@@ -890,7 +898,114 @@ export function GaleriaEjercicios({
         </Card>
       )}
 
-      {pestana === "pendientes" && gruposDuplicados.length > 0 && (
+      {pestana === "calidad" && calidadCantidad === 0 && nombresRutinaSinVincular.length === 0 && (
+        <Card padding="p-4" className="text-center">
+          <p className="text-caption font-semibold text-text">Sin problemas de calidad detectados</p>
+          <p className="text-micro mt-1 text-text-tertiary">Ni duplicados, ni alias en disputa, ni medios rotos, ni nombres sin vincular.</p>
+        </Card>
+      )}
+
+      {pestana === "calidad" && aliasEnDisputa.length > 0 && (
+        <section className="space-y-2 rounded-[20px] border border-warning/45 bg-warning/5 p-3">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-warning/15 text-warning">
+              <TriangleAlert size={17} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="text-caption block font-bold text-text">Nombres en disputa</span>
+              <span className="text-micro block text-text-tertiary">Un mismo alias en dos ejercicios distintos</span>
+            </span>
+            <span className="rounded-full bg-warning/15 px-2 py-1 text-micro font-bold text-warning">{aliasEnDisputa.length}</span>
+          </div>
+          <p className="text-micro text-text-tertiary">
+            Estos <strong className="text-text">no son duplicados</strong>: son dos ejercicios reales que comparten una palabra.
+            Elige de quién es y el otro la suelta — no se combina ni se borra nada.
+          </p>
+          <div className="space-y-2">
+            {aliasEnDisputa.map((disputa) => (
+              <AliasEnDisputaCard
+                key={`${disputa.alias}:${disputa.ejercicios.map((e) => e.id).join(":")}`}
+                alias={disputa.alias}
+                ejercicios={disputa.ejercicios}
+                usosPorEjercicio={usosPorEjercicio}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pestana === "calidad" && fotosCompartidas.length > 0 && (
+        <section className="space-y-2 rounded-[20px] border border-error/40 bg-error/5 p-3">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-error/15 text-error"><Copy size={16} /></span>
+            <span className="min-w-0 flex-1"><span className="text-caption block font-bold text-text">Foto compartida entre ejercicios</span><span className="text-micro block text-text-tertiary">La misma imagen quedó asignada a más de uno</span></span>
+            <span className="rounded-full bg-error/15 px-2 py-1 text-micro font-bold text-error">{fotosCompartidas.length}</span>
+          </div>
+          <p className="text-micro text-text-tertiary">Casi siempre es un error de carga: revisa cuál de los dos es el dueño real y vuelve a subir la foto del otro.</p>
+          <div className="space-y-2">
+            {fotosCompartidas.map((grupo) => (
+              <div key={grupo.url} className="radius-control flex items-center gap-2.5 border border-border bg-surface p-2.5">
+                <div className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-surface-2">
+                  <Image src={grupo.url} alt="Foto compartida" fill sizes="48px" className="object-cover" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  {grupo.ejercicios.map((ejercicio) => (
+                    <button key={ejercicio.id} type="button" onClick={() => setEditando(ejercicio)} className="text-caption block truncate font-semibold text-text underline decoration-dotted underline-offset-2">
+                      {ejercicio.nombre}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pestana === "calidad" && videosConError.length > 0 && (
+        <section className="space-y-2 rounded-[20px] border border-error/40 bg-error/5 p-3">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-error/15 text-error"><VideoOff size={16} /></span>
+            <span className="min-w-0 flex-1"><span className="text-caption block font-bold text-text">Videos con error</span><span className="text-micro block text-text-tertiary">Cloudflare no pudo procesar el video</span></span>
+            <span className="rounded-full bg-error/15 px-2 py-1 text-micro font-bold text-error">{videosConError.length}</span>
+          </div>
+          <div className="space-y-1.5">
+            {videosConError.map((ejercicio) => (
+              <button key={ejercicio.id} type="button" onClick={() => setEditando(ejercicio)} className="radius-control flex w-full items-center justify-between border border-border bg-surface px-2.5 py-2 text-left">
+                <span className="text-caption font-semibold text-text">{ejercicio.nombre}</span>
+                <span className="text-micro font-semibold text-error">Volver a subir</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pestana === "calidad" && erroresFoto.size > 0 && (
+        <section className="space-y-2 rounded-[20px] border border-error/40 bg-error/5 p-3">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-error/15 text-error"><Link2Off size={16} /></span>
+            <span className="min-w-0 flex-1"><span className="text-caption block font-bold text-text">URLs de foto rotas</span><span className="text-micro block text-text-tertiary">Detectadas en esta sesión al navegar la galería — puede haber más sin visitar</span></span>
+            <span className="rounded-full bg-error/15 px-2 py-1 text-micro font-bold text-error">{erroresFoto.size}</span>
+          </div>
+          <div className="space-y-1.5">
+            {ejercicios.filter((e) => erroresFoto.has(e.id)).map((ejercicio) => (
+              <button key={ejercicio.id} type="button" onClick={() => setEditando(ejercicio)} className="radius-control flex w-full items-center justify-between border border-border bg-surface px-2.5 py-2 text-left">
+                <span className="text-caption font-semibold text-text">{ejercicio.nombre}</span>
+                <span className="text-micro font-semibold text-error">Volver a subir</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pestana === "calidad" && nombresRutinaSinVincular.length > 0 && (
+        <details className="rounded-[20px] border border-warning/35 bg-warning/5 p-3" open>
+          <summary className="cursor-pointer text-caption font-semibold text-warning">{nombresRutinaSinVincular.length} nombres de rutinas todavía sin enlazar a la galería</summary>
+          <p className="text-micro mt-1 text-text-tertiary">Abre un nombre, busca el ejercicio base y vincúlalo. Se corrigen todas sus apariciones y queda como alias para el futuro.</p>
+          <div className="mt-2">{nombresRutinaSinVincular.map((item) => <VincularNombreRutina key={item.nombre} item={item} ejercicios={ejerciciosAlfabeticos} />)}</div>
+        </details>
+      )}
+
+      {pestana === "calidad" && gruposDuplicados.length > 0 && (
         <details className="rounded-[20px] border border-warning/40 bg-warning/5 p-3">
           <summary className="flex cursor-pointer list-none items-center gap-2">
             <span className="grid size-8 place-items-center rounded-full bg-warning/15 text-warning"><Merge size={16} /></span>
@@ -927,7 +1042,7 @@ export function GaleriaEjercicios({
         </details>
       )}
 
-      {pestana === "pendientes" && historialFusiones.length > 0 && (
+      {pestana === "calidad" && historialFusiones.length > 0 && (
         <details className="rounded-[20px] border border-border bg-surface p-3">
           <summary className="flex cursor-pointer list-none items-center gap-2">
             <span className="grid size-8 place-items-center rounded-full bg-surface-2 text-text-secondary"><Undo2 size={16} /></span>
@@ -984,14 +1099,7 @@ export function GaleriaEjercicios({
               );
             })}
           </div>
-          {nombresRutinaSinVincular.length > 0 && (
-            <details className="mt-3 rounded-xl border border-warning/35 bg-warning/5 p-3">
-              <summary className="cursor-pointer text-caption font-semibold text-warning">{nombresRutinaSinVincular.length} nombres de rutinas todavía sin enlazar a la galería</summary>
-              <p className="text-micro mt-1 text-text-tertiary">Abre un nombre, busca el ejercicio base y vincúlalo. Se corrigen todas sus apariciones y queda como alias para el futuro.</p>
-              <div className="mt-2">{nombresRutinaSinVincular.map((item) => <VincularNombreRutina key={item.nombre} item={item} ejercicios={ejerciciosAlfabeticos} />)}</div>
-            </details>
-          )}
-          <p className="text-micro mt-2 text-text-tertiary">Toca cualquier nombre para abrir su foto y sus datos. Los nombres de rutina se muestran tal como fueron escritos; el encabezado siempre usa el nombre oficial de la base.</p>
+          <p className="text-micro mt-2 text-text-tertiary">Toca cualquier nombre para abrir su foto y sus datos. Los nombres de rutinas sin vincular ahora viven en la pestaña Calidad.</p>
         </details>
       )}
 
