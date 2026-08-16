@@ -14,14 +14,7 @@ import { Crown, Zap } from "lucide-react";
  * El título es opcional y acepta JSX: "Entrenamiento VIP" lleva el VIP en el
  * color de acento, igual que antes cuando era un <h1> aparte.
  */
-const RUTAS_COMPACTAS: [ruta: string, titulo?: ReactNode][] = [
-  [
-    "/alumno/ranked",
-    <>
-      Puntos <span className="text-vip">VIP</span>
-    </>,
-  ],
-];
+const RUTAS_COMPACTAS: [ruta: string, titulo?: ReactNode][] = [];
 
 /**
  * Pantallas con el cabezal universal: escudo hexagonal + título estático +
@@ -52,6 +45,17 @@ const RUTAS_CABECERA_HEXAGONAL: [ruta: string, titulo: ReactNode, prefijo?: bool
   // afecta el pathname). `/alumno/progreso/imprimir` es una pantalla propia
   // y aparte, pensada para verse sin el shell del alumno encima.
   ["/alumno/progreso", "Mi avance"],
+  // Ranked es la excepción iluminada del portal (instructivo §9), pero eso
+  // se queda contenido en `.ranked-casino` (el contenido de la pantalla, ya
+  // construido desde el 2026-08-12 — halo, diamante, tabla). El cabezal en
+  // sí es el mismo sobrio de siempre: "el brillo vive dentro del contenido
+  // Ranked; el cabezal y la barra no se transforman en neón".
+  [
+    "/alumno/ranked",
+    <>
+      Puntos <span className="text-vip">VIP</span>
+    </>,
+  ],
 ];
 
 /**
