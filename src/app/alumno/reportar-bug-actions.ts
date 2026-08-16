@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
+import { crearNotificacionEntrenador } from "@/lib/notificaciones/crear";
 
 export type ReportarBugState = { error: string | null; ok: boolean };
 
@@ -67,6 +68,15 @@ export async function reportarBug(
   if (error) {
     return { error: "No pudimos enviar tu reporte. Revisa tu conexión e intenta nuevamente.", ok: false };
   }
+
+  await crearNotificacionEntrenador({
+    tipo: "bug",
+    alumnoId,
+    titulo: "Nueva falla reportada",
+    cuerpo: descripcion.slice(0, 140),
+    prioridad: "alta",
+    ruta: "/admin/reportes",
+  });
 
   revalidatePath("/admin/reportes");
   return { error: null, ok: true };

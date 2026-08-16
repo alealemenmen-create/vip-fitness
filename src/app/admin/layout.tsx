@@ -14,6 +14,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ZoomPanel } from "@/components/admin/ZoomPanel";
 import { AlternarPanelLateral } from "@/components/admin/AlternarPanelLateral";
 import { obtenerResumenAlertasGastos } from "@/lib/gastos/data";
+import { contarNotificacionesSinLeer } from "@/lib/notificaciones/data";
+import { CampanaNotificaciones } from "@/components/admin/CampanaNotificaciones";
 import { AlertTriangle } from "lucide-react";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -35,6 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { count: solicitudesPendientes },
     novedades,
     gastosAlerta,
+    notificacionesSinLeer,
   ] = await Promise.all([
     miAlumnoPerfilPromise,
     supabase
@@ -51,6 +54,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     // mandar título/resumen de todas al cliente en cada carga del panel.
     registroDespliegue.then(() => obtenerNovedades(10)),
     obtenerResumenAlertasGastos(),
+    contarNotificacionesSinLeer(),
   ]);
 
   const badges = {
@@ -148,6 +152,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <Dumbbell size={15} /> <span className="hidden min-[380px]:inline">Mi rutina</span>
             </Link>
           )}
+          <CampanaNotificaciones sinLeer={notificacionesSinLeer} />
           <Link
             href="/admin/asistente"
             aria-label="Abrir Asistente VIP"

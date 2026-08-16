@@ -2048,6 +2048,34 @@ export interface Database {
         };
         Relationships: [];
       };
+      // 0097_notificaciones_entrenador.sql — bandeja + push del entrenador.
+      notificaciones_entrenador: {
+        Row: {
+          id: string;
+          tipo: string;
+          alumno_id: string | null;
+          titulo: string;
+          cuerpo: string;
+          prioridad: string;
+          ruta: string | null;
+          clave_dedup: string | null;
+          leida_en: string | null;
+          creado_en: string;
+        };
+        Insert: {
+          tipo: string;
+          alumno_id?: string | null;
+          titulo: string;
+          cuerpo: string;
+          prioridad?: string;
+          ruta?: string | null;
+          clave_dedup?: string | null;
+        };
+        Update: {
+          leida_en?: string | null;
+        };
+        Relationships: [];
+      };
       // 0096_resenas_app.sql — estrellas + sugerencia libre desde el perfil
       // del alumno.
       resenas_app: {

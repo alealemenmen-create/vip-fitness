@@ -40,10 +40,14 @@ export default async function ReportesBugsPage() {
   }
 
   const idsAlumnos = [...new Set((filas ?? []).map((f) => f.alumno_id))];
-  const { data: perfiles } = idsAlumnos.length
-    ? await supabase.from("perfiles").select("id, nombre").in("id", idsAlumnos)
-    : { data: [] };
+  const [{ data: perfiles }, { data: telefonos }] = idsAlumnos.length
+    ? await Promise.all([
+        supabase.from("perfiles").select("id, nombre").in("id", idsAlumnos),
+        supabase.from("alumno_perfil").select("user_id, telefono").in("user_id", idsAlumnos),
+      ])
+    : [{ data: [] }, { data: [] }];
   const nombres = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
+  const telefonoPorId = new Map((telefonos ?? []).map((t) => [t.user_id, t.telefono]));
 
   // Las capturas viven en un bucket PRIVADO: hay que firmar cada URL. Se
   // firman todas de una sola llamada — una por reporte serían 100 idas y
@@ -59,6 +63,7 @@ export default async function ReportesBugsPage() {
   const reportes: ReporteBug[] = (filas ?? []).map((f) => ({
     id: f.id,
     alumnoNombre: nombreAlumnoPublicado(nombres.get(f.alumno_id) ?? "Alumno"),
+    alumnoTelefono: telefonoPorId.get(f.alumno_id) ?? null,
     ruta: f.ruta,
     descripcion: f.descripcion,
     capturaUrl: f.captura_path ? (urlPorRuta.get(f.captura_path) ?? null) : null,

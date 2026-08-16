@@ -91,3 +91,36 @@ export async function avisarATodosLosAlumnos(
     // Sin push configurado o sin red: la competencia sigue su curso igual.
   }
 }
+
+/**
+ * Avisa al entrenador (rol `entrenador`/`admin`). Reusa `push_suscripciones`
+ * — está indexada por `alumno_id`, y el entrenador que usa esta app tiene
+ * también un `alumno_perfil` propio (cuenta dual), así que su suscripción
+ * ya vive ahí si se suscribió alguna vez desde el lado alumno. Si ninguno
+ * la tiene todavía, no manda nada — la notificación igual queda en la
+ * bandeja (`notificaciones_entrenador`), el push es un extra.
+ */
+export async function avisarAlEntrenador(payload: PayloadPush): Promise<void> {
+  try {
+    if (!vapidListo()) return;
+    const admin = createAdminClient();
+
+    const { data: entrenadores } = await admin
+      .from("perfiles")
+      .select("id")
+      .in("rol", ["entrenador", "admin"]);
+    const idsEntrenadores = (entrenadores ?? []).map((p) => p.id);
+    if (idsEntrenadores.length === 0) return;
+
+    const { data: suscripciones } = await admin
+      .from("push_suscripciones")
+      .select("endpoint, p256dh, auth, alumno_id")
+      .in("alumno_id", idsEntrenadores);
+    if (!suscripciones || suscripciones.length === 0) return;
+
+    await Promise.all(suscripciones.map((sub) => enviarPush(admin, sub, payload)));
+  } catch {
+    // El aviso ya quedó en la bandeja; el push es un extra que no puede
+    // tumbar la acción que lo disparó (reportar un bug, mandar una reseña...).
+  }
+}

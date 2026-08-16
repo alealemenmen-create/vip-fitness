@@ -1,9 +1,10 @@
-import { Star } from "lucide-react";
+import { MessageCircle, Star } from "lucide-react";
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { Card } from "@/components/ui/Card";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
+import { linkWhatsApp } from "@/lib/generador-rutinas/whatsapp";
 
 export default async function ResenasAppPage() {
   await requireRol(["entrenador", "admin"]);
@@ -38,10 +39,14 @@ export default async function ResenasAppPage() {
   }
 
   const idsAlumnos = [...new Set((filas ?? []).map((f) => f.alumno_id))];
-  const { data: perfiles } = idsAlumnos.length
-    ? await supabase.from("perfiles").select("id, nombre").in("id", idsAlumnos)
-    : { data: [] };
+  const [{ data: perfiles }, { data: telefonos }] = idsAlumnos.length
+    ? await Promise.all([
+        supabase.from("perfiles").select("id, nombre").in("id", idsAlumnos),
+        supabase.from("alumno_perfil").select("user_id, telefono").in("user_id", idsAlumnos),
+      ])
+    : [{ data: [] }, { data: [] }];
   const nombres = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
+  const telefonoPorId = new Map((telefonos ?? []).map((t) => [t.user_id, t.telefono]));
 
   const resenas = filas ?? [];
   const promedio = resenas.length
@@ -89,9 +94,27 @@ export default async function ResenasAppPage() {
                     {new Date(r.creado_en).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" })}
                   </span>
                 </div>
-                <p className="text-caption mt-1.5 font-semibold text-text">
-                  {nombreAlumnoPublicado(nombres.get(r.alumno_id) ?? "Alumno")}
-                </p>
+                <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <p className="text-caption font-semibold text-text">
+                    {nombreAlumnoPublicado(nombres.get(r.alumno_id) ?? "Alumno")}
+                  </p>
+                  {(() => {
+                    const telefono = telefonoPorId.get(r.alumno_id);
+                    const wa = telefono ? linkWhatsApp(telefono) : null;
+                    if (!wa) return null;
+                    return (
+                      <a
+                        href={wa}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Escribirle por WhatsApp a ${nombreAlumnoPublicado(nombres.get(r.alumno_id) ?? "el alumno")}`}
+                        className="grid size-8 shrink-0 place-items-center rounded-full bg-success/15 text-success"
+                      >
+                        <MessageCircle size={15} />
+                      </a>
+                    );
+                  })()}
+                </div>
                 {r.sugerencia && <p className="text-caption mt-1 text-text-secondary">{r.sugerencia}</p>}
               </Card>
             ))}
