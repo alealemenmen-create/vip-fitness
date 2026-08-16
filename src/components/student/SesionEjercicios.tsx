@@ -488,7 +488,11 @@ export function SesionEjercicios({
               disabled={!grupoAnterior}
               aria-label="Ejercicio anterior"
             >
-              <ChevronsLeft size={79} strokeWidth={0.45} />
+              {/* strokeWidth más fino (pedido de Alejandro, 2026-08-16): la
+                  elongación vertical vive en CSS (`.navegacion-flotante-sesion
+                  svg { transform: scaleY(2.2) }`), no acá — así no hay que
+                  tocar el `size` ni el layout del botón. */}
+              <ChevronsLeft size={79} strokeWidth={0.32} />
             </button>
             <button
               type="button"
@@ -497,7 +501,7 @@ export function SesionEjercicios({
               aria-label="Siguiente ejercicio"
               data-aviso-siguiente={avisandoSiguienteEjercicio ? "true" : undefined}
             >
-              <ChevronsRight size={79} strokeWidth={0.45} />
+              <ChevronsRight size={79} strokeWidth={0.32} />
             </button>
           </nav>
 

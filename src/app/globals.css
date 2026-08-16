@@ -5475,32 +5475,47 @@ input[type="number"] {
   border-radius: 0;
   /* Casi imperceptibles: pedido de Alejandro (2026-08-16) — al 62% de blanco,
      con brillo y con un balanceo permanente, las dos flechas eran lo primero
-     que se veía de la pantalla y le rompían el diseño. Bajan a .13, pierden
+     que se veía de la pantalla y le rompían el diseño. Bajan a .07, pierden
      el brillo y dejan de moverse solas. El área táctil (90 × 79 px) NO se
      toca: se ven menos, se tocan igual. */
-  color: rgba(255,255,255,.13);
+  color: rgba(255,255,255,.07);
   background: transparent;
   box-shadow: none;
   pointer-events: auto;
   transform: translateY(-50%);
+  /* Sin `overflow: hidden`, a propósito: el SVG de adentro se estira 120%
+     verticalmente (ver `.navegacion-flotante-sesion svg`) y tiene que
+     asomarse sobre PESO/REPETICIONES y "Descanso" para leerse alargado — es
+     lo que se pidió. Al 7% de blanco no compite con ese texto; el área
+     táctil del botón (90 × 79 px) no crece con la flecha. */
 }
+/* Pegadas al borde de la pantalla, no `-14px` afuera de ella: con el corrimiento
+   negativo de antes, la mitad del glifo quedaba directamente fuera del
+   viewport — "las flechas se salen de la pantalla", pedido de Alejandro
+   (2026-08-16). El botón entero (90 px de área táctil) sigue siendo el mismo,
+   solo que ahora arranca en el borde en vez de siete pasarlo. */
 .navegacion-flotante-sesion button:first-child {
-  left: -14px;
+  left: 0;
 }
 .navegacion-flotante-sesion button:last-child {
-  right: -14px;
+  right: 0;
 }
 .navegacion-flotante-sesion button:disabled { opacity: .28; }
 /* Se enciende solo mientras el dedo la está tocando: la flecha sigue siendo
    descubrible sin vivir prendida. */
 .navegacion-flotante-sesion button:not(:disabled):active {
-  color: rgba(255,255,255,.5);
+  color: rgba(255,255,255,.4);
 }
+/* Más finas (stroke 0.32, antes 0.45 — ver el `strokeWidth` en
+   SesionEjercicios.tsx) y un 120% más largas VERTICALMENTE únicamente:
+   `scaleY` no toca el ancho, así que el gesto sigue leyéndose como "doble
+   flecha" y no como una mancha. Pedido de Alejandro (2026-08-16). */
 .navegacion-flotante-sesion svg {
   width: 79px;
   height: 79px;
   filter: none;
   animation: none;
+  transform: scaleY(2.2);
 }
 /* Al cerrar la última serie no aparece otra flecha debajo de la tarjeta: la
    misma señal vive en la doble flecha que ya lleva al ejercicio siguiente.
@@ -5950,23 +5965,27 @@ input[type="number"] {
   height: 74px;
   font-size: calc(50px * var(--escala-texto));
 }
+/* Bordes más delicados en toda la fila (pedido de Alejandro, 2026-08-16):
+   los círculos −/+, la línea vertical entre Peso y Reps, y el chip de RIR
+   bajan de opacidad para acompañar a las líneas de series de arriba, ya
+   casi imperceptibles. El grosor se queda en 1 px — ya era el mínimo. */
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button {
   min-height: 28px;
-  border-color: rgba(255,255,255,.13);
+  border-color: rgba(255,255,255,.08);
   border-radius: 14px;
-  background: rgba(255,255,255,.025);
+  background: rgba(255,255,255,.02);
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie {
   height: auto;
   align-self: stretch;
-  background: rgba(255,255,255,.09);
+  background: rgba(255,255,255,.05);
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie {
   grid-template-columns: auto 30px 28px 30px;
   min-height: 36px;
   margin-top: 11px;
   padding: 4px 8px;
-  border: 1px solid rgba(255,255,255,.11);
+  border: 1px solid rgba(255,255,255,.07);
   border-radius: 12px;
   background: rgba(255,255,255,.018);
 }
@@ -5992,7 +6011,7 @@ input[type="number"] {
   justify-content: center;
   margin-top: 11px;
   padding: 7px 0 0;
-  border-top: 1px solid rgba(255,255,255,.07);
+  border-top: 1px solid rgba(255,255,255,.05);
 }
 .tarjeta-ejercicio-enfocada .fila-rir-navegacion .control-rir-serie { margin-top: 0; }
 .tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir {
@@ -6030,10 +6049,13 @@ input[type="number"] {
   0%, 100% { transform: translateX(-1px); opacity: .56; }
   50% { transform: translateX(3px); opacity: 1; }
 }
+/* `scaleY(2.2)` se repite en cada paso: un `transform` de keyframe
+   REEMPLAZA al de la regla estática, así que sin combinarlos acá la flecha
+   perdía su elongación vertical apenas arrancaba a pulsar. */
 @keyframes aviso-siguiente-derecha {
-  0%, 100% { transform: translateX(-1px); opacity: .6; }
-  48% { transform: translateX(9px); opacity: 1; }
-  64% { transform: translateX(7px); opacity: 1; }
+  0%, 100% { transform: translateX(-1px) scaleY(2.2); opacity: .6; }
+  48% { transform: translateX(9px) scaleY(2.2); opacity: 1; }
+  64% { transform: translateX(7px) scaleY(2.2); opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   .onda-progreso-lenta { animation: none; }
@@ -6045,7 +6067,7 @@ input[type="number"] {
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso {
   min-height: 44px;
   margin-top: 10px;
-  border: 1px solid rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.1);
   border-radius: 12px;
   color: #f1f1f3;
   background: linear-gradient(100deg, rgba(255,255,255,.055), rgba(255,255,255,.025));
@@ -6314,12 +6336,25 @@ input[type="number"] {
   width: 7px;
   height: 7px;
 }
+/* Sin número ni check debajo de cada línea (pedido de Alejandro,
+   2026-08-16): "ya no quiero nada ahí abajo, solo déjalas líneas". El estado
+   de cada serie lo sigue diciendo el color/relleno de la línea misma
+   (pendiente/actual/completa, ver los `[data-estado]` de arriba) y el
+   `aria-label` del botón, que ya incluye "completada" o "con Impulso VIP" —
+   nada de eso dependía de este texto, así que no se pierde información, ni
+   para lectores de pantalla. */
+.tarjeta-ejercicio-enfocada .selector-series-movido .etiqueta-serie-indicador {
+  display: none;
+}
 /* Pendiente o en curso: cápsula vacía. Solo una serie realizada rellena su
-   color; la excepción es Impulso VIP, que conserva su señal morada activa. */
+   color; la excepción es Impulso VIP, que conserva su señal morada activa.
+   El borde pasa de un gris sólido (#35383d, opaco) a blanco translúcido —
+   más delicado, en línea con el resto de los controles de esta fila
+   (pedido de Alejandro, 2026-08-16). */
 .tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="pendiente"],
 .tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="actual"]:not([data-especial="true"]) {
   color: #85898f;
-  border-color: #35383d;
+  border-color: rgba(255,255,255,.1);
   background: #1c1f23;
   box-shadow: none;
 }
