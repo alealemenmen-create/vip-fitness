@@ -6,8 +6,14 @@ Rama: `feature/portal-vip-premium-inicio`
 
 ## Punto de regreso
 
-- **Nada está commiteado.** Todo el trabajo de esta sesión vive en el árbol de
-  trabajo, encima de los cambios que Alejandro ya tenía sin commitear (Inicio y
+- **Commiteado y pusheado a `origin/feature/portal-vip-premium-inicio`**, en
+  tres commits (`c89217a` alumno/entrenar/sesión, `e3a0548` panel del
+  entrenador, `d90ae75` este handoff, más el rescate de la rama vieja arriba,
+  sin commitear todavía al momento de escribir esto). **Sin PR abierto a
+  propósito** — ver [[pr-al-final-del-trabajo]] en memoria: se pushea seguido
+  para respaldo, el PR se abre recién cuando el bloque completo esté listo.
+- Todo el trabajo de esta sesión vive encima de los cambios que Alejandro ya
+  tenía sin commitear (Inicio y
   el cabezal hexagonal). No se hizo push ni despliegue.
 - Migraciones: **ninguna nueva**. Sigue aplicado hasta
   `0093_ejercicio_fusiones_historial`.
@@ -195,14 +201,39 @@ arriba a la derecha, que ahí sí está libre.
 2. **Fase 3 del panel: Galería como flujo de producción** — las cuatro vistas
    (Pendientes / Biblioteca / Carga masiva / Calidad). La Mesa de trabajo del
    handoff 1.28 ya cubre buena parte.
-3. **Fase 2 del panel: ficha del alumno con pestañas** — sigue siendo una sola
-   columna larguísima.
+3. ~~Fase 2 del panel: ficha del alumno con pestañas~~ **Corrección: ya estaba
+   hecha.** El punto anterior de este handoff decía que faltaba; es un error.
+   `FichaAlumnoTabs.tsx` (commit `92694be`, 2026-08-15, ya en `main`) reparte
+   la ficha en las 7 pestañas exactas del instructivo §7.5 — Resumen, Plan y
+   rutina, Actividad, Nutrición, Comunicación, Documentos, Cuenta. Esta
+   sesión solo le cambió el acabado de los chips (de `bg-vip text-black` al
+   dorado `.ficha-panel` del sistema nuevo), rescatado al comparar contra
+   `agent/reorganizar-panel-admin` (ver más abajo).
 4. **`/admin/auditoria`** puede renderizar más de 150 botones en una vista.
 5. En pantallas de 812 px o menos la sesión activa todavía necesita ~59 px de
    scroll. Para cerrarlo del todo hay que achicar el bloque de "SIGUIENTE" o el
    título, que hoy fijan un piso de 135 px en la columna derecha.
 6. Alejandro mandó una **foto de gimnasio** (abdominales en colchoneta) sin
    texto. Quedó sin usar: hay que preguntarle si es para la galería.
+
+## Rescate de `origin/agent/reorganizar-panel-admin`
+
+Rama vieja (un commit, `c6bf2ed`, 2026-08-08, sin PR abierto, probablemente de
+Codex en otra máquina) que también tocaba Alumnos/Configuración/ficha.
+Alejandro pidió explícitamente: **no tocar el diseño nuevo, solo rescatar
+buenas ideas sueltas de ahí.** Se revisó el diff completo contra `main` (sin
+mergear ni abrir la rama) y se rescataron dos cosas, ambas ya aplicadas:
+
+- El estilo de `FichaAlumnoTabs` (punto 3 de arriba).
+- **"Equipo de entrenadores"** en `/admin/alumnos` pasa de sección siempre
+  abierta a `GavetaConfig` plegada — gestionar el equipo no es la tarea de
+  esa pantalla, no necesita ocupar espacio propio debajo del directorio.
+
+Lo que **no** se rescató: el resto del diff de esa rama (agrupar
+Configuración por tema, plegar `SugerenciasHoy` por defecto) quedó sin tocar
+por acotar el alcance — son mejoras menores, de bajo riesgo, que se pueden
+retomar de la misma rama si hace falta. La rama en sí **sigue sin abrirse ni
+mergearse**; solo se inspeccionó.
 
 ## Notas para retomar
 

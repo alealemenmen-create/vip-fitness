@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, Sparkles, UserCog } from "lucide-react";
+import { Activity, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { CrearAlumnoForm } from "@/components/admin/CrearAlumnoForm";
@@ -9,6 +9,7 @@ import { ListaEntrenadores } from "@/components/admin/ListaEntrenadores";
 import { AvisosNotasIA } from "@/components/admin/AvisosNotasIA";
 import { AvisoSolicitudes } from "@/components/admin/AvisoSolicitudes";
 import { SugerenciasHoy } from "@/components/admin/SugerenciasHoy";
+import { GavetaConfig } from "@/components/admin/GavetaConfig";
 import { obtenerReportes, obtenerAvisosNotasIA, type EstadoAlumno, type PrioridadAlumno } from "./data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -163,19 +164,16 @@ export default async function AlumnosPage({
         </aside>
       </div>
 
-      <section className="admin-panel-card rounded-3xl p-4 md:p-5" aria-label="Equipo de entrenadores">
-        <div className="mb-4 flex items-center gap-2 border-b border-border pb-4">
-          <UserCog size={18} className="text-vip" />
-          <div>
-            <h2 className="text-base font-semibold text-text">Equipo de entrenadores</h2>
-            <p className="text-xs text-text-tertiary">Accesos y colaboradores autorizados del portal.</p>
-          </div>
-        </div>
+      {/* Plegada, no una sección abierta a página completa (rescatado de
+          `agent/reorganizar-panel-admin`): gestionar el EQUIPO no es la tarea
+          de esta pantalla -es Alumnos- así que no necesita ocupar espacio
+          propio debajo del directorio salvo que el entrenador la abra. */}
+      <GavetaConfig titulo="Equipo de entrenadores" subtitulo={`${entrenadores.length} con acceso al portal`}>
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
           <ListaEntrenadores entrenadores={entrenadores} sesionUserId={sesion.userId} />
           <InvitarEntrenadorForm />
         </div>
-      </section>
+      </GavetaConfig>
       </div>
   );
 }
