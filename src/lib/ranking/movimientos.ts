@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { hoyISO, sumarDiasISO } from "@/lib/date";
+import { hoyISO, lunesDeISO, sumarDiasISO } from "@/lib/date";
 import { calcularPuntosAlimentacion, calcularPuntosEntrenamiento, calcularPuntosImpulso, limitarTramosDescanso, PUNTOS_VIP } from "./reglas";
 
 /** Bono de Impulso VIP al finalizar una sesión — misma clave que
@@ -133,12 +133,11 @@ type Movimiento = {
   metadata?: Record<string, unknown>;
 };
 
-function lunesDe(fechaISO: string): string {
-  const fecha = new Date(`${fechaISO}T12:00:00Z`);
-  const desplazamiento = (fecha.getUTCDay() + 6) % 7;
-  fecha.setUTCDate(fecha.getUTCDate() - desplazamiento);
-  return fecha.toISOString().slice(0, 10);
-}
+// `lunesDe` vivía acá con lógica propia (medianoche UTC en vez de Chile).
+// Ahora es un alias de `lunesDeISO` (ver `lib/date.ts`), la misma función
+// que usa la nueva galería semanal de fotos — así "qué semana es esta
+// fecha" nunca puede responder distinto entre los puntos y la galería.
+const lunesDe = lunesDeISO;
 
 export async function guardarMovimiento(movimiento: Movimiento): Promise<number> {
   const admin = createAdminClient();

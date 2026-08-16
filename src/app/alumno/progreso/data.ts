@@ -1,5 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { hoyISO } from "@/lib/date";
+import { construirGaleriaSemanal, type SemanaGaleria } from "@/lib/progreso/galeria-semanal";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -67,4 +69,15 @@ export async function obtenerFotosProgreso(
   );
 
   return fotos;
+}
+
+/** La galería, ya organizada en semanas (ver `construirGaleriaSemanal`).
+ * Pide las mismas fotos que `obtenerFotosProgreso` — no hay una segunda
+ * consulta ni una segunda pasada de URLs firmadas. */
+export async function obtenerGaleriaSemanal(
+  supabase: SupabaseServerClient,
+  alumnoId: string
+): Promise<SemanaGaleria[]> {
+  const fotos = await obtenerFotosProgreso(supabase, alumnoId);
+  return construirGaleriaSemanal(fotos, hoyISO());
 }

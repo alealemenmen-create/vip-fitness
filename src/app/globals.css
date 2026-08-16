@@ -7893,3 +7893,107 @@ input[type="number"] {
 .indicadores-avance-premium > div {
   border-color: rgba(255,255,255,.07) !important;
 }
+
+/* Galería semanal de fotos de progreso (pedido de Alejandro, 2026-08-16):
+   una foto por semana en vez de "primera/actual". Mismo lenguaje de bordes
+   translúcidos que el resto de Mi avance. */
+.galeria-antes-despues {
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 16px;
+  background: rgba(255,255,255,.02);
+}
+.galeria-antes-despues-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.boton-cambiar-antes {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 999px;
+  background: rgba(255,255,255,.03);
+  color: var(--color-text-secondary);
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 600;
+}
+.boton-cambiar-antes svg {
+  transition: transform .2s ease;
+}
+/* Menú del selector de "antes": absoluto, no empuja el layout de la
+   cabecera al abrirse. */
+.selector-semana-antes {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 168px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  background: #14161a;
+  box-shadow: 0 12px 28px rgba(0,0,0,.5);
+}
+.selector-semana-antes button {
+  padding: 7px 8px;
+  border-radius: 8px;
+  text-align: left;
+  color: var(--color-text-secondary);
+  font-size: calc(11px * var(--escala-texto));
+}
+.selector-semana-antes button[data-elegida="true"] {
+  background: rgba(242,205,93,.12);
+  color: #f2cd5d;
+  font-weight: 700;
+}
+.tarjeta-comparacion-semana {
+  border: 1px solid rgba(255,255,255,.07);
+}
+/* Álbum horizontal: se arrastra con el dedo, no con flechas — mismo patrón
+   táctil que la tira de días de Entrenar y Nutrición. */
+.historial-semanal-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.tarjeta-semana-historial {
+  position: relative;
+  flex: 0 0 auto;
+  width: 88px;
+  height: 108px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 12px;
+  background: rgba(255,255,255,.02);
+  scroll-snap-align: start;
+}
+/* Semana sin foto: recuadro punteado, texto discreto — informa que faltó
+   sin sonar a regaño (pedido explícito: "que no sea incómoda la vista"). */
+.tarjeta-semana-historial[data-vacia="true"] {
+  border-style: dashed;
+  border-color: rgba(255,255,255,.1);
+}
+.tarjeta-semana-historial-etiqueta {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 3px 4px;
+  background: rgba(0,0,0,.72);
+  color: var(--color-text-secondary);
+  font-size: calc(8px * var(--escala-texto));
+  line-height: 1.25;
+  text-align: center;
+}

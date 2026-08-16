@@ -4,7 +4,7 @@ import { PesoCorporal } from "@/components/student/PesoCorporal";
 import { GaleriaProgreso } from "@/components/student/GaleriaProgreso";
 import { MensajeMotivacional } from "@/components/student/MensajeMotivacional";
 import { fraseDelDia } from "@/lib/frasesMotivacionales";
-import { obtenerHistorialPeso, obtenerFotosProgreso } from "./data";
+import { obtenerHistorialPeso, obtenerGaleriaSemanal } from "./data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { BarraPuntosVip } from "@/components/student/BarraPuntosVip";
 import { PUNTOS_VIP } from "@/lib/ranking/reglas";
@@ -19,16 +19,18 @@ export default async function ProgresoPage({ searchParams }: { searchParams: Pro
   const periodoNumero = Number((await searchParams).periodo);
   const periodo: PeriodoSeguimiento = periodoNumero === 14 || periodoNumero === 30 ? periodoNumero : 7;
 
-  const [historial, fotos, seguimiento] = await Promise.all([
+  const [historial, semanas, seguimiento] = await Promise.all([
     obtenerHistorialPeso(supabase, alumnoId),
-    obtenerFotosProgreso(supabase, alumnoId),
+    obtenerGaleriaSemanal(supabase, alumnoId),
     obtenerSeguimientoIntegral(supabase, alumnoId, periodo),
   ]);
   // El nombre ya viene de requireAlumno(); no hace falta volver a `perfiles`.
   const frase = fraseDelDia("progreso", nombreAlumnoPublicado(nombre).split(" ")[0] ?? "");
   const lunes = semanaActualISO()[0].fecha;
   const pesoEstaSemana = historial.some((registro) => registro.fecha >= lunes);
-  const fotoEstaSemana = fotos.some((foto) => foto.fechaFoto >= lunes);
+  // La última entrada de `semanas` es siempre la semana en curso (ver
+  // `construirGaleriaSemanal`) — no hace falta volver a comparar fechas acá.
+  const fotoEstaSemana = semanas[semanas.length - 1]?.foto !== null;
   const puntosSeguimiento =
     (pesoEstaSemana ? PUNTOS_VIP.pesoSemanal : 0) +
     (fotoEstaSemana ? PUNTOS_VIP.fotoSemanal : 0);
@@ -47,7 +49,7 @@ export default async function ProgresoPage({ searchParams }: { searchParams: Pro
         ayuda={`${pesoEstaSemana ? "Peso listo" : "Registra tu peso"} · ${fotoEstaSemana ? "Foto lista" : "Sube tu foto"}`}
       />
       <PesoCorporal historial={historial} soloLectura={soloLectura} />
-      <GaleriaProgreso fotos={fotos} soloLectura={soloLectura} />
+      <GaleriaProgreso semanas={semanas} soloLectura={soloLectura} />
     </div>
   );
 }

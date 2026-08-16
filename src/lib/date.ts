@@ -191,6 +191,38 @@ function lunesDe(fecha: Date): string {
   return formatInTimeZone(lunes, ZONA_HORARIA_VIP, "yyyy-MM-dd");
 }
 
+/**
+ * Lunes de la semana que contiene una fecha YYYY-MM-DD dada, en horario de
+ * Chile. Única fuente de verdad de "qué semana es esta fecha": la usan tanto
+ * el bono semanal de Puntos VIP (`registrarFoto`/`recalcularFotoSemana` en
+ * `lib/ranking/movimientos.ts`) como la galería semanal de fotos de
+ * progreso — antes eran dos funciones con el mismo nombre y lógicas
+ * apenas distintas (una en Chile, otra en UTC), que en el borde de la
+ * medianoche podían no coincidir en qué lunes le tocaba a una fecha.
+ */
+export function lunesDeISO(fechaISO: string): string {
+  return lunesDe(toZonedTime(`${fechaISO}T12:00:00`, ZONA_HORARIA_VIP));
+}
+
+/**
+ * Ventana para la foto semanal de progreso: solo la semana en curso (su
+ * lunes hasta hoy), nunca el futuro ni una semana ya cerrada.
+ *
+ * Es más angosta que `fechaEnVentanaValida` (que acepta "hoy o ayer" para
+ * peso/comida) porque acá la unidad no es el día sino la semana completa:
+ * el alumno puede fechar su foto cualquier día de la semana en curso, pero
+ * una vez que esa semana termina, la foto de progreso queda cerrada para
+ * siempre — es la regla que pidió Alejandro ("si no la sube, se cierra la
+ * semana... tiene la tercera semana para subirla", no la segunda ya
+ * pasada).
+ */
+export function fechaEnSemanaActualValida(fechaISO: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaISO)) return false;
+  const hoy = hoyISO();
+  if (fechaISO > hoy) return false;
+  return lunesDeISO(fechaISO) === lunesDeISO(hoy);
+}
+
 /** Lunes de la semana calendario anterior a la actual (Chile), YYYY-MM-DD. */
 export function semanaAnteriorLunesISO(): string {
   const hoy = toZonedTime(new Date(), ZONA_HORARIA_VIP);
