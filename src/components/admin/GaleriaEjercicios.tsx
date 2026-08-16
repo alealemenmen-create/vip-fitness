@@ -12,6 +12,7 @@ import {
   subirFotoEjercicio,
   crearEjercicioNuevo,
   actualizarNombreEjercicio,
+  actualizarClasificacionEjercicio,
   actualizarDetallesEjercicio,
   actualizarPatronMovimiento,
   actualizarPerfilImpulsoEjercicio,
@@ -130,6 +131,7 @@ const GRUPOS_PATRON: { etiqueta: string; opciones: { valor: PatronMovimiento; et
 ];
 
 const ESTADO_INICIAL_PATRON = { error: null, ok: false };
+const ESTADO_INICIAL_CLASIFICACION = { error: null, ok: false };
 
 const TECNICAS_IMPULSO = [
   ["tempo_controlado", "Tempo controlado"],
@@ -251,6 +253,75 @@ function EditorPatronMovimiento({ ejercicio }: { ejercicio: Ejercicio }) {
       >
         {pending ? "Guardando..." : "Guardar patrón"}
       </button>
+    </form>
+  );
+}
+
+/** Grupo muscular, categoría y equipo de un ejercicio YA CARGADO — antes
+ * solo se elegían al crearlo (instructivo del panel §8.8: "un ejercicio ya
+ * cargado no se puede reclasificar" era el hueco real). Mismas tres listas
+ * que usa `ModalEjercicioNuevo` (`GRUPOS`/`CATEGORIAS`/`EQUIPOS`, más abajo
+ * en este archivo), para que crear y reclasificar ofrezcan exactamente las
+ * mismas opciones. */
+function EditorClasificacion({ ejercicio }: { ejercicio: Ejercicio }) {
+  const [state, formAction, pending] = useActionState(actualizarClasificacionEjercicio, ESTADO_INICIAL_CLASIFICACION);
+
+  return (
+    <form action={formAction} className="space-y-2">
+      <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+      <p className="text-caption font-semibold text-text">Clasificación</p>
+      <div className="grid grid-cols-3 gap-2">
+        <label className="block">
+          <span className="text-micro text-text-tertiary">Grupo</span>
+          <select
+            name="grupo_muscular"
+            defaultValue={ejercicio.grupoMuscular}
+            className="radius-control mt-1 w-full border border-border bg-surface-2 px-2 py-2 text-[11px] text-text"
+          >
+            {GRUPOS.map((g) => (
+              <option key={g.valor} value={g.valor}>{g.etiqueta}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-micro text-text-tertiary">Categoría</span>
+          <select
+            name="categoria"
+            defaultValue={ejercicio.categoria}
+            className="radius-control mt-1 w-full border border-border bg-surface-2 px-2 py-2 text-[11px] text-text"
+          >
+            {CATEGORIAS.map((c) => (
+              <option key={c.valor} value={c.valor}>{c.etiqueta}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-micro text-text-tertiary">Equipo</span>
+          <select
+            name="equipo"
+            defaultValue={ejercicio.equipo}
+            className="radius-control mt-1 w-full border border-border bg-surface-2 px-2 py-2 text-[11px] text-text"
+          >
+            {EQUIPOS.map((e) => (
+              <option key={e.valor} value={e.valor}>{e.etiqueta}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {/* Aviso de impacto (instructivo: "confirmaciones indican alcance"):
+          reclasificar puede mover al ejercicio de familia de zona/equipo en
+          `emparejarEjercicio` y cambiar a qué le empareja el sistema de acá
+          en adelante — no toca rutinas ya vinculadas, esas siguen por id. */}
+      <p className="text-micro text-text-tertiary">
+        No afecta rutinas ya vinculadas a este ejercicio; sí cambia cómo el sistema lo reconoce de ahora en más.
+      </p>
+      {state.error && <p className="text-caption text-error">{state.error}</p>}
+      {state.ok && (
+        <p className="text-caption flex items-center gap-1 text-success">
+          <Check size={12} /> Clasificación guardada.
+        </p>
+      )}
+      <Button type="submit" size="xs" loading={pending}>Guardar clasificación</Button>
     </form>
   );
 }
@@ -2281,8 +2352,11 @@ function ModalSubirFoto({
         <EditorNombre ejercicio={ejercicio} />
       </div>
 
-      <div className="mt-4 border-t border-border pt-3">
-        <EditorPatronMovimiento ejercicio={ejercicio} />
+      <div className="mt-4 space-y-3 border-t border-border pt-3">
+        <EditorClasificacion ejercicio={ejercicio} />
+        <div className="border-t border-border pt-3">
+          <EditorPatronMovimiento ejercicio={ejercicio} />
+        </div>
         <EditorPerfilImpulso ejercicio={ejercicio} />
       </div>
 

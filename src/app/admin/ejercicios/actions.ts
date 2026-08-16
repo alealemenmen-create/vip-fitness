@@ -462,6 +462,51 @@ export async function actualizarDetallesEjercicio(
   return { error: null, ok: true };
 }
 
+export type ActualizarClasificacionState = { error: string | null; ok: boolean };
+
+/**
+ * Grupo muscular, categoría y equipo — antes solo se elegían al crear el
+ * ejercicio (`crearEjercicioNuevo`); un ejercicio ya cargado no tenía forma
+ * de reclasificarse desde la galería (instructivo del panel §8.8, "un
+ * ejercicio ya cargado no se puede reclasificar" era el hueco real).
+ *
+ * Misma validación liviana que ya usa `crearEjercicioNuevo` para estos tres
+ * campos: solo se chequea que no vengan vacíos — el `<select>` de la
+ * interfaz ya limita las opciones, y la columna de Postgres es la que
+ * realmente exige un valor de la lista.
+ *
+ * A propósito NO toca `patron_movimiento` (tiene su propio editor,
+ * `actualizarPatronMovimiento`) ni `nivel` (vive en `actualizarDetallesEjercicio`)
+ * — reclasificar grupo/categoría/equipo es un cambio más profundo (puede
+ * mover al ejercicio de familia de zona en `emparejarEjercicio`) y merece su
+ * propio guardado, sin arrastrar el resto del formulario de detalles.
+ */
+export async function actualizarClasificacionEjercicio(
+  _prevState: ActualizarClasificacionState,
+  formData: FormData
+): Promise<ActualizarClasificacionState> {
+  await requireRol(["entrenador", "admin"]);
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  const grupoMuscular = String(formData.get("grupo_muscular") || "") as GrupoMuscular;
+  const categoria = String(formData.get("categoria") || "") as CategoriaEjercicio;
+  const equipo = String(formData.get("equipo") || "") as EquipoEjercicio;
+
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+  if (!grupoMuscular) return { error: "Elegí el grupo muscular.", ok: false };
+  if (!categoria) return { error: "Elegí la categoría.", ok: false };
+  if (!equipo) return { error: "Elegí el equipo.", ok: false };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ejercicios")
+    .update({ grupo_muscular: grupoMuscular, categoria, equipo })
+    .eq("id", ejercicioId);
+  if (error) return { error: "No se pudo guardar la clasificación.", ok: false };
+
+  avisarCambios();
+  return { error: null, ok: true };
+}
+
 /**
  * Edita el nombre "principal" de un ejercicio y sus alias — todas las formas
  * en que un entrenador podría escribir el mismo movimiento en una rutina
