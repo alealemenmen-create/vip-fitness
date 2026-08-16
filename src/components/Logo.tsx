@@ -15,7 +15,6 @@ import { Crown, Zap } from "lucide-react";
  * color de acento, igual que antes cuando era un <h1> aparte.
  */
 const RUTAS_COMPACTAS: [ruta: string, titulo?: ReactNode][] = [
-  ["/alumno/comer", "Nutrición"],
   ["/alumno/progreso", "Mi avance"],
   [
     "/alumno/ranked",
@@ -28,11 +27,18 @@ const RUTAS_COMPACTAS: [ruta: string, titulo?: ReactNode][] = [
 /**
  * Pantallas con el cabezal universal: escudo hexagonal + título estático +
  * instrumento de puntos/campana/ajustes, igual que entrenamiento activo (ver
- * INSTRUCTIVO_CLAUDE_REDISEÑO..., 2026-08-15). Se suman de a una: Inicio
- * primero, Entrenar después — el resto de las pestañas queda con la marca
+ * INSTRUCTIVO_CLAUDE_REDISEÑO..., 2026-08-15). Se suman de a una: Inicio,
+ * Entrenar y ahora Nutrición — el resto de las pestañas queda con la marca
  * cuadrada de siempre hasta que les toque.
+ *
+ * `prefijo: true` compara con `pathname.startsWith(ruta)`: Nutrición vive en
+ * `/alumno/comer/<fecha>` (la fecha va en la URL para poder compartir el
+ * enlace o recargar sin perder el día), así que la ruta exacta `/alumno/comer`
+ * nunca coincide con lo que el alumno tiene abierto. Entrenar e Inicio siguen
+ * comparando exacto — no se decidió todavía si sus sub-rutas (historial, la
+ * ficha de "Mi entrenamiento") entran al cabezal universal.
  */
-const RUTAS_CABECERA_HEXAGONAL: [ruta: string, titulo: ReactNode][] = [
+const RUTAS_CABECERA_HEXAGONAL: [ruta: string, titulo: ReactNode, prefijo?: boolean][] = [
   ["/alumno/inicio", <span key="fitness" className="titulo-portal-vip-marca">Fitness</span>],
   // "Entrenamiento" a secas y no "Entrenamiento VIP": el título tiene 132 px
   // de ancho útil y la versión con VIP mide 144, así que el "VIP" dorado se
@@ -41,6 +47,7 @@ const RUTAS_CABECERA_HEXAGONAL: [ruta: string, titulo: ReactNode][] = [
   // VIP en oro solo "si cabe"; acá no cabe, y el escudo hexagonal de al lado
   // ya pone la marca.
   ["/alumno/entrenar", "Entrenamiento"],
+  ["/alumno/comer", "Nutrición", true],
 ];
 
 /**
@@ -169,7 +176,9 @@ export function Logo({
   // Cabezal universal del Portal VIP: mismo escudo hexagonal e instrumento de
   // puntos/campana/ajustes que entrenamiento activo, con título estático de
   // sección (INSTRUCTIVO_CLAUDE_REDISEÑO..., 2026-08-15).
-  const cabeceraHexagonal = RUTAS_CABECERA_HEXAGONAL.find(([ruta]) => pathname === ruta);
+  const cabeceraHexagonal = RUTAS_CABECERA_HEXAGONAL.find(([ruta, , prefijo]) =>
+    prefijo ? pathname.startsWith(ruta) : pathname === ruta
+  );
   if (cabeceraHexagonal) {
     const [, titulo] = cabeceraHexagonal;
     return (

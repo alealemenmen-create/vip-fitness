@@ -531,6 +531,7 @@ export function PantallaComer({
         maximo={PUNTOS_VIP.alimentacionMaximo}
         etiqueta="Puntos provisionales de alimentación"
         ayuda={ayudaPuntosAlimentacion}
+        className="franja-puntos-nutricion"
       />
 
       {error && (
@@ -631,13 +632,20 @@ export function PantallaComer({
                       />
                     </button>
                   ) : (
-                    <div className="space-y-1">
+                    // Lista continua, no una tarjeta por comida (instructivo:
+                    // "evita que cada fila parezca una cápsula independiente").
+                    // `.fila-comida-nutricion` separa con una línea fina en vez
+                    // de border+radio+fondo propios por fila; la que está
+                    // abierta gana una superficie apenas distinta
+                    // (`data-abierta`) para notar que se puede tocar.
+                    <div>
                       {h.comidas.map((c) => {
                         const abierta = expandida === c.comidaId;
                         return (
                           <div
                             key={c.comidaId}
-                            className="comida-entrando radius-control border border-border bg-surface"
+                            data-abierta={abierta ? "true" : undefined}
+                            className="comida-entrando fila-comida-nutricion"
                           >
                             <button
                               type="button"
@@ -671,7 +679,7 @@ export function PantallaComer({
                             </button>
 
                             {abierta && (
-                              <div className="space-y-1.5 border-t border-border px-2 py-2">
+                              <div className="space-y-1.5 border-t border-white/[0.06] px-2 py-2">
                                 {/* Total de la comida: el encabezado plegado
                                     solo muestra las calorías, y estando abierto
                                     interesa el reparto de macros. */}
@@ -792,7 +800,7 @@ export function PantallaComer({
           <button
             type="button"
             onClick={() => setHoraAbierta(horaActual)}
-            className="radius-control flex h-12 w-full items-center gap-2 border border-border bg-surface px-4 text-left shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] transition-transform duration-150 active:scale-[0.99]"
+            className="buscador-nutricion radius-control flex h-12 w-full items-center gap-2 border px-4 text-left shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)] transition-transform duration-150 active:scale-[0.99]"
           >
             <Search size={16} className="shrink-0 text-text-secondary" />
             <span className="text-secondary flex-1 text-text-tertiary">

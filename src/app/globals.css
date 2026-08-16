@@ -7785,3 +7785,55 @@ input[type="number"] {
   line-height: 1.35;
   text-align: center;
 }
+
+/* ==========================================================================
+   NUTRICIÓN — premium operativo
+   (INSTRUCTIVO_CLAUDE_REDISHENO_INICIO_CABEZAL.md §7, 2026-08-16)
+   Mismo dorado pálido que ya usa Entrenar (#f2cd5d, no el ámbar saturado
+   --color-vip) para que Nutrición se sienta parte del mismo sistema sin
+   tocar ninguna regla existente. Diario premium: rápido de usar, no
+   decorativo — nada de esto cambia cálculos, registro ni el escáner.
+   ========================================================================== */
+.banda-dias-nutricion {
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.008));
+}
+.dia-nutricion-activo {
+  border-color: rgba(242,205,93,.42);
+}
+/* Franja de recompensa fina, no una segunda tarjeta protagonista: mismo
+   dorado pálido que la banda de días de arriba en vez del ámbar de
+   `--color-vip`, para que "Puntos provisionales" no compita en brillo con
+   los macros, que es el dato que manda en esta pantalla. */
+.franja-puntos-nutricion {
+  border-color: rgba(242,205,93,.25) !important;
+  background: rgba(242,205,93,.05) !important;
+}
+.franja-puntos-nutricion .barra-progreso-relleno {
+  background: #f2cd5d !important;
+}
+/* Buscador fijo: mismo material que la barra inferior universal y los
+   campos de Entrenar (grafito, borde blanco translúcido) — antes usaba
+   `border-border`, que cambia de fuerza entre temas y no se leía como parte
+   del mismo sistema que el resto del shell rediseñado. */
+.buscador-nutricion {
+  border-color: rgba(255,255,255,.09) !important;
+  background: linear-gradient(180deg, #121417 0%, #0a0b0d 100%) !important;
+}
+/* Línea de tiempo sin cápsulas por fila (instructivo: "evita que cada fila
+   parezca una cápsula independiente"). Antes cada comida era una tarjeta
+   completa (borde + radio + fondo propio); ahora las comidas de una misma
+   hora se leen como una lista continua, separadas por una línea fina, y solo
+   la que está abierta gana una superficie apenas distinta para marcar que
+   se puede tocar sin volver a mirar el borde. */
+.fila-comida-nutricion {
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.fila-comida-nutricion:last-child {
+  border-bottom: 0;
+}
+.fila-comida-nutricion[data-abierta="true"] {
+  border-radius: 10px;
+  background: rgba(255,255,255,.02);
+}
