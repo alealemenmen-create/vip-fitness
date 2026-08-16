@@ -18,10 +18,14 @@ export function MomentoImpulsoEnVivo({
   intervencion,
   visible,
   serieTerminada,
+  seriesHechasCount,
+  ejercicioCompletado,
 }: {
   intervencion: IntervencionImpulsoEnVivo;
   visible: boolean;
   serieTerminada: boolean;
+  seriesHechasCount: number;
+  ejercicioCompletado: boolean;
 }) {
   const [state, action, pending] = useActionState(resolverIntervencionEnVivo, inicial);
   const [calibracion, calibrarAction, calibrando] = useActionState(
@@ -31,6 +35,13 @@ export function MomentoImpulsoEnVivo({
   const [resultadoElegido, setResultadoElegido] = useState<string | null>(intervencion?.resultado ?? null);
   const [expandido, setExpandido] = useState(false);
   const [retoAceptado, setRetoAceptado] = useState(false);
+  // Pedido explícito de Alejandro: responder la calibración de RIR no puede
+  // saltar de inmediato a la pregunta de "¿cómo salió?" — necesita margen
+  // para hacer la serie siguiente primero. Se guarda cuántas series había
+  // hechas justo al calibrar; mientras ese número no suba (o el ejercicio no
+  // se dé por completado, para no dejar la intervención colgada si era la
+  // última serie), el panel vuelve a la burbuja en vez de forzarse abierto.
+  const [seriesAlCalibrar, setSeriesAlCalibrar] = useState<number | null>(null);
   const esOrientacion = intervencion?.tipo === "tempo_controlado";
   const esPersonalAle = intervencion?.origen === "personal_ale" || intervencion?.origen === "preparada_por_ale";
   const tipoActual = calibracion.tipo ?? intervencion?.tipo ?? null;
@@ -39,7 +50,9 @@ export function MomentoImpulsoEnVivo({
   const listaParaMostrar = !!intervencion
     && (esOrientacion || esPersonalAle || intervencion.calibrada || calibracion.ok || intervencion.estado !== "preparada");
   const resuelta = state.ok || intervencion?.estado === "resuelta";
-  const mostrarExpandido = expandido || (serieTerminada && !resuelta);
+  const esperandoSiguienteSerie =
+    seriesAlCalibrar !== null && !resuelta && seriesHechasCount <= seriesAlCalibrar && !ejercicioCompletado;
+  const mostrarExpandido = !esperandoSiguienteSerie && (expandido || (serieTerminada && !resuelta));
   const pesoObjetivo = typeof intervencion.prescripcion?.pesoKg === "number"
     ? `sube a ${intervencion.prescripcion.pesoKg} kg`
     : intervencion.tipo === "rest_pause"
@@ -52,6 +65,18 @@ export function MomentoImpulsoEnVivo({
     if (!intervencion || !visible || !listaParaMostrar || intervencion.estado !== "preparada") return;
     startTransition(() => void marcarIntervencionMostrada(intervencion.id));
   }, [intervencion, visible, listaParaMostrar]);
+
+  useEffect(() => {
+    if (calibracion.ok && seriesAlCalibrar === null) {
+      // Snapshot deliberado del resultado de un submit (calibracion.ok), no
+      // estado derivado de props — mismo caso ya documentado en
+      // SesionEjercicioCard.tsx para otros useActionState de esta pantalla.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSeriesAlCalibrar(seriesHechasCount);
+      setExpandido(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calibracion.ok]);
 
   if (!intervencion || !visible || intervencion.estado === "cancelada") return null;
 
