@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 export type NotificacionEntrenador = {
   id: string;
   tipo: string;
+  alumnoId: string | null;
   alumnoNombre: string | null;
+  alumnoTelefono: string | null;
   titulo: string;
   cuerpo: string;
   prioridad: "alta" | "normal";
@@ -36,15 +38,21 @@ export async function obtenerNotificacionesEntrenador(limite = 60): Promise<Noti
   if (error || !filas) return [];
 
   const idsAlumnos = [...new Set(filas.map((f) => f.alumno_id).filter((id): id is string => !!id))];
-  const { data: perfiles } = idsAlumnos.length
-    ? await supabase.from("perfiles").select("id, nombre").in("id", idsAlumnos)
-    : { data: [] };
+  const [{ data: perfiles }, { data: telefonos }] = idsAlumnos.length
+    ? await Promise.all([
+        supabase.from("perfiles").select("id, nombre").in("id", idsAlumnos),
+        supabase.from("alumno_perfil").select("user_id, telefono").in("user_id", idsAlumnos),
+      ])
+    : [{ data: [] }, { data: [] }];
   const nombres = new Map((perfiles ?? []).map((p) => [p.id, p.nombre]));
+  const telefonoPorId = new Map((telefonos ?? []).map((t) => [t.user_id, t.telefono]));
 
   return filas.map((f) => ({
     id: f.id,
     tipo: f.tipo,
+    alumnoId: f.alumno_id,
     alumnoNombre: f.alumno_id ? (nombres.get(f.alumno_id) ?? "Alumno") : null,
+    alumnoTelefono: f.alumno_id ? (telefonoPorId.get(f.alumno_id) ?? null) : null,
     titulo: f.titulo,
     cuerpo: f.cuerpo,
     prioridad: f.prioridad as "alta" | "normal",

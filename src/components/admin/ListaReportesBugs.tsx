@@ -3,17 +3,19 @@
 import { useActionState, useState } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
-import { Bug, Check, RotateCcw, X, Smartphone } from "lucide-react";
+import { Bug, Check, MessageCircle, RotateCcw, X, Smartphone } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import {
   cambiarEstadoReporteBug,
   type ResolverReporteState,
 } from "@/app/admin/reportes/actions";
+import { linkWhatsApp } from "@/lib/generador-rutinas/whatsapp";
 
 export type ReporteBug = {
   id: string;
   alumnoNombre: string;
+  alumnoTelefono: string | null;
   ruta: string;
   descripcion: string;
   capturaUrl: string | null;
@@ -71,6 +73,7 @@ function FilaReporte({ reporte }: { reporte: ReporteBug }) {
   const [estado, accion, enviando] = useActionState(cambiarEstadoReporteBug, estadoInicial);
   const [ampliada, setAmpliada] = useState(false);
   const resuelto = reporte.estado === "resuelto";
+  const wa = reporte.alumnoTelefono ? linkWhatsApp(reporte.alumnoTelefono) : null;
 
   return (
     <Card padding="p-4" className={resuelto ? "opacity-70" : ""}>
@@ -90,7 +93,20 @@ function FilaReporte({ reporte }: { reporte: ReporteBug }) {
             </p>
           </div>
         </div>
-        <Pill tone={resuelto ? "success" : "error"}>{resuelto ? "Resuelto" : "Pendiente"}</Pill>
+        <div className="flex shrink-0 items-center gap-2">
+          {wa && (
+            <a
+              href={wa}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Escribirle por WhatsApp a ${reporte.alumnoNombre}`}
+              className="grid size-8 place-items-center rounded-full bg-success/15 text-success"
+            >
+              <MessageCircle size={15} />
+            </a>
+          )}
+          <Pill tone={resuelto ? "success" : "error"}>{resuelto ? "Resuelto" : "Pendiente"}</Pill>
+        </div>
       </div>
 
       <p className="text-secondary mt-2 leading-relaxed text-text">{reporte.descripcion}</p>

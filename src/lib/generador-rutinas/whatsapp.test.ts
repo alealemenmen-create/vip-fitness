@@ -14,4 +14,12 @@ describe("linkWhatsApp", () => {
   it("no lleva mensaje predeterminado: el entrenador escribe a mano", () => {
     expect(linkWhatsApp("56912345678")).not.toContain("text=");
   });
+
+  it("agrega el 56 cuando el teléfono se guardó sin código de país", () => {
+    expect(linkWhatsApp("933001622")).toBe("https://wa.me/56933001622");
+  });
+
+  it("no toca un número que ya viene con código de país", () => {
+    expect(linkWhatsApp("56933001622")).toBe("https://wa.me/56933001622");
+  });
 });
