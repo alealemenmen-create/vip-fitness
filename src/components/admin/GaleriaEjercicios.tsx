@@ -34,6 +34,8 @@ import {
   type DeshacerFusionState,
   resolverAliasEnDisputa,
   type ResolverAliasState,
+  agregarAliasEjercicio,
+  type AgregarAliasState,
   quitarFotoEjercicio,
   type QuitarFotoState,
   restaurarFotoAnteriorEjercicio,
@@ -611,6 +613,19 @@ export function GaleriaEjercicios({
   const [editando, setEditando] = useState<Ejercicio | null>(null);
   const [probandoVideo, setProbandoVideo] = useState<Ejercicio | null>(null);
   const [creando, setCreando] = useState<string | null>(null);
+  // El portal de la lista imprimible (ver más abajo) solo puede montarse una
+  // vez que el árbol ya hidrató: portalear a document.body durante el mismo
+  // render que hidrata rompe React, porque el HTML que mandó el servidor no
+  // tiene ese nodo ahí — se mezcla mal con los <script> que Next inyecta al
+  // final del body y tira "Hydration failed".
+  const [montado, setMontado] = useState(false);
+  useEffect(() => {
+    // react-hooks/set-state-in-effect: falso positivo, mismo caso que ya
+    // documentado en este archivo — detectar "ya hidrató" no tiene otra
+    // fuente que un efecto, no hay prop/estado del que derivarlo en render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMontado(true);
+  }, []);
   // Justo después de subir una foto nueva, a veces el CDN de Storage todavía
   // no terminó de propagarla y la primera carga falla (el archivo ya está
   // subido de verdad, es solo una demora de segundos). Antes, ese primer
@@ -892,17 +907,40 @@ export function GaleriaEjercicios({
             </div>
           </div>
           {reportesAgrupados.map((grupo) => {
-            const ejercicio = ejercicios.find((item) => item.id === grupo.ejercicioId);
+            // El id guardado en el reporte puede apuntar a un ejercicio que ya
+            // no está activo (se fusionó con otro después de que llegara el
+            // reporte). Si el id directo no aparece en la biblioteca, se busca
+            // por nombre/alias antes de darlo por inexistente — si no, el
+            // botón terminaría ofreciendo crear un ejercicio nuevo con el
+            // mismo nombre en vez de abrir el que ya tiene la foto buena.
+            const ejercicio =
+              ejercicios.find((item) => item.id === grupo.ejercicioId) ??
+              emparejarEjercicio(grupo.nombre, ejercicios)?.ejercicio ??
+              null;
+            const fotoActual = ejercicio ? fotoDe(ejercicio) : null;
             const alumnos = Array.from(grupo.alumnos).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
             const nombresReportados = Array.from(grupo.nombresReportados);
             return (
               <Card key={grupo.ejercicioId ?? `nombre:${normalizar(grupo.nombre)}`} padding="p-2.5" className="border-error/25">
                 <div className="flex items-center gap-2.5">
-                  <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-surface-2">
-                    {grupo.fotoUrl ? (
-                      <Image src={grupo.fotoUrl} alt="Foto reportada" fill sizes="56px" className="object-cover" />
-                    ) : (
-                      <div className="grid h-full place-items-center text-text-tertiary"><ImageIcon size={18} /></div>
+                  <div className="flex shrink-0 gap-1">
+                    <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-surface-2">
+                      {grupo.fotoUrl ? (
+                        <Image src={grupo.fotoUrl} alt="Foto reportada" fill sizes="56px" className="object-cover" />
+                      ) : (
+                        <div className="grid h-full place-items-center text-text-tertiary"><ImageIcon size={18} /></div>
+                      )}
+                      <span className="absolute inset-x-0 bottom-0 bg-black/65 py-0.5 text-center text-[7px] font-bold uppercase tracking-wide text-white">Reportada</span>
+                    </div>
+                    {ejercicio && (
+                      <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-surface-2">
+                        {fotoActual ? (
+                          <Image src={fotoActual} alt="Foto actual en la biblioteca" fill sizes="56px" className="object-cover" />
+                        ) : (
+                          <div className="grid h-full place-items-center text-text-tertiary"><ImageIcon size={18} /></div>
+                        )}
+                        <span className="absolute inset-x-0 bottom-0 bg-black/65 py-0.5 text-center text-[7px] font-bold uppercase tracking-wide text-white">Ahora</span>
+                      </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -920,6 +958,9 @@ export function GaleriaEjercicios({
                     </p>
                     {nombresReportados.some((nombre) => nombre !== grupo.nombre) && (
                       <p className="text-micro mt-0.5 text-text-tertiary">En rutinas figura como: {nombresReportados.join(" · ")}</p>
+                    )}
+                    {ejercicio && ejercicio.nombre !== grupo.nombre && (
+                      <p className="text-micro mt-0.5 font-semibold text-success">Ya está fusionado en: {ejercicio.nombre} — comparado con &quot;Ahora&quot; arriba, ¿es la foto correcta?</p>
                     )}
                   </div>
                 </div>
@@ -1185,24 +1226,60 @@ export function GaleriaEjercicios({
         </details>
       )}
 
-      <section id="inventario-ejercicios-imprimible" className="hidden">
-        <h1>Biblioteca oficial de ejercicios VIP Fitness</h1>
-        <p>{ejercicios.length} ejercicios disponibles · nombres exactos para solicitar rutinas</p>
-        {Object.entries(ETIQUETAS_GRUPO).map(([grupo, etiqueta]) => {
-          const lista = ejerciciosAlfabeticos.filter((ejercicio) => ejercicio.grupoMuscular === grupo);
-          if (lista.length === 0) return null;
-          return <div key={grupo}><h2>{etiqueta}</h2><ol>{lista.map((ejercicio) => <li key={ejercicio.id}><strong>{ejercicio.nombre}</strong>{ejercicio.aliases.length ? ` — también reconocido como: ${ejercicio.aliases.join(", ")}` : ""}{ejercicio.fotoMiniaturaUrl || ejercicio.fotoCompletaUrl ? " · foto original" : ""}</li>)}</ol></div>;
-        })}
-      </section>
+      {/* Portal directo al <body>: el layout del panel admin envuelve todo en
+          un contenedor `fixed inset-0 overflow-hidden` del tamaño de la
+          pantalla (ver admin/layout.tsx). Si esta sección quedara anidada
+          ahí adentro, `position: fixed` de ese contenedor se convierte en su
+          bloque de contención y `overflow: hidden` recorta todo lo que no
+          entre en una pantalla de teléfono — el PDF salía en blanco porque
+          la lista completa nunca llegaba a dibujarse. Como hijo directo de
+          body, en cambio, queda fuera de ese recorte. */}
+      {montado && createPortal(
+        <section id="inventario-ejercicios-imprimible" className="hidden">
+          <h1>Biblioteca oficial de ejercicios VIP Fitness</h1>
+          <p>{ejercicios.length} ejercicios disponibles · nombres exactos para solicitar rutinas</p>
+          {Object.entries(ETIQUETAS_GRUPO).map(([grupo, etiqueta]) => {
+            const lista = ejerciciosAlfabeticos.filter((ejercicio) => ejercicio.grupoMuscular === grupo);
+            if (lista.length === 0) return null;
+            return (
+              <div key={grupo}>
+                <h2>{etiqueta}</h2>
+                <ol>
+                  {lista.map((ejercicio) => {
+                    const foto = fotoDe(ejercicio);
+                    return (
+                      <li key={ejercicio.id}>
+                        {foto ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={foto} alt="" />
+                        ) : (
+                          <span className="miniatura-vacia" aria-hidden="true" />
+                        )}
+                        <span>
+                          <strong>{ejercicio.nombre}</strong>
+                          {ejercicio.aliases.length ? ` — también reconocido como: ${ejercicio.aliases.join(", ")}` : ""}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            );
+          })}
+        </section>,
+        document.body,
+      )}
       <style>{`@media print {
+        @page { size: letter; margin: 14mm; }
         body * { visibility: hidden !important; }
         #inventario-ejercicios-imprimible, #inventario-ejercicios-imprimible * { visibility: visible !important; }
-        #inventario-ejercicios-imprimible { display: block !important; position: absolute; inset: 0; padding: 18mm; color: #111; background: white; font-family: Arial, sans-serif; }
-        #inventario-ejercicios-imprimible h1 { font-size: 22px; margin: 0 0 4px; }
-        #inventario-ejercicios-imprimible h2 { font-size: 15px; margin: 16px 0 5px; border-bottom: 1px solid #999; }
-        #inventario-ejercicios-imprimible p, #inventario-ejercicios-imprimible li { font-size: 10px; line-height: 1.4; }
-        #inventario-ejercicios-imprimible ol { columns: 2; column-gap: 28px; padding-left: 20px; }
-        #inventario-ejercicios-imprimible li { break-inside: avoid; margin-bottom: 3px; }
+        #inventario-ejercicios-imprimible { display: block !important; position: absolute; inset: 0; padding: 0; color: #111; background: white; font-family: Arial, sans-serif; }
+        #inventario-ejercicios-imprimible h1 { font-size: 20px; margin: 0 0 4px; }
+        #inventario-ejercicios-imprimible h2 { font-size: 14px; margin: 14px 0 5px; border-bottom: 1px solid #999; }
+        #inventario-ejercicios-imprimible p { font-size: 10px; line-height: 1.4; }
+        #inventario-ejercicios-imprimible ol { columns: 2; column-gap: 24px; padding-left: 0; list-style: none; margin: 0; }
+        #inventario-ejercicios-imprimible li { display: flex; align-items: center; gap: 6px; break-inside: avoid; margin-bottom: 5px; font-size: 9.5px; line-height: 1.25; }
+        #inventario-ejercicios-imprimible img, #inventario-ejercicios-imprimible .miniatura-vacia { width: 24px; height: 24px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: #eee; }
       }`}</style>
 
       {pestana === "biblioteca" && (
@@ -1227,6 +1304,18 @@ export function GaleriaEjercicios({
             className="radius-control flex w-full items-center justify-center gap-2 border border-dashed border-vip/50 py-3 text-secondary font-semibold text-vip"
           >
             <Plus size={16} /> Ejercicio nuevo, con foto
+          </button>
+
+          {/* Misma lista imprimible que arma la pestaña Referencia (ver
+              #inventario-ejercicios-imprimible más abajo) — está siempre en
+              el DOM sin importar la pestaña activa, así que el botón de acá
+              solo dispara el mismo print, sin duplicar nada. */}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="radius-control flex w-full items-center justify-center gap-1.5 border border-border py-2 text-caption font-semibold text-text-secondary"
+          >
+            <Printer size={14} /> Imprimir / guardar PDF de los {ejercicios.length} ejercicios
           </button>
 
       <div className="space-y-3">
@@ -1340,7 +1429,17 @@ export function GaleriaEjercicios({
           onCerrar={() => setProbandoVideo(null)}
         />
       )}
-      {creando !== null && <ModalEjercicioNuevo nombreInicial={creando} onCerrar={() => setCreando(null)} />}
+      {creando !== null && (
+        <ModalEjercicioNuevo
+          nombreInicial={creando}
+          ejercicios={ejercicios}
+          onAbrirExistente={(ejercicio) => {
+            setCreando(null);
+            setEditando(ejercicio);
+          }}
+          onCerrar={() => setCreando(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1568,37 +1667,135 @@ function nombresComoTexto(ejercicio: Ejercicio): string {
   return [ejercicio.nombre, ...ejercicio.aliases].join(" / ");
 }
 
+const ESTADO_INICIAL_AGREGAR_ALIAS: AgregarAliasState = { error: null, ok: false };
+
+/** Un alias como chip tocable: apretarlo lo saca de la lista, para el caso de
+ * un nombre mal escrito o que ya no hace falta. Reusa `resolverAliasEnDisputa`
+ * — la misma acción que ya usa "Nombres en disputa" para soltar un alias —
+ * porque hacer exactamente eso (sacar UN alias de UN ejercicio) es todo lo
+ * que hace falta acá también, sea o no una disputa. */
+function AliasChipEliminable({ ejercicio, alias }: { ejercicio: Ejercicio; alias: string }) {
+  const [state, formAction, pending] = useActionState(resolverAliasEnDisputa, ESTADO_INICIAL_ALIAS);
+  if (state.ok) return null;
+  return (
+    <form
+      action={formAction}
+      onSubmit={(evento) => {
+        if (!window.confirm(`¿Quitar "${alias}" de ${ejercicio.nombre}? Si una rutina lo escribe así, se queda sin foto hasta que uses otro de sus nombres.`)) {
+          evento.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+      <input type="hidden" name="alias" value={alias} />
+      <button
+        type="submit"
+        disabled={pending}
+        className="radius-control flex items-center gap-1 border border-border bg-surface px-2 py-1 text-[10px] text-text-secondary disabled:opacity-50"
+      >
+        {pending ? "Quitando…" : alias} {!pending && <X size={10} />}
+      </button>
+    </form>
+  );
+}
+
+/** Atajo para el caso de todos los días: sumar un nombre suelto sin editar la
+ * lista completa separada por "/". Un "+" abre un campo de texto único; al
+ * guardar, se agrega como alias nuevo y el campo se limpia solo — pensado
+ * para ir vinculando varios reportes seguidos sin fricción. */
+function AgregarAliasRapido({ ejercicio }: { ejercicio: Ejercicio }) {
+  const [abierto, setAbierto] = useState(false);
+  const [texto, setTexto] = useState("");
+  const [state, formAction, pending] = useActionState(agregarAliasEjercicio, ESTADO_INICIAL_AGREGAR_ALIAS);
+  // Limpiar el campo al guardar es una reacción a la respuesta del server
+  // action, no un efecto secundario — se ajusta durante el render comparando
+  // contra la última respuesta ya procesada, sin useEffect (ver "You Might
+  // Not Need an Effect" de React: ajustar estado cuando cambia otro estado).
+  const [ultimoEstadoVisto, setUltimoEstadoVisto] = useState(state);
+  if (state !== ultimoEstadoVisto) {
+    setUltimoEstadoVisto(state);
+    if (state.ok) {
+      setTexto("");
+      setAbierto(false);
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {ejercicio.aliases.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          <span className="radius-control border border-border bg-surface-2 px-2 py-1 text-[10px] font-semibold text-text">{ejercicio.nombre}</span>
+          {ejercicio.aliases.map((alias) => (
+            <AliasChipEliminable key={alias} ejercicio={ejercicio} alias={alias} />
+          ))}
+        </div>
+      )}
+      {abierto ? (
+        <form action={formAction} className="flex items-center gap-1.5">
+          <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+          <input type="hidden" name="alias" value={texto} />
+          <Input
+            autoFocus
+            value={texto}
+            onChange={(evento) => setTexto(evento.target.value)}
+            placeholder="Ej: Elevación de gemelos"
+            className="!py-2 text-caption"
+          />
+          <Button type="submit" size="xsAuto" loading={pending} disabled={!texto.trim()}>Agregar</Button>
+          <Button type="button" variant="ghost" size="xsAuto" onClick={() => { setAbierto(false); setTexto(""); }}>Cancelar</Button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="radius-control flex items-center gap-1 border border-dashed border-vip/40 px-2.5 py-1.5 text-[11px] font-semibold text-vip"
+        >
+          <Plus size={12} /> Agregar otro nombre
+        </button>
+      )}
+      {state.error && <p className="text-caption text-error">{state.error}</p>}
+      {state.ok && state.mensaje && <p className="text-caption text-success">{state.mensaje}</p>}
+    </div>
+  );
+}
+
 function EditorNombre({ ejercicio }: { ejercicio: Ejercicio }) {
   const [state, formAction, pending] = useActionState(actualizarNombreEjercicio, ESTADO_INICIAL_NOMBRE);
 
   return (
-    <form action={formAction} className="space-y-1.5">
-      <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
-      <span className="text-caption block text-text-tertiary">
-        Nombre — separá variantes con &quot;/&quot; para que cualquiera muestre esta misma foto
-      </span>
-      <Textarea
-        name="nombres"
-        required
-        rows={2}
-        defaultValue={nombresComoTexto(ejercicio)}
-        placeholder="Ej: Press de pecho / Bench press / Press banca"
-        className="!py-2 text-caption"
-      />
-      {state.error && <p className="text-caption text-error">{state.error}</p>}
-      {state.ok && (
-        <p className="text-caption flex items-center gap-1 text-success">
-          <Check size={12} /> Nombre guardado.
-        </p>
-      )}
-      <button
-        type="submit"
-        disabled={pending}
-        className="radius-control flex h-9 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text disabled:opacity-60"
-      >
-        {pending ? "Guardando..." : "Guardar nombre"}
-      </button>
-    </form>
+    <div className="space-y-2.5">
+      <AgregarAliasRapido ejercicio={ejercicio} />
+      <details>
+        <summary className="cursor-pointer text-micro font-semibold text-text-tertiary">Editar la lista completa (renombrar o quitar varios a la vez)</summary>
+        <form action={formAction} className="mt-1.5 space-y-1.5">
+          <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+          <span className="text-caption block text-text-tertiary">
+            Nombre — separá variantes con &quot;/&quot; para que cualquiera muestre esta misma foto
+          </span>
+          <Textarea
+            name="nombres"
+            required
+            rows={2}
+            defaultValue={nombresComoTexto(ejercicio)}
+            placeholder="Ej: Press de pecho / Bench press / Press banca"
+            className="!py-2 text-caption"
+          />
+          {state.error && <p className="text-caption text-error">{state.error}</p>}
+          {state.ok && (
+            <p className="text-caption flex items-center gap-1 text-success">
+              <Check size={12} /> Nombre guardado.
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={pending}
+            className="radius-control flex h-9 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text disabled:opacity-60"
+          >
+            {pending ? "Guardando..." : "Guardar nombre"}
+          </button>
+        </form>
+      </details>
+    </div>
   );
 }
 
@@ -2357,7 +2554,9 @@ function MesaDeTrabajo({
         <Plus size={15} /> Agregar un ejercicio nuevo
       </button>
 
-      {creando !== null && <ModalEjercicioNuevo nombreInicial={creando} onCerrar={() => setCreando(null)} />}
+      {creando !== null && (
+        <ModalEjercicioNuevo nombreInicial={creando} ejercicios={ejercicios} onCerrar={() => setCreando(null)} />
+      )}
 
       <div className="flex items-center gap-2">
         <button
@@ -2842,9 +3041,41 @@ const EQUIPOS: { valor: string; etiqueta: string }[] = [
   { valor: "otro", etiqueta: "Otro" },
 ];
 
-function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?: string; onCerrar: () => void }) {
+function ModalEjercicioNuevo({
+  nombreInicial = "",
+  ejercicios,
+  onAbrirExistente,
+  onCerrar,
+}: {
+  nombreInicial?: string;
+  ejercicios: Ejercicio[];
+  onAbrirExistente?: (ejercicio: Ejercicio) => void;
+  onCerrar: () => void;
+}) {
   const [state, formAction, pending] = useActionState(crearEjercicioNuevo, ESTADO_INICIAL_CREAR);
   const [grupoNuevo, setGrupoNuevo] = useState("");
+  const [nombre, setNombre] = useState(nombreInicial);
+  // Mismo emparejador que usa la app real (alias, abreviaturas, veto por
+  // músculo y por equipo) — no un comparador de texto suelto: ese proponía
+  // "Hip Thrust con barra libre" para el press inclinado por compartir la
+  // palabra "barra" (ver Mesa de trabajo). Se compara solo el primer nombre
+  // escrito (antes de la "/"), que es lo único que ya se terminó de tipear.
+  const posibleExistente = useMemo(() => {
+    const primerNombre = nombre.split("/")[0]?.trim();
+    if (!primerNombre || primerNombre.length < 3) return null;
+    return emparejarEjercicio(primerNombre, ejercicios)?.ejercicio ?? null;
+  }, [nombre, ejercicios]);
+  const [aviso, setAviso] = useState(true);
+  // Si cambia a qué ejercicio se parece lo que va escribiendo (o deja de
+  // parecerse a nada), el aviso vuelve a mostrarse — descartarlo para "Hip
+  // Thrust" no debería silenciarlo también para "Hack squat" si sigue
+  // borrando y reescribiendo el nombre. Ajuste durante el render, sin
+  // useEffect, comparando contra el último id ya visto.
+  const [ultimoIdVisto, setUltimoIdVisto] = useState<string | null>(posibleExistente?.id ?? null);
+  if ((posibleExistente?.id ?? null) !== ultimoIdVisto) {
+    setUltimoIdVisto(posibleExistente?.id ?? null);
+    setAviso(true);
+  }
   const patronesVisibles = useMemo(() => {
     const etiquetasPorGrupo: Record<string, string[]> = {
       pecho: ["Pecho"],
@@ -2970,11 +3201,31 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
             name="nombre"
             type="text"
             required
-            defaultValue={nombreInicial}
+            value={nombre}
+            onChange={(evento) => setNombre(evento.target.value)}
             placeholder="Ej: Press de pecho / Bench press / Press banca"
             className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
           />
         </label>
+
+        {posibleExistente && aviso && (
+          <div className="radius-control space-y-1.5 border border-warning/45 bg-warning/10 p-2.5">
+            <p className="text-caption text-text">
+              Ya existe <strong className="text-warning">{posibleExistente.nombre}</strong> con este nombre o uno muy
+              parecido. ¿Es el mismo ejercicio?
+            </p>
+            <div className="flex gap-2">
+              {onAbrirExistente && (
+                <Button type="button" size="xsAuto" onClick={() => onAbrirExistente(posibleExistente)}>
+                  Sí, abrir ese
+                </Button>
+              )}
+              <Button type="button" variant="ghost" size="xsAuto" onClick={() => setAviso(false)}>
+                No, es distinto
+              </Button>
+            </div>
+          </div>
+        )}
 
         <label className="block">
           <span className="text-caption mb-1 block text-text-tertiary">Grupo muscular</span>

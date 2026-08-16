@@ -1910,6 +1910,7 @@ export interface Database {
           estado?: EstadoReporteFotoEjercicio;
         };
         Update: {
+          ejercicio_id?: string | null;
           estado?: EstadoReporteFotoEjercicio;
           resuelto_en?: string | null;
           resuelto_por?: string | null;

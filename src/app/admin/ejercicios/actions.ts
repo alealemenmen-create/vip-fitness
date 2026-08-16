@@ -501,6 +501,48 @@ export async function crearEjercicioNuevo(
 export type ActualizarNombreState = { error: string | null; ok: boolean };
 export type ActualizarDetallesState = { error: string | null; ok: boolean };
 
+export type AgregarAliasState = { error: string | null; ok: boolean; mensaje?: string };
+
+/**
+ * Suma un nombre suelto como alias sin tocar los demás — el atajo para el
+ * caso de todos los días: "esto también se llama así". A diferencia de
+ * `actualizarNombreEjercicio`, que reescribe la lista entera separada por
+ * "/", acá solo hace falta escribir el nombre nuevo; no hay que copiar ni
+ * repetir los alias que ya estaban.
+ */
+export async function agregarAliasEjercicio(
+  _prevState: AgregarAliasState,
+  formData: FormData,
+): Promise<AgregarAliasState> {
+  await requireRol(["entrenador", "admin"]);
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  const alias = String(formData.get("alias") || "").trim();
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+  if (!alias) return { error: "Escribí un nombre.", ok: false };
+
+  const supabase = await createClient();
+  const { data: ejercicio, error: errorLectura } = await supabase
+    .from("ejercicios")
+    .select("id,nombre,aliases")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+  if (errorLectura || !ejercicio) return { error: "No se encontró ese ejercicio.", ok: false };
+
+  if (normalizar(alias) === normalizar(ejercicio.nombre)) {
+    return { error: `"${alias}" ya es el nombre principal de ${ejercicio.nombre}.`, ok: false };
+  }
+  if ((ejercicio.aliases ?? []).some((item: string) => normalizar(item) === normalizar(alias))) {
+    return { error: `"${alias}" ya estaba en la lista de ${ejercicio.nombre}.`, ok: false };
+  }
+
+  const aliases = [...(ejercicio.aliases ?? []), alias];
+  const { error } = await supabase.from("ejercicios").update({ aliases }).eq("id", ejercicioId);
+  if (error) return { error: "No se pudo guardar. Probá de nuevo.", ok: false };
+
+  avisarCambios();
+  return { error: null, ok: true, mensaje: `"${alias}" agregado a ${ejercicio.nombre}.` };
+}
+
 export async function actualizarDetallesEjercicio(
   _prevState: ActualizarDetallesState,
   formData: FormData,
@@ -954,6 +996,18 @@ export async function combinarEjerciciosDuplicados(
 
   const { error: errorRutinas } = await supabase.from("rutina_dia_ejercicios").update({ ejercicio_id: original.id }).eq("ejercicio_id", duplicado.id);
   if (errorRutinas) return { error: "No se pudieron trasladar las rutinas al ejercicio original.", ok: false };
+
+  // Los reportes de foto pendientes del duplicado tienen que seguir el mismo
+  // camino que sus rutinas: si no se trasladan, la tarjeta de "Solicitudes de
+  // fotos" no encuentra el ejercicio (quedó desactivado) y el botón termina
+  // ofreciendo crear un ejercicio nuevo con el mismo nombre — deshaciendo la
+  // fusión que se acaba de hacer.
+  const { error: errorReportes } = await supabase
+    .from("reportes_fotos_ejercicios")
+    .update({ ejercicio_id: original.id })
+    .eq("ejercicio_id", duplicado.id)
+    .eq("estado", "pendiente");
+  if (errorReportes) console.error("[ejercicios] no se pudieron trasladar los reportes del duplicado:", errorReportes.message);
 
   const { error: errorDesactivar } = await supabase.from("ejercicios").update({ activo: false }).eq("id", duplicado.id);
   if (errorDesactivar) return { error: "Las rutinas quedaron asociadas, pero no se pudo ocultar el duplicado.", ok: false };
