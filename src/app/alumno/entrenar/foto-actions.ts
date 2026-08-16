@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
+import { crearNotificacionEntrenador } from "@/lib/notificaciones/crear";
 
 export type ReportarFotoState = { error: string | null; ok: boolean };
 
@@ -101,6 +102,19 @@ export async function reportarFotoIncorrecta(
   if (error && error.code !== "23505") {
     return { error: "No pudimos avisar al entrenador. Intenta nuevamente.", ok: false };
   }
+
+  // Dedup por ejercicio (o por programa, si todavía no está en la
+  // biblioteca): que cinco alumnos reporten la misma foto rota en la misma
+  // tarde no manda cinco push, uno solo alcanza.
+  await crearNotificacionEntrenador({
+    tipo: "foto_reporte",
+    titulo: "Foto de ejercicio reportada",
+    cuerpo: `${programa.nombre} — la foto no corresponde o falta.`,
+    prioridad: "alta",
+    ruta: "/admin/ejercicios",
+    claveDedup: `foto_reporte:${programa.ejercicio_id ?? programaId}`,
+    horasDedup: 72,
+  });
 
   revalidatePath("/admin/ejercicios");
   return { error: null, ok: true };
