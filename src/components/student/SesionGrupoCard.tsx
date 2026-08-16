@@ -601,8 +601,16 @@ export const SesionGrupoCard = forwardRef<
           se puede reconocer qué sigue antes de entrar a registrar la ronda. */}
       {modoEnfocado && (
         <div className="cabecera-grupo-enfocado" data-cantidad={n}>
-          {ejercicios.map((ej, pos) => (
-            <article key={ej.sesionEjercicioId} className="ejercicio-cabecera-grupo-foco">
+          {ejercicios.map((ej, pos) => {
+            // Cuál de los dos (o tres) nombres se lee más grande — el que
+            // corresponde hacer ahora, no el que ya se completó (pedido de
+            // Alejandro, 2026-08-16: "que el alumno sepa más lo que está
+            // haciendo en el momento"). `pasoResaltado` ya es la señal que
+            // usa el resto de la tarjeta para "cuál sigue", así que es
+            // consistente con el resaltado que ya se ve más abajo.
+            const esActivo = pasoResaltado?.pos === pos;
+            return (
+            <article key={ej.sesionEjercicioId} className="ejercicio-cabecera-grupo-foco" data-activo={esActivo ? "true" : "false"}>
               <CuadroFotoReferencia
                 ilustracionSlug={ej.ilustracionSlug}
                 fotoMiniaturaUrl={ej.fotoMiniaturaUrl}
@@ -626,7 +634,8 @@ export const SesionGrupoCard = forwardRef<
                 {!modoEnfocado && <small>{ej.seriesProgramadas} series · {ej.repsProgramadas} repeticiones</small>}
               </div>
             </article>
-          ))}
+            );
+          })}
           <button
             type="button"
             className="boton-ver-rutina-grupo"
