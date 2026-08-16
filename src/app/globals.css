@@ -6598,7 +6598,11 @@ input[type="number"] {
 :root .tarjeta-grupo-enfocada .cabecera-grupo-enfocado {
   position: relative;
   gap: 8px;
-  padding: 0 46px 8px 0;
+  /* Simétrico a los dos lados (antes 46px solo a la derecha, para el botón
+     de ver rutina) — el padding asimétrico angostaba el área disponible
+     por un solo lado y las dos fotos quedaban corridas hacia la izquierda
+     en vez de centradas como grupo (pedido de Alejandro, 2026-08-16). */
+  padding: 0 46px 8px;
   border-color: rgba(255, 255, 255, .08);
 }
 :root .tarjeta-grupo-enfocada .boton-ver-rutina-grupo {
@@ -6637,6 +6641,17 @@ input[type="number"] {
   font-weight: 680;
   line-height: 1.12;
   text-align: left;
+}
+/* El nombre del ejercicio que toca hacer AHORA se lee más grande y con más
+   contraste que el que ya se hizo — antes los dos tenían el mismo peso y
+   costaba distinguir de un vistazo cuál seguía (pedido de Alejandro,
+   2026-08-16: "que el alumno sepa más lo que está haciendo en el momento").
+   El que ya se completó se queda exactamente como estaba. */
+:root .tarjeta-grupo-enfocada .ejercicio-cabecera-grupo-foco[data-activo="true"] .texto-cabecera-grupo-foco p {
+  color: #fff;
+  font-size: calc(15px * var(--escala-texto));
+  font-weight: 800;
+  line-height: 1.16;
 }
 :root .tarjeta-grupo-enfocada .texto-cabecera-grupo-foco p span {
   width: 16px;
