@@ -6,6 +6,7 @@ import { DatosPersonalesForm } from "@/components/student/DatosPersonalesForm";
 import { CambiarMiPassword } from "@/components/admin/CambiarMiPassword";
 import { CambiarCorreoForm } from "@/components/admin/CambiarCorreoForm";
 import { TemporizadorDescansoToggle } from "@/components/student/TemporizadorDescansoToggle";
+import { ResenaApp } from "@/components/student/ResenaApp";
 import { Card } from "@/components/ui/Card";
 import { obtenerDatosPersonales } from "./data";
 import { cambiarMiCorreo } from "./actions";
@@ -48,6 +49,7 @@ export default async function PerfilPage() {
             <p className="text-caption mb-3 text-text-tertiary">MI CORREO</p>
             <CambiarCorreoForm accion={cambiarMiCorreo} />
           </Card>
+          <ResenaApp />
         </>
       )}
     </div>

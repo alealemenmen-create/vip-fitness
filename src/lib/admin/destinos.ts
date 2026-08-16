@@ -14,6 +14,7 @@ import {
   Settings,
   Sparkles,
   ShieldCheck,
+  Star,
   Trash2,
   Trophy,
   Users,
@@ -167,6 +168,13 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Fallas que avisaron los alumnos",
         icon: Bug,
         seccion: "reportes",
+      },
+      {
+        href: "/admin/resenas",
+        label: "Reseñas de la app",
+        detalle: "Estrellas y sugerencias de los alumnos",
+        icon: Star,
+        seccion: "resenas",
       },
       {
         href: "/admin/borrados",
