@@ -102,7 +102,10 @@ export function CargaMasivaFotos({ ejercicios }: { ejercicios: Ejercicio[] }) {
     const nuevas: FilaCarga[] = Array.from(lista).map((archivo) => {
       const { candidato, ejercicioId, confianza, sugerencias } = emparejarPorNombreArchivo(archivo.name, ejercicios);
       return {
-        id: `${archivo.name}-${archivo.size}-${archivo.lastModified}`,
+        // El mismo archivo soltado dos veces (fácil arrastrando por tandas)
+        // generaba la misma key de React con nombre+tamaño+fecha — las dos
+        // filas quedaban indistinguibles y "quitar" borraba ambas de un tirón.
+        id: crypto.randomUUID(),
         archivo,
         previa: URL.createObjectURL(archivo),
         nombreCandidato: candidato,

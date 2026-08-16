@@ -140,7 +140,13 @@ export async function subirFotoEjercicio(
   const miniaturaUrlSubida = String(formData.get("foto_miniatura_url_subida") || "").trim();
   const completaUrlSubida = String(formData.get("foto_completa_url_subida") || "").trim();
   const numeroEncuadre = (nombre: string) => {
-    const valor = Number(formData.get(nombre));
+    // Carga masiva y "Ejercicio nuevo" nunca mandan estos campos: sin este
+    // chequeo, `Number(null)` da 0 (finito), así que el fallback a 50 nunca
+    // se activaba y toda foto subida por esos caminos quedaba encuadrada en
+    // la esquina superior izquierda para todos los alumnos.
+    const crudo = formData.get(nombre);
+    if (crudo === null || crudo === "") return 50;
+    const valor = Number(crudo);
     return Number.isFinite(valor) ? Math.min(100, Math.max(0, valor)) : 50;
   };
   const encuadre = {
