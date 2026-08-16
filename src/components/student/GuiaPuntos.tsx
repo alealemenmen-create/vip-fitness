@@ -56,8 +56,8 @@ const FILAS: Fila[] = [
   {
     icono: <Camera size={16} />,
     titulo: "Subir una foto de progreso",
-    detalle: "Una vez por semana.",
-    puntos: `+${PUNTOS_VIP.fotoSemanal}`,
+    detalle: "Una vez cada 15 días.",
+    puntos: `+${PUNTOS_VIP.fotoQuincenal}`,
     positivo: true,
   },
   {

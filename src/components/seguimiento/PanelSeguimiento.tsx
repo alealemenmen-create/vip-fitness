@@ -41,43 +41,93 @@ function Alerta({ alerta }: { alerta: AlertaSeguimiento }) {
   );
 }
 
-export function PanelSeguimiento({
+type PropsComunes = {
+  datos: SeguimientoIntegral;
+  modo: "alumno" | "entrenador";
+};
+
+/**
+ * Selector de período + hero de adherencia. Separado de `DetalleAvance`
+ * (pedido de Alejandro, 2026-08-16: reordenar Mi avance para que las
+ * acciones semanales —peso, foto— queden ARRIBA del análisis largo, no
+ * después) para poder intercalar esas acciones justo debajo del hero, en
+ * `/alumno/progreso`, sin tocar la ficha del entrenador — que sigue usando
+ * `PanelSeguimiento` de una pieza, en el orden de siempre.
+ */
+export function HeroAvance({
   datos,
   modo,
   baseHref,
-  mostrarRevision = false,
   imprimirHref,
-}: {
-  datos: SeguimientoIntegral;
-  modo: "alumno" | "entrenador";
+}: PropsComunes & {
   baseHref: string;
-  mostrarRevision?: boolean;
   imprimirHref?: string;
 }) {
   const r = datos.resumen;
   const nivel = NIVEL[r.nivel];
+  const premium = modo === "alumno";
   return (
     <div className="space-y-4">
       <div className="imprimir-oculto flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1 rounded-xl bg-surface p-1">
+        <div className={`flex gap-1 rounded-xl p-1 ${premium ? "control-periodo-avance" : "bg-surface"}`}>
           {([7, 14, 30] as const).map((periodo) => (
-            <Link key={periodo} href={`${baseHref}?periodo=${periodo}`} className={`rounded-lg px-3 py-1.5 text-caption font-semibold ${datos.diasPeriodo === periodo ? "bg-vip text-black" : "text-text-secondary"}`}>{periodo} días</Link>
+            <Link
+              key={periodo}
+              href={`${baseHref}?periodo=${periodo}`}
+              className={`rounded-lg px-3 py-1.5 text-caption font-semibold ${
+                datos.diasPeriodo === periodo
+                  ? premium
+                    ? "periodo-avance-activo"
+                    : "bg-vip text-black"
+                  : "text-text-secondary"
+              }`}
+            >
+              {periodo} días
+            </Link>
           ))}
         </div>
-        {imprimirHref && <Link href={`${imprimirHref}?periodo=${datos.diasPeriodo}`} className="radius-control border border-vip/40 px-3 py-2 text-caption font-semibold text-vip">Imprimir / PDF</Link>}
+        {imprimirHref && (
+          <Link
+            href={`${imprimirHref}?periodo=${datos.diasPeriodo}`}
+            className={`radius-control border px-3 py-2 text-caption font-semibold ${
+              premium ? "border-white/[0.12] text-text-secondary" : "border-vip/40 text-vip"
+            }`}
+          >
+            Imprimir / PDF
+          </Link>
+        )}
       </div>
 
-      <section className="radius-card overflow-hidden border border-vip/30 bg-[radial-gradient(circle_at_top_right,rgba(255,184,0,0.18),transparent_45%),linear-gradient(145deg,#171717,#090909)] p-5 text-white">
+      <section className={premium ? "hero-avance-premium radius-card p-5 text-white" : "radius-card overflow-hidden border border-vip/30 bg-[radial-gradient(circle_at_top_right,rgba(255,184,0,0.18),transparent_45%),linear-gradient(145deg,#171717,#090909)] p-5 text-white"}>
         <div className="flex items-start justify-between gap-3">
-          <div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-vip">{modo === "alumno" ? "Cómo lo he hecho" : "Cómo lo ha hecho"} · últimos {datos.diasPeriodo} días</p><h2 className="mt-1 text-xl font-bold">{datos.alumnoNombre}</h2></div>
+          <div><p className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${premium ? "hero-avance-eyebrow" : "text-vip"}`}>{modo === "alumno" ? "Cómo lo he hecho" : "Cómo lo ha hecho"} · últimos {datos.diasPeriodo} días</p><h2 className="mt-1 text-xl font-bold">{datos.alumnoNombre}</h2></div>
           <Pill tone={nivel.tono}>{nivel.texto}</Pill>
         </div>
-        <div className="mt-5 flex items-end gap-2"><span className="text-5xl font-black text-vip">{r.adherenciaGeneral ?? "—"}</span><span className="pb-1 text-sm text-white/60">{r.adherenciaGeneral === null ? "sin evaluación" : "% adherencia general"}</span></div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-vip" style={{ width: `${r.adherenciaGeneral ?? 0}%` }} /></div>
+        <div className="mt-5 flex items-end gap-2"><span className={`text-5xl font-black ${premium ? "hero-avance-numero" : "text-vip"}`}>{r.adherenciaGeneral ?? "—"}</span><span className="pb-1 text-sm text-white/60">{r.adherenciaGeneral === null ? "sin evaluación" : "% adherencia general"}</span></div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${premium ? "hero-avance-barra" : "bg-vip"}`} style={{ width: `${r.adherenciaGeneral ?? 0}%` }} /></div>
         <p className="mt-3 text-xs text-white/65">{datos.desde} al {datos.hasta} · datos reales de entrenamiento y alimentación separados del autorreporte.</p>
       </section>
+    </div>
+  );
+}
 
-      <section className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+/** El resto del análisis: indicadores, promedios, alertas, evolución,
+ * detalle diario y revisiones. En `/alumno/progreso` queda DEBAJO de las
+ * acciones semanales — es la parte de "profundizar", no la de todos los
+ * días. En la ficha del entrenador va justo después de `HeroAvance`, sin
+ * nada en el medio, igual que siempre. */
+export function DetalleAvance({
+  datos,
+  modo,
+  mostrarRevision = false,
+}: PropsComunes & {
+  mostrarRevision?: boolean;
+}) {
+  const r = datos.resumen;
+  const premium = modo === "alumno";
+  return (
+    <div className="space-y-4">
+      <section className={`grid grid-cols-2 gap-2 lg:grid-cols-4 ${premium ? "indicadores-avance-premium" : ""}`}>
         <Metrica icono={<Dumbbell size={15} />} etiqueta="Entrenamiento" valor={valorPct(r.entrenamientoPct)} detalle={`${r.sesionesRealizadas}/${r.sesionesEsperadas || 0} sesiones · calidad ${valorPct(r.calidadSesionesPct)}`} />
         <Metrica icono={<Apple size={15} />} etiqueta="Nutrición" valor={valorPct(r.nutricionPct)} detalle={`${r.diasConAlimentacion}/${r.diasPeriodo} días registrados`} />
         <Metrica icono={<HeartPulse size={15} />} etiqueta="Seguimiento" valor={`${r.recuperacionPct}%`} detalle={`Sueño ${r.suenoPromedio ?? "—"} h · energía ${r.energiaPromedio ?? "—"}/5`} />
@@ -113,7 +163,12 @@ export function PanelSeguimiento({
           const totalEjercicios = dia.sesiones.reduce((total, sesion) => total + sesion.ejerciciosTotales, 0);
           const tieneDatos = dia.sesiones.length > 0 || dia.nutricion || dia.aguaLitros !== null || dia.pesoKg !== null;
           return (
-            <details key={dia.fecha} className="radius-control group border border-border bg-surface px-3 py-2.5">
+            <details
+              key={dia.fecha}
+              className={`radius-control group px-3 py-2.5 ${
+                premium ? "border border-white/[0.07] bg-surface" : "border border-border bg-surface"
+              }`}
+            >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
                 <div className="min-w-0"><p className="text-caption font-semibold capitalize text-text">{fechaCorta(dia.fecha)}</p><p className="truncate text-[10px] text-text-tertiary">{tieneDatos ? [dia.sesiones.length ? `${ejercicios}/${totalEjercicios} ejercicios` : null, dia.nutricion ? `${dia.nutricion.kcal} kcal · ${dia.nutricion.proteina} g prot` : null, dia.pesoKg ? `${dia.pesoKg} kg` : null].filter(Boolean).join(" · ") : "Sin registro"}</p></div>
                 <ArrowRight size={14} className="shrink-0 text-text-tertiary transition-transform group-open:rotate-90" />
@@ -133,6 +188,19 @@ export function PanelSeguimiento({
       {datos.revisiones.length > 0 && <section className="space-y-2"><h3 className="text-caption font-semibold uppercase tracking-wide text-text-tertiary">Revisiones del entrenador</h3>{datos.revisiones.map((revision) => <Card key={revision.id} padding="p-3"><div className="flex items-center gap-2 text-vip"><Sparkles size={15} /><p className="text-caption font-semibold">{revision.desde} al {revision.hasta}</p></div><p className="mt-2 text-caption text-text">{revision.observacion}</p>{revision.decisionSiguientePlan && <p className="mt-1 text-caption text-text-secondary">Siguiente paso: {revision.decisionSiguientePlan}</p>}<p className="mt-2 text-[9px] text-text-tertiary">{revision.entrenadorNombre}</p></Card>)}</section>}
 
       {mostrarRevision && <Card padding="p-4"><h3 className="mb-1 text-card-title">Observación del entrenador</h3><p className="mb-3 text-caption text-text-secondary">Quedará vinculada a este período y visible para el alumno.</p><RevisionSeguimientoForm alumnoId={datos.alumnoId} periodo={datos.diasPeriodo} /></Card>}
+    </div>
+  );
+}
+
+/** Compuesto de siempre: hero + detalle, de una pieza. Lo sigue usando la
+ * ficha del entrenador (`/admin/alumnos/[id]/seguimiento`) sin cambios. */
+export function PanelSeguimiento(
+  props: PropsComunes & { baseHref: string; mostrarRevision?: boolean; imprimirHref?: string }
+) {
+  return (
+    <div className="space-y-4">
+      <HeroAvance {...props} />
+      <DetalleAvance {...props} />
     </div>
   );
 }

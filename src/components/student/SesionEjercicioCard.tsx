@@ -2875,6 +2875,8 @@ export const SesionEjercicioCard = forwardRef<
                 && (!esOrientacion || !terminada)
               }
               serieTerminada={terminada}
+              seriesHechasCount={seriesHechas.size}
+              ejercicioCompletado={ejercicio.completado}
             />
           );
         })}

@@ -30,7 +30,7 @@ export function AlimentacionHoyCuadro({
   const pct = objetivo ? Math.round((kcal / objetivo) * 100) : null;
 
   return (
-    <div className="radius-card w-full bg-surface px-3 py-4">
+    <div className="w-full rounded-[16px] bg-surface px-3 py-4">
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <p className="text-caption text-text-tertiary">ALIMENTACIÓN DE HOY</p>
         {objetivo && (

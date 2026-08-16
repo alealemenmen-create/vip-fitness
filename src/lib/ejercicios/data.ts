@@ -5,6 +5,7 @@ import {
   COLUMNAS_EJERCICIO,
   COLUMNAS_EJERCICIO_CON_ENCUADRE,
   COLUMNAS_EJERCICIO_IMPULSO,
+  COLUMNAS_EJERCICIO_IMPULSO_CON_HASH,
   COLUMNAS_EJERCICIO_MULTIMEDIA,
   COLUMNAS_EJERCICIO_SIN_FOTOS,
   aEjercicio,
@@ -45,9 +46,9 @@ export const TAG_BIBLIOTECA_EJERCICIOS = "biblioteca-ejercicios";
 async function leerBiblioteca(): Promise<Ejercicio[]> {
   const supabase = createAdminClient();
 
-  const conImpulso = await supabase
+  const conHash = await supabase
     .from("ejercicios")
-    .select(COLUMNAS_EJERCICIO_IMPULSO)
+    .select(COLUMNAS_EJERCICIO_IMPULSO_CON_HASH)
     .eq("activo", true)
     .order("nombre");
 
@@ -56,6 +57,12 @@ async function leerBiblioteca(): Promise<Ejercicio[]> {
   // ENTERO — antes se leía `data ?? []` sin mirar el error, así que la
   // biblioteca se quedaba vacía en silencio para toda la app. Mismo
   // respaldo encadenado que ya usa obtenerSesionCompleta para 0026/0031.
+  const conImpulso = conHash.error ? await supabase
+    .from("ejercicios")
+    .select(COLUMNAS_EJERCICIO_IMPULSO)
+    .eq("activo", true)
+    .order("nombre") : conHash;
+
   const conMultimedia = conImpulso.error ? await supabase
     .from("ejercicios")
     .select(COLUMNAS_EJERCICIO_MULTIMEDIA)
@@ -145,4 +152,24 @@ export async function obtenerHistorialFusiones(): Promise<FusionEjercicio[]> {
     fusionadoEn: fila.fusionado_en,
     deshecho: fila.deshecho_en !== null,
   }));
+}
+
+/**
+ * Qué ejercicios tienen una foto anterior guardada y restaurable (ver
+ * ejercicio_foto_version_anterior, migración 0094) — clave: ejercicio_id,
+ * valor: fecha del reemplazo que la dejó ahí. Devuelve `{}` sin reventar si
+ * la migración todavía no corrió, mismo criterio que `obtenerHistorialFusiones`.
+ */
+export async function obtenerVersionesAnterioresFotos(): Promise<Record<string, string>> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("ejercicio_foto_version_anterior")
+    .select("ejercicio_id, reemplazada_en");
+  if (error) {
+    if (error.code !== "PGRST205" && error.code !== "42P01") {
+      console.error("[ejercicios] no se pudo leer las versiones anteriores de fotos:", error.message);
+    }
+    return {};
+  }
+  return Object.fromEntries((data ?? []).map((fila) => [fila.ejercicio_id, fila.reemplazada_en]));
 }

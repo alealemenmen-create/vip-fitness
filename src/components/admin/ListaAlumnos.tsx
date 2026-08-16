@@ -236,35 +236,42 @@ export function ListaAlumnos({
     );
   }
 
-  const filtros: { id: FiltroAlumnos; etiqueta: string; Icon: typeof Users; activo: string; icono: string }[] = [
-    { id: "todos", etiqueta: "Todos", Icon: Users, activo: "border-[#3b82f6] bg-[#3b82f6] text-white", icono: "text-[#3b82f6]" },
-    { id: "sin_rutina", etiqueta: "Sin rutina", Icon: Dumbbell, activo: "border-[#ef4444] bg-[#ef4444] text-white", icono: "text-[#ef4444]" },
-    { id: "seguimiento", etiqueta: "Por revisar", Icon: AlertTriangle, activo: "border-[#f59e0b] bg-[#f59e0b] text-black", icono: "text-[#f59e0b]" },
-    { id: "al_dia", etiqueta: "Al día", Icon: CircleCheck, activo: "border-[#22c55e] bg-[#22c55e] text-black", icono: "text-[#22c55e]" },
-    { id: "destacados", etiqueta: "Destacados", Icon: Star, activo: "border-[#a78bfa] bg-[#a78bfa] text-black", icono: "text-[#a78bfa]" },
+  /**
+   * Un color por filtro se fue (azul, rojo, ámbar, verde, violeta): es la
+   * misma "tarjeta arcoíris" que el instructivo manda a terminar, solo que en
+   * chico — con cinco acentos encendidos a la vez ninguno significaba nada.
+   * Queda el oro para el filtro elegido y `data-alerta` para los dos que sí
+   * piden trabajo, que se tiñen únicamente cuando su conteo es mayor a cero.
+   * El icono se conserva: no dependemos solo del color para distinguirlos.
+   */
+  const filtros: { id: FiltroAlumnos; etiqueta: string; Icon: typeof Users; alerta?: boolean }[] = [
+    { id: "todos", etiqueta: "Todos", Icon: Users },
+    { id: "sin_rutina", etiqueta: "Sin rutina", Icon: Dumbbell, alerta: true },
+    { id: "seguimiento", etiqueta: "Por revisar", Icon: AlertTriangle, alerta: true },
+    { id: "al_dia", etiqueta: "Al día", Icon: CircleCheck },
+    { id: "destacados", etiqueta: "Destacados", Icon: Star },
   ];
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {filtros.map(({ id, etiqueta, Icon, activo: claseActiva, icono }) => {
+      <div className="fila-fichas-panel pb-1">
+        {filtros.map(({ id, etiqueta, Icon, alerta }) => {
           const activo = filtro === id;
           return (
             <button
               key={id}
               type="button"
               onClick={() => cambiarFiltro(id)}
-              className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
-                activo
-                  ? claseActiva
-                  : "border-border bg-surface-2 text-text-secondary hover:border-vip/40"
-              }`}
+              aria-pressed={activo}
+              className="ficha-panel"
+              data-activa={activo ? "true" : undefined}
             >
-              <Icon size={13} className={activo ? "" : icono} />
+              <Icon
+                size={13}
+                className={!activo && alerta && conteos[id] > 0 ? "text-warning" : undefined}
+              />
               {etiqueta}
-              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activo ? "bg-black/15" : "bg-surface"}`}>
-                {conteos[id]}
-              </span>
+              <b>{conteos[id]}</b>
             </button>
           );
         })}
@@ -273,8 +280,11 @@ export function ListaAlumnos({
       {/* Clasificación por plan CONTRATADO (días/semana), aparte del estado
           de arriba — pedido explícito: ubicar rápido a quiénes pagan 3, 4 o
           5 días semanales (Access/Select · Pro · Élite) sin abrir cada ficha. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-text-tertiary">Plan contratado</span>
+      {/* Una sola fila que se desliza, no `flex-wrap`: envueltos, estos cinco
+          chips ocupaban tres líneas en celular y empujaban el buscador y el
+          primer alumno fuera de la pantalla. */}
+      <div className="fila-fichas-panel items-center">
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.1em] text-text-tertiary">Plan contratado</span>
         {(
           [
             { id: "todos" as const, etiqueta: "Todos" },
@@ -290,9 +300,9 @@ export function ListaAlumnos({
               key={id}
               type="button"
               onClick={() => cambiarFiltroPlan(id)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
-                activo ? "border-vip bg-vip text-black" : "border-border bg-surface-2 text-text-secondary hover:border-vip/40"
-              }`}
+              aria-pressed={activo}
+              className="ficha-panel"
+              data-activa={activo ? "true" : undefined}
             >
               {etiqueta}
               <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activo ? "bg-black/15" : "bg-surface"}`}>

@@ -47,11 +47,14 @@ export function FichaAlumnoTabs({ secciones }: { secciones: Record<IdPestanaFich
 
   return (
     <div className="space-y-4">
-      <div
-        role="tablist"
-        aria-label="Secciones del alumno"
-        className="flex gap-1.5 overflow-x-auto pb-1"
-      >
+      {/* `.ficha-panel` es el mismo chip dorado que ya usan los filtros de
+          Alumnos (ListaAlumnos) — antes esta tira usaba `bg-vip text-black`,
+          el ámbar saturado de siempre, mientras el resto del panel ya había
+          pasado al dorado más sobrio del sistema nuevo. Rescatado de una
+          revisión de `agent/reorganizar-panel-admin`: la estructura de
+          pestañas por tema ya estaba bien resuelta acá: lo único que le
+          faltaba era este acabado. */}
+      <div role="tablist" aria-label="Secciones del alumno" className="fila-fichas-panel pb-1">
         {PESTANAS.map(({ id, etiqueta, Icon }) => {
           const activo = activa === id;
           return (
@@ -61,11 +64,8 @@ export function FichaAlumnoTabs({ secciones }: { secciones: Record<IdPestanaFich
               role="tab"
               aria-selected={activo}
               onClick={() => setActiva(id)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
-                activo
-                  ? "border-vip bg-vip text-black"
-                  : "border-border bg-surface-2 text-text-secondary hover:border-vip/40"
-              }`}
+              className="ficha-panel"
+              data-activa={activo ? "true" : undefined}
             >
               <Icon size={14} />
               {etiqueta}

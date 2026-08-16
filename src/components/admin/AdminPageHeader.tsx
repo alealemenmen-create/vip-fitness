@@ -2,6 +2,20 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { TituloPestana } from "@/components/admin/TituloPestana";
 
+/**
+ * Encabezado único de todas las rutas del panel
+ * (INSTRUCTIVO_CLAUDE_REORDENO_PANEL_ENTRENADOR.md §6, maqueta
+ * `panel-entrenador-organizado.html`).
+ *
+ * Cuatro piezas y ninguna más: eyebrow dorado, un solo `h1`, descripción
+ * breve y una fila de acciones con UNA principal visible. Las secundarias
+ * llegan como `actions` y se dibujan al lado, delineadas.
+ *
+ * En celular la fila de acciones baja debajo del título (`1.25fr .75fr`, como
+ * en la maqueta); desde 768 px vuelve a la derecha del encabezado, que es
+ * donde el entrenador la busca con el mouse. Eso lo resuelve `.acciones-panel`
+ * en globals.css, no este archivo.
+ */
 export function AdminPageHeader({
   eyebrow,
   title,
@@ -17,23 +31,15 @@ export function AdminPageHeader({
 }) {
   const heading = (
     <div className="min-w-0">
-      {eyebrow && (
-        <p className="mb-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-vip">
-          {eyebrow}
-        </p>
-      )}
-      <h1 className="text-2xl font-semibold tracking-tight text-text md:text-3xl">{title}</h1>
-      {description && (
-        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-text-secondary md:text-base">
-          {description}
-        </p>
-      )}
+      {eyebrow && <p className="encabezado-panel-eyebrow">{eyebrow}</p>}
+      <h1 className="encabezado-panel-titulo font-semibold text-text">{title}</h1>
+      {description && <p className="encabezado-panel-descripcion">{description}</p>}
     </div>
   );
 
   return (
     <TituloPestana>
-      <div className="flex items-start justify-between gap-3">
+      <div className="md:flex md:items-start md:justify-between md:gap-4">
         {backHref ? (
           <div className="flex min-w-0 items-start gap-3">
             <Link
@@ -48,7 +54,7 @@ export function AdminPageHeader({
         ) : (
           heading
         )}
-        {actions && <div className="shrink-0">{actions}</div>}
+        {actions && <div className="acciones-panel md:shrink-0">{actions}</div>}
       </div>
     </TituloPestana>
   );

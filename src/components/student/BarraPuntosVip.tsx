@@ -5,16 +5,18 @@ export function BarraPuntosVip({
   maximo,
   etiqueta,
   ayuda,
+  className = "",
 }: {
   puntos: number;
   maximo: number;
   etiqueta: string;
   ayuda?: string;
+  className?: string;
 }) {
   const pct = maximo > 0 ? Math.max(0, Math.min(100, Math.round((puntos / maximo) * 100))) : 0;
   return (
     <div
-      className="radius-control border border-vip/25 bg-vip/5 px-3 py-1"
+      className={`radius-control border border-vip/25 bg-vip/5 px-3 py-1 ${className}`}
       title={ayuda}
     >
       <div className="mb-1 flex items-center gap-1.5">

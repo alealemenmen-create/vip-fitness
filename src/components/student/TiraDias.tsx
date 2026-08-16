@@ -67,7 +67,12 @@ export function TiraDias({
       su borde superior se mete ~1,35 px por debajo de esa cabecera, que lo
       tapa: se veía como si el borde estuviera cortado justo arriba.
     */
-    <div className="flex items-center gap-1 pt-1">
+    // Banda grafito, mismo lenguaje que la barra de sesiones de Entrenar y la
+    // barra inferior universal (instructivo §7): antes cada día flotaba
+    // suelto sobre el fondo negro de la pantalla, sin una superficie propia
+    // que agrupara "esto es UN selector", que era justo lo que pedía el
+    // instructivo para Nutrición.
+    <div className="banda-dias-nutricion flex items-center gap-1 p-1">
       <button
         type="button"
         aria-label={hoyALaIzquierda ? "Día anterior (hoy es hacia aquí)" : "Día anterior"}
@@ -91,9 +96,14 @@ export function TiraDias({
               aria-current={activa ? "date" : undefined}
               aria-label={`${d.dia}${d.esHoy ? ", hoy" : ""}`}
               onClick={() => onSeleccionar(d.fecha)}
-              className={`radius-control flex min-w-0 flex-1 flex-col items-center gap-1 border py-2 transition-[transform,border-color,background-color,opacity] duration-200 ease-out active:scale-95 ${
+              // Borde oro fino en el día elegido, no el ámbar sólido de antes
+              // (`border-vip`) ni el `scale-105`: el instructivo pide "borde
+              // oro fino", una línea, no una pieza que crece. El verde de
+              // "hoy" sigue siendo la única señal que no depende de estar
+              // elegido — es la referencia para no perderse en la semana.
+              className={`dia-nutricion flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl border py-2 transition-[border-color,background-color,opacity] duration-200 ease-out active:scale-95 ${
                 activa
-                  ? "scale-105 border-vip bg-surface-2"
+                  ? "dia-nutricion-activo bg-surface-2"
                   : "border-transparent bg-transparent opacity-70"
               }`}
             >

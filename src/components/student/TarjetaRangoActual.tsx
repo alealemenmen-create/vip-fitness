@@ -2,18 +2,27 @@ import { Card } from "@/components/ui/Card";
 import { BadgeRango } from "@/components/student/BadgeRango";
 import type { FilaRanking } from "@/lib/ranking/data";
 import { progresoAlSiguiente } from "@/lib/ranking/puntos";
+import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { Crown, Gem, Sparkles } from "lucide-react";
 
-/** Card "Tu rango actual": emblema + rango + barra hacia el siguiente rango.
- * Vive sola (antes era la primera card de `ProgresoVipCompetitivo`) para
- * poder ubicarla arriba de Arena VIP en `ranked/page.tsx` — el rango y los
- * puntos acumulados no dependen del periodo (semana/mes/año) que se elija
- * más abajo, por eso alcanza con una sola fila del ranking para armarla. */
+/** Card "Rango de <nombre>": emblema + rango + barra hacia el siguiente
+ * rango. Vive sola (antes era la primera card de `ProgresoVipCompetitivo`)
+ * para poder ubicarla arriba de Arena VIP en `ranked/page.tsx` — el rango y
+ * los puntos acumulados no dependen del periodo (semana/mes/año) que se
+ * elija más abajo, por eso alcanza con una sola fila del ranking para
+ * armarla.
+ *
+ * Antes decía "Tu rango actual" a secas — pero esta pantalla también la ve
+ * el entrenador "viendo como" un alumno, y sin el nombre de por medio se
+ * confunde fácil con el rango de OTRO alumno que recién estaba mirando en
+ * otra pantalla (pasó con Diego Cerna, 2026-08-16: parecía que decía Bronce
+ * cuando en realidad era el rango propio de Alejandro, no el de Diego). */
 export function TarjetaRangoActual({ filas, alumnoId }: { filas: FilaRanking[]; alumnoId: string }) {
   const propia = filas.find((fila) => fila.alumnoId === alumnoId);
   if (!propia) return null;
 
   const progreso = progresoAlSiguiente(propia.puntosAcumulados);
+  const nombre = nombreAlumnoPublicado(propia.nombre);
 
   return (
     <Card className="ranked-diamond-card efecto-3d overflow-hidden" padding="p-5">
@@ -22,10 +31,10 @@ export function TarjetaRangoActual({ filas, alumnoId }: { filas: FilaRanking[]; 
       <div className="relative flex items-center gap-3 sm:gap-4">
         <div className="ranked-rango-badge">
           <BadgeRango rango={propia.rango} size={100} destacado eager />
-          <span><Crown size={12} /> Tu insignia</span>
+          <span><Crown size={12} /> Insignia de {nombre}</span>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="ranked-casino-kicker"><Gem size={12} /> Tu rango actual</p>
+          <p className="ranked-casino-kicker truncate"><Gem size={12} /> Rango de {nombre}</p>
           <p className="text-h2" style={{ color: propia.rango.color }}>{propia.rango.nombre}</p>
           <div className="ranked-jackpot-total">
             <span>{propia.puntosAcumulados.toLocaleString("es-CL")}</span>

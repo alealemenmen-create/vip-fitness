@@ -66,6 +66,11 @@ export type Ejercicio = {
   fotoPanoramaY: number;
   fotoCuadradaX: number;
   fotoCuadradaY: number;
+  /** Hash del contenido de la miniatura procesada (migración 0095). Detecta
+   * duplicados exactos por contenido — la misma foto subida sin querer a dos
+   * ejercicios distintos, algo que comparar URLs no puede ver. Nulo en fotos
+   * subidas antes de esta migración: no hay backfill retroactivo. */
+  fotoHash: string | null;
   /** Clasificación biomecánica estructurada (migración 0051). Nula en casi
    * toda la biblioteca todavía — mientras no se cargue, el generador sigue
    * clasificando por nombre (ver `patronMovimiento()` en lib/rutinas/patrones.ts). */
@@ -93,6 +98,10 @@ export const COLUMNAS_EJERCICIO_MULTIMEDIA =
 export const COLUMNAS_EJERCICIO_IMPULSO =
   `${COLUMNAS_EJERCICIO_MULTIMEDIA}, impulso_intensidad_maxima, impulso_tecnicas_permitidas, ` +
   "impulso_requiere_supervision, impulso_perfil_revisado";
+/** Con el hash de contenido de la foto (migración 0095) — mismo criterio de
+ * respaldo que las demás columnas nuevas: puede fallar si esa migración
+ * todavía no corrió, y quien la use debe caer a `COLUMNAS_EJERCICIO_IMPULSO`. */
+export const COLUMNAS_EJERCICIO_IMPULSO_CON_HASH = `${COLUMNAS_EJERCICIO_IMPULSO}, foto_hash`;
 
 type FilaEjercicio = {
   id: string;
@@ -121,6 +130,7 @@ type FilaEjercicio = {
   foto_panorama_y?: number | null;
   foto_cuadrada_x?: number | null;
   foto_cuadrada_y?: number | null;
+  foto_hash?: string | null;
   patron_movimiento?: PatronMovimiento | null;
   impulso_intensidad_maxima?: IntensidadImpulsoEjercicio | null;
   impulso_tecnicas_permitidas?: TecnicaImpulsoEjercicio[] | null;
@@ -156,6 +166,7 @@ export function aEjercicio(fila: FilaEjercicio): Ejercicio {
     fotoPanoramaY: fila.foto_panorama_y ?? 50,
     fotoCuadradaX: fila.foto_cuadrada_x ?? 50,
     fotoCuadradaY: fila.foto_cuadrada_y ?? 50,
+    fotoHash: fila.foto_hash ?? null,
     patronMovimiento: fila.patron_movimiento ?? null,
     impulsoIntensidadMaxima: fila.impulso_intensidad_maxima ?? "ninguna",
     impulsoTecnicasPermitidas: fila.impulso_tecnicas_permitidas ?? [],

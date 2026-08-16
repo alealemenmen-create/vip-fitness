@@ -161,7 +161,10 @@ export function TarjetaMacros({
     objetivo && objetivo > 0 ? Math.min(1, valor / objetivo) : 0;
 
   return (
-    <div className="radius-card border border-border bg-surface px-3 py-1">
+    // Borde blanco translúcido, no `border-border` (varía de fuerza entre
+    // temas): mismo lenguaje que la banda de días y el buscador de acá
+    // abajo, para que las tres piezas se lean como un solo instrumento.
+    <div className="radius-card border border-white/[0.07] bg-surface px-3 py-1">
       <p
         className="text-micro text-center font-semibold tracking-wide"
         style={{ color: "var(--macro-cal)" }}

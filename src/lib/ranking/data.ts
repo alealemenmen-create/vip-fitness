@@ -47,6 +47,38 @@ function rangoPeriodo(periodo: PeriodoRanking): { desde: string; hasta: string }
   return { desde: `${hoy.slice(0, 4)}-01-01`, hasta: `${hoy.slice(0, 4)}-12-31` };
 }
 
+// PostgREST corta cada respuesta en 1000 filas por defecto. Con 70+ alumnos
+// activos y su historial completo de puntos, la tabla ya supera esa marca
+// (2026-08-16: 2125 filas y subiendo) — sin paginar, `historicos` se
+// truncaba a las primeras 1000 y a quien le tocaba quedar afuera del corte
+// perdía puntos acumulados fantasma. Le pasó a Diego Cerna: bajó de Plata a
+// Bronce sin que nadie le tocara un punto, porque 33 de sus 57 movimientos
+// quedaban fuera de esa página. Esta función pagina hasta traer todo.
+const FILAS_POR_PAGINA = 1000;
+
+async function traerTodosLosMovimientos(
+  admin: ReturnType<typeof createAdminClient>,
+  ids: string[],
+  rango?: { desde: string; hasta: string }
+): Promise<FilaMovimiento[]> {
+  const filas: FilaMovimiento[] = [];
+  for (let desde = 0; ; desde += FILAS_POR_PAGINA) {
+    let consulta = admin
+      .from("puntos_vip_movimientos")
+      .select("alumno_id, categoria, puntos, fecha")
+      .in("alumno_id", ids)
+      .range(desde, desde + FILAS_POR_PAGINA - 1);
+    if (rango) consulta = consulta.gte("fecha", rango.desde).lte("fecha", rango.hasta);
+
+    const { data, error } = await consulta;
+    if (error) throw new Error("No fue posible leer Progreso VIP. Aplica la migracion 0035.");
+
+    filas.push(...((data ?? []) as FilaMovimiento[]));
+    if (!data || data.length < FILAS_POR_PAGINA) break;
+  }
+  return filas;
+}
+
 function sumarPorAlumno(filas: FilaMovimiento[]) {
   const total = new Map<string, number>();
   const desglose = new Map<string, DesgloseSemana>();
@@ -76,26 +108,13 @@ const calcularRankingCacheado = unstable_cache(
     const ids = alumnos.map((a) => a.id);
     const { desde, hasta } = rangoPeriodo(periodo);
 
-    const [{ data: delPeriodo, error: errorPeriodo }, { data: historicos, error: errorHistoricos }] =
-      await Promise.all([
-        admin
-          .from("puntos_vip_movimientos")
-          .select("alumno_id, categoria, puntos, fecha")
-          .in("alumno_id", ids)
-          .gte("fecha", desde)
-          .lte("fecha", hasta),
-        admin
-          .from("puntos_vip_movimientos")
-          .select("alumno_id, categoria, puntos, fecha")
-          .in("alumno_id", ids),
-      ]);
+    const [delPeriodo, historicos] = await Promise.all([
+      traerTodosLosMovimientos(admin, ids, { desde, hasta }),
+      traerTodosLosMovimientos(admin, ids),
+    ]);
 
-    if (errorPeriodo || errorHistoricos) {
-      throw new Error("No fue posible leer Progreso VIP. Aplica la migracion 0035.");
-    }
-
-    const periodoSumado = sumarPorAlumno((delPeriodo ?? []) as FilaMovimiento[]);
-    const historicoSumado = sumarPorAlumno((historicos ?? []) as FilaMovimiento[]);
+    const periodoSumado = sumarPorAlumno(delPeriodo);
+    const historicoSumado = sumarPorAlumno(historicos);
 
     const filas = alumnos.map((alumno) => {
       // Las penalizaciones existen como movimientos auditables, pero nunca

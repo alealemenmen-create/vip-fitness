@@ -121,45 +121,40 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Ojo: las reglas de Espejo están limitadas a `.shell-alumno`, así que
             el panel del entrenador se queda siempre con el tema VIP aunque el
             alumno elija el modo compacto. */}
-        <header className="panel-aero-superior imprimir-oculto z-30 flex h-14 shrink-0 items-center gap-2 px-3 md:hidden">
-          <Logo compact height={20} className="!w-[118px] !rounded-lg !px-2 !py-1 min-[520px]:!w-[138px]" />
-          <div className="hidden min-w-0 flex-1 min-[470px]:block">
-            <p className="text-[8px] font-semibold uppercase leading-none tracking-[0.14em] text-text-tertiary">Entrenador</p>
-            <p className="mt-0.5 truncate text-[11px] font-semibold leading-tight text-text">{nombrePublicado(sesion.nombre)}</p>
+        {/* Cabezal de celular (instructivo §6): marca compacta, contexto y
+            acciones. Tema, tamaño y cerrar sesión siguen en Más (§4.3) — pero
+            "Mi rutina" vuelve acá arriba (pedido de Alejandro, 2026-08-16):
+            para quien entrena y entrena, es la acción que más usa apenas
+            entra, no algo que valga la pena esconder dos toques más adentro.
+            Queda como botón secundario (borde, no relleno) para no competir
+            con el dorado de Asistente; sin texto bajo 380px, igual que
+            Asistente, para no repetir el amontonamiento original. */}
+        <header className="panel-aero-superior imprimir-oculto z-30 flex h-14 shrink-0 items-center gap-2.5 px-3 md:hidden">
+          <Logo compact height={20} className="!w-[110px] !rounded-lg !px-2 !py-1" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[8px] font-semibold uppercase leading-none tracking-[0.14em] text-text-tertiary">
+              Panel del entrenador
+            </p>
+            <p className="mt-0.5 truncate text-[11px] font-semibold leading-tight text-text">
+              {nombrePublicado(sesion.nombre)}
+            </p>
           </div>
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
-              {/* Achicar la pantalla: es en el celular donde el entrenador
-                  pelea por el espacio, así que va acá y no en la barra lateral
-                  de escritorio. */}
-              <ZoomPanel className="!h-8" />
-              <ThemeToggle className="!h-8 !w-8" />
-              {miAlumnoPerfil ? (
-                <Link
-                  href="/alumno/inicio"
-                  aria-label="Ver mi entrenamiento"
-                  className="radius-control flex h-8 items-center gap-1.5 border border-border bg-surface px-2 text-[11px] font-medium text-vip"
-                >
-                  <Dumbbell size={14} /> <span className="hidden min-[520px]:inline">Mi rutina</span>
-                </Link>
-              ) : (
-                <form action={crearMiPerfilAlumno}>
-                  <button
-                    type="submit"
-                    aria-label="Activar mi perfil de alumno"
-                    className="radius-control flex h-8 items-center gap-1.5 border border-dashed border-border bg-surface px-2 text-[11px] text-text-secondary"
-                  >
-                    <Dumbbell size={14} /> <span className="hidden min-[520px]:inline">Activar</span>
-                  </button>
-                </form>
-              )}
-              <Link
-                href="/admin/asistente"
-                aria-label="Abrir Asistente VIP"
-                className="btn-accion radius-control flex h-8 items-center gap-1.5 px-2 text-[11px] font-semibold"
-              >
-                <Bot size={14} /> <span className="hidden min-[520px]:inline">Asistente</span>
-              </Link>
-          </div>
+          {miAlumnoPerfil && (
+            <Link
+              href="/alumno/inicio"
+              aria-label="Ver mi rutina"
+              className="radius-control flex h-9 shrink-0 items-center gap-1.5 border border-white/15 px-2.5 text-[11px] font-semibold text-text-secondary"
+            >
+              <Dumbbell size={15} /> <span className="hidden min-[380px]:inline">Mi rutina</span>
+            </Link>
+          )}
+          <Link
+            href="/admin/asistente"
+            aria-label="Abrir Asistente VIP"
+            className="btn-accion radius-control flex h-9 shrink-0 items-center gap-1.5 px-2.5 text-[11px] font-semibold"
+          >
+            <Bot size={15} /> <span className="hidden min-[380px]:inline">Asistente</span>
+          </Link>
         </header>
 
         <main className="pantalla-scroll min-w-0 flex-1 px-4 pb-28 md:px-8 md:pb-10 lg:px-10">

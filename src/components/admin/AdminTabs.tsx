@@ -3,30 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Bell,
-  Bot,
-  Bug,
-  ClipboardCheck,
-  ClipboardList,
-  CircleDollarSign,
-  Dumbbell,
-  FileText,
-  History,
-  Landmark,
-  Megaphone,
-  MoreHorizontal,
-  Salad,
-  Settings,
-  Sparkles,
-  ShieldCheck,
-  Trash2,
-  Trophy,
-  Users,
-  WandSparkles,
-  PencilRuler,
-} from "lucide-react";
+import { ClipboardCheck, Dumbbell, MoreHorizontal, Users, PencilRuler } from "lucide-react";
 import { contarNovedadesSinVer } from "@/lib/novedades-vistas-local";
+import { GRUPOS_DESTINOS } from "@/lib/admin/destinos";
 
 type AdminTabsProps = {
   alimentosPendientes?: number;
@@ -38,90 +17,63 @@ type AdminTabsProps = {
   variant?: "mobile" | "sidebar";
 };
 
+/**
+ * Los cinco destinos de celular (instructivo §4.1). La barra ofrece VELOCIDAD;
+ * la completitud vive en Más, que ahora lista todo el panel.
+ *
+ * Qué cambió y por qué: "Documentos" y "Alimentos" tenían un lugar propio
+ * mientras Galería y Pendientes no existían en el celular, y "Más" iba a
+ * Configuración, que solo mostraba diez accesos. Documentos pasa a ser una de
+ * las cuatro puertas de Rutinas y Alimentos vive en Bibliotecas, ambos
+ * alcanzables desde Más y desde la barra lateral.
+ */
 const MOBILE_TABS = [
   { href: "/admin/alumnos", label: "Alumnos", icon: Users, section: "alumnos" },
-  // El armado manual es ahora la herramienta principal del entrenador. Debe
-  // quedar a un toque también en celular, no escondido dentro de otro flujo.
-  { href: "/admin/armar-rutina", label: "Armar", icon: PencilRuler, section: "armar-rutina" },
-  { href: "/admin/documentos", label: "Documentos", icon: FileText, section: "documentos" },
-  { href: "/admin/alimentos", label: "Alimentos", icon: Salad, section: "alimentos" },
-  { href: "/admin/configuracion", label: "Más", icon: MoreHorizontal, section: "mas" },
+  { href: "/admin/rutinas", label: "Rutinas", icon: PencilRuler, section: "rutinas" },
+  { href: "/admin/ejercicios", label: "Galería", icon: Dumbbell, section: "ejercicios" },
+  { href: "/admin/pendientes", label: "Pendientes", icon: ClipboardCheck, section: "pendientes" },
+  { href: "/admin/mas", label: "Más", icon: MoreHorizontal, section: "mas" },
 ] as const;
 
-const SIDEBAR_GROUPS = [
-  {
-    label: "Trabajo diario",
-    items: [
-      { href: "/admin/alumnos", label: "Alumnos", icon: Users, section: "alumnos" },
-      // Primero la herramienta manual: es la puerta que el entrenador usa a
-      // diario. El generador con cuestionario queda debajo, para cuando quiera
-      // afinar cada detalle antes de generar.
-      { href: "/admin/armar-rutina", label: "Armar rutina", icon: PencilRuler, section: "armar-rutina" },
-      { href: "/admin/generador", label: "Generador de rutinas", icon: WandSparkles, section: "generador" },
-      { href: "/admin/documentos", label: "Documentos", icon: FileText, section: "documentos" },
-      // Reabrir lo ya hecho: con 68 alumnos, la mayoría de las rutinas nuevas
-      // son una variación de la anterior de esa misma persona.
-      { href: "/admin/rutinas-generadas", label: "Rutinas hechas", icon: History, section: "rutinas-generadas" },
-      { href: "/admin/ejercicios", label: "Ejercicios", icon: Dumbbell, section: "ejercicios" },
-      { href: "/admin/puntos", label: "Otorgar puntos", icon: Sparkles, section: "puntos" },
-    ],
-  },
-  {
-    label: "Seguimiento",
-    items: [
-      { href: "/admin/asistente", label: "Asistente VIP", icon: Bot, section: "asistente" },
-      { href: "/admin/alimentos", label: "Alimentos", icon: Salad, section: "alimentos" },
-      { href: "/admin/solicitudes", label: "Solicitudes", icon: ClipboardList, section: "solicitudes" },
-      { href: "/admin/ingresos", label: "Ingresos", icon: Landmark, section: "ingresos" },
-    ],
-  },
-  {
-    label: "Comunidad",
-    items: [
-      { href: "/admin/torneos", label: "Arena", icon: Trophy, section: "torneos" },
-      { href: "/admin/noticias", label: "Noticias", icon: Megaphone, section: "noticias" },
-    ],
-  },
-  {
-    label: "Sistema",
-    items: [
-      { href: "/admin/pendientes", label: "Pendientes", icon: ClipboardCheck, section: "pendientes" },
-      { href: "/admin/auditoria", label: "Auditoría", icon: ShieldCheck, section: "auditoria" },
-      { href: "/admin/reportes", label: "Errores reportados", icon: Bug, section: "reportes" },
-      { href: "/admin/borrados", label: "Pedidos de borrado", icon: Trash2, section: "borrados" },
-      { href: "/admin/novedades", label: "Actualizaciones", icon: Bell, section: "novedades" },
-      { href: "/admin/gastos", label: "Gastos de la app", icon: CircleDollarSign, section: "gastos" },
-      { href: "/admin/configuracion", label: "Configuración", icon: Settings, section: "configuracion" },
-    ],
-  },
-] as const;
+/** Las rutas que enciende cada pestaña además de la suya. */
+const RUTAS_POR_SECCION: Record<string, string[]> = {
+  alumnos: ["/admin/alumnos", "/admin/solicitudes", "/admin/ingresos"],
+  rutinas: [
+    "/admin/rutinas",
+    "/admin/armar-rutina",
+    "/admin/generador",
+    "/admin/generador-v2",
+    "/admin/rutinas-generadas",
+    "/admin/documentos",
+  ],
+  ejercicios: ["/admin/ejercicios"],
+  pendientes: ["/admin/pendientes", "/admin/reportes", "/admin/borrados", "/admin/auditoria"],
+};
 
-const MORE_PREFIXES = [
-  "/admin/configuracion",
-  "/admin/pendientes",
-  "/admin/puntos",
-  "/admin/rutinas-generadas",
-  "/admin/ejercicios",
-  "/admin/asistente",
-  "/admin/ingresos",
-  "/admin/auditoria",
-  "/admin/torneos",
-  "/admin/noticias",
-  "/admin/novedades",
-  "/admin/gastos",
-  "/admin/reportes",
-  "/admin/borrados",
-];
+/** Las rutas que ya tienen pestaña propia abajo. Todo lo demás lo cubre Más. */
+const RUTAS_CON_PESTANA = Object.values(RUTAS_POR_SECCION).flat();
 
-function estaActivo(pathname: string, href: string, section: string) {
-  if (section === "alumnos") {
-    return pathname.startsWith("/admin/alumnos") || pathname.startsWith("/admin/solicitudes");
-  }
-  if (section === "mas") return MORE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-  return pathname === href || pathname.startsWith(`${href}/`);
+function coincide(pathname: string, ruta: string) {
+  return pathname === ruta || pathname.startsWith(`${ruta}/`);
 }
 
-function pendientesDe(
+export function estaActivo(pathname: string, href: string, section: string) {
+  // "Más" se enciende por descarte: cualquier ruta del panel que no pertenezca
+  // a las otras cuatro pestañas se llega desde ahí. Antes esto era una lista
+  // fija de prefijos que había que acordarse de actualizar con cada ruta nueva
+  // — y que ya se había quedado corta.
+  if (section === "mas") {
+    return (
+      coincide(pathname, "/admin/mas") ||
+      (pathname.startsWith("/admin") && !RUTAS_CON_PESTANA.some((ruta) => coincide(pathname, ruta)))
+    );
+  }
+  const rutas = RUTAS_POR_SECCION[section];
+  if (rutas) return rutas.some((ruta) => coincide(pathname, ruta));
+  return coincide(pathname, href);
+}
+
+export function pendientesDe(
   section: string,
   alimentosPendientes: number,
   solicitudesPendientes: number,
@@ -130,10 +82,10 @@ function pendientesDe(
 ) {
   if (section === "alimentos") return alimentosPendientes;
   if (section === "alumnos" || section === "solicitudes") return solicitudesPendientes;
-  // En el celular, "Actualizaciones" no tiene lugar propio en la barra: se
-  // llega por "Más", así que ahí es donde tiene que verse el aviso.
   if (section === "gastos") return gastosPendientes;
   if (section === "novedades") return novedadesSinVer;
+  // Gastos vencidos y actualizaciones sin ver no tienen pestaña propia en el
+  // celular: se llega por Más, así que el aviso tiene que verse ahí.
   if (section === "mas") return novedadesSinVer + gastosPendientes;
   return 0;
 }
@@ -162,7 +114,7 @@ export function AdminTabs({
   if (variant === "sidebar") {
     return (
       <nav className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto py-5" aria-label="Panel del entrenador">
-        {SIDEBAR_GROUPS.map((group) => (
+        {GRUPOS_DESTINOS.map((group) => (
           <div key={group.label}>
             <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
               {group.label}
@@ -170,8 +122,11 @@ export function AdminTabs({
             <div className="space-y-1">
               {group.items.map((item) => {
                 const Icon = item.icon;
-                const active = estaActivo(pathname, item.href, item.section);
-                const esperando = pendientesDe(item.section, alimentosPendientes, solicitudesPendientes, novedadesSinVer, gastosPendientes);
+                // Por `href` y no por sección: dentro de "Rutinas" las cuatro
+                // puertas comparten sección, y con la sección se encenderían
+                // las cuatro filas a la vez.
+                const active = coincide(pathname, item.href);
+                const esperando = pendientesDe(item.seccion, alimentosPendientes, solicitudesPendientes, novedadesSinVer, gastosPendientes);
                 return (
                   <Link
                     key={item.href}
@@ -219,9 +174,14 @@ export function AdminTabs({
             }`}
           >
             <span className="relative">
-              <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
+              <Icon size={20} strokeWidth={active ? 2.25 : 1.75} />
+              {/* Insignia con el número, no un punto rojo: con cinco destinos
+                  el entrenador necesita saber CUÁNTO le espera antes de tocar
+                  (maqueta `panel-entrenador-organizado.html`). */}
               {esperando > 0 && (
-                <span className="absolute -right-1.5 -top-1 h-2.5 w-2.5 rounded-full border-2 border-bg bg-error" />
+                <span className="insignia-nav-panel" aria-hidden>
+                  {esperando > 99 ? "99+" : esperando}
+                </span>
               )}
             </span>
             <span className={`truncate text-[10px] ${active ? "font-semibold text-text" : ""}`}>{tab.label}</span>

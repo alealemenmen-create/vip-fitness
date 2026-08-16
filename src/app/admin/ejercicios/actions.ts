@@ -8,6 +8,7 @@ import { TAG_TECNICAS_ENTRENAMIENTO } from "@/lib/generador-rutinas/data";
 import { idDeYoutube } from "@/lib/ejercicios/video";
 import {
   bufferAImagenBlob,
+  hashearImagen,
   procesarImagen,
   TAMANO_MAXIMO_FOTO as TAMANO_MAXIMO,
   TIPOS_IMAGEN,
@@ -157,12 +158,17 @@ export async function subirFotoEjercicio(
   // siempre — el nombre/carpeta siempre es nuevo, así que nunca se pisa solo.
   const { data: fotoAnterior } = await supabase
     .from("ejercicios")
-    .select("foto_miniatura_url, foto_completa_url")
+    .select("foto_miniatura_url, foto_completa_url, foto_panorama_x, foto_panorama_y, foto_cuadrada_x, foto_cuadrada_y")
     .eq("id", ejercicioId)
     .maybeSingle();
 
   let urlMini = "";
   let urlCompleta = "";
+  // El camino normal (subida directa navegador → Storage) calcula su propio
+  // hash del lado del cliente, porque ahí nunca pasa por procesarImagen acá
+  // — sin esto, "duplicado exacto" (ver Calidad) solo detectaría el camino
+  // de respaldo (archivo/link), que casi nunca se usa en la práctica.
+  let fotoHash: string | null = String(formData.get("foto_hash_cliente") || "").trim() || null;
   const reemplazoFoto = !!(
     (miniaturaUrlSubida && completaUrlSubida) ||
     (archivo && archivo.size > 0) ||
@@ -195,6 +201,7 @@ export async function subirFotoEjercicio(
     if (reemplazoFoto) {
       const procesada = await procesarImagen(bytes);
       if ("error" in procesada) return { error: procesada.error, ok: false };
+      fotoHash = hashearImagen(procesada.miniatura);
 
     // Timestamp en el nombre: fuerza a que sea una URL nueva cada vez que se
     // reemplaza la foto, así el navegador del alumno no sigue mostrando la
@@ -220,9 +227,14 @@ export async function subirFotoEjercicio(
     }
   }
 
+  // foto_hash solo se toca cuando de verdad hay una foto nueva — omitirlo en
+  // el resto de los casos (p. ej. un resave que solo ajusta el encuadre)
+  // evita pisar con `null` el hash de una foto que no cambió.
+  const datosHash = reemplazoFoto && fotoHash ? { foto_hash: fotoHash } : {};
+
   let { error: errorUpdate } = await supabase
     .from("ejercicios")
-    .update({ foto_miniatura_url: urlMini, foto_completa_url: urlCompleta, ...encuadre })
+    .update({ foto_miniatura_url: urlMini, foto_completa_url: urlCompleta, ...encuadre, ...datosHash })
     .eq("id", ejercicioId);
 
   // Un preview puede desplegarse unos minutos antes que la migraciÃ³n 0048.
@@ -241,16 +253,57 @@ export async function subirFotoEjercicio(
   }
 
   // Recién ahora, con la foto nueva ya guardada y confirmada en la fila del
-  // ejercicio, se borran los archivos viejos — best-effort: si esto falla
-  // (permisos, ya no existían), la foto nueva ya quedó bien de todos modos,
-  // no tiene sentido devolver error por un archivo huérfano.
+  // ejercicio, se resuelve qué pasa con los archivos viejos — best-effort: si
+  // algo de esto falla (permisos, ya no existían), la foto nueva ya quedó
+  // bien de todos modos, no tiene sentido devolver error por un archivo
+  // huérfano.
   const rutaMiniNueva = urlMini.split("/ejercicios-fotos/")[1];
   const rutaCompletaNueva = urlCompleta.split("/ejercicios-fotos/")[1];
   const rutasViejas = [fotoAnterior?.foto_miniatura_url, fotoAnterior?.foto_completa_url]
     .filter((url): url is string => !!url)
     .map((url) => url.split("/ejercicios-fotos/")[1])
     .filter((ruta): ruta is string => !!ruta && ruta !== rutaMiniNueva && ruta !== rutaCompletaNueva);
-  if (reemplazoFoto && rutasViejas.length > 0) {
+
+  // En vez de borrar la foto vieja de una, se guarda como "versión anterior"
+  // restaurable (ver ejercicio_foto_version_anterior, migración 0094) — solo
+  // una por ejercicio, no un historial completo. Best-effort: si la migración
+  // todavía no corrió contra esta base, se cae al comportamiento de siempre
+  // (borrar directo) para no dejar archivos huérfanos acumulándose sin fin.
+  let versionGuardada = false;
+  if (reemplazoFoto && fotoAnterior?.foto_miniatura_url && fotoAnterior.foto_completa_url) {
+    const { data: versionExistente } = await supabase
+      .from("ejercicio_foto_version_anterior")
+      .select("foto_miniatura_url, foto_completa_url")
+      .eq("ejercicio_id", ejercicioId)
+      .maybeSingle();
+    const { error: errorVersion } = await supabase.from("ejercicio_foto_version_anterior").upsert({
+      ejercicio_id: ejercicioId,
+      foto_miniatura_url: fotoAnterior.foto_miniatura_url,
+      foto_completa_url: fotoAnterior.foto_completa_url,
+      foto_panorama_x: fotoAnterior.foto_panorama_x ?? 50,
+      foto_panorama_y: fotoAnterior.foto_panorama_y ?? 50,
+      foto_cuadrada_x: fotoAnterior.foto_cuadrada_x ?? 50,
+      foto_cuadrada_y: fotoAnterior.foto_cuadrada_y ?? 50,
+      reemplazada_por: entrenador.userId,
+    });
+    if (!errorVersion) {
+      versionGuardada = true;
+      // Solo se guarda UNA versión anterior: si ya había una guardada de un
+      // reemplazo previo, ese archivo queda huérfano ahora (la fila se acaba
+      // de pisar con la nueva) y hay que borrarlo — si no, cada reemplazo
+      // sucesivo dejaría un archivo suelto en Storage para siempre.
+      if (versionExistente) {
+        const rutasHuerfanas = [versionExistente.foto_miniatura_url, versionExistente.foto_completa_url]
+          .map((url) => url.split("/ejercicios-fotos/")[1])
+          .filter((ruta): ruta is string => !!ruta);
+        if (rutasHuerfanas.length > 0) await supabase.storage.from("ejercicios-fotos").remove(rutasHuerfanas);
+      }
+    } else {
+      console.error("[ejercicios] no se pudo guardar la versión anterior de la foto:", errorVersion.message);
+    }
+  }
+
+  if (!versionGuardada && reemplazoFoto && rutasViejas.length > 0) {
     await supabase.storage.from("ejercicios-fotos").remove(rutasViejas);
   }
 
@@ -415,6 +468,8 @@ export async function crearEjercicioNuevo(
     if (miniaturaUrlSubida && completaUrlSubida) {
       datosFoto.set("foto_miniatura_url_subida", miniaturaUrlSubida);
       datosFoto.set("foto_completa_url_subida", completaUrlSubida);
+      const hashCliente = String(formData.get("foto_hash_cliente") || "").trim();
+      if (hashCliente) datosFoto.set("foto_hash_cliente", hashCliente);
     }
     const resultadoFoto = await subirFotoEjercicio({ error: null, ok: false }, datosFoto);
     if (resultadoFoto.error) {
@@ -458,6 +513,51 @@ export async function actualizarDetallesEjercicio(
     consejos: String(formData.get("consejos") || "").split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
   }).eq("id", ejercicioId);
   if (error) return { error: "No se pudieron guardar los detalles.", ok: false };
+  avisarCambios();
+  return { error: null, ok: true };
+}
+
+export type ActualizarClasificacionState = { error: string | null; ok: boolean };
+
+/**
+ * Grupo muscular, categoría y equipo — antes solo se elegían al crear el
+ * ejercicio (`crearEjercicioNuevo`); un ejercicio ya cargado no tenía forma
+ * de reclasificarse desde la galería (instructivo del panel §8.8, "un
+ * ejercicio ya cargado no se puede reclasificar" era el hueco real).
+ *
+ * Misma validación liviana que ya usa `crearEjercicioNuevo` para estos tres
+ * campos: solo se chequea que no vengan vacíos — el `<select>` de la
+ * interfaz ya limita las opciones, y la columna de Postgres es la que
+ * realmente exige un valor de la lista.
+ *
+ * A propósito NO toca `patron_movimiento` (tiene su propio editor,
+ * `actualizarPatronMovimiento`) ni `nivel` (vive en `actualizarDetallesEjercicio`)
+ * — reclasificar grupo/categoría/equipo es un cambio más profundo (puede
+ * mover al ejercicio de familia de zona en `emparejarEjercicio`) y merece su
+ * propio guardado, sin arrastrar el resto del formulario de detalles.
+ */
+export async function actualizarClasificacionEjercicio(
+  _prevState: ActualizarClasificacionState,
+  formData: FormData
+): Promise<ActualizarClasificacionState> {
+  await requireRol(["entrenador", "admin"]);
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  const grupoMuscular = String(formData.get("grupo_muscular") || "") as GrupoMuscular;
+  const categoria = String(formData.get("categoria") || "") as CategoriaEjercicio;
+  const equipo = String(formData.get("equipo") || "") as EquipoEjercicio;
+
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+  if (!grupoMuscular) return { error: "Elegí el grupo muscular.", ok: false };
+  if (!categoria) return { error: "Elegí la categoría.", ok: false };
+  if (!equipo) return { error: "Elegí el equipo.", ok: false };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ejercicios")
+    .update({ grupo_muscular: grupoMuscular, categoria, equipo })
+    .eq("id", ejercicioId);
+  if (error) return { error: "No se pudo guardar la clasificación.", ok: false };
+
   avisarCambios();
   return { error: null, ok: true };
 }
@@ -921,6 +1021,70 @@ export async function deshacerFusionEjercicios(
 
   avisarCambios();
   return { error: null, ok: true, mensaje: `${fusion.duplicado_nombre} quedó restaurado.` };
+}
+
+export type RestaurarFotoAnteriorState = { error: string | null; ok: boolean; mensaje?: string };
+
+/** Restaura la última versión anterior guardada de la foto de un ejercicio
+ * (ver ejercicio_foto_version_anterior, migración 0094). Es un paso único, no
+ * un intercambio: la foto que estaba puesta justo antes de restaurar no
+ * queda guardada en ningún lado — si el entrenador se arrepiente de nuevo,
+ * tiene que volver a subirla a mano. */
+export async function restaurarFotoAnteriorEjercicio(
+  _prevState: RestaurarFotoAnteriorState,
+  formData: FormData,
+): Promise<RestaurarFotoAnteriorState> {
+  await requireRol(["entrenador", "admin"]);
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+
+  const supabase = await createClient();
+  const { data: version, error: errorLectura } = await supabase
+    .from("ejercicio_foto_version_anterior")
+    .select("foto_miniatura_url, foto_completa_url, foto_panorama_x, foto_panorama_y, foto_cuadrada_x, foto_cuadrada_y")
+    .eq("ejercicio_id", ejercicioId)
+    .maybeSingle();
+  if (errorLectura || !version) return { error: "No hay una versión anterior guardada para restaurar.", ok: false };
+
+  const { data: actual } = await supabase
+    .from("ejercicios")
+    .select("nombre, foto_miniatura_url, foto_completa_url")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+
+  const { error: errorUpdate } = await supabase
+    .from("ejercicios")
+    .update({
+      foto_miniatura_url: version.foto_miniatura_url,
+      foto_completa_url: version.foto_completa_url,
+      foto_panorama_x: version.foto_panorama_x,
+      foto_panorama_y: version.foto_panorama_y,
+      foto_cuadrada_x: version.foto_cuadrada_x,
+      foto_cuadrada_y: version.foto_cuadrada_y,
+    })
+    .eq("id", ejercicioId);
+  if (errorUpdate) return { error: "No se pudo restaurar la foto anterior.", ok: false };
+
+  const { error: errorBorrarVersion } = await supabase
+    .from("ejercicio_foto_version_anterior")
+    .delete()
+    .eq("ejercicio_id", ejercicioId);
+  if (errorBorrarVersion) console.error("[ejercicios] no se pudo limpiar la versión anterior tras restaurar:", errorBorrarVersion.message);
+
+  // La foto que estaba puesta justo antes de este restore queda huérfana en
+  // Storage — se borra best-effort, salvo que resulte ser exactamente la
+  // misma URL que se acaba de restaurar (no debería pasar, pero por las
+  // dudas no se borra algo que sigue en uso).
+  if (actual?.foto_miniatura_url && actual.foto_miniatura_url !== version.foto_miniatura_url) {
+    const rutas = [actual.foto_miniatura_url, actual.foto_completa_url]
+      .filter((url): url is string => !!url)
+      .map((url) => url.split("/ejercicios-fotos/")[1])
+      .filter((ruta): ruta is string => !!ruta);
+    if (rutas.length > 0) await supabase.storage.from("ejercicios-fotos").remove(rutas);
+  }
+
+  avisarCambios();
+  return { error: null, ok: true, mensaje: `Se restauró la foto anterior de ${actual?.nombre ?? "el ejercicio"}.` };
 }
 
 export type QuitarFotoState = { error: string | null; ok: boolean };

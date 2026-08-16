@@ -77,14 +77,16 @@ export default async function InicioPage() {
   const pctRendimientoGeneral = resumenDias?.pctGeneral ?? 0;
 
   return (
-    <div className="space-y-3 pb-6">
-      <section className="identidad-vip-premium relative overflow-hidden rounded-[22px] px-3 py-2.5">
+    <div className="inicio-tono-entrenar space-y-3 pb-6">
+      <section className="identidad-vip-premium relative mt-1.5 overflow-hidden rounded-[16px] px-3 py-2.5">
         <div className="relative flex items-center gap-2.5">
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.16em] text-vip">
               <Crown size={10} fill="currentColor" /> Membresía VIP
             </p>
-            <h1 className="mt-0.5 truncate text-[17px] font-bold leading-tight text-text">{nombreVisible}</h1>
+            {/* El cabezal universal ya pone el <h1> ("Inicio"); esto es el
+                nombre del alumno, no el título de la pantalla. */}
+            <p className="mt-0.5 truncate text-[17px] font-bold leading-tight text-text">{nombreVisible}</p>
             <p className="mt-0.5 truncate text-[9px] text-text-secondary">
               {perfil.objetivo || "Objetivo pendiente"} · {formatFechaCompacta()}
             </p>
@@ -134,7 +136,7 @@ export default async function InicioPage() {
 
       {/* Cierre de la pantalla: el acumulado histórico, que no compite con el
           rendimiento de la semana allá arriba. */}
-      <Card padding="p-3">
+      <Card padding="p-3" className="!rounded-[16px]">
         <div className="mb-2 flex items-baseline justify-between gap-2">
           <p className="text-caption text-text-tertiary">RENDIMIENTO GENERAL</p>
           <p className="text-secondary font-bold text-text">{pctRendimientoGeneral}%</p>
@@ -213,7 +215,7 @@ async function RankingVip({
 
 function RankingCargando() {
   return (
-    <div className="rounded-[24px] border border-border bg-surface p-3" aria-hidden>
+    <div className="rounded-[18px] border border-white/[0.06] bg-surface p-3" aria-hidden>
       <div className="h-9 w-40 animate-pulse rounded-xl bg-surface-2" />
       <div className="mt-3 grid grid-cols-3 gap-2">
         {Array.from({ length: 3 }).map((_, i) => (
@@ -287,7 +289,6 @@ function TarjetaEntrenamientoHoy({
     );
   }
 
-  const completado = estado.tipo === "completado";
   const diaHoy = resumenDias.dias.find((d) => d.esHoy) ?? resumenDias.dias[0];
 
   // `tarjeta-modelo-oscura`: se queda en oscuro también con el tema claro,
@@ -305,24 +306,19 @@ function TarjetaEntrenamientoHoy({
       />
 
       <div className="mt-1">
+        {/* Va siempre a la pestaña Entrenar, nunca directo a la sesión activa
+            (pedido de Alejandro, 2026-08-15): desde Inicio el alumno elige,
+            no lo empuja adentro. */}
         <Link
-          href={
-            estado.tipo === "sin_dia_elegido"
-              ? "/alumno/entrenar"
-              : `/alumno/entrenar/sesion/${estado.sesionId}`
-          }
-          className="btn-accion radius-control flex h-11 items-center justify-center gap-2 text-[12px] font-semibold"
+          href="/alumno/entrenar"
+          className="boton-entrenar-tarjeta radius-control flex h-11 items-center justify-center gap-2 text-[12px] font-semibold"
         >
-          {estado.tipo === "sin_dia_elegido"
-            ? "Comenzar"
-            : completado
-              ? "Ver entrenamiento"
-              : "Continuar"}
+          Entrenar
           <ChevronRight size={18} />
         </Link>
       </div>
 
-      <details className="mt-1.5 border-t border-border pt-1">
+      <details className="mt-1.5 border-t border-white/[0.05] pt-1">
         <summary className="cursor-pointer text-[9px] text-text-tertiary">
           Ver constancia histórica · General {resumenDias.pctGeneral}%
         </summary>

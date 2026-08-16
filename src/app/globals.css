@@ -1349,26 +1349,20 @@ input[type="date"]::-webkit-date-and-time-value {
    propÃ³sito: si maÃ±ana algo mÃ¡s parpadea, este deja de significar nada. */
 .franja-sesion-sin-cerrar {
   position: relative;
-  padding: 10px 12px;
-  border: 1.5px solid var(--color-error);
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-error) 45%, transparent);
   border-radius: 14px;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-error) 26%, transparent),
-    color-mix(in srgb, var(--color-error) 12%, transparent)
-  );
+  background: var(--color-surface);
   animation: latido-sesion-sin-cerrar 1.25s ease-in-out infinite;
 }
 @keyframes latido-sesion-sin-cerrar {
   0%, 100% {
-    border-color: color-mix(in srgb, var(--color-error) 55%, transparent);
+    border-color: color-mix(in srgb, var(--color-error) 45%, transparent);
     box-shadow: 0 0 0 rgba(0, 0, 0, 0);
   }
   50% {
     border-color: var(--color-error);
-    box-shadow:
-      0 0 18px color-mix(in srgb, var(--color-error) 65%, transparent),
-      0 0 0 3px color-mix(in srgb, var(--color-error) 22%, transparent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-error) 35%, transparent);
   }
 }
 /* El punto rojo late a contratiempo del recuadro: dos ritmos distintos llaman
@@ -1757,6 +1751,11 @@ input[type="date"]::-webkit-date-and-time-value {
   display: grid;
   gap: 8px;
   margin-top: 9px;
+}
+/* Mientras el ejercicio está en curso este bloque no tiene contenido, pero su
+   `margin-top` seguía empujando 9 px el piso de la tarjeta. */
+.tarjeta-ejercicio-enfocada .cierre-ejercicio-foco:empty {
+  display: none;
 }
 .tarjeta-ejercicio-enfocada .estado-finalizacion-ejercicio {
   display: flex;
@@ -3060,42 +3059,16 @@ input[type="number"] {
 /* Portada premium: vidrio negro con halo oro/violeta y un patrÃ³n diagonal muy
    fino. Se mantiene oscura en ambos temas para conservar la misma identidad
    de alto rendimiento que las fotos de estudio. */
+/* Franja editorial breve (2026-08-15): ya no compite con "Tu entrenamiento"
+   por brillo. Sin diagonales ni halo — el oro queda para la insignia de
+   rango, que es el único dato nuevo que aporta esta franja. */
 .identidad-vip-premium {
   --color-text: #ffffff;
   --color-text-secondary: #b8bdc7;
   --color-text-tertiary: #777e8b;
   isolation: isolate;
-  border: 1px solid color-mix(in srgb, var(--color-vip) 38%, #343741);
-  background:
-    radial-gradient(circle at 88% 16%, color-mix(in srgb, var(--color-acento-fuerte) 22%, transparent), transparent 34%),
-    radial-gradient(circle at 8% -30%, color-mix(in srgb, var(--color-vip) 24%, transparent), transparent 42%),
-    linear-gradient(145deg, #17181d 0%, #0c0d10 54%, #14151a 100%);
-  box-shadow:
-    0 18px 40px -26px color-mix(in srgb, var(--color-vip) 65%, transparent),
-    0 14px 32px -20px rgba(0, 0, 0, 0.85),
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.7);
-}
-.identidad-vip-premium::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    118deg,
-    transparent 0 34px,
-    color-mix(in srgb, var(--color-vip) 8%, transparent) 35px,
-    transparent 36px 56px
-  );
-  opacity: 0.55;
-  pointer-events: none;
-}
-.identidad-vip-premium::after {
-  content: "";
-  position: absolute;
-  inset: 1px;
-  border-radius: 20px;
-  border-top: 1px solid color-mix(in srgb, var(--color-vip) 30%, transparent);
-  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, .06);
+  background: linear-gradient(180deg, #111315 0%, #0c0d10 100%);
 }
 .rango-cabecera-premium {
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.3));
@@ -3107,15 +3080,19 @@ input[type="number"] {
 /* Tarjeta del modelo: filo de premio, profundidad negra y luz cÃ¡lida controlada
    alrededor del CTA. No agrega movimiento permanente ni tapa la fotografÃ­a. */
 .tarjeta-entrenamiento-premium {
-  border: 1px solid color-mix(in srgb, var(--color-vip) 28%, #292c33);
+  /* Esquinas menos circulares que el `radius-card` genérico (24px): pedido
+     de Alejandro (2026-08-16) para que Inicio se sienta más "cerrada",
+     acorde al resto del rediseño. */
+  border-radius: 16px;
+  /* Borde neutro, igual que Arena VIP — pedido de Alejandro (2026-08-16):
+     el dorado marcado acá competía con el resto de la pantalla. */
+  border: 1px solid rgba(255, 255, 255, .06);
   background:
     radial-gradient(ellipse 62% 104% at 100% 46%, #000 0%, rgba(0, 0, 0, 0.98) 43%, rgba(0, 0, 0, 0.5) 69%, transparent 88%),
-    radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--color-vip) 10%, transparent), transparent 40%),
     linear-gradient(150deg, #15161a 0%, #0d0e11 100%);
   box-shadow:
-    0 22px 48px -30px color-mix(in srgb, var(--color-vip) 72%, transparent),
-    0 18px 34px -24px rgba(0, 0, 0, 0.95),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 14px 30px -22px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
     inset 0 -1px 0 rgba(0, 0, 0, 0.8);
 }
 
@@ -3245,11 +3222,15 @@ input[type="number"] {
   color: var(--color-text-tertiary);
   font-size: calc(9px * var(--escala-texto));
 }
+/* "+ Añadir serie extra" cierra la tarjeta: debajo suyo no va nada más, así
+   que el relleno se reduce al mínimo (pedido de Alejandro, 2026-08-16 — la
+   pantalla tiene que calzar entera sin scroll). El botón conserva sus 36 px
+   de alto táctil; lo que se saca es aire, no área de toque. */
 .acciones-series-extra {
   display: flex;
   justify-content: center;
   gap: 14px;
-  padding: 11px 0 4px;
+  padding: 0;
 }
 .acciones-series-extra button {
   min-height: 36px;
@@ -3464,12 +3445,12 @@ input[type="number"] {
    ocultas acá. Se muestran chicas y discretas, angostadas para no tocar el
    borde redondeado de la tarjeta (antes quedaban pegadas a las esquinas). */
 .tarjeta-ejercicio-enfocada .acciones-secundarias-ejercicio {
-  margin: 10px 2px 0 !important;
+  margin: 3px 2px 0 !important;
 }
 .tarjeta-ejercicio-enfocada .accion-secundaria-ejercicio,
 .tarjeta-ejercicio-enfocada .acciones-secundarias-ejercicio .accion-secundaria-ejercicio {
-  border-color: rgba(255, 255, 255, .08);
-  background: #101113;
+  border-color: rgba(255, 255, 255, .07);
+  background: var(--color-bg);
 }
 .tarjeta-ejercicio-enfocada .acciones-secundarias-ejercicio .accion-cerrar-ejercicio {
   display: grid;
@@ -4322,11 +4303,9 @@ input[type="number"] {
    sin carrusel ni desplazamiento lateral. */
 .arena-vip {
   background:
-    radial-gradient(circle at 50% -25%, color-mix(in srgb, var(--color-vip) 25%, transparent), transparent 46%),
-    linear-gradient(145deg, color-mix(in srgb, var(--color-vip) 6%, var(--color-surface)), var(--color-surface) 68%);
-  box-shadow:
-    0 18px 36px -30px color-mix(in srgb, var(--color-vip) 52%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--color-vip) 18%, transparent);
+    radial-gradient(circle at 50% -25%, color-mix(in srgb, var(--color-vip) 10%, transparent), transparent 46%),
+    var(--color-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 .arena-vip-corona {
   opacity: 0.065;
@@ -4978,29 +4957,39 @@ input[type="number"] {
   margin: 10px 0 8px !important;
   padding: 0 !important;
 }
+/* Paleta de series atenuada (pedido de Alejandro, 2026-08-16): los tonos de
+   neón (#45e57b, #ffd12f, #2dccff, #ff7a32, #8b7bff) competían con el resto
+   del sistema, ya de por sí discreto — y el morado de la rotación se
+   confundía con el morado de Impulso VIP, que tiene que ser la única señal
+   que salta a la vista. Los nuevos tonos son la misma familia pero
+   desaturada, más cerca del "grafito silencioso" del resto de la sesión;
+   el morado sale de la rotación por completo. */
 .tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador {
-  --color-serie: #45e57b;
+  --color-serie: #6bb98f;
   display: grid;
   min-width: 0;
   flex: 1 1 0;
   gap: 4px;
   justify-items: center;
 }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(2) { --color-serie: #ffd12f; }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(3) { --color-serie: #2dccff; }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(4) { --color-serie: #ff7a32; }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(5n) { --color-serie: #8b7bff; }
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(2) { --color-serie: #c9ab6f; }
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(3) { --color-serie: #6bacc0; }
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(4) { --color-serie: #c78a68; }
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(5n) { --color-serie: #8f96ad; }
 .tarjeta-ejercicio-enfocada .selector-series-movido button {
   --color-serie: inherit;
   display: grid;
   width: 100%;
-  height: 22px;
-  min-height: 22px;
+  /* Más finas — pedido explícito de que se lean como líneas, no como
+     píldoras/botones (venían de 22px, casi el doble de altas que su
+     versión "densa" de 6+ series). */
+  height: 15px;
+  min-height: 15px;
   overflow: hidden;
   place-items: center;
-  padding: 2px 3px;
+  padding: 1px 3px;
   border: 1px solid #35383d;
-  border-radius: 10px;
+  border-radius: 8px;
   color: #85898f;
   background: #1c1f23;
   opacity: 1;
@@ -5105,10 +5094,10 @@ input[type="number"] {
   gap: 2px;
 }
 .tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] button {
-  height: 17px;
-  min-height: 17px;
+  height: 12px;
+  min-height: 12px;
   padding: 1px 2px;
-  border-radius: 7px;
+  border-radius: 6px;
 }
 .tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] .resumen-registro-serie {
   display: block;
@@ -5494,38 +5483,60 @@ input[type="number"] {
   place-items: center;
   border: 0;
   border-radius: 0;
-  color: rgba(255,255,255,.62);
+  /* Casi imperceptibles: pedido de Alejandro (2026-08-16) — al 62% de blanco,
+     con brillo y con un balanceo permanente, las dos flechas eran lo primero
+     que se veía de la pantalla y le rompían el diseño. Bajan a .07, pierden
+     el brillo y dejan de moverse solas. El área táctil (90 × 79 px) NO se
+     toca: se ven menos, se tocan igual. */
+  color: rgba(255,255,255,.07);
   background: transparent;
   box-shadow: none;
   pointer-events: auto;
   transform: translateY(-50%);
+  /* Sin `overflow: hidden`, a propósito: el SVG de adentro se estira 120%
+     verticalmente (ver `.navegacion-flotante-sesion svg`) y tiene que
+     asomarse sobre PESO/REPETICIONES y "Descanso" para leerse alargado — es
+     lo que se pidió. Al 7% de blanco no compite con ese texto; el área
+     táctil del botón (90 × 79 px) no crece con la flecha. */
 }
+/* Pegadas al borde de la pantalla, no `-14px` afuera de ella: con el corrimiento
+   negativo de antes, la mitad del glifo quedaba directamente fuera del
+   viewport — "las flechas se salen de la pantalla", pedido de Alejandro
+   (2026-08-16). El botón entero (90 px de área táctil) sigue siendo el mismo,
+   solo que ahora arranca en el borde en vez de siete pasarlo. */
 .navegacion-flotante-sesion button:first-child {
-  left: -14px;
+  left: 0;
 }
 .navegacion-flotante-sesion button:last-child {
-  right: -14px;
+  right: 0;
 }
 .navegacion-flotante-sesion button:disabled { opacity: .28; }
+/* Se enciende solo mientras el dedo la está tocando: la flecha sigue siendo
+   descubrible sin vivir prendida. */
+.navegacion-flotante-sesion button:not(:disabled):active {
+  color: rgba(255,255,255,.4);
+}
+/* Más finas (stroke 0.32, antes 0.45 — ver el `strokeWidth` en
+   SesionEjercicios.tsx) y un 120% más largas VERTICALMENTE únicamente:
+   `scaleY` no toca el ancho, así que el gesto sigue leyéndose como "doble
+   flecha" y no como una mancha. Pedido de Alejandro (2026-08-16). */
 .navegacion-flotante-sesion svg {
   width: 79px;
   height: 79px;
-  filter: drop-shadow(0 0 2px rgba(255,255,255,.12));
-}
-.navegacion-flotante-sesion button:first-child svg {
-  animation: flecha-rir-izquierda 3.8s ease-in-out infinite;
-}
-.navegacion-flotante-sesion button:last-child svg {
-  animation: flecha-rir-derecha 3.8s ease-in-out infinite;
+  filter: none;
+  animation: none;
+  transform: scaleY(2.2);
 }
 /* Al cerrar la última serie no aparece otra flecha debajo de la tarjeta: la
-   misma señal vive en la doble flecha que ya lleva al ejercicio siguiente. */
+   misma señal vive en la doble flecha que ya lleva al ejercicio siguiente.
+   Es el único momento en que la flecha tiene que verse — y aun así queda muy
+   por debajo del blanco pleno de antes. */
 .navegacion-flotante-sesion button[data-aviso-siguiente="true"] {
-  color: rgba(255,255,255,.98);
+  color: rgba(255,255,255,.5);
 }
 .navegacion-flotante-sesion button[data-aviso-siguiente="true"] svg {
   animation: aviso-siguiente-derecha .85s cubic-bezier(.35,.05,.25,1) infinite;
-  filter: drop-shadow(0 0 7px rgba(255,255,255,.62));
+  filter: none;
 }
 .control-descanso-sesion {
   position: relative;
@@ -5710,7 +5721,7 @@ input[type="number"] {
 .shell-alumno:has(.modo-entrenamiento-enfocado) .panel-aero-inferior {
   border-color: rgba(150, 163, 174, .18);
   border-radius: 12px;
-  background: linear-gradient(180deg, #0e1012 0%, #08090a 100%);
+  background: linear-gradient(180deg, #08090a 0%, #030304 100%);
   box-shadow: 0 12px 28px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.045);
 }
 .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-aero {
@@ -5805,7 +5816,7 @@ input[type="number"] {
   overflow: hidden;
   border: 1px solid rgba(160, 177, 188, .22);
   border-radius: 14px;
-  background: linear-gradient(180deg, #111315 0%, #0a0b0c 100%);
+  background: linear-gradient(180deg, #0a0b0c 0%, #050506 100%);
   box-shadow: 0 14px 34px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.055);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -5821,10 +5832,23 @@ input[type="number"] {
   border-radius: 9px;
   text-shadow: none;
 }
+/* Cierre editorial de la barra estándar: mismo acento dorado silencioso de
+   entrenamiento activo (2026-08-15), ya no la cápsula gris pesada. */
 :root .shell-alumno .item-navegacion-aero-activo {
-  border-color: rgba(255,255,255,.09);
-  background: linear-gradient(145deg, rgba(102,105,108,.94), rgba(72,75,78,.96));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 4px 10px rgba(0,0,0,.18);
+  position: relative;
+  border-color: rgba(239, 200, 77, .16);
+  background: linear-gradient(180deg, rgba(239,200,77,.1), rgba(239,200,77,.025));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+:root .shell-alumno .item-navegacion-aero-activo::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 26%;
+  right: 26%;
+  height: 2px;
+  border-radius: 999px;
+  background: #efc84d;
 }
 :root .shell-alumno .icono-navegacion-aero {
   width: 20px;
@@ -5924,7 +5948,9 @@ input[type="number"] {
 
 .panel-ejecucion-foco {
   margin: 0;
-  padding: 11px 13px 12px;
+  /* 6 px abajo y no 12: el último elemento del panel es "+ Añadir serie
+     extra", que ya trae su propio aire. */
+  padding: 11px 13px 6px;
   border: 1px solid rgba(255,255,255,.08);
   border-radius: 16px;
   background: linear-gradient(120deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
@@ -5949,23 +5975,39 @@ input[type="number"] {
   height: 74px;
   font-size: calc(50px * var(--escala-texto));
 }
+/* Bordes más delicados en toda la fila (pedido de Alejandro, 2026-08-16):
+   los círculos −/+, la línea vertical entre Peso y Reps, y el chip de RIR
+   bajan de opacidad para acompañar a las líneas de series de arriba, ya
+   casi imperceptibles. El grosor se queda en 1 px — ya era el mínimo.
+   El símbolo −/+ en sí también baja de peso (350→280) y de tamaño
+   (27px→21px): a 27px/350 dominaba el botón entero y se leía pesado al
+   lado de un borde tan tenue — el símbolo competía con el borde en vez de
+   acompañarlo. */
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button {
-  min-height: 28px;
-  border-color: rgba(255,255,255,.13);
-  border-radius: 14px;
-  background: rgba(255,255,255,.025);
+  /* El área táctil no se achica junto con el símbolo — 42px queda igual que
+     antes de afinar la tipografía, solo cambia lo que se ve, no lo que se
+     toca. Radio y opacidad de borde igualados al chip de RIR y a Descanso
+     (12px, .07) — antes el círculo −/+ era el único a 14px/.08 de toda la
+     fila, una diferencia mínima pero real entre piezas que deberían leerse
+     como la misma familia. */
+  min-height: 42px;
+  border-color: rgba(255,255,255,.07);
+  border-radius: 12px;
+  background: rgba(255,255,255,.02);
+  font-size: calc(21px * var(--escala-texto));
+  font-weight: 280;
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie {
   height: auto;
   align-self: stretch;
-  background: rgba(255,255,255,.09);
+  background: rgba(255,255,255,.05);
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie {
   grid-template-columns: auto 30px 28px 30px;
   min-height: 36px;
   margin-top: 11px;
   padding: 4px 8px;
-  border: 1px solid rgba(255,255,255,.11);
+  border: 1px solid rgba(255,255,255,.07);
   border-radius: 12px;
   background: rgba(255,255,255,.018);
 }
@@ -5989,14 +6031,20 @@ input[type="number"] {
   min-height: 84px;
   align-items: center;
   justify-content: center;
-  margin-top: 11px;
-  padding: 7px 0 0;
-  border-top: 1px solid rgba(255,255,255,.07);
+  margin-top: 4px;
+  padding: 3px 0 0;
+  border-top: 1px solid rgba(255,255,255,.05);
 }
 .tarjeta-ejercicio-enfocada .fila-rir-navegacion .control-rir-serie { margin-top: 0; }
 .tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir {
   position: absolute;
-  top: calc(50% + 10px);
+  /* Centrado real dentro de la fila (antes +10px la empujaba hacia abajo):
+     con la fila en 84px de alto y la flecha en 79px, ese corrimiento hacía
+     que el área táctil se saliera por debajo y se comiera un pedazo del
+     botón Descanso — tocar cerca del borde inferior de Descanso activaba la
+     flecha en vez de guardar la serie (pedido de Alejandro, 2026-08-16). El
+     tamaño visual de la flecha no cambia, solo dónde queda centrada. */
+  top: 50%;
   display: grid;
   width: 90px;
   height: 79px;
@@ -6029,10 +6077,13 @@ input[type="number"] {
   0%, 100% { transform: translateX(-1px); opacity: .56; }
   50% { transform: translateX(3px); opacity: 1; }
 }
+/* `scaleY(2.2)` se repite en cada paso: un `transform` de keyframe
+   REEMPLAZA al de la regla estática, así que sin combinarlos acá la flecha
+   perdía su elongación vertical apenas arrancaba a pulsar. */
 @keyframes aviso-siguiente-derecha {
-  0%, 100% { transform: translateX(-1px); opacity: .6; }
-  48% { transform: translateX(9px); opacity: 1; }
-  64% { transform: translateX(7px); opacity: 1; }
+  0%, 100% { transform: translateX(-1px) scaleY(2.2); opacity: .6; }
+  48% { transform: translateX(9px) scaleY(2.2); opacity: 1; }
+  64% { transform: translateX(7px) scaleY(2.2); opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   .onda-progreso-lenta { animation: none; }
@@ -6044,11 +6095,11 @@ input[type="number"] {
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso {
   min-height: 44px;
   margin-top: 10px;
-  border: 1px solid rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.08);
   border-radius: 12px;
   color: #f1f1f3;
-  background: linear-gradient(100deg, rgba(255,255,255,.055), rgba(255,255,255,.025));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 4px 12px rgba(0,0,0,.12);
+  background: linear-gradient(100deg, rgba(255,255,255,.03), rgba(255,255,255,.012));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 4px 12px rgba(0,0,0,.12);
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="pendiente"] {
   animation: none !important;
@@ -6220,10 +6271,23 @@ input[type="number"] {
     gap: 13px !important;
     padding-bottom: 9px !important;
   }
+  /* Alto fluido, no fijo (pedido de Alejandro, 2026-08-16: "que la pantalla
+     calce justo y no se mueva").
+     `SesionEjercicios` ya apaga el scroll cuando el ejercicio entero entra
+     arriba de la barra inferior (`data-entrenamiento-ajustado`), pero con
+     168 px fijos nunca entraba: en un iPhone de 852 px la tarjeta terminaba
+     27 px más abajo del límite y el bloqueo jamás se activaba.
+     La cuenta: el resto de la composición mide 617 px y la barra inferior
+     arranca 93 px antes del borde (el límite real que mide el componente son
+     8 px más arriba), así que la foto puede medir `alto de pantalla − 718`.
+     Se usa 722 para dejar 4 px de holgura. El techo sigue siendo 168 px (nada
+     cambia en pantallas altas) y el piso, 126 px, es hasta dónde vale la
+     pena achicar una foto de referencia — más abajo se deja de leer y no
+     alcanza igual, así que ahí el scroll vuelve solo. */
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta,
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta > button,
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta > div {
-    height: 168px !important;
+    height: clamp(126px, calc(100svh - 722px), 168px) !important;
     aspect-ratio: auto;
   }
   .tarjeta-ejercicio-enfocada .guia-ejercicio-foco { padding-top: 0; }
@@ -6235,7 +6299,7 @@ input[type="number"] {
   .panel-ejecucion-foco { padding-top: 7px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano { min-height: 84px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input { height: 58px; font-size: calc(42px * var(--escala-texto)); }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 22px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 42px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie { height: auto; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie { margin-top: 8px; padding-top: 4px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso { min-height: 42px; margin-top: 8px; }
@@ -6256,7 +6320,7 @@ input[type="number"] {
   .panel-ejecucion-foco { padding-top: 5px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano { min-height: 71px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input { height: 49px; font-size: calc(37px * var(--escala-texto)); }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 20px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 38px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie { height: auto; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie { margin-top: 6px; padding-top: 3px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso { min-height: 38px; margin-top: 6px; }
@@ -6265,15 +6329,17 @@ input[type="number"] {
 }
 
 /* Registro de series: la cápsula conserva siempre el mismo alto, esté vacía
-   o muestre kilos y repeticiones. De 22px pasa a 13px (≈40% menos alto), y el
-   dato se mantiene en una sola línea para que no vuelva a engrosarla. */
+   o muestre kilos y repeticiones. De 22px a 13px, y de ahí 40% más finas
+   todavía (pedido de Alejandro, 2026-08-16) a 5px — el ancho no se toca, lo
+   controla flex:1 1 0 en el contenedor, no esta regla. El dato se mantiene
+   en una sola línea para que no vuelva a engrosarla. */
 .tarjeta-ejercicio-enfocada .selector-series-movido button,
 .tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] button {
   box-sizing: border-box;
-  height: 8px !important;
-  min-height: 8px !important;
+  height: 5px !important;
+  min-height: 5px !important;
   padding: 0 2px !important;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 .tarjeta-ejercicio-enfocada .selector-series-movido .resumen-registro-serie,
 .tarjeta-ejercicio-enfocada .selector-series-movido[data-denso="true"] .resumen-registro-serie {
@@ -6300,12 +6366,25 @@ input[type="number"] {
   width: 7px;
   height: 7px;
 }
+/* Sin número ni check debajo de cada línea (pedido de Alejandro,
+   2026-08-16): "ya no quiero nada ahí abajo, solo déjalas líneas". El estado
+   de cada serie lo sigue diciendo el color/relleno de la línea misma
+   (pendiente/actual/completa, ver los `[data-estado]` de arriba) y el
+   `aria-label` del botón, que ya incluye "completada" o "con Impulso VIP" —
+   nada de eso dependía de este texto, así que no se pierde información, ni
+   para lectores de pantalla. */
+.tarjeta-ejercicio-enfocada .selector-series-movido .etiqueta-serie-indicador {
+  display: none;
+}
 /* Pendiente o en curso: cápsula vacía. Solo una serie realizada rellena su
-   color; la excepción es Impulso VIP, que conserva su señal morada activa. */
+   color; la excepción es Impulso VIP, que conserva su señal morada activa.
+   El borde pasa de un gris sólido (#35383d, opaco) a blanco translúcido —
+   más delicado, en línea con el resto de los controles de esta fila
+   (pedido de Alejandro, 2026-08-16). */
 .tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="pendiente"],
 .tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="actual"]:not([data-especial="true"]) {
   color: #85898f;
-  border-color: #35383d;
+  border-color: rgba(255,255,255,.1);
   background: #1c1f23;
   box-shadow: none;
 }
@@ -6352,7 +6431,7 @@ input[type="number"] {
 :root .shell-alumno:has(.modo-entrenamiento-enfocado) .panel-aero-inferior {
   border-color: rgba(150, 163, 174, .18) !important;
   border-radius: 12px !important;
-  background: linear-gradient(180deg, #0e1012 0%, #08090a 100%) !important;
+  background: linear-gradient(180deg, #08090a 0%, #030304 100%) !important;
   box-shadow: 0 12px 28px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.045) !important;
 }
 :root .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-aero {
@@ -6466,6 +6545,14 @@ input[type="number"] {
    altura permanece idéntica entre un ejercicio, una biserie y una ronda. */
 :root .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-flotante-sesion button {
   top: 63svh !important;
+  /* El SVG de adentro se sigue viendo igual de alargado (79px + scaleY 2.2,
+     sin overflow:hidden) — lo que se achica acá es solo el ÁREA TÁCTIL del
+     botón, de 79px a 50px. A 63svh + 79px de alto, el borde inferior del
+     botón a veces caía encima del borde superior de "Descanso": tocar cerca
+     del borde de Descanso activaba la flecha en vez de guardar la serie
+     (pedido de Alejandro, 2026-08-16). Con menos alto, el mismo centro vertical
+     deja más margen de los dos lados sin tocar el gesto visual. */
+  height: 50px !important;
 }
 
 /* Reserva un carril real para el menú de ejercicios. El título puede bajar de
@@ -6485,11 +6572,11 @@ input[type="number"] {
   z-index: 2;
   width: 38px;
   height: 38px;
-  border-color: rgba(255, 255, 255, .22);
+  border-color: rgba(255, 255, 255, .1);
   border-radius: 10px;
-  color: rgba(255, 255, 255, .94);
-  background: #121517;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
+  color: rgba(255, 255, 255, .85);
+  background: #0a0b0d;
+  box-shadow: none;
 }
 :root .tarjeta-ejercicio-enfocada:not(.tarjeta-grupo-enfocada) .boton-ver-rutina-en-siguiente svg {
   width: 23px;
@@ -7276,6 +7363,13 @@ input[type="number"] {
   pointer-events: none;
 }
 .resumen-sesion-entrenar > * { position: relative; z-index: 1; }
+/* Velo bajo la fila Ejercicios/Series/Minutos. No es un fondo opaco: arranca
+   transparente arriba y cierra al 72% abajo, así el modelo se sigue viendo
+   (pedido de Alejandro, 2026-08-16) pero los tres números y sus etiquetas no
+   quedan apoyados sobre piel iluminada. */
+.datos-sesion-entrenar {
+  background: linear-gradient(180deg, rgba(6,7,9,0) 0%, rgba(6,7,9,.5) 42%, rgba(6,7,9,.72) 100%);
+}
 .lista-vista-previa {
   overflow: hidden;
   border: 1px solid var(--preparacion-borde);
@@ -7327,18 +7421,637 @@ input[type="number"] {
   border-radius: 999px;
   background: rgba(175,87,255,.1);
 }
+/* Pedido de Alejandro (2026-08-16): "Iniciar rutina" es el CTA principal de
+   Entrenar, no una confirmación de logro — el verde queda reservado para
+   estados de éxito real (ej. "Ejercicio finalizado"). Mismo dorado pálido
+   que el resto del rediseño (#f2cd5d), no el ámbar saturado del bloque de
+   arriba. */
 .boton-iniciar-cristal-vip {
-  color: #69e9a0 !important;
-  border-color: rgba(78,222,135,.54) !important;
-  background: linear-gradient(135deg, rgba(18,53,36,.98), rgba(15,24,20,.98)) !important;
-  box-shadow: 0 10px 26px rgba(0,0,0,.42), inset 0 1px 0 rgba(177,255,205,.12), inset 0 -1px 0 rgba(0,0,0,.6) !important;
+  color: #1b1105 !important;
+  border-color: rgba(255, 224, 155, .7) !important;
+  background: linear-gradient(135deg, rgba(247, 220, 134, .92), rgba(224, 178, 63, .86)) !important;
+  box-shadow: 0 10px 26px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,245,214,.5), inset 0 -1px 0 rgba(120,80,10,.25) !important;
 }
 .boton-iniciar-cristal-vip:hover {
-  border-color: rgba(105,233,160,.9) !important;
-  background: linear-gradient(135deg, rgba(24,76,48,.98), rgba(17,31,24,.98)) !important;
+  border-color: rgba(255, 235, 180, .9) !important;
+  background: linear-gradient(135deg, rgba(250, 228, 150, .95), rgba(232, 186, 70, .9)) !important;
 }
+/* ==========================================================================
+   Shell universal del Portal VIP (INSTRUCTIVO_CLAUDE_REDISEÑO..., 2026-08-15)
+   Extiende con disciplina el lenguaje aprobado de entrenamiento activo (ver
+   "Rutina activa" más arriba) al resto del portal, empezando por Inicio. No
+   toca ni una regla de ese bloque: define clases propias y solo se engancha
+   a `.panel-aero-superior` para que el cabezal universal luzca igual de
+   sólido que el de la sesión.
+   ========================================================================== */
+.cabecera-portal-vip {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+}
+/* Pedido de Alejandro (2026-08-15): el contenido de Inicio se ve "más
+   suave" con el mismo dorado pálido que ya usa Entrenar (--preparacion-
+   dorado, #f2cd5d) en vez del ámbar saturado (--color-vip: #ffa100) que
+   trae por defecto el resto del portal. Se pisa acá, dentro del contenido,
+   así el cabezal (que ya usa su propio dorado pálido) no se ve afectado. */
+.inicio-tono-entrenar {
+  --color-vip: #f2cd5d;
+}
+/* CTA "Entrenar" de la tarjeta de Inicio: mismo dorado pálido que el resto
+   de la tarjeta, no el ámbar saturado de `.btn-accion` (compartido por toda
+   la app, no se toca). */
+.boton-entrenar-tarjeta {
+  color: #1b1105;
+  border: 1px solid rgba(255, 235, 180, .55);
+  background: linear-gradient(135deg, #f7dc86 0%, #f2cd5d 55%, #e0b23f 100%);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .35);
+}
+
+.titulo-portal-vip {
+  flex: 1 1 0%;
+  min-width: 0;
+  overflow: hidden;
+  padding-left: 11px;
+  color: #f2f2f3;
+  font-size: calc(15px * var(--escala-texto));
+  font-weight: 700;
+  letter-spacing: -.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Mismo tinte y familia que la "VIP" del escudo (ver .marca-vip-entrenamiento
+   span): junto al hexágono se lee "VIP Fitness", como el nombre del gimnasio.
+   Solo Inicio la usa — el resto de las rutas hexagonales lleva título normal. */
+.titulo-portal-vip-marca {
+  color: #efc84d;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: calc(16px * var(--escala-texto));
+}
+.instrumento-portal-vip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+}
+/* Mismo tratamiento sólido que la cabecera de la sesión: negro grafito, sin
+   el vidrio azulado que usan por ahora las demás pestañas del alumno. */
+:root .shell-alumno > .panel-aero-superior:has(.cabecera-portal-vip) {
+  width: 100% !important;
+  margin-top: 0 !important;
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, #111315 0%, #0a0b0c 100%) !important;
+  box-shadow: 0 7px 18px rgba(0, 0, 0, .28) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
 @media (max-width: 350px) {
   .tira-sesiones-entrenar { gap: 2px !important; }
   .tira-sesiones-entrenar .selector-sesion-item { border-radius: 8px; }
   .lista-vista-previa-cabecera { padding-inline: 9px; }
+}
+
+/* ==========================================================================
+   PANEL DEL ENTRENADOR — sistema visual
+   (INSTRUCTIVO_CLAUDE_REORDENO_PANEL_ENTRENADOR.md + maqueta
+   `panel-entrenador-organizado.html`, 2026-08-15)
+
+   Mismo material premium que el portal del alumno, pero de carácter técnico y
+   productivo: negro OLED, grafito para paneles, bordes de 1 px y oro
+   reservado a marca, acción principal y estado activo. Los tokens salen tal
+   cual de la maqueta aprobada.
+
+   Bloque nuevo y aislado: no reescribe ninguna regla anterior. Todo cuelga de
+   `.admin-shell`, así que el portal del alumno no se ve afectado.
+   ========================================================================== */
+.admin-shell {
+  --panel-superficie: #111318;
+  --panel-superficie-2: #171a20;
+  --panel-linea: #2a2e36;
+  --panel-oro: #d7b56d;
+  --panel-oro-claro: #f2d99f;
+  --panel-texto: #f7f4ed;
+  --panel-apagado: #989da7;
+}
+
+/* --- Encabezado estándar de página ------------------------------------- */
+.encabezado-panel-eyebrow {
+  color: var(--panel-oro);
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.encabezado-panel-titulo {
+  margin: 7px 0 4px;
+  font-size: calc(25px * var(--escala-texto));
+  line-height: 1.06;
+  letter-spacing: -.04em;
+}
+.encabezado-panel-descripcion {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--panel-apagado);
+  font-size: calc(12px * var(--escala-texto));
+  line-height: 1.45;
+}
+/* Fila de acciones: una principal ancha y una secundaria angosta, como en la
+   maqueta. En escritorio se sueltan a su ancho natural. */
+.acciones-panel {
+  display: flex;
+  gap: 8px;
+  margin-top: 13px;
+}
+/* Con dos acciones se reparten el ancho (la principal manda, 1.25 contra
+   .75, como en la maqueta). Con una sola conserva su ancho natural: estirar
+   un botón secundario de borde a borde lo hacía leer como la acción
+   principal de la pantalla, que es justo lo contrario de lo que es. */
+.acciones-panel > * { flex: 1.25 1 0; min-width: 0; }
+.acciones-panel > * + * { flex: .75 1 0; }
+.acciones-panel > *:only-child { flex: 0 1 auto; }
+@media (min-width: 768px) {
+  .acciones-panel {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-top: 0;
+  }
+}
+.boton-panel-principal,
+.boton-panel-secundario {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  font-size: calc(12px * var(--escala-texto));
+  font-weight: 760;
+  text-align: center;
+}
+.boton-panel-principal {
+  border: 1px solid #eed18f;
+  color: #17120a;
+  background: linear-gradient(135deg, #f5dda4, #c59b4c);
+}
+.boton-panel-secundario {
+  border: 1px solid #373b43;
+  color: var(--panel-texto);
+  background: var(--panel-superficie);
+}
+.boton-panel-secundario:hover { border-color: #4a4f59; }
+
+/* --- Superficies -------------------------------------------------------- */
+.tarjeta-panel {
+  padding: 14px;
+  border: 1px solid var(--panel-linea);
+  border-radius: 16px;
+  background: linear-gradient(155deg, #17191e, #101216 64%);
+}
+.tarjeta-panel-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.tarjeta-panel-cabecera h2,
+.tarjeta-panel-cabecera h3 {
+  margin: 0;
+  font-size: calc(14px * var(--escala-texto));
+  font-weight: 700;
+}
+.tarjeta-panel-cabecera p {
+  margin: 3px 0 0;
+  color: var(--panel-apagado);
+  font-size: calc(10px * var(--escala-texto));
+}
+.enlace-panel {
+  color: var(--panel-oro-claro);
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 800;
+}
+
+/* Cifra + rótulo. Deliberadamente sin color ni brillo propios: el instructivo
+   pide terminar con las tarjetas arcoíris, donde cada número tenía su halo y
+   ninguno priorizaba. Solo el que exige acción se tiñe de oro. */
+.metrica-panel {
+  padding: 10px 8px;
+  border: 1px solid #292d34;
+  border-radius: 12px;
+  background: #0d0f13;
+  text-align: left;
+}
+.metrica-panel strong {
+  display: block;
+  font-size: calc(20px * var(--escala-texto));
+  font-weight: 750;
+  line-height: 1.05;
+}
+.metrica-panel span {
+  display: block;
+  margin-top: 3px;
+  color: var(--panel-apagado);
+  font-size: calc(9px * var(--escala-texto));
+  line-height: 1.25;
+}
+.metrica-panel[data-alerta="true"] strong { color: var(--panel-oro-claro); }
+.metrica-panel[data-activa="true"] {
+  border-color: color-mix(in srgb, var(--panel-oro) 55%, transparent);
+  background: linear-gradient(160deg, rgba(215,181,109,.12), rgba(215,181,109,.02));
+}
+
+/* --- Filtros y búsqueda ------------------------------------------------- */
+.buscador-panel {
+  width: 100%;
+  min-height: 42px;
+  padding: 12px 13px;
+  border: 1px solid #353940;
+  border-radius: 12px;
+  color: var(--panel-texto);
+  background: var(--panel-superficie);
+  font-size: calc(12px * var(--escala-texto));
+  outline: none;
+}
+.buscador-panel::placeholder { color: #6e737c; }
+.buscador-panel:focus {
+  border-color: var(--panel-oro);
+  box-shadow: 0 0 0 3px rgba(215,181,109,.12);
+}
+.fila-fichas-panel {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.fila-fichas-panel::-webkit-scrollbar { display: none; }
+.ficha-panel {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 32px;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 11px;
+  border: 1px solid #343840;
+  border-radius: 999px;
+  color: #c4c7cd;
+  background: var(--panel-superficie);
+  font-size: calc(10px * var(--escala-texto));
+  white-space: nowrap;
+}
+.ficha-panel[data-activa="true"] {
+  border-color: #a9833f;
+  color: #15100a;
+  background: var(--panel-oro-claro);
+  font-weight: 800;
+}
+.ficha-panel b { font-weight: inherit; opacity: .62; }
+.ficha-panel[data-activa="true"] b { opacity: .74; }
+
+/* --- Estados ------------------------------------------------------------ */
+.estado-panel {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 7px;
+  border-radius: 999px;
+  font-size: calc(8px * var(--escala-texto));
+  font-weight: 850;
+  white-space: nowrap;
+}
+.estado-panel[data-tono="aviso"] { color: #1a1308; background: var(--panel-oro-claro); }
+.estado-panel[data-tono="bien"] { color: #072116; background: #7bdfb1; }
+.estado-panel[data-tono="info"] { color: #07172d; background: #8cb7ff; }
+.estado-panel[data-tono="riesgo"] { color: #2b0b09; background: #ff9d97; }
+.estado-panel[data-tono="neutro"] { color: #c4c7cd; background: #23262c; }
+
+/* --- Directorio de Más -------------------------------------------------- */
+.tarjeta-menu-panel {
+  overflow: hidden;
+  border: 1px solid var(--panel-linea);
+  border-radius: 15px;
+  background: var(--panel-superficie);
+}
+.tarjeta-menu-panel-titulo {
+  padding: 11px 12px 7px;
+  color: var(--panel-oro);
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 850;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.item-menu-panel {
+  display: grid;
+  width: 100%;
+  min-height: 48px;
+  grid-template-columns: 29px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border-top: 1px solid #292c32;
+  color: var(--panel-texto);
+  text-align: left;
+}
+.item-menu-panel:hover { background: rgba(255,255,255,.028); }
+.item-menu-panel-icono {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 9px;
+  color: var(--panel-oro-claro);
+  background: #202126;
+}
+.item-menu-panel-texto { min-width: 0; }
+.item-menu-panel-texto strong {
+  display: block;
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 700;
+}
+.item-menu-panel-texto span {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--panel-apagado);
+  font-size: calc(9px * var(--escala-texto));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-menu-panel-contador {
+  min-width: 20px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #161008;
+  background: var(--panel-oro-claro);
+  font-size: calc(9px * var(--escala-texto));
+  font-weight: 900;
+  text-align: center;
+}
+
+/* --- Barra inferior ----------------------------------------------------- */
+/* Mismo cierre editorial que la barra del alumno: grafito, activo en oro con
+   una línea corta arriba, sin la cápsula gris de alto contraste. */
+:root .admin-shell .item-navegacion-aero-activo {
+  position: relative;
+  border-color: rgba(215,181,109,.18);
+  background: linear-gradient(180deg, rgba(215,181,109,.1), rgba(215,181,109,.025));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+:root .admin-shell .item-navegacion-aero-activo::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 26%;
+  right: 26%;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--panel-oro);
+}
+.insignia-nav-panel {
+  position: absolute;
+  top: -5px;
+  left: 58%;
+  min-width: 15px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  color: #161008;
+  background: var(--panel-oro-claro);
+  font-size: calc(8px * var(--escala-texto));
+  font-weight: 900;
+  line-height: 1.35;
+  text-align: center;
+}
+
+/* ==========================================================================
+   NUTRICIÓN — premium operativo
+   (INSTRUCTIVO_CLAUDE_REDISHENO_INICIO_CABEZAL.md §7, 2026-08-16)
+   Mismo dorado pálido que ya usa Entrenar (#f2cd5d, no el ámbar saturado
+   --color-vip) para que Nutrición se sienta parte del mismo sistema sin
+   tocar ninguna regla existente. Diario premium: rápido de usar, no
+   decorativo — nada de esto cambia cálculos, registro ni el escáner.
+   ========================================================================== */
+.banda-dias-nutricion {
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.008));
+}
+.dia-nutricion-activo {
+  border-color: rgba(242,205,93,.42);
+}
+/* Franja de recompensa fina, no una segunda tarjeta protagonista: mismo
+   dorado pálido que la banda de días de arriba en vez del ámbar de
+   `--color-vip`, para que "Puntos provisionales" no compita en brillo con
+   los macros, que es el dato que manda en esta pantalla. */
+.franja-puntos-nutricion {
+  border-color: rgba(242,205,93,.25) !important;
+  background: rgba(242,205,93,.05) !important;
+}
+.franja-puntos-nutricion .barra-progreso-relleno {
+  background: #f2cd5d !important;
+}
+/* Buscador fijo: mismo material que la barra inferior universal y los
+   campos de Entrenar (grafito, borde blanco translúcido) — antes usaba
+   `border-border`, que cambia de fuerza entre temas y no se leía como parte
+   del mismo sistema que el resto del shell rediseñado. */
+.buscador-nutricion {
+  border-color: rgba(255,255,255,.09) !important;
+  background: linear-gradient(180deg, #121417 0%, #0a0b0d 100%) !important;
+}
+/* Línea de tiempo sin cápsulas por fila (instructivo: "evita que cada fila
+   parezca una cápsula independiente"). Antes cada comida era una tarjeta
+   completa (borde + radio + fondo propio); ahora las comidas de una misma
+   hora se leen como una lista continua, separadas por una línea fina, y solo
+   la que está abierta gana una superficie apenas distinta para marcar que
+   se puede tocar sin volver a mirar el borde. */
+.fila-comida-nutricion {
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.fila-comida-nutricion:last-child {
+  border-bottom: 0;
+}
+.fila-comida-nutricion[data-abierta="true"] {
+  border-radius: 10px;
+  background: rgba(255,255,255,.02);
+}
+
+/* ==========================================================================
+   MI AVANCE — premium analítico
+   (INSTRUCTIVO_CLAUDE_REDISHENO_INICIO_CABEZAL.md §8, 2026-08-16)
+   Todo acá cuelga de `.hero-avance-premium` / clases hermanas, aplicadas
+   SOLO cuando `PanelSeguimiento` renderiza en modo="alumno" (ver el
+   componente): la misma pieza se usa dentro de la ficha del alumno en el
+   Panel del Entrenador, que todavía no pasó por su rediseño — este bloque no
+   le cambia una sola regla a esa vista.
+   ========================================================================== */
+.control-periodo-avance {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.periodo-avance-activo {
+  color: #1b1105;
+  background: linear-gradient(135deg, #f7dc86 0%, #f2cd5d 55%, #e0b23f 100%);
+}
+/* Mismo negro y borde fino que Entrenar, sin el halo ambar radial que tenía
+   antes ("Hero de adherencia... diagonales discretas de Entrenar" — no un
+   glow grande, que es justo lo que se viene sacando del resto del portal
+   toda esta sesión). La diagonal queda muy tenue: un guiño a la referencia,
+   no una repetición de su brillo. */
+.hero-avance-premium {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.08);
+  background: linear-gradient(150deg, #15161a 0%, #0d0e11 100%);
+}
+.hero-avance-premium::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    118deg,
+    transparent 0 34px,
+    rgba(242,205,93,.05) 35px,
+    transparent 36px 56px
+  );
+  pointer-events: none;
+}
+.hero-avance-eyebrow,
+.hero-avance-numero {
+  position: relative;
+  color: #f2cd5d;
+}
+.hero-avance-barra {
+  position: relative;
+  background: #f2cd5d;
+}
+/* Los 4 indicadores en superficies homogéneas, sin brillo propio por
+   tarjeta: mismo borde translúcido que el resto del sistema, no el
+   `border-border` que varía de fuerza entre temas. */
+.indicadores-avance-premium > div {
+  border-color: rgba(255,255,255,.07) !important;
+}
+
+/* Galería quincenal de fotos de progreso (pedido de Alejandro,
+   2026-08-16): "semanal es muy pronto para ver resultados". Una foto cada
+   15 días en vez de "primera/actual". Mismo lenguaje de bordes
+   translúcidos que el resto de Mi avance. */
+.galeria-antes-despues {
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 16px;
+  background: rgba(255,255,255,.02);
+}
+.galeria-antes-despues-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.boton-cambiar-antes {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 999px;
+  background: rgba(255,255,255,.03);
+  color: var(--color-text-secondary);
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 600;
+}
+.boton-cambiar-antes svg {
+  transition: transform .2s ease;
+}
+/* Menú del selector de "antes": absoluto, no empuja el layout de la
+   cabecera al abrirse. */
+.selector-periodo-antes {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 168px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  background: #14161a;
+  box-shadow: 0 12px 28px rgba(0,0,0,.5);
+}
+.selector-periodo-antes button {
+  padding: 7px 8px;
+  border-radius: 8px;
+  text-align: left;
+  color: var(--color-text-secondary);
+  font-size: calc(11px * var(--escala-texto));
+}
+.selector-periodo-antes button[data-elegida="true"] {
+  background: rgba(242,205,93,.12);
+  color: #f2cd5d;
+  font-weight: 700;
+}
+.tarjeta-comparacion-periodo {
+  border: 1px solid rgba(255,255,255,.07);
+}
+/* Álbum horizontal: se arrastra con el dedo, no con flechas — mismo patrón
+   táctil que la tira de días de Entrenar y Nutrición. */
+.historial-quincenal-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.tarjeta-quincena-historial {
+  position: relative;
+  flex: 0 0 auto;
+  width: 88px;
+  height: 108px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 12px;
+  background: rgba(255,255,255,.02);
+  scroll-snap-align: start;
+}
+/* Quincena sin foto: recuadro punteado, texto discreto — informa que faltó
+   sin sonar a regaño (pedido explícito: "que no sea incómoda la vista"). */
+.tarjeta-quincena-historial[data-vacia="true"] {
+  border-style: dashed;
+  border-color: rgba(255,255,255,.1);
+}
+.tarjeta-quincena-historial-etiqueta {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 3px 4px;
+  background: rgba(0,0,0,.72);
+  color: var(--color-text-secondary);
+  font-size: calc(8px * var(--escala-texto));
+  line-height: 1.25;
+  text-align: center;
+}
+
+/* Encabezado de "Esta semana" / "Análisis completo" en Mi avance (reorden
+   2026-08-16): mismo dorado pálido que el resto de la pantalla, no el
+   ámbar de `--color-vip`. Sin borde ni caja propia — es un separador de
+   lectura, no otra tarjeta. */
+.eyebrow-avance {
+  color: #f2cd5d;
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.encabezado-acciones-semana {
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+.encabezado-acciones-semana .eyebrow-avance {
+  margin-bottom: 3px;
 }
