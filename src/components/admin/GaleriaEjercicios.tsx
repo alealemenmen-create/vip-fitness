@@ -36,6 +36,8 @@ import {
   type ResolverAliasState,
   quitarFotoEjercicio,
   type QuitarFotoState,
+  restaurarFotoAnteriorEjercicio,
+  type RestaurarFotoAnteriorState,
 } from "@/app/admin/ejercicios/actions";
 import { normalizar } from "@/lib/alimentos/emparejar";
 import { detectarAliasEnDisputa, emparejarEjercicio } from "@/lib/ejercicios/emparejar";
@@ -338,6 +340,7 @@ export type ReporteFotoPendiente = {
 const ESTADO_INICIAL_VINCULO: VincularNombreRutinaState = { error: null, ok: false };
 const ESTADO_INICIAL_COMBINAR: CombinarDuplicadosState = { error: null, ok: false };
 const ESTADO_INICIAL_DESHACER: DeshacerFusionState = { error: null, ok: false };
+const ESTADO_INICIAL_RESTAURAR_FOTO: RestaurarFotoAnteriorState = { error: null, ok: false };
 
 function firmaPosibleDuplicado(nombre: string): string {
   return normalizar(nombre)
@@ -483,6 +486,38 @@ function FusionHistorialCard({ fusion }: { fusion: FusionEjercicio }) {
   );
 }
 
+/** Ofrece volver a la foto que este ejercicio tenía antes del último
+ * reemplazo (ver ejercicio_foto_version_anterior, migración 0094). Solo
+ * aparece cuando hay una versión guardada — un reemplazo confirmado y sin
+ * arrepentimiento no deja rastro acá. */
+function EditorFotoAnterior({ ejercicioId, versionAnteriorEn }: { ejercicioId: string; versionAnteriorEn: string }) {
+  const [state, formAction, pending] = useActionState(restaurarFotoAnteriorEjercicio, ESTADO_INICIAL_RESTAURAR_FOTO);
+  const fecha = new Date(versionAnteriorEn).toLocaleDateString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+
+  if (state.ok) {
+    return <p className="text-caption flex items-center gap-1.5 rounded-xl border border-success/30 bg-success/5 p-3 text-success"><Check size={14} /> {state.mensaje}</p>;
+  }
+
+  return (
+    <div className="space-y-2 rounded-xl border border-warning/30 bg-warning/5 p-3">
+      <p className="text-caption font-semibold text-text">Hay una foto anterior guardada</p>
+      <p className="text-micro text-text-tertiary">Reemplazada el {fecha}. Se puede volver a ella si el cambio fue un error.</p>
+      {state.error && <p className="text-micro text-error">{state.error}</p>}
+      <form
+        action={formAction}
+        onSubmit={(evento) => {
+          if (!window.confirm("¿Restaurar la foto anterior? La que está puesta ahora se pierde.")) evento.preventDefault();
+        }}
+      >
+        <input type="hidden" name="ejercicio_id" value={ejercicioId} />
+        <button type="submit" disabled={pending} className="radius-control flex h-9 w-full items-center justify-center gap-1.5 border border-border text-caption font-semibold text-text disabled:opacity-50">
+          <Undo2 size={13} /> {pending ? "Restaurando…" : "Restaurar foto anterior"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function puntajeParecido(nombreRutina: string, ejercicio: Ejercicio): number {
   const origen = normalizar(nombreRutina);
   const candidatos = [ejercicio.nombre, ...ejercicio.aliases].map(normalizar);
@@ -563,12 +598,14 @@ export function GaleriaEjercicios({
   usosPorEjercicio = {},
   nombresRutinaSinVincular = [],
   historialFusiones = [],
+  versionesAnterioresFotos = {},
 }: {
   ejercicios: Ejercicio[];
   reportes?: ReporteFotoPendiente[];
   usosPorEjercicio?: Record<string, UsoEjercicioInventario>;
   nombresRutinaSinVincular?: { nombre: string; cantidad: number }[];
   historialFusiones?: FusionEjercicio[];
+  versionesAnterioresFotos?: Record<string, string>;
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [editando, setEditando] = useState<Ejercicio | null>(null);
@@ -1247,6 +1284,7 @@ export function GaleriaEjercicios({
           ejercicio={editando}
           fotoActual={fotoDe(editando)}
           todosLosEjercicios={ejercicios}
+          versionAnteriorEn={versionesAnterioresFotos[editando.id] ?? null}
           onCerrar={() => setEditando(null)}
         />
       )}
@@ -2291,11 +2329,13 @@ function ModalSubirFoto({
   ejercicio,
   fotoActual,
   todosLosEjercicios,
+  versionAnteriorEn,
   onCerrar,
 }: {
   ejercicio: Ejercicio;
   fotoActual: string | null;
   todosLosEjercicios: Ejercicio[];
+  versionAnteriorEn: string | null;
   onCerrar: () => void;
 }) {
   const [state, formAction, pending] = useActionState(subirFotoEjercicio, ESTADO_INICIAL_FOTO);
@@ -2331,6 +2371,12 @@ function ModalSubirFoto({
           <X size={20} />
         </button>
       </div>
+
+      {versionAnteriorEn && (
+        <div className="mb-3">
+          <EditorFotoAnterior ejercicioId={ejercicio.id} versionAnteriorEn={versionAnteriorEn} />
+        </div>
+      )}
 
       {imagenAMostrar && !previaRota ? (
         <div className="space-y-3">

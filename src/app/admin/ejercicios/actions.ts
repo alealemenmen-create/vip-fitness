@@ -157,7 +157,7 @@ export async function subirFotoEjercicio(
   // siempre — el nombre/carpeta siempre es nuevo, así que nunca se pisa solo.
   const { data: fotoAnterior } = await supabase
     .from("ejercicios")
-    .select("foto_miniatura_url, foto_completa_url")
+    .select("foto_miniatura_url, foto_completa_url, foto_panorama_x, foto_panorama_y, foto_cuadrada_x, foto_cuadrada_y")
     .eq("id", ejercicioId)
     .maybeSingle();
 
@@ -241,16 +241,57 @@ export async function subirFotoEjercicio(
   }
 
   // Recién ahora, con la foto nueva ya guardada y confirmada en la fila del
-  // ejercicio, se borran los archivos viejos — best-effort: si esto falla
-  // (permisos, ya no existían), la foto nueva ya quedó bien de todos modos,
-  // no tiene sentido devolver error por un archivo huérfano.
+  // ejercicio, se resuelve qué pasa con los archivos viejos — best-effort: si
+  // algo de esto falla (permisos, ya no existían), la foto nueva ya quedó
+  // bien de todos modos, no tiene sentido devolver error por un archivo
+  // huérfano.
   const rutaMiniNueva = urlMini.split("/ejercicios-fotos/")[1];
   const rutaCompletaNueva = urlCompleta.split("/ejercicios-fotos/")[1];
   const rutasViejas = [fotoAnterior?.foto_miniatura_url, fotoAnterior?.foto_completa_url]
     .filter((url): url is string => !!url)
     .map((url) => url.split("/ejercicios-fotos/")[1])
     .filter((ruta): ruta is string => !!ruta && ruta !== rutaMiniNueva && ruta !== rutaCompletaNueva);
-  if (reemplazoFoto && rutasViejas.length > 0) {
+
+  // En vez de borrar la foto vieja de una, se guarda como "versión anterior"
+  // restaurable (ver ejercicio_foto_version_anterior, migración 0094) — solo
+  // una por ejercicio, no un historial completo. Best-effort: si la migración
+  // todavía no corrió contra esta base, se cae al comportamiento de siempre
+  // (borrar directo) para no dejar archivos huérfanos acumulándose sin fin.
+  let versionGuardada = false;
+  if (reemplazoFoto && fotoAnterior?.foto_miniatura_url && fotoAnterior.foto_completa_url) {
+    const { data: versionExistente } = await supabase
+      .from("ejercicio_foto_version_anterior")
+      .select("foto_miniatura_url, foto_completa_url")
+      .eq("ejercicio_id", ejercicioId)
+      .maybeSingle();
+    const { error: errorVersion } = await supabase.from("ejercicio_foto_version_anterior").upsert({
+      ejercicio_id: ejercicioId,
+      foto_miniatura_url: fotoAnterior.foto_miniatura_url,
+      foto_completa_url: fotoAnterior.foto_completa_url,
+      foto_panorama_x: fotoAnterior.foto_panorama_x ?? 50,
+      foto_panorama_y: fotoAnterior.foto_panorama_y ?? 50,
+      foto_cuadrada_x: fotoAnterior.foto_cuadrada_x ?? 50,
+      foto_cuadrada_y: fotoAnterior.foto_cuadrada_y ?? 50,
+      reemplazada_por: entrenador.userId,
+    });
+    if (!errorVersion) {
+      versionGuardada = true;
+      // Solo se guarda UNA versión anterior: si ya había una guardada de un
+      // reemplazo previo, ese archivo queda huérfano ahora (la fila se acaba
+      // de pisar con la nueva) y hay que borrarlo — si no, cada reemplazo
+      // sucesivo dejaría un archivo suelto en Storage para siempre.
+      if (versionExistente) {
+        const rutasHuerfanas = [versionExistente.foto_miniatura_url, versionExistente.foto_completa_url]
+          .map((url) => url.split("/ejercicios-fotos/")[1])
+          .filter((ruta): ruta is string => !!ruta);
+        if (rutasHuerfanas.length > 0) await supabase.storage.from("ejercicios-fotos").remove(rutasHuerfanas);
+      }
+    } else {
+      console.error("[ejercicios] no se pudo guardar la versión anterior de la foto:", errorVersion.message);
+    }
+  }
+
+  if (!versionGuardada && reemplazoFoto && rutasViejas.length > 0) {
     await supabase.storage.from("ejercicios-fotos").remove(rutasViejas);
   }
 
@@ -966,6 +1007,70 @@ export async function deshacerFusionEjercicios(
 
   avisarCambios();
   return { error: null, ok: true, mensaje: `${fusion.duplicado_nombre} quedó restaurado.` };
+}
+
+export type RestaurarFotoAnteriorState = { error: string | null; ok: boolean; mensaje?: string };
+
+/** Restaura la última versión anterior guardada de la foto de un ejercicio
+ * (ver ejercicio_foto_version_anterior, migración 0094). Es un paso único, no
+ * un intercambio: la foto que estaba puesta justo antes de restaurar no
+ * queda guardada en ningún lado — si el entrenador se arrepiente de nuevo,
+ * tiene que volver a subirla a mano. */
+export async function restaurarFotoAnteriorEjercicio(
+  _prevState: RestaurarFotoAnteriorState,
+  formData: FormData,
+): Promise<RestaurarFotoAnteriorState> {
+  await requireRol(["entrenador", "admin"]);
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+
+  const supabase = await createClient();
+  const { data: version, error: errorLectura } = await supabase
+    .from("ejercicio_foto_version_anterior")
+    .select("foto_miniatura_url, foto_completa_url, foto_panorama_x, foto_panorama_y, foto_cuadrada_x, foto_cuadrada_y")
+    .eq("ejercicio_id", ejercicioId)
+    .maybeSingle();
+  if (errorLectura || !version) return { error: "No hay una versión anterior guardada para restaurar.", ok: false };
+
+  const { data: actual } = await supabase
+    .from("ejercicios")
+    .select("nombre, foto_miniatura_url, foto_completa_url")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+
+  const { error: errorUpdate } = await supabase
+    .from("ejercicios")
+    .update({
+      foto_miniatura_url: version.foto_miniatura_url,
+      foto_completa_url: version.foto_completa_url,
+      foto_panorama_x: version.foto_panorama_x,
+      foto_panorama_y: version.foto_panorama_y,
+      foto_cuadrada_x: version.foto_cuadrada_x,
+      foto_cuadrada_y: version.foto_cuadrada_y,
+    })
+    .eq("id", ejercicioId);
+  if (errorUpdate) return { error: "No se pudo restaurar la foto anterior.", ok: false };
+
+  const { error: errorBorrarVersion } = await supabase
+    .from("ejercicio_foto_version_anterior")
+    .delete()
+    .eq("ejercicio_id", ejercicioId);
+  if (errorBorrarVersion) console.error("[ejercicios] no se pudo limpiar la versión anterior tras restaurar:", errorBorrarVersion.message);
+
+  // La foto que estaba puesta justo antes de este restore queda huérfana en
+  // Storage — se borra best-effort, salvo que resulte ser exactamente la
+  // misma URL que se acaba de restaurar (no debería pasar, pero por las
+  // dudas no se borra algo que sigue en uso).
+  if (actual?.foto_miniatura_url && actual.foto_miniatura_url !== version.foto_miniatura_url) {
+    const rutas = [actual.foto_miniatura_url, actual.foto_completa_url]
+      .filter((url): url is string => !!url)
+      .map((url) => url.split("/ejercicios-fotos/")[1])
+      .filter((ruta): ruta is string => !!ruta);
+    if (rutas.length > 0) await supabase.storage.from("ejercicios-fotos").remove(rutas);
+  }
+
+  avisarCambios();
+  return { error: null, ok: true, mensaje: `Se restauró la foto anterior de ${actual?.nombre ?? "el ejercicio"}.` };
 }
 
 export type QuitarFotoState = { error: string | null; ok: boolean };

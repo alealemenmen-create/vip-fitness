@@ -1,6 +1,6 @@
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { obtenerBibliotecaSinCache, obtenerHistorialFusiones } from "@/lib/ejercicios/data";
+import { obtenerBibliotecaSinCache, obtenerHistorialFusiones, obtenerVersionesAnterioresFotos } from "@/lib/ejercicios/data";
 import { GaleriaEjercicios, type ReporteFotoPendiente } from "@/components/admin/GaleriaEjercicios";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
@@ -16,10 +16,11 @@ export default async function EjerciciosAdminPage({
   const supabase = await createClient();
   // Sin caché a propósito — ver `obtenerBibliotecaSinCache`: esta es la
   // pantalla donde el entrenador acaba de subir una foto y tiene que verla.
-  const [biblioteca, inventario, historialFusiones] = await Promise.all([
+  const [biblioteca, inventario, historialFusiones, versionesAnterioresFotos] = await Promise.all([
     obtenerBibliotecaSinCache(),
     obtenerInventarioUsosRutina(),
     obtenerHistorialFusiones(),
+    obtenerVersionesAnterioresFotos(),
   ]);
   const { data: filasReportes } = await supabase
     .from("reportes_fotos_ejercicios")
@@ -69,7 +70,7 @@ export default async function EjerciciosAdminPage({
       </section>
       <section id="biblioteca-ejercicios" className="admin-panel-card scroll-mt-28 rounded-3xl p-4 md:p-5">
         <span id="reportes-ejercicios" className="block scroll-mt-28" />
-        <GaleriaEjercicios ejercicios={biblioteca} reportes={reportes} usosPorEjercicio={inventario.usosPorEjercicio} nombresRutinaSinVincular={inventario.nombresSinVincular} historialFusiones={historialFusiones} />
+        <GaleriaEjercicios ejercicios={biblioteca} reportes={reportes} usosPorEjercicio={inventario.usosPorEjercicio} nombresRutinaSinVincular={inventario.nombresSinVincular} historialFusiones={historialFusiones} versionesAnterioresFotos={versionesAnterioresFotos} />
       </section>
     </div>
   );

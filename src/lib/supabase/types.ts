@@ -2008,6 +2008,42 @@ export interface Database {
         };
         Relationships: [];
       };
+      // 0094_ejercicio_foto_version_anterior.sql — una sola versión anterior
+      // restaurable por ejercicio, para deshacer un reemplazo de foto
+      // equivocado antes de que se borre el archivo de Storage.
+      ejercicio_foto_version_anterior: {
+        Row: {
+          ejercicio_id: string;
+          foto_miniatura_url: string;
+          foto_completa_url: string;
+          foto_panorama_x: number;
+          foto_panorama_y: number;
+          foto_cuadrada_x: number;
+          foto_cuadrada_y: number;
+          reemplazada_por: string;
+          reemplazada_en: string;
+        };
+        Insert: {
+          ejercicio_id: string;
+          foto_miniatura_url: string;
+          foto_completa_url: string;
+          foto_panorama_x?: number;
+          foto_panorama_y?: number;
+          foto_cuadrada_x?: number;
+          foto_cuadrada_y?: number;
+          reemplazada_por: string;
+        };
+        Update: {
+          foto_miniatura_url?: string;
+          foto_completa_url?: string;
+          foto_panorama_x?: number;
+          foto_panorama_y?: number;
+          foto_cuadrada_x?: number;
+          foto_cuadrada_y?: number;
+          reemplazada_por?: string;
+        };
+        Relationships: [];
+      };
       push_suscripciones: {
         Row: {
           id: string;

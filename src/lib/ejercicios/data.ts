@@ -146,3 +146,23 @@ export async function obtenerHistorialFusiones(): Promise<FusionEjercicio[]> {
     deshecho: fila.deshecho_en !== null,
   }));
 }
+
+/**
+ * Qué ejercicios tienen una foto anterior guardada y restaurable (ver
+ * ejercicio_foto_version_anterior, migración 0094) — clave: ejercicio_id,
+ * valor: fecha del reemplazo que la dejó ahí. Devuelve `{}` sin reventar si
+ * la migración todavía no corrió, mismo criterio que `obtenerHistorialFusiones`.
+ */
+export async function obtenerVersionesAnterioresFotos(): Promise<Record<string, string>> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("ejercicio_foto_version_anterior")
+    .select("ejercicio_id, reemplazada_en");
+  if (error) {
+    if (error.code !== "PGRST205" && error.code !== "42P01") {
+      console.error("[ejercicios] no se pudo leer las versiones anteriores de fotos:", error.message);
+    }
+    return {};
+  }
+  return Object.fromEntries((data ?? []).map((fila) => [fila.ejercicio_id, fila.reemplazada_en]));
+}
