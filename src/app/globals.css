@@ -3450,7 +3450,7 @@ input[type="number"] {
 .tarjeta-ejercicio-enfocada .accion-secundaria-ejercicio,
 .tarjeta-ejercicio-enfocada .acciones-secundarias-ejercicio .accion-secundaria-ejercicio {
   border-color: rgba(255, 255, 255, .07);
-  background: #0a0b0d;
+  background: var(--color-bg);
 }
 .tarjeta-ejercicio-enfocada .acciones-secundarias-ejercicio .accion-cerrar-ejercicio {
   display: grid;
