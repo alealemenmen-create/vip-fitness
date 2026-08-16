@@ -1,4 +1,5 @@
-import { Activity, AlertTriangle, CircleCheck, Dumbbell, Sparkles, Star, UserCog, Users } from "lucide-react";
+import Link from "next/link";
+import { Activity, Sparkles, UserCog } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { CrearAlumnoForm } from "@/components/admin/CrearAlumnoForm";
@@ -10,8 +11,7 @@ import { AvisoSolicitudes } from "@/components/admin/AvisoSolicitudes";
 import { SugerenciasHoy } from "@/components/admin/SugerenciasHoy";
 import { obtenerReportes, obtenerAvisosNotasIA, type EstadoAlumno, type PrioridadAlumno } from "./data";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
-import { TituloPestana } from "@/components/admin/TituloPestana";
-import { AdminStatCard } from "@/components/admin/AdminStatCard";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AsistenciaImpulsoEnVivo } from "@/components/admin/AsistenciaImpulsoEnVivo";
 import { obtenerSolicitudesAsistenciaEnVivo } from "@/lib/impulso-vip/asistencia-data";
 import { obtenerResumenMemoriaImpulso } from "@/lib/impulso-vip/memoria-data";
@@ -84,12 +84,10 @@ export default async function AlumnosPage({
   const ORDEN: Record<EstadoAlumno, number> = { atencion: 0, normal: 1, destacado: 2 };
   reportes.sort((a, b) => ORDEN_PRIORIDAD[a.prioridad] - ORDEN_PRIORIDAD[b.prioridad] || ORDEN[a.estado] - ORDEN[b.estado]);
 
-  const sinRutina = reportes.filter((r) => r.motivo === "Sin rutina activa asignada").length;
-  const aRevisar = reportes.filter(
-    (r) => r.estado === "atencion" && r.motivo !== "Sin rutina activa asignada"
-  ).length;
-  const alDia = reportes.filter((r) => r.estado === "normal").length;
-  const destacados = reportes.filter((r) => r.estado === "destacado").length;
+  // Los cinco conteos que se calculaban acá (sinRutina, aRevisar, alDia,
+  // destacados) alimentaban las tarjetas de resumen que se eliminaron.
+  // `ListaAlumnos` los recalcula por su cuenta para su propia banda de
+  // filtros, así que repetirlos en el servidor era trabajo sin destino.
   const query = await searchParams;
   const filtrosValidos: FiltroAlumnos[] = ["todos", "sin_rutina", "seguimiento", "al_dia", "destacados"];
   const filtroInicial = filtrosValidos.includes(query.estado as FiltroAlumnos)
@@ -98,24 +96,33 @@ export default async function AlumnosPage({
 
   return (
     <div className="space-y-6 pb-8">
-      <TituloPestana>
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-vip">Gestión de clientes</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-text md:text-3xl">Alumnos</h1>
-          <p className="mt-1 text-sm text-text-secondary">Seguimiento, alertas y acciones del equipo en un solo lugar.</p>
-        </div>
-      </TituloPestana>
+      <AdminPageHeader
+        eyebrow="Prioridad diaria"
+        title="Alumnos"
+        description="Primero lo que requiere decisión; después, el directorio completo."
+        actions={
+          <Link href="/admin/solicitudes" className="boton-panel-secundario">
+            Solicitudes{solicitudesPendientes ? ` · ${solicitudesPendientes}` : ""}
+          </Link>
+        }
+      />
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5" aria-label="Resumen de alumnos">
-        <AdminStatCard href="/admin/alumnos?estado=todos#directorio-alumnos" icon={<Users size={20} />} value={reportes.length} label="Alumnos activos" detail="Ver base completa" color="#3b82f6" />
-        <AdminStatCard href="/admin/alumnos?estado=sin_rutina#directorio-alumnos" icon={<Dumbbell size={20} />} value={sinRutina} label="Sin rutina" detail="Ver pendientes de planificación" color={sinRutina > 0 ? "#ef4444" : "var(--color-text-tertiary)"} />
-        <AdminStatCard href="/admin/alumnos?estado=seguimiento#directorio-alumnos" icon={<AlertTriangle size={20} />} value={aRevisar} label="Por revisar" detail="Ver actividad o registros" color={aRevisar > 0 ? "#f59e0b" : "var(--color-text-tertiary)"} />
-        <AdminStatCard href="/admin/alumnos?estado=al_dia#directorio-alumnos" icon={<CircleCheck size={20} />} value={alDia} label="Al día" detail="Ver seguimiento estable" color="#22c55e" />
-        <AdminStatCard href="/admin/alumnos?estado=destacados#directorio-alumnos" icon={<Star size={20} />} value={destacados} label="Destacados" detail="Ver buen desempeño" color={destacados > 0 ? "#a78bfa" : "var(--color-text-tertiary)"} />
-      </section>
+      {/* Las cinco tarjetas grandes de colores que iban acá se eliminaron
+          (instructivo §7.2): ocupaban la primera pantalla entera, cada una
+          traía su propio color y brillo — así que ninguna priorizaba, "Al día"
+          gritaba igual que "Sin rutina" — y sobre todo eran un DUPLICADO: la
+          misma banda de cinco filtros con los mismos conteos ya vive dentro
+          del directorio, en `ListaAlumnos`, y filtra en el acto en vez de
+          recargar la página. Se conservó esa, con el acabado del panel. */}
 
+      {/* `order-1` y no `order-2`: en celular el directorio tiene que ser lo
+          primero después de los filtros. Con el orden anterior, Propuestas de
+          Impulso, Acciones rápidas y los avisos se metían ANTES y había que
+          desplazarse por todo eso para llegar a buscar un alumno, que es a lo
+          que el entrenador entra (instructivo §7.1). En escritorio la columna
+          lateral sigue a la derecha, igual que siempre. */}
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <section id="directorio-alumnos" className="admin-panel-card order-2 min-w-0 scroll-mt-28 rounded-3xl p-4 md:p-5 xl:order-1" aria-label="Directorio de alumnos">
+        <section id="directorio-alumnos" className="admin-panel-card order-1 min-w-0 scroll-mt-28 rounded-3xl p-4 md:p-5" aria-label="Directorio de alumnos">
           <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-4">
             <div>
               <div className="flex items-center gap-2">
@@ -131,7 +138,7 @@ export default async function AlumnosPage({
           <ListaAlumnos key={filtroInicial} reportes={reportes} sesionUserId={sesion.userId} filtroInicial={filtroInicial} />
         </section>
 
-        <aside className="order-1 space-y-4 xl:order-2 xl:sticky xl:top-28" aria-label="Acciones y avisos">
+        <aside className="order-2 space-y-4 xl:sticky xl:top-28" aria-label="Acciones y avisos">
           <AsistenciaImpulsoEnVivo solicitudes={solicitudesImpulso} />
           <PropuestasImpulsoVIP iniciales={propuestasImpulso} destacadaId={query.propuesta} />
           <HistorialImpulsoVIP historial={historialImpulso} />

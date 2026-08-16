@@ -46,7 +46,12 @@ export function AvisoNuevaActualizacion({ novedad }: { novedad: NovedadAviso | n
     <aside
       role="status"
       aria-live="polite"
-      className="fixed inset-x-3 top-16 z-50 rounded-2xl border border-vip/30 bg-surface p-3 shadow-xl md:left-auto md:right-5 md:w-[360px]"
+      /* En celular el aviso vivía en `top-16`, justo encima del encabezado
+         pegajoso de cada pantalla: tapaba el `h1` y la descripción hasta que
+         el entrenador lo cerraba a mano, en TODAS las rutas del panel. Ahora
+         se apoya arriba de la barra inferior, donde no compite con nada. En
+         escritorio se queda arriba a la derecha, que ahí sí está libre. */
+      className="fixed inset-x-3 bottom-[calc(var(--alto-nav-alumno,86px)+14px)] z-50 rounded-2xl border border-vip/30 bg-surface p-3 shadow-xl md:bottom-auto md:left-auto md:right-5 md:top-16 md:w-[360px]"
     >
       <div className="flex items-start gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-vip/15 text-vip">
