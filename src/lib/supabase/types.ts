@@ -2048,6 +2048,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      // 0096_resenas_app.sql — estrellas + sugerencia libre desde el perfil
+      // del alumno.
+      resenas_app: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          estrellas: number;
+          sugerencia: string | null;
+          ruta: string | null;
+          creado_en: string;
+        };
+        Insert: {
+          alumno_id: string;
+          estrellas: number;
+          sugerencia?: string | null;
+          ruta?: string | null;
+        };
+        Update: {
+          estrellas?: number;
+          sugerencia?: string | null;
+          ruta?: string | null;
+        };
+        Relationships: [];
+      };
       push_suscripciones: {
         Row: {
           id: string;
