@@ -8,6 +8,7 @@ import { TAG_TECNICAS_ENTRENAMIENTO } from "@/lib/generador-rutinas/data";
 import { idDeYoutube } from "@/lib/ejercicios/video";
 import {
   bufferAImagenBlob,
+  hashearImagen,
   procesarImagen,
   TAMANO_MAXIMO_FOTO as TAMANO_MAXIMO,
   TIPOS_IMAGEN,
@@ -163,6 +164,11 @@ export async function subirFotoEjercicio(
 
   let urlMini = "";
   let urlCompleta = "";
+  // El camino normal (subida directa navegador → Storage) calcula su propio
+  // hash del lado del cliente, porque ahí nunca pasa por procesarImagen acá
+  // — sin esto, "duplicado exacto" (ver Calidad) solo detectaría el camino
+  // de respaldo (archivo/link), que casi nunca se usa en la práctica.
+  let fotoHash: string | null = String(formData.get("foto_hash_cliente") || "").trim() || null;
   const reemplazoFoto = !!(
     (miniaturaUrlSubida && completaUrlSubida) ||
     (archivo && archivo.size > 0) ||
@@ -195,6 +201,7 @@ export async function subirFotoEjercicio(
     if (reemplazoFoto) {
       const procesada = await procesarImagen(bytes);
       if ("error" in procesada) return { error: procesada.error, ok: false };
+      fotoHash = hashearImagen(procesada.miniatura);
 
     // Timestamp en el nombre: fuerza a que sea una URL nueva cada vez que se
     // reemplaza la foto, así el navegador del alumno no sigue mostrando la
@@ -220,9 +227,14 @@ export async function subirFotoEjercicio(
     }
   }
 
+  // foto_hash solo se toca cuando de verdad hay una foto nueva — omitirlo en
+  // el resto de los casos (p. ej. un resave que solo ajusta el encuadre)
+  // evita pisar con `null` el hash de una foto que no cambió.
+  const datosHash = reemplazoFoto && fotoHash ? { foto_hash: fotoHash } : {};
+
   let { error: errorUpdate } = await supabase
     .from("ejercicios")
-    .update({ foto_miniatura_url: urlMini, foto_completa_url: urlCompleta, ...encuadre })
+    .update({ foto_miniatura_url: urlMini, foto_completa_url: urlCompleta, ...encuadre, ...datosHash })
     .eq("id", ejercicioId);
 
   // Un preview puede desplegarse unos minutos antes que la migraciÃ³n 0048.
@@ -456,6 +468,8 @@ export async function crearEjercicioNuevo(
     if (miniaturaUrlSubida && completaUrlSubida) {
       datosFoto.set("foto_miniatura_url_subida", miniaturaUrlSubida);
       datosFoto.set("foto_completa_url_subida", completaUrlSubida);
+      const hashCliente = String(formData.get("foto_hash_cliente") || "").trim();
+      if (hashCliente) datosFoto.set("foto_hash_cliente", hashCliente);
     }
     const resultadoFoto = await subirFotoEjercicio({ error: null, ok: false }, datosFoto);
     if (resultadoFoto.error) {

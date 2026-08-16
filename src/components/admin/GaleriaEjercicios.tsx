@@ -746,6 +746,23 @@ export function GaleriaEjercicios({
     () => ejercicios.filter((e) => e.videoCloudflareEstado === "error").sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })),
     [ejercicios],
   );
+  // "duplicado exacto" (instructivo 8.5): a diferencia de fotosCompartidas
+  // (misma URL), esto agrupa por CONTENIDO — detecta cuando la misma foto se
+  // subió por separado a dos ejercicios distintos, cada una con su propio
+  // archivo y URL de Storage. Ver foto_hash, migración 0095 — nulo en fotos
+  // subidas antes de esa migración, así que no cubre la biblioteca vieja.
+  const fotosDuplicadasPorHash = useMemo(() => {
+    const porHash = new Map<string, Ejercicio[]>();
+    for (const ejercicio of ejercicios) {
+      if (!ejercicio.fotoHash) continue;
+      const lista = porHash.get(ejercicio.fotoHash) ?? [];
+      lista.push(ejercicio);
+      porHash.set(ejercicio.fotoHash, lista);
+    }
+    return Array.from(porHash.values())
+      .filter((grupo) => grupo.length > 1)
+      .sort((a, b) => a[0].nombre.localeCompare(b[0].nombre, "es", { sensitivity: "base" }));
+  }, [ejercicios]);
   const reportesAgrupados = useMemo(() => {
     const grupos = new Map<string, {
       ids: string[];
@@ -786,7 +803,8 @@ export function GaleriaEjercicios({
   // cualquier momento), no defectos activos. Meterlos acá volvería la
   // insignia de la pestaña una alarma falsa ("173 problemas") en vez de una
   // señal real de calidad.
-  const calidadCantidad = gruposDuplicados.length + aliasEnDisputa.length + fotosCompartidas.length + videosConError.length + erroresFoto.size;
+  const calidadCantidad =
+    gruposDuplicados.length + aliasEnDisputa.length + fotosCompartidas.length + videosConError.length + erroresFoto.size + fotosDuplicadasPorHash.length;
 
   const reportesPorEjercicio = useMemo(() => {
     const conteo: Record<string, number> = {};
@@ -987,6 +1005,33 @@ export function GaleriaEjercicios({
                 </div>
                 <div className="min-w-0 flex-1">
                   {grupo.ejercicios.map((ejercicio) => (
+                    <button key={ejercicio.id} type="button" onClick={() => setEditando(ejercicio)} className="text-caption block truncate font-semibold text-text underline decoration-dotted underline-offset-2">
+                      {ejercicio.nombre}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pestana === "calidad" && fotosDuplicadasPorHash.length > 0 && (
+        <section className="space-y-2 rounded-[20px] border border-error/40 bg-error/5 p-3">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-error/15 text-error"><Copy size={16} /></span>
+            <span className="min-w-0 flex-1"><span className="text-caption block font-bold text-text">Duplicado exacto por contenido</span><span className="text-micro block text-text-tertiary">La misma foto se subió a más de un ejercicio</span></span>
+            <span className="rounded-full bg-error/15 px-2 py-1 text-micro font-bold text-error">{fotosDuplicadasPorHash.length}</span>
+          </div>
+          <p className="text-micro text-text-tertiary">Archivos distintos, mismo contenido — probablemente la misma foto del celular se subió dos veces por error.</p>
+          <div className="space-y-2">
+            {fotosDuplicadasPorHash.map((grupo) => (
+              <div key={grupo.map((item) => item.id).join(":")} className="radius-control flex items-center gap-2.5 border border-border bg-surface p-2.5">
+                <div className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-surface-2">
+                  {grupo[0].fotoMiniaturaUrl && <Image src={grupo[0].fotoMiniaturaUrl} alt="Foto duplicada" fill sizes="48px" className="object-cover" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  {grupo.map((ejercicio) => (
                     <button key={ejercicio.id} type="button" onClick={() => setEditando(ejercicio)} className="text-caption block truncate font-semibold text-text underline decoration-dotted underline-offset-2">
                       {ejercicio.nombre}
                     </button>
@@ -1333,7 +1378,17 @@ async function optimizarFotoEnNavegador(archivo: File): Promise<Blob> {
   }
 }
 
-type FotoSubidaCliente = { miniaturaUrl: string; completaUrl: string };
+type FotoSubidaCliente = { miniaturaUrl: string; completaUrl: string; hash: string };
+
+/** SHA-256 en hexadecimal — mismo algoritmo que `hashearImagen` del lado del
+ * servidor (procesarFoto.ts), para que "duplicado exacto" (ver Calidad)
+ * también detecte fotos subidas por este camino, que nunca pasa por el
+ * servidor con los bytes en la mano. */
+async function hashearBlobEnNavegador(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 /**
  * Vista previa inmediata y subida directa navegador → Supabase. El servidor
@@ -1369,7 +1424,7 @@ function useFotoInmediata() {
       const fotoLista = await optimizarFotoEnNavegador(archivo);
       mostrarPrevia(fotoLista);
 
-      const supabase = createBrowserSupabaseClient();
+      const [hash, supabase] = [await hashearBlobEnNavegador(fotoLista), createBrowserSupabaseClient()];
       const ruta = `sueltas/${crypto.randomUUID()}/foto.jpg`;
       const { error } = await supabase.storage.from("ejercicios-fotos").upload(ruta, fotoLista, {
         contentType: fotoLista.type || "image/jpeg",
@@ -1378,7 +1433,7 @@ function useFotoInmediata() {
       if (error) throw error;
 
       const url = supabase.storage.from("ejercicios-fotos").getPublicUrl(ruta).data.publicUrl;
-      setFotoSubida({ miniaturaUrl: url, completaUrl: url });
+      setFotoSubida({ miniaturaUrl: url, completaUrl: url, hash });
     } catch (error) {
       setErrorFoto(
         error instanceof Error
@@ -2005,6 +2060,7 @@ function FichaMesa({
             if (fotoSubida) {
               fd.set("foto_miniatura_url_subida", fotoSubida.miniaturaUrl);
               fd.set("foto_completa_url_subida", fotoSubida.completaUrl);
+              fd.set("foto_hash_cliente", fotoSubida.hash);
             }
             fd.set("ejercicio_id", ejercicio.id);
             formAction(fd);
@@ -2806,6 +2862,7 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
           if (fotoSubida) {
             fd.set("foto_miniatura_url_subida", fotoSubida.miniaturaUrl);
             fd.set("foto_completa_url_subida", fotoSubida.completaUrl);
+            fd.set("foto_hash_cliente", fotoSubida.hash);
           }
           formAction(fd);
         }}

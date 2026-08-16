@@ -31,6 +31,7 @@ function ejercicio(overrides: Partial<Ejercicio> & Pick<Ejercicio, "id" | "nombr
     fotoPanoramaY: 50,
     fotoCuadradaX: 50,
     fotoCuadradaY: 50,
+    fotoHash: null,
     patronMovimiento: null,
     impulsoIntensidadMaxima: "ninguna",
     impulsoTecnicasPermitidas: [],

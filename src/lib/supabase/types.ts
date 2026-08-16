@@ -901,6 +901,9 @@ export interface Database {
           foto_cuadrada_x: number;
           foto_cuadrada_y: number;
           foto_completa_url: string | null;
+          // 0095_ejercicio_foto_hash.sql — hash de contenido de la
+          // miniatura procesada, para detectar duplicados exactos.
+          foto_hash: string | null;
           // 0051_generador_rutinas.sql — clasificación biomecánica
           // estructurada, vacía para casi toda la biblioteca todavía. Sin
           // restricción `check` en la base: es texto libre validado en la
@@ -975,6 +978,7 @@ export interface Database {
           impulso_requiere_supervision?: boolean;
           impulso_perfil_revisado?: boolean;
           foto_completa_url?: string | null;
+          foto_hash?: string | null;
           patron_movimiento?: string | null;
           activo?: boolean;
         };
