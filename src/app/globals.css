@@ -3449,8 +3449,8 @@ input[type="number"] {
 }
 .tarjeta-ejercicio-enfocada .accion-secundaria-ejercicio,
 .tarjeta-ejercicio-enfocada .acciones-secundarias-ejercicio .accion-secundaria-ejercicio {
-  border-color: rgba(255, 255, 255, .08);
-  background: #101113;
+  border-color: rgba(255, 255, 255, .07);
+  background: #0a0b0d;
 }
 .tarjeta-ejercicio-enfocada .acciones-secundarias-ejercicio .accion-cerrar-ejercicio {
   display: grid;
@@ -6009,8 +6009,8 @@ input[type="number"] {
   min-height: 84px;
   align-items: center;
   justify-content: center;
-  margin-top: 11px;
-  padding: 7px 0 0;
+  margin-top: 4px;
+  padding: 3px 0 0;
   border-top: 1px solid rgba(255,255,255,.05);
 }
 .tarjeta-ejercicio-enfocada .fila-rir-navegacion .control-rir-serie { margin-top: 0; }
@@ -6534,11 +6534,11 @@ input[type="number"] {
   z-index: 2;
   width: 38px;
   height: 38px;
-  border-color: rgba(255, 255, 255, .22);
+  border-color: rgba(255, 255, 255, .1);
   border-radius: 10px;
-  color: rgba(255, 255, 255, .94);
-  background: #121517;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
+  color: rgba(255, 255, 255, .85);
+  background: #0a0b0d;
+  box-shadow: none;
 }
 :root .tarjeta-ejercicio-enfocada:not(.tarjeta-grupo-enfocada) .boton-ver-rutina-en-siguiente svg {
   width: 23px;
