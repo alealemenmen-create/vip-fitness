@@ -782,7 +782,14 @@ export async function combinarEjerciciosDuplicados(
   const conFoto = (item: (typeof data)[number]) => Boolean(item.foto_miniatura_url || item.foto_completa_url);
   const sugerido = data.find((item) => item.id === idA)!;
   const otro = data.find((item) => item.id === idB)!;
-  const original = conFoto(otro) && !conFoto(sugerido) ? otro : sugerido;
+  // Cuál sobrevive puede venir decidido explícitamente por quien lo ejecuta.
+  // Sin eso, se elige por foto — una heurística razonable para la lista de
+  // duplicados, pero imposible de anticipar mirando un botón: en la Mesa el
+  // entrenador tiene que poder leer de antemano cuál desaparece, porque el que
+  // desaparece se lleva sus usos en las rutinas de todos los alumnos.
+  const forzadoId = String(formData.get("original_forzado") || "");
+  const forzado = forzadoId ? data.find((item) => item.id === forzadoId) : undefined;
+  const original = forzado ?? (conFoto(otro) && !conFoto(sugerido) ? otro : sugerido);
   const duplicado = original.id === sugerido.id ? otro : sugerido;
   if (!original.activo || !duplicado.activo) return { error: "Uno de los ejercicios ya no está activo.", ok: false };
 
@@ -883,6 +890,108 @@ export async function deshacerFusionEjercicios(
 
   avisarCambios();
   return { error: null, ok: true, mensaje: `${fusion.duplicado_nombre} quedó restaurado.` };
+}
+
+export type QuitarFotoState = { error: string | null; ok: boolean };
+
+/**
+ * Deja al ejercicio sin foto propia, conservando todo lo demás.
+ *
+ * Hasta ahora solo se podía REEMPLAZAR una foto, nunca sacarla: si a "Fondos
+ * en paralelas" le quedaba pegada la foto de un fondo de tríceps, la única
+ * salida era conseguir otra foto o desactivar el ejercicio entero. Al quitarla,
+ * el ejercicio vuelve a mostrar su ilustración de referencia —que es genérica
+ * pero correcta— en lugar de una foto de otro movimiento.
+ *
+ * Borra también los archivos de Storage, porque ya no los apunta nadie.
+ */
+export async function quitarFotoEjercicio(
+  _prevState: QuitarFotoState,
+  formData: FormData,
+): Promise<QuitarFotoState> {
+  await requireRol(["entrenador", "admin"]);
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+
+  const supabase = await createClient();
+  const { data: actual } = await supabase
+    .from("ejercicios")
+    .select("foto_miniatura_url, foto_completa_url")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+  if (!actual?.foto_miniatura_url && !actual?.foto_completa_url) {
+    return { error: "Este ejercicio ya no tiene foto propia.", ok: false };
+  }
+
+  const { error } = await supabase
+    .from("ejercicios")
+    .update({
+      foto_miniatura_url: null,
+      foto_completa_url: null,
+      foto_panorama_x: 50,
+      foto_panorama_y: 50,
+      foto_cuadrada_x: 50,
+      foto_cuadrada_y: 50,
+    })
+    .eq("id", ejercicioId);
+  if (error) return { error: "No se pudo quitar la foto. Probá de nuevo.", ok: false };
+
+  // Best-effort, igual que en el reemplazo: si el borrado del archivo falla, la
+  // foto ya dejó de mostrarse, que es lo que importa.
+  const rutas = [actual.foto_miniatura_url, actual.foto_completa_url]
+    .filter((url): url is string => !!url)
+    .map((url) => url.split("/ejercicios-fotos/")[1])
+    .filter((ruta): ruta is string => !!ruta);
+  if (rutas.length > 0) await supabase.storage.from("ejercicios-fotos").remove(rutas);
+
+  avisarCambios();
+  return { error: null, ok: true };
+}
+
+export type ResolverAliasState = { error: string | null; ok: boolean; mensaje?: string };
+
+/**
+ * Le quita un alias a un ejercicio para terminar con una colisión: dos
+ * entradas distintas que reclamaban el mismo nombre alternativo.
+ *
+ * Mientras la colisión existe, ese texto es indecidible y
+ * `emparejarEjercicio` se niega a elegir (devuelve null), así que las rutinas
+ * que lo usen quedan sin foto. El caso que lo motivó: "extensión unilateral"
+ * estaba registrado a la vez en cuádriceps y en tríceps, y el alumno terminaba
+ * viendo la pierna en un ejercicio de brazo.
+ *
+ * Es deliberadamente lo contrario de `combinarEjerciciosDuplicados`: acá los
+ * dos ejercicios son legítimos y se conservan enteros — lo único que se toca
+ * es a quién le pertenece la palabra. No mueve rutinas ni desactiva nada.
+ */
+export async function resolverAliasEnDisputa(
+  _prevState: ResolverAliasState,
+  formData: FormData,
+): Promise<ResolverAliasState> {
+  await requireRol(["entrenador", "admin"]);
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  const alias = String(formData.get("alias") || "").trim();
+  if (!ejercicioId || !alias) return { error: "Falta el ejercicio o el alias.", ok: false };
+
+  const supabase = await createClient();
+  const { data: ejercicio, error: errorLectura } = await supabase
+    .from("ejercicios")
+    .select("id,nombre,aliases")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+  if (errorLectura || !ejercicio) return { error: "No se encontró ese ejercicio.", ok: false };
+
+  const objetivo = normalizar(alias);
+  const restantes = (ejercicio.aliases ?? []).filter((item: string) => normalizar(item) !== objetivo);
+  if (restantes.length === (ejercicio.aliases ?? []).length) {
+    return { error: `"${alias}" ya no figura como alias de ${ejercicio.nombre}.`, ok: false };
+  }
+
+  const { error } = await supabase.from("ejercicios").update({ aliases: restantes }).eq("id", ejercicioId);
+  if (error) return { error: "No se pudo quitar el alias. Probá de nuevo.", ok: false };
+
+  avisarCambios();
+  return { error: null, ok: true, mensaje: `"${alias}" dejó de ser alias de ${ejercicio.nombre}.` };
 }
 
 export type ActualizarPerfilImpulsoState = { error: string | null; ok: boolean };

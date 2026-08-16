@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useRef, useState, type PointerEvent
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge, CircleAlert, LibraryBig, ClipboardCheck, Undo2, UploadCloud } from "lucide-react";
+import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge, CircleAlert, LibraryBig, ClipboardCheck, Undo2, UploadCloud, Wrench, ChevronLeft, ChevronRight } from "lucide-react";
 import { CargaMasivaFotos } from "@/components/admin/CargaMasivaFotos";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
@@ -31,8 +31,13 @@ import {
   type CombinarDuplicadosState,
   deshacerFusionEjercicios,
   type DeshacerFusionState,
+  resolverAliasEnDisputa,
+  type ResolverAliasState,
+  quitarFotoEjercicio,
+  type QuitarFotoState,
 } from "@/app/admin/ejercicios/actions";
 import { normalizar } from "@/lib/alimentos/emparejar";
+import { detectarAliasEnDisputa, emparejarEjercicio } from "@/lib/ejercicios/emparejar";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import type { Ejercicio } from "@/lib/ejercicios/tipos";
@@ -296,6 +301,81 @@ function CombinarDuplicadoForm({ original, duplicado }: { original: Ejercicio; d
   );
 }
 
+const ESTADO_INICIAL_ALIAS: ResolverAliasState = { error: null, ok: false };
+
+/**
+ * Dos ejercicios legítimos que reclaman el mismo alias. No es un duplicado: es
+ * una palabra que quedó registrada en los dos, y mientras siga así ninguna
+ * rutina que la use puede mostrar foto (el emparejador se niega a adivinar
+ * entre dos músculos distintos).
+ *
+ * Va aparte de "Posibles duplicados" a propósito, porque la acción correcta es
+ * la contraria: acá no hay que combinar nada — combinar "Extensión unilateral
+ * de tríceps" con la de cuádriceps desactivaría un ejercicio real y le
+ * trasladaría sus usos al otro.
+ */
+function AliasEnDisputaCard({
+  alias,
+  ejercicios,
+  usosPorEjercicio,
+}: {
+  alias: string;
+  ejercicios: Ejercicio[];
+  usosPorEjercicio: Record<string, UsoEjercicioInventario>;
+}) {
+  const [state, action, pending] = useActionState(resolverAliasEnDisputa, ESTADO_INICIAL_ALIAS);
+  // Solo se puede quitar de los que lo tienen como alias: si uno lo lleva como
+  // nombre propio, ese es su dueño natural y no hay nada que sacarle.
+  const quitables = ejercicios.filter((ejercicio) =>
+    ejercicio.aliases.some((item) => normalizar(item) === normalizar(alias)),
+  );
+
+  return (
+    <div className="radius-control border border-border bg-surface p-2.5">
+      <p className="text-caption text-text">
+        <span className="font-bold text-warning">“{alias}”</span> está registrado en {ejercicios.length} ejercicios.
+      </p>
+      <p className="text-micro mt-0.5 text-text-tertiary">
+        Mientras dure, las rutinas que lo usen quedan sin foto en vez de mostrar la equivocada.
+      </p>
+
+      <p className="text-micro mt-2 font-semibold text-text-secondary">¿A cuál pertenece?</p>
+      <div className="mt-1.5 space-y-1.5">
+        {ejercicios.map((ejercicio) => {
+          const usos = usosPorEjercicio[ejercicio.id]?.cantidad ?? 0;
+          const otros = quitables.filter((item) => item.id !== ejercicio.id);
+          return (
+            <div key={ejercicio.id} className="radius-control border border-border bg-surface-2 p-2">
+              <p className="text-caption font-semibold text-text">{ejercicio.nombre}</p>
+              <p className="text-micro text-text-tertiary">
+                {ETIQUETAS_GRUPO[ejercicio.grupoMuscular] ?? ejercicio.grupoMuscular}
+                {usos > 0 && ` · ${usos} ${usos === 1 ? "uso" : "usos"} en rutinas`}
+              </p>
+              {otros.length > 0 && (
+                <form action={action} className="mt-1.5">
+                  <input type="hidden" name="alias" value={alias} />
+                  {/* Elegir un dueño = quitarle el alias al otro. Con más de dos
+                      en disputa se resuelve de a uno, repitiendo la pregunta. */}
+                  <input type="hidden" name="ejercicio_id" value={otros[0].id} />
+                  <button
+                    type="submit"
+                    disabled={pending}
+                    className="radius-control flex items-center gap-1 border border-vip/40 px-2 py-1 text-[9px] font-semibold text-vip disabled:opacity-50"
+                  >
+                    <Check size={11} /> {pending ? "Guardando…" : `Es de este — quitarlo de ${otros[0].nombre}`}
+                  </button>
+                </form>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {state.error && <p className="text-micro mt-1.5 text-error">{state.error}</p>}
+      {state.ok && <p className="text-micro mt-1.5 text-success">{state.mensaje}</p>}
+    </div>
+  );
+}
+
 function FusionHistorialCard({ fusion }: { fusion: FusionEjercicio }) {
   const [state, action, pending] = useActionState(deshacerFusionEjercicios, ESTADO_INICIAL_DESHACER);
   const fecha = new Date(fusion.fusionadoEn).toLocaleDateString("es-CL", { day: "2-digit", month: "short" });
@@ -444,7 +524,7 @@ export function GaleriaEjercicios({
   // muchísimo para llegar a la biblioteca de fotos. Se reparte en 4 pestañas
   // (sección 8.1 del instructivo de reorganización): Pendientes abre primero
   // si hay trabajo, si no abre Biblioteca directamente.
-  const [pestana, setPestana] = useState<"pendientes" | "biblioteca" | "carga" | "referencia">(
+  const [pestana, setPestana] = useState<"pendientes" | "mesa" | "biblioteca" | "carga" | "referencia">(
     reportes.length > 0 ? "pendientes" : "biblioteca"
   );
   // Las tarjetas de resumen de la página enlazan con #anclas a secciones
@@ -491,6 +571,15 @@ export function GaleriaEjercicios({
     () => [...ejercicios].sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })),
     [ejercicios],
   );
+  const aliasEnDisputa = useMemo(() => detectarAliasEnDisputa(ejercicios), [ejercicios]);
+  // Un alias compartido no es un duplicado, y ofrecer "Combinar" ahí es
+  // directamente peligroso: cuádriceps y tríceps comparten el alias "extensión
+  // unilateral" y son ejercicios distintos. Esos pares salen de la lista de
+  // duplicados y se resuelven arriba, quitándole la palabra a uno de los dos.
+  const paresEnDisputa = useMemo(
+    () => new Set(aliasEnDisputa.map((d) => d.ejercicios.map((e) => e.id).sort().join(":"))),
+    [aliasEnDisputa],
+  );
   const gruposDuplicados = useMemo(() => {
     const porFirma = new Map<string, Map<string, Ejercicio>>();
     for (const ejercicio of ejercicios) {
@@ -513,12 +602,12 @@ export function GaleriaEjercicios({
       }))
       .filter((grupo) => {
         const clave = grupo.map((item) => item.id).sort().join(":");
-        if (vistos.has(clave)) return false;
+        if (vistos.has(clave) || paresEnDisputa.has(clave)) return false;
         vistos.add(clave);
         return true;
       })
       .sort((a, b) => a[0].nombre.localeCompare(b[0].nombre, "es", { sensitivity: "base" }));
-  }, [ejercicios, usosPorEjercicio]);
+  }, [ejercicios, usosPorEjercicio, paresEnDisputa]);
   const reportesAgrupados = useMemo(() => {
     const grupos = new Map<string, {
       ids: string[];
@@ -553,7 +642,39 @@ export function GaleriaEjercicios({
     return Array.from(grupos.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
   }, [reportes, ejercicios]);
 
-  const pendientesCantidad = reportesAgrupados.length + gruposDuplicados.length;
+  const pendientesCantidad = reportesAgrupados.length + gruposDuplicados.length + aliasEnDisputa.length;
+
+  const reportesPorEjercicio = useMemo(() => {
+    const conteo: Record<string, number> = {};
+    for (const reporte of reportes) {
+      if (reporte.ejercicioId) conteo[reporte.ejercicioId] = (conteo[reporte.ejercicioId] ?? 0) + 1;
+    }
+    return conteo;
+  }, [reportes]);
+  const faltanPorCompletar = useMemo(
+    () => ejercicios.filter((e) => !fotoDe(e) || (reportesPorEjercicio[e.id] ?? 0) > 0).length,
+    [ejercicios, reportesPorEjercicio],
+  );
+  // Nombres que no están en la biblioteca ni se parecen a nada que exista: son
+  // altas pendientes, no fotos pendientes. Vienen de dos lados — un alumno que
+  // pidió la foto, o una rutina recién importada que trajo un ejercicio nuevo.
+  // En los dos casos la acción es la misma: darlo de alta.
+  const nombresReportadosSinEjercicio = useMemo(() => {
+    const nombres = new Set<string>();
+    for (const grupo of reportesAgrupados) {
+      if (grupo.ejercicioId) continue;
+      if (emparejarEjercicio(grupo.nombre, ejercicios)) continue;
+      nombres.add(grupo.nombre);
+    }
+    // Los de rutinas se ordenan por peso: el que aparece en más días de
+    // entrenamiento es el que más urge dar de alta.
+    const deRutinas = nombresRutinaSinVincular
+      .filter((item) => !emparejarEjercicio(item.nombre, ejercicios))
+      .sort((a, b) => b.cantidad - a.cantidad)
+      .slice(0, 30);
+    for (const item of deRutinas) nombres.add(item.nombre);
+    return [...nombres];
+  }, [reportesAgrupados, ejercicios, nombresRutinaSinVincular]);
 
   return (
     <div className="space-y-3">
@@ -561,6 +682,7 @@ export function GaleriaEjercicios({
         {(
           [
             { id: "pendientes" as const, etiqueta: "Pendientes", Icon: CircleAlert, cantidad: pendientesCantidad },
+            { id: "mesa" as const, etiqueta: "Mesa", Icon: Wrench, cantidad: faltanPorCompletar },
             { id: "biblioteca" as const, etiqueta: "Biblioteca", Icon: LibraryBig, cantidad: ejercicios.length },
             { id: "carga" as const, etiqueta: "Carga masiva", Icon: UploadCloud, cantidad: null },
             { id: "referencia" as const, etiqueta: "Referencia", Icon: ClipboardCheck, cantidad: null },
@@ -588,11 +710,40 @@ export function GaleriaEjercicios({
         })}
       </div>
 
-      {pestana === "pendientes" && reportes.length === 0 && gruposDuplicados.length === 0 && (
+      {pestana === "pendientes" && reportes.length === 0 && gruposDuplicados.length === 0 && aliasEnDisputa.length === 0 && (
         <Card padding="p-4" className="text-center">
           <p className="text-caption font-semibold text-text">Sin pendientes ahora mismo</p>
           <p className="text-micro mt-1 text-text-tertiary">Ningún reporte de foto ni duplicado por revisar.</p>
         </Card>
+      )}
+
+      {pestana === "pendientes" && aliasEnDisputa.length > 0 && (
+        <section className="space-y-2 rounded-[20px] border border-warning/45 bg-warning/5 p-3">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-warning/15 text-warning">
+              <TriangleAlert size={17} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="text-caption block font-bold text-text">Nombres en disputa</span>
+              <span className="text-micro block text-text-tertiary">Un mismo alias en dos ejercicios distintos</span>
+            </span>
+            <span className="rounded-full bg-warning/15 px-2 py-1 text-micro font-bold text-warning">{aliasEnDisputa.length}</span>
+          </div>
+          <p className="text-micro text-text-tertiary">
+            Estos <strong className="text-text">no son duplicados</strong>: son dos ejercicios reales que comparten una palabra.
+            Elige de quién es y el otro la suelta — no se combina ni se borra nada.
+          </p>
+          <div className="space-y-2">
+            {aliasEnDisputa.map((disputa) => (
+              <AliasEnDisputaCard
+                key={`${disputa.alias}:${disputa.ejercicios.map((e) => e.id).join(":")}`}
+                alias={disputa.alias}
+                ejercicios={disputa.ejercicios}
+                usosPorEjercicio={usosPorEjercicio}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {pestana === "pendientes" && reportes.length > 0 && (
@@ -717,6 +868,16 @@ export function GaleriaEjercicios({
             ))}
           </div>
         </details>
+      )}
+
+      {pestana === "mesa" && (
+        <MesaDeTrabajo
+          ejercicios={ejercicios}
+          usosPorEjercicio={usosPorEjercicio}
+          reportesPorEjercicio={reportesPorEjercicio}
+          nombresRutinaSinVincular={nombresRutinaSinVincular}
+          nombresReportadosSinEjercicio={nombresReportadosSinEjercicio}
+        />
       )}
 
       {pestana === "carga" && <CargaMasivaFotos ejercicios={ejercicios} />}
@@ -1407,6 +1568,540 @@ function EncuadreArrastrable({
           <span className="size-5 rounded-full border border-white/80 shadow-[0_0_0_1px_rgba(0,0,0,.35)]" />
         </span>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Mesa de trabajo: un ejercicio a la vez, con todo lo que hace falta para
+ * dejarlo terminado en una sola pantalla — foto, encuadre, vista real del
+ * alumno, clip de Cloudflare y los nombres sueltos que le corresponden.
+ *
+ * No reimplementa nada: reusa las mismas piezas que ya usaba el modal
+ * (`useFotoInmediata`, `EncuadreArrastrable`, `CuadroFotoReferencia`,
+ * `EditorVideoCloudflare`) y la misma Server Action de siempre. Lo que cambia
+ * es el recorrido: antes había que buscar el ejercicio en la grilla, abrir un
+ * modal para la foto, otro editor para el video y una pestaña distinta para
+ * los nombres. Acá la cola ya viene ordenada por impacto y se avanza de a uno.
+ */
+/**
+ * Combinar desde la Mesa, con la dirección elegida a mano.
+ *
+ * La lista de duplicados decide sola cuál sobrevive (gana el que tenga foto),
+ * y ahí funciona porque se comparan dos entradas casi iguales. Acá no sirve:
+ * el entrenador está parado sobre un ejercicio concreto y necesita leer, antes
+ * de tocar nada, cuál de los dos desaparece — porque el que desaparece se
+ * lleva sus usos en las rutinas de todos los alumnos.
+ */
+function CombinarEnMesa({
+  actual,
+  otro,
+  usosActual,
+  usosOtro,
+}: {
+  actual: Ejercicio;
+  otro: Ejercicio;
+  usosActual: number;
+  usosOtro: number;
+}) {
+  const [state, action, pending] = useActionState(combinarEjerciciosDuplicados, ESTADO_INICIAL_COMBINAR);
+  const [abierto, setAbierto] = useState(false);
+
+  const opcion = (queda: Ejercicio, desaparece: Ejercicio, usosDesaparece: number) => (
+    <form
+      action={action}
+      onSubmit={(evento) => {
+        if (!window.confirm(`Queda "${queda.nombre}".\n\n"${desaparece.nombre}" deja de existir y sus ${usosDesaparece} usos pasan a "${queda.nombre}".\n\n¿Confirmás?`)) {
+          evento.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="original_id" value={actual.id} />
+      <input type="hidden" name="duplicado_id" value={otro.id} />
+      <input type="hidden" name="original_forzado" value={queda.id} />
+      <button
+        type="submit"
+        disabled={pending}
+        className="radius-control w-full border border-border px-2 py-1.5 text-left text-[11px] text-text-secondary disabled:opacity-50"
+      >
+        Dejar <strong className="text-text">{queda.nombre}</strong>
+        <span className="block text-[10px] text-text-tertiary">
+          {desaparece.nombre} desaparece · {usosDesaparece} {usosDesaparece === 1 ? "uso pasa" : "usos pasan"} al que queda
+        </span>
+      </button>
+    </form>
+  );
+
+  return (
+    <div className="radius-control border border-border bg-surface-2 p-2">
+      <p className="text-caption font-semibold text-text">{otro.nombre}</p>
+      <p className="text-micro text-text-tertiary">
+        {ETIQUETAS_GRUPO[otro.grupoMuscular] ?? otro.grupoMuscular}
+        {` · ${usosOtro} usos`}
+        {otro.fotoMiniaturaUrl || otro.fotoCompletaUrl ? " · ✓ foto propia" : " · sin foto propia"}
+      </p>
+      {abierto ? (
+        <div className="mt-1.5 space-y-1">
+          <p className="text-micro text-text-secondary">¿Cuál se queda?</p>
+          {opcion(actual, otro, usosOtro)}
+          {opcion(otro, actual, usosActual)}
+          <button type="button" onClick={() => setAbierto(false)} className="text-micro text-text-tertiary underline">
+            Cancelar
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="radius-control mt-1.5 flex items-center gap-1 border border-warning/40 px-2 py-1 text-[9px] font-semibold text-warning"
+        >
+          <Merge size={11} /> Son el mismo ejercicio
+        </button>
+      )}
+      {state.error && <p className="text-micro mt-1 text-error">{state.error}</p>}
+      {state.ok && <p className="text-micro mt-1 text-success">{state.mensaje}</p>}
+    </div>
+  );
+}
+
+const ESTADO_INICIAL_QUITAR_FOTO: QuitarFotoState = { error: null, ok: false };
+
+/** Sacar la foto sin reemplazarla por otra: el ejercicio vuelve a su
+ * ilustración de referencia, que es genérica pero del movimiento correcto. */
+function QuitarFotoBoton({ ejercicio }: { ejercicio: Ejercicio }) {
+  const [state, action, pending] = useActionState(quitarFotoEjercicio, ESTADO_INICIAL_QUITAR_FOTO);
+  // Se pregunta por la foto PROPIA, no por `fotoDe()`: ese ayudante devuelve la
+  // ilustración cuando no hay foto, así que el botón aparecía en ejercicios que
+  // no tenían nada que borrar y el servidor rebotaba la operación.
+  const tieneFotoPropia = Boolean(ejercicio.fotoMiniaturaUrl || ejercicio.fotoCompletaUrl);
+  if (!tieneFotoPropia) {
+    // El dibujo compartido no se puede "quitar": es el respaldo del sistema.
+    // Decirlo evita que el entrenador busque un botón que no debería existir.
+    return ejercicio.ilustracionSlug ? (
+      <p className="text-micro mt-1.5 text-text-tertiary">
+        Todavía no tiene foto propia — lo que ves es el dibujo de referencia, que puede repetirse en ejercicios parecidos.
+        Subí una foto para reemplazarlo.
+      </p>
+    ) : null;
+  }
+  return (
+    <form
+      action={action}
+      onSubmit={(evento) => {
+        if (!window.confirm(`¿Quitar la foto de "${ejercicio.nombre}"? Vuelve a mostrarse el dibujo de referencia.`)) evento.preventDefault();
+      }}
+      className="mt-1.5"
+    >
+      <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+      <button type="submit" disabled={pending} className="text-caption font-medium text-text-tertiary underline disabled:opacity-50">
+        {pending ? "Quitando…" : "Esta foto no es de este ejercicio — quitarla"}
+      </button>
+      {state.error && <p className="text-micro mt-1 text-error">{state.error}</p>}
+      {state.ok && <p className="text-micro mt-1 text-success">Foto quitada.</p>}
+    </form>
+  );
+}
+
+/** Primera palabra significativa del nombre: la que dice qué movimiento es. */
+function palabraDelMovimiento(nombre: string): string {
+  const partes = normalizar(nombre).split(" ").filter((p) => p.length > 2 && !["de", "del", "con", "sin", "las", "los", "para"].includes(p));
+  const primera = partes[0] ?? "";
+  return primera.length > 3 && primera.endsWith("s") ? primera.slice(0, -1) : primera;
+}
+
+function FichaMesa({
+  ejercicio,
+  usos,
+  reportes,
+  nombresSugeridos,
+  parecidos,
+  usosPorEjercicio,
+  ejercicios,
+  onListo,
+}: {
+  ejercicio: Ejercicio;
+  usos: number;
+  reportes: number;
+  nombresSugeridos: { nombre: string; cantidad: number }[];
+  parecidos: Ejercicio[];
+  usosPorEjercicio: Record<string, UsoEjercicioInventario>;
+  ejercicios: Ejercicio[];
+  onListo: () => void;
+}) {
+  const [state, formAction, pending] = useActionState(subirFotoEjercicio, ESTADO_INICIAL_FOTO);
+  const { archivoElegido, previa, previaRota, setPreviaRota, subiendoFoto, fotoSubida, errorFoto, elegirArchivo, reintentar } =
+    useFotoInmediata();
+  const [panorama, setPanorama] = useState({ x: ejercicio.fotoPanoramaX, y: ejercicio.fotoPanoramaY });
+  const [cuadrada, setCuadrada] = useState({ x: ejercicio.fotoCuadradaX, y: ejercicio.fotoCuadradaY });
+  const imagenAMostrar = previa ?? fotoDe(ejercicio);
+
+  return (
+    <div className="space-y-3">
+      <div className="radius-control border border-border bg-surface p-3">
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-card-title truncate text-text">{ejercicio.nombre}</p>
+            <p className="text-micro text-text-tertiary">
+              {ETIQUETAS_GRUPO[ejercicio.grupoMuscular] ?? ejercicio.grupoMuscular}
+              {usos > 0 && ` · ${usos} ${usos === 1 ? "uso" : "usos"} en rutinas`}
+            </p>
+          </div>
+          {reportes > 0 && (
+            <span className="shrink-0 rounded-full bg-error/15 px-2 py-1 text-[9px] font-bold text-error">
+              {reportes} {reportes === 1 ? "RECLAMO" : "RECLAMOS"}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 1 · Foto y encuadre */}
+      <div className="radius-control border border-border bg-surface p-3">
+        <p className="text-caption font-semibold text-text">1 · La foto</p>
+        {imagenAMostrar && !previaRota ? (
+          <div className="mt-2 space-y-2">
+            <p className="text-micro text-text-tertiary">Arrastrá la foto para centrarla. Cada formato guarda su propio centro.</p>
+            <EncuadreArrastrable src={imagenAMostrar} nombre="Vista rectangular del alumno" formato="panorama" posicion={panorama} onChange={setPanorama} onError={() => setPreviaRota(true)} />
+            <EncuadreArrastrable src={imagenAMostrar} nombre="Vista cuadrada del alumno" formato="cuadrado" posicion={cuadrada} onChange={setCuadrada} onError={() => setPreviaRota(true)} />
+            <label className="radius-control flex h-10 w-full cursor-pointer items-center justify-center gap-2 border border-border text-caption font-semibold text-text">
+              <Camera size={15} /> Cambiar la foto
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void elegirArchivo(f); }} />
+            </label>
+            <QuitarFotoBoton ejercicio={ejercicio} />
+          </div>
+        ) : (
+          <label className="radius-card relative mt-2 flex aspect-video w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-vip/40 bg-surface-2">
+            <span className="flex flex-col items-center gap-1 px-4 text-center text-text-tertiary">
+              <Camera size={26} className="text-vip" />
+              <span className="text-caption">{previaRota ? "Esa imagen no se pudo mostrar. Probá con otra." : "Tocá para elegir o sacar la foto"}</span>
+            </span>
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" className="absolute inset-0 h-full w-full opacity-0" onChange={(e) => { const f = e.target.files?.[0]; if (f) void elegirArchivo(f); }} />
+          </label>
+        )}
+        {subiendoFoto && <p className="text-micro mt-1.5 text-text-secondary">Preparando la foto…</p>}
+        {fotoSubida && !pending && <p className="text-micro mt-1.5 text-success">✓ Lista para guardar</p>}
+        {errorFoto && (
+          <button type="button" onClick={reintentar} className="text-caption mt-1 font-medium text-vip">Reintentar subir la foto</button>
+        )}
+
+        <form
+          action={(fd) => {
+            if (fotoSubida) {
+              fd.set("foto_miniatura_url_subida", fotoSubida.miniaturaUrl);
+              fd.set("foto_completa_url_subida", fotoSubida.completaUrl);
+            }
+            fd.set("ejercicio_id", ejercicio.id);
+            formAction(fd);
+          }}
+          className="mt-2.5"
+        >
+          <input type="hidden" name="foto_panorama_x" value={panorama.x} />
+          <input type="hidden" name="foto_panorama_y" value={panorama.y} />
+          <input type="hidden" name="foto_cuadrada_x" value={cuadrada.x} />
+          <input type="hidden" name="foto_cuadrada_y" value={cuadrada.y} />
+          {state.error && <p className="text-caption mb-1 text-error">{state.error}</p>}
+          {state.ok && <p className="text-caption mb-1 flex items-center gap-1 text-success"><Check size={14} /> Guardado — ya lo ven los alumnos.</p>}
+          <button
+            type="submit"
+            disabled={pending || subiendoFoto || (!!archivoElegido && !fotoSubida) || !imagenAMostrar}
+            className="btn-accion radius-control flex h-11 w-full items-center justify-center gap-2 text-secondary font-semibold disabled:opacity-60"
+          >
+            {pending ? "Guardando…" : subiendoFoto ? "Preparando…" : "Guardar foto y encuadre"}
+          </button>
+        </form>
+      </div>
+
+      {/* 2 · Cómo lo ve el alumno */}
+      <div className="radius-control border border-border bg-surface p-3">
+        <p className="text-caption font-semibold text-text">2 · Cómo lo ve el alumno</p>
+        <p className="text-micro mb-2 text-text-tertiary">Es el mismo cuadro de la pantalla de entrenamiento, no una imitación.</p>
+        <CuadroFotoReferencia
+          ilustracionSlug={ejercicio.ilustracionSlug}
+          fotoMiniaturaUrl={imagenAMostrar ?? ejercicio.fotoMiniaturaUrl}
+          fotoCompletaUrl={imagenAMostrar ?? ejercicio.fotoCompletaUrl}
+          videoUrl={ejercicio.videoUrl}
+          videoCloudflareUid={ejercicio.videoCloudflareUid}
+          videoCloudflareEstado={ejercicio.videoCloudflareEstado}
+          videoCloudflareMiniaturaUrl={ejercicio.videoCloudflareMiniaturaUrl}
+          nombre={ejercicio.nombre}
+          ejercicioId={ejercicio.id}
+          fotoPanoramaX={panorama.x}
+          fotoPanoramaY={panorama.y}
+          fotoCuadradaX={cuadrada.x}
+          fotoCuadradaY={cuadrada.y}
+          destacado
+          reproducirAutomaticamente={ejercicio.videoCloudflareEstado === "listo"}
+        />
+      </div>
+
+      {/* 3 · Clip */}
+      <div className="radius-control border border-border bg-surface p-3">
+        <p className="text-caption mb-2 font-semibold text-text">3 · El clip (opcional)</p>
+        <EditorVideoCloudflare ejercicio={ejercicio} />
+        <EditorVideoAnterior ejercicio={ejercicio} />
+      </div>
+
+      {/* 4 · Nombres que le corresponden */}
+      <div className="radius-control border border-border bg-surface p-3">
+        <p className="text-caption font-semibold text-text">4 · Cómo lo escriben en las rutinas</p>
+        {nombresSugeridos.length > 0 ? (
+          <>
+            <p className="text-micro mt-0.5 text-text-tertiary">
+              Estos nombres sueltos parecen ser este ejercicio. Al vincularlos quedan como alias y las rutinas que los usan muestran esta foto.
+            </p>
+            <div className="mt-1.5">
+              {nombresSugeridos.map((item) => (
+                <VincularNombreRutina key={item.nombre} item={item} ejercicios={ejercicios} />
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="text-micro mt-0.5 text-text-tertiary">Ningún nombre suelto se parece a este ejercicio.</p>
+        )}
+        <div className="mt-2 border-t border-border pt-2">
+          <EditorNombre ejercicio={ejercicio} />
+        </div>
+      </div>
+
+      {/* 5 · Separar lo que no es el mismo ejercicio.
+          Caso real: "Curl femoral sentado" y "Curl femoral tumbado" no son lo
+          mismo, pero mientras el gimnasio no tenga la máquina de sentado
+          conviven bajo la misma entrada. Cuando llega la máquina, se crea el
+          ejercicio nuevo y desde acá se le mueven sus nombres — sin tocar las
+          rutinas a mano ni perder el historial. */}
+      <div className="radius-control border border-border bg-surface p-3">
+        <p className="text-caption font-semibold text-text">5 · Nombres que hoy caen en este ejercicio</p>
+        <p className="text-micro mt-0.5 mb-2 text-text-tertiary">
+          Si alguno es en realidad otro ejercicio, movelo. Cambia para todos los alumnos que lo tengan igual.
+        </p>
+        <UsosRutinaEditor ejercicio={ejercicio} todosLosEjercicios={ejercicios} />
+      </div>
+
+      {/* 6 · Parecidos.
+          Deliberadamente NO es una cola de preguntas automáticas: probando esa
+          idea contra la biblioteca real salieron 60 pares y 55 eran disparates
+          ("¿Press de banca y Press francés son el mismo?"), mientras que el
+          caso verdadero —Crunch controlado y Crunch abdominal— se perdía por
+          tener distinto equipo cargado. El dato que falta no está en el texto,
+          está en la cabeza del entrenador. Así que se le muestran los vecinos
+          mientras ya está mirando el ejercicio, y decide él en un segundo. */}
+      {parecidos.length > 0 && (
+        <div className="radius-control border border-border bg-surface p-3">
+          <p className="text-caption font-semibold text-text">6 · Parecidos a este</p>
+          <p className="text-micro mt-0.5 mb-2 text-text-tertiary">
+            Empiezan con la misma palabra. Si alguno es el mismo aparato de tu gimnasio, combinalos.
+          </p>
+          <p className="text-micro mb-2 rounded-lg border border-border bg-surface-2 p-2 text-text-secondary">
+            Combinar une los dos ejercicios en uno: el que elijas se queda, el otro <strong className="text-text">deja de existir</strong> y
+            sus rutinas pasan al que queda. <strong className="text-text">No sirve para arreglar una foto.</strong> Si solo la foto está
+            mal, cambiala o quitala arriba.
+          </p>
+          <div className="space-y-2">
+            {parecidos.map((otro) => (
+              <CombinarEnMesa
+                key={otro.id}
+                actual={ejercicio}
+                otro={otro}
+                usosActual={usos}
+                usosOtro={usosPorEjercicio[otro.id]?.cantidad ?? 0}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onListo}
+        className="radius-control flex h-11 w-full items-center justify-center gap-2 border border-vip/40 text-caption font-bold text-vip"
+      >
+        Siguiente ejercicio <ChevronRight size={16} />
+      </button>
+    </div>
+  );
+}
+
+function MesaDeTrabajo({
+  ejercicios,
+  usosPorEjercicio,
+  reportesPorEjercicio,
+  nombresRutinaSinVincular,
+  nombresReportadosSinEjercicio,
+}: {
+  ejercicios: Ejercicio[];
+  usosPorEjercicio: Record<string, UsoEjercicioInventario>;
+  reportesPorEjercicio: Record<string, number>;
+  nombresRutinaSinVincular: { nombre: string; cantidad: number }[];
+  nombresReportadosSinEjercicio: string[];
+}) {
+  const [indice, setIndice] = useState(0);
+  const [soloPendientes, setSoloPendientes] = useState(true);
+  const [creando, setCreando] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState("");
+
+  // Qué nombre suelto le toca a cada ejercicio, resuelto con el MISMO
+  // emparejador que usa la app (alias, abreviaturas, veto por músculo y por
+  // equipo). Un comparador propio, más flojo, proponía "Hip Thrust con barra
+  // libre" para el press inclinado por compartir la palabra "barra".
+  //
+  // Se calcula una sola vez para toda la cola, no por ficha: son cientos de
+  // nombres contra toda la biblioteca, y rehacerlo en cada "siguiente" no
+  // aporta nada.
+  const sugeridosPorEjercicio = useMemo(() => {
+    const mapa: Record<string, { nombre: string; cantidad: number }[]> = {};
+    for (const item of nombresRutinaSinVincular) {
+      const r = emparejarEjercicio(item.nombre, ejercicios);
+      if (!r) continue;
+      (mapa[r.ejercicio.id] ??= []).push(item);
+    }
+    for (const lista of Object.values(mapa)) lista.sort((a, b) => b.cantidad - a.cantidad);
+    return mapa;
+  }, [ejercicios, nombresRutinaSinVincular]);
+
+  // La cola se ordena por daño real, no alfabéticamente: primero lo que un
+  // alumno reclamó (es una queja explícita), después lo que más gente ve.
+  // Entra a la cola todo lo que tenga algo por hacer — sin foto, con reclamo,
+  // o con nombres de rutina esperando que alguien los vincule.
+  const cola = useMemo(() => {
+    const q = normalizar(busqueda);
+    // Buscar manda sobre el filtro: si el entrenador escribe un nombre, quiere
+    // ese ejercicio aunque ya esté terminado.
+    const base = q
+      ? ejercicios.filter((e) => normalizar(`${e.nombre} ${e.aliases.join(" ")}`).includes(q))
+      : soloPendientes
+        ? ejercicios.filter(
+            (e) => !fotoDe(e) || (reportesPorEjercicio[e.id] ?? 0) > 0 || (sugeridosPorEjercicio[e.id]?.length ?? 0) > 0,
+          )
+        : ejercicios;
+    return [...base].sort((a, b) => {
+      const reporteA = reportesPorEjercicio[a.id] ?? 0;
+      const reporteB = reportesPorEjercicio[b.id] ?? 0;
+      if ((reporteA > 0) !== (reporteB > 0)) return reporteB - reporteA;
+      return (usosPorEjercicio[b.id]?.cantidad ?? 0) - (usosPorEjercicio[a.id]?.cantidad ?? 0);
+    });
+  }, [ejercicios, soloPendientes, busqueda, reportesPorEjercicio, usosPorEjercicio, sugeridosPorEjercicio]);
+
+  const actual = cola[Math.min(indice, cola.length - 1)];
+  const sugeridos = actual ? (sugeridosPorEjercicio[actual.id] ?? []) : [];
+  // Vecinos por palabra de movimiento, SIN filtrar por equipo ni por grupo: es
+  // justo el filtro que hacía desaparecer "Crunch controlado" contra "Crunch
+  // abdominal" (uno cargado como banco, el otro como peso corporal).
+  const parecidos = useMemo(() => {
+    if (!actual) return [];
+    const clave = palabraDelMovimiento(actual.nombre);
+    if (!clave) return [];
+    return ejercicios
+      .filter((e) => e.id !== actual.id && palabraDelMovimiento(e.nombre) === clave)
+      .sort((a, b) => (usosPorEjercicio[b.id]?.cantidad ?? 0) - (usosPorEjercicio[a.id]?.cantidad ?? 0))
+      .slice(0, 6);
+  }, [actual, ejercicios, usosPorEjercicio]);
+
+  if (!actual) {
+    return (
+      <Card padding="p-4" className="text-center">
+        <p className="text-caption font-semibold text-text">No queda nada por completar</p>
+        <p className="text-micro mt-1 text-text-tertiary">Todos los ejercicios tienen foto y no hay reclamos abiertos.</p>
+        <button type="button" onClick={() => setSoloPendientes(false)} className="text-caption mt-2 font-semibold text-vip">
+          Ver igual todos los ejercicios
+        </button>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Los alumnos piden fotos de ejercicios que nunca se dieron de alta.
+          Antes ese reporte no se podía cerrar desde ningún lado: la galería
+          ofrecía "Agregar foto" y no había a qué pegarla. Acá se crea el
+          ejercicio con el nombre ya escrito y sigue el camino normal. */}
+      {nombresReportadosSinEjercicio.length > 0 && (
+        <details className="rounded-[20px] border border-vip/35 bg-vip/5 p-3">
+          <summary className="flex cursor-pointer list-none items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-vip/15 text-vip"><Plus size={17} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="text-caption block font-bold text-text">Te pidieron ejercicios que no existen</span>
+              <span className="text-micro block text-text-tertiary">Creálos y quedan listos para la foto</span>
+            </span>
+            <span className="rounded-full bg-vip/15 px-2 py-1 text-micro font-bold text-vip">{nombresReportadosSinEjercicio.length}</span>
+          </summary>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {nombresReportadosSinEjercicio.map((nombre) => (
+              <button
+                key={nombre}
+                type="button"
+                onClick={() => setCreando(nombre)}
+                className="radius-control flex items-center gap-1 border border-border bg-surface px-2.5 py-1.5 text-[11px] font-medium text-text"
+              >
+                <Plus size={12} className="text-vip" /> {nombre}
+              </button>
+            ))}
+          </div>
+        </details>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setCreando("")}
+        className="radius-control flex h-10 w-full items-center justify-center gap-2 border border-dashed border-vip/40 text-caption font-semibold text-vip"
+      >
+        <Plus size={15} /> Agregar un ejercicio nuevo
+      </button>
+
+      {creando !== null && <ModalEjercicioNuevo nombreInicial={creando} onCerrar={() => setCreando(null)} />}
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setIndice((i) => Math.max(0, i - 1))}
+          disabled={indice === 0}
+          aria-label="Ejercicio anterior"
+          className="radius-control grid size-9 shrink-0 place-items-center border border-border text-text-secondary disabled:opacity-40"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <div className="min-w-0 flex-1 text-center">
+          <p className="text-micro font-semibold text-text-secondary">
+            {Math.min(indice + 1, cola.length)} de {cola.length}
+          </p>
+          <div className="mt-1 h-1 overflow-hidden rounded-full bg-surface-2">
+            <div className="h-full bg-vip transition-[width]" style={{ width: `${((Math.min(indice, cola.length - 1) + 1) / cola.length) * 100}%` }} />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIndice((i) => Math.min(cola.length - 1, i + 1))}
+          disabled={indice >= cola.length - 1}
+          aria-label="Ejercicio siguiente"
+          className="radius-control grid size-9 shrink-0 place-items-center border border-border text-text-secondary disabled:opacity-40"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      <Input
+        value={busqueda}
+        onChange={(e) => { setBusqueda(e.target.value); setIndice(0); }}
+        placeholder="Ir a un ejercicio por nombre…"
+        className="!py-2 text-caption"
+      />
+
+      {!busqueda && (
+        <label className="flex items-center justify-center gap-2 text-micro text-text-tertiary">
+          <input type="checkbox" checked={soloPendientes} onChange={(e) => { setSoloPendientes(e.target.checked); setIndice(0); }} />
+          Mostrar solo los que faltan o tienen reclamo
+        </label>
+      )}
+
+      <FichaMesa
+        key={actual.id}
+        ejercicio={actual}
+        usos={usosPorEjercicio[actual.id]?.cantidad ?? 0}
+        reportes={reportesPorEjercicio[actual.id] ?? 0}
+        nombresSugeridos={sugeridos}
+        parecidos={parecidos}
+        usosPorEjercicio={usosPorEjercicio}
+        ejercicios={ejercicios}
+        onListo={() => setIndice((i) => Math.min(cola.length - 1, i + 1))}
+      />
     </div>
   );
 }

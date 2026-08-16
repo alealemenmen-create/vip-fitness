@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emparejarEjercicio } from "./emparejar";
+import { detectarAliasEnDisputa, emparejarEjercicio } from "./emparejar";
 import type { Ejercicio } from "./tipos";
 
 /** Biblioteca mínima de prueba, con los mismos casos límite que ya están
@@ -116,5 +116,93 @@ describe("emparejarEjercicio", () => {
 
   it("devuelve null con biblioteca vacía", () => {
     expect(emparejarEjercicio("Press de banca", [])).toBeNull();
+  });
+});
+
+/**
+ * Casos sacados de la base de producción el 15/08/2026. Cada uno le mostró al
+ * alumno la foto de otro ejercicio y terminó en un reporte real, así que acá
+ * quedan clavados para que no vuelvan a pasar.
+ */
+const BIBLIOTECA_REAL: Ejercicio[] = [
+  ejercicio({
+    id: "p1", nombre: "Press inclinado con barra", equipo: "barra",
+    aliases: ["press inclinado", "press superior", "incline press"],
+  }),
+  ejercicio({
+    id: "p2", nombre: "Press inclinado con mancuernas", equipo: "mancuerna",
+    aliases: ["press inclinado mancuerna", "incline dumbbell press"],
+  }),
+  ejercicio({
+    id: "p3", nombre: "Press de banca en Smith", equipo: "smith",
+    aliases: ["press smith", "press multipower", "press banca maquina smith"],
+  }),
+  ejercicio({
+    id: "p4", nombre: "Elevaciones laterales en polea", grupoMuscular: "hombros", equipo: "polea",
+    aliases: ["laterales en polea", "lateral polea", "laterales cable"],
+  }),
+  ejercicio({
+    id: "p5", nombre: "Extensión unilateral de cuádriceps", grupoMuscular: "piernas", equipo: "maquina",
+    aliases: ["extension unilateral", "cuadriceps unilateral"],
+  }),
+  ejercicio({
+    id: "p6", nombre: "Extensión unilateral de tríceps", grupoMuscular: "brazos", equipo: "polea",
+    aliases: ["extension unilateral", "triceps unilateral", "pushdown a una mano"],
+  }),
+  ejercicio({
+    id: "p7", nombre: "Patada de glúteo en polea", grupoMuscular: "piernas", equipo: "polea",
+    aliases: ["patada gluteo cable", "cable kickback"],
+  }),
+];
+
+describe("emparejarEjercicio — regresiones de producción", () => {
+  it("entiende la abreviatura 'manc.' y no manda un ejercicio de mancuernas a la barra", () => {
+    // 67 rutinas decían "Press inclinado manc." y mostraban una barra: el
+    // desambiguador buscaba /\bmancuerna/ y "manc." nunca coincidía.
+    const r = emparejarEjercicio("Press inclinado manc.", BIBLIOTECA_REAL);
+    expect(r?.ejercicio.id).toBe("p2");
+  });
+
+  it("no cruza hombro con pecho aunque compartan 2 de 3 palabras", () => {
+    // "Press de hombro en Smith" caía en "Press de banca en Smith" (0,666).
+    const r = emparejarEjercicio("Press de hombro en Smith", BIBLIOTECA_REAL);
+    expect(r?.ejercicio.id).not.toBe("p3");
+  });
+
+  it("no confunde una patada de glúteo con una elevación lateral de hombro", () => {
+    const r = emparejarEjercicio("Patada Lateral en Polea o Banda", BIBLIOTECA_REAL);
+    expect(r?.ejercicio.id).not.toBe("p4");
+  });
+
+  it("NUNCA elige cuádriceps o tríceps al azar cuando el alias es de los dos", () => {
+    // El caso que más dolió: "extensión unilateral" está registrado en los dos
+    // ejercicios, y antes ganaba el que la base devolviera primero.
+    expect(emparejarEjercicio("Extensión unilateral", BIBLIOTECA_REAL)).toBeNull();
+  });
+
+  it("sí resuelve la extensión unilateral cuando el texto dice el músculo", () => {
+    expect(emparejarEjercicio("Extensión unilateral de tríceps", BIBLIOTECA_REAL)?.ejercicio.id).toBe("p6");
+    expect(emparejarEjercicio("Extensión unilateral de cuádriceps", BIBLIOTECA_REAL)?.ejercicio.id).toBe("p5");
+  });
+
+  it("el orden de la biblioteca no cambia el resultado", () => {
+    const alReves = [...BIBLIOTECA_REAL].reverse();
+    for (const nombre of ["Press inclinado manc.", "Extensión unilateral", "Extensión unilateral de tríceps"]) {
+      expect(emparejarEjercicio(nombre, BIBLIOTECA_REAL)?.ejercicio.id ?? null)
+        .toBe(emparejarEjercicio(nombre, alReves)?.ejercicio.id ?? null);
+    }
+  });
+});
+
+describe("detectarAliasEnDisputa", () => {
+  it("encuentra el alias que dos ejercicios distintos reclaman", () => {
+    const disputas = detectarAliasEnDisputa(BIBLIOTECA_REAL);
+    const extension = disputas.find((d) => d.alias.toLowerCase().includes("extension unilateral"));
+    expect(extension).toBeDefined();
+    expect(extension!.ejercicios.map((e) => e.id).sort()).toEqual(["p5", "p6"]);
+  });
+
+  it("no inventa disputas en una biblioteca sana", () => {
+    expect(detectarAliasEnDisputa(BIBLIOTECA)).toEqual([]);
   });
 });

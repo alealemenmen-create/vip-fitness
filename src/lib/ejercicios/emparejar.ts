@@ -21,11 +21,123 @@ const PALABRAS_VACIAS = new Set([
   "para", "tipo", "estilo", "maquina", "ejercicio",
 ]);
 
-function tokens(texto: string): string[] {
+/**
+ * Abreviaturas que los entrenadores escriben a mano en las rutinas. Sin esto,
+ * el desambiguador de equipo de más abajo queda ciego justo cuando más falta
+ * hace: el caso real que lo motivó fue "Press inclinado manc.", que terminó
+ * vinculado a "Press inclinado con barra" en 67 rutinas — `/\bmancuerna/` no
+ * reconoce "manc.", así que el alumno vio una barra donde su rutina decía
+ * mancuernas.
+ *
+ * Se expande DESPUÉS de normalizar (que ya convirtió el punto en espacio), y
+ * se aplica a los dos lados de la comparación: los alias de la biblioteca
+ * también vienen escritos con abreviaturas.
+ */
+const ABREVIATURAS: Record<string, string> = {
+  manc: "mancuerna",
+  mancs: "mancuerna",
+  mancuernas: "mancuerna",
+  db: "mancuerna",
+  bb: "barra",
+  unilat: "unilateral",
+  ext: "extension",
+  exts: "extension",
+  maq: "maquina",
+  maqu: "maquina",
+  pol: "polea",
+  elev: "elevacion",
+  sent: "sentadilla",
+};
+
+/** Palabras que a veces encabezan el nombre pero describen la ejecución, no el
+ * ejercicio: "Isometría hip thrust" sigue siendo un hip thrust. Se usan para
+ * elegir cuál es la palabra principal del movimiento. */
+const MODIFICADORES_DELANTE = new Set([
+  "isometria", "isometrico", "isometrica", "vacuum", "super", "mega", "mini",
+  "giant", "drop", "medio", "media", "mitad", "activacion",
+]);
+
+/** Minúsculas, sin tildes ni puntuación, y con las abreviaturas expandidas.
+ * Es la forma canónica que usa todo este archivo para comparar. */
+function clave(texto: string): string {
   return normalizar(texto)
+    .split(" ")
+    .map((palabra) => ABREVIATURAS[palabra] ?? palabra)
+    .join(" ");
+}
+
+function tokens(texto: string): string[] {
+  return clave(texto)
     .split(" ")
     .map((t) => (t.length > 3 && t.endsWith("s") ? t.slice(0, -1) : t))
     .filter((t) => t.length > 1 && !PALABRAS_VACIAS.has(t));
+}
+
+/**
+ * Zona del cuerpo que nombra el texto. Sirve para vetar emparejados que el
+ * puntaje por palabras deja pasar pero que cambian de músculo: el caso real
+ * fue "Press de hombro en Smith", que quedó vinculado a "Press de banca en
+ * Smith" por compartir 2 de 3 palabras (0,666, justo sobre el umbral).
+ *
+ * "banca" cuenta como pecho a propósito: en la práctica es lo que distingue
+ * un press de pecho de uno de hombro cuando el resto del nombre es igual.
+ */
+const FAMILIAS_ZONA: [RegExp, string][] = [
+  // "al pecho" es una dirección, no el músculo trabajado: "jalón al pecho" y
+  // "remo al pecho" son de espalda. Sin esta excepción, el veto los separaba
+  // de su propia entrada de la biblioteca.
+  [/(?<!\bal\s)\b(pecho|pectoral|pectorale|banca|bench)\b/, "pecho"],
+  [/\b(hombro|hombros|deltoide|deltoides|militar)\b/, "hombro"],
+  [/\b(espalda|dorsal|dorsale|dorsales|trapecio|lumbar|lumbares)\b/, "espalda"],
+  [/\b(bicep|biceps)\b/, "bicep"],
+  [/\b(tricep|triceps)\b/, "tricep"],
+  [/\b(cuadricep|cuadriceps)\b/, "cuadricep"],
+  [/\b(femoral|femorale|isquio|isquiotibial|isquiotibiales)\b/, "femoral"],
+  [/\b(gluteo|gluteos)\b/, "gluteo"],
+  [/\b(gemelo|gemelos|pantorrilla|pantorrillas|soleo)\b/, "gemelo"],
+  [/\b(abdominal|abdominale|abdominales|abdomen|oblicuo|oblicuos)\b/, "abdomen"],
+  [/\b(antebrazo|antebrazos)\b/, "antebrazo"],
+];
+
+function zonasMencionadas(textoNormalizado: string): Set<string> {
+  const zonas = new Set<string>();
+  for (const [patron, familia] of FAMILIAS_ZONA) {
+    if (patron.test(textoNormalizado)) zonas.add(familia);
+  }
+  return zonas;
+}
+
+/** `grupo_muscular` como señal de zona, solo donde el dato es tan preciso como
+ * las familias de arriba. "brazos" y "piernas" abarcan músculos que este veto
+ * necesita distinguir (bíceps de tríceps, cuádriceps de femoral), así que no
+ * aportan nada y se dejan afuera a propósito. */
+const ZONA_POR_GRUPO: Partial<Record<Ejercicio["grupoMuscular"], string>> = {
+  pecho: "pecho",
+  espalda: "espalda",
+  hombros: "hombro",
+};
+
+/**
+ * Zona del ejercicio mirándolo entero, no solo el texto que casualmente
+ * coincidió. Hace falta porque los alias son abreviados y suelen omitir el
+ * músculo: "press smith" es alias de "Press de banca en Smith" y no dice
+ * "banca" por ningún lado, así que comparando solo contra el alias, un "press
+ * de hombro en Smith" pasaba el veto y se llevaba la foto del pecho.
+ */
+function zonasDelEjercicio(ejercicio: Ejercicio, nombreCoincidente: string): Set<string> {
+  const zonas = zonasMencionadas(clave(ejercicio.nombre));
+  for (const zona of zonasMencionadas(clave(nombreCoincidente))) zonas.add(zona);
+  const porGrupo = ZONA_POR_GRUPO[ejercicio.grupoMuscular];
+  if (porGrupo) zonas.add(porGrupo);
+  return zonas;
+}
+
+/** Dos textos hablan de músculos distintos: no son el mismo ejercicio por más
+ * palabras que compartan. Si alguno no nombra zona, no hay nada que vetar. */
+function zonasEnConflicto(a: Set<string>, b: Set<string>): boolean {
+  if (a.size === 0 || b.size === 0) return false;
+  for (const zona of a) if (b.has(zona)) return false;
+  return true;
 }
 
 /**
@@ -44,7 +156,11 @@ const EQUIPO_EN_TEXTO: [RegExp, EquipoEjercicio][] = [
   [/\bkettlebell/, "kettlebell"],
   [/\bbanda/, "banda"],
   [/\bbarra\b/, "barra"],
-  [/\bmaquina/, "maquina"],
+  // "máquina" queda deliberadamente afuera: un Smith, un Hammer, una prensa y
+  // un pec deck son todos "máquina", así que no distingue nada — el propio
+  // archivo ya la trata como palabra vacía más abajo. Usarla como veto mandaba
+  // "Press inclinado en máquina" a la prensa de piernas, porque descartaba al
+  // press inclinado (barra) y dejaba ganar a un alias lejano.
 ];
 
 function equipoMencionado(textoNormalizado: string): EquipoEjercicio | null {
@@ -110,19 +226,97 @@ export function emparejarEjercicio(
   return null;
 }
 
+/**
+ * Dos ejercicios distintos de la biblioteca que reclaman el mismo alias.
+ *
+ * Mientras existe una colisión así, ese texto es indecidible: "extensión
+ * unilateral" está registrado a la vez en "Extensión unilateral de cuádriceps"
+ * y en "Extensión unilateral de tríceps", que son músculos distintos. Antes,
+ * `emparejarExacto` devolvía el primero que apareciera en el orden de la lista
+ * —o sea, qué foto veía el alumno dependía del orden en que la base devolvió
+ * las filas— y por eso un alumno terminó reportando que veía un cuádriceps en
+ * su extensión de tríceps.
+ *
+ * La galería usa esto para pedirle al entrenador que resuelva a quién
+ * pertenece el alias, en vez de ofrecer combinar dos ejercicios legítimos.
+ */
+export type AliasEnDisputa = {
+  alias: string;
+  ejercicios: Ejercicio[];
+};
+
+export function detectarAliasEnDisputa(biblioteca: Ejercicio[]): AliasEnDisputa[] {
+  const porClave = new Map<string, { alias: string; ejercicios: Map<string, Ejercicio> }>();
+  for (const ejercicio of biblioteca) {
+    for (const nombre of [ejercicio.nombre, ...ejercicio.aliases]) {
+      const k = clave(nombre);
+      if (!k) continue;
+      const grupo = porClave.get(k) ?? { alias: nombre, ejercicios: new Map<string, Ejercicio>() };
+      grupo.ejercicios.set(ejercicio.id, ejercicio);
+      porClave.set(k, grupo);
+    }
+  }
+  return Array.from(porClave.values())
+    .filter((grupo) => grupo.ejercicios.size > 1)
+    .map((grupo) => ({ alias: grupo.alias, ejercicios: Array.from(grupo.ejercicios.values()) }))
+    .sort((a, b) => a.alias.localeCompare(b.alias, "es", { sensitivity: "base" }));
+}
+
 function emparejarExacto(
   nombrePdf: string,
   biblioteca: Ejercicio[]
 ): EmparejamientoEjercicio {
-  const objetivo = normalizar(nombrePdf);
+  const objetivo = clave(nombrePdf);
   if (!objetivo) return null;
 
+  const zonasObjetivo = zonasMencionadas(objetivo);
+  const equipoPedido = equipoMencionado(objetivo);
+
+  /**
+   * Un candidato queda descartado, por más que el texto se parezca, cuando
+   * nombra otro músculo o pide otro equipo. Son las dos señales que convierten
+   * un parecido de palabras en un ejercicio distinto:
+   *
+   *   - Zona: "Press de hombro en Smith" no es "Press de banca en Smith".
+   *   - Equipo: "Press inclinado manc." no es "Press inclinado con barra".
+   *
+   * El equipo VETA, ya no solo desempata. Antes, mencionar mancuernas apenas
+   * inclinaba la balanza cuando dos candidatos empataban en puntaje; si el de
+   * barra puntuaba un poco más alto, ganaba igual.
+   */
+  function vetado(ejercicio: Ejercicio, nombreCandidato: string): boolean {
+    if (zonasEnConflicto(zonasObjetivo, zonasDelEjercicio(ejercicio, nombreCandidato))) return true;
+    if (equipoPedido === null) return false;
+    // El veto exige que el candidato NOMBRE su propio equipo, no que lo tenga
+    // cargado en la ficha. Con la ficha alcanzaba para romper emparejados
+    // buenos: "Peso muerto con banda" perdía su "Peso muerto" (barra) y
+    // "Hip Thrust Máquina" perdía su "Hip thrust", quedándose sin foto por un
+    // matiz de montaje. Cuando el nombre del candidato sí dice el equipo, en
+    // cambio, la contradicción es explícita y ahí sí son ejercicios distintos:
+    // "Press inclinado manc." contra "Press inclinado con barra".
+    const equipoCandidato =
+      equipoMencionado(clave(ejercicio.nombre)) ?? equipoMencionado(clave(nombreCandidato));
+    return equipoCandidato !== null && equipoCandidato !== equipoPedido;
+  }
+
   // 1. Coincidencia exacta contra nombre, slug o alias.
+  //
+  //    Se recorre la biblioteca ENTERA antes de decidir, en vez de devolver el
+  //    primero que coincida: dos ejercicios distintos pueden tener registrado
+  //    el mismo alias (ver `detectarAliasEnDisputa`), y en ese caso el texto es
+  //    indecidible. Devolver `null` lo deja sin foto y lo manda a la cola del
+  //    entrenador, que es exactamente lo que este archivo promete desde el
+  //    principio: preferir ninguna foto antes que la del ejercicio equivocado.
+  const exactos = new Map<string, Ejercicio>();
   for (const ejercicio of biblioteca) {
-    if (nombresDe(ejercicio).some((n) => normalizar(n) === objetivo)) {
-      return { ejercicio, confianza: "exacta" };
+    if (nombresDe(ejercicio).some((n) => clave(n) === objetivo)) {
+      exactos.set(ejercicio.id, ejercicio);
     }
   }
+  if (exactos.size === 1) {
+    return { ejercicio: exactos.values().next().value!, confianza: "exacta" };
+  }
+  if (exactos.size > 1) return null;
 
   // 2. Uno contiene al otro ("press banca" dentro de "press de banca plano").
   //
@@ -135,9 +329,10 @@ function emparejarExacto(
   if (objetivo.length >= 5) {
     for (const ejercicio of biblioteca) {
       for (const nombre of nombresDe(ejercicio)) {
-        const n = normalizar(nombre);
+        const n = clave(nombre);
         if (n.length < 5) continue;
         if (!n.includes(objetivo) && !objetivo.includes(n)) continue;
+        if (vetado(ejercicio, nombre)) continue;
         const proporcion = Math.min(n.length, objetivo.length) / Math.max(n.length, objetivo.length);
         if (proporcion >= 0.6) return { ejercicio, confianza: "alta" };
       }
@@ -148,7 +343,18 @@ function emparejarExacto(
   const tokensObjetivo = tokens(nombrePdf);
   if (tokensObjetivo.length === 0) return null;
 
-  const equipoPedido = equipoMencionado(objetivo);
+  // La palabra que encabeza el nombre es la que dice QUÉ movimiento es
+  // ("press", "curl", "remo", "patada"); el resto lo matiza. Si el candidato
+  // ni la menciona, comparten adornos, no el ejercicio: "Patada lateral en
+  // polea" puntuaba 2 de 3 contra el alias "lateral polea" de las elevaciones
+  // laterales de hombro, y le mostraba un hombro a quien hacía glúteo.
+  //
+  // Se saltean los modificadores que a veces van adelante ("Isometría hip
+  // thrust", "Vacuum con russian twist"): describen cómo se ejecuta, no qué
+  // ejercicio es, y tomarlos como palabra principal dejaba sin foto a
+  // ejercicios que emparejaban perfecto.
+  const principalObjetivo = tokensObjetivo.find((t) => !MODIFICADORES_DELANTE.has(t)) ?? tokensObjetivo[0];
+
   let mejor:
     | { ejercicio: Ejercicio; puntaje: number; sobrantes: number; equipoOk: boolean }
     | null = null;
@@ -156,6 +362,8 @@ function emparejarExacto(
     for (const nombre of nombresDe(ejercicio)) {
       const tokensNombre = tokens(nombre);
       if (tokensNombre.length === 0) continue;
+      if (vetado(ejercicio, nombre)) continue;
+      if (!tokensNombre.includes(principalObjetivo)) continue;
       const comunes = tokensObjetivo.filter((t) => tokensNombre.includes(t)).length;
       if (comunes === 0) continue;
       // Palabras que quedan sin compartir de los dos lados. Sirve para
