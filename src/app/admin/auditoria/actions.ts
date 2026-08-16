@@ -5,8 +5,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRol } from "@/lib/auth";
 import { guardarMovimiento } from "@/lib/ranking/movimientos";
 import { TAG_RANKING } from "@/lib/ranking/data";
-import type { TipoHallazgo } from "@/lib/auditoria/data";
+import { obtenerHallazgosPendientes, type TipoHallazgo } from "@/lib/auditoria/data";
 import { reconciliarObjetivos } from "@/lib/alimentacion/objetivos";
+
+/** Antes del 11/08/2026 "Completar y guardar" cerraba un ejercicio con
+ * series sin cargar sin avisar nada — se agregó la advertencia esa fecha
+ * (ver el detalle que arma `obtenerHallazgosPendientes`). Todo lo anterior
+ * es el mismo caso de confusión de UX ya corregido, no fraude: no tiene
+ * sentido revisarlo sesión por sesión. */
+const FECHA_CORTE_AVISO_SERIES = "2026-08-11";
 
 export type FormState = { error: string | null; ok: boolean };
 const okState: FormState = { error: null, ok: true };
@@ -115,6 +122,57 @@ export async function descartarHallazgo(formData: FormData): Promise<void> {
   });
 
   revalidatePath("/admin/auditoria");
+}
+
+export type CerrarBacklogState = FormState & { mensaje?: string | null };
+
+/**
+ * Cierra en un solo paso todo el backlog de "series sin registro" de antes
+ * del 11/08/2026 — el mismo caso de confusión de UX (ver
+ * `FECHA_CORTE_AVISO_SERIES`), no casos individuales para revisar uno por
+ * uno. Cada fila queda igual de trazable que un descarte manual (misma
+ * tabla `auditoria_revisiones`, con nota explicando el cierre en bloque),
+ * así que sigue siendo reversible/auditable después — no borra nada.
+ */
+export async function cerrarBacklogSeriesSinRegistro(
+  _prevState: CerrarBacklogState,
+  _formData: FormData
+): Promise<CerrarBacklogState> {
+  void _formData;
+  const sesion = await requireRol(["entrenador", "admin"]);
+  const hallazgos = await obtenerHallazgosPendientes();
+  const backlog = hallazgos.filter(
+    (h) => h.tipo === "series_sin_registro" && h.fecha < FECHA_CORTE_AVISO_SERIES
+  );
+  if (backlog.length === 0) {
+    return { ok: true, error: null, mensaje: "No queda nada de ese backlog por cerrar." };
+  }
+
+  let cerrados = 0;
+  for (const h of backlog) {
+    try {
+      await registrarRevision({
+        tipo: h.tipo,
+        referenciaId: h.referenciaId,
+        alumnoId: h.alumnoId,
+        estado: "descartado",
+        puntosAjustados: null,
+        nota: `Cierre en bloque: sesión de antes del ${FECHA_CORTE_AVISO_SERIES}, cuando "Completar y guardar" ` +
+          "no avisaba que quedaban series sin cargar. Confusión de UX ya corregida, no revisión individual.",
+        revisorId: sesion.userId,
+      });
+      cerrados++;
+    } catch {
+      // Una fila que falla (carrera con otro cierre, etc.) no frena el resto.
+    }
+  }
+
+  revalidatePath("/admin/auditoria");
+  return {
+    ok: true,
+    error: null,
+    mensaje: `${cerrados} de ${backlog.length} hallazgo${backlog.length === 1 ? "" : "s"} viejo${backlog.length === 1 ? "" : "s"} cerrado${cerrados === 1 ? "" : "s"}.`,
+  };
 }
 
 /**
