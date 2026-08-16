@@ -1655,7 +1655,7 @@ function CombinarEnMesa({
           onClick={() => setAbierto(true)}
           className="radius-control mt-1.5 flex items-center gap-1 border border-warning/40 px-2 py-1 text-[9px] font-semibold text-warning"
         >
-          <Merge size={11} /> Son el mismo ejercicio
+          <Merge size={11} /> Borrar uno y dejar solo el otro
         </button>
       )}
       {state.error && <p className="text-micro mt-1 text-error">{state.error}</p>}
@@ -1871,7 +1871,9 @@ function FichaMesa({
       <div className="radius-control border border-border bg-surface p-3">
         <p className="text-caption font-semibold text-text">5 · Nombres que hoy caen en este ejercicio</p>
         <p className="text-micro mt-0.5 mb-2 text-text-tertiary">
-          Si alguno es en realidad otro ejercicio, movelo. Cambia para todos los alumnos que lo tengan igual.
+          Todos estos <strong className="text-text">ya están bien vinculados</strong> y muestran esta foto. No hay nada que
+          confirmar. El botón está por si alguno <strong className="text-text">no</strong> es este ejercicio: ahí lo movés al que
+          corresponda, y cambia para todos los alumnos.
         </p>
         <UsosRutinaEditor ejercicio={ejercicio} todosLosEjercicios={ejercicios} />
       </div>

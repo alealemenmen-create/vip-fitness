@@ -263,6 +263,37 @@ export async function subirFotoEjercicio(
       .update({ estado: "resuelto", resuelto_en: new Date().toISOString(), resuelto_por: entrenador.userId })
       .eq("ejercicio_id", ejercicioId)
       .eq("estado", "pendiente");
+
+    // Y también los que quedaron huérfanos. Cuando un alumno pide la foto de
+    // algo que todavía no estaba en la biblioteca, el reporte se guarda sin
+    // `ejercicio_id`; después el entrenador da de alta el ejercicio y le sube
+    // la foto, pero el reporte seguía pendiente para siempre porque nada lo
+    // ligaba a la fila nueva. Se cierran comparando el texto reportado contra
+    // el nombre y los alias del ejercicio recién resuelto.
+    const { data: ejercicio } = await supabase
+      .from("ejercicios")
+      .select("nombre, aliases")
+      .eq("id", ejercicioId)
+      .maybeSingle();
+    if (ejercicio) {
+      const conocidos = new Set(
+        [ejercicio.nombre, ...(ejercicio.aliases ?? [])].map((n: string) => normalizar(n)),
+      );
+      const { data: huerfanos } = await supabase
+        .from("reportes_fotos_ejercicios")
+        .select("id, nombre_ejercicio")
+        .is("ejercicio_id", null)
+        .eq("estado", "pendiente");
+      const ids = (huerfanos ?? [])
+        .filter((r: { nombre_ejercicio: string }) => conocidos.has(normalizar(r.nombre_ejercicio)))
+        .map((r: { id: string }) => r.id);
+      if (ids.length > 0) {
+        await supabase
+          .from("reportes_fotos_ejercicios")
+          .update({ estado: "resuelto", resuelto_en: new Date().toISOString(), resuelto_por: entrenador.userId })
+          .in("id", ids);
+      }
+    }
   }
 
   avisarCambios();
