@@ -1402,6 +1402,11 @@ function useFotoInmediata() {
   const [fotoSubida, setFotoSubida] = useState<FotoSubidaCliente | null>(null);
   const [errorFoto, setErrorFoto] = useState<string | null>(null);
   const urlPrevia = useRef<string | null>(null);
+  // Elegir una foto, arrepentirse y elegir otra de inmediato disparaba dos
+  // subidas en paralelo — sin este token, la que terminaba último ganaba
+  // `fotoSubida` aunque no fuera la última elegida, y podía guardarse la
+  // foto equivocada mostrando la correcta en pantalla.
+  const tokenSubida = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -1417,31 +1422,36 @@ function useFotoInmediata() {
   }
 
   async function subir(archivo: File) {
+    const miToken = ++tokenSubida.current;
     setSubiendoFoto(true);
     setErrorFoto(null);
     setFotoSubida(null);
     try {
       const fotoLista = await optimizarFotoEnNavegador(archivo);
+      if (miToken !== tokenSubida.current) return;
       mostrarPrevia(fotoLista);
 
       const [hash, supabase] = [await hashearBlobEnNavegador(fotoLista), createBrowserSupabaseClient()];
+      if (miToken !== tokenSubida.current) return;
       const ruta = `sueltas/${crypto.randomUUID()}/foto.jpg`;
       const { error } = await supabase.storage.from("ejercicios-fotos").upload(ruta, fotoLista, {
         contentType: fotoLista.type || "image/jpeg",
         cacheControl: "31536000",
       });
       if (error) throw error;
+      if (miToken !== tokenSubida.current) return;
 
       const url = supabase.storage.from("ejercicios-fotos").getPublicUrl(ruta).data.publicUrl;
       setFotoSubida({ miniaturaUrl: url, completaUrl: url, hash });
     } catch (error) {
+      if (miToken !== tokenSubida.current) return;
       setErrorFoto(
         error instanceof Error
           ? error.message
           : "No se pudo subir la foto. Revisa tu conexión e intenta de nuevo."
       );
     } finally {
-      setSubiendoFoto(false);
+      if (miToken === tokenSubida.current) setSubiendoFoto(false);
     }
   }
 
@@ -2236,7 +2246,7 @@ function MesaDeTrabajo({
   // alumno reclamó (es una queja explícita), después lo que más gente ve.
   // Entra a la cola todo lo que tenga algo por hacer — sin foto, con reclamo,
   // o con nombres de rutina esperando que alguien los vincule.
-  const cola = useMemo(() => {
+  const colaCandidata = useMemo(() => {
     const q = normalizar(busqueda);
     // Buscar manda sobre el filtro: si el entrenador escribe un nombre, quiere
     // ese ejercicio aunque ya esté terminado.
@@ -2254,6 +2264,32 @@ function MesaDeTrabajo({
       return (usosPorEjercicio[b.id]?.cantidad ?? 0) - (usosPorEjercicio[a.id]?.cantidad ?? 0);
     });
   }, [ejercicios, soloPendientes, busqueda, reportesPorEjercicio, usosPorEjercicio, sugeridosPorEjercicio]);
+
+  // El orden y la composición de la cola quedan CONGELADOS mientras se
+  // trabaja: `colaCandidata` se recalcula sola (revalidatePath trae datos
+  // nuevos apenas se guarda una foto), y con `soloPendientes` activo el
+  // ejercicio recién resuelto salía de la lista en el acto — la ficha
+  // (keyed por id) se desmontaba, saltaba a otro ejercicio, y el cartel de
+  // "Guardado" no llegaba a verse nunca. Solo se recongela al cambiar el
+  // filtro o la búsqueda; los datos de cada ejercicio (foto, nombre) siguen
+  // frescos porque se resuelven contra `ejercicios` en cada render.
+  const [idsCola, setIdsCola] = useState<string[]>(() => colaCandidata.map((e) => e.id));
+  useEffect(() => {
+    // Recongela la cola a propósito solo cuando cambia el filtro/búsqueda —
+    // mismo caso ya documentado en SesionEjercicioCard.tsx para otros
+    // useActionState de esta pantalla: sincroniza con una entrada externa
+    // (filtros elegidos por el usuario), no con datos derivados que cambian
+    // en cada render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIdsCola(colaCandidata.map((e) => e.id));
+    setIndice(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a propósito: NO depende de colaCandidata completo (cambia con cada guardado), solo de los filtros que la definen.
+  }, [soloPendientes, busqueda]);
+  const ejerciciosPorId = useMemo(() => new Map(ejercicios.map((e) => [e.id, e])), [ejercicios]);
+  const cola = useMemo(
+    () => idsCola.map((id) => ejerciciosPorId.get(id)).filter((e): e is Ejercicio => !!e),
+    [idsCola, ejerciciosPorId],
+  );
 
   const actual = cola[Math.min(indice, cola.length - 1)];
   const sugeridos = actual ? (sugeridosPorEjercicio[actual.id] ?? []) : [];
@@ -2492,6 +2528,7 @@ function ModalSubirFoto({
           if (fotoSubida) {
             fd.set("foto_miniatura_url_subida", fotoSubida.miniaturaUrl);
             fd.set("foto_completa_url_subida", fotoSubida.completaUrl);
+            fd.set("foto_hash_cliente", fotoSubida.hash);
           }
           fd.set("ejercicio_id", ejercicio.id);
           formAction(fd);
@@ -2841,12 +2878,16 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
   } = useFotoInmediata();
 
   useEffect(() => {
-    if (state.ok) {
+    // `crearEjercicioNuevo` puede devolver ok:true CON error (el ejercicio
+    // se creó pero la foto falló) — cerrar solo si de verdad no quedó nada
+    // pendiente de leer, si no el aviso de la foto parpadea menos de un
+    // segundo y el entrenador sigue creyendo que la subió.
+    if (state.ok && !state.error) {
       const id = setTimeout(onCerrar, 900);
       return () => clearTimeout(id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.ok]);
+  }, [state.ok, state.error]);
 
   return (
     <Overlay onCerrar={onCerrar}>

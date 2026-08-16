@@ -3424,7 +3424,11 @@ input[type="number"] {
 .control-rir-serie input::-webkit-outer-spin-button { appearance: none; }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso {
   grid-column: 1 / -1;
-  width: 100%;
+  /* 25% menos de cada lado (pedido de Alejandro, 2026-08-16): antes ocupaba
+     todo el ancho de la tarjeta; ahora queda centrado a la mitad. */
+  width: 50%;
+  margin-left: auto;
+  margin-right: auto;
   min-height: 58px;
   margin-top: 11px;
   border: 1px solid color-mix(in srgb, var(--color-vip) 68%, transparent);
