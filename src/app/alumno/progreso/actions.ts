@@ -6,9 +6,15 @@ import { requireAlumno } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import convertirHeic from "heic-convert";
 import sharp from "sharp";
-import { fechaEnSemanaActualValida, fechaEnVentanaValida, hoyISO, lunesDeISO, sumarDiasISO } from "@/lib/date";
 import {
-  recalcularFotoSemana,
+  fechaEnQuincenaActualValida,
+  fechaEnVentanaValida,
+  finQuincenaISO,
+  hoyISO,
+  quincenaDeISO,
+} from "@/lib/date";
+import {
+  recalcularFotoQuincena,
   recalcularPesoSemana,
   registrarFoto,
   registrarPeso,
@@ -114,15 +120,16 @@ export async function subirFotoProgreso(
   const fechaFoto = String(formData.get("fecha_foto") || "") || hoyISO();
 
   if (!archivo || archivo.size === 0) return fail("Selecciona una foto.");
-  // Galería semanal (pedido de Alejandro, 2026-08-16): una foto por semana,
-  // y solo se puede subir/reemplazar la de la semana EN CURSO. Antes se
-  // aceptaba cualquier fecha pasada razonable ("fotos de antes" desde la
-  // galería del teléfono, hasta 10 años atrás) — eso ya no aplica: una
-  // semana cerrada queda cerrada, no se puede rellenar después. Las fotos
-  // que ya existían con esa fecha vieja no se tocan ni se pierden, siguen
-  // viéndose en la semana que les corresponde.
-  if (!fechaEnSemanaActualValida(fechaFoto)) {
-    return fail("Solo puedes subir la foto de esta semana. Elige una fecha entre el lunes y hoy.");
+  // Galería quincenal (pedido de Alejandro, 2026-08-16: "semanal es muy
+  // pronto para ver resultados"): una foto cada 15 días, y solo se puede
+  // subir/reemplazar la de la quincena EN CURSO. Antes se aceptaba
+  // cualquier fecha pasada razonable ("fotos de antes" desde la galería del
+  // teléfono, hasta 10 años atrás) — eso ya no aplica: una quincena cerrada
+  // queda cerrada, no se puede rellenar después. Las fotos que ya existían
+  // con esa fecha vieja no se tocan ni se pierden, siguen viéndose en la
+  // quincena que les corresponde.
+  if (!fechaEnQuincenaActualValida(fechaFoto)) {
+    return fail("Solo puedes subir la foto de esta quincena. Elige una fecha dentro de los últimos 15 días.");
   }
 
   const extensionArchivo = archivo.name.split(".").pop()?.toLowerCase() || "";
@@ -175,19 +182,19 @@ export async function subirFotoProgreso(
     }
   }
 
-  // Reemplaza, no acumula: si ya había una foto para esta semana (el alumno
-  // la sube de nuevo sin pasar por "Eliminar" primero, o dos pestañas
-  // abiertas a la vez), la vieja se borra de Storage y de la tabla antes de
-  // guardar la nueva. Defensivo — el flujo normal ya borra a mano primero,
-  // esto solo evita que dos fotos convivan en la misma semana por una
-  // carrera de clics.
-  const lunesSemana = lunesDeISO(fechaFoto);
+  // Reemplaza, no acumula: si ya había una foto para esta quincena (el
+  // alumno la sube de nuevo sin pasar por "Eliminar" primero, o dos
+  // pestañas abiertas a la vez), la vieja se borra de Storage y de la tabla
+  // antes de guardar la nueva. Defensivo — el flujo normal ya borra a mano
+  // primero, esto solo evita que dos fotos convivan en la misma quincena
+  // por una carrera de clics.
+  const inicioQuincena = quincenaDeISO(fechaFoto);
   const { data: existente } = await supabase
     .from("fotos_progreso")
     .select("id, storage_path")
     .eq("alumno_id", alumnoId)
-    .gte("fecha_foto", lunesSemana)
-    .lte("fecha_foto", sumarDiasISO(lunesSemana, 6))
+    .gte("fecha_foto", inicioQuincena)
+    .lte("fecha_foto", finQuincenaISO(inicioQuincena))
     .maybeSingle();
   if (existente) {
     await supabase.storage.from("fotos-progreso").remove([existente.storage_path]);
@@ -210,18 +217,16 @@ export async function subirFotoProgreso(
 
   if (errorInsert) return fail("La foto se subió, pero no fue posible registrarla.");
 
-  // Toda foto aceptada acá ya cayó dentro de la semana en curso (se validó
-  // arriba), así que siempre corresponde la recompensa semanal — a
-  // diferencia de antes, ya no hace falta distinguir "hoy/ayer" del resto
-  // de la semana. `registrarFoto` sigue devolviendo 0 si esta semana ya
-  // había ganado la recompensa (por ejemplo, reemplazando la foto sin
-  // ganar puntos dos veces).
+  // Toda foto aceptada acá ya cayó dentro de la quincena en curso (se
+  // validó arriba), así que siempre corresponde la recompensa. `registrarFoto`
+  // sigue devolviendo 0 si esta quincena ya había ganado la recompensa (por
+  // ejemplo, reemplazando la foto sin ganar puntos dos veces).
   const puntos = await registrarFoto(alumnoId, fechaFoto);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
   revalidatePath("/alumno/inicio");
   if (!puntos) {
-    return { ...okState, aviso: "Foto guardada. Ya tenías la recompensa de foto de esta semana." };
+    return { ...okState, aviso: "Foto guardada. Ya tenías la recompensa de foto de esta quincena." };
   }
   return { ...okState, puntos };
 }
@@ -236,15 +241,15 @@ export async function eliminarFotoProgreso(fotoId: string, storagePath: string):
     .eq("id", fotoId)
     .maybeSingle();
   if (!foto) return;
-  // Solo la foto de la semana EN CURSO se puede borrar: "la puede borrar,
-  // puede hacer lo que quiera, pero dentro de la semana" — una semana ya
-  // cerrada queda fija para siempre, con o sin foto. La interfaz ya no
-  // ofrece el botón de borrar fuera de la semana actual; este chequeo es la
-  // versión que no se puede saltar desde el cliente.
-  if (!fechaEnSemanaActualValida(foto.fecha_foto)) return;
+  // Solo la foto de la quincena EN CURSO se puede borrar: "la puede borrar,
+  // puede hacer lo que quiera, pero dentro de la quincena" — una quincena
+  // ya cerrada queda fija para siempre, con o sin foto. La interfaz ya no
+  // ofrece el botón de borrar fuera de la quincena actual; este chequeo es
+  // la versión que no se puede saltar desde el cliente.
+  if (!fechaEnQuincenaActualValida(foto.fecha_foto)) return;
   await supabase.storage.from("fotos-progreso").remove([storagePath]);
   await supabase.from("fotos_progreso").delete().eq("id", fotoId);
-  await recalcularFotoSemana(alumnoId, foto.fecha_foto);
+  await recalcularFotoQuincena(alumnoId, foto.fecha_foto);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
   revalidatePath("/alumno/inicio");

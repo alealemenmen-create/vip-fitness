@@ -7894,8 +7894,9 @@ input[type="number"] {
   border-color: rgba(255,255,255,.07) !important;
 }
 
-/* Galería semanal de fotos de progreso (pedido de Alejandro, 2026-08-16):
-   una foto por semana en vez de "primera/actual". Mismo lenguaje de bordes
+/* Galería quincenal de fotos de progreso (pedido de Alejandro,
+   2026-08-16): "semanal es muy pronto para ver resultados". Una foto cada
+   15 días en vez de "primera/actual". Mismo lenguaje de bordes
    translúcidos que el resto de Mi avance. */
 .galeria-antes-despues {
   padding: 10px;
@@ -7926,7 +7927,7 @@ input[type="number"] {
 }
 /* Menú del selector de "antes": absoluto, no empuja el layout de la
    cabecera al abrirse. */
-.selector-semana-antes {
+.selector-periodo-antes {
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
@@ -7943,24 +7944,24 @@ input[type="number"] {
   background: #14161a;
   box-shadow: 0 12px 28px rgba(0,0,0,.5);
 }
-.selector-semana-antes button {
+.selector-periodo-antes button {
   padding: 7px 8px;
   border-radius: 8px;
   text-align: left;
   color: var(--color-text-secondary);
   font-size: calc(11px * var(--escala-texto));
 }
-.selector-semana-antes button[data-elegida="true"] {
+.selector-periodo-antes button[data-elegida="true"] {
   background: rgba(242,205,93,.12);
   color: #f2cd5d;
   font-weight: 700;
 }
-.tarjeta-comparacion-semana {
+.tarjeta-comparacion-periodo {
   border: 1px solid rgba(255,255,255,.07);
 }
 /* Álbum horizontal: se arrastra con el dedo, no con flechas — mismo patrón
    táctil que la tira de días de Entrenar y Nutrición. */
-.historial-semanal-scroll {
+.historial-quincenal-scroll {
   display: flex;
   gap: 8px;
   overflow-x: auto;
@@ -7968,7 +7969,7 @@ input[type="number"] {
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
 }
-.tarjeta-semana-historial {
+.tarjeta-quincena-historial {
   position: relative;
   flex: 0 0 auto;
   width: 88px;
@@ -7979,13 +7980,13 @@ input[type="number"] {
   background: rgba(255,255,255,.02);
   scroll-snap-align: start;
 }
-/* Semana sin foto: recuadro punteado, texto discreto — informa que faltó
+/* Quincena sin foto: recuadro punteado, texto discreto — informa que faltó
    sin sonar a regaño (pedido explícito: "que no sea incómoda la vista"). */
-.tarjeta-semana-historial[data-vacia="true"] {
+.tarjeta-quincena-historial[data-vacia="true"] {
   border-style: dashed;
   border-color: rgba(255,255,255,.1);
 }
-.tarjeta-semana-historial-etiqueta {
+.tarjeta-quincena-historial-etiqueta {
   position: absolute;
   right: 0;
   bottom: 0;

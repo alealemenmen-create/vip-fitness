@@ -5,7 +5,9 @@ export const PUNTOS_VIP = {
   alimentacionMaximo: 250,
   ingresoDiario: 30,
   pesoSemanal: 75,
-  fotoSemanal: 100,
+  // Antes semanal, cada 15 días desde 2026-08-16 (pedido de Alejandro: el
+  // físico tarda más que el peso en mostrar un cambio real).
+  fotoQuincenal: 100,
   alimentacionSinRegistro: -100,
   alimentacionPenalizacionMaxima: -100,
   // Impulso VIP: bono chico frente a los 300 de completar la sesión — no

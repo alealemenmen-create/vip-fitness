@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { hoyISO, lunesDeISO, sumarDiasISO } from "@/lib/date";
+import { finQuincenaISO, hoyISO, lunesDeISO, quincenaDeISO, sumarDiasISO } from "@/lib/date";
 import { calcularPuntosAlimentacion, calcularPuntosEntrenamiento, calcularPuntosImpulso, limitarTramosDescanso, PUNTOS_VIP } from "./reglas";
 
 /** Bono de Impulso VIP al finalizar una sesión — misma clave que
@@ -502,59 +502,62 @@ export async function recalcularPesoSemana(alumnoId: string, fecha: string) {
   });
 }
 
+/** Cada 15 días, no cada semana (pedido de Alejandro, 2026-08-16): "semanal
+ * es muy pronto para ver resultados". La clave usa `quincenaDeISO`, no
+ * `lunesDe` — es una unidad de 15 días, no de 7. */
 export async function registrarFoto(alumnoId: string, fecha: string) {
   return guardarMovimientoConDelta({
     alumnoId,
-    clave: `foto:${lunesDe(fecha)}`,
+    clave: `foto:${quincenaDeISO(fecha)}`,
     categoria: "progreso",
-    puntos: PUNTOS_VIP.fotoSemanal,
+    puntos: PUNTOS_VIP.fotoQuincenal,
     titulo: "Foto de progreso",
-    detalle: "Seguimiento visual de la semana",
+    detalle: "Seguimiento visual de la quincena",
     fecha,
   });
 }
 
-/** Al borrar una foto, revisa si la semana debe conservar su recompensa.
+/** Al borrar una foto, revisa si la quincena debe conservar su recompensa.
  *
  * Una foto vieja (fechada fuera de la ventana válida) nunca pasa por
- * `registrarFoto`, así que su semana puede no tener movimiento — o tenerlo en
- * 0 — aunque queden fotos en `fotos_progreso` para esos días. Antes esta
- * función miraba solo "¿queda alguna foto en la semana?" y si la había,
- * volvía a poner los 100 puntos completos sin importar si esa semana los
- * había ganado alguna vez: borrar una foto vieja fabricaba puntos
- * retroactivos de semanas de hace meses (bug encontrado con datos reales).
- * Ahora solo se CONSERVA una recompensa que ya existía — nunca se CREA una
- * nueva acá; crearla es trabajo exclusivo de `registrarFoto` en el momento
- * de subir. */
-export async function recalcularFotoSemana(alumnoId: string, fecha: string) {
+ * `registrarFoto`, así que su quincena puede no tener movimiento — o
+ * tenerlo en 0 — aunque queden fotos en `fotos_progreso` para esos días.
+ * Antes esta función miraba solo "¿queda alguna foto en la quincena?" y si
+ * la había, volvía a poner los 100 puntos completos sin importar si esa
+ * quincena los había ganado alguna vez: borrar una foto vieja fabricaba
+ * puntos retroactivos de quincenas de hace meses (bug encontrado con datos
+ * reales, cuando esto era semanal). Ahora solo se CONSERVA una recompensa
+ * que ya existía — nunca se CREA una nueva acá; crearla es trabajo
+ * exclusivo de `registrarFoto` en el momento de subir. */
+export async function recalcularFotoQuincena(alumnoId: string, fecha: string) {
   const admin = createAdminClient();
-  const lunes = lunesDe(fecha);
-  const domingo = sumarDiasISO(lunes, 6);
+  const inicio = quincenaDeISO(fecha);
+  const fin = finQuincenaISO(inicio);
   const [{ data: foto }, { data: existente }] = await Promise.all([
     admin
       .from("fotos_progreso")
       .select("id")
       .eq("alumno_id", alumnoId)
-      .gte("fecha_foto", lunes)
-      .lte("fecha_foto", domingo)
+      .gte("fecha_foto", inicio)
+      .lte("fecha_foto", fin)
       .limit(1)
       .maybeSingle(),
     admin
       .from("puntos_vip_movimientos")
       .select("puntos")
       .eq("alumno_id", alumnoId)
-      .eq("clave", `foto:${lunes}`)
+      .eq("clave", `foto:${inicio}`)
       .maybeSingle(),
   ]);
   const yaGanada = (existente?.puntos ?? 0) > 0;
   const mantener = Boolean(foto) && yaGanada;
   return guardarMovimiento({
     alumnoId,
-    clave: `foto:${lunes}`,
+    clave: `foto:${inicio}`,
     categoria: "progreso",
-    puntos: mantener ? PUNTOS_VIP.fotoSemanal : 0,
+    puntos: mantener ? PUNTOS_VIP.fotoQuincenal : 0,
     titulo: mantener ? "Foto de progreso" : "Foto de progreso eliminada",
-    detalle: mantener ? "Seguimiento visual de la semana" : "Sube una foto para recuperar esta recompensa",
+    detalle: mantener ? "Seguimiento visual de la quincena" : "Sube una foto para recuperar esta recompensa",
     fecha,
   });
 }

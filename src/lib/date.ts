@@ -193,34 +193,69 @@ function lunesDe(fecha: Date): string {
 
 /**
  * Lunes de la semana que contiene una fecha YYYY-MM-DD dada, en horario de
- * Chile. Única fuente de verdad de "qué semana es esta fecha": la usan tanto
- * el bono semanal de Puntos VIP (`registrarFoto`/`recalcularFotoSemana` en
- * `lib/ranking/movimientos.ts`) como la galería semanal de fotos de
- * progreso — antes eran dos funciones con el mismo nombre y lógicas
- * apenas distintas (una en Chile, otra en UTC), que en el borde de la
- * medianoche podían no coincidir en qué lunes le tocaba a una fecha.
+ * Chile. Única fuente de verdad de "qué semana es esta fecha": la usa el
+ * bono semanal de PESO en Puntos VIP (`registrarPeso`/`recalcularPesoSemana`
+ * en `lib/ranking/movimientos.ts`) — antes había dos funciones con el mismo
+ * nombre y lógicas apenas distintas (una en Chile, otra en UTC), que en el
+ * borde de la medianoche podían no coincidir en qué lunes le tocaba a una
+ * fecha.
+ *
+ * La FOTO de progreso ya no usa esto: pasó a ser quincenal (ver
+ * `quincenaDeISO`, 2026-08-16) — "semanal es muy pronto para ver
+ * resultados", pedido de Alejandro. El peso se queda semanal a propósito:
+ * el peso sí puede tener sentido revisarlo semana a semana.
  */
 export function lunesDeISO(fechaISO: string): string {
   return lunesDe(toZonedTime(`${fechaISO}T12:00:00`, ZONA_HORARIA_VIP));
 }
 
 /**
- * Ventana para la foto semanal de progreso: solo la semana en curso (su
- * lunes hasta hoy), nunca el futuro ni una semana ya cerrada.
- *
- * Es más angosta que `fechaEnVentanaValida` (que acepta "hoy o ayer" para
- * peso/comida) porque acá la unidad no es el día sino la semana completa:
- * el alumno puede fechar su foto cualquier día de la semana en curso, pero
- * una vez que esa semana termina, la foto de progreso queda cerrada para
- * siempre — es la regla que pidió Alejandro ("si no la sube, se cierra la
- * semana... tiene la tercera semana para subirla", no la segunda ya
- * pasada).
+ * Primer día de la quincena (Chile) que contiene una fecha YYYY-MM-DD: "01"
+ * si el día del mes cae entre 1 y 15, "16" si cae entre 16 y el último día
+ * del mes. Es la unidad de la foto de progreso desde el 2026-08-16 —
+ * "semanal es muy pronto para ver resultados", pedido de Alejandro: el
+ * físico cambia más despacio que el peso, así que su ritmo de registro es
+ * más largo. Calendario, no una ventana móvil desde que el alumno empezó:
+ * mismo criterio que `lunesDeISO`, todos los alumnos comparten el mismo
+ * corte (día 1 y día 16 de cada mes) en vez de que cada uno tenga el suyo
+ * según cuándo se sumó a la app.
  */
-export function fechaEnSemanaActualValida(fechaISO: string): boolean {
+export function quincenaDeISO(fechaISO: string): string {
+  const [anio, mes, dia] = fechaISO.split("-").map(Number);
+  const diaInicio = dia <= 15 ? 1 : 16;
+  return `${anio}-${String(mes).padStart(2, "0")}-${String(diaInicio).padStart(2, "0")}`;
+}
+
+/** Último día de la quincena que arranca en `inicioISO` (el "01" o "16" que
+ * devuelve `quincenaDeISO`) — 15, o el último día real del mes si empezó
+ * el 16 (28, 29, 30 o 31 según el mes). */
+export function finQuincenaISO(inicioISO: string): string {
+  const [anio, mes, dia] = inicioISO.split("-").map(Number);
+  if (dia === 1) return `${anio}-${String(mes).padStart(2, "0")}-15`;
+  // Día 0 del mes siguiente = último día de este mes. Mismo truco que ya
+  // usa `mesActualISO` más arriba en este archivo — no depende de huso
+  // horario porque no hay conversión UTC de por medio, solo aritmética de
+  // calendario con componentes locales.
+  const ultimoDiaMes = new Date(anio, mes, 0).getDate();
+  return `${anio}-${String(mes).padStart(2, "0")}-${String(ultimoDiaMes).padStart(2, "0")}`;
+}
+
+/** La quincena siguiente a la que arranca en `inicioISO`. */
+export function siguienteQuincenaISO(inicioISO: string): string {
+  const [anio, mes, dia] = inicioISO.split("-").map(Number);
+  if (dia === 1) return `${anio}-${String(mes).padStart(2, "0")}-16`;
+  const siguienteMes = mes === 12 ? 1 : mes + 1;
+  const siguienteAnio = mes === 12 ? anio + 1 : anio;
+  return `${siguienteAnio}-${String(siguienteMes).padStart(2, "0")}-01`;
+}
+
+/** Ventana para la foto de progreso: solo la quincena en curso, nunca el
+ * futuro ni una quincena ya cerrada. */
+export function fechaEnQuincenaActualValida(fechaISO: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaISO)) return false;
   const hoy = hoyISO();
   if (fechaISO > hoy) return false;
-  return lunesDeISO(fechaISO) === lunesDeISO(hoy);
+  return quincenaDeISO(fechaISO) === quincenaDeISO(hoy);
 }
 
 /** Lunes de la semana calendario anterior a la actual (Chile), YYYY-MM-DD. */

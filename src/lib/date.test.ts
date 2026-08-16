@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  fechaEnSemanaActualValida,
+  fechaEnQuincenaActualValida,
   fechaEnVentanaValida,
   fechaPasadaValida,
+  finQuincenaISO,
   hoyISO,
   lunesDeISO,
+  quincenaDeISO,
+  siguienteQuincenaISO,
   sumarDiasISO,
 } from "./date";
 
@@ -74,25 +77,72 @@ describe("lunesDeISO", () => {
   });
 });
 
-describe("fechaEnSemanaActualValida", () => {
-  it("acepta cualquier día de la semana en curso, incluido hoy", () => {
-    const lunesActual = lunesDeISO(hoyISO());
-    expect(fechaEnSemanaActualValida(hoyISO())).toBe(true);
-    expect(fechaEnSemanaActualValida(lunesActual)).toBe(true);
+describe("quincenaDeISO", () => {
+  it("días 1 a 15 caen en la quincena que arranca el 1", () => {
+    expect(quincenaDeISO("2026-08-01")).toBe("2026-08-01");
+    expect(quincenaDeISO("2026-08-08")).toBe("2026-08-01");
+    expect(quincenaDeISO("2026-08-15")).toBe("2026-08-01");
   });
 
-  it("rechaza la semana pasada, aunque sea de hace un día", () => {
-    const lunesActual = lunesDeISO(hoyISO());
-    const domingoPasado = sumarDiasISO(lunesActual, -1);
-    expect(fechaEnSemanaActualValida(domingoPasado)).toBe(false);
+  it("días 16 a fin de mes caen en la quincena que arranca el 16", () => {
+    expect(quincenaDeISO("2026-08-16")).toBe("2026-08-16");
+    expect(quincenaDeISO("2026-08-25")).toBe("2026-08-16");
+    expect(quincenaDeISO("2026-08-31")).toBe("2026-08-16");
+  });
+
+  it("cada mes es independiente", () => {
+    expect(quincenaDeISO("2026-09-03")).toBe("2026-09-01");
+    expect(quincenaDeISO("2026-02-16")).toBe("2026-02-16");
+  });
+});
+
+describe("finQuincenaISO", () => {
+  it("la primera quincena siempre termina el 15", () => {
+    expect(finQuincenaISO("2026-08-01")).toBe("2026-08-15");
+    expect(finQuincenaISO("2026-02-01")).toBe("2026-02-15");
+  });
+
+  it("la segunda quincena termina el último día real del mes", () => {
+    expect(finQuincenaISO("2026-08-16")).toBe("2026-08-31"); // agosto: 31 días
+    expect(finQuincenaISO("2026-09-16")).toBe("2026-09-30"); // septiembre: 30 días
+    expect(finQuincenaISO("2026-02-16")).toBe("2026-02-28"); // 2026 no es bisiesto
+    expect(finQuincenaISO("2028-02-16")).toBe("2028-02-29"); // 2028 sí es bisiesto
+  });
+});
+
+describe("siguienteQuincenaISO", () => {
+  it("de la primera quincena a la segunda, mismo mes", () => {
+    expect(siguienteQuincenaISO("2026-08-01")).toBe("2026-08-16");
+  });
+
+  it("de la segunda quincena a la primera del mes siguiente", () => {
+    expect(siguienteQuincenaISO("2026-08-16")).toBe("2026-09-01");
+  });
+
+  it("cruza de diciembre a enero del año siguiente", () => {
+    expect(siguienteQuincenaISO("2026-12-16")).toBe("2027-01-01");
+  });
+});
+
+describe("fechaEnQuincenaActualValida", () => {
+  it("acepta cualquier día de la quincena en curso, incluido hoy", () => {
+    const inicioActual = quincenaDeISO(hoyISO());
+    expect(fechaEnQuincenaActualValida(hoyISO())).toBe(true);
+    expect(fechaEnQuincenaActualValida(inicioActual)).toBe(true);
+  });
+
+  it("rechaza la quincena pasada, aunque sea de hace un día", () => {
+    const inicioActual = quincenaDeISO(hoyISO());
+    const diaAnterior = sumarDiasISO(inicioActual, -1);
+    expect(fechaEnQuincenaActualValida(diaAnterior)).toBe(false);
   });
 
   it("rechaza el futuro", () => {
-    expect(fechaEnSemanaActualValida(sumarDiasISO(hoyISO(), 1))).toBe(false);
+    expect(fechaEnQuincenaActualValida(sumarDiasISO(hoyISO(), 1))).toBe(false);
   });
 
   it("rechaza texto que no es una fecha ISO válida", () => {
-    expect(fechaEnSemanaActualValida("")).toBe(false);
-    expect(fechaEnSemanaActualValida("2026-8-5")).toBe(false);
+    expect(fechaEnQuincenaActualValida("")).toBe(false);
+    expect(fechaEnQuincenaActualValida("2026-8-5")).toBe(false);
   });
 });
