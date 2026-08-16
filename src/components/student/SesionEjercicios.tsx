@@ -555,21 +555,25 @@ export function SesionEjercicios({
           corrección: no hay ejercicio "en curso" que seguir ni entrenamiento
           que cerrar. De la corrección se sale con "Listo, terminé de
           corregir", que la pantalla pone arriba de las opciones. */}
-      {!soloLectura && !modoCorreccion && (
+      {/* "Guardar" suelto ya no existe: guardar y completar el ejercicio
+          eran dos toques para una sola intención, y el segundo casi nunca
+          llegaba. Ahora "Completar y guardar" (dentro de cada tarjeta)
+          hace las dos cosas, y las series se siguen guardando solas al
+          terminar cada descanso.
+
+          El bloque entero (botón + recorrido de reserva) solo se dibuja en el
+          ÚLTIMO ejercicio, que es cuando aparece "Finalizar entrenamiento".
+          Antes se dibujaba siempre: en los otros seis ejercicios eran un div
+          vacío y 64 px de aire que no mostraban nada y obligaban a hacer
+          scroll en una pantalla que ya entraba entera (pedido de Alejandro,
+          2026-08-16). El contenedor que hace scroll ya reserva por su cuenta
+          el alto de la barra inferior (`pb-24`), así que los paneles de
+          nota/molestia siguen pudiendo subir por encima de las barras fijas. */}
+      {!soloLectura && !modoCorreccion && indiceVisible === grupos.length - 1 && (
         <>
-          {/* "Guardar" suelto ya no existe: guardar y completar el ejercicio
-              eran dos toques para una sola intención, y el segundo casi nunca
-              llegaba. Ahora "Completar y guardar" (dentro de cada tarjeta)
-              hace las dos cosas, y las series se siguen guardando solas al
-              terminar cada descanso. */}
           <div className="flex flex-col gap-2">
-            {indiceVisible === grupos.length - 1 && (
-              <FinalizarEntrenamiento sesionId={sesionId} completados={completados} total={total} compacto />
-            )}
+            <FinalizarEntrenamiento sesionId={sesionId} completados={completados} total={total} compacto />
           </div>
-          {/* Reserva suficiente recorrido al final del scroll para que
-              Guardar, Finalizar y los paneles de nota/molestia puedan subir
-              completamente por encima de las dos barras fijas. */}
           <div className="h-16" aria-hidden="true" />
         </>
       )}

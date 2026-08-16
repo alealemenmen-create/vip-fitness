@@ -85,7 +85,7 @@ function DetallePuntos({
   return (
     <div
       id={`detalle-ranking-${fila.alumnoId}`}
-      className="mt-2 rounded-xl border border-border bg-bg/45 px-3 py-2 text-left"
+      className="mt-2 rounded-xl border border-white/[0.06] bg-bg/45 px-3 py-2 text-left"
     >
       <p className="mb-1.5 truncate text-[9px] font-semibold text-text">
         Movimientos de {nombreAlumnoPublicado(fila.nombre)}
@@ -155,7 +155,7 @@ export function RankedVipCard({ filas, alumnoId }: { filas: FilaRanking[]; alumn
   }
 
   return (
-    <section className="arena-vip relative overflow-hidden rounded-[24px] border border-vip/35 bg-surface p-3">
+    <section className="arena-vip relative overflow-hidden rounded-[16px] border border-white/[0.06] bg-surface p-3">
       <div className="arena-vip-corona pointer-events-none absolute -right-5 -top-9 text-vip" aria-hidden>
         <Crown size={104} strokeWidth={1} />
       </div>
@@ -191,10 +191,10 @@ export function RankedVipCard({ filas, alumnoId }: { filas: FilaRanking[]; alumn
               return (
                 <article
                   key={fila.alumnoId}
-                  className={`relative overflow-hidden rounded-[18px] border px-2 py-2.5 ${
+                  className={`relative overflow-hidden rounded-[14px] border px-2 py-2.5 ${
                     esPropia
                       ? "border-vip shadow-[0_0_22px_color-mix(in_srgb,var(--color-vip)_22%,transparent)]"
-                      : "border-border"
+                      : "border-white/[0.06]"
                   }`}
                   style={{ background: fondoPuesto(fila.posicion) }}
                 >
@@ -250,7 +250,7 @@ export function RankedVipCard({ filas, alumnoId }: { filas: FilaRanking[]; alumn
                     aria-expanded={abierto}
                     aria-controls={`detalle-ranking-${fila.alumnoId}`}
                     className={`flex min-h-10 min-w-0 items-center gap-1.5 rounded-xl border px-1.5 py-1 text-left ${
-                      esPropia ? "border-vip bg-vip/10" : "border-border bg-surface/70"
+                      esPropia ? "border-vip bg-vip/10" : "border-white/[0.06] bg-surface/70"
                     }`}
                   >
                     <span

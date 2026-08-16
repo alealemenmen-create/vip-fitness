@@ -41,7 +41,7 @@ function MetricaInicio({
 }) {
   return (
     <article
-      className="relative min-w-0 overflow-hidden rounded-[20px] border px-3 py-2.5"
+      className="relative min-w-0 overflow-hidden rounded-[14px] border px-3 py-2.5"
       style={{
         background: `linear-gradient(135deg, color-mix(in srgb, ${color} 16%, var(--color-surface)) 0%, var(--color-surface) 68%)`,
         borderColor: `color-mix(in srgb, ${color} 38%, var(--color-border))`,

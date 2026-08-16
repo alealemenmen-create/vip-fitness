@@ -16,12 +16,6 @@ import { Crown, Zap } from "lucide-react";
  */
 const RUTAS_COMPACTAS: [ruta: string, titulo?: ReactNode][] = [
   ["/alumno/comer", "Nutrición"],
-  [
-    "/alumno/entrenar",
-    <>
-      Entrenamiento <span className="text-vip">VIP</span>
-    </>,
-  ],
   ["/alumno/progreso", "Mi avance"],
   [
     "/alumno/ranked",
@@ -29,6 +23,24 @@ const RUTAS_COMPACTAS: [ruta: string, titulo?: ReactNode][] = [
       Puntos <span className="text-vip">VIP</span>
     </>,
   ],
+];
+
+/**
+ * Pantallas con el cabezal universal: escudo hexagonal + título estático +
+ * instrumento de puntos/campana/ajustes, igual que entrenamiento activo (ver
+ * INSTRUCTIVO_CLAUDE_REDISEÑO..., 2026-08-15). Se suman de a una: Inicio
+ * primero, Entrenar después — el resto de las pestañas queda con la marca
+ * cuadrada de siempre hasta que les toque.
+ */
+const RUTAS_CABECERA_HEXAGONAL: [ruta: string, titulo: ReactNode][] = [
+  ["/alumno/inicio", <span key="fitness" className="titulo-portal-vip-marca">Fitness</span>],
+  // "Entrenamiento" a secas y no "Entrenamiento VIP": el título tiene 132 px
+  // de ancho útil y la versión con VIP mide 144, así que el "VIP" dorado se
+  // perdía SIEMPRE detrás de los puntos suspensivos — y con un saldo de cinco
+  // o seis dígitos se comía además parte de la palabra. El instructivo pide el
+  // VIP en oro solo "si cabe"; acá no cabe, y el escudo hexagonal de al lado
+  // ya pone la marca.
+  ["/alumno/entrenar", "Entrenamiento"],
 ];
 
 /**
@@ -71,7 +83,10 @@ function MarcaCuadrada({ lado = 34 }: { lado?: number }) {
   );
 }
 
-function MarcaVipEntrenamiento() {
+/** Escudo hexagonal `VIP`: marca permanente del shell del alumno. Nace en
+ * entrenamiento activo y se comparte con el resto del portal (por ahora,
+ * Inicio) para que el alumno no vea tres identidades distintas al navegar. */
+function MarcaVipPortal() {
   return (
     <span className="marca-vip-entrenamiento" aria-label="VIP Fitness">
       <span>VIP</span>
@@ -129,12 +144,39 @@ export function Logo({
     const [numeroSesion, ...nombreDia] = tituloRutinaActiva.split("·").map((parte) => parte.trim());
     return (
       <div className={`logo-rutina-activa flex items-center ${className}`}>
-        <MarcaVipEntrenamiento />
+        <MarcaVipPortal />
         <span className="titulo-rutina-activa min-w-0 flex-1 truncate">
           <b>{numeroSesion || "VIP"}</b>
           {nombreDia.length > 0 && <span>{nombreDia.join(" · ")}</span>}
         </span>
         <div className="utilidades-rutina-activa">
+          <span
+            className="puntos-rutina-activa"
+            aria-label={`${(puntosVip + puntosEnVivo).toLocaleString("es-CL")} puntos VIP`}
+          >
+            <span className="insignia-puntos-rutina" aria-hidden>
+              <Crown size={15} strokeWidth={1.7} />
+              <Zap size={8} fill="currentColor" strokeWidth={2.4} />
+            </span>
+            <strong>{(puntosVip + puntosEnVivo).toLocaleString("es-CL")}</strong>
+          </span>
+          {corner}
+        </div>
+      </div>
+    );
+  }
+
+  // Cabezal universal del Portal VIP: mismo escudo hexagonal e instrumento de
+  // puntos/campana/ajustes que entrenamiento activo, con título estático de
+  // sección (INSTRUCTIVO_CLAUDE_REDISEÑO..., 2026-08-15).
+  const cabeceraHexagonal = RUTAS_CABECERA_HEXAGONAL.find(([ruta]) => pathname === ruta);
+  if (cabeceraHexagonal) {
+    const [, titulo] = cabeceraHexagonal;
+    return (
+      <div className={`cabecera-portal-vip ${className}`}>
+        <MarcaVipPortal />
+        <h1 className="titulo-portal-vip">{titulo}</h1>
+        <div className="instrumento-portal-vip">
           <span
             className="puntos-rutina-activa"
             aria-label={`${(puntosVip + puntosEnVivo).toLocaleString("es-CL")} puntos VIP`}

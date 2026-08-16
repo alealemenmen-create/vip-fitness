@@ -193,13 +193,25 @@ export { FONDO_FOTO as FONDO_FOTO_GRUPO };
  * Si el grupo principal no tiene foto (Cardio), se mantiene el dibujo de
  * siempre — no se inventa nada para no tener imagen.
  */
-/** Rayos de luz diagonales, decorativos, detrás de la foto del día — el
+/** Rayos de luz diagonales, decorativos, DETRÁS de la foto del día — el
  * mismo motivo cálido que enmarca al modelo en la referencia. Puramente
- * ornamental (aria-hidden), no compite con el texto porque vive detrás del
- * degradado hacia la superficie. */
+ * ornamental (aria-hidden).
+ *
+ * Se dibujaba después de la foto y sin capa propia, así que el rayo grueso
+ * del medio le cruzaba la pierna al modelo como una raya naranja. Ahora va
+ * primero y con `z-0` contra el `z-10` del texto: la foto (que no declara
+ * capa) queda en medio y la diagonal solo se ve en el fondo negro. El tono
+ * es el dorado pálido del rediseño (#f2cd5d), no el ámbar saturado
+ * `--color-vip`, y la opacidad baja a 0.14 — el instructivo pide diagonales
+ * "discretas" y solo en esta tarjeta. */
 function RayosLuz() {
   return (
-    <svg aria-hidden className="pointer-events-none absolute inset-0 opacity-25" viewBox="0 0 300 168" preserveAspectRatio="none">
+    <svg
+      aria-hidden
+      className="pointer-events-none absolute inset-0 z-0 opacity-[0.14]"
+      viewBox="0 0 300 168"
+      preserveAspectRatio="none"
+    >
       {Array.from({ length: 5 }, (_, i) => (
         <line
           key={i}
@@ -207,8 +219,8 @@ function RayosLuz() {
           y1={-20}
           x2={140 - i * 34}
           y2={190}
-          stroke="var(--color-vip)"
-          strokeWidth={i === 2 ? 3 : 1.4}
+          stroke="#f2cd5d"
+          strokeWidth={i === 2 ? 2 : 1.2}
         />
       ))}
     </svg>
@@ -232,17 +244,29 @@ export function FotoDiaEntrenamiento({ grupos }: { grupos: GrupoMuscular[] }) {
 
   return (
     <>
+      <RayosLuz />
       <div
         className={`foto-modelo-integrada foto-modelo-${principal} pointer-events-none absolute inset-y-0 right-6 flex items-center`}
         style={{ width: anchoTotal }}
       >
-        {fotosPrincipal.map((src) => (
+        {fotosPrincipal.map((src, indice) => (
           <div key={src} className="relative h-full flex-1">
-            <Image src={src} alt="" fill sizes="108px" className="object-cover object-top" />
+            {/* La primera foto (de frente) va grande y recortada, de punta a
+                punta de la tarjeta, como siempre. La segunda (de espalda, en
+                Piernas) es la "miniatura": mismo espacio de arriba a abajo,
+                al lado de la primera, pero `object-contain` en vez de
+                `object-cover` para que entre el cuerpo COMPLETO, sin cortar
+                piernas ni cabeza — pedido de Alejandro (2026-08-16). */}
+            <Image
+              src={src}
+              alt=""
+              fill
+              sizes="108px"
+              className={indice === 0 ? "object-cover object-top" : "object-contain object-bottom"}
+            />
           </div>
         ))}
       </div>
-      <RayosLuz />
     </>
   );
 }

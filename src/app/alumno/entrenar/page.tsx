@@ -167,7 +167,11 @@ export default async function EntrenarPage({
   );
 
   return (
-    <div className="entrenar-minimalista space-y-2 pb-36">
+    // `pb-16` y no `pb-36`: el contenedor que hace scroll ya aporta 96 px
+    // (`pb-24`) y el CTA fijo empieza 142 px arriba del borde inferior, así que
+    // 144 px propios dejaban ~85 px de vacío negro entre "Estado del plan
+    // mensual" y "Iniciar rutina" al llegar al final.
+    <div className="entrenar-minimalista space-y-2 pb-16">
       <PuntosVipGanados key={puntosParam ?? "0"} puntos={puntosGanados} detalle="Entrenamiento guardado en tu progreso" />
       {(avisoPlan === "pausado" || avisoPlan === "agotado") && (
         <Card padding="p-3" className="border border-warning/40 bg-warning/10">
@@ -190,7 +194,6 @@ export default async function EntrenarPage({
         numeros={numeros}
         pagina={pagina}
         seleccionInicial={seleccionInicial}
-        proximoNumero={proximoNumero}
         rutinaId={rutina.id}
         soloLectura={soloLectura}
         sesionesPorSemana={sesionesPorSemana}
@@ -205,12 +208,12 @@ export default async function EntrenarPage({
       <div className="space-y-2 pt-2">
         <Link
           href="/alumno/entrenar/historial"
-          className="mx-auto flex w-fit items-center rounded-full border border-border px-4 py-2 text-caption font-semibold text-text-secondary"
+          className="mx-auto flex w-fit items-center rounded-full border border-white/[0.09] px-4 py-2 text-caption font-semibold text-text-secondary"
         >
           Ver historial de entrenamiento
         </Link>
         {balanceSesiones && (
-          <details className="group rounded-2xl border border-white/[0.07] bg-surface/35">
+          <details className="group rounded-2xl border border-white/[0.05] bg-surface/35">
             <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 text-caption font-semibold text-text-secondary marker:content-none">
               Estado del plan mensual
               <span className="text-[16px] text-text-tertiary transition-transform group-open:rotate-45">+</span>

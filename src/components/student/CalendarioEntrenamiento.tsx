@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Moon, Check, AlertTriangle, Play } from "lucide-react";
 import { iniciarRutinaDesdeCalendario, cancelarYEmpezarOtroDia } from "@/app/alumno/entrenar/actions";
-import type { NumeroCalendario, EstadoNumero, GrupoMuscular, DiaVistaPrevia } from "@/app/alumno/entrenar/data";
+import type { NumeroCalendario, EstadoNumero, DiaVistaPrevia } from "@/app/alumno/entrenar/data";
 import { FotoDiaEntrenamiento, ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { CuadroFotoReferencia } from "@/components/student/SesionEjercicioCard";
 import {
@@ -44,7 +44,7 @@ function TiraDias({
   onSeleccionar: (n: number) => void;
 }) {
   return (
-    <div className="tira-sesiones-entrenar -mx-1 flex gap-0.5 overflow-x-auto border-b border-white/[0.06] px-1 pb-1">
+    <div className="tira-sesiones-entrenar -mx-1 flex gap-0.5 overflow-x-auto border-b border-white/[0.04] px-1 pb-1">
       {numeros.map((n, indice) => {
         const activo = n.numero === seleccionado;
         const hecha = n.estado === "completado";
@@ -59,7 +59,7 @@ function TiraDias({
               onClick={() => onSeleccionar(n.numero)}
               data-estado={n.estado}
               data-activa={activo ? "true" : "false"}
-              className="selector-sesion-item relative flex min-w-0 flex-1 shrink-0 flex-col items-center gap-1 px-0.5 py-1.5 transition-colors duration-200 ease-in-out"
+              className="selector-sesion-item relative flex min-w-0 flex-1 shrink-0 flex-col items-center gap-0.5 px-0.5 py-1 transition-colors duration-200 ease-in-out"
               style={{ background: "transparent" }}
             >
               {/* "ÚLTIMA" en vez de "SESIÓN" en la que acaba de hacer: es el
@@ -87,7 +87,7 @@ function TiraDias({
                   vacío al lado de un check se lee solo. */}
               {/* Alto fijo: el check mide más que el punto y sin esto los
                   casilleros quedaban a distinta altura entre sí. */}
-              <span className="flex h-3 items-center justify-center">
+              <span className="flex h-2.5 items-center justify-center">
                 {hecha ? (
                   <Check
                     size={11}
@@ -130,7 +130,6 @@ export function CalendarioEntrenamiento({
   numeros,
   pagina,
   seleccionInicial,
-  proximoNumero,
   rutinaId,
   soloLectura = false,
   sesionesPorSemana,
@@ -144,7 +143,6 @@ export function CalendarioEntrenamiento({
   numeros: NumeroCalendario[];
   pagina: number;
   seleccionInicial: number;
-  proximoNumero: number;
   rutinaId: string;
   soloLectura?: boolean;
   sesionesPorSemana: number;
@@ -179,7 +177,6 @@ export function CalendarioEntrenamiento({
   // fila. Si el día es puramente cardio, ahí sí es el título.
   const gruposPrincipales = grupos.filter((g) => g !== "cardio");
   const tieneCardio = grupos.includes("cardio");
-  const gruposOrdenados = [...gruposPrincipales, ...(tieneCardio ? (["cardio"] as GrupoMuscular[]) : [])];
   const titulo = descanso
     ? "Descanso"
     : gruposPrincipales.length > 0
@@ -187,18 +184,13 @@ export function CalendarioEntrenamiento({
       : tieneCardio
         ? ETIQUETAS_GRUPO_MUSCULAR.cardio
         : actual.dia.nombre;
-  const subtitulo = descanso
-    ? (actual.dia.descripcion ?? "Día de recuperación")
-    : gruposOrdenados.length > 0
-      ? gruposOrdenados.map((g) => ETIQUETAS_GRUPO_MUSCULAR[g]).join(" · ")
-      : actual.dia.nombre;
 
   return (
     <div className="space-y-2.5">
       {/* Semana y sesiones quedan ancladas exactamente debajo del logo. El
           fondo de borde a borde evita que los ejercicios se transparenten al
           pasar por debajo durante el scroll. */}
-      <div className="selector-sesiones-fijo sticky top-0 z-20 -mx-4 space-y-1.5 border-b border-white/[0.07] bg-bg/95 px-4 pb-2 pt-1 shadow-[0_10px_24px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+      <div className="selector-sesiones-fijo sticky top-0 z-20 -mx-4 space-y-1 border-b border-white/[0.05] bg-bg/95 px-4 pb-1.5 pt-1 shadow-[0_10px_24px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         {/* Navegación de semanas */}
         <div className="flex items-center justify-between">
           <Link
@@ -208,10 +200,13 @@ export function CalendarioEntrenamiento({
           >
             <ChevronLeft size={18} />
           </Link>
-          {/* "Semana 3 de 4 · 9 de 12 sesiones" en vez de "Semana 3": el alumno
-              necesita ubicarse en el mes, no solo en la semana suelta. Pedido de
-              Alejandro. */}
-          <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-text-secondary">
+          {/* "Plan Élite · Semana 3 de 4 · 9 de 12 sesiones" en una sola línea
+              centrada: pedido de Alejandro (2026-08-16), antes el nombre del
+              plan vivía repetido debajo de la tarjeta de presentación. Sin
+              nombre de plan, la línea de semana/sesiones queda igual que
+              siempre. */}
+          <span className="min-w-0 truncate text-center text-[9px] font-semibold uppercase tracking-[0.1em] text-text-secondary">
+            {planNombre && <>{planNombre} · </>}
             Semana {semanaDelMes(pagina)} de {SEMANAS_POR_MES} ·{" "}
             {sesionDelMes(actual.numero, sesionesPorSemana)} de {sesionesPorMes(sesionesPorSemana)} sesiones
           </span>
@@ -237,7 +232,14 @@ export function CalendarioEntrenamiento({
       {/* Tarjeta principal del día. `tarjeta-modelo-oscura` la mantiene en
           oscuro también con el tema claro — ver el porqué en globals.css. */}
       <div className="tarjeta-modelo-oscura tarjeta-entrenamiento-premium resumen-sesion-entrenar tarjeta-presentacion-compacta radius-card overflow-hidden bg-surface">
-        <div className="relative flex min-h-[76px] flex-col justify-end overflow-hidden px-3 py-2">
+        {/* Un solo envoltorio directo: `.resumen-sesion-entrenar > *` fuerza
+            `position: relative` en sus hijos directos (ver globals.css), así
+            que la foto (que necesita quedar `absolute`) tiene que ser NIETA,
+            no hija, de la tarjeta. Adentro sí ocupa la tarjeta entera —
+            pedido de Alejandro (2026-08-16) para que la silueta se vea
+            completa hasta abajo, detrás de la barra de Ejercicios/Series/
+            Minutos, en vez de cortarse arriba de ella. */}
+        <div className="relative">
           {descanso ? (
             <div className="pointer-events-none absolute right-4 top-3 opacity-30">
               <Moon size={72} className="text-text-tertiary" />
@@ -246,39 +248,35 @@ export function CalendarioEntrenamiento({
             <FotoDiaEntrenamiento grupos={grupos} />
           )}
 
-          <div className="relative">
-            <p className="mb-0.5 text-[7px] font-semibold uppercase tracking-[0.13em] text-text-tertiary">
-              {actual.numero === proximoNumero
-                ? `PRÓXIMA SESIÓN · SEMANA ${semanaDelMes(pagina)} DE ${SEMANAS_POR_MES}`
-                : `SEMANA ${semanaDelMes(pagina)} · SESIÓN ${sesionDelMes(actual.numero, sesionesPorSemana)} DE ${sesionesPorMes(sesionesPorSemana)}`}
-            </p>
+          <div className="relative z-10 flex min-h-[52px] flex-col justify-end px-3 py-1.5">
+            {/* Sin eyebrow ("PRÓXIMA SESIÓN · SEMANA...") ni subtítulo
+                repetido debajo del título: pedido de Alejandro (2026-08-16),
+                esa información ya vive arriba del calendario de sesiones y
+                el subtítulo repetía el mismo texto que el título. */}
             <h2 className="text-[20px] font-[750] leading-none tracking-[-0.035em] text-text">{titulo}</h2>
-            <p className="mt-1 text-[9px] font-medium tracking-[-0.01em] text-text-secondary">{subtitulo}</p>
           </div>
+
+          {/* Barra de datos duros, como en la referencia. Sin fondo propio:
+              se deja ver al modelo detrás (pedido de Alejandro, 2026-08-16).
+              `datos-sesion-entrenar` no es un fondo: es un velo negro que se
+              va cerrando hacia abajo. El modelo se sigue viendo, pero "48
+              Minutos" deja de caer sobre la piel iluminada del muslo, que era
+              donde el número perdía contraste. */}
+          {resumen && (
+            <div className="datos-sesion-entrenar relative z-10 grid grid-cols-3 border-t border-white/[0.06]">
+              <Dato valor={resumen.cantidadEjercicios} etiqueta="Ejercicios" />
+              <Dato valor={resumen.cantidadSeries} etiqueta="Series" borde />
+              <Dato valor={resumen.minutosEstimados} etiqueta="Minutos" />
+            </div>
+          )}
+
+          {actual.estado === "completado" && (
+            <div className="relative z-10 flex items-center justify-center gap-1.5 border-t border-white/[0.06] bg-surface py-2 text-[9px] text-success">
+              <Check size={14} /> Completado
+            </div>
+          )}
         </div>
-
-        {/* Barra de datos duros, como en la referencia */}
-        {resumen && (
-          <div className="grid grid-cols-3 border-t border-border">
-            <Dato valor={resumen.cantidadEjercicios} etiqueta="Ejercicios" />
-            <Dato valor={resumen.cantidadSeries} etiqueta="Series" borde />
-            <Dato valor={resumen.minutosEstimados} etiqueta="Minutos" />
-          </div>
-        )}
-
-        {actual.estado === "completado" && (
-          <div className="flex items-center justify-center gap-1.5 border-t border-border py-2 text-[9px] text-success">
-            <Check size={14} /> Completado
-          </div>
-        )}
-
       </div>
-      {planNombre && (
-        <p className="text-center text-[9px] text-text-tertiary">
-          {planNombre} · Semana {semanaDelMes(pagina)} de {SEMANAS_POR_MES} · sesión{" "}
-          {sesionDelMes(actual.numero, sesionesPorSemana)} de {sesionesPorMes(sesionesPorSemana)}
-        </p>
-      )}
 
       {actual.estado === "no_iniciado" && (planPausado || cupoAgotado) ? (
         <div className="radius-control border border-warning/40 bg-warning/10 px-3 py-3 text-center">
@@ -296,7 +294,7 @@ export function CalendarioEntrenamiento({
       ) : null}
 
       {actual.estado === "completado" && actual.sesionId && (
-        <Link href={`/alumno/entrenar/sesion/${actual.sesionId}`} className="radius-control flex h-11 w-full items-center justify-center border border-border text-caption font-semibold text-text-secondary">
+        <Link href={`/alumno/entrenar/sesion/${actual.sesionId}`} className="radius-control flex h-11 w-full items-center justify-center border border-white/[0.09] text-caption font-semibold text-text-secondary">
           Ver registro de esta sesión
         </Link>
       )}
@@ -311,7 +309,7 @@ export function CalendarioEntrenamiento({
 function ListaEjerciciosPrevia({ vista }: { vista: NonNullable<DiaVistaPrevia> }) {
   if (vista.tipo === "descanso") {
     return (
-      <div className="radius-card border border-border bg-surface p-4 text-caption text-text-secondary">
+      <div className="radius-card border border-white/[0.08] bg-surface p-4 text-caption text-text-secondary">
         {vista.descripcion ?? "Día de recuperación."}
       </div>
     );
@@ -331,7 +329,7 @@ function ListaEjerciciosPrevia({ vista }: { vista: NonNullable<DiaVistaPrevia> }
           key={ejercicio.id}
           data-tecnica={ejercicio.tecnicaTipo?.toLowerCase() ?? undefined}
           data-encadenado={tecnicaEncadenada ? "true" : "false"}
-          className="ejercicio-vista-previa flex min-h-[78px] items-center gap-3 border-b border-white/[0.07] px-1.5 py-2.5 last:border-b-0"
+          className="ejercicio-vista-previa flex min-h-[78px] items-center gap-3 border-b border-white/[0.045] px-1.5 py-2.5 last:border-b-0"
         >
           <CuadroFotoReferencia
             ilustracionSlug={ejercicio.ilustracionSlug}
@@ -482,7 +480,7 @@ function AccionEntrenamientoFija({
 
 function Dato({ valor, etiqueta, borde = false }: { valor: number; etiqueta: string; borde?: boolean }) {
   return (
-    <div className={`py-1.5 text-center ${borde ? "border-x border-white/[0.07]" : ""}`}>
+    <div className={`py-1.5 text-center ${borde ? "border-x border-white/[0.045]" : ""}`}>
       <p className="text-[15px] font-[700] leading-none tracking-[-0.035em] text-text">{valor}</p>
       <p className="mt-1 text-[7px] font-medium leading-none tracking-[0.02em] text-text-tertiary">{etiqueta}</p>
     </div>
