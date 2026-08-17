@@ -336,6 +336,8 @@ export async function restaurarVideoArchivado(multimediaId: string): Promise<Res
       video_cloudflare_miniatura_url: estadoReal.miniaturaUrl,
       video_cloudflare_error: null,
       video_cloudflare_uid_anterior: null,
+      video_cloudflare_ancho: estadoReal.ancho,
+      video_cloudflare_alto: estadoReal.alto,
     })
     .eq("id", archivado.ejercicio_id);
   if (errorUpdate) return { error: "No se pudo restaurar el video.", ok: false };
