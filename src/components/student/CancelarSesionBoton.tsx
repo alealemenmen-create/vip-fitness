@@ -29,7 +29,10 @@ export function CancelarSesionBoton({
         onClick={() => setConfirmando(true)}
         className={
           compacto
-            ? "accion-cancelar-sesion-enlace flex items-center bg-transparent px-0 text-[9px] font-normal text-text-tertiary/70 underline decoration-white/15 underline-offset-2"
+            // 9px → 11px (pedido de Alejandro, 2026-08-17: no se lee bien en
+            // celular chico, sobre todo para gente mayor) — igualado al
+            // tamaño de "Descanso libre", que comparte la misma línea.
+            ? "accion-cancelar-sesion-enlace flex items-center bg-transparent px-0 text-[11px] font-normal text-text-tertiary/70 underline decoration-white/15 underline-offset-2"
             : "radius-control flex h-12 w-full items-center justify-center gap-2 text-body font-medium text-text-tertiary underline"
         }
       >

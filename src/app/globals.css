@@ -4801,7 +4801,11 @@ input[type="number"] {
   margin: 0 0 5px;
   color: #fff !important;
   font-family: inherit !important;
-  font-size: calc(7px * var(--escala-texto)) !important;
+  /* 7px → 10px (pedido de Alejandro, 2026-08-17: "a las personas mayores
+     les cuesta leer esto en un celular chico"). Sigue envuelto en
+     flex-wrap con gap, así que un texto más largo simplemente pasa a la
+     línea de abajo en vez de desbordar. */
+  font-size: calc(10px * var(--escala-texto)) !important;
   font-weight: 620 !important;
   white-space: normal;
 }
@@ -5684,7 +5688,9 @@ input[type="number"] {
   border: 0;
   color: color-mix(in srgb, var(--color-text-tertiary) 78%, transparent);
   background: transparent;
-  font-size: calc(9px * var(--escala-texto));
+  /* 9px → 11px (pedido de Alejandro, 2026-08-17: no se lee bien en celular
+     chico, sobre todo para gente mayor). */
+  font-size: calc(11px * var(--escala-texto));
   font-weight: 500;
   line-height: 1.2;
   text-decoration: underline;
