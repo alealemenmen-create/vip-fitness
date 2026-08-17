@@ -3328,6 +3328,15 @@ input[type="number"] {
   display: flex;
   min-height: 104px;
   flex-direction: column;
+  /* `align-items` no estaba declarado acá, así que heredaba el `baseline`
+     de `.campo-serie-plano` base (pensado para la fila compacta horizontal,
+     no para esta columna). En un flex en columna, `baseline` alinea cada
+     hijo (el título, el input) a su propio ancho de contenido pegado al
+     borde — el `text-align: center` del título no tenía ningún efecto
+     visible porque su caja ya era del ancho del texto. Pedido de
+     Alejandro, 2026-08-17: centrar "Peso (kg)"/"Repeticiones" de verdad,
+     en el ejercicio suelto y en cada paso de una biserie. */
+  align-items: center;
   justify-content: center;
   padding: 0;
   border: 0;
@@ -4800,6 +4809,23 @@ input[type="number"] {
   /* "Siguiente" más pegado a la línea (8px → 4px), pedido de Alejandro. */
   padding-top: 4px;
   /* Línea más notoria (.08 → .2), pedido de Alejandro. */
+  border-top: 1px solid rgba(255,255,255,.2);
+  color: #86868c;
+  font-size: calc(11px * var(--escala-texto));
+  font-weight: 540;
+}
+/* Misma tarjeta que `.siguiente-ejercicio-foco` (mismo texto y miniatura
+   chica, mismo divisor arriba), pero en flujo normal y no `position:
+   absolute` — en una biserie no hay una sola columna de texto de la que
+   colgarse: el encabezado son dos tarjetas de ejercicio lado a lado (A y
+   B), así que esta va como una fila propia debajo, no superpuesta. */
+.siguiente-bloque-foco {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  width: 100%;
+  margin: 8px 0 0;
+  padding-top: 8px;
   border-top: 1px solid rgba(255,255,255,.2);
   color: #86868c;
   font-size: calc(11px * var(--escala-texto));

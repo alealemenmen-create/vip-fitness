@@ -266,6 +266,13 @@ export function SesionEjercicios({
           soloLectura={soloLectura}
           activo={activo}
           modoEnfocado={!soloLectura && !modoCorreccion}
+          proximosNombres={grupos
+            .slice(indiceGrupo + 1)
+            .map((g) => ({
+              nombre: g.map((ej) => ej.nombre).join(" + "),
+              fotoMiniaturaUrl: g[0].fotoMiniaturaUrl ?? g[0].fotoCompletaUrl ?? g[0].videoCloudflareMiniaturaUrl,
+              ilustracionSlug: g[0].ilustracionSlug,
+            }))}
           onDificultadRespondida={() => avanzarDesdeEncuesta(grupo)}
           onGrupoCompletado={() => marcarGrupoTerminadoEnVista(grupo)}
           esUltimoGrupoDeRutina={conNavegacion && indiceVisible === grupos.length - 1}

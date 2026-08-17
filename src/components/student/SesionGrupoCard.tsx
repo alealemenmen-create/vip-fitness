@@ -21,6 +21,7 @@ import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon
 import { esEjercicioDeTiempo } from "@/lib/entrenamiento/reps";
 import { objetivoSerie } from "@/lib/entrenamiento/objetivo-serie";
 import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import {
   guardarBorrador,
   leerBorrador,
@@ -89,8 +90,14 @@ export const SesionGrupoCard = forwardRef<
     /** Mapa de toda la rutina. Debe existir tambiÃ©n en biseries, triseries
      * y series gigantes; no solo en ejercicios individuales. */
     onVerRutina?: () => void;
+    /** El próximo BLOQUE (no el próximo ejercicio de una biserie — esos dos
+     * ya se ven completos arriba, A y B). Mismo dato y misma forma que usa
+     * SesionEjercicioCard.tsx — antes esta pantalla no lo recibía y no
+     * mostraba ninguna pista de qué sigue después de terminar la ronda
+     * (pedido de Alejandro, 2026-08-17). */
+    proximosNombres?: { nombre: string; fotoMiniaturaUrl: string | null; ilustracionSlug: string | null }[];
   }
->(function SesionGrupoCard({ ejercicios, sesionId, soloLectura, activo = false, modoEnfocado = false, onDificultadRespondida, onGrupoCompletado, esUltimoGrupoDeRutina = false, onVerRutina }, ref) {
+>(function SesionGrupoCard({ ejercicios, sesionId, soloLectura, activo = false, modoEnfocado = false, onDificultadRespondida, onGrupoCompletado, esUltimoGrupoDeRutina = false, onVerRutina, proximosNombres = [] }, ref) {
   const [state, formAction, pending] = useActionState(guardarSeriesGrupo, initialState);
   const n = ejercicios.length;
   const completoTodo = ejercicios.every((e) => e.completado);
@@ -497,6 +504,17 @@ export const SesionGrupoCard = forwardRef<
   const objetivoRepsPorPos = objetivoPorPos.map((o) => o.objetivoReps);
   const pesoSugeridoPorPos = objetivoPorPos.map((o) => o.pesoSugeridoEfectivo);
 
+  // El próximo BLOQUE (no el próximo paso de ESTA biserie: A y B ya se ven
+  // completos arriba). Mismo cálculo que `proximoEjercicio` en
+  // SesionEjercicioCard.tsx — antes esta pantalla no avisaba nada de lo que
+  // sigue después de cerrar la ronda (pedido de Alejandro, 2026-08-17).
+  const proximoBloque = proximosNombres[0] ?? null;
+  const ilustracionSiguienteBloque = proximoBloque
+    ? resolverIlustracion(proximoBloque.ilustracionSlug, null)
+    : null;
+  const miniaturaSiguienteBloque = proximoBloque?.fotoMiniaturaUrl
+    ?? (ilustracionSiguienteBloque?.origen === "ilustracion" ? ilustracionSiguienteBloque.src : null);
+
   // El descanso "real" de la ronda es el del ÚLTIMO ejercicio del grupo —
   // en la práctica es el único que suele tener un descanso propio (los
   // anteriores encadenan directo), y es el que se muestra en la fila de
@@ -646,6 +664,21 @@ export const SesionGrupoCard = forwardRef<
           >
             <Menu size={23} strokeWidth={1.45} />
           </button>
+        </div>
+      )}
+
+      {modoEnfocado && proximoBloque && (
+        <div className="siguiente-bloque-foco">
+          <span className="cabecera-siguiente-ejercicio">
+            <small>Siguiente</small>
+          </span>
+          <span className="contenido-siguiente-ejercicio">
+            {miniaturaSiguienteBloque && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={miniaturaSiguienteBloque} alt="" className="miniatura-siguiente-ejercicio" />
+            )}
+            <strong>{proximoBloque.nombre}</strong>
+          </span>
         </div>
       )}
 
@@ -935,6 +968,12 @@ export const SesionGrupoCard = forwardRef<
                         )}
                         {abierto && (
                           <div
+                            // pb-4: el cuadro de Peso/Reps en modo destacado no tiene
+                            // padding propio (0 !important, ver globals.css) y acá no
+                            // hay ningún otro contenedor que le dé aire abajo — el
+                            // botón "Terminar ronda y descansar" quedaba pegado al
+                            // borde de la tarjeta (pedido de Alejandro, 2026-08-17).
+                            className="pb-4"
                             ref={(nodo) => {
                               if (nodo) filaNodoRef.current[paso.pos].set(paso.numero, nodo);
                               else filaNodoRef.current[paso.pos].delete(paso.numero);
