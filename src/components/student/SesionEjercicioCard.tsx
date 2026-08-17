@@ -75,14 +75,19 @@ export type FilaSerieHandle = {
 
 const initialState: GuardarSeriesState = { error: null };
 
-type RegistroSerieCompacto = {
+export type RegistroSerieCompacto = {
   peso: string;
   reps: string;
   rir: string;
   esPesoCorporal: boolean;
 };
 
-function textoRegistroSerie(
+/** Exportada: SesionGrupoCard.tsx la reusa para el resumen de un paso de
+ * biserie ya completado — antes reimplementaba su propio formato y se
+ * olvidaba de mostrar las repeticiones realmente hechas (pedido de
+ * Alejandro, 2026-08-17: mismo criterio crítico que ya destapó el hueco de
+ * "Última vez/Objetivo"). */
+export function textoRegistroSerie(
   registro: RegistroSerieCompacto | undefined,
   esTiempo: boolean,
   compacto = false,

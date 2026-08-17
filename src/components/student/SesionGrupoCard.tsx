@@ -13,6 +13,7 @@ import {
   TarjetaImpulsoVip,
   formatUltimo,
   resolverTecnica,
+  textoRegistroSerie,
   type FilaSerieHandle,
   type SesionEjercicioCardHandle,
 } from "@/components/student/SesionEjercicioCard";
@@ -842,6 +843,12 @@ export const SesionGrupoCard = forwardRef<
                     const esImpulso = ej.intervencionesImpulso.some(
                       (intervencion) => intervencion.serieObjetivo === paso.numero && intervencion.estado !== "cancelada"
                     );
+                    // Antes el resumen de un paso ya hecho mostraba el peso y el RIR
+                    // pero nunca las repeticiones REALMENTE hechas (solo el rango
+                    // programado, fijo, arriba) — si el alumno hizo 9 en vez de
+                    // 12-15, eso desaparecía apenas marcaba la serie. Reusa el mismo
+                    // formato del ejercicio suelto (pedido de Alejandro, 2026-08-17).
+                    const registroTexto = hecho ? textoRegistroSerie(registroPaso, esTiempoPorPos[paso.pos]) : null;
                     return (
                       <div
                         key={`${paso.pos}-${paso.numero}-${montado ? "local" : "server"}`}
@@ -859,10 +866,7 @@ export const SesionGrupoCard = forwardRef<
                             <strong>{ej.nombre}</strong>
                             <small>
                               {ej.seriesProgramadas}× {ej.repsProgramadas}
-                              {hecho && (registroPaso.esPesoCorporal || registroPaso.peso) && (
-                                <> · {registroPaso.esPesoCorporal ? "Peso corporal" : `${registroPaso.peso} kg`}</>
-                              )}
-                              {hecho && registroPaso.rir && <> · RIR {registroPaso.rir}</>}
+                              {registroTexto && <> · {registroTexto}</>}
                             </small>
                           </span>
                           <button
