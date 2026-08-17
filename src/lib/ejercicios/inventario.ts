@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type UsoEjercicioInventario = {
@@ -11,8 +12,14 @@ type FilaUso = { ejercicio_id: string | null; nombre: string };
 
 /** Lee todos los nombres usados por las rutinas, no solo los primeros 1.000
  * que entrega Supabase por defecto. Así el inventario sigue siendo confiable
- * cuando crezca la cantidad de alumnos y versiones históricas. */
-export async function obtenerInventarioUsosRutina(): Promise<{
+ * cuando crezca la cantidad de alumnos y versiones históricas.
+ *
+ * Recorre toda `rutina_dia_ejercicios` (paginada), por lo que es la consulta
+ * más pesada de `/admin/ejercicios` — medido en ~1-2s solo esta parte. Se
+ * cachea 60s (`obtenerInventarioUsosRutina`, más abajo): son conteos de uso,
+ * no algo que necesite estar al segundo, y así no se repite ese costo en
+ * cada carga de la pantalla dentro de esa ventana. */
+async function calcularInventarioUsosRutina(): Promise<{
   usosPorEjercicio: Record<string, UsoEjercicioInventario>;
   nombresSinVincular: { nombre: string; cantidad: number }[];
 }> {
@@ -53,3 +60,9 @@ export async function obtenerInventarioUsosRutina(): Promise<{
       .sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" })),
   };
 }
+
+export const obtenerInventarioUsosRutina = unstable_cache(
+  calcularInventarioUsosRutina,
+  ["inventario-usos-rutina"],
+  { revalidate: 60, tags: ["inventario-usos-rutina"] }
+);

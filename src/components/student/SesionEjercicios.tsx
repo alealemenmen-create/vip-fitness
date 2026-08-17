@@ -1,8 +1,8 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronRight, ChevronsLeft, ChevronsRight, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { FinalizarEntrenamiento } from "@/components/student/FinalizarEntrenamiento";
 import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/components/student/SesionEjercicioCard";
 import { SesionGrupoCard } from "@/components/student/SesionGrupoCard";
@@ -10,6 +10,10 @@ import { ControlDescansoSesion } from "@/components/student/ControlDescansoSesio
 import { resolverGrupoTecnica, tamanoGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
+
+/** Evita el portal en el primer render del servidor (no existe `document`
+ * ahí) — mismo patrón que `BotonIniciarRutinaFijo`. */
+const suscribirSinCambios = () => () => {};
 
 /**
  * Parte la lista de ejercicios en grupos consecutivos de la misma familia de
@@ -129,6 +133,7 @@ export function SesionEjercicios({
 }) {
   const handles = useRef(new Map<string, SesionEjercicioCardHandle>());
   const seccionEnfocadaRef = useRef<HTMLElement>(null);
+  const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
   const grupos = agruparPorTecnica(ejercicios);
   const [gruposTerminadosEnVista, setGruposTerminadosEnVista] = useState<Set<string>>(() => new Set());
   const indiceActivo = Math.max(
@@ -146,10 +151,17 @@ export function SesionEjercicios({
   >(null);
   const avisoSiguienteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hayGrupoSiguienteRef = useRef(false);
+  const listaTiraRef = useRef<HTMLOListElement>(null);
+  const pildoraActivaRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!tituloSesion) return;
     window.dispatchEvent(new CustomEvent("vip:titulo-rutina", { detail: tituloSesion }));
   }, [tituloSesion]);
+  // Mantiene la pastilla del ejercicio actual visible en la tira al navegar
+  // (rutinas largas no entran enteras en el ancho de la pantalla).
+  useEffect(() => {
+    pildoraActivaRef.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [indiceVisible]);
 
   /**
    * Al montar, la tarjeta activa hace su propio `scrollIntoView({block:
@@ -481,32 +493,72 @@ export function SesionEjercicios({
               onCambio={setPreferenciaDescansoLocal}
             />
           </div>}
-          <nav className="navegacion-flotante-sesion" aria-label="Navegar entre ejercicios">
-            <button
-              type="button"
-              onClick={() => irA(indiceVisible - 1)}
-              disabled={!grupoAnterior}
-              aria-label="Ejercicio anterior"
-            >
-              {/* strokeWidth más fino (pedido de Alejandro, 2026-08-16): la
-                  elongación vertical vive en CSS (`.navegacion-flotante-sesion
-                  svg { transform: scaleY(2.2) }`), no acá — así no hay que
-                  tocar el `size` ni el layout del botón. */}
-              <ChevronsLeft size={79} strokeWidth={0.32} />
-            </button>
-            <button
-              type="button"
-              onClick={() => irA(indiceVisible + 1)}
-              disabled={!grupoSiguiente}
-              aria-label="Siguiente ejercicio"
-              data-aviso-siguiente={avisandoSiguienteEjercicio ? "true" : undefined}
-            >
-              <ChevronsRight size={79} strokeWidth={0.32} />
-            </button>
-          </nav>
-
+          {/* La tira de navegación de acá abajo es fija (portal a
+              document.body, ver más abajo) y no reserva su propio espacio
+              en el flujo — este espaciador evita que quede tapando el
+              último control de la tarjeta. */}
+          <div className="espaciador-tira-navegacion" aria-hidden />
         </section>
       ) : null}
+
+      {/* Reemplaza las dos flechas gigantes flotantes que se superponían a
+          PESO/REPETICIONES/RIR y a la fila de "Nota"/"Cerrar sin completar"
+          (ya se habían atenuado casi hasta la invisibilidad el 2026-08-16 a
+          pedido de Alejandro, pero seguían molestando — 79px de alto
+          centrados a 62svh alcanzan varias filas de contenido). Ahora es una
+          tira fija arriba de la barra de navegación inferior (pedido:
+          "fijo, sin scroll"), con una pastilla por ejercicio/bloque para
+          saltar directo a cualquiera — misma función que el mapa de rutina
+          (☰) pero sin abrir pantalla completa.
+          Por portal a document.body (ver BotonIniciarRutinaFijo): dentro de
+          `.pantalla-scroll` un `position: fixed` normal queda "fijo"
+          respecto a ese contenedor, que es el que scrollea. */}
+      {montado && !soloLectura && !modoCorreccion && grupoVisible && createPortal(
+        <nav className="tira-navegacion-sesion" aria-label="Navegar entre ejercicios">
+          <button
+            type="button"
+            className="boton-tira-navegacion"
+            onClick={() => irA(indiceVisible - 1)}
+            disabled={!grupoAnterior}
+            aria-label="Ejercicio anterior"
+          >
+            <ChevronLeft size={18} strokeWidth={2.5} />
+          </button>
+          <ol className="lista-tira-navegacion" ref={listaTiraRef}>
+            {grupos.map((grupo, indice) => {
+              const completa = grupo.every((ejercicio) => ejercicio.completado);
+              const estado = completa ? "completa" : indice === indiceVisible ? "actual" : "pendiente";
+              return (
+                <li key={grupo[0].sesionEjercicioId}>
+                  <button
+                    type="button"
+                    ref={indice === indiceVisible ? pildoraActivaRef : undefined}
+                    onClick={() => irA(indice)}
+                    data-estado={estado}
+                    aria-current={indice === indiceVisible ? "step" : undefined}
+                    aria-label={`Ir a ${grupo.map((ejercicio) => ejercicio.nombre).join(" + ")}${
+                      completa ? ", completado" : indice === indiceVisible ? ", ejercicio actual" : ", pendiente"
+                    }`}
+                  >
+                    {completa ? <Check size={13} strokeWidth={3} /> : indice + 1}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+          <button
+            type="button"
+            className="boton-tira-navegacion"
+            onClick={() => irA(indiceVisible + 1)}
+            disabled={!grupoSiguiente}
+            aria-label="Siguiente ejercicio"
+            data-aviso-siguiente={avisandoSiguienteEjercicio ? "true" : undefined}
+          >
+            <ChevronRight size={18} strokeWidth={2.5} />
+          </button>
+        </nav>,
+        document.body
+      )}
 
       {mostrarRutina && createPortal(
         <div className="fondo-mapa-rutina" role="dialog" aria-modal="true" aria-label="Toda la rutina">

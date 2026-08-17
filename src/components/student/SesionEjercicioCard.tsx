@@ -18,7 +18,6 @@ import {
   X,
   AlertCircle,
   Save,
-  Target,
   Zap,
   TrendingUp,
   ShieldAlert,
@@ -463,33 +462,24 @@ function FotoReferenciaAmpliable({
         }
         style={tamano}
       >
-        {/* Relleno borroso detrás de la foto: la misma imagen ampliada y
-            desenfocada, tapando lo que sobra a los costados. Sin esto quedaban
-            dos franjas grises que se leían como un error de la foto. Va con
-            opacidad alta a propósito — tiene que parecer una continuación del
-            fondo del gimnasio, no un borde. */}
-        <Image
-          src={srcPrincipal}
-          alt=""
-          aria-hidden
-          fill
-          sizes={tamanoImagen}
-          className="scale-125 object-cover opacity-80 blur-2xl"
-          style={{ objectPosition: `${posicionX}% ${posicionY}%` }}
-        />
         <Image
           src={srcPrincipal}
           alt={`Foto de referencia de ${nombre}`}
           fill
           sizes={tamanoImagen}
-          // Siempre `object-contain`: la persona del instructivo tiene que
-          // entrar ENTERA en el cuadro. Con `object-cover` (lo que hacían las
-          // fotos con miniatura recortada) el recorte automático le cortaba la
-          // cabeza o los pies según la proporción del cuadro, y se veía mal.
-          // Lo que sobra a los costados lo tapa el relleno borroso de atrás,
-          // así que el cuadro sigue viéndose lleno.
-          className={destacado ? "z-[1] object-cover" : "z-[1] object-contain object-center"}
-          style={destacado ? { objectPosition: `${posicionX}% ${posicionY}%` } : undefined}
+          // `object-cover` con el encuadre que el entrenador ya eligió a mano
+          // (arrastrando el círculo de "Vista cuadrada del alumno" en
+          // /admin/ejercicios, `fotoCuadradaX`/`fotoCuadradaY`) — llega acá
+          // como `posicionX`/`posicionY`. Antes esto era siempre
+          // `object-contain` con un relleno borroso detrás tapando los
+          // costados: entraba la persona entera, pero en fotos no cuadradas
+          // (la mayoría, tomadas con el celular) el cuadro se veía con
+          // espacio vacío. Como el encuadre ahora lo define una persona
+          // (no un recorte automático que cortaba cabeza o pies sin criterio),
+          // usarlo con `object-cover` rellena el cuadro completo sin ese
+          // problema.
+          className="z-[1] object-cover"
+          style={{ objectPosition: `${posicionX}% ${posicionY}%` }}
         />
         {destacado && videoCloudflareListo && (
           <VideoCloudflareAutomatico
@@ -828,8 +818,8 @@ function ReportarDolorPanel({
     );
   }
 
-  if (!abierto) {
-    return (
+  return (
+    <>
       <button
         type="button"
         onClick={() => setAbierto(true)}
@@ -837,57 +827,76 @@ function ReportarDolorPanel({
       >
         <HeartCrack size={13} strokeWidth={2.5} /> Alguna molestia
       </button>
-    );
-  }
-
-  return (
-    <form action={formAction} className="tarjeta-impulso-vip tarjeta-impulso-vip-alerta col-span-2 space-y-2">
-      <input type="hidden" name="sesion_id" value={sesionId} />
-      <input type="hidden" name="sesion_ejercicio_id" value={sesionEjercicioId} />
-      <input type="hidden" name="dia_ejercicio_id" value={diaEjercicioId} />
-      <p className="text-micro font-semibold text-warning">Contale a tu entrenador qué sentiste</p>
-      <label className="block">
-        <span className="text-micro text-text-tertiary">Zona (opcional)</span>
-        <input
-          name="zona"
-          type="text"
-          placeholder="Ej: hombro derecho"
-          className="text-caption mt-0.5 w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-text outline-none placeholder:text-text-tertiary"
-        />
-      </label>
-      <div>
-        <span className="text-micro text-text-tertiary">Intensidad (opcional)</span>
-        <div className="mt-1 flex gap-1.5">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <label key={n} className="pill-dificultad">
-              <input type="radio" name="intensidad" value={n} className="sr-only" />
-              {n}
-            </label>
-          ))}
-        </div>
-      </div>
-      <label className="flex items-center gap-2">
-        <input type="checkbox" name="detuvo_ejercicio" value="true" className="h-4 w-4" />
-        <span className="text-micro text-text-secondary">Tuve que parar el ejercicio</span>
-      </label>
-      {state.error && <p className="text-caption text-error">{state.error}</p>}
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={pending}
-          className="h-9 flex-1 rounded-full bg-warning text-caption font-semibold text-black disabled:opacity-60"
-        >
-          {pending ? "Enviando…" : "Enviar"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setAbierto(false)}
-          className="h-9 rounded-full border border-border px-3 text-caption text-text-secondary"
-        >
-          Cancelar
-        </button>
-      </div>
-    </form>
+      {/* Modal flotante, no un bloque que empuja el resto de la tarjeta hacia
+          abajo (pedido de Alejandro: "muy grande", forzaba scroll para ver
+          el resto de la pantalla) — mismo patrón que el resto de la app
+          (ver CancelarSesionBoton). */}
+      {abierto &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center"
+            onClick={() => setAbierto(false)}
+          >
+            <form
+              action={formAction}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm space-y-2.5 rounded-2xl border border-border bg-surface p-4"
+            >
+              <input type="hidden" name="sesion_id" value={sesionId} />
+              <input type="hidden" name="sesion_ejercicio_id" value={sesionEjercicioId} />
+              <input type="hidden" name="dia_ejercicio_id" value={diaEjercicioId} />
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-body font-medium text-text">Contale a tu entrenador qué sentiste</p>
+                <button type="button" aria-label="Cerrar" onClick={() => setAbierto(false)} className="text-text-tertiary">
+                  <X size={18} />
+                </button>
+              </div>
+              <label className="block">
+                <span className="text-micro text-text-tertiary">Zona (opcional)</span>
+                <input
+                  name="zona"
+                  type="text"
+                  placeholder="Ej: hombro derecho"
+                  className="text-caption mt-0.5 w-full rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-text outline-none placeholder:text-text-tertiary"
+                />
+              </label>
+              <div>
+                <span className="text-micro text-text-tertiary">Intensidad (opcional)</span>
+                <div className="mt-1 flex gap-1.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <label key={n} className="pill-dificultad">
+                      <input type="radio" name="intensidad" value={n} className="sr-only" />
+                      {n}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" name="detuvo_ejercicio" value="true" className="h-4 w-4" />
+                <span className="text-micro text-text-secondary">Tuve que parar el ejercicio</span>
+              </label>
+              {state.error && <p className="text-caption text-error">{state.error}</p>}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAbierto(false)}
+                  className="h-10 flex-1 rounded-full border border-border text-caption text-text-secondary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="h-10 flex-1 rounded-full bg-warning text-caption font-semibold text-black disabled:opacity-60"
+                >
+                  {pending ? "Enviando…" : "Enviar"}
+                </button>
+              </div>
+            </form>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 
@@ -2737,15 +2746,16 @@ export const SesionEjercicioCard = forwardRef<
 
       {!modoEnfocado && <TarjetaImpulsoVip recomendacion={recomendacionImpulso} />}
 
+      {/* Sin ícono (Timer/Target): pedido de Alejandro — a una sola columna
+          menos, "Objetivo" entra en una sola línea sin cortarse ni pasar a
+          la siguiente. */}
       <div className="resumen-serie-foco">
         <p className="registro-anterior-foco">
-          <Timer size={21} />
           <span>Última vez</span>
           <i>—</i>
           <strong>{ultimoTexto ?? ""}</strong>
         </p>
         <p className="objetivo-serie-foco">
-          <Target size={21} />
           <span>Objetivo</span>
           <i>{pesoObjetivoTexto === "— kg" ? "" : "—"}</i>
           <strong>
@@ -3009,85 +3019,91 @@ export const SesionEjercicioCard = forwardRef<
               así que desaparece apenas deja de tener sentido. Sigue estando
               mientras falten series, que es su uso real: saltarse los
               descansos y dar el ejercicio por terminado. */}
-          {!ejercicio.completado && seriesHechas.size < ejercicio.seriesProgramadas && (!modoEnfocado || confirmandoIncompleto) && (
-            confirmandoIncompleto ? (
-              confirmandoDeVerdad ? (
-                <div className="panel-cerrar-incompleto space-y-2">
-                  <p className="text-caption font-semibold text-warning">
-                    ¿De verdad hiciste las {ejercicio.seriesProgramadas} series?
-                  </p>
-                  <p className="text-micro text-text-secondary">
-                    Van a quedar marcadas como hechas sin kilos ni repeticiones exactas, pero
-                    cuentan entero para tu progreso. Confirmá solo si de verdad las hiciste.
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setConfirmandoDeVerdad(false)}
-                      className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text"
-                    >
-                      No, volver
-                    </button>
-                    <button
-                      type="button"
-                      onClick={marcarEjercicioListo}
-                      className="text-caption h-10 flex-1 rounded-[12px] border border-vip/60 font-bold text-vip"
-                    >
-                      Sí, las hice
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="panel-cerrar-incompleto space-y-2">
-                  <p className="text-caption font-semibold text-warning">
-                    Te faltan {ejercicio.seriesProgramadas - seriesHechas.size} de{" "}
-                    {ejercicio.seriesProgramadas} series
-                  </p>
-                  <p className="text-micro text-text-secondary">
-                    Si cierras el ejercicio ahora, esas series quedan marcadas como hechas y sin kilos
-                    ni repeticiones registradas. Tu entrenador lo va a ver así.
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setConfirmandoIncompleto(false);
-                        setConfirmandoDeVerdad(false);
-                      }}
-                      className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text"
-                    >
-                      Sigo entrenando
-                    </button>
-                    <button
-                      type="button"
-                      onClick={marcarEjercicioListo}
-                      className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text-secondary"
-                    >
-                      Cerrar igual
-                    </button>
-                  </div>
-                  {/* Pequeñita a propósito: el uso real es "cerrar igual"
-                      cuando de verdad falta algo; esta es la salida para el
-                      caso puntual de "sí lo hice, me olvidé de tocar Listo". */}
-                  <button
-                    type="button"
-                    onClick={() => setConfirmandoDeVerdad(true)}
-                    className="text-micro block w-full text-center text-text-secondary underline decoration-dotted underline-offset-2"
-                  >
-                    Ya la hice, solo olvidé anotarla
-                  </button>
-                </div>
-              )
-            ) : (
-              <button
-                type="button"
-                onClick={marcarEjercicioListo}
-                className="boton-completar-ejercicio flex h-11 w-full items-center justify-center gap-2 rounded-[14px] font-bold"
-              >
-                <Check size={14} strokeWidth={3.5} /> Completar y guardar
-              </button>
-            )
+          {!ejercicio.completado && seriesHechas.size < ejercicio.seriesProgramadas && !modoEnfocado && (
+            <button
+              type="button"
+              onClick={marcarEjercicioListo}
+              className="boton-completar-ejercicio flex h-11 w-full items-center justify-center gap-2 rounded-[14px] font-bold"
+            >
+              <Check size={14} strokeWidth={3.5} /> Completar y guardar
+            </button>
           )}
+          {/* Modal flotante, no un bloque inline (pedido de Alejandro: mismo
+              problema que "Alguna molestia" — empujaba el resto de la
+              tarjeta hacia abajo y forzaba scroll). */}
+          {!ejercicio.completado && seriesHechas.size < ejercicio.seriesProgramadas && confirmandoIncompleto &&
+            createPortal(
+              <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center">
+                {confirmandoDeVerdad ? (
+                  <div className="panel-cerrar-incompleto w-full max-w-sm space-y-2">
+                    <p className="text-caption font-semibold text-warning">
+                      ¿De verdad hiciste las {ejercicio.seriesProgramadas} series?
+                    </p>
+                    <p className="text-micro text-text-secondary">
+                      Van a quedar marcadas como hechas sin kilos ni repeticiones exactas, pero
+                      cuentan entero para tu progreso. Confirmá solo si de verdad las hiciste.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmandoDeVerdad(false)}
+                        className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text"
+                      >
+                        No, volver
+                      </button>
+                      <button
+                        type="button"
+                        onClick={marcarEjercicioListo}
+                        className="text-caption h-10 flex-1 rounded-[12px] border border-vip/60 font-bold text-vip"
+                      >
+                        Sí, las hice
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="panel-cerrar-incompleto w-full max-w-sm space-y-2">
+                    <p className="text-caption font-semibold text-warning">
+                      Te faltan {ejercicio.seriesProgramadas - seriesHechas.size} de{" "}
+                      {ejercicio.seriesProgramadas} series
+                    </p>
+                    <p className="text-micro text-text-secondary">
+                      Si cierras el ejercicio ahora, esas series quedan marcadas como hechas y sin kilos
+                      ni repeticiones registradas. Tu entrenador lo va a ver así.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmandoIncompleto(false);
+                          setConfirmandoDeVerdad(false);
+                        }}
+                        className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text"
+                      >
+                        Sigo entrenando
+                      </button>
+                      <button
+                        type="button"
+                        onClick={marcarEjercicioListo}
+                        className="text-caption h-10 flex-1 rounded-[12px] border border-border font-semibold text-text-secondary"
+                      >
+                        Cerrar igual
+                      </button>
+                    </div>
+                    {/* Pequeñita a propósito: el uso real es "cerrar igual"
+                        cuando de verdad falta algo; esta es la salida para el
+                        caso puntual de "sí lo hice, me olvidé de tocar Listo". */}
+                    <button
+                      type="button"
+                      onClick={() => setConfirmandoDeVerdad(true)}
+                      className="text-micro block w-full text-center text-text-secondary underline decoration-dotted underline-offset-2"
+                    >
+                      Ya la hice, solo olvidé anotarla
+                    </button>
+                  </div>
+                )}
+              </div>,
+              document.body
+            )}
 
           {/* Se pregunta una sola vez, cuando ya se hicieron todas las
               series de este ejercicio — no antes, para no interrumpir el

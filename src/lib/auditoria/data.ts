@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISO, sumarDiasISO } from "@/lib/date";
 import { esDuracionImposible } from "./deteccion";
@@ -41,7 +42,7 @@ const PREFIJO_CLAVE_ENTRENAMIENTO = "entrenamiento:";
  * daba falso positivo en el 89% de las sesiones reales. Se sacó por
  * completo en vez de dejar una señal que no se puede confiar.
  */
-export async function obtenerHallazgosPendientes(): Promise<HallazgoAuditoria[]> {
+async function calcularHallazgosPendientes(): Promise<HallazgoAuditoria[]> {
   const admin = createAdminClient();
   const desde = sumarDiasISO(hoyISO(), -DIAS_VENTANA);
 
@@ -238,3 +239,17 @@ export async function obtenerHallazgosPendientes(): Promise<HallazgoAuditoria[]>
     return b.fecha.localeCompare(a.fecha);
   });
 }
+
+/**
+ * `calcularHallazgosPendientes` recorre 90 días de sesiones y todas las
+ * rutinas activas — es la parte más pesada de `/admin/pendientes` (medido
+ * hasta 4.6s). Se cachea 30s: son sospechas para que el entrenador decida,
+ * no algo que tenga que reflejar el segundo exacto, y evita repetir ese
+ * costo en cada carga de las tres pantallas que la usan (Pendientes,
+ * Auditoría, Más).
+ */
+export const obtenerHallazgosPendientes = unstable_cache(
+  calcularHallazgosPendientes,
+  ["hallazgos-pendientes"],
+  { revalidate: 30, tags: ["hallazgos-pendientes"] }
+);

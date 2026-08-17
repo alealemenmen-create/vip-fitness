@@ -1,25 +1,26 @@
 # Handoff 1.31 — recorte de video, tocar-para-reproducir, y un `.env.local` roto
 
-Fecha: 2026-08-16
-Rama de trabajo: `fix/quitar-boton-reproduccion-automatica`
-Estado: **hay un PR sin fusionar y un problema de entorno local sin cerrar** — leer "Punto de regreso" antes de tocar nada.
+Fecha: 2026-08-16 / cerrado 2026-08-17
+Rama de trabajo: `main` (ya no hace falta ninguna rama de PR pendiente)
+Estado: **todo fusionado y desplegado; local recuperado.** Queda una
+investigación a medio camino, ver punto 3 de "Pendiente para retomar".
 
 ## Punto de regreso
 
-- **PR #18, #19, #20, #21, #22 → ya fusionados y en producción.** Todo lo del
-  handoff 1.30 (galería multimedia, 4 fases) está viv en `vipfitness.cl`.
-- **PR #23 → abierto, NO fusionado todavía:**
-  https://github.com/alealemenmen-create/vip-fitness/pull/23
-  (`fix/quitar-boton-reproduccion-automatica`). Quita un botón amarillo
-  "Reproducción automática" que se había agregado en el PR #22 y que
-  Alejandro pidió sacar porque "dañaba el diseño de la pantalla entera".
-  Verificado en local antes de abrirlo (tsc, tests, lint, build, y
-  visualmente). **Primer paso de mañana: fusionar este PR si Alejandro no
-  encontró nada más raro, y confirmar en producción.**
-- **`.env.local` quedó roto a mitad de sesión** — ver sección propia abajo.
-  Necesita que Alejandro pegue el valor de `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  (es público, seguro pegarlo en el chat) antes de que el servidor local
-  vuelva a levantar bien.
+- **PR #18 a #23 → todos fusionados y en producción**, incluido el #23
+  (quitar el botón amarillo "Reproducción automática"). Todo lo del handoff
+  1.30 más los fixes de esta sesión están vivos en `vipfitness.cl`.
+- **PR #24 (este mismo handoff) → fusionado.**
+- **`.env.local` → recuperado.** Alejandro pasó el `anon`/`publishable key`
+  nuevo de Supabase (formato `sb_publishable_...`) y quedó cargado. Server
+  local levanta bien de nuevo.
+  **Importante — rotar una clave:** de paso pasó también el
+  `sb_secret_...` (equivalente al `SUPABASE_SERVICE_ROLE_KEY`) directo en
+  el chat. Quedó cargado en `.env.local` porque ya estaba expuesto igual,
+  pero **sigue pendiente rotarla** en Supabase → Settings → API — mismo
+  criterio que el token de Cloudflare que quedó pendiente de rotar en el
+  handoff 1.30 (ver `PAGOS_SERVICIOS.md`/memoria de esa sesión). Dos
+  credenciales reales pendientes de rotar, no una.
 - Sin migraciones nuevas pendientes de aplicar en este handoff (la 0102 del
   handoff anterior ya se aplicó).
 
@@ -100,43 +101,33 @@ marcadas "Sensitive" en Vercel, y con los permisos actuales la CLI no puede
 traer el valor real, solo un marcador). Esto rompió el servidor local
 (`Invalid supabaseUrl`) — **la web real no se tocó, sigue intacta.**
 
-Recuperado por mi cuenta (no son secretos, son valores públicos):
+Recuperado durante la sesión:
 - `NEXT_PUBLIC_SUPABASE_URL` → restaurado a `https://iowuocmxqwuddickiofi.supabase.co`
-  (lo tenía identificado de las URLs de fotos vistas durante la sesión).
+  (dato público, ya lo tenía identificado de las URLs de fotos vistas).
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` → Alejandro pasó el `publishable key`
+  nuevo de Supabase. Cargado.
+- `SUPABASE_SERVICE_ROLE_KEY` → Alejandro pasó el `secret key` nuevo de
+  Supabase (sin que se lo pidiera — ver aviso de rotación arriba). Cargado
+  igual, ya que quedó expuesto de todos modos.
 
-**Pendiente, bloqueando local:**
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — es pública por diseño (viaja en el
-  navegador de cualquier visitante), segura de pegar en el chat. Sacarla de
-  Supabase → el proyecto → Settings → API → "anon public" key.
-- Todo lo demás que quedó en `"[SENSITIVE]"` (`CLOUDFLARE_ACCOUNT_ID`,
-  `CLOUDFLARE_STREAM_API_TOKEN`, `CLOUDFLARE_STREAM_CUSTOMER_CODE`,
-  `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`,
-  `CRON_SECRET`, `NEXT_PUBLIC_SITE_URL`) son secretos de verdad — **no
-  intentar sacarlos por scraping del bundle ni ningún atajo** (se intentó
-  una vez con el anon key vía fetch del JS del sitio real y el propio
-  sistema de seguridad lo bloqueó, correctamente). Si Alejandro quiere
-  probar Cloudflare en local, tiene que pegarlos él mismo directo en el
-  archivo, no por chat.
-- Sin esas variables, local sirve para todo lo que no dependa de Cloudflare
-  Stream, IA, o envío de correos — que es la mayoría de la UI y la lógica
-  de rutinas/ejercicios.
+**Sigue en `"[SENSITIVE]"`, sin recuperar** (`CLOUDFLARE_ACCOUNT_ID`,
+`CLOUDFLARE_STREAM_API_TOKEN`, `CLOUDFLARE_STREAM_CUSTOMER_CODE`,
+`ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `CRON_SECRET`,
+`NEXT_PUBLIC_SITE_URL`) — son secretos de verdad. **No intentar sacarlos
+por scraping del bundle ni ningún atajo** (se intentó una vez con el anon
+key vía fetch del JS del sitio real y el propio sistema de seguridad lo
+bloqueó, correctamente). Si en algún momento hace falta probar Cloudflare
+en local, que Alejandro los pegue él mismo directo en el archivo, no por
+chat. Sin esas variables, local sirve para todo lo que no dependa de
+Cloudflare Stream, IA, o envío de correos — que es la mayoría de la UI y
+la lógica de rutinas/ejercicios.
 
 ## Pendiente para retomar
 
 1. **Fusionar PR #23** (quitar botón amarillo) si no hay objeciones nuevas.
 2. **Terminar de arreglar `.env.local`** con el anon key de Alejandro.
-3. **Tarea que quedó a mitad de camino, la que motivó tocar el `.env.local`:**
-   Alejandro mandó una captura de los cuadritos chicos de foto en la lista
-   "Lo que harás hoy" (`/alumno/entrenar`, antes de entrar a un ejercicio)
-   pidiendo que se vea a la persona completa, y dijo que "esto se veía
-   hasta que tú pusiste tu mano" (sugiere una regresión, sin confirmar
-   causa todavía). Investigación a medio camino cuando se cortó: el
-   componente es `CalendarioEntrenamiento.tsx` → `CuadroFotoReferencia`
-   `compacto` (`tamanoCompacto={52}`), que usa `object-contain` (no
-   `object-cover`) — en teoría no debería recortar a la persona. No se
-   llegó a confirmar por qué la captura de Alejandro se ve distinta a lo
-   esperado por código. **Retomar leyendo este párrafo primero, antes de
-   tocar nada del recorte de fotos.**
+3. ~~Tarea que quedó a mitad de camino, la que motivó tocar el `.env.local`~~
+   — **resuelta**, ver sección "Sesión 2026-08-17 (tarde)" más abajo.
 4. Del handoff 1.30, todavía sin tocar: limpieza de Cloudflare (videos
    archivados que se acumulan), "Agregar otra toma" en Modo gimnasio no
    distingue portada vs. galería, convención de nombres para cámara
@@ -144,6 +135,87 @@ Recuperado por mi cuenta (no son secretos, son valores públicos):
 5. Alejandro sigue con ~100 fotos y videos de su iPhone pendientes de subir
    por Carga masiva — no se llegó a hacer la carga real en esta sesión,
    quedó en pruebas con el jumping jack.
+
+## Sesión 2026-08-17 (tarde) — botones rotos y encuadre de fotos
+
+Rama de trabajo: por abrir al final de esta sesión (ver commits de hoy).
+
+### 1. El localhost tenía TODOS los botones desconectados
+
+Alejandro reportó pánico total: "la mayoría de botones no funcionan ni en mi
+teléfono ni en Chrome" (ojito de contraseña, "eliminar de la galería", etc.),
+temiendo que se fuera a dañar la web real. **La web real nunca estuvo en
+riesgo** — el código local era idéntico a `origin/main` en todo momento, sin
+ningún commit ni push de por medio.
+
+Causa real, confirmada con evidencia (no es una sospecha): una línea que
+`vercel env pull` dejó en `.env.local` en una sesión anterior,
+`VERCEL_GIT_COMMIT_SHA=""` (string vacío, no ausente). `next.config.ts` hace
+`process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? process.env.NEXT_DEPLOYMENT_ID`
+para armar `deploymentId` — el comentario del código asume que en local esa
+variable "queda undefined", pero un string vacío no es `undefined`, así que
+`??` no cae al lado derecho: `deploymentId` terminaba siendo `""` en vez de
+`undefined`. Con eso seteado, Next.js activa su mecanismo de detectar
+"cliente y servidor de builds distintos" y bloquea la hidratación de React
+por completo — el HTML se ve perfecto, pero ningún botón tiene su lógica
+conectada (confirmado con `__reactFiber$`/`__reactProps$` ausentes en TODA la
+página, comparado contra la web real donde sí están presentes).
+
+**Arreglo:** comentar esa línea en `.env.local` (con `#`). No es un cambio de
+código — `.env.local` nunca se sube a git — así que si esto vuelve a pasar
+después de otro `vercel env pull`, hay que repetir el mismo paso: buscar
+`VERCEL_GIT_COMMIT_SHA=""` en `.env.local` y comentarla o borrarla.
+
+De paso, mientras se investigaba: `npm ci` + `npm rebuild sharp` (dos
+paquetes tenían sus scripts de instalación bloqueados por `allowScripts`, no
+era la causa del bug de arriba pero no está de más tenerlo reinstalado
+limpio).
+
+### 2. Admin lento: `/admin/pendientes` y `/admin/ejercicios`
+
+Antes de encontrar el bug de arriba, se investigó por qué el panel de
+entrenador se sentía "pegado". Causa: consultas pesadas que se repetían en
+cada carga de pantalla sin ninguna caché.
+
+- `obtenerHallazgosPendientes` (`src/lib/auditoria/data.ts`) — recorre 90
+  días de sesiones y todas las rutinas activas para calcular el badge de
+  Auditoría. Ahora cacheada 30s con `unstable_cache`. Medido: 2.8s → 396ms en
+  cargas repetidas.
+- `obtenerInventarioUsosRutina` (`src/lib/ejercicios/inventario.ts`) — pagina
+  toda la tabla `rutina_dia_ejercicios`. Ahora cacheada 60s.
+
+**Deliberadamente NO se tocó** la biblioteca de fotos de `/admin/ejercicios`
+(`obtenerBibliotecaSinCache`): esa pantalla es donde el entrenador acaba de
+subir una foto y tiene que verla al instante, cachearla mostraría fotos
+viejas. Tampoco se tocó `/admin/alumnos`: ahí el problema es una cadena de
+consultas dependientes (no una sola pesada) y usa el cliente de sesión del
+usuario (con cookies), no el admin — cachearlo bien requiere cambiar cómo se
+conecta a la base, más riesgo. Queda pendiente si Alejandro quiere retomarlo.
+
+### 3. Encuadre de fotos que no rellenaba el cuadro completo
+
+Confirmado (no era una regresión de "poner la mano"): el encuadre cuadrado
+que Alejandro define a mano arrastrando el círculo de "Vista cuadrada del
+alumno" en `/admin/ejercicios` (`fotoCuadradaX`/`fotoCuadradaY`) se guardaba
+bien, pero **nunca se usaba** en los cuadros chicos de foto — `SesionEjercicioCard.tsx`
+→ `FotoReferenciaAmpliable` siempre usaba `object-contain` con un relleno
+borroso detrás tapando lo que sobraba a los costados, y ese relleno se nota
+mucho en fotos no cuadradas (la mayoría, tomadas con el celular en vertical
+— ej. "Jumping jacks").
+
+**Arreglo:** ahora usa `object-cover` con el `objectPosition` de
+`fotoCuadradaX`/`fotoCuadradaY` en vez de `object-contain` + relleno borroso,
+en todos los modos no destacados (afecta tanto "Lo que harás hoy" en
+`/alumno/entrenar` como la pantalla de registro de series en vivo,
+`/alumno/entrenar/sesion/[id]`, que comparten el mismo componente). Como el
+encuadre lo elige una persona (no un recorte automático), no debería volver
+a cortar cabezas ni pies — a diferencia del `object-cover` viejo que el
+comentario original del código describía como el motivo por el que se había
+cambiado a `object-contain`.
+
+Verificado visualmente en ambas pantallas, en viewport de celular real
+(375px) y en desktop. 443/443 tests, `tsc --noEmit` y `npm run lint` en
+verde.
 
 ## Notas para retomar
 
