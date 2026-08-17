@@ -28,6 +28,7 @@ import {
   solicitarSubidaDirecta,
 } from "@/lib/cloudflare/stream";
 import { normalizar } from "@/lib/alimentos/emparejar";
+import { archivarVideoReemplazado, registrarFotoPrincipal } from "./multimediaActions";
 
 /** Bloquea que el link pegado apunte a la red interna del servidor (SSRF) —
  * localhost, IPs privadas, o el endpoint de metadata de la nube. El link lo
@@ -317,46 +318,66 @@ export async function subirFotoEjercicio(
   // alumnos; todos los reportes pendientes de este ejercicio quedan resueltos
   // en el mismo paso. Best-effort para poder desplegar código antes de 0048.
   if (reemplazoFoto) {
-    await supabase
-      .from("reportes_fotos_ejercicios")
-      .update({ estado: "resuelto", resuelto_en: new Date().toISOString(), resuelto_por: entrenador.userId })
-      .eq("ejercicio_id", ejercicioId)
-      .eq("estado", "pendiente");
-
-    // Y también los que quedaron huérfanos. Cuando un alumno pide la foto de
-    // algo que todavía no estaba en la biblioteca, el reporte se guarda sin
-    // `ejercicio_id`; después el entrenador da de alta el ejercicio y le sube
-    // la foto, pero el reporte seguía pendiente para siempre porque nada lo
-    // ligaba a la fila nueva. Se cierran comparando el texto reportado contra
-    // el nombre y los alias del ejercicio recién resuelto.
-    const { data: ejercicio } = await supabase
-      .from("ejercicios")
-      .select("nombre, aliases")
-      .eq("id", ejercicioId)
-      .maybeSingle();
-    if (ejercicio) {
-      const conocidos = new Set(
-        [ejercicio.nombre, ...(ejercicio.aliases ?? [])].map((n: string) => normalizar(n)),
-      );
-      const { data: huerfanos } = await supabase
-        .from("reportes_fotos_ejercicios")
-        .select("id, nombre_ejercicio")
-        .is("ejercicio_id", null)
-        .eq("estado", "pendiente");
-      const ids = (huerfanos ?? [])
-        .filter((r: { nombre_ejercicio: string }) => conocidos.has(normalizar(r.nombre_ejercicio)))
-        .map((r: { id: string }) => r.id);
-      if (ids.length > 0) {
-        await supabase
-          .from("reportes_fotos_ejercicios")
-          .update({ estado: "resuelto", resuelto_en: new Date().toISOString(), resuelto_por: entrenador.userId })
-          .in("id", ids);
-      }
-    }
+    await cerrarReportesFotoDeEjercicio(supabase, entrenador.userId, ejercicioId);
+    // Historial de portadas (Fase 3, §8.3) — aditivo, nunca hace fallar el
+    // guardado de la foto en sí si algo sale mal acá.
+    await registrarFotoPrincipal(ejercicioId, {
+      urlMiniatura: urlMini,
+      urlCompleta: urlCompleta,
+      hash: fotoHash,
+      creadoPor: entrenador.userId,
+    });
   }
 
   avisarCambios();
   return { error: null, ok: true };
+}
+
+/**
+ * Cierra los reportes de foto pendientes de un ejercicio — los que ya
+ * apuntan a su `ejercicio_id` y los huérfanos (reporte guardado antes de que
+ * el ejercicio existiera, sin `ejercicio_id`, comparado por nombre/alias).
+ *
+ * Compartido entre `subirFotoEjercicio` y `confirmarSubidaVideoCloudflare`:
+ * un alumno que pidió "la foto" de un ejercicio queda igual de resuelto si
+ * lo que se termina cargando es un clip — el reporte es sobre no tener
+ * ningún medio, no específicamente sobre una foto (instructivo §3.2, "todo
+ * reporte relacionado se cierra solo cuando el medio definitivo quedó
+ * vinculado correctamente"). Best-effort: nunca hace fallar a quien la llama.
+ */
+async function cerrarReportesFotoDeEjercicio(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  entrenadorId: string,
+  ejercicioId: string
+): Promise<void> {
+  await supabase
+    .from("reportes_fotos_ejercicios")
+    .update({ estado: "resuelto", resuelto_en: new Date().toISOString(), resuelto_por: entrenadorId })
+    .eq("ejercicio_id", ejercicioId)
+    .eq("estado", "pendiente");
+
+  const { data: ejercicio } = await supabase
+    .from("ejercicios")
+    .select("nombre, aliases")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+  if (!ejercicio) return;
+
+  const conocidos = new Set([ejercicio.nombre, ...(ejercicio.aliases ?? [])].map((n: string) => normalizar(n)));
+  const { data: huerfanos } = await supabase
+    .from("reportes_fotos_ejercicios")
+    .select("id, nombre_ejercicio")
+    .is("ejercicio_id", null)
+    .eq("estado", "pendiente");
+  const ids = (huerfanos ?? [])
+    .filter((r: { nombre_ejercicio: string }) => conocidos.has(normalizar(r.nombre_ejercicio)))
+    .map((r: { id: string }) => r.id);
+  if (ids.length > 0) {
+    await supabase
+      .from("reportes_fotos_ejercicios")
+      .update({ estado: "resuelto", resuelto_en: new Date().toISOString(), resuelto_por: entrenadorId })
+      .in("id", ids);
+  }
 }
 
 /** Cierra manualmente un aviso falso o uno que no pudo vincularse a una fila
@@ -374,7 +395,7 @@ export async function resolverReporteFoto(formData: FormData): Promise<void> {
   revalidatePath("/admin/ejercicios");
 }
 
-export type CrearEjercicioState = { error: string | null; ok: boolean };
+export type CrearEjercicioState = { error: string | null; ok: boolean; id?: string };
 
 function generarSlug(nombre: string): string {
   return nombre
@@ -400,10 +421,10 @@ export async function crearEjercicioNuevo(
   const supabase = await createClient();
 
   const nombresTexto = String(formData.get("nombre") || "").trim();
-  const grupoMuscular = String(formData.get("grupo_muscular") || "") as GrupoMuscular;
-  const categoria = String(formData.get("categoria") || "") as CategoriaEjercicio;
-  const equipo = String(formData.get("equipo") || "") as EquipoEjercicio;
-  const patronMovimiento = String(formData.get("patron_movimiento") || "");
+  const grupoMuscularTexto = String(formData.get("grupo_muscular") || "").trim();
+  const categoriaTexto = String(formData.get("categoria") || "").trim();
+  const equipoTexto = String(formData.get("equipo") || "").trim();
+  const patronMovimiento = String(formData.get("patron_movimiento") || "").trim();
   const nivel = String(formData.get("nivel") || "intermedio") as NivelEjercicio;
   const descripcionCorta = String(formData.get("descripcion_corta") || "").trim() || null;
   const tecnica = String(formData.get("tecnica") || "").trim() || null;
@@ -424,12 +445,19 @@ export async function crearEjercicioNuevo(
     .filter(Boolean);
 
   if (!nombre) return { error: "Ponele un nombre al ejercicio.", ok: false };
-  if (!grupoMuscular) return { error: "Elegí el grupo muscular.", ok: false };
-  if (!categoria) return { error: "Elegí la categoría.", ok: false };
-  if (!equipo) return { error: "Elegí el equipo.", ok: false };
+  // Instructivo §7.1: el nombre es el único dato imprescindible en el alta
+  // rápida. Grupo/categoría/equipo pueden quedar sin cargar y completarse
+  // después desde "Completar ficha" (migración 0099, calidad_ficha) — pero
+  // si el entrenador cargó alguno, se le pide terminar los tres: una
+  // clasificación a medias (grupo sin equipo) es peor que ninguna, porque
+  // `emparejarEjercicio` la usaría igual para vetos de zona/equipo.
+  const clasificacionCompleta = !!(grupoMuscularTexto && categoriaTexto && equipoTexto);
+  if ((grupoMuscularTexto || categoriaTexto || equipoTexto) && !clasificacionCompleta) {
+    return { error: "Completá grupo, categoría y equipo los tres, o dejalos vacíos para clasificar después.", ok: false };
+  }
   if (!["principiante", "intermedio", "avanzado"].includes(nivel)) return { error: "Elegí un nivel válido.", ok: false };
-  if (!PATRONES_MOVIMIENTO_VALIDOS.includes(patronMovimiento as (typeof PATRONES_MOVIMIENTO_VALIDOS)[number])) {
-    return { error: "Elegí el tipo de movimiento.", ok: false };
+  if (patronMovimiento && !PATRONES_MOVIMIENTO_VALIDOS.includes(patronMovimiento as (typeof PATRONES_MOVIMIENTO_VALIDOS)[number])) {
+    return { error: "Ese tipo de movimiento no es válido.", ok: false };
   }
 
   let slug = generarSlug(nombre);
@@ -443,24 +471,45 @@ export async function crearEjercicioNuevo(
     .eq("slug", slug);
   if (count && count > 0) slug = `${slug}-${count + 1}`;
 
-  const { data: nuevo, error: errorInsert } = await supabase
+  const datosEjercicio = {
+    slug,
+    nombre,
+    aliases,
+    grupo_muscular: clasificacionCompleta ? (grupoMuscularTexto as GrupoMuscular) : null,
+    categoria: clasificacionCompleta ? (categoriaTexto as CategoriaEjercicio) : null,
+    equipo: clasificacionCompleta ? (equipoTexto as EquipoEjercicio) : null,
+    patron_movimiento: patronMovimiento || null,
+    nivel,
+    descripcion_corta: descripcionCorta,
+    tecnica,
+    errores_comunes: erroresComunes,
+    consejos,
+  };
+
+  let respuestaInsert = await supabase
     .from("ejercicios")
-    .insert({
-      slug,
-      nombre,
-      aliases,
-      grupo_muscular: grupoMuscular,
-      categoria,
-      equipo,
-      patron_movimiento: patronMovimiento,
-      nivel,
-      descripcion_corta: descripcionCorta,
-      tecnica,
-      errores_comunes: erroresComunes,
-      consejos,
-    })
+    .insert({ ...datosEjercicio, calidad_ficha: clasificacionCompleta ? "completa" : "requiere_clasificacion" })
     .select("id")
     .single();
+
+  // La migración 0099 (calidad_ficha + columnas de clasificación nullable)
+  // puede no haber corrido todavía contra esta base. "42703" es columna
+  // inexistente (calidad_ficha); "23502" es la violación NOT NULL de
+  // siempre en grupo_muscular/categoria/equipo si esa parte de la migración
+  // no llegó a aplicarse.
+  if (respuestaInsert.error && (respuestaInsert.error.code === "42703" || respuestaInsert.error.code === "23502")) {
+    if (!clasificacionCompleta) {
+      return {
+        error: "Esta base todavía no tiene la actualización para crear ejercicios sin clasificar — completá grupo, categoría y equipo por ahora.",
+        ok: false,
+      };
+    }
+    // Clasificación completa: el insert de siempre funciona igual sin la
+    // columna calidad_ficha, así que se reintenta sin ella.
+    respuestaInsert = await supabase.from("ejercicios").insert(datosEjercicio).select("id").single();
+  }
+
+  const { data: nuevo, error: errorInsert } = respuestaInsert;
 
   if (errorInsert || !nuevo) {
     return { error: "No se pudo crear el ejercicio. Probá de nuevo.", ok: false };
@@ -482,7 +531,7 @@ export async function crearEjercicioNuevo(
       // El ejercicio ya quedó creado — no se pierde el alta por un problema
       // con la foto, se avisa aparte para que la suba de nuevo desde la
       // galería.
-      return { error: `Ejercicio creado, pero la foto falló: ${resultadoFoto.error}`, ok: true };
+      return { error: `Ejercicio creado, pero la foto falló: ${resultadoFoto.error}`, ok: true, id: nuevo.id };
     }
   }
 
@@ -491,15 +540,62 @@ export async function crearEjercicioNuevo(
     datosVideo.set("ejercicio_id", nuevo.id);
     datosVideo.set("video_url", videoUrl);
     const resultadoVideo = await guardarVideoEjercicio({ error: null, ok: false }, datosVideo);
-    if (resultadoVideo.error) return { error: `Ejercicio creado, pero el video falló: ${resultadoVideo.error}`, ok: true };
+    if (resultadoVideo.error) {
+      return { error: `Ejercicio creado, pero el video falló: ${resultadoVideo.error}`, ok: true, id: nuevo.id };
+    }
   }
 
   avisarCambios();
-  return { error: null, ok: true };
+  // El id viaja siempre que ok:true — el alta rápida lo necesita para poder
+  // subir un clip de Cloudflare después de crear la ficha (instructivo §7.5):
+  // ese camino recién puede vincular un video a un ejercicio que ya existe.
+  return { error: null, ok: true, id: nuevo.id };
 }
 
 export type ActualizarNombreState = { error: string | null; ok: boolean };
 export type ActualizarDetallesState = { error: string | null; ok: boolean };
+
+export type AgregarAliasState = { error: string | null; ok: boolean; mensaje?: string };
+
+/**
+ * Suma un nombre suelto como alias sin tocar los demás — el atajo para el
+ * caso de todos los días: "esto también se llama así". A diferencia de
+ * `actualizarNombreEjercicio`, que reescribe la lista entera separada por
+ * "/", acá solo hace falta escribir el nombre nuevo; no hay que copiar ni
+ * repetir los alias que ya estaban.
+ */
+export async function agregarAliasEjercicio(
+  _prevState: AgregarAliasState,
+  formData: FormData,
+): Promise<AgregarAliasState> {
+  await requireRol(["entrenador", "admin"]);
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  const alias = String(formData.get("alias") || "").trim();
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+  if (!alias) return { error: "Escribí un nombre.", ok: false };
+
+  const supabase = await createClient();
+  const { data: ejercicio, error: errorLectura } = await supabase
+    .from("ejercicios")
+    .select("id,nombre,aliases")
+    .eq("id", ejercicioId)
+    .maybeSingle();
+  if (errorLectura || !ejercicio) return { error: "No se encontró ese ejercicio.", ok: false };
+
+  if (normalizar(alias) === normalizar(ejercicio.nombre)) {
+    return { error: `"${alias}" ya es el nombre principal de ${ejercicio.nombre}.`, ok: false };
+  }
+  if ((ejercicio.aliases ?? []).some((item: string) => normalizar(item) === normalizar(alias))) {
+    return { error: `"${alias}" ya estaba en la lista de ${ejercicio.nombre}.`, ok: false };
+  }
+
+  const aliases = [...(ejercicio.aliases ?? []), alias];
+  const { error } = await supabase.from("ejercicios").update({ aliases }).eq("id", ejercicioId);
+  if (error) return { error: "No se pudo guardar. Probá de nuevo.", ok: false };
+
+  avisarCambios();
+  return { error: null, ok: true, mensaje: `"${alias}" agregado a ${ejercicio.nombre}.` };
+}
 
 export async function actualizarDetallesEjercicio(
   _prevState: ActualizarDetallesState,
@@ -558,10 +654,21 @@ export async function actualizarClasificacionEjercicio(
   if (!equipo) return { error: "Elegí el equipo.", ok: false };
 
   const supabase = await createClient();
-  const { error } = await supabase
+  // calidad_ficha pasa a 'completa' siempre que se guarda acá: si el
+  // ejercicio venía del alta rápida sin clasificar (migración 0099), cargar
+  // los tres campos es exactamente lo que lo saca de la cola "Completar
+  // ficha" y lo hace entrar a obtenerBiblioteca(). Para un ejercicio que ya
+  // estaba completo, es un no-op.
+  let { error } = await supabase
     .from("ejercicios")
-    .update({ grupo_muscular: grupoMuscular, categoria, equipo })
+    .update({ grupo_muscular: grupoMuscular, categoria, equipo, calidad_ficha: "completa" })
     .eq("id", ejercicioId);
+  if (error?.code === "42703") {
+    ({ error } = await supabase
+      .from("ejercicios")
+      .update({ grupo_muscular: grupoMuscular, categoria, equipo })
+      .eq("id", ejercicioId));
+  }
   if (error) return { error: "No se pudo guardar la clasificación.", ok: false };
 
   avisarCambios();
@@ -795,14 +902,21 @@ export async function iniciarSubidaVideoCloudflare(
   const supabase = await createClient();
   const { data: anterior } = await supabase
     .from("ejercicios")
-    .select("video_cloudflare_uid")
+    .select("video_cloudflare_uid, video_cloudflare_uid_anterior")
     .eq("id", ejercicioId)
     .maybeSingle();
+  // El UID anterior NO se borra acá — recién no se subió ni un byte del
+  // nuevo clip todavía. Se guarda en `video_cloudflare_uid_anterior` y se
+  // elimina de Cloudflare solo cuando `sincronizarVideoCloudflare` confirma
+  // que el reemplazo terminó de procesar (instructivo §11.4). Si ya había un
+  // "anterior" pendiente de limpieza de un reemplazo previo sin confirmar, se
+  // pierde: no hay forma de restaurar dos versiones atrás, solo la última.
   const { error } = await supabase
     .from("ejercicios")
     .update({
       video_url: null,
       video_cloudflare_uid: resultado.uid,
+      video_cloudflare_uid_anterior: anterior?.video_cloudflare_uid ?? null,
       video_cloudflare_estado: "subiendo",
       video_cloudflare_duracion_seg: null,
       video_cloudflare_miniatura_url: null,
@@ -813,51 +927,86 @@ export async function iniciarSubidaVideoCloudflare(
     await eliminarVideoCloudflare(resultado.uid);
     return { ok: false, error: "No se pudo vincular el video al ejercicio." };
   }
-  if (anterior?.video_cloudflare_uid && anterior.video_cloudflare_uid !== resultado.uid) {
-    await eliminarVideoCloudflare(anterior.video_cloudflare_uid);
-  }
   avisarCambios();
   return { ok: true, endpoint: resultado.endpoint };
 }
 
 export async function confirmarSubidaVideoCloudflare(ejercicioId: string): Promise<void> {
-  await requireRol(["entrenador", "admin"]);
+  const entrenador = await requireRol(["entrenador", "admin"]);
   if (!ejercicioId) return;
-  await (await createClient())
+  const supabase = await createClient();
+  await supabase
     .from("ejercicios")
     .update({ video_cloudflare_estado: "procesando" })
     .eq("id", ejercicioId)
     .eq("video_cloudflare_estado", "subiendo");
+  // El clip ya está en Cloudflare (procesando o no, ya quedó vinculado y no
+  // se va a perder) — mismo criterio que una foto: el reporte se cierra
+  // apenas el medio queda definitivamente asociado, sin esperar a que
+  // Cloudflare termine de procesar.
+  await cerrarReportesFotoDeEjercicio(supabase, entrenador.userId, ejercicioId);
   avisarCambios();
 }
 
 export async function sincronizarVideoCloudflare(
   ejercicioId: string
 ): Promise<"procesando" | "listo" | "error" | null> {
-  await requireRol(["entrenador", "admin"]);
+  const entrenador = await requireRol(["entrenador", "admin"]);
   if (!ejercicioId) return null;
   const supabase = await createClient();
   const { data } = await supabase
     .from("ejercicios")
-    .select("video_cloudflare_uid")
+    .select("video_cloudflare_uid, video_cloudflare_uid_anterior")
     .eq("id", ejercicioId)
     .maybeSingle();
   if (!data?.video_cloudflare_uid) return null;
 
   const estado = await consultarVideoCloudflare(data.video_cloudflare_uid);
   if (!estado) return null;
+
+  // Reemplazo confirmado: recién ahora es seguro dejar de considerar
+  // "activo" al clip anterior (instructivo §11.4) — si el nuevo hubiera
+  // fallado antes de llegar acá, seguía intacto y recuperable. Desde Fase 3
+  // ya no se borra de Cloudflare: se archiva en ejercicio_multimedia y
+  // queda restaurable (§18, "limpieza con período de gracia" — el borrado
+  // físico real es un proceso aparte, todavía no construido).
+  if (estado.estado === "listo" && data.video_cloudflare_uid_anterior) {
+    await archivarVideoReemplazado(ejercicioId, data.video_cloudflare_uid_anterior, {
+      duracionSeg: null,
+      creadoPor: entrenador.userId,
+    });
+  }
+  // El reemplazo falló: se restaura el anterior como video activo en vez de
+  // dejar al ejercicio con un clip roto pudiendo haber uno bueno guardado.
+  const restaurarAnterior = estado.estado === "error" && data.video_cloudflare_uid_anterior;
+
   await supabase
     .from("ejercicios")
-    .update({
-      video_cloudflare_estado: estado.estado,
-      video_cloudflare_duracion_seg: estado.duracion,
-      video_cloudflare_miniatura_url: estado.miniaturaUrl,
-      video_cloudflare_error: estado.error,
-    })
+    .update(
+      restaurarAnterior
+        ? {
+            video_cloudflare_uid: data.video_cloudflare_uid_anterior,
+            video_cloudflare_estado: "listo",
+            video_cloudflare_error: null,
+            video_cloudflare_uid_anterior: null,
+          }
+        : {
+            video_cloudflare_estado: estado.estado,
+            video_cloudflare_duracion_seg: estado.duracion,
+            video_cloudflare_miniatura_url: estado.miniaturaUrl,
+            video_cloudflare_error: estado.error,
+            video_cloudflare_uid_anterior: null,
+          }
+    )
     .eq("id", ejercicioId)
     .eq("video_cloudflare_uid", data.video_cloudflare_uid);
+  if (restaurarAnterior) await eliminarVideoCloudflare(data.video_cloudflare_uid);
   avisarCambios();
-  return estado.estado;
+  // Si se restauró el anterior, el estado final que quedó guardado es
+  // "listo" (el clip bueno volvió a quedar activo) — devolver eso, no
+  // "error", para que quien llame no muestre un error sobre un video que en
+  // los hechos está andando.
+  return restaurarAnterior ? "listo" : estado.estado;
 }
 
 export type QuitarVideoCloudflareState = { error: string | null; ok: boolean };
@@ -954,6 +1103,18 @@ export async function combinarEjerciciosDuplicados(
 
   const { error: errorRutinas } = await supabase.from("rutina_dia_ejercicios").update({ ejercicio_id: original.id }).eq("ejercicio_id", duplicado.id);
   if (errorRutinas) return { error: "No se pudieron trasladar las rutinas al ejercicio original.", ok: false };
+
+  // Los reportes de foto pendientes del duplicado tienen que seguir el mismo
+  // camino que sus rutinas: si no se trasladan, la tarjeta de "Solicitudes de
+  // fotos" no encuentra el ejercicio (quedó desactivado) y el botón termina
+  // ofreciendo crear un ejercicio nuevo con el mismo nombre — deshaciendo la
+  // fusión que se acaba de hacer.
+  const { error: errorReportes } = await supabase
+    .from("reportes_fotos_ejercicios")
+    .update({ ejercicio_id: original.id })
+    .eq("ejercicio_id", duplicado.id)
+    .eq("estado", "pendiente");
+  if (errorReportes) console.error("[ejercicios] no se pudieron trasladar los reportes del duplicado:", errorReportes.message);
 
   const { error: errorDesactivar } = await supabase.from("ejercicios").update({ activo: false }).eq("id", duplicado.id);
   if (errorDesactivar) return { error: "Las rutinas quedaron asociadas, pero no se pudo ocultar el duplicado.", ok: false };

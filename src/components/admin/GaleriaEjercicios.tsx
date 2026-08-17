@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge, CircleAlert, LibraryBig, ClipboardCheck, Undo2, UploadCloud, Wrench, ChevronLeft, ChevronRight, ShieldCheck, Link2Off, VideoOff, Copy } from "lucide-react";
+import { Search, Camera, Plus, X, Check, ImageIcon, Play, TriangleAlert, Film, ListChecks, Printer, Merge, CircleAlert, LibraryBig, ClipboardCheck, Undo2, UploadCloud, Wrench, ChevronLeft, ChevronRight, ShieldCheck, Link2Off, VideoOff, Copy, Loader2, Dumbbell } from "lucide-react";
 import { CargaMasivaFotos } from "@/components/admin/CargaMasivaFotos";
+import { ModoGimnasio } from "@/components/admin/ModoGimnasio";
 import { Card } from "@/components/ui/Card";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import {
@@ -34,6 +35,8 @@ import {
   type DeshacerFusionState,
   resolverAliasEnDisputa,
   type ResolverAliasState,
+  agregarAliasEjercicio,
+  type AgregarAliasState,
   quitarFotoEjercicio,
   type QuitarFotoState,
   restaurarFotoAnteriorEjercicio,
@@ -43,7 +46,7 @@ import { normalizar } from "@/lib/alimentos/emparejar";
 import { detectarAliasEnDisputa, emparejarEjercicio } from "@/lib/ejercicios/emparejar";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
-import type { Ejercicio } from "@/lib/ejercicios/tipos";
+import type { Ejercicio, EjercicioIncompleto } from "@/lib/ejercicios/tipos";
 import type { PatronMovimiento } from "@/lib/rutinas/patrones";
 import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
@@ -51,6 +54,18 @@ import { ModalVideo } from "@/components/student/ModalVideo";
 import { CuadroFotoReferencia } from "@/components/student/SesionEjercicioCard";
 import type { UsoEjercicioInventario } from "@/lib/ejercicios/inventario";
 import type { FusionEjercicio } from "@/lib/ejercicios/data";
+import { duracionVideo, subirDirectoCloudflare } from "@/lib/ejercicios/videoCliente";
+import {
+  obtenerMultimediaDeEjercicio,
+  agregarFotoGaleria,
+  elegirFotoPrincipal,
+  quitarFotoGaleria,
+  restaurarVideoArchivado,
+  type ItemMultimedia,
+  type AgregarFotoGaleriaState,
+  type CambioMultimediaReciente,
+} from "@/app/admin/ejercicios/multimediaActions";
+import type { ItemIngestaHuerfano } from "@/app/admin/ejercicios/ingestaActions";
 
 const ETIQUETAS_GRUPO: Record<string, string> = {
   pecho: "Pecho",
@@ -265,7 +280,22 @@ function EditorPatronMovimiento({ ejercicio }: { ejercicio: Ejercicio }) {
  * que usa `ModalEjercicioNuevo` (`GRUPOS`/`CATEGORIAS`/`EQUIPOS`, más abajo
  * en este archivo), para que crear y reclasificar ofrezcan exactamente las
  * mismas opciones. */
-function EditorClasificacion({ ejercicio }: { ejercicio: Ejercicio }) {
+function EditorClasificacion({
+  ejercicio,
+}: {
+  /** Acepta tanto un `Ejercicio` completo (reclasificar uno ya cargado) como
+   * una `EjercicioIncompleto` (completar la ficha — instructivo §7.3): solo
+   * se le pide el pedazo que de verdad usa, no el objeto entero, así sirve
+   * para los dos casos sin duplicar este formulario. Al guardar, la fila
+   * desaparece sola de "Completar ficha" en el próximo render — el mismo
+   * `revalidatePath` que ya dispara cualquier edición de esta pantalla. */
+  ejercicio: {
+    id: string;
+    grupoMuscular: string | null;
+    categoria: string | null;
+    equipo: string | null;
+  };
+}) {
   const [state, formAction, pending] = useActionState(actualizarClasificacionEjercicio, ESTADO_INICIAL_CLASIFICACION);
 
   return (
@@ -277,9 +307,10 @@ function EditorClasificacion({ ejercicio }: { ejercicio: Ejercicio }) {
           <span className="text-micro text-text-tertiary">Grupo</span>
           <select
             name="grupo_muscular"
-            defaultValue={ejercicio.grupoMuscular}
+            defaultValue={ejercicio.grupoMuscular ?? ""}
             className="radius-control mt-1 w-full border border-border bg-surface-2 px-2 py-2 text-[11px] text-text"
           >
+            <option value="" disabled>Elegir…</option>
             {GRUPOS.map((g) => (
               <option key={g.valor} value={g.valor}>{g.etiqueta}</option>
             ))}
@@ -289,9 +320,10 @@ function EditorClasificacion({ ejercicio }: { ejercicio: Ejercicio }) {
           <span className="text-micro text-text-tertiary">Categoría</span>
           <select
             name="categoria"
-            defaultValue={ejercicio.categoria}
+            defaultValue={ejercicio.categoria ?? ""}
             className="radius-control mt-1 w-full border border-border bg-surface-2 px-2 py-2 text-[11px] text-text"
           >
+            <option value="" disabled>Elegir…</option>
             {CATEGORIAS.map((c) => (
               <option key={c.valor} value={c.valor}>{c.etiqueta}</option>
             ))}
@@ -301,9 +333,10 @@ function EditorClasificacion({ ejercicio }: { ejercicio: Ejercicio }) {
           <span className="text-micro text-text-tertiary">Equipo</span>
           <select
             name="equipo"
-            defaultValue={ejercicio.equipo}
+            defaultValue={ejercicio.equipo ?? ""}
             className="radius-control mt-1 w-full border border-border bg-surface-2 px-2 py-2 text-[11px] text-text"
           >
+            <option value="" disabled>Elegir…</option>
             {EQUIPOS.map((e) => (
               <option key={e.valor} value={e.valor}>{e.etiqueta}</option>
             ))}
@@ -599,6 +632,9 @@ export function GaleriaEjercicios({
   nombresRutinaSinVincular = [],
   historialFusiones = [],
   versionesAnterioresFotos = {},
+  ejerciciosIncompletos = [],
+  cambiosRecientesMultimedia = [],
+  itemsIngestaHuerfanos = [],
 }: {
   ejercicios: Ejercicio[];
   reportes?: ReporteFotoPendiente[];
@@ -606,11 +642,35 @@ export function GaleriaEjercicios({
   nombresRutinaSinVincular?: { nombre: string; cantidad: number }[];
   historialFusiones?: FusionEjercicio[];
   versionesAnterioresFotos?: Record<string, string>;
+  /** Cola "Completar ficha" (instructivo §7.3) — creados desde el alta
+   * rápida sin grupo/categoría/equipo. A propósito no están en `ejercicios`:
+   * ver el comentario de `EjercicioIncompleto`. */
+  ejerciciosIncompletos?: EjercicioIncompleto[];
+  /** Portadas/videos reemplazados en los últimos 7 días (Fase 3 + Calidad
+   * ampliada, Fase 4, §15). */
+  cambiosRecientesMultimedia?: CambioMultimediaReciente[];
+  /** Archivos de carga masiva que quedaron a medias hace más de un día
+   * (Fase 2 + Calidad ampliada, Fase 4, §15). */
+  itemsIngestaHuerfanos?: ItemIngestaHuerfano[];
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [editando, setEditando] = useState<Ejercicio | null>(null);
   const [probandoVideo, setProbandoVideo] = useState<Ejercicio | null>(null);
-  const [creando, setCreando] = useState<string | null>(null);
+  const [creando, setCreando] = useState<{ nombre: string; archivo?: File; tipo?: "imagen" | "video" } | null>(null);
+  const [modoGimnasioAbierto, setModoGimnasioAbierto] = useState(false);
+  // El portal de la lista imprimible (ver más abajo) solo puede montarse una
+  // vez que el árbol ya hidrató: portalear a document.body durante el mismo
+  // render que hidrata rompe React, porque el HTML que mandó el servidor no
+  // tiene ese nodo ahí — se mezcla mal con los <script> que Next inyecta al
+  // final del body y tira "Hydration failed".
+  const [montado, setMontado] = useState(false);
+  useEffect(() => {
+    // react-hooks/set-state-in-effect: falso positivo, mismo caso que ya
+    // documentado en este archivo — detectar "ya hidrató" no tiene otra
+    // fuente que un efecto, no hay prop/estado del que derivarlo en render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMontado(true);
+  }, []);
   // Justo después de subir una foto nueva, a veces el CDN de Storage todavía
   // no terminó de propagarla y la primera carga falla (el archivo ya está
   // subido de verdad, es solo una demora de segundos). Antes, ese primer
@@ -803,8 +863,19 @@ export function GaleriaEjercicios({
   // cualquier momento), no defectos activos. Meterlos acá volvería la
   // insignia de la pestaña una alarma falsa ("173 problemas") en vez de una
   // señal real de calidad.
+  // "ejercicio sin video" (instructivo §15) — a diferencia de "sin foto"
+  // (que ya tiene su propio contador arriba de siempre), este no existía
+  // como señal de calidad hasta Fase 4.
+  const sinVideo = useMemo(() => ejercicios.filter((e) => !e.videoCloudflareUid), [ejercicios]);
+  // "ejercicio con múltiples reportes" (instructivo §15) — ya calculado en
+  // reportesAgrupados, solo hace falta filtrar los que tienen más de un
+  // alumno reclamando lo mismo.
+  const reportesMultiples = useMemo(() => reportesAgrupados.filter((g) => g.ids.length > 1), [reportesAgrupados]);
+
   const calidadCantidad =
-    gruposDuplicados.length + aliasEnDisputa.length + fotosCompartidas.length + videosConError.length + erroresFoto.size + fotosDuplicadasPorHash.length;
+    gruposDuplicados.length + aliasEnDisputa.length + fotosCompartidas.length + videosConError.length +
+    erroresFoto.size + fotosDuplicadasPorHash.length + ejerciciosIncompletos.length +
+    cambiosRecientesMultimedia.length + itemsIngestaHuerfanos.length + reportesMultiples.length;
 
   const reportesPorEjercicio = useMemo(() => {
     const conteo: Record<string, number> = {};
@@ -888,21 +959,44 @@ export function GaleriaEjercicios({
             </span>
             <div>
               <p className="text-caption font-bold text-text">Solicitudes de fotos</p>
-              <p className="text-micro text-text-tertiary">Corrige la foto aquí y se actualizará para todos.</p>
+              <p className="text-micro text-text-tertiary">Resolvé con foto o con un clip — se actualiza para todos.</p>
             </div>
           </div>
           {reportesAgrupados.map((grupo) => {
-            const ejercicio = ejercicios.find((item) => item.id === grupo.ejercicioId);
+            // El id guardado en el reporte puede apuntar a un ejercicio que ya
+            // no está activo (se fusionó con otro después de que llegara el
+            // reporte). Si el id directo no aparece en la biblioteca, se busca
+            // por nombre/alias antes de darlo por inexistente — si no, el
+            // botón terminaría ofreciendo crear un ejercicio nuevo con el
+            // mismo nombre en vez de abrir el que ya tiene la foto buena.
+            const ejercicio =
+              ejercicios.find((item) => item.id === grupo.ejercicioId) ??
+              emparejarEjercicio(grupo.nombre, ejercicios)?.ejercicio ??
+              null;
+            const fotoActual = ejercicio ? fotoDe(ejercicio) : null;
             const alumnos = Array.from(grupo.alumnos).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
             const nombresReportados = Array.from(grupo.nombresReportados);
             return (
               <Card key={grupo.ejercicioId ?? `nombre:${normalizar(grupo.nombre)}`} padding="p-2.5" className="border-error/25">
                 <div className="flex items-center gap-2.5">
-                  <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-surface-2">
-                    {grupo.fotoUrl ? (
-                      <Image src={grupo.fotoUrl} alt="Foto reportada" fill sizes="56px" className="object-cover" />
-                    ) : (
-                      <div className="grid h-full place-items-center text-text-tertiary"><ImageIcon size={18} /></div>
+                  <div className="flex shrink-0 gap-1">
+                    <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-surface-2">
+                      {grupo.fotoUrl ? (
+                        <Image src={grupo.fotoUrl} alt="Foto reportada" fill sizes="56px" className="object-cover" />
+                      ) : (
+                        <div className="grid h-full place-items-center text-text-tertiary"><ImageIcon size={18} /></div>
+                      )}
+                      <span className="absolute inset-x-0 bottom-0 bg-black/65 py-0.5 text-center text-[7px] font-bold uppercase tracking-wide text-white">Reportada</span>
+                    </div>
+                    {ejercicio && (
+                      <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-surface-2">
+                        {fotoActual ? (
+                          <Image src={fotoActual} alt="Foto actual en la biblioteca" fill sizes="56px" className="object-cover" />
+                        ) : (
+                          <div className="grid h-full place-items-center text-text-tertiary"><ImageIcon size={18} /></div>
+                        )}
+                        <span className="absolute inset-x-0 bottom-0 bg-black/65 py-0.5 text-center text-[7px] font-bold uppercase tracking-wide text-white">Ahora</span>
+                      </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -921,15 +1015,18 @@ export function GaleriaEjercicios({
                     {nombresReportados.some((nombre) => nombre !== grupo.nombre) && (
                       <p className="text-micro mt-0.5 text-text-tertiary">En rutinas figura como: {nombresReportados.join(" · ")}</p>
                     )}
+                    {ejercicio && ejercicio.nombre !== grupo.nombre && (
+                      <p className="text-micro mt-0.5 font-semibold text-success">Ya está fusionado en: {ejercicio.nombre} — comparado con &quot;Ahora&quot; arriba, ¿es la foto correcta?</p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => ejercicio ? setEditando(ejercicio) : setCreando(grupo.nombre)}
+                    onClick={() => ejercicio ? setEditando(ejercicio) : setCreando({ nombre: grupo.nombre })}
                     className="btn-accion radius-control h-9 text-caption font-bold"
                   >
-                    {grupo.fotoUrl ? "Corregir ahora" : "Agregar foto"}
+                    {grupo.fotoUrl ? "Corregir ahora" : "Resolver con foto o video"}
                   </button>
                   <form action={resolverReporteFoto}>
                     {grupo.ids.map((id) => <input key={id} type="hidden" name="reporte_id" value={id} />)}
@@ -953,11 +1050,141 @@ export function GaleriaEjercicios({
         </Card>
       )}
 
-      {pestana === "calidad" && calidadCantidad === 0 && nombresRutinaSinVincular.length === 0 && (
+      {pestana === "calidad" && calidadCantidad === 0 && nombresRutinaSinVincular.length === 0 && sinVideo.length === 0 && (
         <Card padding="p-4" className="text-center">
           <p className="text-caption font-semibold text-text">Sin problemas de calidad detectados</p>
           <p className="text-micro mt-1 text-text-tertiary">Ni duplicados, ni alias en disputa, ni medios rotos, ni nombres sin vincular.</p>
         </Card>
+      )}
+
+      {pestana === "calidad" && ejerciciosIncompletos.length > 0 && (
+        <section className="space-y-2 rounded-[20px] border border-vip/40 bg-vip/5 p-3">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-vip/15 text-vip">
+              <Wrench size={16} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="text-caption block font-bold text-text">Completar ficha</span>
+              <span className="text-micro block text-text-tertiary">
+                Creados desde el alta rápida sin clasificar — no entran a Armar rutina hasta completarlos
+              </span>
+            </span>
+            <span className="rounded-full bg-vip/15 px-2 py-1 text-micro font-bold text-vip">{ejerciciosIncompletos.length}</span>
+          </div>
+          <div className="space-y-2">
+            {ejerciciosIncompletos.map((incompleto) => (
+              <div key={incompleto.id} className="radius-control space-y-2 border border-border bg-surface p-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-surface-2">
+                    {incompleto.fotoMiniaturaUrl && (
+                      <Image src={incompleto.fotoMiniaturaUrl} alt="" fill sizes="44px" className="object-cover" />
+                    )}
+                  </div>
+                  <p className="text-caption min-w-0 flex-1 truncate font-semibold text-text">{incompleto.nombre}</p>
+                </div>
+                <EditorClasificacion ejercicio={incompleto} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pestana === "calidad" && reportesMultiples.length > 0 && (
+        <section className="space-y-2 rounded-[20px] border border-error/40 bg-error/5 p-3">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-error/15 text-error"><TriangleAlert size={16} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="text-caption block font-bold text-text">Ejercicios con varios reclamos</span>
+              <span className="text-micro block text-text-tertiary">Más de un alumno pidió lo mismo — priorizalos primero</span>
+            </span>
+            <span className="rounded-full bg-error/15 px-2 py-1 text-micro font-bold text-error">{reportesMultiples.length}</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {reportesMultiples.map((grupo) => (
+              <span key={grupo.ejercicioId ?? grupo.nombre} className="radius-control border border-border bg-surface px-2 py-1 text-[11px] font-medium text-text">
+                {grupo.nombre} · {grupo.ids.length}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pestana === "calidad" && cambiosRecientesMultimedia.length > 0 && (
+        <section className="space-y-2 rounded-[20px] border border-border bg-surface p-3">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-surface-2 text-text-secondary"><Undo2 size={16} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="text-caption block font-bold text-text">Cambios recientes de portada/video</span>
+              <span className="text-micro block text-text-tertiary">Últimos 7 días — restaurable desde la ficha de cada ejercicio</span>
+            </span>
+            <span className="rounded-full bg-surface-2 px-2 py-1 text-micro font-bold text-text-secondary">{cambiosRecientesMultimedia.length}</span>
+          </div>
+          <div className="space-y-1">
+            {cambiosRecientesMultimedia.map((cambio) => (
+              <button
+                key={cambio.id}
+                type="button"
+                onClick={() => {
+                  const encontrado = ejercicios.find((e) => e.id === cambio.ejercicioId);
+                  if (encontrado) setEditando(encontrado);
+                }}
+                className="flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-left hover:bg-surface-2"
+              >
+                <span className="text-micro truncate text-text">
+                  {cambio.tipo === "video" ? <Film size={11} className="mr-1 inline" /> : <ImageIcon size={11} className="mr-1 inline" />}
+                  {cambio.ejercicioNombre}
+                </span>
+                <span className="text-micro shrink-0 text-text-tertiary">{new Date(cambio.archivadoEn).toLocaleDateString("es-AR")}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pestana === "calidad" && itemsIngestaHuerfanos.length > 0 && (
+        <section className="space-y-2 rounded-[20px] border border-warning/45 bg-warning/5 p-3">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-warning/15 text-warning"><UploadCloud size={16} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="text-caption block font-bold text-text">Cargas sin terminar</span>
+              <span className="text-micro block text-text-tertiary">Quedaron a medias hace más de un día — revisalas desde Carga masiva</span>
+            </span>
+            <span className="rounded-full bg-warning/15 px-2 py-1 text-micro font-bold text-warning">{itemsIngestaHuerfanos.length}</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {itemsIngestaHuerfanos.map((item) => (
+              <span key={item.id} className="radius-control border border-border bg-surface px-2 py-1 text-[11px] font-medium text-text-secondary">
+                {item.nombreArchivo}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pestana === "calidad" && sinVideo.length > 0 && (
+        <details className="rounded-[20px] border border-border bg-surface p-3">
+          <summary className="flex cursor-pointer list-none items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-full bg-surface-2 text-text-secondary"><Film size={16} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="text-caption block font-bold text-text">Ejercicios sin video</span>
+              <span className="text-micro block text-text-tertiary">Backlog, no un error — priorizá por uso en rutinas cuando grabes</span>
+            </span>
+            <span className="rounded-full bg-surface-2 px-2 py-1 text-micro font-bold text-text-secondary">{sinVideo.length}</span>
+          </summary>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {sinVideo.slice(0, 60).map((e) => (
+              <button
+                key={e.id}
+                type="button"
+                onClick={() => setEditando(e)}
+                className="radius-control border border-border bg-surface-2 px-2 py-1 text-[11px] font-medium text-text-secondary"
+              >
+                {e.nombre}
+              </button>
+            ))}
+            {sinVideo.length > 60 && <span className="text-micro text-text-tertiary">y {sinVideo.length - 60} más…</span>}
+          </div>
+        </details>
       )}
 
       {pestana === "calidad" && aliasEnDisputa.length > 0 && (
@@ -1148,7 +1375,33 @@ export function GaleriaEjercicios({
         />
       )}
 
-      {pestana === "carga" && <CargaMasivaFotos ejercicios={ejercicios} />}
+      {pestana === "carga" && (
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setModoGimnasioAbierto(true)}
+            className="radius-control flex h-11 w-full items-center justify-center gap-2 border border-vip/40 text-secondary font-semibold text-vip"
+          >
+            <Dumbbell size={16} /> Modo gimnasio — sesión de grabación
+          </button>
+          <CargaMasivaFotos
+            ejercicios={ejercicios}
+            onCrearEjercicio={(nombre, archivo, tipo) => setCreando({ nombre, archivo, tipo })}
+          />
+        </div>
+      )}
+
+      {modoGimnasioAbierto && (
+        <ModoGimnasio
+          ejercicios={ejercicios}
+          reportesPorEjercicio={reportesPorEjercicio}
+          onCerrar={() => setModoGimnasioAbierto(false)}
+          onIrACargaMasiva={() => {
+            setModoGimnasioAbierto(false);
+            setPestana("carga");
+          }}
+        />
+      )}
 
       {pestana === "referencia" && (
         <details id="inventario-ejercicios" className="scroll-mt-28 rounded-[20px] border border-border bg-surface p-3" open>
@@ -1185,24 +1438,60 @@ export function GaleriaEjercicios({
         </details>
       )}
 
-      <section id="inventario-ejercicios-imprimible" className="hidden">
-        <h1>Biblioteca oficial de ejercicios VIP Fitness</h1>
-        <p>{ejercicios.length} ejercicios disponibles · nombres exactos para solicitar rutinas</p>
-        {Object.entries(ETIQUETAS_GRUPO).map(([grupo, etiqueta]) => {
-          const lista = ejerciciosAlfabeticos.filter((ejercicio) => ejercicio.grupoMuscular === grupo);
-          if (lista.length === 0) return null;
-          return <div key={grupo}><h2>{etiqueta}</h2><ol>{lista.map((ejercicio) => <li key={ejercicio.id}><strong>{ejercicio.nombre}</strong>{ejercicio.aliases.length ? ` — también reconocido como: ${ejercicio.aliases.join(", ")}` : ""}{ejercicio.fotoMiniaturaUrl || ejercicio.fotoCompletaUrl ? " · foto original" : ""}</li>)}</ol></div>;
-        })}
-      </section>
+      {/* Portal directo al <body>: el layout del panel admin envuelve todo en
+          un contenedor `fixed inset-0 overflow-hidden` del tamaño de la
+          pantalla (ver admin/layout.tsx). Si esta sección quedara anidada
+          ahí adentro, `position: fixed` de ese contenedor se convierte en su
+          bloque de contención y `overflow: hidden` recorta todo lo que no
+          entre en una pantalla de teléfono — el PDF salía en blanco porque
+          la lista completa nunca llegaba a dibujarse. Como hijo directo de
+          body, en cambio, queda fuera de ese recorte. */}
+      {montado && createPortal(
+        <section id="inventario-ejercicios-imprimible" className="hidden">
+          <h1>Biblioteca oficial de ejercicios VIP Fitness</h1>
+          <p>{ejercicios.length} ejercicios disponibles · nombres exactos para solicitar rutinas</p>
+          {Object.entries(ETIQUETAS_GRUPO).map(([grupo, etiqueta]) => {
+            const lista = ejerciciosAlfabeticos.filter((ejercicio) => ejercicio.grupoMuscular === grupo);
+            if (lista.length === 0) return null;
+            return (
+              <div key={grupo}>
+                <h2>{etiqueta}</h2>
+                <ol>
+                  {lista.map((ejercicio) => {
+                    const foto = fotoDe(ejercicio);
+                    return (
+                      <li key={ejercicio.id}>
+                        {foto ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={foto} alt="" />
+                        ) : (
+                          <span className="miniatura-vacia" aria-hidden="true" />
+                        )}
+                        <span>
+                          <strong>{ejercicio.nombre}</strong>
+                          {ejercicio.aliases.length ? ` — también reconocido como: ${ejercicio.aliases.join(", ")}` : ""}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            );
+          })}
+        </section>,
+        document.body,
+      )}
       <style>{`@media print {
+        @page { size: letter; margin: 14mm; }
         body * { visibility: hidden !important; }
         #inventario-ejercicios-imprimible, #inventario-ejercicios-imprimible * { visibility: visible !important; }
-        #inventario-ejercicios-imprimible { display: block !important; position: absolute; inset: 0; padding: 18mm; color: #111; background: white; font-family: Arial, sans-serif; }
-        #inventario-ejercicios-imprimible h1 { font-size: 22px; margin: 0 0 4px; }
-        #inventario-ejercicios-imprimible h2 { font-size: 15px; margin: 16px 0 5px; border-bottom: 1px solid #999; }
-        #inventario-ejercicios-imprimible p, #inventario-ejercicios-imprimible li { font-size: 10px; line-height: 1.4; }
-        #inventario-ejercicios-imprimible ol { columns: 2; column-gap: 28px; padding-left: 20px; }
-        #inventario-ejercicios-imprimible li { break-inside: avoid; margin-bottom: 3px; }
+        #inventario-ejercicios-imprimible { display: block !important; position: absolute; inset: 0; padding: 0; color: #111; background: white; font-family: Arial, sans-serif; }
+        #inventario-ejercicios-imprimible h1 { font-size: 20px; margin: 0 0 4px; }
+        #inventario-ejercicios-imprimible h2 { font-size: 14px; margin: 14px 0 5px; border-bottom: 1px solid #999; }
+        #inventario-ejercicios-imprimible p { font-size: 10px; line-height: 1.4; }
+        #inventario-ejercicios-imprimible ol { columns: 2; column-gap: 24px; padding-left: 0; list-style: none; margin: 0; }
+        #inventario-ejercicios-imprimible li { display: flex; align-items: center; gap: 6px; break-inside: avoid; margin-bottom: 5px; font-size: 9.5px; line-height: 1.25; }
+        #inventario-ejercicios-imprimible img, #inventario-ejercicios-imprimible .miniatura-vacia { width: 24px; height: 24px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: #eee; }
       }`}</style>
 
       {pestana === "biblioteca" && (
@@ -1223,10 +1512,22 @@ export function GaleriaEjercicios({
 
           <button
             type="button"
-            onClick={() => setCreando("")}
+            onClick={() => setCreando({ nombre: "" })}
             className="radius-control flex w-full items-center justify-center gap-2 border border-dashed border-vip/50 py-3 text-secondary font-semibold text-vip"
           >
             <Plus size={16} /> Ejercicio nuevo, con foto
+          </button>
+
+          {/* Misma lista imprimible que arma la pestaña Referencia (ver
+              #inventario-ejercicios-imprimible más abajo) — está siempre en
+              el DOM sin importar la pestaña activa, así que el botón de acá
+              solo dispara el mismo print, sin duplicar nada. */}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="radius-control flex w-full items-center justify-center gap-1.5 border border-border py-2 text-caption font-semibold text-text-secondary"
+          >
+            <Printer size={14} /> Imprimir / guardar PDF de los {ejercicios.length} ejercicios
           </button>
 
       <div className="space-y-3">
@@ -1340,7 +1641,19 @@ export function GaleriaEjercicios({
           onCerrar={() => setProbandoVideo(null)}
         />
       )}
-      {creando !== null && <ModalEjercicioNuevo nombreInicial={creando} onCerrar={() => setCreando(null)} />}
+      {creando !== null && (
+        <ModalEjercicioNuevo
+          nombreInicial={creando.nombre}
+          archivoInicial={creando.archivo}
+          tipoInicial={creando.tipo}
+          ejercicios={ejercicios}
+          onAbrirExistente={(ejercicio) => {
+            setCreando(null);
+            setEditando(ejercicio);
+          }}
+          onCerrar={() => setCreando(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1568,37 +1881,135 @@ function nombresComoTexto(ejercicio: Ejercicio): string {
   return [ejercicio.nombre, ...ejercicio.aliases].join(" / ");
 }
 
+const ESTADO_INICIAL_AGREGAR_ALIAS: AgregarAliasState = { error: null, ok: false };
+
+/** Un alias como chip tocable: apretarlo lo saca de la lista, para el caso de
+ * un nombre mal escrito o que ya no hace falta. Reusa `resolverAliasEnDisputa`
+ * — la misma acción que ya usa "Nombres en disputa" para soltar un alias —
+ * porque hacer exactamente eso (sacar UN alias de UN ejercicio) es todo lo
+ * que hace falta acá también, sea o no una disputa. */
+function AliasChipEliminable({ ejercicio, alias }: { ejercicio: Ejercicio; alias: string }) {
+  const [state, formAction, pending] = useActionState(resolverAliasEnDisputa, ESTADO_INICIAL_ALIAS);
+  if (state.ok) return null;
+  return (
+    <form
+      action={formAction}
+      onSubmit={(evento) => {
+        if (!window.confirm(`¿Quitar "${alias}" de ${ejercicio.nombre}? Si una rutina lo escribe así, se queda sin foto hasta que uses otro de sus nombres.`)) {
+          evento.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+      <input type="hidden" name="alias" value={alias} />
+      <button
+        type="submit"
+        disabled={pending}
+        className="radius-control flex items-center gap-1 border border-border bg-surface px-2 py-1 text-[10px] text-text-secondary disabled:opacity-50"
+      >
+        {pending ? "Quitando…" : alias} {!pending && <X size={10} />}
+      </button>
+    </form>
+  );
+}
+
+/** Atajo para el caso de todos los días: sumar un nombre suelto sin editar la
+ * lista completa separada por "/". Un "+" abre un campo de texto único; al
+ * guardar, se agrega como alias nuevo y el campo se limpia solo — pensado
+ * para ir vinculando varios reportes seguidos sin fricción. */
+function AgregarAliasRapido({ ejercicio }: { ejercicio: Ejercicio }) {
+  const [abierto, setAbierto] = useState(false);
+  const [texto, setTexto] = useState("");
+  const [state, formAction, pending] = useActionState(agregarAliasEjercicio, ESTADO_INICIAL_AGREGAR_ALIAS);
+  // Limpiar el campo al guardar es una reacción a la respuesta del server
+  // action, no un efecto secundario — se ajusta durante el render comparando
+  // contra la última respuesta ya procesada, sin useEffect (ver "You Might
+  // Not Need an Effect" de React: ajustar estado cuando cambia otro estado).
+  const [ultimoEstadoVisto, setUltimoEstadoVisto] = useState(state);
+  if (state !== ultimoEstadoVisto) {
+    setUltimoEstadoVisto(state);
+    if (state.ok) {
+      setTexto("");
+      setAbierto(false);
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {ejercicio.aliases.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          <span className="radius-control border border-border bg-surface-2 px-2 py-1 text-[10px] font-semibold text-text">{ejercicio.nombre}</span>
+          {ejercicio.aliases.map((alias) => (
+            <AliasChipEliminable key={alias} ejercicio={ejercicio} alias={alias} />
+          ))}
+        </div>
+      )}
+      {abierto ? (
+        <form action={formAction} className="flex items-center gap-1.5">
+          <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+          <input type="hidden" name="alias" value={texto} />
+          <Input
+            autoFocus
+            value={texto}
+            onChange={(evento) => setTexto(evento.target.value)}
+            placeholder="Ej: Elevación de gemelos"
+            className="!py-2 text-caption"
+          />
+          <Button type="submit" size="xsAuto" loading={pending} disabled={!texto.trim()}>Agregar</Button>
+          <Button type="button" variant="ghost" size="xsAuto" onClick={() => { setAbierto(false); setTexto(""); }}>Cancelar</Button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="radius-control flex items-center gap-1 border border-dashed border-vip/40 px-2.5 py-1.5 text-[11px] font-semibold text-vip"
+        >
+          <Plus size={12} /> Agregar otro nombre
+        </button>
+      )}
+      {state.error && <p className="text-caption text-error">{state.error}</p>}
+      {state.ok && state.mensaje && <p className="text-caption text-success">{state.mensaje}</p>}
+    </div>
+  );
+}
+
 function EditorNombre({ ejercicio }: { ejercicio: Ejercicio }) {
   const [state, formAction, pending] = useActionState(actualizarNombreEjercicio, ESTADO_INICIAL_NOMBRE);
 
   return (
-    <form action={formAction} className="space-y-1.5">
-      <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
-      <span className="text-caption block text-text-tertiary">
-        Nombre — separá variantes con &quot;/&quot; para que cualquiera muestre esta misma foto
-      </span>
-      <Textarea
-        name="nombres"
-        required
-        rows={2}
-        defaultValue={nombresComoTexto(ejercicio)}
-        placeholder="Ej: Press de pecho / Bench press / Press banca"
-        className="!py-2 text-caption"
-      />
-      {state.error && <p className="text-caption text-error">{state.error}</p>}
-      {state.ok && (
-        <p className="text-caption flex items-center gap-1 text-success">
-          <Check size={12} /> Nombre guardado.
-        </p>
-      )}
-      <button
-        type="submit"
-        disabled={pending}
-        className="radius-control flex h-9 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text disabled:opacity-60"
-      >
-        {pending ? "Guardando..." : "Guardar nombre"}
-      </button>
-    </form>
+    <div className="space-y-2.5">
+      <AgregarAliasRapido ejercicio={ejercicio} />
+      <details>
+        <summary className="cursor-pointer text-micro font-semibold text-text-tertiary">Editar la lista completa (renombrar o quitar varios a la vez)</summary>
+        <form action={formAction} className="mt-1.5 space-y-1.5">
+          <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+          <span className="text-caption block text-text-tertiary">
+            Nombre — separá variantes con &quot;/&quot; para que cualquiera muestre esta misma foto
+          </span>
+          <Textarea
+            name="nombres"
+            required
+            rows={2}
+            defaultValue={nombresComoTexto(ejercicio)}
+            placeholder="Ej: Press de pecho / Bench press / Press banca"
+            className="!py-2 text-caption"
+          />
+          {state.error && <p className="text-caption text-error">{state.error}</p>}
+          {state.ok && (
+            <p className="text-caption flex items-center gap-1 text-success">
+              <Check size={12} /> Nombre guardado.
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={pending}
+            className="radius-control flex h-9 w-full items-center justify-center gap-2 border border-border text-caption font-medium text-text disabled:opacity-60"
+          >
+            {pending ? "Guardando..." : "Guardar nombre"}
+          </button>
+        </form>
+      </details>
+    </div>
   );
 }
 
@@ -1622,36 +2033,6 @@ function EditorDetalles({ ejercicio }: { ejercicio: Ejercicio }) {
 
 const ESTADO_INICIAL_QUITAR_VIDEO = { error: null, ok: false };
 const ESTADO_INICIAL_QUITAR_CLOUDFLARE = { error: null, ok: false };
-
-function duracionVideo(archivo: File): Promise<number | null> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(archivo);
-    const video = document.createElement("video");
-    const terminar = (valor: number | null) => {
-      URL.revokeObjectURL(url);
-      resolve(valor);
-    };
-    video.preload = "metadata";
-    video.onloadedmetadata = () => terminar(Number.isFinite(video.duration) ? video.duration : null);
-    video.onerror = () => terminar(null);
-    video.src = url;
-  });
-}
-
-function subirDirectoCloudflare(endpoint: string, archivo: File, onProgreso: (valor: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", endpoint);
-    xhr.upload.onprogress = (evento) => {
-      if (evento.lengthComputable) onProgreso(Math.round((evento.loaded / evento.total) * 100));
-    };
-    xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error("upload"));
-    xhr.onerror = () => reject(new Error("network"));
-    const datos = new FormData();
-    datos.append("file", archivo);
-    xhr.send(datos);
-  });
-}
 
 function EditorVideoCloudflare({ ejercicio }: { ejercicio: Ejercicio }) {
   const router = useRouter();
@@ -2091,6 +2472,9 @@ function FichaMesa({
             {pending ? "Guardando…" : subiendoFoto ? "Preparando…" : "Guardar foto y encuadre"}
           </button>
         </form>
+        <div className="mt-3 border-t border-border pt-3">
+          <GaleriaMultimediaEjercicio ejercicio={ejercicio} />
+        </div>
       </div>
 
       {/* 2 · Cómo lo ve el alumno */}
@@ -2357,7 +2741,9 @@ function MesaDeTrabajo({
         <Plus size={15} /> Agregar un ejercicio nuevo
       </button>
 
-      {creando !== null && <ModalEjercicioNuevo nombreInicial={creando} onCerrar={() => setCreando(null)} />}
+      {creando !== null && (
+        <ModalEjercicioNuevo nombreInicial={creando} ejercicios={ejercicios} onCerrar={() => setCreando(null)} />
+      )}
 
       <div className="flex items-center gap-2">
         <button
@@ -2413,6 +2799,161 @@ function MesaDeTrabajo({
         ejercicios={ejercicios}
         onListo={() => setIndice((i) => Math.min(cola.length - 1, i + 1))}
       />
+    </div>
+  );
+}
+
+const ESTADO_INICIAL_GALERIA: AgregarFotoGaleriaState = { error: null, ok: false };
+
+/**
+ * Historial y ángulos extra (instructivo Fase 3, §8.3) — otras fotos del
+ * mismo ejercicio (se puede elegir cualquiera como portada sin perder las
+ * demás) y clips de video que quedaron archivados al reemplazarlos (se
+ * pueden restaurar, porque desde Fase 3 ya no se borran de Cloudflare). Vive
+ * aparte de `ejercicio.fotoMiniaturaUrl`/`videoCloudflareUid` — esos dos
+ * siguen siendo la única fuente que ve el alumno; esto es una capa nueva
+ * encima, no un reemplazo.
+ */
+function GaleriaMultimediaEjercicio({ ejercicio }: { ejercicio: Ejercicio }) {
+  const router = useRouter();
+  const [datos, setDatos] = useState<{ fotosGaleria: ItemMultimedia[]; videosArchivados: ItemMultimedia[] } | null>(null);
+  const [accionEnCurso, setAccionEnCurso] = useState<string | null>(null);
+  const [errorAccion, setErrorAccion] = useState<string | null>(null);
+  const [estadoGaleria, formActionGaleria, subiendoGaleria] = useActionState(agregarFotoGaleria, ESTADO_INICIAL_GALERIA);
+
+  const cargar = useCallback(async () => {
+    setDatos(await obtenerMultimediaDeEjercicio(ejercicio.id));
+  }, [ejercicio.id]);
+
+  useEffect(() => {
+    // Carga de datos externa (Supabase), no sincronización de estado React
+    // — el mismo caso que la documentación de la regla da como ejemplo de
+    // uso correcto de useEffect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void cargar();
+  }, [cargar, estadoGaleria.ok]);
+
+  async function usarComoPortada(id: string) {
+    setAccionEnCurso(id);
+    setErrorAccion(null);
+    const resultado = await elegirFotoPrincipal(id);
+    if (!resultado.ok) setErrorAccion(resultado.error);
+    setAccionEnCurso(null);
+    await cargar();
+    router.refresh();
+  }
+
+  async function quitar(id: string) {
+    setAccionEnCurso(id);
+    await quitarFotoGaleria(id);
+    setAccionEnCurso(null);
+    await cargar();
+  }
+
+  async function restaurar(id: string) {
+    setAccionEnCurso(id);
+    setErrorAccion(null);
+    const resultado = await restaurarVideoArchivado(id);
+    if (!resultado.ok) setErrorAccion(resultado.error);
+    setAccionEnCurso(null);
+    await cargar();
+    router.refresh();
+  }
+
+  if (!datos) return null;
+  if (datos.fotosGaleria.length === 0 && datos.videosArchivados.length === 0 && !subiendoGaleria) {
+    return (
+      <div className="space-y-2">
+        <p className="text-caption font-semibold text-text">Otras fotos de este ejercicio</p>
+        <form action={formActionGaleria}>
+          <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+          <label className={`radius-control flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 border border-dashed border-border text-[11px] font-semibold text-text-secondary`}>
+            <Plus size={13} /> Agregar otro ángulo
+            <input
+              type="file"
+              name="foto"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+              className="sr-only"
+              onChange={(e) => e.target.form?.requestSubmit()}
+            />
+          </label>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-caption font-semibold text-text">Otras fotos de este ejercicio</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {datos.fotosGaleria.map((foto) => (
+            <div key={foto.id} className="relative size-16 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-2">
+              {foto.urlMiniatura && <Image src={foto.urlMiniatura} alt="" fill sizes="64px" className="object-cover" />}
+              <div className="absolute inset-x-0 bottom-0 flex justify-center gap-0.5 bg-black/70 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => void usarComoPortada(foto.id)}
+                  disabled={accionEnCurso === foto.id}
+                  aria-label="Usar como portada"
+                  className="text-[9px] font-bold text-vip disabled:opacity-50"
+                >
+                  Usar
+                </button>
+                <span className="text-white/40">·</span>
+                <button
+                  type="button"
+                  onClick={() => void quitar(foto.id)}
+                  disabled={accionEnCurso === foto.id}
+                  aria-label="Quitar foto"
+                  className="text-[9px] font-bold text-error disabled:opacity-50"
+                >
+                  Quitar
+                </button>
+              </div>
+            </div>
+          ))}
+          <form action={formActionGaleria}>
+            <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+            <label className="flex size-16 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-dashed border-vip/40 text-vip">
+              {subiendoGaleria ? <Loader2 size={16} className="animate-spin" /> : <Plus size={18} />}
+              <input
+                type="file"
+                name="foto"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                disabled={subiendoGaleria}
+                className="sr-only"
+                onChange={(e) => e.target.form?.requestSubmit()}
+              />
+            </label>
+          </form>
+        </div>
+        {estadoGaleria.error && <p className="text-micro mt-1 text-error">{estadoGaleria.error}</p>}
+      </div>
+
+      {datos.videosArchivados.length > 0 && (
+        <div>
+          <p className="text-caption font-semibold text-text">Clips anteriores</p>
+          <div className="mt-1.5 space-y-1.5">
+            {datos.videosArchivados.map((video) => (
+              <div key={video.id} className="radius-control flex items-center justify-between gap-2 border border-border bg-surface-2 p-2">
+                <span className="text-micro text-text-tertiary">
+                  Archivado el {video.archivadoEn ? new Date(video.archivadoEn).toLocaleDateString("es-AR") : "—"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void restaurar(video.id)}
+                  disabled={accionEnCurso === video.id}
+                  className="flex items-center gap-1 text-[11px] font-bold text-vip disabled:opacity-50"
+                >
+                  <Undo2 size={12} /> Restaurar
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {errorAccion && <p className="text-micro text-error">{errorAccion}</p>}
     </div>
   );
 }
@@ -2570,6 +3111,10 @@ function ModalSubirFoto({
           {pending ? "Guardando..." : subiendoFoto ? "Preparando la foto..." : "Guardar foto y encuadres"}
         </button>
       </form>
+
+      <div className="mt-4 border-t border-border pt-3">
+        <GaleriaMultimediaEjercicio ejercicio={ejercicio} />
+      </div>
 
       <div className="mt-4 border-t border-border pt-3">
         <div className="mb-2">
@@ -2842,9 +3387,48 @@ const EQUIPOS: { valor: string; etiqueta: string }[] = [
   { valor: "otro", etiqueta: "Otro" },
 ];
 
-function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?: string; onCerrar: () => void }) {
+function ModalEjercicioNuevo({
+  nombreInicial = "",
+  archivoInicial,
+  tipoInicial,
+  ejercicios,
+  onAbrirExistente,
+  onCerrar,
+}: {
+  nombreInicial?: string;
+  /** Foto o video ya elegido antes de abrir el modal — viene de una fila sin
+   * coincidencia en Carga masiva (instructivo §4, "Crear ejercicio con este
+   * material") para no obligar a elegir el archivo dos veces. */
+  archivoInicial?: File;
+  tipoInicial?: "imagen" | "video";
+  ejercicios: Ejercicio[];
+  onAbrirExistente?: (ejercicio: Ejercicio) => void;
+  onCerrar: () => void;
+}) {
   const [state, formAction, pending] = useActionState(crearEjercicioNuevo, ESTADO_INICIAL_CREAR);
   const [grupoNuevo, setGrupoNuevo] = useState("");
+  const [nombre, setNombre] = useState(nombreInicial);
+  // Mismo emparejador que usa la app real (alias, abreviaturas, veto por
+  // músculo y por equipo) — no un comparador de texto suelto: ese proponía
+  // "Hip Thrust con barra libre" para el press inclinado por compartir la
+  // palabra "barra" (ver Mesa de trabajo). Se compara solo el primer nombre
+  // escrito (antes de la "/"), que es lo único que ya se terminó de tipear.
+  const posibleExistente = useMemo(() => {
+    const primerNombre = nombre.split("/")[0]?.trim();
+    if (!primerNombre || primerNombre.length < 3) return null;
+    return emparejarEjercicio(primerNombre, ejercicios)?.ejercicio ?? null;
+  }, [nombre, ejercicios]);
+  const [aviso, setAviso] = useState(true);
+  // Si cambia a qué ejercicio se parece lo que va escribiendo (o deja de
+  // parecerse a nada), el aviso vuelve a mostrarse — descartarlo para "Hip
+  // Thrust" no debería silenciarlo también para "Hack squat" si sigue
+  // borrando y reescribiendo el nombre. Ajuste durante el render, sin
+  // useEffect, comparando contra el último id ya visto.
+  const [ultimoIdVisto, setUltimoIdVisto] = useState<string | null>(posibleExistente?.id ?? null);
+  if ((posibleExistente?.id ?? null) !== ultimoIdVisto) {
+    setUltimoIdVisto(posibleExistente?.id ?? null);
+    setAviso(true);
+  }
   const patronesVisibles = useMemo(() => {
     const etiquetasPorGrupo: Record<string, string[]> = {
       pecho: ["Pecho"],
@@ -2877,17 +3461,81 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
     reintentar,
   } = useFotoInmediata();
 
+  // Clip de Cloudflare elegido en el alta — no se sube todavía: hace falta el
+  // id del ejercicio (recién existe después de crearEjercicioNuevo), igual
+  // que el resto de la subida de video en esta pantalla (ver
+  // EditorVideoCloudflare). Antes esto no existía: el modal solo aceptaba un
+  // link y obligaba a crear, cerrar, volver a buscar el ejercicio y recién
+  // ahí subir el clip (instructivo §7.5/§16, problema D).
+  const [videoArchivo, setVideoArchivo] = useState<File | null>(null);
+  const [errorVideo, setErrorVideo] = useState<string | null>(null);
+  const [subiendoVideo, setSubiendoVideo] = useState(false);
+  const [progresoVideo, setProgresoVideo] = useState(0);
+  const [videoTerminado, setVideoTerminado] = useState(false);
+  const subidaVideoIniciada = useRef(false);
+
+  async function elegirVideo(archivo: File) {
+    setErrorVideo(null);
+    if (archivo.size > 100 * 1024 * 1024) {
+      setErrorVideo("El video supera el máximo de 100 MB.");
+      return;
+    }
+    const duracion = await duracionVideo(archivo);
+    if (duracion !== null && duracion > 30.5) {
+      setErrorVideo("El clip debe durar 30 segundos o menos.");
+      return;
+    }
+    setVideoArchivo(archivo);
+  }
+
+  useEffect(() => {
+    if (!archivoInicial) return;
+    // Precarga el archivo con el que se abrió el modal (viene de "Crear
+    // ejercicio con este material" en Carga masiva) — no un ciclo de
+    // sincronización con estado externo que cambie durante la vida del modal.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void (tipoInicial === "video" ? elegirVideo(archivoInicial) : elegirArchivo(archivoInicial));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function subirVideoDelAlta(ejercicioId: string) {
+    if (!videoArchivo) return;
+    subidaVideoIniciada.current = true;
+    setSubiendoVideo(true);
+    setProgresoVideo(0);
+    try {
+      const inicio = await iniciarSubidaVideoCloudflare(ejercicioId, videoArchivo.size, videoArchivo.type);
+      if (!inicio.ok) {
+        setErrorVideo(inicio.error);
+        return;
+      }
+      await subirDirectoCloudflare(inicio.endpoint, videoArchivo, setProgresoVideo);
+      await confirmarSubidaVideoCloudflare(ejercicioId);
+    } catch {
+      setErrorVideo("La subida del video se interrumpió. El ejercicio ya quedó creado — sube el clip de nuevo desde su ficha.");
+    } finally {
+      setSubiendoVideo(false);
+      setVideoTerminado(true);
+    }
+  }
+
   useEffect(() => {
     // `crearEjercicioNuevo` puede devolver ok:true CON error (el ejercicio
     // se creó pero la foto falló) — cerrar solo si de verdad no quedó nada
     // pendiente de leer, si no el aviso de la foto parpadea menos de un
     // segundo y el entrenador sigue creyendo que la subió.
-    if (state.ok && !state.error) {
-      const id = setTimeout(onCerrar, 900);
-      return () => clearTimeout(id);
+    if (!state.ok || state.error) return;
+    // Si hay un clip elegido, todavía no se subió — se sube recién ahora que
+    // ya existe el id del ejercicio, y el modal espera a que termine (o
+    // falle) antes de cerrarse solo.
+    if (state.id && videoArchivo && !videoTerminado) {
+      if (!subidaVideoIniciada.current) void subirVideoDelAlta(state.id);
+      return;
     }
+    const id = setTimeout(onCerrar, 900);
+    return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.ok, state.error]);
+  }, [state.ok, state.error, state.id, videoArchivo, videoTerminado]);
 
   return (
     <Overlay onCerrar={onCerrar}>
@@ -2970,24 +3618,43 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
             name="nombre"
             type="text"
             required
-            defaultValue={nombreInicial}
+            value={nombre}
+            onChange={(evento) => setNombre(evento.target.value)}
             placeholder="Ej: Press de pecho / Bench press / Press banca"
             className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
           />
         </label>
 
+        {posibleExistente && aviso && (
+          <div className="radius-control space-y-1.5 border border-warning/45 bg-warning/10 p-2.5">
+            <p className="text-caption text-text">
+              Ya existe <strong className="text-warning">{posibleExistente.nombre}</strong> con este nombre o uno muy
+              parecido. ¿Es el mismo ejercicio?
+            </p>
+            <div className="flex gap-2">
+              {onAbrirExistente && (
+                <Button type="button" size="xsAuto" onClick={() => onAbrirExistente(posibleExistente)}>
+                  Sí, abrir ese
+                </Button>
+              )}
+              <Button type="button" variant="ghost" size="xsAuto" onClick={() => setAviso(false)}>
+                No, es distinto
+              </Button>
+            </div>
+          </div>
+        )}
+
         <label className="block">
-          <span className="text-caption mb-1 block text-text-tertiary">Grupo muscular</span>
+          <span className="text-caption mb-1 block text-text-tertiary">
+            Grupo muscular, categoría y equipo — opcional, se puede completar después desde Calidad
+          </span>
           <select
             name="grupo_muscular"
-            required
             value={grupoNuevo}
             onChange={(evento) => setGrupoNuevo(evento.target.value)}
             className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
           >
-            <option value="" disabled>
-              Elegir...
-            </option>
+            <option value="">Sin elegir todavía</option>
             {GRUPOS.map((g) => (
               <option key={g.valor} value={g.valor}>
                 {g.etiqueta}
@@ -3002,13 +3669,12 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
           </span>
           <select
             name="patron_movimiento"
-            required
             disabled={!grupoNuevo}
             defaultValue=""
             className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
           >
-            <option value="" disabled>
-              {grupoNuevo ? "Elegir…" : "Primero elige el grupo muscular"}
+            <option value="">
+              {grupoNuevo ? "Sin elegir todavía" : "Primero elige el grupo muscular"}
             </option>
             {patronesVisibles.map((grupo) => (
               <optgroup key={grupo.etiqueta} label={grupo.etiqueta}>
@@ -3029,13 +3695,10 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
           <span className="text-caption mb-1 block text-text-tertiary">Categoría</span>
           <select
             name="categoria"
-            required
             defaultValue=""
             className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
           >
-            <option value="" disabled>
-              Elegir...
-            </option>
+            <option value="">Sin elegir todavía</option>
             {CATEGORIAS.map((c) => (
               <option key={c.valor} value={c.valor}>
                 {c.etiqueta}
@@ -3048,13 +3711,10 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
           <span className="text-caption mb-1 block text-text-tertiary">Equipo</span>
           <select
             name="equipo"
-            required
             defaultValue=""
             className="radius-control w-full border border-border bg-surface-2 px-3 py-2.5 text-secondary text-text"
           >
-            <option value="" disabled>
-              Elegir...
-            </option>
+            <option value="">Sin elegir todavía</option>
             {EQUIPOS.map((e) => (
               <option key={e.valor} value={e.valor}>
                 {e.etiqueta}
@@ -3078,23 +3738,45 @@ function ModalEjercicioNuevo({ nombreInicial = "", onCerrar }: { nombreInicial?:
             <label className="block"><span className="text-micro text-text-tertiary">Errores comunes · uno por línea</span><Textarea name="errores_comunes" rows={3} className="mt-1 text-caption" /></label>
             <label className="block"><span className="text-micro text-text-tertiary">Consejos · uno por línea</span><Textarea name="consejos" rows={3} className="mt-1 text-caption" /></label>
             <label className="block"><span className="text-micro text-text-tertiary">Video · YouTube o archivo enlazado</span><Input type="url" name="video_url" placeholder="https://…" className="mt-1 text-caption" /></label>
-            <p className="text-micro text-text-tertiary">Si prefieres subir un clip desde el celular, crea el ejercicio y luego abre “Foto y datos” → “Subir clip”.</p>
+            <div>
+              <span className="text-micro text-text-tertiary">O subí un clip directo — MP4, MOV o WebM · máx. 30 s y 100 MB</span>
+              <label className={`radius-control mt-1 flex h-10 w-full items-center justify-center gap-2 border border-vip/40 text-caption font-semibold text-vip ${subiendoVideo ? "opacity-50" : "cursor-pointer"}`}>
+                <Film size={16} />
+                {subiendoVideo
+                  ? `Subiendo ${progresoVideo}%`
+                  : videoArchivo
+                    ? videoTerminado ? "Clip listo" : videoArchivo.name
+                    : "Elegir clip"}
+                <input
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm"
+                  disabled={subiendoVideo || videoTerminado}
+                  className="sr-only"
+                  onChange={(evento) => {
+                    const archivo = evento.target.files?.[0];
+                    if (archivo) void elegirVideo(archivo);
+                    evento.target.value = "";
+                  }}
+                />
+              </label>
+              {errorVideo && <p className="text-micro mt-1 text-error">{errorVideo}</p>}
+            </div>
           </div>
         </details>
 
         {state.error && <p className="text-caption text-error">{state.error}</p>}
         {state.ok && (
           <p className="text-caption flex items-center gap-1 text-success">
-            <Check size={14} /> Ejercicio creado.
+            <Check size={14} /> {subiendoVideo || (videoArchivo && !videoTerminado) ? "Ejercicio creado, subiendo el clip…" : "Ejercicio creado."}
           </p>
         )}
 
         <button
           type="submit"
-          disabled={pending || subiendoFoto || (!!archivoElegido && !fotoSubida)}
+          disabled={pending || subiendoFoto || subiendoVideo || (!!archivoElegido && !fotoSubida)}
           className="btn-accion radius-control flex h-11 w-full items-center justify-center gap-2 text-secondary font-semibold disabled:opacity-60"
         >
-          {pending ? "Creando..." : subiendoFoto ? "Esperando la foto..." : "Crear ejercicio"}
+          {pending ? "Creando..." : subiendoFoto ? "Esperando la foto..." : subiendoVideo ? `Subiendo clip ${progresoVideo}%` : "Crear ejercicio"}
         </button>
       </form>
     </Overlay>

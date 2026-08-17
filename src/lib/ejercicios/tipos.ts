@@ -102,16 +102,32 @@ export const COLUMNAS_EJERCICIO_IMPULSO =
  * respaldo que las demás columnas nuevas: puede fallar si esa migración
  * todavía no corrió, y quien la use debe caer a `COLUMNAS_EJERCICIO_IMPULSO`. */
 export const COLUMNAS_EJERCICIO_IMPULSO_CON_HASH = `${COLUMNAS_EJERCICIO_IMPULSO}, foto_hash`;
+/** Con el estado de calidad de la ficha (migración 0099) — puede fallar si
+ * esa migración todavía no corrió; quien la use debe caer a
+ * `COLUMNAS_EJERCICIO_IMPULSO_CON_HASH`, que trata todo como clasificado
+ * (el único estado posible antes de que existiera esta columna). */
+export const COLUMNAS_EJERCICIO_COMPLETO = `${COLUMNAS_EJERCICIO_IMPULSO_CON_HASH}, calidad_ficha`;
+
+/** Columnas mínimas de la cola "Completar ficha" (instructivo §7.3): solo lo
+ * necesario para identificar el ejercicio y su material ya cargado, sin
+ * arrastrar toda `COLUMNAS_EJERCICIO_COMPLETO`. */
+export const COLUMNAS_EJERCICIO_INCOMPLETO =
+  "id, nombre, aliases, grupo_muscular, categoria, equipo, foto_miniatura_url, created_at";
 
 type FilaEjercicio = {
   id: string;
   slug: string;
   nombre: string;
   aliases: string[] | null;
-  grupo_muscular: GrupoMuscular;
+  // Migración 0099: nulos mientras calidad_ficha sea
+  // 'requiere_clasificacion'. `aEjercicio()` solo se llama con filas
+  // 'completa' (ver obtenerBiblioteca en lib/ejercicios/data.ts) — ahí SÍ
+  // están garantizados, por eso el tipo `Ejercicio` los sigue exigiendo no
+  // nulos y no hizo falta tocar a ningún consumidor de la biblioteca.
+  grupo_muscular: GrupoMuscular | null;
   grupos_secundarios: string[] | null;
-  categoria: CategoriaEjercicio;
-  equipo: EquipoEjercicio;
+  categoria: CategoriaEjercicio | null;
+  equipo: EquipoEjercicio | null;
   nivel: NivelEjercicio;
   descripcion_corta: string | null;
   tecnica: string | null;
@@ -144,10 +160,11 @@ export function aEjercicio(fila: FilaEjercicio): Ejercicio {
     slug: fila.slug,
     nombre: fila.nombre,
     aliases: fila.aliases ?? [],
-    grupoMuscular: fila.grupo_muscular,
+    // No-null assertion deliberada: ver el comentario de FilaEjercicio.
+    grupoMuscular: fila.grupo_muscular!,
     gruposSecundarios: fila.grupos_secundarios ?? [],
-    categoria: fila.categoria,
-    equipo: fila.equipo,
+    categoria: fila.categoria!,
+    equipo: fila.equipo!,
     nivel: fila.nivel,
     descripcionCorta: fila.descripcion_corta,
     tecnica: fila.tecnica,
@@ -172,5 +189,48 @@ export function aEjercicio(fila: FilaEjercicio): Ejercicio {
     impulsoTecnicasPermitidas: fila.impulso_tecnicas_permitidas ?? [],
     impulsoRequiereSupervision: fila.impulso_requiere_supervision ?? true,
     impulsoPerfilRevisado: fila.impulso_perfil_revisado ?? false,
+  };
+}
+
+/**
+ * Ficha creada desde el alta rápida sin clasificación todavía (instructivo
+ * §7.3, calidad_ficha = 'requiere_clasificacion') — NO es un `Ejercicio`:
+ * queda fuera de `obtenerBiblioteca()` a propósito (no debe llegar al
+ * generador de rutinas ni a los emparejados de Mesa/Carga masiva hasta que
+ * alguien complete grupo/categoría/equipo). Vive solo en la cola "Completar
+ * ficha" de /admin/ejercicios.
+ */
+export type EjercicioIncompleto = {
+  id: string;
+  nombre: string;
+  aliases: string[];
+  grupoMuscular: GrupoMuscular | null;
+  categoria: CategoriaEjercicio | null;
+  equipo: EquipoEjercicio | null;
+  fotoMiniaturaUrl: string | null;
+  creadoEn: string;
+};
+
+type FilaEjercicioIncompleto = {
+  id: string;
+  nombre: string;
+  aliases: string[] | null;
+  grupo_muscular: GrupoMuscular | null;
+  categoria: CategoriaEjercicio | null;
+  equipo: EquipoEjercicio | null;
+  foto_miniatura_url: string | null;
+  created_at: string;
+};
+
+export function aEjercicioIncompleto(fila: FilaEjercicioIncompleto): EjercicioIncompleto {
+  return {
+    id: fila.id,
+    nombre: fila.nombre,
+    aliases: fila.aliases ?? [],
+    grupoMuscular: fila.grupo_muscular,
+    categoria: fila.categoria,
+    equipo: fila.equipo,
+    fotoMiniaturaUrl: fila.foto_miniatura_url,
+    creadoEn: fila.created_at,
   };
 }
