@@ -17,7 +17,8 @@ import {
   type SesionEjercicioCardHandle,
 } from "@/components/student/SesionEjercicioCard";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
-import { esEjercicioDeTiempo, repsObjetivo as calcularRepsObjetivo } from "@/lib/entrenamiento/reps";
+import { esEjercicioDeTiempo } from "@/lib/entrenamiento/reps";
+import { objetivoSerie } from "@/lib/entrenamiento/objetivo-serie";
 import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import {
   guardarBorrador,
@@ -484,18 +485,16 @@ export const SesionGrupoCard = forwardRef<
 
   const esTiempoPorPos = ejercicios.map((e) => esEjercicioDeTiempo(e.repsProgramadas));
 
-  const recomendacionAprobada = (ej: EjercicioSesion) =>
-    ej.recomendacionImpulso &&
-    (ej.recomendacionImpulso.estado === "aprobada" || ej.recomendacionImpulso.estado === "modificada")
-      ? ej.recomendacionImpulso
-      : null;
-  const objetivoRepsPorPos = ejercicios.map(
-    (ej) => recomendacionAprobada(ej)?.repsObjetivoMax ?? calcularRepsObjetivo(ej.repsProgramadas)
-  );
-  const pesoSugeridoPorPos = ejercicios.map((ej) => {
-    const rec = recomendacionAprobada(ej);
-    return rec && !rec.esPesoCorporal ? (rec.pesoSugeridoKg ?? null) : null;
-  });
+  // Antes esta pantalla reimplementaba su propia versión de "¿hay una
+  // recomendación de Impulso VIP aprobada?" en vez de compartir la de
+  // SesionEjercicioCard.tsx — mismo cálculo, dos lugares que podían
+  // desalinearse. `objetivoSerie` (lib/entrenamiento/objetivo-serie.ts) es
+  // ahora la única fuente, y de paso trae el texto de "Última vez /
+  // Objetivo" que a esta pantalla le faltaba mostrar por completo (ver
+  // resumen-serie-foco más abajo — pedido de Alejandro, 2026-08-17).
+  const objetivoPorPos = ejercicios.map((ej, i) => objetivoSerie(ej, esTiempoPorPos[i]));
+  const objetivoRepsPorPos = objetivoPorPos.map((o) => o.objetivoReps);
+  const pesoSugeridoPorPos = objetivoPorPos.map((o) => o.pesoSugeridoEfectivo);
 
   // El descanso "real" de la ronda es el del ÚLTIMO ejercicio del grupo —
   // en la práctica es el único que suele tener un descanso propio (los
@@ -906,6 +905,30 @@ export const SesionGrupoCard = forwardRef<
                             </button>
                           )}
                         </div>
+                        {/* Referencia de peso que antes le faltaba por completo a esta
+                            pantalla: el ejercicio suelto SÍ muestra última vez/objetivo
+                            (`resumen-serie-foco` en SesionEjercicioCard.tsx), acá no había
+                            nada — el alumno llegaba a cargar el peso de una biserie sin
+                            ninguna pista de cuánto pedía la rutina ni cuánto levantó la
+                            vez pasada. Solo en el paso que toca ahora, no en los ya
+                            hechos (esos ya muestran su propio registro arriba) ni en los
+                            que faltan (todavía no es su turno). */}
+                        {esActual && !hecho && (
+                          <div className="resumen-serie-foco">
+                            <p className="registro-anterior-foco">
+                              <span>Última vez</span>
+                              <i>—</i>
+                              <strong>{formatUltimo(ej.ultimoRegistro, esTiempoPorPos[paso.pos]) ?? ""}</strong>
+                            </p>
+                            <p className="objetivo-serie-foco">
+                              <span>Objetivo</span>
+                              <i>{objetivoPorPos[paso.pos].pesoObjetivoTexto === "— kg" ? "" : "—"}</i>
+                              <strong>
+                                {objetivoPorPos[paso.pos].pesoObjetivoTexto} × {objetivoPorPos[paso.pos].repsObjetivoTexto}
+                              </strong>
+                            </p>
+                          </div>
+                        )}
                         {abierto && (
                           <div
                             ref={(nodo) => {
@@ -923,6 +946,7 @@ export const SesionGrupoCard = forwardRef<
                               inicial={serieInicial(paso.pos, paso.numero)}
                               repsObjetivo={objetivoRepsPorPos[paso.pos]}
                               pesoSugerido={pesoSugeridoPorPos[paso.pos]}
+                              pesoObjetivoPlaceholder={objetivoPorPos[paso.pos].pesoObjetivoKg}
                               esTiempo={esTiempoPorPos[paso.pos]}
                               descansoSegundos={descansoEfectivo(ej)}
                               temporizadorDescanso={ej.temporizadorDescanso}
@@ -1021,6 +1045,7 @@ export const SesionGrupoCard = forwardRef<
                         inicial={serieInicial(paso.pos, paso.numero)}
                         repsObjetivo={objetivoRepsPorPos[paso.pos]}
                         pesoSugerido={pesoSugeridoPorPos[paso.pos]}
+                        pesoObjetivoPlaceholder={objetivoPorPos[paso.pos].pesoObjetivoKg}
                         esTiempo={esTiempoPorPos[paso.pos]}
                         descansoSegundos={descansoEfectivo(ej)}
                         temporizadorDescanso={ej.temporizadorDescanso}

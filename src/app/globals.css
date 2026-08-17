@@ -6204,12 +6204,22 @@ input[type="number"] {
    ámbar y la respiración que sí tiene en el resto de la app (más arriba,
    `.boton-descanso[data-estado="pendiente"]`), porque esta regla más
    específica del modo enfocado pisaba esa. Pedido de Alejandro, 2026-08-17:
-   "los alumnos no lo presionan, no lo alcanzan a ver" — se restaura acá. */
+   "los alumnos no lo presionan, no lo alcanzan a ver" — se restaura acá.
+
+   `overflow: visible` es a propósito: `.boton-descanso` base lo pone en
+   `hidden` para recortar la barra de descanso (`.boton-descanso-relleno`)
+   a las esquinas redondeadas — pero esa barra solo existe en el DOM
+   mientras `descansando` (ver SesionEjercicioCard.tsx), nunca en
+   "pendiente". Sin este override, `respiracion-entrenar` (una sombra
+   desplazada hacia abajo, pensada para un botón sin recorte) se cortaba en
+   seco contra ese `hidden` y dejaba una línea dura debajo del botón en vez
+   de un resplandor — el "amarillo que desborda y se ve feo" que reportó
+   Alejandro. */
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="pendiente"] {
+  overflow: visible;
   color: var(--color-vip);
   border-color: color-mix(in srgb, var(--color-vip) 55%, transparent);
   background: color-mix(in srgb, var(--color-vip) 16%, transparent);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--color-vip) 32%, transparent);
   animation: respiracion-entrenar 2.6s ease-in-out infinite;
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="pendiente"],
