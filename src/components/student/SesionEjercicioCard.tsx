@@ -35,7 +35,6 @@ import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 import { ModalVideo } from "@/components/student/ModalVideo";
 import { ModalVideoCloudflare } from "@/components/student/ModalVideoCloudflare";
 import { VideoCloudflareAutomatico } from "@/components/student/VideoCloudflareAutomatico";
-import { useAutoplayVideoPreferido } from "@/lib/preferencias/autoplayVideo";
 import { resolverIlustracion, resolverFotoCompleta } from "@/lib/ejercicios/ilustracion";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { repsObjetivo, esEjercicioDeTiempo } from "@/lib/entrenamiento/reps";
@@ -1971,7 +1970,6 @@ export const SesionEjercicioCard = forwardRef<
   const [mostrarTecnica, setMostrarTecnica] = useState(false);
   const [avisoTecnica, setAvisoTecnica] = useState(false);
   const avisoAutomaticoRef = useRef(false);
-  const [autoplayPreferido, setAutoplayPreferido] = useAutoplayVideoPreferido();
   useEffect(() => {
     if (activo && tecnica && !avisoAutomaticoRef.current) {
       avisoAutomaticoRef.current = true;
@@ -2522,6 +2520,12 @@ export const SesionEjercicioCard = forwardRef<
           {modoEnfocado && (
             <>
               <div className="referencia-foco-compacta relative shrink-0">
+                {/* `reproducirAutomaticamente` siempre en `false` acá: nunca
+                    se reproduce solo, la referencia de entrada es la foto
+                    quieta y el circulito de play de su esquina abre el
+                    video. Pedido de Alejandro (16-ago), dos veces: el video
+                    arrancando solo tapaba la foto, y un botón aparte para
+                    prenderlo "daña el diseño de la pantalla entera". */}
                 <CuadroFotoReferencia
                   ilustracionSlug={ejercicio.ilustracionSlug}
                   fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
@@ -2538,28 +2542,10 @@ export const SesionEjercicioCard = forwardRef<
                   fotoCuadradaX={ejercicio.fotoCuadradaX}
                   fotoCuadradaY={ejercicio.fotoCuadradaY}
                   destacado
-                  reproducirAutomaticamente={activo && !soloLectura && autoplayPreferido}
+                  reproducirAutomaticamente={false}
                   tecnicaTexto={tecnica?.texto}
                   tecnicaExplicacion={explicacion?.explicacion}
                 />
-                {/* Por defecto se ve la foto quieta y tocar el botón de
-                    reproducir abre el video completo — pedido de Alejandro,
-                    16-ago: el video reproduciéndose solo tapaba la foto sin
-                    que lo pidiera. Quien prefiera el video andando solo en
-                    este cuadro lo prende acá; queda guardado en el navegador. */}
-                {(ejercicio.videoCloudflareEstado === "listo" || ejercicio.videoUrl) && (
-                  <button
-                    type="button"
-                    onClick={() => setAutoplayPreferido(!autoplayPreferido)}
-                    aria-pressed={autoplayPreferido}
-                    title={autoplayPreferido ? "Video automático activado — tocar para apagar" : "Activar que el video se reproduzca solo"}
-                    className={`absolute left-2 top-2 z-[4] flex items-center gap-1 rounded-full px-2 py-1 text-micro font-semibold backdrop-blur-sm ${
-                      autoplayPreferido ? "bg-vip text-black" : "bg-black/55 text-white"
-                    }`}
-                  >
-                    <Play size={11} fill="currentColor" /> Auto
-                  </button>
-                )}
               </div>
               <div className="guia-ejercicio-foco">
                 <h2>{ejercicio.nombre}</h2>
