@@ -2100,6 +2100,16 @@ html[data-zoom-pantalla="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido
   color: var(--color-text-tertiary);
   font-weight: 600;
 }
+/* En el campo grande y centrado del modo enfocado, un guion suelto ("—")
+   es casi puro trazo horizontal — mucho menos "tinta" que un número real
+   de al lado ("10"), aunque comparta tamaño de letra. Las dos columnas
+   quedaban desbalanceadas: una llena, una casi vacía. Más grosor y un
+   pelo más de tamaño le dan peso visual comparable sin que deje de leerse
+   como "sin dato todavía" (pedido de Alejandro, 2026-08-17). */
+.tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input::placeholder {
+  font-size: 1.15em;
+  font-weight: 800;
+}
 /* Conservamos las sugerencias de valores que ofrece el navegador, pero nunca
    su capa blanca de autofill: al elegir un peso el campo debe seguir siendo
    parte del panel oscuro, no parecer vacío ni desconectado del control. */
