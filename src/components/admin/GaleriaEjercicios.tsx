@@ -2496,7 +2496,6 @@ function FichaMesa({
           fotoCuadradaX={cuadrada.x}
           fotoCuadradaY={cuadrada.y}
           destacado
-          reproducirAutomaticamente={ejercicio.videoCloudflareEstado === "listo"}
         />
       </div>
 
@@ -3136,7 +3135,6 @@ function ModalSubirFoto({
           fotoCuadradaX={cuadrada.x}
           fotoCuadradaY={cuadrada.y}
           destacado
-          reproducirAutomaticamente={ejercicio.videoCloudflareEstado === "listo"}
         />
       </div>
 

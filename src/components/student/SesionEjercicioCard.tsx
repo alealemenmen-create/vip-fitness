@@ -165,7 +165,6 @@ export const CuadroFotoReferencia = forwardRef<ExercicioReferenciaHandle, {
   /** En el modo enfocado la referencia es el elemento principal de la
    * pantalla, no una miniatura arrinconada junto al título. */
   destacado?: boolean;
-  reproducirAutomaticamente?: boolean;
   tecnicaTexto?: string | null;
   tecnicaExplicacion?: string | null;
 }>(function CuadroFotoReferencia({
@@ -187,7 +186,6 @@ export const CuadroFotoReferencia = forwardRef<ExercicioReferenciaHandle, {
   compacto = false,
   tamanoCompacto = 44,
   destacado = false,
-  reproducirAutomaticamente = false,
   tecnicaTexto = null,
   tecnicaExplicacion = null,
 }, ref) {
@@ -245,7 +243,6 @@ export const CuadroFotoReferencia = forwardRef<ExercicioReferenciaHandle, {
       tamano={tamano}
       compacto={compacto}
       destacado={destacado}
-      reproducirAutomaticamente={reproducirAutomaticamente}
       tecnicaTexto={tecnicaTexto}
       tecnicaExplicacion={tecnicaExplicacion}
     />
@@ -411,7 +408,6 @@ const FotoReferenciaAmpliable = forwardRef<ExercicioReferenciaHandle, {
   tamano: React.CSSProperties;
   compacto?: boolean;
   destacado?: boolean;
-  reproducirAutomaticamente?: boolean;
   tecnicaTexto?: string | null;
   tecnicaExplicacion?: string | null;
 }>(function FotoReferenciaAmpliable({
@@ -428,12 +424,60 @@ const FotoReferenciaAmpliable = forwardRef<ExercicioReferenciaHandle, {
   tamano,
   compacto = false,
   destacado = false,
-  reproducirAutomaticamente = false,
   tecnicaTexto = null,
   tecnicaExplicacion = null,
 }, ref) {
   const [ampliada, setAmpliada] = useState(false);
+  // "Ver técnica" (junto al RIR) sigue llamando a `abrir()` tal cual estaba:
+  // abre la foto/video a pantalla completa, sin tocar. Pedido de Alejandro,
+  // 2026-08-17: "ese no se toca". El comportamiento nuevo de acá abajo (tocar
+  // el cuadro reproduce el video ADENTRO, no en este visor) es una acción
+  // DISTINTA, con su propio estado — nunca pisa a `abrir()`.
   useImperativeHandle(ref, () => ({ abrir: () => setAmpliada(true) }), []);
+
+  /**
+   * Video "ambiente" adentro del cuadro (16:9, solo `destacado`): sin
+   * controles, en silencio, en loop — mismo clip que ya usaba
+   * `VideoCloudflareAutomatico`, pero ahora con apagado automático en vez de
+   * quedar prendido para siempre. Dos disparadores, pedido de Alejandro
+   * (2026-08-17):
+   *   - Automático, 10s: al entrar a este ejercicio (la tarjeta se monta de
+   *     nuevo cada vez que cambia el ejercicio activo — ver el comentario en
+   *     SesionEjercicios.tsx, "solo se monta la tarjeta que se está
+   *     mirando" — así que un efecto que corre una vez al montar alcanza
+   *     para cubrir tanto "arranca la sesión" como "pasé al siguiente
+   *     ejercicio", sin plomería extra entre componentes).
+   *   - Manual, 15s: tocar el cuadro mientras se ve la foto quieta.
+   * Pasado el tiempo, se apaga solo y vuelve a quedar la foto — nunca la tapa
+   * para siempre (Alejandro ya había rechazado eso antes, dos veces: "el
+   * video arrancando solo tapaba la foto"; el apagado automático es
+   * justamente lo que resuelve esa objeción).
+   */
+  // Arranca ya "activo" cuando corresponde (estado inicial perezoso, no un
+  // setState dentro del efecto de montaje): evita el render en cascada de
+  // prender el video un instante después de montar la tarjeta.
+  const [previaVideoActiva, setPreviaVideoActiva] = useState(() => destacado && videoCloudflareListo);
+  const previaVideoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reproducirPreviaEnCuadro = (duracionMs: number) => {
+    if (previaVideoTimeoutRef.current) clearTimeout(previaVideoTimeoutRef.current);
+    setPreviaVideoActiva(true);
+    previaVideoTimeoutRef.current = setTimeout(() => setPreviaVideoActiva(false), duracionMs);
+  };
+  useEffect(() => {
+    // Solo programa el apagado del arranque automático (el prendido ya lo
+    // hizo el estado inicial de arriba) — así el efecto no llama a
+    // setState de forma síncrona en su cuerpo, solo agenda un timeout.
+    // Solo al montar: cada ejercicio activo monta una tarjeta nueva (ver
+    // comentario arriba), así que esto ya corre "una vez por ejercicio".
+    if (destacado && videoCloudflareListo) {
+      previaVideoTimeoutRef.current = setTimeout(() => setPreviaVideoActiva(false), 10_000);
+    }
+    return () => {
+      if (previaVideoTimeoutRef.current) clearTimeout(previaVideoTimeoutRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [confirmandoReporte, setConfirmandoReporte] = useState(false);
   const [reporte, accionReporte, enviandoReporte] = useActionState<ReportarFotoState, FormData>(
     reportarFotoIncorrecta,
@@ -468,9 +512,20 @@ const FotoReferenciaAmpliable = forwardRef<ExercicioReferenciaHandle, {
     <>
       <button
         type="button"
-        onClick={() => setAmpliada(true)}
+        onClick={() => {
+          // Adentro del cuadro cuando se puede (destacado + Cloudflare
+          // listo); si no, se mantiene el visor a pantalla completa de
+          // siempre — mismo criterio de respaldo que el resto del
+          // componente (`videoUrl` como resto para clips viejos).
+          if (destacado && videoCloudflareListo) reproducirPreviaEnCuadro(15_000);
+          else setAmpliada(true);
+        }}
         aria-label={
-          videoUrl ? `Ver video de referencia de ${nombre}` : `Ver foto de referencia de ${nombre} en grande`
+          destacado && videoCloudflareListo
+            ? `Reproducir video de referencia de ${nombre}`
+            : videoUrl
+            ? `Ver video de referencia de ${nombre}`
+            : `Ver foto de referencia de ${nombre} en grande`
         }
         className={
           destacado
@@ -503,15 +558,18 @@ const FotoReferenciaAmpliable = forwardRef<ExercicioReferenciaHandle, {
         {destacado && videoCloudflareListo && (
           <VideoCloudflareAutomatico
             ejercicioId={ejercicioId}
-            activo={reproducirAutomaticamente}
+            activo={previaVideoActiva}
             nombre={nombre}
           />
         )}
         {/* Botón de expandir/reproducir, chico y en la esquina (referencia de
             diseño): un ícono basta como pista de que hay más para ver, sin
             tapar la foto con una franja de texto. En modo compacto (44px) se
-            saca del todo: no entraba sin tapar casi toda la foto. */}
-        {!compacto && (
+            saca del todo: no entraba sin tapar casi toda la foto. Mientras el
+            video ambiente está sonando (silenciado) en el cuadro, se saca
+            también: ya se está viendo el video, el ícono de play encima
+            sobra. */}
+        {!compacto && !previaVideoActiva && (
           <span className="absolute bottom-1.5 right-1.5 z-[3] flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm">
             {videoUrl || videoCloudflareListo ? <Play size={11} fill="currentColor" /> : <Maximize2 size={12} strokeWidth={2.5} />}
           </span>
@@ -2550,12 +2608,12 @@ export const SesionEjercicioCard = forwardRef<
           {modoEnfocado && (
             <>
               <div className="referencia-foco-compacta relative shrink-0">
-                {/* `reproducirAutomaticamente` siempre en `false` acá: nunca
-                    se reproduce solo, la referencia de entrada es la foto
-                    quieta y el circulito de play de su esquina abre el
-                    video. Pedido de Alejandro (16-ago), dos veces: el video
-                    arrancando solo tapaba la foto, y un botón aparte para
-                    prenderlo "daña el diseño de la pantalla entera". */}
+                {/* La entrada de este ejercicio reproduce sola el video 10s
+                    (si hay uno de Cloudflare) y vuelve a la foto — pedido de
+                    Alejandro, 2026-08-17. Ver el efecto de montaje en
+                    `FotoReferenciaAmpliable`: como esta tarjeta se monta de
+                    nuevo cada vez que el ejercicio activo cambia, no hace
+                    falta pasarle ninguna señal desde acá. */}
                 <CuadroFotoReferencia
                   ref={referenciaRef}
                   ilustracionSlug={ejercicio.ilustracionSlug}
@@ -2573,7 +2631,6 @@ export const SesionEjercicioCard = forwardRef<
                   fotoCuadradaX={ejercicio.fotoCuadradaX}
                   fotoCuadradaY={ejercicio.fotoCuadradaY}
                   destacado
-                  reproducirAutomaticamente={false}
                   tecnicaTexto={tecnica?.texto}
                   tecnicaExplicacion={explicacion?.explicacion}
                 />

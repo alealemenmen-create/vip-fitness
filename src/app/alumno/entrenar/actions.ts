@@ -411,22 +411,16 @@ export async function iniciarRutinaDesdeCalendario(formData: FormData): Promise<
   redirect(`/alumno/entrenar/sesion/${sesionId}`);
 }
 
-/** El alumno ya está en la pantalla de la sesión pero la rutina sigue
- * bloqueada (ver migración 0040): esto la desbloquea y ancla el cronómetro.
- * `is(...null)` la hace idempotente — un doble tap no corre el reloj de
- * nuevo. */
-export async function iniciarRutina(formData: FormData): Promise<void> {
-  const sesionId = String(formData.get("sesion_id") || "");
-  const { alumnoId, soloLectura } = await requireAlumno();
-  if (!sesionId || soloLectura) return;
-
-  const supabase = createAdminClient();
+/** Núcleo compartido de "arrancar el cronómetro" de una sesión ya creada:
+ * chequea el plan, marca `rutina_iniciada_en` y dispara las indicaciones de
+ * Impulso VIP. Usado por `iniciarRutina` (camino normal, sin conflicto) y por
+ * `cancelarOtraYIniciarRutina` (después de resolver el conflicto con otra
+ * sesión activa) — mismo final para los dos caminos. */
+async function marcarRutinaIniciada(supabase: TrainingDb, alumnoId: string, sesionId: string): Promise<void> {
   const plan = await obtenerEstadoPlanMensual(supabase as unknown as SupabaseClient, alumnoId);
   if (plan?.pausado || (plan && plan.restantes <= 0)) {
     redirect(`/alumno/entrenar?plan=${plan.pausado ? "pausado" : "agotado"}`);
   }
-  const otraActiva = await buscarOtraSesionRealEnProgreso(supabase, alumnoId, sesionId);
-  if (otraActiva) redirect(`/alumno/entrenar/sesion/${otraActiva.id}`);
 
   const { error } = await supabase
     .from("sesiones_entrenamiento")
@@ -452,6 +446,71 @@ export async function iniciarRutina(formData: FormData): Promise<void> {
   }).catch(() => null);
 
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
+}
+
+/** El alumno ya está en la pantalla de la sesión pero la rutina sigue
+ * bloqueada (ver migración 0040): esto la desbloquea y ancla el cronómetro.
+ * `is(...null)` la hace idempotente — un doble tap no corre el reloj de
+ * nuevo. */
+export async function iniciarRutina(formData: FormData): Promise<void> {
+  const sesionId = String(formData.get("sesion_id") || "");
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (!sesionId || soloLectura) return;
+
+  const supabase = createAdminClient();
+  // Red de seguridad server-side (ver el mismo comentario en `iniciarSesion`):
+  // el camino normal ya pregunta antes, en el cliente (BotonIniciarRutinaFijo,
+  // con el conflicto que le pasa sesion/[id]/page.tsx vía
+  // `obtenerConflictoSesionActiva`). Esto solo cubre JS desactualizado o dos
+  // pestañas — ahí sí toca redirigir en silencio, ya no hay vuelta atrás.
+  const otraActiva = await buscarOtraSesionRealEnProgreso(supabase, alumnoId, sesionId);
+  if (otraActiva) redirect(`/alumno/entrenar/sesion/${otraActiva.id}`);
+
+  await marcarRutinaIniciada(supabase, alumnoId, sesionId);
+}
+
+/**
+ * El alumno confirmó — DOS veces, ver el modal en `BotonIniciarRutinaFijo` —
+ * que quiere abandonar otra sesión activa para arrancar esta, que ya existe
+ * como vista previa bloqueada. Mismo criterio de "no perder progreso real"
+ * que `cancelarYEmpezarOtroDia`: si esa otra sesión ya tiene series
+ * completadas, no se cancela — `marcarRutinaIniciada` la vuelve a detectar y
+ * redirige ahí en vez de arrancar esta con la otra todavía viva.
+ */
+export async function cancelarOtraYIniciarRutina(formData: FormData): Promise<void> {
+  const sesionId = String(formData.get("sesion_id") || "");
+  const sesionIdCancelar = String(formData.get("sesion_id_cancelar") || "");
+  if (!sesionId || !sesionIdCancelar) redirect("/alumno/entrenar");
+
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) redirect("/alumno/entrenar");
+  const supabase = createAdminClient();
+
+  const { data: sesion } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id, estado")
+    .eq("id", sesionIdCancelar)
+    .eq("alumno_id", alumnoId)
+    .maybeSingle();
+
+  if (sesion && sesion.estado === "en_progreso") {
+    const { count } = await supabase
+      .from("sesion_ejercicios")
+      .select("id", { count: "exact", head: true })
+      .eq("sesion_id", sesionIdCancelar)
+      .eq("completado", true);
+
+    if (!count) {
+      await supabase.from("sesiones_entrenamiento").delete().eq("id", sesionIdCancelar).eq("alumno_id", alumnoId);
+      revalidatePath("/alumno/entrenar/historial");
+    }
+  }
+
+  const otraActiva = await buscarOtraSesionRealEnProgreso(supabase, alumnoId, sesionId);
+  if (otraActiva) redirect(`/alumno/entrenar/sesion/${otraActiva.id}`);
+
+  await marcarRutinaIniciada(supabase, alumnoId, sesionId);
+  revalidatePath("/alumno/entrenar");
 }
 
 export type GuardarSeriesState = { error: string | null };

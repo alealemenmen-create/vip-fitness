@@ -1,9 +1,10 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { Play } from "lucide-react";
-import { iniciarRutina } from "@/app/alumno/entrenar/actions";
+import { AlertTriangle, Play } from "lucide-react";
+import { iniciarRutina, cancelarOtraYIniciarRutina } from "@/app/alumno/entrenar/actions";
+import type { ConflictoSesionActiva } from "@/app/alumno/entrenar/data";
 
 /**
  * "Iniciar rutina", fijo justo encima de la barra de navegación, sin
@@ -26,22 +27,131 @@ import { iniciarRutina } from "@/app/alumno/entrenar/actions";
  */
 const suscribirSinCambios = () => () => {};
 
-export function BotonIniciarRutinaFijo({ sesionId }: { sesionId: string }) {
+export function BotonIniciarRutinaFijo({
+  sesionId,
+  conflicto,
+}: {
+  sesionId: string;
+  /** Otra sesión en curso de verdad, si existe (ver
+   * `obtenerConflictoSesionActiva`). Antes este botón, a diferencia del
+   * calendario, redirigía en silencio a esa otra sesión sin avisar —
+   * alumnos terminaban arrancando la rutina equivocada sin darse cuenta.
+   * Pedido de Alejandro, 2026-08-17: avisar CUÁL sesión sigue en curso y
+   * pedir confirmación DOS veces antes de abandonarla. */
+  conflicto: ConflictoSesionActiva | null;
+}) {
   const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
+  // paso 0: cerrado. paso 1: "tenés otra sesión activa, ¿continuar o cambiar?".
+  // paso 2: "¿seguro? se abandona y no se puede deshacer" — la confirmación
+  // extra que pidió Alejandro para esta acción, que no tiene vuelta atrás.
+  const [paso, setPaso] = useState<0 | 1 | 2>(0);
   if (!montado) return null;
 
   return createPortal(
-    <div className="fixed inset-x-0 bottom-[var(--alto-nav-alumno,110px)] z-30 mx-auto w-full max-w-md px-4 pb-2">
-      <form action={iniciarRutina}>
-        <input type="hidden" name="sesion_id" value={sesionId} />
-        <button
-          type="submit"
-          className="btn-accion boton-entrenar-pulso radius-control flex h-16 w-full items-center justify-center gap-2 text-body font-bold"
+    <>
+      <div className="fixed inset-x-0 bottom-[var(--alto-nav-alumno,110px)] z-30 mx-auto w-full max-w-md px-4 pb-2">
+        <form
+          action={iniciarRutina}
+          onSubmit={(e) => {
+            if (conflicto) {
+              e.preventDefault();
+              setPaso(1);
+            }
+          }}
         >
-          <Play size={20} strokeWidth={3} /> Iniciar rutina
-        </button>
-      </form>
-    </div>,
+          <input type="hidden" name="sesion_id" value={sesionId} />
+          <button
+            type="submit"
+            className="btn-accion boton-entrenar-pulso radius-control flex h-16 w-full items-center justify-center gap-2 text-body font-bold"
+          >
+            <Play size={20} strokeWidth={3} /> Iniciar rutina
+          </button>
+        </form>
+      </div>
+
+      {paso > 0 &&
+        conflicto &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center"
+            onClick={() => setPaso(0)}
+          >
+            <div className="radius-card w-full max-w-sm space-y-3 bg-surface p-4" onClick={(e) => e.stopPropagation()}>
+              {paso === 1 ? (
+                <>
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle size={20} className="mt-0.5 shrink-0 text-vip" />
+                    <div>
+                      <p className="text-body font-medium text-text">Tienes un entrenamiento activo</p>
+                      <p className="text-caption mt-1 text-text-secondary">
+                        {conflicto.numeroCalendario ? `La sesión ${conflicto.numeroCalendario}` : "Otra sesión"}
+                        {conflicto.diaNombre ? ` (${conflicto.diaNombre})` : ""} sigue en curso. ¿Quieres continuar
+                        ese, o cancelarlo para empezar este?
+                      </p>
+                    </div>
+                  </div>
+
+                  <a
+                    href={`/alumno/entrenar/sesion/${conflicto.id}`}
+                    className="btn-accion radius-control flex h-12 w-full items-center justify-center text-body font-semibold"
+                  >
+                    Continuar el activo
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaso(2)}
+                    className="radius-control flex h-12 w-full items-center justify-center border border-error/50 text-body font-medium text-error"
+                  >
+                    Cancelar ese y empezar este
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaso(0)}
+                    className="radius-control flex h-11 w-full items-center justify-center text-caption font-medium text-text-tertiary"
+                  >
+                    Volver
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle size={20} className="mt-0.5 shrink-0 text-error" />
+                    <div>
+                      <p className="text-body font-medium text-text">¿Confirmas que quieres abandonarla?</p>
+                      <p className="text-caption mt-1 text-text-secondary">
+                        {conflicto.numeroCalendario ? `La sesión ${conflicto.numeroCalendario}` : "Esa sesión"} va a
+                        quedar abandonada. Esto no se puede deshacer.
+                      </p>
+                    </div>
+                  </div>
+
+                  <form action={cancelarOtraYIniciarRutina}>
+                    <input type="hidden" name="sesion_id" value={sesionId} />
+                    <input type="hidden" name="sesion_id_cancelar" value={conflicto.id} />
+                    <button
+                      type="submit"
+                      className="radius-control flex h-12 w-full items-center justify-center bg-error text-body font-semibold text-white"
+                    >
+                      Sí, abandonarla y empezar esta
+                    </button>
+                  </form>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaso(1)}
+                    className="radius-control flex h-11 w-full items-center justify-center text-caption font-medium text-text-tertiary"
+                  >
+                    No, volver
+                  </button>
+                </>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+    </>,
     document.body
   );
 }

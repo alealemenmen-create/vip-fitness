@@ -43,6 +43,40 @@ export async function obtenerSesionEnProgreso(
   return enCurso?.id ?? null;
 }
 
+export type ConflictoSesionActiva = { id: string; numeroCalendario: number | null; diaNombre: string };
+
+/**
+ * Igual que `obtenerSesionEnProgreso`, pero para el único camino que hoy NO
+ * pregunta antes de abandonar una sesión activa: el botón fijo "Iniciar
+ * rutina" de una sesión ya creada como vista previa (`BotonIniciarRutinaFijo`,
+ * ver `bloqueadaPorIniciar` en sesion/[id]/page.tsx). Ese camino redirigía en
+ * silencio a la sesión activa sin avisar — reportado por Alejandro (alumnos
+ * arrancando la rutina equivocada). Devuelve número y nombre del día para
+ * poder avisar CUÁL sesión sigue en curso antes de dejar elegir.
+ */
+export async function obtenerConflictoSesionActiva(
+  supabase: SupabaseServerClient,
+  alumnoId: string,
+  excluirSesionId: string
+): Promise<ConflictoSesionActiva | null> {
+  const { data } = await supabase
+    .from("sesiones_entrenamiento")
+    .select("id, numero_calendario, rutina_iniciada_en, rutina_dias(nombre, tipo)")
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "en_progreso")
+    .neq("id", excluirSesionId)
+    .order("hora_inicio", { ascending: false })
+    .limit(20);
+
+  const enCurso = (data ?? []).find((s) => {
+    const dia = s.rutina_dias as unknown as { tipo: string } | null;
+    return dia?.tipo === "descanso" || s.rutina_iniciada_en !== null;
+  });
+  if (!enCurso) return null;
+  const dia = enCurso.rutina_dias as unknown as { nombre: string } | null;
+  return { id: enCurso.id, numeroCalendario: enCurso.numero_calendario, diaNombre: dia?.nombre ?? "" };
+}
+
 /**
  * Rutina activa del alumno.
  *

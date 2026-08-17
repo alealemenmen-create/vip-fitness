@@ -11,7 +11,7 @@ import { CancelarSesionBoton } from "@/components/student/CancelarSesionBoton";
 import { RefrescarRecomendaciones } from "@/components/student/RefrescarRecomendaciones";
 import { BotonIniciarRutinaFijo } from "@/components/student/BotonIniciarRutinaFijo";
 import { sePuedeCorregir, diasDesdeInicio } from "@/lib/entrenamiento/estado-sesion";
-import { obtenerSesionCompleta, tienePedidoDeBorradoPendiente } from "../../data";
+import { obtenerSesionCompleta, obtenerConflictoSesionActiva, tienePedidoDeBorradoPendiente } from "../../data";
 import { terminarCorreccion } from "../../actions";
 import { SincronizarIndicacionesAle } from "@/components/student/SincronizarIndicacionesAle";
 import { AvisoSesionColgada } from "@/components/student/AvisoSesionColgada";
@@ -65,6 +65,13 @@ export default async function SesionPage({
   // "iniciar" — el bloqueo solo aplica a sesiones de entrenamiento real.
   const rutinaIniciada = sesion.rutinaIniciadaEn !== null;
   const bloqueadaPorIniciar = !esDescanso && sesion.estado === "en_progreso" && !rutinaIniciada;
+  // Solo se consulta cuando hace falta: es el único momento en que
+  // "Iniciar rutina" puede chocar con otra sesión activa (ver
+  // BotonIniciarRutinaFijo, pedido de Alejandro 2026-08-17 — antes este
+  // camino redirigía en silencio sin preguntar, a diferencia del calendario).
+  const conflictoIniciar = bloqueadaPorIniciar
+    ? await obtenerConflictoSesionActiva(supabase, alumnoId, sesion.id)
+    : null;
   /**
    * Corrigiendo un registro ya cerrado (migración 0077). NO es entrenar: la
    * sesión sigue cerrada, no corre ningún reloj y no vuelve a sumar puntos.
@@ -200,7 +207,7 @@ export default async function SesionPage({
           `.pantalla-scroll` un `position: fixed` normal queda "fijo" respecto
           a ese contenedor, que es el que scrollea — subía y bajaba con la
           lista en vez de quedarse clavado abajo. */}
-      {bloqueadaPorIniciar && <BotonIniciarRutinaFijo sesionId={sesion.id} />}
+      {bloqueadaPorIniciar && <BotonIniciarRutinaFijo sesionId={sesion.id} conflicto={conflictoIniciar} />}
 
       {esDescanso ? (
         <Card>

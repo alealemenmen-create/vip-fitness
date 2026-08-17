@@ -2985,6 +2985,15 @@ input[type="number"] {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+  /* `.fila-serie` base pone `overflow: hidden` para recortar el barrido de
+     la serie activa (ver ahí) â€” pero esta variante ya no tiene ese barrido
+     (fondo/borde en transparent/0 arriba), así que ese overflow solo servía
+     para recortar la sombra del respiración-entrenar de "Guardar y avanzar"
+     (`.boton-descanso[data-estado="pendiente"]` más abajo) contra el borde
+     de ABAJO de esta fila, que es donde esa sombra se extiende más lejos
+     (offset hacia abajo) â€” se veía bien en los costados y arriba, y una
+     línea dura justo abajo. Pedido de Alejandro, 2026-08-17. */
+  overflow: visible;
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .fila-serie-contenido {
   display: grid;
@@ -3357,12 +3366,16 @@ input[type="number"] {
 }
 .panel-aero-superior {
   overflow: hidden;
-  width: calc(100% - 8px);
-  margin-top: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  /* Mismo redondeo que la barra de navegaciÃ³n de ejercicios: con 28px el
-     encabezado se leÃ­a como una pÃ­ldora y las dos piezas no combinaban. */
-  border-radius: 20px;
+  /* Pegado arriba a tope, de borde a borde â€” pedido de Alejandro,
+     2026-08-17: antes quedaba flotando como pÃ­ldora (angosto, con margen
+     arriba y redondeado en las cuatro esquinas) y ese margen dejaba ver un
+     hueco de fondo liso entre el borde real de la pantalla y el panel. Solo
+     una lÃ­nea abajo, como el resto de las cabeceras sticky de la app. */
+  width: 100%;
+  margin-top: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
   /* Ojo al tocar esto: esta regla PISA el `background` de la regla compartida
      de arriba. Cambiar solo allÃ¡ no se ve. */
   background:
@@ -5461,10 +5474,18 @@ input[type="number"] {
   right: 10px;
   bottom: max(8px, env(safe-area-inset-bottom));
   overflow: hidden;
-  border: 1px solid rgba(160, 177, 188, .22);
+  /* Gris con más cuerpo, no casi-negro plano â€” pedido de Alejandro,
+     2026-08-17: "un tono un poco más 3D, que destaque un poco más". El
+     degradado más claro arriba que abajo, sumado al brillo interior de
+     arriba y la sombra interior de abajo, lee como una barra con relieve
+     real en vez de una franja lisa pegada al fondo. */
+  border: 1px solid rgba(180, 196, 208, .3);
   border-radius: 14px;
-  background: linear-gradient(180deg, #0a0b0c 0%, #050506 100%);
-  box-shadow: 0 14px 34px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.055);
+  background: linear-gradient(180deg, #23262b 0%, #101114 100%);
+  box-shadow:
+    0 14px 34px rgba(0,0,0,.48),
+    inset 0 1px 0 rgba(255,255,255,.1),
+    inset 0 -6px 10px -8px rgba(0,0,0,.6);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
@@ -5631,6 +5652,10 @@ input[type="number"] {
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
+  /* Ver el comentario en la otra definición de este mismo selector, más
+     arriba en el archivo: sin esto, la sombra de "Guardar y avanzar" se
+     corta contra el borde de abajo de esta fila. */
+  overflow: visible !important;
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .fila-serie-contenido {
   grid-template-columns: minmax(0,1fr) 1px minmax(0,1fr);
