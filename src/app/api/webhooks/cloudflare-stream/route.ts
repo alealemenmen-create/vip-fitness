@@ -19,6 +19,7 @@ export async function POST(request: Request): Promise<Response> {
     status?: { state?: string; errorReasonCode?: string; errorReasonText?: string };
     duration?: number;
     thumbnail?: string;
+    input?: { width?: number; height?: number };
   };
   let payload: Payload;
   try {
@@ -48,6 +49,8 @@ export async function POST(request: Request): Promise<Response> {
       video_cloudflare_duracion_seg: duracion,
       video_cloudflare_miniatura_url: payload.thumbnail ?? null,
       video_cloudflare_error: mensajeError,
+      video_cloudflare_ancho: payload.input?.width ?? null,
+      video_cloudflare_alto: payload.input?.height ?? null,
     })
     .eq("video_cloudflare_uid", payload.uid)
     .select("id");

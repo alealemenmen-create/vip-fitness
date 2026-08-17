@@ -13,6 +13,8 @@ export type EstadoVideoCloudflare = {
   duracion: number | null;
   miniaturaUrl: string | null;
   error: string | null;
+  ancho: number | null;
+  alto: number | null;
 };
 
 /**
@@ -99,6 +101,7 @@ export async function consultarVideoCloudflare(uid: string): Promise<EstadoVideo
         duration?: number;
         thumbnail?: string;
         status?: { state?: string; errorReasonText?: string };
+        input?: { width?: number; height?: number };
       };
     };
     const cuerpo = (await respuesta.json().catch(() => null)) as Respuesta | null;
@@ -113,6 +116,8 @@ export async function consultarVideoCloudflare(uid: string): Promise<EstadoVideo
         ? resultado.duration : null,
       miniaturaUrl: resultado.thumbnail ?? null,
       error: esError ? resultado.status?.errorReasonText ?? "Cloudflare no pudo procesar el video." : null,
+      ancho: typeof resultado.input?.width === "number" && resultado.input.width > 0 ? resultado.input.width : null,
+      alto: typeof resultado.input?.height === "number" && resultado.input.height > 0 ? resultado.input.height : null,
     };
   } catch {
     return null;
@@ -148,7 +153,12 @@ export async function urlEmbedFirmada(uid: string, expSegundos = 4 * 60 * 60): P
       loop: "true",
       controls: "false",
       preload: "auto",
-      letterboxColor: "transparent",
+      // Antes "transparent": dejaba ver el relleno borroso pensado para
+      // fotos detrás de las franjas de un video vertical, dos capas
+      // compitiendo. Ahora el cliente agranda el iframe para tapar esas
+      // franjas del todo (ver VideoCloudflareAutomatico); esto es solo el
+      // respaldo para cuando no se conoce el ancho/alto real del clip.
+      letterboxColor: "000000",
     });
     return `https://customer-${codigo}.cloudflarestream.com/${token}/iframe?${parametros}`;
   } catch {

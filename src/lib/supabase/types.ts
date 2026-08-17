@@ -895,6 +895,10 @@ export interface Database {
           video_cloudflare_duracion_seg: number | null;
           video_cloudflare_miniatura_url: string | null;
           video_cloudflare_error: string | null;
+          // 0102_ejercicio_video_cloudflare_dimensiones.sql — para recortar
+          // el reproductor y cubrir el cuadro 16:9 sin franjas.
+          video_cloudflare_ancho: number | null;
+          video_cloudflare_alto: number | null;
           // 0098_ejercicio_video_cloudflare_uid_anterior.sql — UID que se
           // reemplazó, guardado hasta confirmar que el nuevo terminó de
           // procesar; recién ahí se borra de Cloudflare.
@@ -978,6 +982,8 @@ export interface Database {
           video_cloudflare_duracion_seg?: number | null;
           video_cloudflare_miniatura_url?: string | null;
           video_cloudflare_error?: string | null;
+          video_cloudflare_ancho?: number | null;
+          video_cloudflare_alto?: number | null;
           video_cloudflare_uid_anterior?: string | null;
           tempo?: string | null;
           tempo_nota?: string | null;

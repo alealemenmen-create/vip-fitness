@@ -921,6 +921,8 @@ export async function iniciarSubidaVideoCloudflare(
       video_cloudflare_duracion_seg: null,
       video_cloudflare_miniatura_url: null,
       video_cloudflare_error: null,
+      video_cloudflare_ancho: null,
+      video_cloudflare_alto: null,
     })
     .eq("id", ejercicioId);
   if (error) {
@@ -979,6 +981,12 @@ export async function sincronizarVideoCloudflare(
   // El reemplazo falló: se restaura el anterior como video activo en vez de
   // dejar al ejercicio con un clip roto pudiendo haber uno bueno guardado.
   const restaurarAnterior = estado.estado === "error" && data.video_cloudflare_uid_anterior;
+  // El ancho/alto del anterior no quedó guardado en ningún lado (se limpió
+  // al arrancar el reemplazo) — hay que volver a pedírselo a Cloudflare acá
+  // para que el recorte del reproductor no se rompa al restaurar.
+  const estadoAnterior = restaurarAnterior
+    ? await consultarVideoCloudflare(data.video_cloudflare_uid_anterior!)
+    : null;
 
   await supabase
     .from("ejercicios")
@@ -989,6 +997,8 @@ export async function sincronizarVideoCloudflare(
             video_cloudflare_estado: "listo",
             video_cloudflare_error: null,
             video_cloudflare_uid_anterior: null,
+            video_cloudflare_ancho: estadoAnterior?.ancho ?? null,
+            video_cloudflare_alto: estadoAnterior?.alto ?? null,
           }
         : {
             video_cloudflare_estado: estado.estado,
@@ -996,6 +1006,8 @@ export async function sincronizarVideoCloudflare(
             video_cloudflare_miniatura_url: estado.miniaturaUrl,
             video_cloudflare_error: estado.error,
             video_cloudflare_uid_anterior: null,
+            video_cloudflare_ancho: estado.ancho,
+            video_cloudflare_alto: estado.alto,
           }
     )
     .eq("id", ejercicioId)
@@ -1032,6 +1044,8 @@ export async function quitarVideoCloudflare(
       video_cloudflare_duracion_seg: null,
       video_cloudflare_miniatura_url: null,
       video_cloudflare_error: null,
+      video_cloudflare_ancho: null,
+      video_cloudflare_alto: null,
     })
     .eq("id", ejercicioId);
   if (error) return { error: "No se pudo quitar el video.", ok: false };
