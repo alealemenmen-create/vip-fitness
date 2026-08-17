@@ -5844,7 +5844,7 @@ input[type="number"] {
   border-color: rgba(142, 157, 166, .24);
   border-radius: 12px;
   background: #0d0f10;
-  box-shadow: 0 12px 28px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.045);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.024);
 }
 .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-aero {
   gap: 2px;
@@ -6613,12 +6613,18 @@ input[type="number"] {
    variantes históricas de la barra inferior que, de otro modo, pisan esta
    composición específica de Entrenar. */
 :root .shell-alumno:has(.modo-entrenamiento-enfocado) .panel-aero-inferior {
-  /* Mismo gris que la píldora del cabezal (.utilidades-rutina-activa) —
-     pedido de Alejandro, 2026-08-17, ver comentario más arriba. */
+  /* Mismo gris, mismo borde Y MISMA SOMBRA que la píldora del cabezal
+     (.utilidades-rutina-activa) — pedido de Alejandro, 2026-08-17, ver
+     comentario más arriba. El color de fondo y el borde ya habían quedado
+     iguales, pero acá seguía la sombra exterior grande de la versión
+     anterior (0 12px 28px) que el cabezal nunca tuvo — esa sombra sola
+     bastaba para que se sintiera "flotando" distinto aunque el gris fuera
+     idéntico. Ahora ambas cajas comparten el mismo brillo interior sutil
+     y nada más. */
   border-color: rgba(142, 157, 166, .24) !important;
   border-radius: 12px !important;
   background: #0d0f10 !important;
-  box-shadow: 0 12px 28px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.045) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.024) !important;
 }
 :root .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-aero {
   gap: 2px !important;
