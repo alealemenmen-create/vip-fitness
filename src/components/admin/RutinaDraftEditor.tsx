@@ -1714,6 +1714,7 @@ export function RutinaDraftEditor({
   const [versionDesactualizada, setVersionDesactualizada] = useState(false);
   const [respaldoCopiado, setRespaldoCopiado] = useState(false);
   const [publicado, setPublicado] = useState(false);
+  const [confirmandoDeficiencias, setConfirmandoDeficiencias] = useState<string[] | null>(null);
   const [fallidos, setFallidos] = useState<{ nombre: string; error: string }[]>([]);
   const [publicados, setPublicados] = useState(0);
   const [mostrarPreview, setMostrarPreview] = useState(true);
@@ -2590,6 +2591,31 @@ export function RutinaDraftEditor({
     }
   };
 
+  /** Aplica el resultado de publicar, ya sea el primer intento o el forzado
+   * tras confirmar el aviso del Semáforo VIP — misma lógica en los dos casos. */
+  const aplicarResultadoPublicacion = (
+    resultado: Awaited<ReturnType<typeof publicarRutinaAVariosAlumnos>>
+  ) => {
+    if (resultado.error) {
+      setError(resultado.error);
+      return;
+    }
+    // Puede haber salido bien para unos y mal para otros: se muestra el
+    // resultado real en vez de un "listo" que oculte a los que quedaron fuera.
+    setPublicados(resultado.publicados);
+    setFallidos(resultado.fallidos.map((f) => ({ nombre: f.nombre, error: f.error })));
+    if (resultado.publicados === 0) {
+      setError("No fue posible publicar la rutina a ningún alumno.");
+      return;
+    }
+    setPublicado(true);
+    // La rutina ya está en la cuenta del alumno: el respaldo local dejó de
+    // tener sentido y, si quedara, la próxima vez ofrecería retomar algo ya
+    // publicado (ver la regla de precedencia en borrador-local.ts).
+    limpiarBorradorArmado(alumnoIds);
+    setRecuperable(null);
+  };
+
   const publicar = async () => {
     if (!planCodigo) {
       setError("Selecciona primero el plan principal del alumno.");
@@ -2606,39 +2632,21 @@ export function RutinaDraftEditor({
     // entrenador no tenía forma de saber que había fallado, ni yo de saber por
     // qué. Cualquier fallo tiene que terminar en un mensaje en pantalla.
     try {
-      let resultado = await publicarRutinaAVariosAlumnos(idsParaPublicar, draft, planCodigo);
+      const resultado = await publicarRutinaAVariosAlumnos(idsParaPublicar, draft, planCodigo);
 
       // No se publicó nada todavía: son deficiencias de calidad (Semáforo
-      // VIP), no un bloqueo técnico. Se le pregunta al entrenador acá mismo,
-      // en vez de obligarlo a corregir, y si confirma se reintenta forzando.
+      // VIP), no un bloqueo técnico. Antes esto usaba `window.confirm()` —
+      // en varios navegadores/apps móviles ese diálogo nativo no se llega a
+      // mostrar o se cierra solo, y el resultado era indistinguible de "no
+      // pasa nada": sin error, sin publicar, sin ningún aviso en pantalla.
+      // Se le pregunta al entrenador acá mismo, en un cuadro propio de la
+      // app, y si confirma se reintenta forzando.
       if (!resultado.error && resultado.publicados === 0 && resultado.deficiencias?.length) {
-        const confirma = window.confirm(
-          `El Semáforo VIP encontró ${resultado.deficiencias.length} ${resultado.deficiencias.length === 1 ? "ajuste" : "ajustes"} pendientes:\n\n${resultado.deficiencias.join("\n")}\n\n¿Publicar la rutina igual?`
-        );
-        if (!confirma) return;
-        resultado = await publicarRutinaAVariosAlumnos(idsParaPublicar, draft, planCodigo, true);
-      }
-
-      if (resultado.error) {
-        setError(resultado.error);
+        setConfirmandoDeficiencias(resultado.deficiencias);
         return;
       }
 
-      // Puede haber salido bien para unos y mal para otros: se muestra el
-      // resultado real en vez de un "listo" que oculte a los que quedaron fuera.
-      setPublicados(resultado.publicados);
-      setFallidos(resultado.fallidos.map((f) => ({ nombre: f.nombre, error: f.error })));
-
-      if (resultado.publicados === 0) {
-        setError("No fue posible publicar la rutina a ningún alumno.");
-        return;
-      }
-      setPublicado(true);
-      // La rutina ya está en la cuenta del alumno: el respaldo local dejó de
-      // tener sentido y, si quedara, la próxima vez ofrecería retomar algo ya
-      // publicado (ver la regla de precedencia en borrador-local.ts).
-      limpiarBorradorArmado(alumnoIds);
-      setRecuperable(null);
+      aplicarResultadoPublicacion(resultado);
     } catch (e) {
       const detalle = e instanceof Error ? e.message : "error inesperado";
       const esVersionAnterior = /failed to find server action|was not found on the server/i.test(detalle);
@@ -2648,6 +2656,21 @@ export function RutinaDraftEditor({
       } else {
         setError(`No se pudo publicar: ${detalle}. La rutina sigue aquí, puedes intentar de nuevo.`);
       }
+    } finally {
+      setPublicando(false);
+    }
+  };
+
+  const publicarForzado = async () => {
+    setConfirmandoDeficiencias(null);
+    setPublicando(true);
+    setError(null);
+    try {
+      const resultado = await publicarRutinaAVariosAlumnos(idsParaPublicar, draft, planCodigo as CodigoPlanEntrenamiento, true);
+      aplicarResultadoPublicacion(resultado);
+    } catch (e) {
+      const detalle = e instanceof Error ? e.message : "error inesperado";
+      setError(`No se pudo publicar: ${detalle}. La rutina sigue aquí, puedes intentar de nuevo.`);
     } finally {
       setPublicando(false);
     }
@@ -3117,6 +3140,29 @@ export function RutinaDraftEditor({
       </Card>}
 
       <SemaforoCalidad hallazgos={hallazgos} onIr={irAHallazgo} />
+
+      {confirmandoDeficiencias && (
+        <div className="radius-control space-y-2 border border-warning/40 bg-warning/10 p-3">
+          <p className="text-caption font-semibold text-text">
+            El Semáforo VIP encontró {confirmandoDeficiencias.length}{" "}
+            {confirmandoDeficiencias.length === 1 ? "ajuste pendiente" : "ajustes pendientes"}:
+          </p>
+          <ul className="list-disc space-y-0.5 pl-4">
+            {confirmandoDeficiencias.map((d) => (
+              <li key={d} className="text-caption text-text-secondary">{d}</li>
+            ))}
+          </ul>
+          <p className="text-caption text-text-secondary">¿Publicar la rutina igual?</p>
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <Button variant="secondary" size="sm" onClick={() => setConfirmandoDeficiencias(null)}>
+              Cancelar
+            </Button>
+            <Button variant="primary" size="sm" loading={publicando} onClick={publicarForzado}>
+              Publicar igual
+            </Button>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="space-y-2">
