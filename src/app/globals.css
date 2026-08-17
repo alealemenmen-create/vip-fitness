@@ -94,17 +94,6 @@
   --color-text-tertiary: #6f7682;
 }
 
-/* Variante para la tarjeta de ejercicio en Entrenar: mismo negro de base,
-   pero con los recuadros internos (fila de Series/Reps/Descanso/Tempo, el
-   cuadro vacÃ­o de foto, la nota) mÃ¡s oscuros â€” se pedÃ­a que no se vieran
-   grises al lado de la tarjeta negra â€” y el texto secundario/terciario mÃ¡s
-   claro, para que contraste mejor sobre tanto negro. */
-.tarjeta-ejercicio-oscura {
-  --color-surface-2: #0c0d10;
-  --color-text-secondary: #c2c8d1;
-  --color-text-tertiary: #8b93a0;
-}
-
 @theme inline {
   --color-bg: var(--color-bg);
   --color-surface: var(--color-surface);
@@ -249,8 +238,7 @@ body {
     inset 3px 0 0 var(--color-vip),
     0 10px 24px -22px color-mix(in srgb, var(--color-vip) 80%, transparent);
 }
-.admin-sidebar nav,
-.admin-scroll-suave {
+.admin-sidebar nav {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--color-vip) 28%, var(--color-border)) transparent;
 }
@@ -405,11 +393,10 @@ html {
      rompiÃ³ el `sticky` directamente en Safari (dejaba de pegarse). Puesto
      en el padre, arregla el repintado sin tocar cÃ³mo se calcula el sticky. */
   transform: translateZ(0);
-  /* Scrollbar nativo oculto: mismo criterio que `.tira-dias` mÃ¡s abajo. El
-     navegador la dibuja blanca por defecto, y contra el fondo oscuro de toda
-     la app queda como una franja pegada al borde derecho. El scroll tÃ¡ctil
-     (que es como se usa esto, ver el comentario de arriba) sigue andando
-     igual sin la barra visible. */
+  /* Scrollbar nativo oculto: el navegador la dibuja blanca por defecto, y
+     contra el fondo oscuro de toda la app queda como una franja pegada al
+     borde derecho. El scroll tÃ¡ctil (que es como se usa esto, ver el
+     comentario de arriba) sigue andando igual sin la barra visible. */
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -497,11 +484,6 @@ input[type="date"]::-webkit-date-and-time-value {
 
 /* Escala tipogrÃ¡fica estricta â€” no usar tamaÃ±os fuera de esta lista, y
    siempre multiplicados por --escala-texto. */
-.text-h1 {
-  font-size: calc(42px * var(--escala-texto));
-  font-weight: 700;
-  line-height: 1.1;
-}
 .text-h2 {
   font-size: calc(30px * var(--escala-texto));
   font-weight: 700;
@@ -777,37 +759,6 @@ input[type="date"]::-webkit-date-and-time-value {
     display: none;
   }
 }
-.texto-boton {
-  color: var(--btn-color);
-}
-
-/*
-  Barrido de luz ("shimmer"): una franja clara cruza el elemento de izquierda a
-  derecha cada tantos segundos. Es CSS puro â€” sin JavaScript ni imÃ¡genes, lo
-  dibuja la GPU, asÃ­ que no pesa. Se aplica sobre el elemento con
-  .brillo-barrido (necesita position relative y overflow hidden, ya incluidos).
-  La duraciÃ³n se puede pisar con la variable --barrido-duracion (ver
-  .brillo-barrido-lento) donde el brillo por defecto distrae de mÃ¡s.
-*/
-.brillo-barrido {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-}
-.brillo-barrido::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    100deg,
-    transparent 35%,
-    rgba(255, 255, 255, 0.38) 50%,
-    transparent 65%
-  );
-  transform: translateX(-100%);
-  animation: barrido var(--barrido-duracion, 4.8s) ease-in-out infinite;
-  pointer-events: none;
-}
 @keyframes barrido {
   0% {
     transform: translateX(-100%);
@@ -818,26 +769,6 @@ input[type="date"]::-webkit-date-and-time-value {
     transform: translateX(100%);
   }
 }
-/* VersiÃ³n mÃ¡s pausada del barrido, para botones grandes que se miran fijo
-   (guardar progreso, finalizar entrenamiento) â€” el usuario pidiÃ³ que no sea
-   tan rÃ¡pido para no molestar la vista. */
-.brillo-barrido-lento {
-  --barrido-duracion: 9s;
-}
-
-/* Quien pidiÃ³ menos animaciÃ³n en su telÃ©fono no ve el barrido. */
-@media (prefers-reduced-motion: reduce) {
-  .brillo-barrido::after {
-    animation: none;
-    display: none;
-  }
-}
-
-/* Degradado de identidad: botÃ³n del menÃº. */
-.degradado-vip {
-  background: linear-gradient(135deg, #6d28d9 0%, #a21caf 55%, #db2777 100%);
-}
-
 /*
   Superficie "espejo negro" con un tinte Ã¡mbar transparente. Es la identidad
   visual compartida entre el mensaje del dÃ­a (IA) y los cuadros de Ranked VIP
@@ -855,13 +786,6 @@ input[type="date"]::-webkit-date-and-time-value {
   );
   border: 1px solid rgba(255, 161, 0, 0.22);
 }
-/* Variante con el borde Ã¡mbar bien marcado, para cuadros puntuales que
-   quieren destacar mÃ¡s que el resto (ej. total del dÃ­a en Comer). */
-.panel-vip-espejo-borde {
-  border: 1px solid rgba(255, 161, 0, 0.55);
-  box-shadow: 0 0 0 1px rgba(255, 161, 0, 0.12);
-}
-
 /* Mensaje del dÃ­a: espejo negro con un tinte Ã¡mbar mÃ¡s presente que el resto
    de los paneles (este sÃ­ puede llamar la atenciÃ³n, es el mensaje motivador)
    pero estÃ¡tico â€” sin barrido de luz, que mareaba. */
@@ -1138,67 +1062,6 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 .scrollbar-fina::-webkit-scrollbar-track {
   background: transparent;
-}
-
-/* Sin barra nativa â€” usada donde el riel propio (`.riel-scroll-vip` mÃ¡s
-   abajo) la reemplaza por completo, ej. el Top 15 de Ranking VIP en Inicio. */
-.scrollbar-oculta {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.scrollbar-oculta::-webkit-scrollbar {
-  display: none;
-}
-
-/* Riel de scroll propio: un pulso Ã¡mbar en vez del gris nativo del
-   navegador, mismo lenguaje de color que la barra de progreso de rango
-   (`.barra-progreso-relleno` mÃ¡s abajo). "Motivadora" acÃ¡ es a propÃ³sito
-   sutil â€” una animaciÃ³n grande al costado de una lista que ya scrollea con
-   inercia se sentirÃ­a mÃ¡s ruidosa que Ãºtil. */
-.riel-scroll-vip {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 3px;
-  border-radius: 9999px;
-  background: var(--color-border);
-  overflow: hidden;
-}
-.riel-scroll-vip-relleno {
-  position: absolute;
-  left: 0;
-  right: 0;
-  border-radius: 9999px;
-  background: linear-gradient(180deg, var(--color-vip), var(--color-acento-fuerte));
-  transition: top 120ms ease-out;
-  animation: riel-scroll-vip-pulso 1.8s ease-in-out infinite;
-}
-@keyframes riel-scroll-vip-pulso {
-  0%,
-  100% {
-    opacity: 0.7;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .riel-scroll-vip-relleno {
-    animation: none;
-  }
-}
-
-/* Anillo Ã¡mbar sutil para el muÃ±eco/foto de grupo muscular en la cabecera del
-   ejercicio â€” el mismo trazo fino con el que la identidad VIP enmarca fotos
-   de perfil y emblemas, aplicado acÃ¡ sin agrandar el Ã­cono. */
-.anillo-vip-suave {
-  padding: 2px;
-  background: linear-gradient(
-    155deg,
-    color-mix(in srgb, var(--color-vip) 55%, transparent),
-    color-mix(in srgb, var(--color-vip) 12%, transparent)
-  );
 }
 
 /* Tarjeta de la tÃ©cnica del ejercicio: antes un pÃ¡rrafo suelto, ahora un
@@ -1525,17 +1388,6 @@ input[type="date"]::-webkit-date-and-time-value {
   padding-bottom: 10px;
   border-bottom: 1px solid var(--focus-border);
 }
-.tarjeta-ejercicio-enfocada .tecnica-ejercicio-enfocada {
-  padding: 5px 8px;
-}
-.tarjeta-ejercicio-enfocada .tecnica-ejercicio-enfocada p {
-  display: -webkit-box;
-  overflow: hidden;
-  font-size: calc(10px * var(--escala-texto));
-  line-height: 1.3;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
 .accion-secundaria-ejercicio {
   min-height: 36px;
   border: 1px solid var(--color-border);
@@ -1566,9 +1418,6 @@ input[type="date"]::-webkit-date-and-time-value {
   aspect-ratio: auto !important;
   background: transparent !important;
 }
-.tarjeta-ejercicio-enfocada .referencia-foco-compacta .aviso-etiqueta-tecnica {
-  display: none;
-}
 .tarjeta-ejercicio-enfocada .guia-ejercicio-foco {
   display: flex;
   width: auto;
@@ -1585,26 +1434,6 @@ input[type="date"]::-webkit-date-and-time-value {
   letter-spacing: .1em;
   text-transform: uppercase;
 }
-.navegacion-serie-cabecera {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 7px;
-}
-.tarjeta-ejercicio-enfocada .guia-ejercicio-foco .navegacion-serie-cabecera strong {
-  margin: 0;
-}
-.navegacion-serie-cabecera button {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, .12);
-  border-radius: 9px;
-  color: var(--color-text-secondary);
-  background: rgba(255, 255, 255, .025);
-}
-.navegacion-serie-cabecera button:disabled { opacity: .28; }
 .tarjeta-ejercicio-enfocada .guia-ejercicio-foco span {
   display: flex;
   align-items: center;
@@ -1635,18 +1464,6 @@ input[type="date"]::-webkit-date-and-time-value {
 .tarjeta-ejercicio-enfocada .cabecera-ejercicio > div[title] {
   width: 100% !important;
   margin: 0 !important;
-}
-.tarjeta-ejercicio-enfocada .datos-ejercicio {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
-  margin-block: 10px 12px;
-  border-radius: 16px;
-  background: var(--focus-panel-2);
-}
-.tarjeta-ejercicio-enfocada .datos-ejercicio > div {
-  min-height: 54px;
-  justify-content: center;
-  padding: 7px 4px;
 }
 .tarjeta-ejercicio-enfocada .fila-serie {
   padding: 6px;
@@ -2509,40 +2326,10 @@ html[data-zoom-pantalla="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido
   }
 }
 
-.indicador-siguiente-ejercicio {
-  display: flex;
-  height: 54px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-secondary);
-}
-.flecha-siguiente-ejercicio {
-  margin-top: -7px;
-  opacity: 0;
-  animation: flecha-siguiente 0.85s ease-in-out infinite;
-}
-@keyframes flecha-siguiente {
-  0% {
-    opacity: 0;
-    transform: translateY(-3px);
-  }
-  45% {
-    opacity: 0.75;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .panel-ejercicio-activo {
     animation: none;
     box-shadow: 0 0 18px -14px var(--destello-ejercicio);
-  }
-  .flecha-siguiente-ejercicio {
-    animation: none;
-    opacity: 0.55;
   }
 }
 
@@ -2602,24 +2389,8 @@ html[data-zoom-pantalla="1.3"] .tarjeta-ejercicio-enfocada .fila-serie-contenido
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-vip) 35%, transparent);
   }
 }
-.aviso-etiqueta-tecnica {
-  animation: aparecer-etiqueta-tecnica 0.25s ease-out;
-}
-@keyframes aparecer-etiqueta-tecnica {
-  0% {
-    opacity: 0;
-    transform: translateX(-4px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .parpadeo-icono-tecnica {
-    animation: none;
-  }
-  .aviso-etiqueta-tecnica {
     animation: none;
   }
 }
@@ -2926,10 +2697,6 @@ input[type="number"] {
   box-shadow: 0 10px 26px -22px rgba(30, 35, 45, 0.55);
 }
 
-:root[data-theme="light"] .panel-vip-espejo-borde {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-vip) 10%, transparent);
-}
-
 :root[data-theme="light"] .mensaje-dia-movimiento {
   animation: none;
 }
@@ -2938,8 +2705,7 @@ input[type="number"] {
   --destello-ejercicio: rgba(30, 35, 45, 0.11);
 }
 
-:root[data-theme="light"] .btn-accion::after,
-:root[data-theme="light"] .brillo-barrido::after {
+:root[data-theme="light"] .btn-accion::after {
   animation: none;
   display: none;
 }
@@ -2966,27 +2732,6 @@ input[type="number"] {
    verdad en cualquier apertura frÃ­a (PWA reciÃ©n abierta, notificaciÃ³n,
    pull-to-refresh, iOS reanudando la pestaÃ±a). Si una versiÃ³n mÃ¡s nueva de
    Next soluciona el bug de raÃ­z, se puede reconsiderar. */
-
-/* â”€â”€ AlimentaciÃ³n: tira de dÃ­as y lÃ­nea de tiempo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-   La tira de fechas se arrastra con el dedo, asÃ­ que la barra de scroll
-   sobra: ocupa alto y en mÃ³vil no se usa. `overscroll-behavior-x: contain`
-   evita que arrastrar la tira dispare el "volver atrÃ¡s" del navegador, y
-   `touch-action: pan-x` deja que un gesto principalmente vertical siga
-   scrolleando la pÃ¡gina en vez de quedar atrapado en la tira. */
-.tira-dias {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  overscroll-behavior-x: contain;
-  touch-action: pan-x;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-}
-.tira-dias::-webkit-scrollbar {
-  display: none;
-}
-.tira-dias > * {
-  scroll-snap-align: center;
-}
 
 /* LÃ­nea punteada que une las horas. Va de fondo y no como borde para poder
    recortarla en la primera y la Ãºltima fila sin romper la alineaciÃ³n. */
@@ -3212,33 +2957,6 @@ input[type="number"] {
   background: color-mix(in srgb, var(--color-vip) 82%, white);
   box-shadow: 0 0 10px color-mix(in srgb, var(--color-vip) 42%, transparent);
 }
-.protocolo-tecnica-foco {
-  display: grid;
-  width: 100%;
-  gap: 2px;
-  margin-top: 8px;
-  padding: 11px 13px;
-  border: 1px solid color-mix(in srgb, var(--color-vip) 28%, transparent);
-  border-radius: 14px;
-  color: var(--color-text-secondary);
-  background: color-mix(in srgb, var(--color-vip) 7%, transparent);
-  text-align: left;
-}
-.protocolo-tecnica-foco span {
-  color: var(--color-vip);
-  font-size: calc(10px * var(--escala-texto));
-  font-weight: 720;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-.protocolo-tecnica-foco strong {
-  font-size: calc(12px * var(--escala-texto));
-  font-weight: 600;
-}
-.protocolo-tecnica-foco small {
-  color: var(--color-text-tertiary);
-  font-size: calc(9px * var(--escala-texto));
-}
 /* "+ Añadir serie extra" cierra la tarjeta: debajo suyo no va nada más, así
    que el relleno se reduce al mínimo (pedido de Alejandro, 2026-08-16 — la
    pantalla tiene que calzar entera sin scroll). El botón conserva sus 36 px
@@ -3260,52 +2978,6 @@ input[type="number"] {
   color: var(--color-text-tertiary);
 }
 .acciones-series-extra button:disabled { opacity: .35; }
-.navegacion-paso-tecnica {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 34px;
-  align-items: center;
-  gap: 8px;
-  margin-top: 5px;
-}
-.navegacion-paso-tecnica > button {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 10px;
-  color: var(--color-text-secondary);
-  background: rgba(255,255,255,.025);
-}
-.navegacion-paso-tecnica > button:disabled { opacity: .28; }
-.navegacion-paso-tecnica > strong {
-  color: var(--color-text);
-  font-size: calc(13px * var(--escala-texto));
-  font-weight: 650;
-  text-align: center;
-}
-.navegacion-paso-tecnica > strong small {
-  color: var(--color-text-tertiary);
-  font-weight: 520;
-}
-.secuencia-tecnica-foco {
-  display: grid;
-  gap: 4px;
-  margin: 10px 0 7px;
-  padding: 11px 12px;
-  border-left: 2px solid var(--color-glow-tecnica, var(--color-vip));
-  color: var(--color-text-secondary);
-  background: color-mix(in srgb, var(--color-glow-tecnica, var(--color-vip)) 7%, transparent);
-}
-.secuencia-tecnica-foco strong {
-  font-size: calc(11px * var(--escala-texto));
-  font-weight: 680;
-}
-.secuencia-tecnica-foco span {
-  color: var(--color-text-tertiary);
-  font-size: calc(10px * var(--escala-texto));
-  line-height: 1.35;
-}
 .contenedor-serie-foco[data-visible="false"] { display: none; }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] {
   padding: 17px 4px 4px;
@@ -3321,8 +2993,7 @@ input[type="number"] {
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .numero-serie { display: none; }
 /* La pastilla de técnica inline (ej. "Rest-pause") también se oculta en modo
-   destacado: en foco ya hay un bloque dedicado más abajo (protocolo-tecnica-foco)
-   con el texto completo. Sin ocultarla acá, quedaba como hijo extra del grid de
+   destacado. Sin ocultarla acá, quedaba como hijo extra del grid de
    3 columnas [peso, separador, reps] y rompía todo el layout — el peso terminaba
    flotando arriba a la derecha y las reps abajo a la izquierda. Bug real
    encontrado probando la app, no solo estético. */
@@ -3481,37 +3152,6 @@ input[type="number"] {
   line-height: 1.1;
   text-align: center;
 }
-.vista-siguiente-ejercicio {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 14px;
-  padding: 11px;
-  border: 1px solid rgba(255, 255, 255, .11);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, .018);
-}
-.vista-siguiente-ejercicio > button:last-child {
-  display: grid;
-  min-width: 0;
-  flex: 1;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  text-align: left;
-}
-.vista-siguiente-ejercicio span {
-  color: var(--color-text-tertiary);
-  font-size: calc(11px * var(--escala-texto));
-}
-.vista-siguiente-ejercicio strong {
-  overflow: hidden;
-  color: var(--color-text);
-  font-size: calc(13px * var(--escala-texto));
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* La línea de avance y el acceso a la lista comparten una misma fila: la
    lista queda claramente a la derecha, sin cruzarse con el progreso. */
 .fila-progreso-y-menu {
@@ -3521,22 +3161,7 @@ input[type="number"] {
   gap: 10px;
   pointer-events: auto;
 }
-.fila-progreso-y-menu .progreso-ranked-foco,
 .fila-progreso-y-menu .progreso-rutina-orientado { width: 100%; flex: 1; }
-.boton-ver-rutina-foco {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 34px;
-  flex: 0 0 44px;
-  color: rgba(255,255,255,.88);
-  border: 1px solid rgba(255,255,255,.16);
-  border-radius: 10px;
-  background: rgba(255,255,255,.035);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
-}
 /* Mismo tipo de apertura que el panel de configuración (MenuAlumno): anclado
    arriba a la derecha, entra con fade + scale desde ahí — pedido de
    Alejandro, "esa animación de despliegue está muy mala, quiero uno así
@@ -3706,15 +3331,6 @@ input[type="number"] {
     row-gap: 0.125rem;
   }
 }
-/* La espalda tiene una silueta mÃ¡s angosta en su fotografÃ­a que Pecho. Este
-   encuadre la acerca sin tocar el alto de la tarjeta ni invadir su informaciÃ³n. */
-.foto-modelo-espalda {
-  right: -2px !important;
-  width: 132px !important;
-  transform: scale(1.04);
-  transform-origin: 72% 0%;
-}
-
 /* Marco Aero del alumno. El contenido pasa por debajo de la navegaciÃ³n fija y
    se percibe como color y forma difuminados, nunca como texto legible. El halo
    usa el acento activo, asÃ­ Espejo, VIP y Lady comparten material sin perder
@@ -3922,7 +3538,6 @@ input[type="number"] {
 :root:not([data-tema-boton]) .shell-alumno .space-y-3 > :not(:last-child) {
   margin-bottom: 8px;
 }
-:root:not([data-tema-boton]) .shell-alumno .text-h1,
 :root:not([data-tema-boton]) .shell-alumno .text-h2 {
   line-height: 1.1;
 }
@@ -4158,11 +3773,6 @@ input[type="number"] {
   box-shadow: 0 18px 42px -34px rgba(91, 52, 72, 0.5);
 }
 
-:root[data-theme="light"][data-tema-boton="femenino"] .panel-vip-espejo-borde {
-  border-color: rgba(200, 164, 107, 0.5);
-  box-shadow: 0 0 0 1px rgba(200, 164, 107, 0.12);
-}
-
 :root[data-theme="light"][data-tema-boton="femenino"] .panel-menu-alumno {
   border-left: 1px solid rgba(201, 120, 144, 0.2);
   background:
@@ -4275,11 +3885,6 @@ input[type="number"] {
   border-color: rgba(61, 90, 117, 0.3) !important;
   color: var(--color-text);
   box-shadow: 0 18px 42px -34px rgba(20, 28, 36, 0.5);
-}
-
-:root[data-theme="light"][data-tema-boton="masculino"] .panel-vip-espejo-borde {
-  border-color: rgba(111, 147, 179, 0.5);
-  box-shadow: 0 0 0 1px rgba(111, 147, 179, 0.12);
 }
 
 :root[data-theme="light"][data-tema-boton="masculino"] .panel-menu-alumno {
@@ -4592,47 +4197,11 @@ input[type="number"] {
 .cabecera-sesion-foco > p {
   display: none;
 }
-.progreso-ranked-foco {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-}
-.progreso-ranked-foco > span {
-  height: 3px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255,255,255,.13);
-}
-.progreso-ranked-foco i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #e9bd36;
-  box-shadow: 0 0 8px rgba(233,189,54,.3);
-}
-.progreso-ranked-foco strong {
-  color: #eac443;
-  font-size: calc(13px * var(--escala-texto));
-  font-weight: 600;
-  white-space: nowrap;
-}
 .progreso-rutina-orientado {
   display: grid;
   min-width: 0;
   flex: 1;
   padding: 5px 0 4px;
-}
-.texto-progreso-rutina {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.texto-progreso-rutina strong {
-  color: #ececef;
-  font-size: calc(11px * var(--escala-texto));
-  font-weight: 680;
 }
 .linea-segmentos-progreso small {
   color: #eac443;
@@ -4873,31 +4442,6 @@ input[type="number"] {
   font-size: calc(11px * var(--escala-texto));
   font-weight: 650;
 }
-.navegacion-ejercicios-junto-foto {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  width: 100%;
-  /* Empujado al fondo de la columna (que ahora mide lo mismo que la foto,
-     ver `.guia-ejercicio-foco { height: 100% }`), para que quede a la altura
-     del borde inferior de la foto — pedido de Alejandro. */
-  margin-top: auto !important;
-}
-.navegacion-ejercicios-junto-foto button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  min-height: 30px;
-  padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, .1);
-  border-radius: 999px;
-  color: #cfcfd2;
-  background: #101113;
-  font-size: calc(10.5px * var(--escala-texto));
-  font-weight: 620;
-}
-.navegacion-ejercicios-junto-foto button:disabled { opacity: .35; }
 .selector-series-movido {
   margin: 12px 0 !important;
   padding: 6px 2px !important;
@@ -5187,8 +4731,7 @@ input[type="number"] {
   width: 10px;
   height: 10px;
 }
-.resumen-impulso-serie,
-.aviso-ayuda-tecnica-compacto {
+.resumen-impulso-serie {
   display: flex;
   min-width: 0;
   align-items: center;
@@ -5203,17 +4746,12 @@ input[type="number"] {
   font-size: calc(9px * var(--escala-texto));
   line-height: 1.15;
 }
-.resumen-impulso-serie strong,
-.aviso-ayuda-tecnica-compacto strong { font-weight: 800; }
+.resumen-impulso-serie strong { font-weight: 800; }
 .resumen-impulso-serie small {
   margin-left: auto;
   color: color-mix(in srgb, var(--color-acento-fuerte) 70%, #aaa);
   font-size: inherit;
   white-space: nowrap;
-}
-.aviso-ayuda-tecnica-compacto {
-  border-radius: 11px;
-  line-height: 1.3;
 }
 .momento-especial-serie {
   display: grid;
@@ -5288,35 +4826,12 @@ input[type="number"] {
   flex-direction: column;
   gap: 6px;
 }
-.ronda-grupo-foco-titulo {
-  margin: 0;
-  color: #f6f6f7;
-  font-size: calc(15px * var(--escala-texto));
-  font-weight: 720;
-  letter-spacing: -.02em;
-  white-space: nowrap;
-}
-.ronda-grupo-foco-titulo strong {
-  color: #45e57b;
-  font-variant-numeric: tabular-nums;
-}
-.ronda-grupo-foco-titulo small {
-  margin-left: 3px;
-  color: rgba(255,255,255,.55);
-  font-size: calc(10px * var(--escala-texto));
-  font-weight: 650;
-  letter-spacing: 0;
-}
 .ronda-grupo-control {
   display: flex;
   min-width: 0;
   align-items: flex-start;
   gap: 10px;
   padding: 0 0 2px;
-}
-.ronda-grupo-control .ronda-grupo-foco-titulo {
-  padding-top: 1px;
-  transform: translateY(-2px);
 }
 .selector-rondas-grupo {
   display: flex;
@@ -5420,7 +4935,6 @@ input[type="number"] {
   background: var(--color-glow-tecnica);
   box-shadow: 0 0 9px color-mix(in srgb, var(--color-glow-tecnica) 60%, transparent);
 }
-.cabecera-tarjeta-paso-grupo .referencia-compacta,
 .cabecera-tarjeta-paso-grupo > span:nth-child(2) {
   flex-shrink: 0;
 }
@@ -6322,68 +5836,6 @@ input[type="number"] {
   letter-spacing: .015em;
 }
 .llamada-descanso-espera-pausada { opacity: .62; }
-.navegacion-ejercicios-foco {
-  display: grid;
-  grid-template-columns: minmax(0, 30%) minmax(0, 70%);
-  gap: 10px;
-  margin: 10px 0 0;
-  padding: 0 13px 13px;
-  border: 1px solid rgba(255,255,255,.13);
-  border-radius: 16px;
-  background: linear-gradient(120deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
-}
-.navegacion-ejercicios-foco > button {
-  display: flex;
-  min-width: 0;
-  min-height: 54px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid rgba(255,255,255,.14);
-  border-radius: 14px;
-  color: #efeff0;
-  background: rgba(255,255,255,.018);
-}
-.navegacion-ejercicios-foco > button:last-child {
-  justify-content: space-between;
-  padding: 0 13px;
-  border-color: rgba(208,158,29,.65);
-  color: #eec335;
-}
-.navegacion-ejercicios-foco button > span {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  text-align: center;
-}
-.navegacion-ejercicios-foco strong {
-  font-size: calc(12px * var(--escala-texto));
-  font-weight: 650;
-}
-.navegacion-ejercicios-foco small {
-  overflow: hidden;
-  color: #89898e;
-  font-size: calc(9px * var(--escala-texto));
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.navegacion-ejercicios-foco button:disabled { opacity: .3; }
-.tarjeta-ejercicio-enfocada .protocolo-tecnica-foco {
-  display: inline-flex;
-  width: auto;
-  align-items: center;
-  margin: 0 0 8px;
-  padding: 5px 9px;
-  border: 1px solid color-mix(in srgb, var(--color-acento) 38%, transparent);
-  border-radius: 999px;
-  color: var(--color-acento-fuerte);
-  background: color-mix(in srgb, var(--color-acento) 13%, transparent);
-  font-size: calc(9px * var(--escala-texto));
-  font-weight: 750;
-}
-.tarjeta-ejercicio-enfocada .protocolo-tecnica-foco strong,
-.tarjeta-ejercicio-enfocada .protocolo-tecnica-foco small { display: none; }
-
 /* El entrenamiento no depende de un ancho fijo: en móvil conserva el borde
    cómodo y, desde tablet, aprovecha el ancho extra sin estirar la lectura
    hasta el borde. También evita que un cambio de zoom deje un hijo más ancho
@@ -6480,8 +5932,6 @@ input[type="number"] {
      explícitamente NO tocar este botón, el espacio se ganó en otras partes
      de la tarjeta en su lugar. */
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso { min-height: 42px; margin-top: 8px; }
-  .navegacion-ejercicios-foco { gap: 7px; padding: 0 10px 9px; }
-  .navegacion-ejercicios-foco > button { min-height: 45px; }
 }
 @media (max-height: 800px) {
   .shell-alumno:has(.modo-entrenamiento-enfocado) > .pantalla-scroll { padding-top: calc(51px + env(safe-area-inset-top, 0px)); }
@@ -6501,8 +5951,6 @@ input[type="number"] {
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie { height: auto; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie { margin-top: 6px; padding-top: 3px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso { min-height: 38px; margin-top: 6px; }
-  .navegacion-ejercicios-foco { padding-bottom: 6px; }
-  .navegacion-ejercicios-foco > button { min-height: 40px; }
 }
 
 /* Registro de series: la cápsula conserva siempre el mismo alto, esté vacía
@@ -6712,8 +6160,7 @@ input[type="number"] {
    ya no cabe en la composición compacta de una serie normal. En ese único
    estado el desplazamiento vuelve a estar disponible y deja espacio bajo la
    navegación fija para Nota, Molestia y "Inicié esta sesión por error". */
-:root[data-zoom-pantalla="1"] .shell-alumno:has(.modo-entrenamiento-enfocado) > .pantalla-scroll:has(.tarjeta-ejercicio-enfocada):has(.momento-impulso-vivo),
-:root .shell-alumno:has(.modo-entrenamiento-enfocado) > .pantalla-scroll:has(.momento-impulso-vip) {
+:root[data-zoom-pantalla="1"] .shell-alumno:has(.modo-entrenamiento-enfocado) > .pantalla-scroll:has(.tarjeta-ejercicio-enfocada):has(.momento-impulso-vivo) {
   overflow-y: auto !important;
   overflow-x: hidden !important;
   overscroll-behavior-y: contain;
@@ -6838,11 +6285,6 @@ input[type="number"] {
   gap: 9px;
   padding: 1px 0 3px;
 }
-:root .tarjeta-grupo-enfocada .ronda-grupo-foco-titulo {
-  color: rgba(255, 255, 255, .92);
-  font-size: calc(14px * var(--escala-texto));
-}
-:root .tarjeta-grupo-enfocada .ronda-grupo-foco-titulo strong { color: #50e48a; }
 :root .tarjeta-grupo-enfocada .selector-rondas-grupo { gap: 6px; }
 :root .tarjeta-grupo-enfocada .selector-rondas-grupo li > span {
   height: 16px;
@@ -6914,18 +6356,6 @@ input[type="number"] {
   display: block;
   width: 100%;
   padding: 0 0 3px;
-}
-:root .tarjeta-grupo-enfocada .ronda-grupo-foco-titulo {
-  display: flex;
-  height: 11px;
-  align-items: center;
-  font-size: calc(12px * var(--escala-texto));
-  letter-spacing: -.025em;
-  line-height: 11px;
-  transform: none;
-}
-:root .tarjeta-grupo-enfocada .ronda-grupo-foco-titulo small {
-  font-size: calc(9px * var(--escala-texto));
 }
 :root .tarjeta-grupo-enfocada .selector-rondas-grupo {
   display: grid;
@@ -7767,7 +7197,6 @@ input[type="number"] {
     margin-top: 0;
   }
 }
-.boton-panel-principal,
 .boton-panel-secundario {
   display: inline-flex;
   min-height: 40px;
@@ -7779,11 +7208,6 @@ input[type="number"] {
   font-size: calc(12px * var(--escala-texto));
   font-weight: 760;
   text-align: center;
-}
-.boton-panel-principal {
-  border: 1px solid #eed18f;
-  color: #17120a;
-  background: linear-gradient(135deg, #f5dda4, #c59b4c);
 }
 .boton-panel-secundario {
   border: 1px solid #373b43;
@@ -7799,59 +7223,6 @@ input[type="number"] {
   border-radius: 16px;
   background: linear-gradient(155deg, #17191e, #101216 64%);
 }
-.tarjeta-panel-cabecera {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.tarjeta-panel-cabecera h2,
-.tarjeta-panel-cabecera h3 {
-  margin: 0;
-  font-size: calc(14px * var(--escala-texto));
-  font-weight: 700;
-}
-.tarjeta-panel-cabecera p {
-  margin: 3px 0 0;
-  color: var(--panel-apagado);
-  font-size: calc(10px * var(--escala-texto));
-}
-.enlace-panel {
-  color: var(--panel-oro-claro);
-  font-size: calc(10px * var(--escala-texto));
-  font-weight: 800;
-}
-
-/* Cifra + rótulo. Deliberadamente sin color ni brillo propios: el instructivo
-   pide terminar con las tarjetas arcoíris, donde cada número tenía su halo y
-   ninguno priorizaba. Solo el que exige acción se tiñe de oro. */
-.metrica-panel {
-  padding: 10px 8px;
-  border: 1px solid #292d34;
-  border-radius: 12px;
-  background: #0d0f13;
-  text-align: left;
-}
-.metrica-panel strong {
-  display: block;
-  font-size: calc(20px * var(--escala-texto));
-  font-weight: 750;
-  line-height: 1.05;
-}
-.metrica-panel span {
-  display: block;
-  margin-top: 3px;
-  color: var(--panel-apagado);
-  font-size: calc(9px * var(--escala-texto));
-  line-height: 1.25;
-}
-.metrica-panel[data-alerta="true"] strong { color: var(--panel-oro-claro); }
-.metrica-panel[data-activa="true"] {
-  border-color: color-mix(in srgb, var(--panel-oro) 55%, transparent);
-  background: linear-gradient(160deg, rgba(215,181,109,.12), rgba(215,181,109,.02));
-}
-
 /* --- Filtros y búsqueda ------------------------------------------------- */
 .buscador-panel {
   width: 100%;
@@ -7898,22 +7269,6 @@ input[type="number"] {
 }
 .ficha-panel b { font-weight: inherit; opacity: .62; }
 .ficha-panel[data-activa="true"] b { opacity: .74; }
-
-/* --- Estados ------------------------------------------------------------ */
-.estado-panel {
-  display: inline-flex;
-  align-items: center;
-  padding: 5px 7px;
-  border-radius: 999px;
-  font-size: calc(8px * var(--escala-texto));
-  font-weight: 850;
-  white-space: nowrap;
-}
-.estado-panel[data-tono="aviso"] { color: #1a1308; background: var(--panel-oro-claro); }
-.estado-panel[data-tono="bien"] { color: #072116; background: #7bdfb1; }
-.estado-panel[data-tono="info"] { color: #07172d; background: #8cb7ff; }
-.estado-panel[data-tono="riesgo"] { color: #2b0b09; background: #ff9d97; }
-.estado-panel[data-tono="neutro"] { color: #c4c7cd; background: #23262c; }
 
 /* --- Directorio de Más -------------------------------------------------- */
 .tarjeta-menu-panel {
