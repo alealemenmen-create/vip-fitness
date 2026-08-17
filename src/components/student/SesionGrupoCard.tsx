@@ -879,8 +879,22 @@ export const SesionGrupoCard = forwardRef<
                     const colapsadoManual = colapsadosManual.has(paso.pos);
                     /* Al terminar A, su registro deja de competir con el paso
                        activo: queda como resumen compacto con check y se puede
-                       desplegar con su chevron si el alumno quiere revisarlo. */
-                    const abierto = esActual || (hecho && (colapsadoManual || rondaVista === paso.numero));
+                       desplegar con su chevron si el alumno quiere revisarlo.
+                       Antes esto era `esActual || (hecho && (...))`: como
+                       `esActual` podía seguir en true un rato DESPUÉS de
+                       completarse (todavía no avanza el paso resaltado), el
+                       "||" ganaba siempre y el chevron no hacía nada — tocarlo
+                       cambiaba `colapsadoManual`, pero `abierto` ya daba true
+                       por el otro lado. Reportado por Alejandro con captura:
+                       "la flechita hacia arriba no funciona". Ahora, una vez
+                       `hecho`, `esActual` deja de pesar — solo importan la
+                       encuesta pendiente (tiene que verse sí o sí), el toque
+                       manual o estar mirando esa ronda vieja. */
+                    const encuestaPendienteParaEstePaso =
+                      recienCompletado && !esUltimoGrupoDeRutina && paso.pos === encuestaPendiente;
+                    const abierto = hecho
+                      ? (encuestaPendienteParaEstePaso || colapsadoManual || rondaVista === paso.numero)
+                      : esActual;
                     // Impulso VIP en biserie/triserie: mismo rayo que en el
                     // ejercicio suelto, sobre el número del paso — antes esta
                     // pantalla no avisaba nada, aunque la recomendación sí se

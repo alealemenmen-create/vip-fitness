@@ -5493,9 +5493,21 @@ input[type="number"] {
 }
 .tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .fila-rir-navegacion {
   min-height: 26px !important;
-  height: 26px;
+  /* `height: 26px` (sin !important) fijaba la caja a un alto que ya
+     quedaba corto solo para el RIR escalado — con "Ver técnica" apilado
+     debajo (pedido de Alejandro, 2026-08-17) el contenido necesitaba más
+     de 50px, y como el contenedor centra su contenido en el eje principal
+     (`justify-content: center`, columna), ese exceso se repartía mitad
+     arriba y mitad abajo de la caja: el RIR terminaba dibujado por ENCIMA
+     del borde superior de su propio contenedor — "queda detrás o encima
+     de la línea", reportado por Alejandro con captura. Esta regla es la
+     que de verdad manda para un paso YA COMPLETADO (data-estado="completa"
+     no matchea la más específica de abajo, que solo cubre "actual") — el
+     mismo fix que esa, acá también. */
+  height: auto !important;
   margin-top: 2px !important;
   padding-top: 0 !important;
+  padding-bottom: 6px;
 }
 .tarjeta-paso-grupo-foco .fila-serie[data-destacada="true"] .control-rir-serie {
   margin-top: 0 !important;
@@ -5597,13 +5609,16 @@ input[type="number"] {
   display: flex;
   flex: 1;
   min-width: 0;
-  /* Centrada y no pegada a la izquierda (pedido de Alejandro, 2026-08-17):
-     con pocos ejercicios en la rutina, las pastillas no llenan el ancho
-     disponible entre las flechas y el flex-start de siempre las dejaba
-     todas amontonadas contra el borde izquierdo, ladeando la tira entera.
-     Con muchos ejercicios (scroll activo) `center` no cambia nada — solo
-     importa cuando sobra espacio. */
-  justify-content: center;
+  /* `space-between`, no `center` (pedido de Alejandro, 2026-08-17: probó
+     `center` y dejaba una franja negra vacía pegada a cada flecha — "una
+     mancha" — porque centrar el GRUPO entero deja el sobrante repartido en
+     los dos bordes, justo donde más se nota al lado de la flecha).
+     `space-between` pega la primera y la última pastilla contra los bordes
+     del canal (sin aire contra las flechas) y reparte el sobrante ENTRE
+     pastillas en cambio. Con muchos ejercicios (scroll activo, sin
+     sobrante) se ven pegadas unas a otras igual que siempre — mismo canal
+     negro de siempre, esto solo cambia dónde va el aire cuando sobra. */
+  justify-content: space-between;
   gap: 6px;
   margin: 0;
   padding: 2px;
