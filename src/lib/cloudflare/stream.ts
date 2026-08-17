@@ -124,11 +124,25 @@ export async function consultarVideoCloudflare(uid: string): Promise<EstadoVideo
   }
 }
 
-/** URL privada del reproductor sin controles, en silencio y en bucle. */
-export async function urlEmbedFirmada(uid: string, expSegundos = 4 * 60 * 60): Promise<string | null> {
+/**
+ * URL privada del reproductor. Dos modos:
+ * - "ambiente" (default): sin controles, en silencio, en bucle — el clip
+ *   chico que se reproduce solo en el cuadro del ejercicio activo.
+ * - "completo": con controles y sonido, sin bucle — el que se abre a
+ *   pantalla completa cuando el alumno toca el botón de reproducir. Sin
+ *   `letterboxColor` sólido para tapar franjas (eso agranda y recorta un
+ *   video vertical hasta perder cabeza y pies, instructivo del 16-ago): acá
+ *   se ve el clip completo, con barras negras a los costados si hace falta.
+ */
+export async function urlEmbedFirmada(
+  uid: string,
+  opciones: { modo?: "ambiente" | "completo" } = {},
+  expSegundos = 4 * 60 * 60
+): Promise<string | null> {
   const codigo = process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE;
   const credenciales = credencialesApi();
   if (!codigo || !credenciales) return null;
+  const completo = opciones.modo === "completo";
 
   try {
     const respuesta = await fetch(
@@ -149,15 +163,18 @@ export async function urlEmbedFirmada(uid: string, expSegundos = 4 * 60 * 60): P
     if (!respuesta.ok || !token) return null;
     const parametros = new URLSearchParams({
       autoplay: "true",
-      muted: "true",
-      loop: "true",
-      controls: "false",
+      muted: completo ? "false" : "true",
+      loop: completo ? "false" : "true",
+      controls: completo ? "true" : "false",
       preload: "auto",
       // Antes "transparent": dejaba ver el relleno borroso pensado para
       // fotos detrás de las franjas de un video vertical, dos capas
       // compitiendo. Ahora el cliente agranda el iframe para tapar esas
       // franjas del todo (ver VideoCloudflareAutomatico); esto es solo el
       // respaldo para cuando no se conoce el ancho/alto real del clip.
+      // En modo "completo" no aplica: ahí no se agranda nada, así que un
+      // fondo sólido detrás del letterbox real se ve más limpio que dejar
+      // transparencia.
       letterboxColor: "000000",
     });
     return `https://customer-${codigo}.cloudflarestream.com/${token}/iframe?${parametros}`;
