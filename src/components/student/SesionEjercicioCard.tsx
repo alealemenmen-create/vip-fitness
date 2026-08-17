@@ -386,6 +386,19 @@ const CuadroSoloVideo = forwardRef<ExercicioReferenciaHandle, {
  * 2026-08-17: "no quitas el original... lo reúsas"). */
 export type ExercicioReferenciaHandle = { abrir: () => void };
 
+/**
+ * Apagado a propósito (2026-08-17, pedido de Alejandro): el video "ambiente"
+ * en el cuadro (reproducir solo al entrar al ejercicio / al tocar la foto,
+ * ver más abajo) no se puede verificar bien desde esta máquina — el
+ * Cloudflare de este equipo no está asociado a la cuenta, así que Alejandro
+ * no puede ver cómo queda encuadrado hasta probarlo en su otro equipo o en
+ * la web real. En vez de borrar el trabajo, se lo desactiva acá: con esto en
+ * `false`, el cuadro vuelve a mostrar solo la foto quieta y tocarla abre el
+ * visor de siempre (mismo camino que "Ver técnica", que sigue intacto). Para
+ * retomarlo cuando esté listo, alcanza con volver esto a `true`.
+ */
+const VIDEO_EN_CUADRO_ACTIVO = false;
+
 const FotoReferenciaAmpliable = forwardRef<ExercicioReferenciaHandle, {
   src: string;
   /** La foto ORIGINAL sin recortar, si ya se identificó cuál es (ver
@@ -456,7 +469,9 @@ const FotoReferenciaAmpliable = forwardRef<ExercicioReferenciaHandle, {
   // Arranca ya "activo" cuando corresponde (estado inicial perezoso, no un
   // setState dentro del efecto de montaje): evita el render en cascada de
   // prender el video un instante después de montar la tarjeta.
-  const [previaVideoActiva, setPreviaVideoActiva] = useState(() => destacado && videoCloudflareListo);
+  const [previaVideoActiva, setPreviaVideoActiva] = useState(
+    () => VIDEO_EN_CUADRO_ACTIVO && destacado && videoCloudflareListo
+  );
   const previaVideoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reproducirPreviaEnCuadro = (duracionMs: number) => {
     if (previaVideoTimeoutRef.current) clearTimeout(previaVideoTimeoutRef.current);
@@ -469,7 +484,7 @@ const FotoReferenciaAmpliable = forwardRef<ExercicioReferenciaHandle, {
     // setState de forma síncrona en su cuerpo, solo agenda un timeout.
     // Solo al montar: cada ejercicio activo monta una tarjeta nueva (ver
     // comentario arriba), así que esto ya corre "una vez por ejercicio".
-    if (destacado && videoCloudflareListo) {
+    if (VIDEO_EN_CUADRO_ACTIVO && destacado && videoCloudflareListo) {
       previaVideoTimeoutRef.current = setTimeout(() => setPreviaVideoActiva(false), 10_000);
     }
     return () => {
@@ -517,11 +532,11 @@ const FotoReferenciaAmpliable = forwardRef<ExercicioReferenciaHandle, {
           // listo); si no, se mantiene el visor a pantalla completa de
           // siempre — mismo criterio de respaldo que el resto del
           // componente (`videoUrl` como resto para clips viejos).
-          if (destacado && videoCloudflareListo) reproducirPreviaEnCuadro(15_000);
+          if (VIDEO_EN_CUADRO_ACTIVO && destacado && videoCloudflareListo) reproducirPreviaEnCuadro(15_000);
           else setAmpliada(true);
         }}
         aria-label={
-          destacado && videoCloudflareListo
+          VIDEO_EN_CUADRO_ACTIVO && destacado && videoCloudflareListo
             ? `Reproducir video de referencia de ${nombre}`
             : videoUrl
             ? `Ver video de referencia de ${nombre}`
