@@ -58,7 +58,15 @@ export function MomentoImpulsoEnVivo({
           objetivo todavía no se hizo → la instrucción completa.
        3. La serie objetivo ya se hizo → "¿cómo salió?". */
   const necesitaCalibrar = !listaParaMostrar;
-  const listoParaInstruccion = listaParaMostrar && puedeVerInstruccion && !serieTerminada;
+  // `!retoAceptado`: sin esto, "Acepto el reto" no tenía ningún efecto
+  // visible — el botón solo hace `setExpandido(false)`, pero esta condición
+  // por sí sola ya forzaba el panel abierto, así que quedaba igual pase lo
+  // que pase. Aceptar el reto es justamente lo que le da permiso al alumno
+  // de replegarlo y arrancar la serie: la burbuja calma su pulso (ver
+  // `[data-reto-aceptado="true"]` en globals.css) para confirmar que quedó
+  // registrado. Bug reportado en vivo, 2026-08-17, mismo día del fix de
+  // timing de arriba — efecto colateral de esa misma condición nueva.
+  const listoParaInstruccion = listaParaMostrar && puedeVerInstruccion && !serieTerminada && !retoAceptado;
   const listoParaResultado = serieTerminada && !resuelta;
   const mostrarExpandido = expandido || necesitaCalibrar || listoParaInstruccion || listoParaResultado;
   const pesoObjetivo = typeof intervencion.prescripcion?.pesoKg === "number"
