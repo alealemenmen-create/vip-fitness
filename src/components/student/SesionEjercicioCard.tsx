@@ -132,29 +132,7 @@ export function formatUltimo(u: EjercicioSesion["ultimoRegistro"], esTiempo: boo
  * "Solicitar foto" o el de video, nunca un dibujo genérico del grupo
  * muscular — la referencia es siempre real o está pendiente, no inventada.
  */
-export function CuadroFotoReferencia({
-  ilustracionSlug,
-  fotoMiniaturaUrl,
-  fotoCompletaUrl,
-  videoUrl,
-  videoCloudflareUid,
-  videoCloudflareEstado,
-  videoCloudflareMiniaturaUrl,
-  nombre,
-  sesionEjercicioId,
-  diaEjercicioId,
-  ejercicioId,
-  fotoPanoramaX = 50,
-  fotoPanoramaY = 50,
-  fotoCuadradaX = 50,
-  fotoCuadradaY = 50,
-  compacto = false,
-  tamanoCompacto = 44,
-  destacado = false,
-  reproducirAutomaticamente = false,
-  tecnicaTexto = null,
-  tecnicaExplicacion = null,
-}: {
+export const CuadroFotoReferencia = forwardRef<ExercicioReferenciaHandle, {
   ilustracionSlug: string | null;
   /** Fotos subidas desde /admin/ejercicios — mandan sobre la ilustración
    * estática cuando existen (ver migración 0042). */
@@ -190,7 +168,29 @@ export function CuadroFotoReferencia({
   reproducirAutomaticamente?: boolean;
   tecnicaTexto?: string | null;
   tecnicaExplicacion?: string | null;
-}) {
+}>(function CuadroFotoReferencia({
+  ilustracionSlug,
+  fotoMiniaturaUrl,
+  fotoCompletaUrl,
+  videoUrl,
+  videoCloudflareUid,
+  videoCloudflareEstado,
+  videoCloudflareMiniaturaUrl,
+  nombre,
+  sesionEjercicioId,
+  diaEjercicioId,
+  ejercicioId,
+  fotoPanoramaX = 50,
+  fotoPanoramaY = 50,
+  fotoCuadradaX = 50,
+  fotoCuadradaY = 50,
+  compacto = false,
+  tamanoCompacto = 44,
+  destacado = false,
+  reproducirAutomaticamente = false,
+  tecnicaTexto = null,
+  tecnicaExplicacion = null,
+}, ref) {
   const { src: srcEstatico, origen } = resolverIlustracion(ilustracionSlug, null);
   const src = fotoMiniaturaUrl ?? videoCloudflareMiniaturaUrl ?? (origen === "ilustracion" ? srcEstatico : null);
   const tamano: React.CSSProperties = destacado
@@ -203,10 +203,11 @@ export function CuadroFotoReferencia({
     // Sin foto pero CON video: el cuadro vacío pasa a ser un botón que
     // reproduce el video directo — no tiene sentido dejarlo en gris sabiendo
     // que sí hay una referencia para mostrar.
-    if (videoUrl) return <CuadroSoloVideo videoUrl={videoUrl} nombre={nombre} tamano={tamano} compacto={compacto} destacado={destacado} />;
+    if (videoUrl) return <CuadroSoloVideo ref={ref} videoUrl={videoUrl} nombre={nombre} tamano={tamano} compacto={compacto} destacado={destacado} />;
 
     return (
       <CuadroSolicitarFoto
+        ref={ref}
         // `self-stretch`: el borde de ABAJO queda a la misma altura que la línea
         // inferior del recuadro de series/reps/descanso, porque los dos terminan
         // donde termina la columna de la izquierda.
@@ -230,6 +231,7 @@ export function CuadroFotoReferencia({
 
   return (
     <FotoReferenciaAmpliable
+      ref={ref}
       src={src}
       srcCompleta={fotoCompletaUrl ?? resolverFotoCompleta(ilustracionSlug)}
       videoUrl={videoUrl}
@@ -248,20 +250,12 @@ export function CuadroFotoReferencia({
       tecnicaExplicacion={tecnicaExplicacion}
     />
   );
-}
+});
 
 /** El cuadro de referencia cuando hay video pero todavía no hay foto propia
  * (un video de un link directo, sin miniatura de YouTube). Mismo tamaño y
  * bordes que el cuadro "pendiente", pero tocarlo reproduce el video. */
-function CuadroSolicitarFoto({
-  nombre,
-  sesionEjercicioId,
-  diaEjercicioId,
-  ejercicioId,
-  tamano,
-  compacto,
-  destacado,
-}: {
+const CuadroSolicitarFoto = forwardRef<ExercicioReferenciaHandle, {
   nombre: string;
   sesionEjercicioId?: string;
   diaEjercicioId?: string;
@@ -269,8 +263,21 @@ function CuadroSolicitarFoto({
   tamano: React.CSSProperties;
   compacto: boolean;
   destacado: boolean;
-}) {
+}>(function CuadroSolicitarFoto({
+  nombre,
+  sesionEjercicioId,
+  diaEjercicioId,
+  ejercicioId,
+  tamano,
+  compacto,
+  destacado,
+}, ref) {
   const [abierto, setAbierto] = useState(false);
+  useImperativeHandle(ref, () => ({
+    abrir: () => {
+      if (sesionEjercicioId || diaEjercicioId) setAbierto(true);
+    },
+  }), [sesionEjercicioId, diaEjercicioId]);
   const [solicitud, accionSolicitud, enviando] = useActionState<ReportarFotoState, FormData>(
     reportarFotoIncorrecta,
     { error: null, ok: false }
@@ -325,22 +332,23 @@ function CuadroSolicitarFoto({
       )}
     </>
   );
-}
+});
 
-function CuadroSoloVideo({
-  videoUrl,
-  nombre,
-  tamano,
-  compacto,
-  destacado,
-}: {
+const CuadroSoloVideo = forwardRef<ExercicioReferenciaHandle, {
   videoUrl: string;
   nombre: string;
   tamano: React.CSSProperties;
   compacto: boolean;
   destacado: boolean;
-}) {
+}>(function CuadroSoloVideo({
+  videoUrl,
+  nombre,
+  tamano,
+  compacto,
+  destacado,
+}, ref) {
   const [reproduciendo, setReproduciendo] = useState(false);
+  useImperativeHandle(ref, () => ({ abrir: () => setReproduciendo(true) }), []);
 
   return (
     <>
@@ -364,7 +372,7 @@ function CuadroSoloVideo({
       )}
     </>
   );
-}
+});
 
 /**
  * Mientras el recorte automático de cada foto no queda perfecto (algunas
@@ -374,24 +382,14 @@ function CuadroSoloVideo({
  * la app lista ya; el recorte prolijo de cada foto es un trabajo aparte que
  * se sigue haciendo de a poco desde /admin/ejercicios.
  */
-function FotoReferenciaAmpliable({
-  src,
-  srcCompleta,
-  videoUrl,
-  videoCloudflareListo,
-  nombre,
-  sesionEjercicioId,
-  diaEjercicioId,
-  ejercicioId,
-  posicionX,
-  posicionY,
-  tamano,
-  compacto = false,
-  destacado = false,
-  reproducirAutomaticamente = false,
-  tecnicaTexto = null,
-  tecnicaExplicacion = null,
-}: {
+/** Lo que expone al padre (CuadroFotoReferencia) para abrirla desde afuera
+ * — el botón "Ver técnica" junto al RIR, que dispara EXACTAMENTE la misma
+ * acción que tocar la foto, sin duplicar su lógica de video/recorte (ver
+ * ExercicioReferenciaHandle más abajo y el pedido de Alejandro,
+ * 2026-08-17: "no quitas el original... lo reúsas"). */
+export type ExercicioReferenciaHandle = { abrir: () => void };
+
+const FotoReferenciaAmpliable = forwardRef<ExercicioReferenciaHandle, {
   src: string;
   /** La foto ORIGINAL sin recortar, si ya se identificó cuál es (ver
    * `resolverFotoCompleta`) — el visor la usa en vez de `src` (que es la
@@ -416,8 +414,26 @@ function FotoReferenciaAmpliable({
   reproducirAutomaticamente?: boolean;
   tecnicaTexto?: string | null;
   tecnicaExplicacion?: string | null;
-}) {
+}>(function FotoReferenciaAmpliable({
+  src,
+  srcCompleta,
+  videoUrl,
+  videoCloudflareListo,
+  nombre,
+  sesionEjercicioId,
+  diaEjercicioId,
+  ejercicioId,
+  posicionX,
+  posicionY,
+  tamano,
+  compacto = false,
+  destacado = false,
+  reproducirAutomaticamente = false,
+  tecnicaTexto = null,
+  tecnicaExplicacion = null,
+}, ref) {
   const [ampliada, setAmpliada] = useState(false);
+  useImperativeHandle(ref, () => ({ abrir: () => setAmpliada(true) }), []);
   const [confirmandoReporte, setConfirmandoReporte] = useState(false);
   const [reporte, accionReporte, enviandoReporte] = useActionState<ReportarFotoState, FormData>(
     reportarFotoIncorrecta,
@@ -603,7 +619,7 @@ function FotoReferenciaAmpliable({
         )}
     </>
   );
-}
+});
 
 /** Una de las celdas de la fila de datos del ejercicio. */
 export function Dato({
@@ -1037,6 +1053,12 @@ export const FilaSerie = forwardRef<
     /** Etiqueta contextual antes de iniciar el descanso; las biseries la usan
      * para aclarar que el reloj comienza al terminar el último paso. */
     textoDescansoPendiente?: string;
+    /** Abre el mismo video de referencia que tocar la foto — un segundo
+     * camino al mismo modal, no uno nuevo (pedido de Alejandro,
+     * 2026-08-17: "el mismo botón que le presionas al ver técnica... no
+     * quitas el original"). Undefined cuando el ejercicio no tiene video:
+     * el botón no se muestra. */
+    onVerTecnica?: () => void;
   }
 >(function FilaSerie(
   {
@@ -1065,6 +1087,7 @@ export const FilaSerie = forwardRef<
     saltaDescanso = false,
     textoAlSaltarDescanso = "Guarda y avanza",
     textoDescansoPendiente,
+    onVerTecnica,
   },
   ref
 ) {
@@ -1735,6 +1758,12 @@ export const FilaSerie = forwardRef<
               />
               <button type="button" onClick={() => ajustarCampo(`rir_${numero}${sufijoNombre}`, 1, 5)} aria-label="Subir RIR">+</button>
             </div>
+            {onVerTecnica && (
+              <button type="button" onClick={onVerTecnica} className="boton-ver-tecnica-serie">
+                <span className="icono-ver-tecnica" aria-hidden><Play size={9} fill="currentColor" /></span>
+                Ver técnica
+              </button>
+            )}
           </div>
         )}
         {/* Una vez marcada, una serie se resume en su cápsula y su número; no
@@ -1965,6 +1994,11 @@ export const SesionEjercicioCard = forwardRef<
   // mientras el ejercicio sigue activo.
   const [mostrarTecnica, setMostrarTecnica] = useState(false);
   const [avisoTecnica, setAvisoTecnica] = useState(false);
+  /** El botón "Ver técnica" junto al RIR llama a `referenciaRef.current.abrir()`
+   * — la MISMA acción que tocar la foto (video si hay, si no la foto propia;
+   * ver ExercicioReferenciaHandle), nunca una copia paralela de esa lógica
+   * (pedido de Alejandro, 2026-08-17: "no quitas el original... lo reúsas"). */
+  const referenciaRef = useRef<ExercicioReferenciaHandle>(null);
   const avisoAutomaticoRef = useRef(false);
   useEffect(() => {
     if (activo && tecnica && !avisoAutomaticoRef.current) {
@@ -2523,6 +2557,7 @@ export const SesionEjercicioCard = forwardRef<
                     arrancando solo tapaba la foto, y un botón aparte para
                     prenderlo "daña el diseño de la pantalla entera". */}
                 <CuadroFotoReferencia
+                  ref={referenciaRef}
                   ilustracionSlug={ejercicio.ilustracionSlug}
                   fotoMiniaturaUrl={ejercicio.fotoMiniaturaUrl}
                   fotoCompletaUrl={ejercicio.fotoCompletaUrl}
@@ -2956,6 +2991,7 @@ export const SesionEjercicioCard = forwardRef<
                     ? ejercicio.tecnicaTipo
                     : null
                 }
+                onVerTecnica={() => referenciaRef.current?.abrir()}
                 modoDestacado={modoEnfocado && serieVisibleNumero === n}
                 saltaDescanso={n === cantidadSeriesVisible}
                 textoAlSaltarDescanso={

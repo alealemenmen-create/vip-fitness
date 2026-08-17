@@ -14,6 +14,7 @@ import {
   formatUltimo,
   resolverTecnica,
   textoRegistroSerie,
+  type ExercicioReferenciaHandle,
   type FilaSerieHandle,
   type SesionEjercicioCardHandle,
 } from "@/components/student/SesionEjercicioCard";
@@ -109,6 +110,14 @@ export const SesionGrupoCard = forwardRef<
 
   const grupoTecnica = ejercicios.map((e) => resolverGrupoTecnica(e.tecnicaTipo)).find((g) => g) ?? null;
   const etiquetaGrupo = grupoTecnica?.etiqueta ?? "Técnica encadenada";
+
+  /** "Ver técnica" junto al RIR de cada paso llama a
+   * `referenciasRef.current.get(pos).abrir()` — la MISMA acción que tocar
+   * la foto de ESE paso (video si hay, si no la foto propia), nunca una
+   * copia paralela de esa lógica. Un ref por posición (A, B, C...), no uno
+   * solo: cada paso de la biserie tiene su propia referencia (pedido de
+   * Alejandro, 2026-08-17: "no quitas el original... lo reúsas"). */
+  const referenciasRef = useRef(new Map<number, ExercicioReferenciaHandle>());
 
   const formRef = useRef<HTMLFormElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -630,6 +639,10 @@ export const SesionGrupoCard = forwardRef<
             return (
             <article key={ej.sesionEjercicioId} className="ejercicio-cabecera-grupo-foco" data-activo={esActivo ? "true" : "false"}>
               <CuadroFotoReferencia
+                ref={(handle) => {
+                  if (handle) referenciasRef.current.set(pos, handle);
+                  else referenciasRef.current.delete(pos);
+                }}
                 ilustracionSlug={ej.ilustracionSlug}
                 fotoMiniaturaUrl={ej.fotoMiniaturaUrl}
                 fotoCompletaUrl={ej.fotoCompletaUrl}
@@ -1004,6 +1017,7 @@ export const SesionGrupoCard = forwardRef<
                               puedeDeshacer={puedeDeshacerPaso(paso)}
                               onGuardar={guardarAhora}
                               colorGrupoTecnica={grupoTecnica?.color}
+                              onVerTecnica={() => referenciasRef.current.get(paso.pos)?.abrir()}
                               modoDestacado={esActual}
                               // Solo el ÚLTIMO ejercicio del grupo descansa de verdad — A y B
                               // (o A y B de una triserie) encadenan directo al siguiente, sin

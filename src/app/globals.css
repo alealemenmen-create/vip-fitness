@@ -6183,21 +6183,52 @@ input[type="number"] {
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .fila-rir-navegacion {
   position: relative;
   display: flex;
+  /* Columna, no fila: "Ver técnica" se apila debajo del RIR, no al lado
+     (pedido de Alejandro, 2026-08-17, con captura de referencia). */
+  flex-direction: column;
   width: 100%;
   /* Antes 84px: alto pensado para las flechas gigantes de "Ejercicio
      anterior/siguiente" que flanqueaban el RIR (79px) — ya no existen (ver
      SesionEjercicioCard.tsx, eran código muerto), así que ese aire de más
      solo le daba a RIR más protagonismo del que le toca como dato
-     secundario. Ajustado al alto real del control. */
+     secundario. Ajustado al alto real del control (ahora piso, no techo:
+     con "Ver técnica" abajo crece más si hace falta). */
   min-height: 44px;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   margin-top: 4px;
-  padding: 3px 0 0;
+  padding: 3px 0 6px;
   /* Más notoria (.05 → .2), pedido de Alejandro. */
   border-top: 1px solid rgba(255,255,255,.2);
 }
 .tarjeta-ejercicio-enfocada .fila-rir-navegacion .control-rir-serie { margin-top: 0; }
+/* "Ver técnica" — segundo camino al mismo video de referencia que abre la
+   foto del ejercicio (no un video distinto, ni un modal propio: reusa
+   ModalVideo/ModalVideoCloudflare, ver SesionEjercicioCard.tsx). Mismo
+   ámbar que el resto de las señales "esto se toca" de la pantalla (botón
+   Descanso, tarjeta activa de biserie). */
+.boton-ver-tecnica-serie {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-vip);
+  font-size: calc(12px * var(--escala-texto));
+  font-weight: 650;
+}
+.icono-ver-tecnica {
+  display: grid;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1.4px solid var(--color-vip);
+  border-radius: 5px;
+  /* El triángulo de "play" no queda ópticamente centrado si se centra por
+     geometría pura (su masa visual pesa a la izquierda) — un pelo a la
+     derecha lo balancea dentro del cuadrito. */
+  padding-left: 1.5px;
+}
 .tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir {
   position: absolute;
   /* Centrado real dentro de la fila (antes +10px la empujaba hacia abajo):
@@ -7012,9 +7043,17 @@ input[type="number"] {
    RIR y descanso recuperan la presencia táctil del ejercicio individual. */
 :root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="actual"] .fila-serie[data-destacada="true"] .fila-rir-navegacion {
   min-height: 52px !important;
-  height: 52px;
+  /* `height: 52px` (sin !important) fijaba la caja a un alto exacto que
+     alcanzaba para el RIR solo — con "Ver técnica" apilado debajo (pedido
+     de Alejandro, 2026-08-17) el botón se salía 10px por debajo del borde.
+     `auto !important` en vez de solo borrar la línea: sin esto, la regla
+     menos específica de acá abajo (.tarjeta-paso-grupo-foco ... , sin el
+     [data-estado="actual"]) tiene su PROPIO height fijo — 26px, más chico
+     todavía — y hubiera pasado a mandar por descarte en vez de min-height. */
+  height: auto !important;
   margin-top: 7px !important;
   padding-top: 16px !important;
+  padding-bottom: 8px;
 }
 :root .tarjeta-grupo-enfocada .tarjeta-paso-grupo-foco[data-estado="actual"] .fila-serie[data-destacada="true"] .control-rir-serie {
   padding-top: 0 !important;
