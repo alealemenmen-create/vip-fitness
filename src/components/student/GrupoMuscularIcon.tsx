@@ -193,17 +193,15 @@ export { FONDO_FOTO as FONDO_FOTO_GRUPO };
  * Si el grupo principal no tiene foto (Cardio), se mantiene el dibujo de
  * siempre — no se inventa nada para no tener imagen.
  */
-/** Rayos de luz diagonales, decorativos, DETRÁS de la foto del día — el
- * mismo motivo cálido que enmarca al modelo en la referencia. Puramente
+/** Rayos de luz diagonales, decorativos, DETRÁS de la foto del día. Puramente
  * ornamental (aria-hidden).
  *
  * Se dibujaba después de la foto y sin capa propia, así que el rayo grueso
  * del medio le cruzaba la pierna al modelo como una raya naranja. Ahora va
  * primero y con `z-0` contra el `z-10` del texto: la foto (que no declara
- * capa) queda en medio y la diagonal solo se ve en el fondo negro. El tono
- * es el dorado pálido del rediseño (#f2cd5d), no el ámbar saturado
- * `--color-vip`, y la opacidad baja a 0.14 — el instructivo pide diagonales
- * "discretas" y solo en esta tarjeta. */
+ * capa) queda en medio y la diagonal solo se ve en el fondo negro. Blanco,
+ * no dorado — pedido de Alejandro (2026-08-17) — y la opacidad baja a 0.14:
+ * el instructivo pide diagonales "discretas" y solo en esta tarjeta. */
 function RayosLuz() {
   return (
     <svg
@@ -219,7 +217,7 @@ function RayosLuz() {
           y1={-20}
           x2={140 - i * 34}
           y2={190}
-          stroke="#f2cd5d"
+          stroke="#ffffff"
           strokeWidth={i === 2 ? 2 : 1.2}
         />
       ))}

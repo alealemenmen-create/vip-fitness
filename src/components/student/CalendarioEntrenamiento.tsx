@@ -346,7 +346,7 @@ function ListaEjerciciosPrevia({ vista }: { vista: NonNullable<DiaVistaPrevia> }
             tamanoCompacto={52}
           />
           <div className="min-w-0 flex-1">
-            <p className="text-[8px] font-bold uppercase tracking-[0.13em] text-[#f3d889]">
+            <p className="text-[8px] font-bold uppercase tracking-[0.13em] text-vip">
               {ejercicio.orden}{ejercicio.grupoMuscular ? ` · ${ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular]}` : ""}
             </p>
             <p className="mt-0.5 truncate text-[15px] font-[650] leading-tight tracking-[-0.025em] text-text">{ejercicio.nombre}</p>

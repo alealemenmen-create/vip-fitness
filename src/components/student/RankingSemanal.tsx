@@ -131,7 +131,7 @@ function FilaTop({ fila, esPropia }: { fila: FilaRanking; esPropia: boolean }) {
         background: esPrimero
           ? `linear-gradient(90deg, ${fila.rango.color}2e, transparent)`
           : esPropia
-            ? "rgba(255,161,0,0.12)"
+            ? "color-mix(in srgb, var(--color-vip) 12%, transparent)"
             : "transparent",
       }}
     >

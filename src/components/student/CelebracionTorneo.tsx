@@ -5,17 +5,20 @@ import Link from "next/link";
 import { PartyPopper, Trophy, X } from "lucide-react";
 import type { CelebracionTorneo } from "@/lib/torneos/data";
 
+/* El confeti dorado usa var(--color-vip) (reactivo al tema, 2026-08-17) en
+   vez de "#ffa100" fijo — antes tiraba confeti ámbar aunque el alumno
+   tuviera Steel Fit o Lady Fit elegido. */
 const CONFETI = [
   ["7%", "0s", "3.8s", "#ffffff"],
-  ["15%", ".6s", "4.2s", "#ffa100"],
+  ["15%", ".6s", "4.2s", "var(--color-vip)"],
   ["24%", "1.1s", "3.6s", "#a1a7b3"],
   ["34%", ".2s", "4.5s", "#ffffff"],
-  ["45%", "1.4s", "3.9s", "#ffa100"],
+  ["45%", "1.4s", "3.9s", "var(--color-vip)"],
   ["55%", ".8s", "4.3s", "#ffffff"],
   ["65%", ".1s", "3.7s", "#a1a7b3"],
-  ["75%", "1.3s", "4.4s", "#ffa100"],
+  ["75%", "1.3s", "4.4s", "var(--color-vip)"],
   ["84%", ".5s", "3.8s", "#ffffff"],
-  ["93%", "1s", "4.1s", "#ffa100"],
+  ["93%", "1s", "4.1s", "var(--color-vip)"],
 ] as const;
 
 export function CelebracionTorneo({ celebracion }: { celebracion: CelebracionTorneo }) {

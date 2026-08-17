@@ -605,9 +605,16 @@ input[type="date"]::-webkit-date-and-time-value {
 /* Steel Fit: acero y grafito. Pedido explÃ­cito de Alejandro â€” "colores
    masculinos, de seÃ±or mÃ¡s serio" â€” como contraparte de Lady Fit, con el
    mismo nivel de identidad propia (paleta entera, no solo el botÃ³n) pero
-   frÃ­o y sobrio en vez de cÃ¡lido y pastel. No se toca --cristal-azul: el
-   tinte de las placas de vidrio del admin YA es azul acero por defecto (ver
-   mÃ¡s abajo), asÃ­ que Steel Fit hereda ese tinte sin pisarlo. */
+   frÃ­o y sobrio en vez de cÃ¡lido y pastel.
+
+   SÃ­ se pisa --cristal-azul (2026-08-17, correcciÃ³n al comentario viejo de
+   esta regla): la razÃ³n original para NO pisarlo era "el tinte ya es azul
+   acero por defecto" â€” cierto, pero ese mismo azul por defecto es tambiÃ©n
+   el que usa VIP (que tampoco lo pisa), asÃ­ que el vidrio del encabezado y
+   la barra inferior le quedaban IDÃ‰NTICOS a los de VIP â€” "ninguno tiene una
+   visual que se diferencia", reportado por Alejandro. Acá se lo lleva a un
+   gris grafito frÃ­o (sin el celeste del default), que es lo que de verdad
+   distingue a Steel Fit contra el resto en vez de heredarlo gratis. */
 :root[data-tema-boton="masculino"] {
   --color-bg: #12161c;
   --color-surface: #1b212a;
@@ -625,6 +632,7 @@ input[type="date"]::-webkit-date-and-time-value {
   --btn-color: #f4f7fa;
   --btn-border: rgba(143, 180, 217, 0.35);
   --logo-plate-bg: linear-gradient(135deg, #6f93b3 0%, #4f6478 55%, #232a35 100%);
+  --cristal-azul: 148, 158, 168;
 }
 :root[data-tema-boton="femenino"] {
   --color-bg: #21171e;
@@ -872,6 +880,15 @@ input[type="date"]::-webkit-date-and-time-value {
   --color-text: #ffffff;
   --color-text-secondary: #c4c7cf;
   --color-text-tertiary: #858b96;
+  /* Corregido 2026-08-17: el resto de los tokens de acá arriba ya estaban
+     fijos ("Ranked... conserva la identidad ámbar de VIP", comentario de
+     arriba), pero a --color-vip se le había olvidado hacer lo mismo — así
+     que las reglas de este bloque que usaban var(--color-vip) sí cambiaban
+     con Steel Fit/Lady Fit mientras las que tenían rgba(255,161,0,...) fijo
+     no, y quedaba una mezcla inconsistente en vez del ámbar parejo que el
+     diseño pedía. Con esto, TODO el bloque queda ámbar siempre, sin
+     importar el tema — que es la regla documentada arriba. */
+  --color-vip: #ffa100;
   position: relative;
   isolation: isolate;
 }
@@ -2846,9 +2863,9 @@ input[type="number"] {
      de Alejandro (2026-08-16) para que Inicio se sienta más "cerrada",
      acorde al resto del rediseño. */
   border-radius: 16px;
-  /* Borde neutro, igual que Arena VIP — pedido de Alejandro (2026-08-16):
-     el dorado marcado acá competía con el resto de la pantalla. */
-  border: 1px solid rgba(255, 255, 255, .06);
+  /* Borde blanco, no dorado — pedido de Alejandro (2026-08-17): el dorado
+     competía con el resto de la pantalla. */
+  border: 1px solid rgba(255, 255, 255, .22);
   background:
     radial-gradient(ellipse 62% 104% at 100% 46%, #000 0%, rgba(0, 0, 0, 0.98) 43%, rgba(0, 0, 0, 0.5) 69%, transparent 88%),
     linear-gradient(150deg, #15161a 0%, #0d0e11 100%);
@@ -2871,7 +2888,10 @@ input[type="number"] {
 }
 .foto-modelo-integrada img {
   mix-blend-mode: normal;
-  filter: brightness(1.08) contrast(1.18) saturate(1.12) drop-shadow(0 0 12px color-mix(in srgb, var(--color-vip) 18%, transparent));
+  /* Blanco, no dorado — pedido de Alejandro (2026-08-17): el modelo pasa a
+     escala de grises clara (sin el tinte cálido de --color-vip) y el brillo
+     alrededor de la silueta es blanco, no ámbar. */
+  filter: brightness(1.12) contrast(1.15) grayscale(1) drop-shadow(0 0 12px rgba(255, 255, 255, 0.22));
 }
 
 .tarjeta-ejercicio-enfocada.panel-ejercicio-activo {
@@ -4052,7 +4072,16 @@ input[type="number"] {
   flex: none;
   place-items: center;
   clip-path: polygon(50% 0, 94% 22%, 94% 78%, 50% 100%, 6% 78%, 6% 22%);
-  background: #d6aa28;
+  /* `var(--color-vip)` y no un dorado fijo (corregido 2026-08-17): este
+     escudo es el mismo componente (MarcaVipPortal, Logo.tsx) que usan las
+     cabeceras de Inicio/Entrenar/Nutrición/Mi avance/Ranked, no solo la de
+     "rutina activa" — así que un dorado fijo acá dejaba esas cinco pantallas
+     con el escudo dorado sin importar el tema elegido. La versión de rutina
+     activa (modo enfocado) sigue siendo dorada a propósito, pero por SU
+     PROPIA regla más específica (`.puntos-rutina-activa`/`.insignia-puntos-
+     rutina` dentro de `.shell-alumno:has(.modo-entrenamiento-enfocado)`, más
+     abajo) — "instrumento que se ve siempre igual", no esta. */
+  background: var(--color-vip);
 }
 .marca-vip-entrenamiento::before {
   content: "";
@@ -4064,7 +4093,7 @@ input[type="number"] {
 .marca-vip-entrenamiento span {
   position: relative;
   z-index: 1;
-  color: #efc84d;
+  color: var(--color-vip);
   font-family: Georgia, "Times New Roman", serif;
   font-size: 17px;
   letter-spacing: -.04em;
@@ -4080,7 +4109,7 @@ input[type="number"] {
   color: #f2f2f3;
 }
 .titulo-rutina-activa b {
-  color: #efc84d;
+  color: var(--color-vip);
   font-family: Georgia, "Times New Roman", serif;
   font-size: calc(14px * var(--escala-texto));
   font-weight: 700;
@@ -4103,7 +4132,10 @@ input[type="number"] {
   margin: 0 9px 0 7px;
   padding: 0;
   border: 0;
-  color: #efc84d;
+  /* Mismo criterio que `.marca-vip-entrenamiento` arriba: reactivo acá
+     (headers de Inicio/Entrenar/etc.), fijo en dorado solo dentro de modo
+     enfocado (regla propia más abajo). */
+  color: var(--color-vip);
   background: transparent;
 }
 .puntos-rutina-activa strong { font-size: calc(10px * var(--escala-texto)); font-weight: 720; }
@@ -5284,13 +5316,17 @@ input[type="number"] {
   display: none !important;
 }
 .logo-rutina-activa { min-height: 46px; }
+/* Reactivo al tema (corregido 2026-08-17, ver el comentario grande más
+   arriba en `.marca-vip-entrenamiento`): esta es la MISMA insignia de
+   Inicio/Entrenar/Nutrición/Mi avance/Ranked, no una exclusiva de rutina
+   activa. */
 .puntos-rutina-activa {
   height: 38px;
   flex: 0 1 auto;
   gap: 6px;
   margin: 0 7px 0 5px;
   padding: 0 5px 0 0;
-  color: #f0cc58;
+  color: var(--color-vip);
   white-space: nowrap;
 }
 .insignia-puntos-rutina {
@@ -5299,21 +5335,21 @@ input[type="number"] {
   width: 32px;
   height: 32px;
   place-items: center;
-  border: 1px solid rgba(239,200,77,.55);
+  border: 1px solid color-mix(in srgb, var(--color-vip) 55%, transparent);
   border-radius: 8px;
-  background: linear-gradient(145deg, rgba(239,200,77,.2), rgba(239,200,77,.035));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 0 10px rgba(239,200,77,.1);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--color-vip) 20%, transparent), color-mix(in srgb, var(--color-vip) 3.5%, transparent));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 0 10px color-mix(in srgb, var(--color-vip) 10%, transparent);
 }
 .insignia-puntos-rutina > svg:last-child {
   position: absolute;
-  color: #ffdb63;
+  color: var(--color-vip);
 }
 .insignia-puntos-rutina > svg:first-child { width: 23px; height: 23px; }
 .insignia-puntos-rutina > svg:last-child { width: 11px; height: 11px; }
 .puntos-rutina-activa strong {
   min-width: 0;
   overflow: hidden;
-  color: #efc84d;
+  color: var(--color-vip);
   font-family: Georgia, "Times New Roman", serif;
   font-size: calc(13px * var(--escala-texto));
   font-weight: 700;
@@ -5500,12 +5536,18 @@ input[type="number"] {
   border-radius: 9px;
   text-shadow: none;
 }
-/* Cierre editorial de la barra estándar: mismo acento dorado silencioso de
-   entrenamiento activo (2026-08-15), ya no la cápsula gris pesada. */
+/* Cierre editorial de la barra estándar: mismo acento silencioso de
+   entrenamiento activo (2026-08-15), ya no la cápsula gris pesada.
+   `var(--color-vip)` y no un dorado fijo (corregido 2026-08-17): esta regla
+   es más específica que `.item-navegacion-aero-activo` de más arriba (que sí
+   reacciona al tema) y la pisaba en TODAS las pantallas fuera del modo
+   enfocado — así que Steel Fit y Lady Fit en oscuro veían la pestaña activa
+   dorada igual. Reportado por Alejandro: "ninguno tiene una visual que se
+   diferencia". */
 :root .shell-alumno .item-navegacion-aero-activo {
   position: relative;
-  border-color: rgba(239, 200, 77, .16);
-  background: linear-gradient(180deg, rgba(239,200,77,.1), rgba(239,200,77,.025));
+  border-color: color-mix(in srgb, var(--color-vip) 16%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-vip) 10%, transparent), color-mix(in srgb, var(--color-vip) 2.5%, transparent));
   box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
 }
 :root .shell-alumno .item-navegacion-aero-activo::before {
@@ -5516,7 +5558,7 @@ input[type="number"] {
   right: 26%;
   height: 2px;
   border-radius: 999px;
-  background: #efc84d;
+  background: var(--color-vip);
 }
 :root .shell-alumno .icono-navegacion-aero {
   width: 20px;
@@ -5524,8 +5566,8 @@ input[type="number"] {
   filter: none;
 }
 :root .shell-alumno .item-navegacion-aero-activo .icono-navegacion-aero {
-  color: #f0c94f;
-  filter: drop-shadow(0 0 5px rgba(239,200,77,.25));
+  color: var(--color-vip);
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--color-vip) 25%, transparent));
 }
 .aviso-ejercicio-siguiente {
   position: absolute;
@@ -6802,18 +6844,18 @@ input[type="number"] {
 .celebracion-final-borde {
   position: absolute;
   inset: max(7px, env(safe-area-inset-top)) 7px max(7px, env(safe-area-inset-bottom));
-  border: 1px solid rgba(236, 199, 81, .55);
+  border: 1px solid color-mix(in srgb, var(--color-vip) 55%, transparent);
   border-radius: 24px;
   box-shadow:
     inset 0 0 34px rgba(83,226,139,.19),
-    0 0 20px rgba(240,202,87,.24),
+    0 0 20px color-mix(in srgb, var(--color-vip) 24%, transparent),
     0 0 54px rgba(83,226,139,.20);
   animation: celebracion-borde-vip 2.6s ease-in-out infinite;
   pointer-events: none;
 }
 @keyframes celebracion-borde-vip {
-  0%, 100% { opacity: .62; box-shadow: inset 0 0 26px rgba(83,226,139,.13), 0 0 12px rgba(240,202,87,.16); }
-  50% { opacity: 1; box-shadow: inset 0 0 48px rgba(83,226,139,.29), 0 0 28px rgba(240,202,87,.38), 0 0 68px rgba(83,226,139,.25); }
+  0%, 100% { opacity: .62; box-shadow: inset 0 0 26px rgba(83,226,139,.13), 0 0 12px color-mix(in srgb, var(--color-vip) 16%, transparent); }
+  50% { opacity: 1; box-shadow: inset 0 0 48px rgba(83,226,139,.29), 0 0 28px color-mix(in srgb, var(--color-vip) 38%, transparent), 0 0 68px rgba(83,226,139,.25); }
 }
 .celebracion-final-panel {
   position: relative;
@@ -6824,7 +6866,7 @@ input[type="number"] {
   border-radius: 22px;
   color: #f7f8f7;
   background:
-    radial-gradient(circle at 50% -8%, rgba(240,202,87,.19), transparent 38%),
+    radial-gradient(circle at 50% -8%, color-mix(in srgb, var(--color-vip) 19%, transparent), transparent 38%),
     linear-gradient(155deg, #151b19, #0d1011 65%, #17140d);
   box-shadow: 0 28px 80px rgba(0,0,0,.62), inset 0 1px 0 rgba(255,255,255,.065);
   text-align: center;
@@ -6841,11 +6883,11 @@ input[type="number"] {
   height: 66px;
   place-items: center;
   margin: 0 auto 13px;
-  border: 1px solid rgba(240,202,87,.65);
+  border: 1px solid color-mix(in srgb, var(--color-vip) 65%, transparent);
   border-radius: 22px;
-  color: #f1cb5b;
+  color: var(--color-vip);
   background: rgba(12,17,15,.62);
-  box-shadow: 0 0 28px rgba(240,202,87,.18), inset 0 1px 0 rgba(255,255,255,.08);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--color-vip) 18%, transparent), inset 0 1px 0 rgba(255,255,255,.08);
 }
 .celebracion-final-emblema svg:last-child {
   position: absolute;
@@ -6880,20 +6922,20 @@ input[type="number"] {
   flex-direction: column;
   align-items: center;
   padding: 13px;
-  border: 1px solid rgba(240,202,87,.25);
+  border: 1px solid color-mix(in srgb, var(--color-vip) 25%, transparent);
   border-radius: 14px;
-  background: rgba(240,202,87,.065);
+  background: color-mix(in srgb, var(--color-vip) 6.5%, transparent);
 }
 .celebracion-final-puntos span,
 .celebracion-final-puntos small {
-  color: rgba(242,205,93,.72);
+  color: color-mix(in srgb, var(--color-vip) 72%, transparent);
   font-size: calc(8px * var(--escala-texto));
   font-weight: 800;
   letter-spacing: .12em;
 }
 .celebracion-final-puntos strong {
   margin: 3px 0;
-  color: #f4d46c;
+  color: var(--color-vip);
   font-family: Georgia, "Times New Roman", serif;
   font-size: calc(42px * var(--escala-texto));
   font-variant-numeric: tabular-nums;
@@ -6906,6 +6948,42 @@ input[type="number"] {
   font-weight: 650;
   letter-spacing: .04em;
   text-transform: none;
+}
+/* El modal de "Entrenamiento completado" pasó a reactivo el 2026-08-17
+   (antes dorado fijo, sin importar el tema — se renderiza vía createPortal
+   fuera de .shell-alumno, pero data-tema-boton vive en <html>, así que este
+   scope sí llega). VIP conserva sus tonos exactos de siempre acá; el pulso
+   de `celebracion-borde-vip` queda con la aproximación de color-mix (una
+   sombra en movimiento, no hace falta calzarla al pixel). */
+:root[data-tema-boton="vip"] .celebracion-final-borde,
+:root:not([data-tema-boton]) .celebracion-final-borde {
+  border-color: rgba(236, 199, 81, .55);
+}
+:root[data-tema-boton="vip"] .celebracion-final-panel,
+:root:not([data-tema-boton]) .celebracion-final-panel {
+  background:
+    radial-gradient(circle at 50% -8%, rgba(240,202,87,.19), transparent 38%),
+    linear-gradient(155deg, #151b19, #0d1011 65%, #17140d);
+}
+:root[data-tema-boton="vip"] .celebracion-final-emblema,
+:root:not([data-tema-boton]) .celebracion-final-emblema {
+  border-color: rgba(240,202,87,.65);
+  color: #f1cb5b;
+}
+:root[data-tema-boton="vip"] .celebracion-final-puntos,
+:root:not([data-tema-boton]) .celebracion-final-puntos {
+  border-color: rgba(240,202,87,.25);
+  background: rgba(240,202,87,.065);
+}
+:root[data-tema-boton="vip"] .celebracion-final-puntos span,
+:root[data-tema-boton="vip"] .celebracion-final-puntos small,
+:root:not([data-tema-boton]) .celebracion-final-puntos span,
+:root:not([data-tema-boton]) .celebracion-final-puntos small {
+  color: rgba(242,205,93,.72);
+}
+:root[data-tema-boton="vip"] .celebracion-final-puntos strong,
+:root:not([data-tema-boton]) .celebracion-final-puntos strong {
+  color: #f4d46c;
 }
 .celebracion-final-acciones { margin-top: 16px; }
 .celebracion-final-confirmar {
@@ -6962,6 +7040,12 @@ input[type="number"] {
    ejecución. */
 .entrenar-minimalista {
   --preparacion-borde: rgba(255,255,255,.1);
+  /* Reactivo desde 2026-08-17: antes siempre #f2cd5d (pálido de VIP) sin
+     importar el tema. VIP conserva ese tono exacto con la regla de abajo. */
+  --preparacion-dorado: var(--color-vip);
+}
+:root[data-tema-boton="vip"] .entrenar-minimalista,
+:root:not([data-tema-boton]) .entrenar-minimalista {
   --preparacion-dorado: #f2cd5d;
 }
 .selector-sesiones-fijo {
@@ -6980,8 +7064,8 @@ input[type="number"] {
   border-radius: 11px;
 }
 .tira-sesiones-entrenar .selector-sesion-item[data-activa="true"] {
-  border-color: rgba(242,205,93,.42);
-  background: linear-gradient(145deg, rgba(242,205,93,.14), rgba(255,255,255,.035)) !important;
+  border-color: color-mix(in srgb, var(--preparacion-dorado) 42%, transparent);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--preparacion-dorado) 14%, transparent), rgba(255,255,255,.035)) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 6px 16px rgba(0,0,0,.2);
 }
 .tira-sesiones-entrenar .selector-sesion-item[data-estado="completado"] {
@@ -6993,7 +7077,7 @@ input[type="number"] {
 }
 .resumen-sesion-entrenar {
   position: relative;
-  border-color: rgba(242,205,93,.38) !important;
+  border-color: color-mix(in srgb, var(--preparacion-dorado) 38%, transparent) !important;
   border-radius: 17px !important;
   box-shadow: 0 18px 36px -28px rgba(0,0,0,.96), inset 0 1px 0 rgba(255,255,255,.09) !important;
 }
@@ -7069,13 +7153,26 @@ input[type="number"] {
    estados de éxito real (ej. "Ejercicio finalizado"). Mismo dorado pálido
    que el resto del rediseño (#f2cd5d), no el ámbar saturado del bloque de
    arriba. */
+/* Reactivo desde 2026-08-17 (antes ámbar fijo). VIP conserva sus tonos
+   exactos con la regla de mayor especificidad de abajo — mismo criterio que
+   `.boton-entrenar-tarjeta` más arriba. */
 .boton-iniciar-cristal-vip {
   color: #1b1105 !important;
-  border-color: rgba(255, 224, 155, .7) !important;
-  background: linear-gradient(135deg, rgba(247, 220, 134, .92), rgba(224, 178, 63, .86)) !important;
+  border-color: color-mix(in srgb, var(--color-vip) 70%, white) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-vip) 92%, white), color-mix(in srgb, var(--color-vip) 86%, black)) !important;
   box-shadow: 0 10px 26px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,245,214,.5), inset 0 -1px 0 rgba(120,80,10,.25) !important;
 }
 .boton-iniciar-cristal-vip:hover {
+  border-color: color-mix(in srgb, var(--color-vip) 90%, white) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-vip) 95%, white), color-mix(in srgb, var(--color-vip) 90%, black)) !important;
+}
+:root[data-tema-boton="vip"] .boton-iniciar-cristal-vip,
+:root:not([data-tema-boton]) .boton-iniciar-cristal-vip {
+  border-color: rgba(255, 224, 155, .7) !important;
+  background: linear-gradient(135deg, rgba(247, 220, 134, .92), rgba(224, 178, 63, .86)) !important;
+}
+:root[data-tema-boton="vip"] .boton-iniciar-cristal-vip:hover,
+:root:not([data-tema-boton]) .boton-iniciar-cristal-vip:hover {
   border-color: rgba(255, 235, 180, .9) !important;
   background: linear-gradient(135deg, rgba(250, 228, 150, .95), rgba(232, 186, 70, .9)) !important;
 }
@@ -7097,17 +7194,33 @@ input[type="number"] {
    dorado, #f2cd5d) en vez del ámbar saturado (--color-vip: #ffa100) que
    trae por defecto el resto del portal. Se pisa acá, dentro del contenido,
    así el cabezal (que ya usa su propio dorado pálido) no se ve afectado. */
-.inicio-tono-entrenar {
+/* Acotado a VIP (corregido 2026-08-17): esta paleta pálida es la identidad
+   PROPIA de VIP, que Alejandro pidió mantener tal cual. Con el selector
+   pelado de antes, CUALQUIER tema heredaba este dorado pálido fijo acá
+   adentro — Steel Fit y Lady Fit veían Inicio siempre dorado. Sin este
+   scope, cada tema usa su propio --color-vip normal en Inicio (sin la
+   suavizada, que es un matiz propio de VIP, no algo que los demás temas
+   pidieron). */
+:root[data-tema-boton="vip"] .inicio-tono-entrenar,
+:root:not([data-tema-boton]) .inicio-tono-entrenar {
   --color-vip: #f2cd5d;
 }
-/* CTA "Entrenar" de la tarjeta de Inicio: mismo dorado pálido que el resto
-   de la tarjeta, no el ámbar saturado de `.btn-accion` (compartido por toda
-   la app, no se toca). */
+/* CTA "Entrenar" de la tarjeta de Inicio. Reactivo desde 2026-08-17 — antes
+   hex fijo, dorado sin importar el tema elegido. VIP conserva sus tres
+   tonos EXACTOS de siempre (pedido de Alejandro: "se mantiene tal cual"),
+   con su propia regla más abajo que gana por especificidad; esta de acá es
+   la versión genérica para Steel Fit/Lady Fit/Espejo, derivada de
+   var(--color-vip) con la misma fórmula de luz/sombra. */
 .boton-entrenar-tarjeta {
   color: #1b1105;
-  border: 1px solid rgba(255, 235, 180, .55);
-  background: linear-gradient(135deg, #f7dc86 0%, #f2cd5d 55%, #e0b23f 100%);
+  border: 1px solid color-mix(in srgb, var(--color-vip) 55%, white);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-vip) 78%, white) 0%, var(--color-vip) 55%, color-mix(in srgb, var(--color-vip) 82%, black) 100%);
   box-shadow: 0 8px 20px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .35);
+}
+:root[data-tema-boton="vip"] .boton-entrenar-tarjeta,
+:root:not([data-tema-boton]) .boton-entrenar-tarjeta {
+  border-color: rgba(255, 235, 180, .55);
+  background: linear-gradient(135deg, #f7dc86 0%, #f2cd5d 55%, #e0b23f 100%);
 }
 
 .titulo-portal-vip {
@@ -7126,7 +7239,7 @@ input[type="number"] {
    span): junto al hexágono se lee "VIP Fitness", como el nombre del gimnasio.
    Solo Inicio la usa — el resto de las rutas hexagonales lleva título normal. */
 .titulo-portal-vip-marca {
-  color: #efc84d;
+  color: var(--color-vip);
   font-family: Georgia, "Times New Roman", serif;
   font-size: calc(16px * var(--escala-texto));
 }
@@ -7405,7 +7518,13 @@ input[type="number"] {
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.008));
 }
+/* Reactivo desde 2026-08-17 (antes rgba fijo). VIP conserva su dorado pálido
+   exacto con las reglas de mayor especificidad de abajo. */
 .dia-nutricion-activo {
+  border-color: color-mix(in srgb, var(--color-vip) 42%, transparent);
+}
+:root[data-tema-boton="vip"] .dia-nutricion-activo,
+:root:not([data-tema-boton]) .dia-nutricion-activo {
   border-color: rgba(242,205,93,.42);
 }
 /* Franja de recompensa fina, no una segunda tarjeta protagonista: mismo
@@ -7413,10 +7532,19 @@ input[type="number"] {
    `--color-vip`, para que "Puntos provisionales" no compita en brillo con
    los macros, que es el dato que manda en esta pantalla. */
 .franja-puntos-nutricion {
+  border-color: color-mix(in srgb, var(--color-vip) 25%, transparent) !important;
+  background: color-mix(in srgb, var(--color-vip) 5%, transparent) !important;
+}
+.franja-puntos-nutricion .barra-progreso-relleno {
+  background: var(--color-vip) !important;
+}
+:root[data-tema-boton="vip"] .franja-puntos-nutricion,
+:root:not([data-tema-boton]) .franja-puntos-nutricion {
   border-color: rgba(242,205,93,.25) !important;
   background: rgba(242,205,93,.05) !important;
 }
-.franja-puntos-nutricion .barra-progreso-relleno {
+:root[data-tema-boton="vip"] .franja-puntos-nutricion .barra-progreso-relleno,
+:root:not([data-tema-boton]) .franja-puntos-nutricion .barra-progreso-relleno {
   background: #f2cd5d !important;
 }
 /* Buscador fijo: mismo material que la barra inferior universal y los
@@ -7457,8 +7585,14 @@ input[type="number"] {
   background: rgba(255,255,255,.03);
   border: 1px solid rgba(255,255,255,.06);
 }
+/* Reactivo desde 2026-08-17 (antes ámbar fijo, sin importar el tema). VIP
+   conserva sus tres tonos exactos con la regla de mayor especificidad. */
 .periodo-avance-activo {
   color: #1b1105;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-vip) 78%, white) 0%, var(--color-vip) 55%, color-mix(in srgb, var(--color-vip) 82%, black) 100%);
+}
+:root[data-tema-boton="vip"] .periodo-avance-activo,
+:root:not([data-tema-boton]) .periodo-avance-activo {
   background: linear-gradient(135deg, #f7dc86 0%, #f2cd5d 55%, #e0b23f 100%);
 }
 /* Mismo negro y borde fino que Entrenar, sin el halo ambar radial que tenía
@@ -7479,18 +7613,30 @@ input[type="number"] {
   background: repeating-linear-gradient(
     118deg,
     transparent 0 34px,
-    rgba(242,205,93,.05) 35px,
+    color-mix(in srgb, var(--color-vip) 5%, transparent) 35px,
     transparent 36px 56px
   );
   pointer-events: none;
 }
+/* Reactivo desde 2026-08-17 (antes #f2cd5d fijo). VIP conserva su dorado
+   pálido exacto con las reglas de mayor especificidad de abajo. */
 .hero-avance-eyebrow,
 .hero-avance-numero {
   position: relative;
-  color: #f2cd5d;
+  color: var(--color-vip);
 }
 .hero-avance-barra {
   position: relative;
+  background: var(--color-vip);
+}
+:root[data-tema-boton="vip"] .hero-avance-eyebrow,
+:root[data-tema-boton="vip"] .hero-avance-numero,
+:root:not([data-tema-boton]) .hero-avance-eyebrow,
+:root:not([data-tema-boton]) .hero-avance-numero {
+  color: #f2cd5d;
+}
+:root[data-tema-boton="vip"] .hero-avance-barra,
+:root:not([data-tema-boton]) .hero-avance-barra {
   background: #f2cd5d;
 }
 /* Los 4 indicadores en superficies homogéneas, sin brillo propio por
@@ -7558,9 +7704,14 @@ input[type="number"] {
   font-size: calc(11px * var(--escala-texto));
 }
 .selector-periodo-antes button[data-elegida="true"] {
+  background: color-mix(in srgb, var(--color-vip) 12%, transparent);
+  color: var(--color-vip);
+  font-weight: 700;
+}
+:root[data-tema-boton="vip"] .selector-periodo-antes button[data-elegida="true"],
+:root:not([data-tema-boton]) .selector-periodo-antes button[data-elegida="true"] {
   background: rgba(242,205,93,.12);
   color: #f2cd5d;
-  font-weight: 700;
 }
 .tarjeta-comparacion-periodo {
   border: 1px solid rgba(255,255,255,.07);
@@ -7610,11 +7761,15 @@ input[type="number"] {
    ámbar de `--color-vip`. Sin borde ni caja propia — es un separador de
    lectura, no otra tarjeta. */
 .eyebrow-avance {
-  color: #f2cd5d;
+  color: var(--color-vip);
   font-size: calc(10px * var(--escala-texto));
   font-weight: 800;
   letter-spacing: .16em;
   text-transform: uppercase;
+}
+:root[data-tema-boton="vip"] .eyebrow-avance,
+:root:not([data-tema-boton]) .eyebrow-avance {
+  color: #f2cd5d;
 }
 .encabezado-acciones-semana {
   padding-top: 6px;
