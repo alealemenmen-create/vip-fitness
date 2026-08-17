@@ -145,6 +145,23 @@ export function SesionEjercicios({
   const [indiceVisible, setIndiceVisible] = useState(indiceActivo);
   const [mostrarRutina, setMostrarRutina] = useState(false);
   const [avisoBloqueo, setAvisoBloqueo] = useState(false);
+  /** Desbloqueo forzado del cristal de "ejercicio bloqueado" — pedido de
+   * Alejandro, 2026-08-17: si una máquina está ocupada, el alumno tiene que
+   * poder adelantarse a otro ejercicio sin terminar el anterior. Varios
+   * toques seguidos sobre el cristal (no uno solo, para que no pase por
+   * error) lo abren para ESE índice de grupo en particular; los demás
+   * grupos todavía sin completar siguen bloqueados igual. Mismo patrón que
+   * "tres toques" para reabrir una serie fuera de turno (ver FilaSerie). */
+  const [gruposDesbloqueados, setGruposDesbloqueados] = useState<Set<number>>(() => new Set());
+  // El conteo en sí vive en un ref, no en el estado: varios toques reales
+  // pueden llegar más rápido de lo que React tarda en re-renderizar, y leer
+  // `toquesDesbloqueo` (estado) dentro del handler capturaría un valor
+  // viejo en cada toque en vez de acumular. `toquesDesbloqueo` (estado)
+  // solo espeja el ref para el aria-label — nunca se lee para decidir.
+  const toquesDesbloqueoRef = useRef(0);
+  const [toquesDesbloqueo, setToquesDesbloqueo] = useState(0);
+  const toquesDesbloqueoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const TOQUES_DESBLOQUEO = 5;
   const [avisandoSiguienteEjercicio, setAvisandoSiguienteEjercicio] = useState(false);
   const [preferenciaDescansoLocal, setPreferenciaDescansoLocal] = useState<
     "libre" | "entrenador" | 40 | 60 | 90 | 120 | null
@@ -197,6 +214,10 @@ export function SesionEjercicios({
     if (scroll) scroll.scrollTo({ top: 0, behavior: "auto" });
     setIndiceVisible(indice);
     setAvisoBloqueo(false);
+    // Cambiar de grupo empieza el conteo de nuevo: los toques son "forzar
+    // ESTE ejercicio", no un crédito que se lleva a cualquier otro bloqueado.
+    toquesDesbloqueoRef.current = 0;
+    setToquesDesbloqueo(0);
   };
 
   const avanzarDesdeEncuesta = (grupo: EjercicioSesion[]) => {
@@ -305,9 +326,11 @@ export function SesionEjercicios({
   const grupoAnterior = grupos[indiceVisible - 1] ?? null;
   const grupoSiguiente = grupos[indiceVisible + 1] ?? null;
   // Se puede recorrer toda la sesión con las flechas, pero un ejercicio no se
-  // registra hasta completar los grupos anteriores. La protección es visual y
-  // no un candado de tres toques: sirve para mirar sin modificar por error.
-  const grupoVisibleBloqueado = grupos
+  // registra hasta completar los grupos anteriores — a menos que el alumno
+  // lo haya forzado a mano (gruposDesbloqueados, ver más arriba). Antes esto
+  // era un candado sin llave ("sirve para mirar sin modificar"); ahora tiene
+  // una, deliberadamente escondida detrás de varios toques.
+  const grupoVisibleBloqueado = !gruposDesbloqueados.has(indiceVisible) && grupos
     .slice(0, indiceVisible)
     .some((grupo) => grupo.some((ejercicio) => !ejercicio.completado && !gruposTerminadosEnVista.has(ejercicio.sesionEjercicioId)));
 
@@ -404,6 +427,22 @@ export function SesionEjercicios({
   const avisarBloqueo = () => {
     setAvisoBloqueo(true);
     window.setTimeout(() => setAvisoBloqueo(false), 2200);
+
+    if (toquesDesbloqueoTimeoutRef.current) clearTimeout(toquesDesbloqueoTimeoutRef.current);
+    toquesDesbloqueoRef.current += 1;
+    if (toquesDesbloqueoRef.current >= TOQUES_DESBLOQUEO) {
+      toquesDesbloqueoRef.current = 0;
+      setToquesDesbloqueo(0);
+      setGruposDesbloqueados((actuales) => new Set(actuales).add(indiceVisible));
+      return;
+    }
+    setToquesDesbloqueo(toquesDesbloqueoRef.current);
+    // Si deja de tocar (se distrajo, cambió de idea), el conteo se olvida —
+    // no queda "a mitad de camino" esperando un toque suelto minutos después.
+    toquesDesbloqueoTimeoutRef.current = setTimeout(() => {
+      toquesDesbloqueoRef.current = 0;
+      setToquesDesbloqueo(0);
+    }, 2500);
   };
   const indiceEjercicioVisible = Math.max(0, ejercicios.findIndex((ejercicio) => ejercicio.sesionEjercicioId === grupoVisible?.[0]?.sesionEjercicioId));
   // Mismo cálculo que usa el servidor al Finalizar (`calcularPuntosEntrenamiento`
@@ -464,12 +503,18 @@ export function SesionEjercicios({
                 type="button"
                 className="cristal-ejercicio-siguiente"
                 onClick={avisarBloqueo}
-                aria-label="Termina la serie anterior o márcala como hecha para registrar este ejercicio"
+                aria-label={
+                  toquesDesbloqueo > 0
+                    ? `Toca ${TOQUES_DESBLOQUEO - toquesDesbloqueo} veces más para forzar este ejercicio igual`
+                    : "Termina la serie anterior o márcala como hecha para registrar este ejercicio"
+                }
               />
             )}
             {grupoVisibleBloqueado && avisoBloqueo && (
               <p className="aviso-ejercicio-siguiente" role="status">
-                Termina la serie anterior o márcala como hecha para registrar aquí.
+                {toquesDesbloqueo > 0
+                  ? `Toca ${TOQUES_DESBLOQUEO - toquesDesbloqueo} veces más para forzarlo si la máquina está ocupada.`
+                  : "Termina la serie anterior o márcala como hecha para registrar aquí."}
               </p>
             )}
           </div>
