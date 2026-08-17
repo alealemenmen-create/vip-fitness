@@ -1872,11 +1872,15 @@ input[type="date"]::-webkit-date-and-time-value {
   .rayo-encuesta-impulso { animation: none; opacity: 1; }
 }
 
+/* Ahora es el contenido de un modal flotante (ver SesionEjercicioCard.tsx),
+   no un bloque inline resaltado con el color de warning — necesita un fondo
+   sólido de verdad, como cualquier otro diálogo de la app, no el tinte al
+   8% que tenía (pensado para leerse sobre la tarjeta, no solo). */
 .panel-cerrar-incompleto {
-  padding: 10px 12px;
+  padding: 16px;
   border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+  border-radius: 16px;
+  background: var(--color-surface);
 }
 .boton-completar-ejercicio:active {
   transform: scale(0.985);
@@ -3233,7 +3237,8 @@ input[type="number"] {
   padding: 0;
 }
 .acciones-series-extra button {
-  min-height: 36px;
+  /* 28px (antes 36) — pedido de Alejandro, subir "+ Añadir serie extra". */
+  min-height: 28px;
   color: var(--color-text-secondary);
   font-size: calc(11px * var(--escala-texto));
   font-weight: 620;
@@ -3788,13 +3793,16 @@ input[type="number"] {
   bottom: 4px;
   width: auto;
   overflow: hidden;
-  border: 1px solid rgba(var(--cristal-azul), 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 28px;
-  /* Igual que arriba: esta regla pisa el `background` compartido. */
+  /* Igual que arriba: esta regla pisa el `background` compartido.
+     Mismo negro puro que la tarjeta de ejercicio en curso (`--color-bg:
+     #000000`, ver `.panel-ejecucion-foco`) con el mismo velo casi
+     invisible encima — pedido explícito de Alejandro ("ese sí es lo más
+     negro"), en vez del gris/azul que tenía antes. */
   background:
-    radial-gradient(circle at 18% 100%, color-mix(in srgb, var(--color-vip) 13%, transparent), transparent 58%),
-    linear-gradient(180deg, rgba(var(--cristal-azul), 0.06), rgba(var(--cristal-azul), 0.17)),
-    linear-gradient(180deg, rgba(10, 20, 27, 0.36), rgba(6, 12, 18, 0.52));
+    linear-gradient(120deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    #000;
   box-shadow:
     0 -22px 42px -30px color-mix(in srgb, var(--color-vip) 58%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
@@ -4558,10 +4566,17 @@ input[type="number"] {
   top: 0;
   z-index: 35;
   isolation: isolate;
-  margin: 0 0 7px;
-  padding: 5px 0 7px;
-  border-bottom: 1px solid rgba(255,255,255,.06);
-  background: linear-gradient(180deg, rgba(8,9,10,.98) 0%, rgba(8,9,10,.94) 76%, rgba(8,9,10,.72) 100%);
+  /* Sin línea divisoria y más pegado a la foto de abajo (pedido de
+     Alejandro): antes tenía `border-bottom` + 7px de margen + 7px de
+     relleno, se veía como un separador de más entre la barra del % y la
+     foto. */
+  margin: 0 0 3px;
+  padding: 5px 0 2px;
+  border-bottom: 0;
+  /* Negro sólido, no el degradado casi-negro-pero-gris (rgba(8,9,10,...) con
+     opacidad menor a 1) que tenía — pedido de Alejandro: se notaba el gris
+     detrás de la barra del %. */
+  background: #000;
   pointer-events: none;
 }
 .cabecera-sesion-foco > p {
@@ -4626,7 +4641,9 @@ input[type="number"] {
   height: 5px;
   overflow: hidden;
   border-radius: 999px;
-  background: #282a2e;
+  /* Negro fuerte (pedido de Alejandro), no el gris #282a2e que tenía — solo
+     el fondo, el relleno de color sigue igual. */
+  background: #000;
   box-shadow: inset 0 1px 1px rgba(0,0,0,.42);
 }
 .relleno-progreso-onda {
@@ -4758,7 +4775,8 @@ input[type="number"] {
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
-  margin: 0 0 9px;
+  /* Más pegado al nombre (9px → 5px), pedido de Alejandro. */
+  margin: 0 0 5px;
   color: #fff !important;
   font-family: inherit !important;
   font-size: calc(7px * var(--escala-texto)) !important;
@@ -4776,8 +4794,10 @@ input[type="number"] {
   gap: 5px;
   width: 100%;
   margin: 0;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255,255,255,.08);
+  /* "Siguiente" más pegado a la línea (8px → 4px), pedido de Alejandro. */
+  padding-top: 4px;
+  /* Línea más notoria (.08 → .2), pedido de Alejandro. */
+  border-top: 1px solid rgba(255,255,255,.2);
   color: #86868c;
   font-size: calc(11px * var(--escala-texto));
   font-weight: 540;
@@ -5472,75 +5492,111 @@ input[type="number"] {
   z-index: 14;
   pointer-events: auto;
 }
-.navegacion-flotante-sesion {
+/* Fija arriba de la barra de navegación inferior, no en el flujo del
+   documento — pedido explícito: "fijo, sin scroll". Mismo patrón que
+   `BotonIniciarRutinaFijo` (portal a document.body: dentro de
+   `.pantalla-scroll` un `position: fixed` normal queda "fijo" respecto a
+   ese contenedor, que es el que scrollea, no respecto a la pantalla real). */
+.tira-navegacion-sesion {
   position: fixed;
-  inset: 0;
-  z-index: 40;
-  pointer-events: none;
-}
-.navegacion-flotante-sesion button {
-  position: absolute;
-  top: 62svh;
-  display: grid;
-  width: 90px;
-  height: 79px;
-  place-items: center;
-  border: 0;
-  border-radius: 0;
-  /* Casi imperceptibles: pedido de Alejandro (2026-08-16) — al 62% de blanco,
-     con brillo y con un balanceo permanente, las dos flechas eran lo primero
-     que se veía de la pantalla y le rompían el diseño. Bajan a .07, pierden
-     el brillo y dejan de moverse solas. El área táctil (90 × 79 px) NO se
-     toca: se ven menos, se tocan igual. */
-  color: rgba(255,255,255,.07);
-  background: transparent;
-  box-shadow: none;
-  pointer-events: auto;
-  transform: translateY(-50%);
-  /* Sin `overflow: hidden`, a propósito: el SVG de adentro se estira 120%
-     verticalmente (ver `.navegacion-flotante-sesion svg`) y tiene que
-     asomarse sobre PESO/REPETICIONES y "Descanso" para leerse alargado — es
-     lo que se pidió. Al 7% de blanco no compite con ese texto; el área
-     táctil del botón (90 × 79 px) no crece con la flecha. */
-}
-/* Pegadas al borde de la pantalla, no `-14px` afuera de ella: con el corrimiento
-   negativo de antes, la mitad del glifo quedaba directamente fuera del
-   viewport — "las flechas se salen de la pantalla", pedido de Alejandro
-   (2026-08-16). El botón entero (90 px de área táctil) sigue siendo el mismo,
-   solo que ahora arranca en el borde en vez de siete pasarlo. */
-.navegacion-flotante-sesion button:first-child {
-  left: 0;
-}
-.navegacion-flotante-sesion button:last-child {
   right: 0;
+  /* Apoyada justo encima de la tarjeta de íconos, sin espacio ni superposición
+     (pedido de Alejandro: "que se monte" en el recuadro de abajo) — medido:
+     +6px dejaba 1px de superposición, +12px dejaba ~5px de aire de más. */
+  bottom: calc(var(--alto-nav-alumno, 86px) + 7px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 448px;
+  margin: 0 auto;
+  padding: 0 10px;
+  /* Negro puro (no gris #0b0c0d como había quedado antes), y del mismo alto
+     que los cuadros (34px, sin relleno vertical de más que la agrandara) —
+     pedido de Alejandro: la tira tiene que ir detrás de todos los cuadros,
+     pero ajustada a su tamaño, no una franja más ancha/alta que ellos. */
+  height: 34px;
+  border-radius: 10px;
+  background: #000;
 }
-.navegacion-flotante-sesion button:disabled { opacity: .28; }
-/* Se enciende solo mientras el dedo la está tocando: la flecha sigue siendo
-   descubrible sin vivir prendida. */
-.navegacion-flotante-sesion button:not(:disabled):active {
-  color: rgba(255,255,255,.4);
+.espaciador-tira-navegacion {
+  height: 64px;
 }
-/* Más finas (stroke 0.32, antes 0.45 — ver el `strokeWidth` en
-   SesionEjercicios.tsx) y un 120% más largas VERTICALMENTE únicamente:
-   `scaleY` no toca el ancho, así que el gesto sigue leyéndose como "doble
-   flecha" y no como una mancha. Pedido de Alejandro (2026-08-16). */
-.navegacion-flotante-sesion svg {
-  width: 79px;
-  height: 79px;
-  filter: none;
-  animation: none;
-  transform: scaleY(2.2);
+.boton-tira-navegacion {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 10px;
+  color: rgba(255,255,255,.55);
+  background: #000;
 }
-/* Al cerrar la última serie no aparece otra flecha debajo de la tarjeta: la
-   misma señal vive en la doble flecha que ya lleva al ejercicio siguiente.
-   Es el único momento en que la flecha tiene que verse — y aun así queda muy
-   por debajo del blanco pleno de antes. */
-.navegacion-flotante-sesion button[data-aviso-siguiente="true"] {
-  color: rgba(255,255,255,.5);
+.boton-tira-navegacion:disabled { opacity: .28; }
+.boton-tira-navegacion:not(:disabled):active { background: #1c1e22; }
+/* Al cerrar la última serie, el botón "siguiente" avisa que ya se puede
+   avanzar — mismo momento que antes marcaba la flecha flotante gigante,
+   ahora un nudge chico sobre un botón normal en vez de una animación sobre
+   un glifo de 79px. */
+.boton-tira-navegacion[data-aviso-siguiente="true"] {
+  border-color: rgba(255,255,255,.6);
+  color: #fff;
+  animation: aviso-siguiente-tira .85s cubic-bezier(.35,.05,.25,1) infinite;
 }
-.navegacion-flotante-sesion button[data-aviso-siguiente="true"] svg {
-  animation: aviso-siguiente-derecha .85s cubic-bezier(.35,.05,.25,1) infinite;
-  filter: none;
+.lista-tira-navegacion {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 6px;
+  margin: 0;
+  padding: 2px;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.lista-tira-navegacion::-webkit-scrollbar { display: none; }
+.lista-tira-navegacion li { flex-shrink: 0; }
+/* Paleta gris/negro/blanco, sin verde ni ámbar (pedido de Alejandro): que
+   se sienta parte del mismo diseño oscuro de la app, no un color aparte
+   encima. */
+.lista-tira-navegacion button {
+  display: grid;
+  min-width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0 3px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px;
+  color: #fff;
+  background: #000;
+  font-size: calc(12px * var(--escala-texto));
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+/* El que ya se hizo: blanco con el check en negro, en vez del verde de
+   antes — mismo criterio monocromo que el resto de la tira. */
+.lista-tira-navegacion button[data-estado="completa"] {
+  border-color: #fff;
+  color: #000;
+  background: #fff;
+  /* El blanco sobre negro se ve óptimamente más grande que el mismo tamaño
+     en negro (irradiación) aunque la caja mida exactamente lo mismo que las
+     demás — este anillo interno lo compensa sin cambiar el tamaño real ni
+     desalinear nada. */
+  box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.35);
+}
+/* El que se está haciendo ahora: fondo negro (como los pendientes) pero con
+   el borde blanco marcado, para que se note cuál toca sin usar otro color. */
+.lista-tira-navegacion button[data-estado="actual"] {
+  border-color: #fff;
+  color: #fff;
+  background: #000;
+}
+@keyframes aviso-siguiente-tira {
+  0%, 100% { transform: translateX(0); }
+  48%, 64% { transform: translateX(3px); }
 }
 .control-descanso-sesion {
   position: relative;
@@ -5568,12 +5624,10 @@ input[type="number"] {
 .control-descanso-sesion-enlace:active { opacity: .65; }
 .control-descanso-sesion-panel {
   /* Abre hacia ARRIBA, no hacia abajo: este control vive pegado al piso de
-     la tarjeta (junto a "Cancelar sesión"), a centímetros de las flechas
-     flotantes de navegación (`.navegacion-flotante-sesion`, z-index 40).
-     Abriendo hacia abajo el panel quedaba tapado detrás de esas flechas —
-     reportado por Alejandro entrenando "Press de banca". z-index propio,
-     por encima de las flechas, para que ningún control cercano lo tape
-     nunca, se abra para donde se abra. */
+     la tarjeta (junto a "Cancelar sesión"). Abriendo hacia abajo el panel
+     quedaba tapado detrás de controles cercanos — reportado por Alejandro
+     entrenando "Press de banca". z-index propio para que nada lo tape,
+     se abra para donde se abra. */
   position: absolute;
   z-index: 45;
   right: 0;
@@ -5891,7 +5945,8 @@ input[type="number"] {
   margin: 0 0 9px;
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 12px;
-  background: linear-gradient(110deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+  /* Negro sólido detrás (pedido de Alejandro), no solo el velo de blanco. */
+  background: linear-gradient(110deg, rgba(255,255,255,.035), rgba(255,255,255,.012)), #000;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
 }
 .tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco,
@@ -5899,7 +5954,9 @@ input[type="number"] {
   display: grid;
   min-height: 34px;
   min-width: 0;
-  grid-template-columns: 15px max-content 6px minmax(0, 1fr);
+  /* Sin la columna del ícono (se quitó el Timer/Target — pedido de
+     Alejandro, para ganar el ancho que le faltaba al texto). */
+  grid-template-columns: max-content 6px minmax(0, 1fr);
   align-items: center;
   gap: 3px;
   margin: 0;
@@ -5910,10 +5967,15 @@ input[type="number"] {
 .tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco {
   border-right: 1px solid rgba(255,255,255,.045);
 }
-.resumen-serie-foco svg { grid-row: auto; width: 14px; height: 14px; }
 .resumen-serie-foco i { display: block; }
-.resumen-serie-foco strong { grid-column: auto; overflow: hidden; text-overflow: ellipsis; }
-.resumen-serie-foco svg { color: #e8bd39; }
+/* Una sola línea, sin cortarse (pedido de Alejandro) — cabe porque ya no
+   compite con el ancho que ocupaba el ícono. */
+.resumen-serie-foco strong {
+  grid-column: auto;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
 .resumen-serie-foco span,
 .resumen-serie-foco strong,
 .resumen-serie-foco i {
@@ -5922,7 +5984,6 @@ input[type="number"] {
   font-style: normal;
   font-weight: 520 !important;
 }
-.resumen-serie-foco strong { white-space: nowrap; }
 .tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco > span,
 .tarjeta-ejercicio-enfocada .resumen-serie-foco .objetivo-serie-foco > span {
   color: rgba(255,255,255,.9) !important;
@@ -5952,12 +6013,21 @@ input[type="number"] {
 
 .panel-ejecucion-foco {
   margin: 0;
-  /* 6 px abajo y no 12: el último elemento del panel es "+ Añadir serie
-     extra", que ya trae su propio aire. */
-  padding: 11px 13px 6px;
-  border: 1px solid rgba(255,255,255,.08);
+  /* 2 px abajo (antes 6, y 12 antes de eso): pedido de Alejandro, subir la
+     línea de abajo de esta tarjeta para destapar "Descanso libre"/"Inicié
+     esta sesión por error" que quedaban detrás de la tira de navegación. */
+  padding: 11px 13px 2px;
+  /* Un poco más notorio que antes (.08 → .16), pedido de Alejandro: casi no
+     se veía. */
+  border: 1px solid rgba(255,255,255,.16);
   border-radius: 16px;
-  background: linear-gradient(120deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+  /* Negro plano, sin ningún tinte de blanco encima (pedido de Alejandro:
+     "negro bien fuerte, no gris" — en su celular, hasta un 3.5% de blanco
+     se notaba más claro que el negro puro de alrededor). Antes esto
+     dependía enteramente de heredar el negro de un ancestro transparente, y
+     donde ese ancestro no era 100% opaco (ej. encima de la miniatura del
+     ejercicio) se veía gris en vez de negro — por eso el `#000` explícito. */
+  background: #000;
   box-shadow: none !important;
   overflow: visible;
 }
@@ -6004,7 +6074,8 @@ input[type="number"] {
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie {
   height: auto;
   align-self: stretch;
-  background: rgba(255,255,255,.05);
+  /* Más notoria (.05 → .2), pedido de Alejandro. */
+  background: rgba(255,255,255,.2);
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie {
   grid-template-columns: auto 30px 28px 30px;
@@ -6037,7 +6108,8 @@ input[type="number"] {
   justify-content: center;
   margin-top: 4px;
   padding: 3px 0 0;
-  border-top: 1px solid rgba(255,255,255,.05);
+  /* Más notoria (.05 → .2), pedido de Alejandro. */
+  border-top: 1px solid rgba(255,255,255,.2);
 }
 .tarjeta-ejercicio-enfocada .fila-rir-navegacion .control-rir-serie { margin-top: 0; }
 .tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir {
@@ -6081,19 +6153,10 @@ input[type="number"] {
   0%, 100% { transform: translateX(-1px); opacity: .56; }
   50% { transform: translateX(3px); opacity: 1; }
 }
-/* `scaleY(2.2)` se repite en cada paso: un `transform` de keyframe
-   REEMPLAZA al de la regla estática, así que sin combinarlos acá la flecha
-   perdía su elongación vertical apenas arrancaba a pulsar. */
-@keyframes aviso-siguiente-derecha {
-  0%, 100% { transform: translateX(-1px) scaleY(2.2); opacity: .6; }
-  48% { transform: translateX(9px) scaleY(2.2); opacity: 1; }
-  64% { transform: translateX(7px) scaleY(2.2); opacity: 1; }
-}
 @media (prefers-reduced-motion: reduce) {
   .onda-progreso-lenta { animation: none; }
   .tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir svg { animation: none; }
-  .navegacion-flotante-sesion svg { animation: none; }
-  .navegacion-flotante-sesion button[data-aviso-siguiente="true"] svg { animation: none; }
+  .boton-tira-navegacion[data-aviso-siguiente="true"] { animation: none; }
   .tarjeta-ejercicio-enfocada .selector-series-movido button[data-reinicio="true"] { animation: none; }
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso {
@@ -6234,12 +6297,6 @@ input[type="number"] {
   .modo-entrenamiento-enfocado {
     margin-inline: 0;
   }
-  .navegacion-flotante-sesion button:first-child {
-    left: -14px;
-  }
-  .navegacion-flotante-sesion button:last-child {
-    right: -14px;
-  }
 }
 
 /* iPhone 13/S25 y los tamaños equivalentes: el margen lateral baja apenas
@@ -6284,28 +6341,41 @@ input[type="number"] {
      La cuenta: el resto de la composición mide 617 px y la barra inferior
      arranca 93 px antes del borde (el límite real que mide el componente son
      8 px más arriba), así que la foto puede medir `alto de pantalla − 718`.
-     Se usa 722 para dejar 4 px de holgura. El techo sigue siendo 168 px (nada
-     cambia en pantallas altas) y el piso, 126 px, es hasta dónde vale la
-     pena achicar una foto de referencia — más abajo se deja de leer y no
-     alcanza igual, así que ahí el scroll vuelve solo. */
+     Se usa 722 para dejar 4 px de holgura.
+     Ajustado de nuevo (2026-08-17, pedido de Alejandro: "un poco más
+     alargada", junto con apretar los espacios de arriba): apretar el título,
+     el renglón de abajo del nombre y "Siguiente" liberó 13 px reales en esta
+     misma columna — se los pasa acá a la foto restando esos 13 px de la
+     constante (722 → 709), así el ajuste sigue siendo neto cero en el resto
+     de la composición y el bloqueo de scroll no se rompe. Techo y piso suben
+     lo mismo (168→181, 126→130) para que la foto pueda aprovechar ese
+     espacio en vez de topar antes de tiempo. */
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta,
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta > button,
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta > div {
-    height: clamp(126px, calc(100svh - 722px), 168px) !important;
+    height: clamp(130px, calc(100svh - 709px), 181px) !important;
     aspect-ratio: auto;
   }
   .tarjeta-ejercicio-enfocada .guia-ejercicio-foco { padding-top: 0; }
-  .tarjeta-ejercicio-enfocada .guia-ejercicio-foco h2 { margin: 0 0 8px; font-size: calc(22px * var(--escala-texto)); }
+  /* Más pegado a "3× 8-10 · PECHO · FUERZA" (8px → 3px), pedido de Alejandro. */
+  .tarjeta-ejercicio-enfocada .guia-ejercicio-foco h2 { margin: 0 0 3px; font-size: calc(22px * var(--escala-texto)); }
   .tarjeta-ejercicio-enfocada .selector-series-foco button { gap: 3px; padding-top: 4px; }
-  .resumen-serie-foco { margin-bottom: 8px; }
+  /* De acá para abajo, todo un poco más apretado (pedido de Alejandro:
+     sacrificar espacio en el bloque de Descanso, no en la foto) para
+     eliminar el scroll y que "Inicié esta sesión por error"/"Descanso
+     libre" entren en pantalla. */
+  .resumen-serie-foco { margin-bottom: 4px; }
   .tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco,
-  .tarjeta-ejercicio-enfocada .resumen-serie-foco .objetivo-serie-foco { min-height: 34px; }
-  .panel-ejecucion-foco { padding-top: 7px; }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano { min-height: 84px; }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input { height: 58px; font-size: calc(42px * var(--escala-texto)); }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 42px; }
+  .tarjeta-ejercicio-enfocada .resumen-serie-foco .objetivo-serie-foco { min-height: 30px; }
+  .panel-ejecucion-foco { padding-top: 4px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > .campo-serie-plano { min-height: 76px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .campo-serie-plano input { height: 50px; font-size: calc(36px * var(--escala-texto)); }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .grupo-campo-serie > button { min-height: 36px; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .separador-serie { height: auto; }
-  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie { margin-top: 8px; padding-top: 4px; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie { margin-top: 4px; padding-top: 2px; }
+  /* Vuelto a su tamaño original (42px, margen 8px) — Alejandro pidió
+     explícitamente NO tocar este botón, el espacio se ganó en otras partes
+     de la tarjeta en su lugar. */
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso { min-height: 42px; margin-top: 8px; }
   .navegacion-ejercicios-foco { gap: 7px; padding: 0 10px 9px; }
   .navegacion-ejercicios-foco > button { min-height: 45px; }
@@ -6316,7 +6386,7 @@ input[type="number"] {
   .tarjeta-ejercicio-enfocada .cabecera-ejercicio { padding-bottom: 6px !important; }
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta,
   .tarjeta-ejercicio-enfocada .referencia-foco-compacta > button,
-  .tarjeta-ejercicio-enfocada .referencia-foco-compacta > div { height: 145px !important; }
+  .tarjeta-ejercicio-enfocada .referencia-foco-compacta > div { height: 155px !important; }
   .tarjeta-ejercicio-enfocada .guia-ejercicio-foco h2 { margin: 5px 0 5px; font-size: calc(20px * var(--escala-texto)); }
   .resumen-serie-foco { margin-bottom: 6px; }
   .tarjeta-ejercicio-enfocada .resumen-serie-foco .registro-anterior-foco,
@@ -6475,12 +6545,6 @@ input[type="number"] {
   font-size: clamp(40px, 6vh, 50px) !important;
 }
 
-/* Las flechas de ejercicios permanecen en los extremos, pero en la línea
-   del RIR — nunca debajo del botón finalizado. */
-:root .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-flotante-sesion button {
-  top: 56svh;
-}
-
 /* En tamaño normal se elimina solo el scroll que no tiene contenido que
    mostrar. El atributo lo calcula la pantalla en tiempo real; zoom grande o
    una pantalla baja mantienen el desplazamiento vertical. */
@@ -6543,19 +6607,6 @@ input[type="number"] {
   overflow-x: hidden !important;
   overscroll-behavior-y: contain;
   padding-bottom: calc(var(--alto-nav-alumno, 86px) + 104px) !important;
-}
-
-/* Las flechas son un carril de navegación, no una pieza del contenido: su
-   altura permanece idéntica entre un ejercicio, una biserie y una ronda. */
-:root .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-flotante-sesion button {
-  /* Un poco más arriba (61svh, antes 63) y un poco más bajo de alto (38px,
-     antes 50): la posición general no se toca, solo se agranda el colchón
-     contra "Descanso" — tocar el extremo del botón (que es largo, ocupa
-     casi todo el ancho) todavía activaba la flecha en vez de guardar la
-     serie (pedido de Alejandro, 2026-08-16). El trazo visual (79px +
-     scaleY 2.2, sin overflow:hidden) sigue exactamente igual. */
-  top: 61svh !important;
-  height: 38px !important;
 }
 
 /* Reserva un carril real para el menú de ejercicios. El título puede bajar de
