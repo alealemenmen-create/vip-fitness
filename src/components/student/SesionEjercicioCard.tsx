@@ -3,8 +3,6 @@
 import { forwardRef, useActionState, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal, flushSync } from "react-dom";
 import {
-  ChevronsLeft,
-  ChevronsRight,
   Check,
   ChevronDown,
   ChevronRight,
@@ -964,6 +962,13 @@ export const FilaSerie = forwardRef<
      * aprobada (nunca para 'propuesta' ni 'bloqueada'). Null mantiene el
      * comportamiento de siempre: el campo arranca vacío. */
     pesoSugerido: number | null;
+    /** Número de referencia (objetivo o última vez) para mostrar como
+     * GUÍA visual — placeholder gris, nunca un valor real precargado —
+     * cuando el campo de peso está vacío. Antes el campo vacío solo
+     * mostraba un guion suelto y a un vistazo rápido en el gimnasio se leía
+     * como un campo roto, no como uno esperando dato (pedido de Alejandro,
+     * 2026-08-17). */
+    pesoObjetivoPlaceholder?: number | null;
     /** Ejercicios por tiempo (plancha, isométricos): mismo campo, pero pide
      * segundos en vez de repeticiones — ver `esEjercicioDeTiempo`. */
     esTiempo: boolean;
@@ -1027,13 +1032,6 @@ export const FilaSerie = forwardRef<
     /** Etiqueta contextual antes de iniciar el descanso; las biseries la usan
      * para aclarar que el reloj comienza al terminar el último paso. */
     textoDescansoPendiente?: string;
-    /** Navegación entre ejercicios — solo se pinta cuando `modoDestacado`,
-     * flanqueando el control de RIR (pedido de Alejandro: van mejor ahí que
-     * junto a la foto). */
-    onAnterior?: () => void;
-    onSiguiente?: () => void;
-    hayAnterior?: boolean;
-    haySiguiente?: boolean;
   }
 >(function FilaSerie(
   {
@@ -1041,6 +1039,7 @@ export const FilaSerie = forwardRef<
     inicial,
     repsObjetivo,
     pesoSugerido,
+    pesoObjetivoPlaceholder = null,
     esTiempo,
     descansoSegundos,
     temporizadorDescanso,
@@ -1061,10 +1060,6 @@ export const FilaSerie = forwardRef<
     saltaDescanso = false,
     textoAlSaltarDescanso = "Guarda y avanza",
     textoDescansoPendiente,
-    onAnterior,
-    onSiguiente,
-    hayAnterior = false,
-    haySiguiente = false,
   },
   ref
 ) {
@@ -1667,7 +1662,11 @@ export const FilaSerie = forwardRef<
             // también, aunque no se use para validar (el campo no es
             // required, y el servidor ya tolera coma o punto).
             pattern="[0-9]*[.,]?[0-9]*"
-            placeholder="—"
+            // Guía visual, no un valor real: si no hay nada cargado, mostrar
+            // el objetivo en gris de placeholder en vez de un guion suelto —
+            // un campo vacío con solo "—" se leía como roto a un vistazo
+            // rápido en el gimnasio.
+            placeholder={pesoObjetivoPlaceholder != null ? String(pesoObjetivoPlaceholder) : "—"}
             disabled={esPesoCorporal}
             // Lo ya cargado (guardado o borrador) manda siempre; si no hay
             // nada todavía, la meta de Impulso VIP precarga el peso a
@@ -1711,18 +1710,12 @@ export const FilaSerie = forwardRef<
           )}
         </div>
         {modoDestacado && (
+          // Las flechas gigantes que flanqueaban el RIR (Ejercicio
+          // anterior/siguiente, 79px) se sacaron: la tira fija de navegación
+          // entre ejercicios de abajo (`tira-navegacion-sesion`, ver
+          // SesionEjercicios.tsx) ya cubre ese salto — tenerlas acá también
+          // era la misma acción por triplicado (flechas + tira + botón ☰).
           <div className="fila-rir-navegacion">
-            {(onAnterior || onSiguiente) && (
-              <button
-                type="button"
-                className="boton-navegacion-junto-rir"
-                onClick={onAnterior}
-                disabled={!hayAnterior}
-                aria-label="Ejercicio anterior"
-              >
-                <ChevronsLeft size={79} strokeWidth={0.8} />
-              </button>
-            )}
             <div className="control-rir-serie">
               <span>RIR</span>
               <button type="button" onClick={() => ajustarCampo(`rir_${numero}${sufijoNombre}`, -1, 5)} aria-label="Bajar RIR">−</button>
@@ -1737,17 +1730,6 @@ export const FilaSerie = forwardRef<
               />
               <button type="button" onClick={() => ajustarCampo(`rir_${numero}${sufijoNombre}`, 1, 5)} aria-label="Subir RIR">+</button>
             </div>
-            {(onAnterior || onSiguiente) && (
-              <button
-                type="button"
-                className="boton-navegacion-junto-rir"
-                onClick={onSiguiente}
-                disabled={!haySiguiente}
-                aria-label="Siguiente ejercicio"
-              >
-                <ChevronsRight size={79} strokeWidth={0.8} />
-              </button>
-            )}
           </div>
         )}
         {/* Una vez marcada, una serie se resume en su cápsula y su número; no
@@ -2947,6 +2929,7 @@ export const SesionEjercicioCard = forwardRef<
                 inicial={serieInicial(n)}
                 repsObjetivo={objetivoReps}
                 pesoSugerido={pesoSugeridoEfectivo}
+                pesoObjetivoPlaceholder={pesoObjetivoKg}
                 esTiempo={esTiempo}
                 descansoSegundos={descansoSegundosEfectivo}
                 temporizadorDescanso={ejercicio.temporizadorDescanso}

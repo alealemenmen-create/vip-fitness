@@ -5872,7 +5872,14 @@ input[type="number"] {
 }
 .tarjeta-ejercicio-enfocada .cabecera-siguiente-ejercicio small { color: #74747b; }
 .tarjeta-ejercicio-enfocada .contenido-siguiente-ejercicio strong { color: #a8a8ad; }
-.tarjeta-ejercicio-enfocada .miniatura-siguiente-ejercicio { opacity: .88; }
+/* Más chica y apagada (pedido de Alejandro, 2026-08-17): a 54px compartía
+   casi el mismo peso visual que la foto del ejercicio actual, compitiendo
+   por la atención en una pantalla que tiene que tener un solo foco. */
+.tarjeta-ejercicio-enfocada .miniatura-siguiente-ejercicio {
+  width: 34px;
+  height: 34px;
+  opacity: .75;
+}
 .accion-cancelar-sesion-cercana .flex {
   justify-content: flex-start;
   text-align: left;
@@ -6108,13 +6115,22 @@ input[type="number"] {
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .control-rir-serie input {
   width: 28px;
+  /* Secundario y no texto principal (pedido de Alejandro, 2026-08-17): RIR
+     compartía el mismo blanco pleno que Peso/Repeticiones pese a ser un
+     dato de apoyo, y pesaba más de lo que le toca en la jerarquía. */
+  color: var(--color-text-secondary);
   font-size: calc(14px * var(--escala-texto));
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .fila-rir-navegacion {
   position: relative;
   display: flex;
   width: 100%;
-  min-height: 84px;
+  /* Antes 84px: alto pensado para las flechas gigantes de "Ejercicio
+     anterior/siguiente" que flanqueaban el RIR (79px) — ya no existen (ver
+     SesionEjercicioCard.tsx, eran código muerto), así que ese aire de más
+     solo le daba a RIR más protagonismo del que le toca como dato
+     secundario. Ajustado al alto real del control. */
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   margin-top: 4px;
