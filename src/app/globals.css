@@ -1399,26 +1399,29 @@ input[type="date"]::-webkit-date-and-time-value {
   display: none;
 }
 
-/* Paleta y composiciÃ³n de la proyecciÃ³n aprobada: negro profundo, violeta
-   para informaciÃ³n/descanso y Ã¡mbar solo para confirmar el siguiente paso.
+/* Paleta y composición de la proyección aprobada: negro profundo, violeta
+   para información/descanso y ámbar solo para confirmar el siguiente paso.
 
-   Pedido de Alejandro: "el fondo negro... si colocas Lady Fit, solo verÃ¡s
+   Pedido de Alejandro: "el fondo negro... si colocas Lady Fit, solo verás
    todo en blanco y un recuadro negro al fondo, que no me gusta". Antes esta
-   paleta era hex fijo (negro/violeta/Ã¡mbar) sin importar el tema â€” se veÃ­a
-   bien en VIP porque el Ã¡mbar coincide con --color-vip, pero en Steel Fit y
+   paleta era hex fijo (negro/violeta/ámbar) sin importar el tema — se veía
+   bien en VIP porque el ámbar coincide con --color-vip, pero en Steel Fit y
    Lady Fit quedaba un cuadro negro ajeno en medio de un tema propio de otro
-   color. Ahora --focus-* sale de los tokens del tema activo: bg/panel/panel-2
-   /border son un poco mÃ¡s oscuros que el resto de la app (`color-mix` con
-   negro, no un hex inventado â€” sigue leyÃ©ndose "mÃ¡s concentrado"), y
-   violeta/Ã¡mbar pasan a ser --color-acento/--color-vip, que ya cambian solos
-   con el tema. Antes estas variables se declaraban y no las usaba nadie
-   (`var(--focus-*)` no aparecÃ­a en ningÃºn lado) â€” cada regla de acÃ¡ abajo
-   tenÃ­a su propio hex suelto calcado a mano; ahora si seÃ±alan a lo mismo. */
+   color. Ahora --focus-* sale de los tokens del tema activo, y
+   violeta/ámbar pasan a ser --color-acento/--color-vip, que ya cambian solos
+   con el tema.
+
+   --focus-panel/-2/-border usaban `color-mix` con negro extra para verse
+   "más concentrados" que el resto de la app — pero el fondo de esta pantalla
+   (--focus-bg, de --color-bg) ya es negro puro, y esa mezcla extra los
+   aplastaba casi al mismo negro: el cuadro de Peso/Repeticiones/RIR se veía
+   totalmente negro, sin distinguirse del fondo. Corregido: usan el mismo
+   gris de superficie que el resto de la app, sin oscurecer de más. */
 .modo-entrenamiento-enfocado {
   --focus-bg: color-mix(in srgb, var(--color-bg) 85%, #000);
-  --focus-panel: color-mix(in srgb, var(--color-surface) 85%, #000);
-  --focus-panel-2: color-mix(in srgb, var(--color-surface-2) 85%, #000);
-  --focus-border: color-mix(in srgb, var(--color-border) 70%, #000);
+  --focus-panel: var(--color-surface);
+  --focus-panel-2: var(--color-surface-2);
+  --focus-border: var(--color-border);
   --focus-violet: var(--color-acento);
   --focus-amber: var(--color-vip);
   --focus-green: var(--color-success);
@@ -6021,13 +6024,14 @@ input[type="number"] {
      se veía. */
   border: 1px solid rgba(255,255,255,.16);
   border-radius: 16px;
-  /* Negro plano, sin ningún tinte de blanco encima (pedido de Alejandro:
-     "negro bien fuerte, no gris" — en su celular, hasta un 3.5% de blanco
-     se notaba más claro que el negro puro de alrededor). Antes esto
-     dependía enteramente de heredar el negro de un ancestro transparente, y
-     donde ese ancestro no era 100% opaco (ej. encima de la miniatura del
-     ejercicio) se veía gris en vez de negro — por eso el `#000` explícito. */
-  background: #000;
+  /* Gris oscuro de superficie, no negro puro (pedido de Alejandro,
+     2026-08-17: revierte el negro plano de más arriba — "me equivoqué
+     cuando pedí eso"; el cuadro se perdía contra el fondo negro de toda la
+     pantalla de entrenamiento, --color-bg, y se leía "roto"/sin forma). Se
+     declara explícito y no transparente por la misma razón de antes: un
+     ancestro no siempre es 100% opaco (ej. encima de la miniatura del
+     ejercicio), así que heredar en vez de fijar el color se veía inconsistente. */
+  background: var(--color-surface);
   box-shadow: none !important;
   overflow: visible;
 }
