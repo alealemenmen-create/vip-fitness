@@ -5552,6 +5552,13 @@ input[type="number"] {
   display: flex;
   flex: 1;
   min-width: 0;
+  /* Centrada y no pegada a la izquierda (pedido de Alejandro, 2026-08-17):
+     con pocos ejercicios en la rutina, las pastillas no llenan el ancho
+     disponible entre las flechas y el flex-start de siempre las dejaba
+     todas amontonadas contra el borde izquierdo, ladeando la tira entera.
+     Con muchos ejercicios (scroll activo) `center` no cambia nada — solo
+     importa cuando sobra espacio. */
+  justify-content: center;
   gap: 6px;
   margin: 0;
   padding: 2px;
@@ -6162,6 +6169,10 @@ input[type="number"] {
   .tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir svg { animation: none; }
   .boton-tira-navegacion[data-aviso-siguiente="true"] { animation: none; }
   .tarjeta-ejercicio-enfocada .selector-series-movido button[data-reinicio="true"] { animation: none; }
+  .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="pendiente"] {
+    animation: none;
+    box-shadow: 0 0 18px color-mix(in srgb, var(--color-vip) 45%, transparent);
+  }
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso {
   min-height: 44px;
@@ -6172,8 +6183,18 @@ input[type="number"] {
   background: linear-gradient(100deg, rgba(255,255,255,.03), rgba(255,255,255,.012));
   box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 4px 12px rgba(0,0,0,.12);
 }
+/* El estado "pendiente" (el único que hay que tocar) había quedado con el
+   mismo gris apagado que el resto de los estados de este botón — perdía el
+   ámbar y la respiración que sí tiene en el resto de la app (más arriba,
+   `.boton-descanso[data-estado="pendiente"]`), porque esta regla más
+   específica del modo enfocado pisaba esa. Pedido de Alejandro, 2026-08-17:
+   "los alumnos no lo presionan, no lo alcanzan a ver" — se restaura acá. */
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="pendiente"] {
-  animation: none !important;
+  color: var(--color-vip);
+  border-color: color-mix(in srgb, var(--color-vip) 55%, transparent);
+  background: color-mix(in srgb, var(--color-vip) 16%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--color-vip) 32%, transparent);
+  animation: respiracion-entrenar 2.6s ease-in-out infinite;
 }
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="pendiente"],
 .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="corriendo"],
