@@ -5544,10 +5544,14 @@ input[type="number"] {
 .tira-navegacion-sesion {
   position: fixed;
   right: 0;
-  /* Apoyada justo encima de la tarjeta de íconos, sin espacio ni superposición
-     (pedido de Alejandro: "que se monte" en el recuadro de abajo) — medido:
-     +6px dejaba 1px de superposición, +12px dejaba ~5px de aire de más. */
-  bottom: calc(var(--alto-nav-alumno, 86px) + 7px);
+  /* Apoyada justo encima de la tarjeta de íconos (pedido de Alejandro:
+     "que se monte" en el recuadro de abajo) — +7px se había medido como el
+     punto exacto sin aire ni superposición, pero verificado de nuevo en
+     vivo esa calibración ya no daba 0px sino -0.9px (se solapaban un
+     poquito). Pedido de Alejandro, 2026-08-17, con captura en mano:
+     despegarlas un pelín, que no se vea que están encima. +10px mide ~2px
+     de aire — apenas perceptible, no un espacio grande entre las dos. */
+  bottom: calc(var(--alto-nav-alumno, 86px) + 10px);
   left: 0;
   z-index: 30;
   display: flex;
@@ -5826,11 +5830,20 @@ input[type="number"] {
 /* Cierre editorial de la sesión: el panel de entrenamiento ya tiene una
    jerarquía fuerte. La navegación se vuelve una base silenciosa, no otra
    tarjeta protagonista. El acento dorado indica dónde está el alumno sin
-   recurrir a la cápsula gris pesada. */
+   recurrir a la cápsula gris pesada.
+
+   Vuelta atrás parcial (pedido de Alejandro, 2026-08-17, con captura en
+   mano): el negro casi puro de acá abajo desentonaba al lado de la
+   píldora gris (`.utilidades-rutina-activa`, #0d0f10) del cabezal de
+   arriba — dos tonos de "casi negro" distintos sin que se sintiera
+   a propósito. Mismo gris plano que esa píldora, mismo alumno dorado
+   marcando dónde está — la base sigue silenciosa, solo que ahora hace
+   juego con el resto del "chrome" fijo de la pantalla en vez de
+   competir en oscuridad con él. */
 .shell-alumno:has(.modo-entrenamiento-enfocado) .panel-aero-inferior {
-  border-color: rgba(150, 163, 174, .18);
+  border-color: rgba(142, 157, 166, .24);
   border-radius: 12px;
-  background: linear-gradient(180deg, #08090a 0%, #030304 100%);
+  background: #0d0f10;
   box-shadow: 0 12px 28px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.045);
 }
 .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-aero {
@@ -6600,9 +6613,11 @@ input[type="number"] {
    variantes históricas de la barra inferior que, de otro modo, pisan esta
    composición específica de Entrenar. */
 :root .shell-alumno:has(.modo-entrenamiento-enfocado) .panel-aero-inferior {
-  border-color: rgba(150, 163, 174, .18) !important;
+  /* Mismo gris que la píldora del cabezal (.utilidades-rutina-activa) —
+     pedido de Alejandro, 2026-08-17, ver comentario más arriba. */
+  border-color: rgba(142, 157, 166, .24) !important;
   border-radius: 12px !important;
-  background: linear-gradient(180deg, #08090a 0%, #030304 100%) !important;
+  background: #0d0f10 !important;
   box-shadow: 0 12px 28px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.045) !important;
 }
 :root .shell-alumno:has(.modo-entrenamiento-enfocado) .navegacion-aero {
