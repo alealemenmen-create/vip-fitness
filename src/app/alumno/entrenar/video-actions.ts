@@ -9,8 +9,19 @@ export type ObtenerVideoResultado =
   | { ok: true; url: string; ancho: number | null; alto: number | null }
   | { ok: false; error: string };
 
-/** Emite el enlace privado solamente para usuarios autenticados y bajo demanda. */
-export async function obtenerVideoCloudflareEjercicio(ejercicioId: string): Promise<ObtenerVideoResultado> {
+/**
+ * Emite el enlace privado solamente para usuarios autenticados y bajo demanda.
+ *
+ * "ambiente" (default): el clip chico que se reproduce solo en el cuadro
+ * del ejercicio activo — sin controles, en silencio, en bucle. "completo":
+ * el que abre el alumno al tocar el botón de reproducir, a pantalla
+ * completa, con controles y sonido — se ve el video entero, sin el recorte
+ * agresivo que hace falta para tapar franjas en el cuadro chico.
+ */
+export async function obtenerVideoCloudflareEjercicio(
+  ejercicioId: string,
+  modo: "ambiente" | "completo" = "ambiente"
+): Promise<ObtenerVideoResultado> {
   await requireRol(["alumno", "entrenador", "admin"]);
   if (!ejercicioId) return { ok: false, error: "Falta el ejercicio." };
   const { data } = await (await createClient())
@@ -21,7 +32,7 @@ export async function obtenerVideoCloudflareEjercicio(ejercicioId: string): Prom
   if (!data?.video_cloudflare_uid || data.video_cloudflare_estado !== "listo") {
     return { ok: false, error: "El video todavía no está listo." };
   }
-  const url = await urlEmbedFirmada(data.video_cloudflare_uid);
+  const url = await urlEmbedFirmada(data.video_cloudflare_uid, { modo });
   if (!url) return { ok: false, error: "No se pudo abrir el video." };
 
   let ancho = data.video_cloudflare_ancho;
