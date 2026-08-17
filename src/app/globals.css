@@ -5017,7 +5017,12 @@ input[type="number"] {
    estado, para que una serie azul pendiente no parezca completada. */
 .tarjeta-ejercicio-enfocada .selector-series-movido {
   gap: 8px !important;
-  margin: 10px 0 8px !important;
+  /* Con márgen a los costados (antes 0) y no de punta a punta de la
+     tarjeta: sigue siendo una línea fina como se pidió (altura sin tocar),
+     pero deja de compartir el mismo ancho completo que la barra de
+     progreso del día, justo arriba — así se lee como un control propio y
+     no como "la misma barra de nuevo" (pedido de Alejandro, 2026-08-17). */
+  margin: 10px 22px 8px !important;
   padding: 0 !important;
 }
 /* Paleta de series atenuada (pedido de Alejandro, 2026-08-16): los tonos de
@@ -6066,10 +6071,15 @@ input[type="number"] {
 
 .panel-ejecucion-foco {
   margin: 0;
-  /* 2 px abajo (antes 6, y 12 antes de eso): pedido de Alejandro, subir la
-     línea de abajo de esta tarjeta para destapar "Descanso libre"/"Inicié
-     esta sesión por error" que quedaban detrás de la tira de navegación. */
-  padding: 11px 13px 2px;
+  /* 8px abajo (antes 2, por el mismo motivo que bajó a 2 desde 6 y desde
+     12: no tapar "Descanso libre"/"Inicié esta sesión por error" detrás de
+     la tira de navegación). Reverificado en vivo en la posición de reposo
+     real de la pantalla (con scroll hasta el fondo, no en el punto de
+     partida): el espaciador de abajo (`.espaciador-tira-navegacion`, 64px)
+     ya absorbe hasta 14px extra acá sin volver a tapar nada — el botón
+     "Descanso"/"Terminar ronda" quedaba pegado al borde de la tarjeta
+     (pedido de Alejandro, 2026-08-17). */
+  padding: 11px 13px 8px;
   /* Un poco más notorio que antes (.08 → .16), pedido de Alejandro: casi no
      se veía. */
   border: 1px solid rgba(255,255,255,.16);
