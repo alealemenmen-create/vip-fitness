@@ -17,15 +17,21 @@ const inicialCalibracion: CalibrarIntervencionState = { error: null, ok: false, 
 export function MomentoImpulsoEnVivo({
   intervencion,
   visible,
+  puedeVerInstruccion,
   serieTerminada,
-  seriesHechasCount,
-  ejercicioCompletado,
 }: {
   intervencion: IntervencionImpulsoEnVivo;
   visible: boolean;
+  /** La serie ANTERIOR a la que apunta esta intervención ya terminó de
+   * verdad (con su descanso incluido, o de inmediato si el ejercicio no
+   * tiene descanso) — recién ahí corresponde revelar la instrucción
+   * completa. Mientras esto sea `false` pero `visible` sea `true`, todavía
+   * se puede calibrar (¿cuántas más pudiste hacer en la anterior?), pero
+   * no se le dice todavía qué hacer en la serie objetivo — pedido de
+   * Alejandro, 2026-08-17: la instrucción tiene que llegar "cuando termina
+   * el temporizador", no antes ni junto con la calibración. */
+  puedeVerInstruccion: boolean;
   serieTerminada: boolean;
-  seriesHechasCount: number;
-  ejercicioCompletado: boolean;
 }) {
   const [state, action, pending] = useActionState(resolverIntervencionEnVivo, inicial);
   const [calibracion, calibrarAction, calibrando] = useActionState(
@@ -35,13 +41,6 @@ export function MomentoImpulsoEnVivo({
   const [resultadoElegido, setResultadoElegido] = useState<string | null>(intervencion?.resultado ?? null);
   const [expandido, setExpandido] = useState(false);
   const [retoAceptado, setRetoAceptado] = useState(false);
-  // Pedido explícito de Alejandro: responder la calibración de RIR no puede
-  // saltar de inmediato a la pregunta de "¿cómo salió?" — necesita margen
-  // para hacer la serie siguiente primero. Se guarda cuántas series había
-  // hechas justo al calibrar; mientras ese número no suba (o el ejercicio no
-  // se dé por completado, para no dejar la intervención colgada si era la
-  // última serie), el panel vuelve a la burbuja en vez de forzarse abierto.
-  const [seriesAlCalibrar, setSeriesAlCalibrar] = useState<number | null>(null);
   const esOrientacion = intervencion?.tipo === "tempo_controlado";
   const esPersonalAle = intervencion?.origen === "personal_ale" || intervencion?.origen === "preparada_por_ale";
   const tipoActual = calibracion.tipo ?? intervencion?.tipo ?? null;
@@ -50,9 +49,18 @@ export function MomentoImpulsoEnVivo({
   const listaParaMostrar = !!intervencion
     && (esOrientacion || esPersonalAle || intervencion.calibrada || calibracion.ok || intervencion.estado !== "preparada");
   const resuelta = state.ok || intervencion?.estado === "resuelta";
-  const esperandoSiguienteSerie =
-    seriesAlCalibrar !== null && !resuelta && seriesHechasCount <= seriesAlCalibrar && !ejercicioCompletado;
-  const mostrarExpandido = !esperandoSiguienteSerie && (expandido || (serieTerminada && !resuelta));
+  /* Tres momentos que se abren solos, pedido de Alejandro (2026-08-17) —
+     nunca compiten entre sí porque cada uno depende de una condición propia
+     (calibrada/no, hecha/no):
+       1. Todavía sin calibrar → "¿cuántas más pudiste hacer?" (la burbuja
+          ya está visible porque `visible` ya lo permite, ver el padre).
+       2. Calibrada y la serie anterior ya terminó de verdad, pero la serie
+          objetivo todavía no se hizo → la instrucción completa.
+       3. La serie objetivo ya se hizo → "¿cómo salió?". */
+  const necesitaCalibrar = !listaParaMostrar;
+  const listoParaInstruccion = listaParaMostrar && puedeVerInstruccion && !serieTerminada;
+  const listoParaResultado = serieTerminada && !resuelta;
+  const mostrarExpandido = expandido || necesitaCalibrar || listoParaInstruccion || listoParaResultado;
   const pesoObjetivo = typeof intervencion.prescripcion?.pesoKg === "number"
     ? `sube a ${intervencion.prescripcion.pesoKg} kg`
     : intervencion.tipo === "rest_pause"
@@ -65,18 +73,6 @@ export function MomentoImpulsoEnVivo({
     if (!intervencion || !visible || !listaParaMostrar || intervencion.estado !== "preparada") return;
     startTransition(() => void marcarIntervencionMostrada(intervencion.id));
   }, [intervencion, visible, listaParaMostrar]);
-
-  useEffect(() => {
-    if (calibracion.ok && seriesAlCalibrar === null) {
-      // Snapshot deliberado del resultado de un submit (calibracion.ok), no
-      // estado derivado de props — mismo caso ya documentado en
-      // SesionEjercicioCard.tsx para otros useActionState de esta pantalla.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSeriesAlCalibrar(seriesHechasCount);
-      setExpandido(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [calibracion.ok]);
 
   if (!intervencion || !visible || intervencion.estado === "cancelada") return null;
 

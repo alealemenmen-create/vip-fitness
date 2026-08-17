@@ -2986,19 +2986,31 @@ export const SesionEjercicioCard = forwardRef<
       ) : (
         <>
         {intervencionesImpulso.map((intervencion) => {
+          const previa = intervencion.serieObjetivo - 1;
           const terminada = seriesHechas.has(intervencion.serieObjetivo);
           const esOrientacion = intervencion.tipo === "tempo_controlado";
+          // Dos momentos distintos, pedido de Alejandro (2026-08-17) — antes
+          // los dos dependían de que la serie ANTERIOR hubiera terminado su
+          // descanso por completo, así que la calibración ("¿cuántas más
+          // pudiste hacer?") y la instrucción llegaban juntas y tarde, a
+          // veces después de que el alumno ya había hecho la serie objetivo
+          // a ciegas:
+          //   - Calibrar: apenas se marca (o empieza a descansar) la serie
+          //     anterior — no hace falta esperar a que termine su reloj.
+          //   - Ver la instrucción completa: recién cuando esa serie
+          //     anterior terminó DE VERDAD (con su descanso incluido, o de
+          //     inmediato si el ejercicio no tiene descanso) — así no le
+          //     dice qué hacer en la serie objetivo mientras todavía está
+          //     descansando la anterior.
+          const previaResuelta = previa <= 0 || seriesHechas.has(previa);
+          const puedeCalibrar = previaResuelta || serieActivaNumero === previa;
           return (
             <MomentoImpulsoEnVivo
               key={intervencion.id}
               intervencion={intervencion}
-              visible={
-                seriesHechas.size >= Math.max(0, intervencion.serieObjetivo - 1)
-                && (!esOrientacion || !terminada)
-              }
+              visible={puedeCalibrar && (!esOrientacion || !terminada)}
+              puedeVerInstruccion={previaResuelta}
               serieTerminada={terminada}
-              seriesHechasCount={seriesHechas.size}
-              ejercicioCompletado={ejercicio.completado}
             />
           );
         })}
