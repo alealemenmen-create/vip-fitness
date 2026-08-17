@@ -463,33 +463,24 @@ function FotoReferenciaAmpliable({
         }
         style={tamano}
       >
-        {/* Relleno borroso detrás de la foto: la misma imagen ampliada y
-            desenfocada, tapando lo que sobra a los costados. Sin esto quedaban
-            dos franjas grises que se leían como un error de la foto. Va con
-            opacidad alta a propósito — tiene que parecer una continuación del
-            fondo del gimnasio, no un borde. */}
-        <Image
-          src={srcPrincipal}
-          alt=""
-          aria-hidden
-          fill
-          sizes={tamanoImagen}
-          className="scale-125 object-cover opacity-80 blur-2xl"
-          style={{ objectPosition: `${posicionX}% ${posicionY}%` }}
-        />
         <Image
           src={srcPrincipal}
           alt={`Foto de referencia de ${nombre}`}
           fill
           sizes={tamanoImagen}
-          // Siempre `object-contain`: la persona del instructivo tiene que
-          // entrar ENTERA en el cuadro. Con `object-cover` (lo que hacían las
-          // fotos con miniatura recortada) el recorte automático le cortaba la
-          // cabeza o los pies según la proporción del cuadro, y se veía mal.
-          // Lo que sobra a los costados lo tapa el relleno borroso de atrás,
-          // así que el cuadro sigue viéndose lleno.
-          className={destacado ? "z-[1] object-cover" : "z-[1] object-contain object-center"}
-          style={destacado ? { objectPosition: `${posicionX}% ${posicionY}%` } : undefined}
+          // `object-cover` con el encuadre que el entrenador ya eligió a mano
+          // (arrastrando el círculo de "Vista cuadrada del alumno" en
+          // /admin/ejercicios, `fotoCuadradaX`/`fotoCuadradaY`) — llega acá
+          // como `posicionX`/`posicionY`. Antes esto era siempre
+          // `object-contain` con un relleno borroso detrás tapando los
+          // costados: entraba la persona entera, pero en fotos no cuadradas
+          // (la mayoría, tomadas con el celular) el cuadro se veía con
+          // espacio vacío. Como el encuadre ahora lo define una persona
+          // (no un recorte automático que cortaba cabeza o pies sin criterio),
+          // usarlo con `object-cover` rellena el cuadro completo sin ese
+          // problema.
+          className="z-[1] object-cover"
+          style={{ objectPosition: `${posicionX}% ${posicionY}%` }}
         />
         {destacado && videoCloudflareListo && (
           <VideoCloudflareAutomatico
