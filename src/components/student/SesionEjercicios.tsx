@@ -23,9 +23,9 @@ const suscribirSinCambios = () => () => {};
  * para no fusionar dos biseries seguidas en una de 4. Un ejercicio suelto es
  * un "grupo" de 1.
  *
- * Único punto donde se calculan los límites de grupo — tanto `calcularActivo`
- * como el render de abajo parten de acá, para que nunca puedan desincronizarse
- * entre sí sobre dónde empieza y termina cada biserie.
+ * Único punto donde se calculan los límites de grupo — el render de abajo
+ * parte de acá, para no desincronizarse sobre dónde empieza y termina cada
+ * biserie.
  */
 function agruparPorTecnica(ejercicios: EjercicioSesion[]): EjercicioSesion[][] {
   const grupos: EjercicioSesion[][] = [];
@@ -50,36 +50,6 @@ function agruparPorTecnica(ejercicios: EjercicioSesion[]): EjercicioSesion[][] {
     i = j + 1;
   }
   return grupos;
-}
-
-/**
- * Cuál ejercicio está "activo" ahora — el que se abre solo y lleva el
- * resplandor de "te toca acá".
- *
- * Para un ejercicio suelto es el de siempre: el primero sin completar, en el
- * orden de la rutina. Pero en una superserie/biserie/triserie/circuito se
- * alterna DE VERDAD entre los ejercicios del grupo, serie por serie: el que
- * tiene menos series hechas hasta ahora es el que toca (empate = el primero
- * del grupo) — así después de una serie de "Aperturas (1/2)" el turno pasa
- * solo a "Pullover (2/2)", en vez de pedir el ejercicio entero antes de pasar
- * al siguiente.
- */
-function calcularActivo(ejercicios: EjercicioSesion[]): string | null {
-  for (const grupo of agruparPorTecnica(ejercicios)) {
-    const pendientes = grupo.filter((e) => !e.completado);
-    if (pendientes.length === 0) continue;
-    if (grupo.length === 1) return pendientes[0].sesionEjercicioId;
-    // Grupo real (2 o más): el que tiene menos series hechas manda — empate
-    // lo gana el que aparece primero en `pendientes` (orden de la rutina),
-    // porque `reduce` solo reemplaza con `<`, nunca con `<=`.
-    const elegido = pendientes.reduce((mejor, actual) =>
-      actual.series.filter((s) => s.realizada).length < mejor.series.filter((s) => s.realizada).length
-        ? actual
-        : mejor
-    );
-    return elegido.sesionEjercicioId;
-  }
-  return null;
 }
 
 /**

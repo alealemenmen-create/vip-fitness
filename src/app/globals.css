@@ -3409,18 +3409,6 @@ input[type="number"] {
   justify-content: center;
   gap: 8px;
 }
-.boton-navegacion-junto-rir {
-  display: grid;
-  flex-shrink: 0;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid rgba(255, 255, 255, .1);
-  border-radius: 10px;
-  color: var(--color-text-secondary);
-  background: rgba(255, 255, 255, .035);
-}
-.boton-navegacion-junto-rir:disabled { opacity: .3; }
 .control-rir-serie > span {
   margin-right: 5px;
   color: var(--color-text-secondary);
@@ -5547,11 +5535,6 @@ input[type="number"] {
   -webkit-backdrop-filter: blur(1.5px);
   backdrop-filter: blur(1.5px);
 }
-.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir,
-.tarjeta-paso-grupo-foco .fila-rir-navegacion .boton-navegacion-junto-rir {
-  z-index: 14;
-  pointer-events: auto;
-}
 /* Fija arriba de la barra de navegación inferior, no en el flujo del
    documento — pedido explícito: "fijo, sin scroll". Mismo patrón que
    `BotonIniciarRutinaFijo` (portal a document.body: dentro de
@@ -6250,50 +6233,8 @@ input[type="number"] {
      derecha lo balancea dentro del cuadrito. */
   padding-left: 1.5px;
 }
-.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir {
-  position: absolute;
-  /* Centrado real dentro de la fila (antes +10px la empujaba hacia abajo):
-     con la fila en 84px de alto y la flecha en 79px, ese corrimiento hacía
-     que el área táctil se saliera por debajo y se comiera un pedazo del
-     botón Descanso — tocar cerca del borde inferior de Descanso activaba la
-     flecha en vez de guardar la serie (pedido de Alejandro, 2026-08-16). El
-     tamaño visual de la flecha no cambia, solo dónde queda centrada. */
-  top: 50%;
-  display: grid;
-  width: 90px;
-  height: 79px;
-  place-items: center;
-  border: 0 !important;
-  border-radius: 0;
-  color: rgba(255,255,255,.92);
-  background: transparent !important;
-  box-shadow: none !important;
-  transform: translateY(-50%);
-}
-.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir:first-child { left: -12px; }
-.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir:last-child { right: -12px; }
-.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir svg {
-  width: 79px;
-  height: 79px;
-  filter: drop-shadow(0 0 3px rgba(255,255,255,.25));
-}
-.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir:first-child svg {
-  animation: flecha-rir-izquierda 3.8s ease-in-out infinite;
-}
-.tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir:last-child svg {
-  animation: flecha-rir-derecha 3.8s ease-in-out infinite;
-}
-@keyframes flecha-rir-izquierda {
-  0%, 100% { transform: translateX(1px); opacity: .56; }
-  50% { transform: translateX(-3px); opacity: 1; }
-}
-@keyframes flecha-rir-derecha {
-  0%, 100% { transform: translateX(-1px); opacity: .56; }
-  50% { transform: translateX(3px); opacity: 1; }
-}
 @media (prefers-reduced-motion: reduce) {
   .onda-progreso-lenta { animation: none; }
-  .tarjeta-ejercicio-enfocada .fila-rir-navegacion .boton-navegacion-junto-rir svg { animation: none; }
   .boton-tira-navegacion[data-aviso-siguiente="true"] { animation: none; }
   .tarjeta-ejercicio-enfocada .selector-series-movido button[data-reinicio="true"] { animation: none; }
   .tarjeta-ejercicio-enfocada .fila-serie[data-destacada="true"] .boton-descanso[data-estado="pendiente"] {

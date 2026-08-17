@@ -7,7 +7,7 @@
  *
  * Se usa en dos lugares: SesionEjercicioCard (color por familia, para que el
  * alumno VEA qué ejercicios van encadenados) y SesionEjercicios (para
- * alternar de verdad entre ellos serie por serie — ver `calcularActivo`).
+ * agrupar la rutina en bloques, ver `agruparPorTecnica`).
  */
 export type GrupoTecnica = { color: string; etiqueta: string };
 
@@ -29,7 +29,7 @@ export function resolverGrupoTecnica(tecnicaTipo: string | null | undefined): Gr
  * (ej. "Biserie (1/2)", "Biserie (2/2)") para saber cuántos ejercicios
  * forman ESTE grupo puntual. Sin esto, dos biseries seguidas (4 ejercicios
  * consecutivos, todos con etiqueta "Biserie") se confundían con un solo
- * grupo de 4 en vez de dos grupos de 2 — ver `calcularActivo` en
+ * grupo de 4 en vez de dos grupos de 2 — ver `agruparPorTecnica` en
  * `SesionEjercicios.tsx`. */
 export function posicionTecnica(tecnicaTipo: string | null | undefined): { actual: number; total: number } | null {
   if (!tecnicaTipo) return null;
