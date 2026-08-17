@@ -847,6 +847,8 @@ export interface Database {
           slug: string;
           nombre: string;
           aliases: string[];
+          // 0099_ejercicio_calidad_ficha.sql — nulas cuando calidad_ficha es
+          // 'requiere_clasificacion' (alta rápida sin clasificar todavía).
           grupo_muscular:
             | "pecho"
             | "espalda"
@@ -854,7 +856,8 @@ export interface Database {
             | "hombros"
             | "brazos"
             | "core"
-            | "cardio";
+            | "cardio"
+            | null;
           grupos_secundarios: string[];
           categoria:
             | "empuje"
@@ -863,7 +866,8 @@ export interface Database {
             | "core"
             | "cardio"
             | "aislamiento"
-            | "full_body";
+            | "full_body"
+            | null;
           equipo:
             | "barra"
             | "mancuerna"
@@ -874,7 +878,10 @@ export interface Database {
             | "kettlebell"
             | "banda"
             | "banco"
-            | "otro";
+            | "otro"
+            | null;
+          // 0099_ejercicio_calidad_ficha.sql
+          calidad_ficha: "completa" | "requiere_clasificacion";
           nivel: "principiante" | "intermedio" | "avanzado";
           descripcion_corta: string | null;
           tecnica: string | null;
@@ -888,6 +895,10 @@ export interface Database {
           video_cloudflare_duracion_seg: number | null;
           video_cloudflare_miniatura_url: string | null;
           video_cloudflare_error: string | null;
+          // 0098_ejercicio_video_cloudflare_uid_anterior.sql — UID que se
+          // reemplazó, guardado hasta confirmar que el nuevo terminó de
+          // procesar; recién ahí se borra de Cloudflare.
+          video_cloudflare_uid_anterior: string | null;
           // 0031_tempo_ejercicios.sql — el tempo es del movimiento, no de la
           // rutina: se calcula una vez por ejercicio y lo reutilizan todas.
           tempo: string | null;
@@ -923,24 +934,26 @@ export interface Database {
           slug: string;
           nombre: string;
           aliases?: string[];
-          grupo_muscular:
+          grupo_muscular?:
             | "pecho"
             | "espalda"
             | "piernas"
             | "hombros"
             | "brazos"
             | "core"
-            | "cardio";
+            | "cardio"
+            | null;
           grupos_secundarios?: string[];
-          categoria:
+          categoria?:
             | "empuje"
             | "traccion"
             | "pierna"
             | "core"
             | "cardio"
             | "aislamiento"
-            | "full_body";
-          equipo:
+            | "full_body"
+            | null;
+          equipo?:
             | "barra"
             | "mancuerna"
             | "polea"
@@ -950,7 +963,9 @@ export interface Database {
             | "kettlebell"
             | "banda"
             | "banco"
-            | "otro";
+            | "otro"
+            | null;
+          calidad_ficha?: "completa" | "requiere_clasificacion";
           nivel?: "principiante" | "intermedio" | "avanzado";
           descripcion_corta?: string | null;
           tecnica?: string | null;
@@ -963,6 +978,7 @@ export interface Database {
           video_cloudflare_duracion_seg?: number | null;
           video_cloudflare_miniatura_url?: string | null;
           video_cloudflare_error?: string | null;
+          video_cloudflare_uid_anterior?: string | null;
           tempo?: string | null;
           tempo_nota?: string | null;
           tempo_origen?: "ia" | "entrenador" | null;
@@ -2046,6 +2062,136 @@ export interface Database {
           foto_cuadrada_x?: number;
           foto_cuadrada_y?: number;
           reemplazada_por?: string;
+        };
+        Relationships: [];
+      };
+      // 0100_ejercicio_ingestas.sql — Fase 2 del instructivo de galería
+      // multimedia: sesiones de carga por lote que sobreviven a un refresh.
+      ejercicio_ingestas: {
+        Row: {
+          id: string;
+          entrenador_id: string;
+          origen: "carga" | "camara" | "modo_gimnasio" | "pendiente" | "alta";
+          estado: "borrador" | "cargando" | "requiere_revision" | "aplicando" | "completada" | "parcial" | "cancelada";
+          total_archivos: number;
+          archivos_listos: number;
+          archivos_error: number;
+          creado_en: string;
+          actualizado_en: string;
+          completado_en: string | null;
+        };
+        Insert: {
+          entrenador_id: string;
+          origen?: "carga" | "camara" | "modo_gimnasio" | "pendiente" | "alta";
+          estado?: "borrador" | "cargando" | "requiere_revision" | "aplicando" | "completada" | "parcial" | "cancelada";
+          total_archivos?: number;
+          archivos_listos?: number;
+          archivos_error?: number;
+          completado_en?: string | null;
+        };
+        Update: {
+          estado?: "borrador" | "cargando" | "requiere_revision" | "aplicando" | "completada" | "parcial" | "cancelada";
+          total_archivos?: number;
+          archivos_listos?: number;
+          archivos_error?: number;
+          actualizado_en?: string;
+          completado_en?: string | null;
+        };
+        Relationships: [];
+      };
+      ejercicio_ingesta_items: {
+        Row: {
+          id: string;
+          ingesta_id: string;
+          clave_idempotente: string;
+          nombre_archivo: string;
+          mime: string | null;
+          tamano_bytes: number | null;
+          tipo: "imagen" | "video";
+          ejercicio_id: string | null;
+          nombre_candidato: string | null;
+          confianza: "alta" | "revisar" | "sin_match" | null;
+          estado: "local" | "subiendo" | "procesando" | "listo" | "error" | "aplicado";
+          error_detalle: string | null;
+          intentos: number;
+          creado_en: string;
+          actualizado_en: string;
+        };
+        Insert: {
+          id?: string;
+          ingesta_id: string;
+          clave_idempotente: string;
+          nombre_archivo: string;
+          mime?: string | null;
+          tamano_bytes?: number | null;
+          tipo: "imagen" | "video";
+          ejercicio_id?: string | null;
+          nombre_candidato?: string | null;
+          confianza?: "alta" | "revisar" | "sin_match" | null;
+          estado?: "local" | "subiendo" | "procesando" | "listo" | "error" | "aplicado";
+          error_detalle?: string | null;
+          intentos?: number;
+        };
+        Update: {
+          ejercicio_id?: string | null;
+          estado?: "local" | "subiendo" | "procesando" | "listo" | "error" | "aplicado";
+          error_detalle?: string | null;
+          intentos?: number;
+          actualizado_en?: string;
+        };
+        Relationships: [];
+      };
+      // 0101_ejercicio_multimedia.sql — Fase 3 del instructivo de galería
+      // multimedia: historial y ángulos extra, aditiva a las columnas de
+      // siempre en `ejercicios` (esas siguen siendo la fuente de verdad
+      // para el alumno).
+      ejercicio_multimedia: {
+        Row: {
+          id: string;
+          ejercicio_id: string;
+          tipo: "imagen" | "video";
+          rol: "portada" | "galeria" | "demostracion" | "error_comun";
+          es_principal: boolean;
+          estado: "procesando" | "listo" | "error" | "archivado";
+          storage_path_miniatura: string | null;
+          storage_path_completa: string | null;
+          video_cloudflare_uid: string | null;
+          ancho: number | null;
+          alto: number | null;
+          duracion_seg: number | null;
+          tamano_bytes: number | null;
+          hash_sha256: string | null;
+          orden: number;
+          version_reemplazada_id: string | null;
+          creado_por: string | null;
+          creado_en: string;
+          archivado_en: string | null;
+        };
+        Insert: {
+          ejercicio_id: string;
+          tipo: "imagen" | "video";
+          rol?: "portada" | "galeria" | "demostracion" | "error_comun";
+          es_principal?: boolean;
+          estado?: "procesando" | "listo" | "error" | "archivado";
+          storage_path_miniatura?: string | null;
+          storage_path_completa?: string | null;
+          video_cloudflare_uid?: string | null;
+          ancho?: number | null;
+          alto?: number | null;
+          duracion_seg?: number | null;
+          tamano_bytes?: number | null;
+          hash_sha256?: string | null;
+          orden?: number;
+          version_reemplazada_id?: string | null;
+          creado_por?: string | null;
+          archivado_en?: string | null;
+        };
+        Update: {
+          rol?: "portada" | "galeria" | "demostracion" | "error_comun";
+          es_principal?: boolean;
+          estado?: "procesando" | "listo" | "error" | "archivado";
+          version_reemplazada_id?: string | null;
+          archivado_en?: string | null;
         };
         Relationships: [];
       };

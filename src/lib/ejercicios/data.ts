@@ -3,13 +3,17 @@ import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   COLUMNAS_EJERCICIO,
+  COLUMNAS_EJERCICIO_COMPLETO,
   COLUMNAS_EJERCICIO_CON_ENCUADRE,
   COLUMNAS_EJERCICIO_IMPULSO,
   COLUMNAS_EJERCICIO_IMPULSO_CON_HASH,
+  COLUMNAS_EJERCICIO_INCOMPLETO,
   COLUMNAS_EJERCICIO_MULTIMEDIA,
   COLUMNAS_EJERCICIO_SIN_FOTOS,
   aEjercicio,
+  aEjercicioIncompleto,
   type Ejercicio,
+  type EjercicioIncompleto,
 } from "./tipos";
 
 export const TAG_BIBLIOTECA_EJERCICIOS = "biblioteca-ejercicios";
@@ -46,11 +50,25 @@ export const TAG_BIBLIOTECA_EJERCICIOS = "biblioteca-ejercicios";
 async function leerBiblioteca(): Promise<Ejercicio[]> {
   const supabase = createAdminClient();
 
-  const conHash = await supabase
+  // Filtra calidad_ficha='completa' — un ejercicio creado desde el alta
+  // rápida sin clasificar (instructivo §7.3) no debe llegar al generador de
+  // rutinas ni a los emparejados de Mesa/Carga masiva hasta que alguien lo
+  // complete desde la cola "Completar ficha" (ver obtenerEjerciciosIncompletos
+  // más abajo). Si la migración 0099 todavía no corrió, esta query falla por
+  // columna inexistente y cae al nivel de abajo, que no filtra nada — mismo
+  // comportamiento de siempre (todo clasificado, porque no podía no estarlo).
+  const conCalidad = await supabase
+    .from("ejercicios")
+    .select(COLUMNAS_EJERCICIO_COMPLETO)
+    .eq("activo", true)
+    .eq("calidad_ficha", "completa")
+    .order("nombre");
+
+  const conHash = conCalidad.error ? await supabase
     .from("ejercicios")
     .select(COLUMNAS_EJERCICIO_IMPULSO_CON_HASH)
     .eq("activo", true)
-    .order("nombre");
+    .order("nombre") : conCalidad;
 
   // Si la migración 0042 (foto_miniatura_url/foto_completa_url) todavía no
   // corrió en este entorno, pedir esas columnas hace fallar el select
@@ -109,6 +127,32 @@ export const obtenerBiblioteca = unstable_cache(leerBiblioteca, ["biblioteca-eje
  */
 export function obtenerBibliotecaSinCache(): Promise<Ejercicio[]> {
   return leerBiblioteca();
+}
+
+/**
+ * Cola "Completar ficha" (instructivo §7.3): ejercicios activos creados
+ * desde el alta rápida sin grupo/categoría/equipo. Sin caché — la misma
+ * lógica que `obtenerBibliotecaSinCache`, es la pantalla donde el
+ * entrenador acaba de crearlos y tiene que verlos. Devuelve `[]` sin
+ * reventar si la migración 0099 todavía no corrió (mismo criterio que
+ * `obtenerHistorialFusiones`): antes de esa migración no existía el
+ * concepto de ficha incompleta, así que no hay nada que mostrar.
+ */
+export async function obtenerEjerciciosIncompletos(): Promise<EjercicioIncompleto[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("ejercicios")
+    .select(COLUMNAS_EJERCICIO_INCOMPLETO)
+    .eq("activo", true)
+    .eq("calidad_ficha", "requiere_clasificacion")
+    .order("created_at", { ascending: false });
+  if (error) {
+    if (error.code !== "42703" && error.code !== "PGRST204") {
+      console.error("[ejercicios] no se pudo leer las fichas incompletas:", error.message);
+    }
+    return [];
+  }
+  return (data ?? []).map((fila) => aEjercicioIncompleto(fila as unknown as Parameters<typeof aEjercicioIncompleto>[0]));
 }
 
 export type FusionEjercicio = {

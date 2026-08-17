@@ -33,15 +33,22 @@ export async function rellenarTemposFaltantes(ejercicioIds: string[]): Promise<v
   if (error || !data || data.length === 0) return;
 
   const porSlug = new Map(data.map((e) => [e.slug, e.id]));
-  const paraIa: EjercicioParaTempo[] = data.map((e) => ({
-    slug: e.slug,
-    nombre: e.nombre,
-    grupoMuscular: e.grupo_muscular,
-    categoria: e.categoria,
-    equipo: e.equipo,
-    nivel: e.nivel,
-    descripcionCorta: e.descripcion_corta,
-  }));
+  // Migración 0099: un ejercicio creado sin clasificar (alta rápida,
+  // calidad_ficha='requiere_clasificacion') tiene estos tres campos en
+  // null — no hay con qué sugerirle un tempo todavía. En la práctica no
+  // debería llegar acá (obtenerBiblioteca() los excluye de las listas donde
+  // se arma una rutina), pero se filtra igual en vez de asumirlo.
+  const paraIa: EjercicioParaTempo[] = data
+    .filter((e) => e.grupo_muscular !== null && e.categoria !== null && e.equipo !== null)
+    .map((e) => ({
+      slug: e.slug,
+      nombre: e.nombre,
+      grupoMuscular: e.grupo_muscular!,
+      categoria: e.categoria!,
+      equipo: e.equipo!,
+      nivel: e.nivel,
+      descripcionCorta: e.descripcion_corta,
+    }));
 
   const resultado = await sugerirTempos(paraIa);
   if (!resultado.ok) {
