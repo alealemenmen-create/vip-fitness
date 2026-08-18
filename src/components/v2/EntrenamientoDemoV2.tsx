@@ -4,15 +4,15 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import {
+  Archive,
   CalendarCheck2,
   CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  Dumbbell,
   History,
-  LibraryBig,
+  LayoutGrid,
   ListRestart,
   Menu,
   Moon,
@@ -196,12 +196,15 @@ export function EntrenamientoDemoV2() {
 
       <div className={styles.utilityGrid}>
         <button type="button" className={styles.utilityCard} onClick={() => setVerRutina(true)}>
-          <LibraryBig size={20} />
-          <span><strong>Biblioteca de ejercicios</strong><span>Explora más de 500 ejercicios</span></span>
+          <span className={styles.utilityIcon} aria-hidden="true"><Archive size={28} strokeWidth={1.85} /></span>
+          <span className={styles.utilityCopy}><strong>Biblioteca de ejercicios</strong><span>Explora más de 500 ejercicios</span></span>
         </button>
         <button type="button" className={styles.utilityCard} onClick={() => setMenuAbierto(true)}>
-          <Dumbbell size={20} />
-          <span><strong>Constructor de rutinas</strong><span>Crea entrenamientos personalizados</span></span>
+          <span className={styles.utilityIcon} aria-hidden="true">
+            <LayoutGrid size={27} strokeWidth={1.75} />
+            <i className={styles.utilityIconPlus}>+</i>
+          </span>
+          <span className={styles.utilityCopy}><strong>Constructor de rutinas</strong><span>Crea entrenamientos personalizados</span></span>
         </button>
       </div>
 
