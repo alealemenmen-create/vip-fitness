@@ -1163,6 +1163,55 @@
 .moreRow svg { color: #9ca09d; }
 .moreRow strong { font-size: 10px; font-weight: 650; }
 
+.morePage { padding-top: 16px; }
+.moreTitle { color: #f7f7f4; font-size: 29px; font-weight: 820; letter-spacing: -.05em; }
+.moreProfile { display: grid; grid-template-columns: 43px minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-top: 14px; color: #f5f5f2; }
+.moreAvatar { display: grid; width: 43px; height: 43px; place-items: center; border-radius: 50%; color: #080909; background: #f5f5f2; font-size: 11px; font-weight: 800; }
+.moreProfile div { min-width: 0; }
+.moreProfile div strong { display: block; overflow: hidden; font-size: 12px; font-weight: 730; text-overflow: ellipsis; white-space: nowrap; }
+.moreProfile div small { display: block; overflow: hidden; margin-top: 3px; color: #7f827f; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.moreXp { display: flex; align-items: center; gap: 5px; padding: 6px 8px; border-radius: 5px; color: #d8d9d6; background: #222323; font-size: 8px; font-weight: 720; }
+.moreLevelTrack { height: 3px; overflow: hidden; margin: 13px 0 14px; border-radius: 999px; background: #151717; }
+.moreLevelTrack i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #0e5f49, #20d6a0); }
+.moreCommunityBanner { display: grid; min-height: 69px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; overflow: hidden; padding: 12px 13px; border: 1px solid rgba(255,255,255,.06); border-radius: 10px; color: #f5f5f2; background: radial-gradient(circle at 82% 0%, rgba(36,211,158,.16), transparent 42%), linear-gradient(112deg, #111313, #1e2221 54%, #141616); box-shadow: inset 0 1px 0 rgba(255,255,255,.055); }
+.moreCommunityBanner div strong { display: block; font-size: 11px; }
+.moreCommunityBanner div span { display: block; max-width: 220px; margin-top: 4px; color: #969a97; font-size: 7px; line-height: 1.4; }
+.moreCommunityBanner > b { display: flex; min-height: 29px; align-items: center; gap: 2px; padding: 0 8px; border-radius: 6px; color: #0a0b0b; background: #f4f4f1; font-size: 7px; white-space: nowrap; }
+.morePage .moreCard { border-color: rgba(255,255,255,.04); background: #171818; }
+.morePage .moreRow { width: 100%; min-height: 46px; grid-template-columns: 28px minmax(0, 1fr) 18px; text-align: left; }
+.morePage .moreRow > svg { justify-self: end; color: #6f7370; }
+.moreRowIcon { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 5px; color: #999d9a; background: #202121; }
+.moreRowCopy { min-width: 0; }
+.moreRowCopy strong { display: block; color: #e5e6e2; font-size: 9px; font-weight: 650; }
+.moreRowCopy small { display: block; margin-top: 2px; color: #707471; font-size: 7px; }
+.moreClassicButton { display: grid; min-height: 51px; grid-template-columns: 25px minmax(0, 1fr) 18px; align-items: center; gap: 9px; margin-top: 18px; padding: 0 13px; border: 1px solid rgba(255,255,255,.055); border-radius: 10px; color: #dfe0dc; background: linear-gradient(112deg, #111212, #1d1e1e 52%, #111212); }
+.moreClassicButton > svg { color: #8d918e; }
+.moreClassicButton > svg:last-child { justify-self: end; }
+.moreClassicButton span strong { display: block; font-size: 9px; }
+.moreClassicButton span small { display: block; margin-top: 2px; color: #747875; font-size: 7px; }
+.moreVersion { margin: 13px 0 6px; color: #4f524f; font-size: 6px; font-weight: 720; letter-spacing: .08em; text-align: center; }
+.moreSheetBackdrop { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.76); }
+.moreSheet { width: min(460px, 100%); padding: 17px 16px calc(22px + env(safe-area-inset-bottom, 0px)); border: 1px solid rgba(255,255,255,.08); border-radius: 22px 22px 0 0; color: #f2f3ef; background: #131414; animation: sheetUp 200ms ease-out both; }
+.moreSheet header { display: flex; min-height: 34px; align-items: center; justify-content: space-between; }
+.moreSheet header h2 { font-size: 17px; letter-spacing: -.025em; }
+.moreSheet header button { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; color: #c6c8c4; background: #232424; }
+.moreSwitchList { margin-top: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,.05); border-radius: 10px; background: #191a1a; }
+.moreSwitchList > button { display: flex; width: 100%; min-height: 51px; align-items: center; justify-content: space-between; padding: 0 13px; color: #e8e9e5; font-size: 9px; text-align: left; }
+.moreSwitchList > button + button { border-top: 1px solid rgba(255,255,255,.05); }
+.moreSwitchList i { position: relative; width: 34px; height: 20px; border-radius: 999px; background: #343635; transition: background 160ms ease; }
+.moreSwitchList i em { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #929592; transition: transform 160ms ease, background 160ms ease; }
+.moreSwitchList .moreSwitchActive { background: #15674f; }
+.moreSwitchList .moreSwitchActive em { transform: translateX(14px); background: #f2f3ef; }
+.morePlanPanel { position: relative; margin-top: 12px; padding: 16px; border: 1px solid rgba(31,210,156,.17); border-radius: 10px; background: linear-gradient(130deg, #121a17, #171918); }
+.morePlanPanel span { color: #1ed19c; font-size: 7px; font-weight: 800; letter-spacing: .1em; }
+.morePlanPanel strong { display: block; margin-top: 7px; font-size: 18px; }
+.morePlanPanel p, .moreSheetCopy { margin-top: 8px; color: #8c908d; font-size: 9px; line-height: 1.55; }
+.morePlanPanel b { position: absolute; top: 14px; right: 14px; padding: 5px 8px; border-radius: 999px; color: #1ed19c; background: rgba(31,210,156,.1); font-size: 7px; }
+.moreSheetCopy { margin-bottom: 8px; }
+.moreSocialList { display: grid; gap: 1px; overflow: hidden; margin-top: 12px; border-radius: 10px; background: rgba(255,255,255,.05); }
+.moreSocialList span { display: flex; min-height: 46px; align-items: center; justify-content: space-between; padding: 0 13px; color: #eceeea; background: #191a1a; font-size: 9px; }
+.moreSocialList b { color: #858986; font-size: 8px; font-weight: 550; }
+
 .classicLink {
   display: flex;
   min-height: 44px;
