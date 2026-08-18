@@ -14,6 +14,7 @@ import {
   Moon,
   Plus,
   Timer,
+  Trophy,
   Utensils,
   X,
   Zap,
@@ -33,6 +34,12 @@ const DIAS_PROGRAMA = [
   ["ok", "ok", "ok", "ok", "ok", "6", "descanso"],
   ["8", "9", "descanso", "11", "12", "13", "descanso"],
   ["15", "16", "descanso", "18", "19", "20", "fin"],
+] as const;
+
+const COMUNIDAD = [
+  { nombre: "Vale R.", puntos: "1.240 XP", foto: "/v2/piernas.webp", puesto: 1 },
+  { nombre: "Tú", puntos: "900 XP", foto: "/ejercicios/press-militar.webp", puesto: 2 },
+  { nombre: "Seba M.", puntos: "760 XP", foto: "/v2/espalda.webp", puesto: 3 },
 ] as const;
 
 export default function ProgresoV2Page() {
@@ -111,6 +118,25 @@ export default function ProgresoV2Page() {
         <div><strong>Primer impulso</strong><span>18 de agosto de 2026</span></div>
         <p>900 XP <Medal size={19} /></p>
       </article>
+
+      <div className={styles.progressSectionHeading}>
+        <h2>Comunidad</h2>
+        <button type="button">Ver clasificación <ChevronRight size={16} /></button>
+      </div>
+      <section className={styles.communityPreview} aria-label="Clasificación de la comunidad">
+        {COMUNIDAD.map(({ nombre, puntos, foto, puesto }) => (
+          <article className={styles.communityPerson} key={nombre}>
+            <div className={styles.communityPhoto}>
+              <Image src={foto} alt={`Entrenamiento de ${nombre}`} fill sizes="(max-width: 460px) 29vw, 126px" />
+              <span className={styles.communityTrophy} data-place={puesto} aria-label={`Puesto ${puesto}`}>
+                <Trophy size={13} strokeWidth={2.2} />
+              </span>
+            </div>
+            <strong>{nombre}</strong>
+            <small>{puntos}</small>
+          </article>
+        ))}
+      </section>
 
       {modalPeso ? (
         <div className={styles.progressModalBackdrop} role="presentation" onClick={() => setModalPeso(false)}>

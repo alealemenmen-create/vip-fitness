@@ -106,10 +106,10 @@
   grid-template-columns: repeat(4, 1fr);
   min-height: 64px;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid #343636;
   border-radius: 29px;
-  background: linear-gradient(180deg, rgba(25,26,26,.98), rgba(16,17,17,.98));
-  box-shadow: 0 18px 44px rgba(0,0,0,.68), inset 0 1px 0 rgba(255,255,255,.075);
+  background: linear-gradient(112deg, #0f1010 0%, #171818 23%, #292a2a 50%, #181919 76%, #0e0f0f 100%);
+  box-shadow: 0 18px 44px rgba(0,0,0,.68), inset 0 1px 0 rgba(255,255,255,.105), inset 0 -1px 0 rgba(0,0,0,.8);
   -webkit-backdrop-filter: blur(22px);
   backdrop-filter: blur(22px);
   pointer-events: auto;
@@ -1077,6 +1077,20 @@
 .latestMedalCard div strong { display: block; color: #fff; font-size: 13px; }
 .latestMedalCard div span { display: block; margin-top: 4px; color: #858885; font-size: 8px; }
 .latestMedalCard p { display: flex; align-items: center; gap: 7px; color: #f1f2ee; font-size: 10px; font-weight: 720; white-space: nowrap; }
+
+.communityPreview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.communityPerson { min-width: 0; text-align: center; }
+.communityPhoto { position: relative; aspect-ratio: .9; overflow: hidden; border: 1px solid rgba(255,255,255,.075); border-radius: 10px; background: #171818; box-shadow: inset 0 1px 0 rgba(255,255,255,.055); }
+.communityPhoto::after { position: absolute; inset: 44% 0 0; background: linear-gradient(180deg, transparent, rgba(0,0,0,.72)); content: ""; pointer-events: none; }
+.communityPhoto img { object-fit: cover; filter: saturate(.74) contrast(1.08) brightness(.9); }
+.communityPerson:nth-child(1) .communityPhoto img { object-position: 50% 46%; }
+.communityPerson:nth-child(2) .communityPhoto img { object-position: 48% 36%; }
+.communityPerson:nth-child(3) .communityPhoto img { object-position: 42% 50%; }
+.communityTrophy { position: absolute; right: 7px; bottom: 7px; z-index: 2; display: grid; width: 25px; height: 25px; place-items: center; border: 1px solid rgba(255,255,255,.34); border-radius: 50%; background: #e8c45b; color: #111; box-shadow: 0 4px 12px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.62); }
+.communityTrophy[data-place="2"] { background: #c8ccca; }
+.communityTrophy[data-place="3"] { background: #967153; color: #fff; }
+.communityPerson > strong { display: block; overflow: hidden; margin-top: 7px; color: #f4f4f1; font-size: 9px; font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
+.communityPerson > small { display: block; margin-top: 2px; color: #858885; font-size: 7px; font-weight: 630; }
 
 .progressModalBackdrop { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.76); }
 .progressModal { width: min(460px, 100%); padding: 18px 16px calc(22px + env(safe-area-inset-bottom, 0px)); border: 1px solid rgba(255,255,255,.08); border-radius: 22px 22px 0 0; background: #121313; animation: sheetUp 200ms ease-out both; }
