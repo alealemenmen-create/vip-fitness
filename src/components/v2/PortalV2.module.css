@@ -104,7 +104,7 @@
 .nav {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  min-height: 66px;
+  min-height: 70px;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,.09);
   border-radius: 25px;
@@ -140,7 +140,7 @@
 
 .navLabel {
   overflow: hidden;
-  font-size: 7px;
+  font-size: 9px;
   font-weight: 650;
   opacity: 1;
   white-space: nowrap;
@@ -240,7 +240,7 @@
 
 .weekTitle {
   color: #c5c7c4;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 750;
   text-align: center;
 }
@@ -302,8 +302,12 @@
   background: transparent;
   box-shadow: none;
 }
-.dayDone { color: #9fc629; }
-.dayDone .dayCircle { border-color: #75901f; }
+.dayCompleted { color: #868987; }
+.dayCompleted .dayCircle {
+  border-color: #777a78;
+  color: #090a0a;
+  background: #777a78;
+}
 
 .heroCard {
   position: relative;
@@ -320,8 +324,10 @@
 .heroAnimated {
   position: absolute;
   inset: 0;
-  animation: heroEnter 280ms cubic-bezier(.22,.82,.3,1) both;
 }
+
+.heroFromRight { animation: heroEnterRight 280ms cubic-bezier(.22,.82,.3,1) both; }
+.heroFromLeft { animation: heroEnterLeft 280ms cubic-bezier(.22,.82,.3,1) both; }
 
 .heroMedia {
   position: relative;
@@ -348,7 +354,7 @@
 .heroCopy {
   position: absolute;
   right: 12px;
-  bottom: 106px;
+  bottom: 120px;
   left: 12px;
   z-index: 2;
 }
@@ -361,10 +367,11 @@
 }
 
 .heroSubtitle {
-  margin-top: 7px;
+  margin-top: 8px;
   overflow: hidden;
   color: #8e9190;
-  font-size: 9px;
+  font-size: 10px;
+  line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -449,10 +456,10 @@
 
 .utilityCard {
   display: flex;
-  min-height: 92px;
+  min-height: 112px;
   flex-direction: column;
   justify-content: space-between;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid rgba(255,255,255,.055);
   border-radius: 9px;
   color: var(--v2-text);
@@ -460,8 +467,9 @@
 }
 
 .utilityCard svg { color: #c8cac6; }
-.utilityCard strong { display: block; font-size: 11px; }
-.utilityCard span { color: var(--v2-muted); font-size: 8px; }
+.utilityCard strong { display: block; font-size: 14px; font-weight: 540; letter-spacing: -.025em; }
+.utilityCard span { color: var(--v2-muted); font-size: 10px; }
+.utilityCard > span > span { display: block; margin-top: 4px; }
 
 .sectionHeader {
   display: flex;
@@ -470,9 +478,9 @@
   margin: 17px 1px 8px;
 }
 
-.sectionHeader h2 { font-size: 15px; font-weight: 760; letter-spacing: -.02em; }
-.sectionHeader p { margin-top: 2px; color: var(--v2-muted); font-size: 8px; }
-.sectionHeader button { color: var(--v2-muted); font-size: 8px; }
+.sectionHeader h2 { font-size: 21px; font-weight: 680; letter-spacing: -.035em; }
+.sectionHeader p { margin-top: 3px; color: var(--v2-muted); font-size: 11px; }
+.sectionHeader button { display: flex; align-items: center; gap: 2px; color: var(--v2-muted); font-size: 10px; }
 
 .chipRow {
   display: flex;
@@ -485,13 +493,19 @@
 .chipRow::-webkit-scrollbar { display: none; }
 .chip {
   flex: none;
-  padding: 6px 9px;
+  padding: 8px 13px;
   border: 1px solid rgba(255,255,255,.055);
   border-radius: 999px;
   color: #a3a5a3;
   background: #151616;
-  font-size: 8px;
+  font-size: 10px;
   white-space: nowrap;
+}
+
+.chipActive {
+  border-color: rgba(255,255,255,.04);
+  color: #f2f3ef;
+  background: #2b2c2c;
 }
 
 .exerciseList,
@@ -501,6 +515,42 @@
   border-radius: 10px;
   background: var(--v2-surface);
 }
+
+.additionalList {
+  display: grid;
+  gap: 8px;
+}
+
+.additionalCard {
+  display: flex;
+  min-height: 82px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 14px 16px;
+  border: 1px solid rgba(255,255,255,.035);
+  border-radius: 9px;
+  color: var(--v2-text);
+  background: var(--v2-surface);
+  text-align: left;
+}
+
+.additionalCard strong {
+  font-size: 14px;
+  font-weight: 520;
+  letter-spacing: -.015em;
+}
+
+.additionalMeta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  color: #a3a5a3;
+  font-size: 10px;
+}
+
+.additionalMeta b { color: #e5e7e2; font-weight: 620; }
 
 .exerciseRow {
   display: grid;
@@ -692,7 +742,8 @@
 
 @keyframes breathe { from { transform: scale(.94); opacity: .72; } to { transform: scale(1.04); opacity: 1; } }
 @keyframes brandIn { from { transform: translateY(7px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes heroEnter { from { transform: translateX(10px) scale(.992); opacity: .44; } to { transform: none; opacity: 1; } }
+@keyframes heroEnterRight { from { transform: translateX(14px) scale(.992); opacity: .44; } to { transform: none; opacity: 1; } }
+@keyframes heroEnterLeft { from { transform: translateX(-14px) scale(.992); opacity: .44; } to { transform: none; opacity: 1; } }
 @keyframes menuFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes menuItemIn { from { transform: translateX(16px); opacity: 0; } to { transform: none; opacity: 1; } }
 

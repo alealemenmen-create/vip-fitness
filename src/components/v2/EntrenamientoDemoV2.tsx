@@ -6,6 +6,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   CalendarCheck2,
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -51,8 +52,15 @@ const EJERCICIOS = [
   { nombre: "Impulso VIP de movilidad", detalle: "Preparación · 10 minutos", foto: "/v2/hombros.webp" },
 ];
 
+const ADICIONALES = [
+  { nombre: "Calentamiento dinámico", nivel: "Principiante", detalle: "10 min · 5 series" },
+  { nombre: "Recuperación post-entreno", nivel: "Principiante", detalle: "5 min · 1 serie" },
+  { nombre: "Movilidad preventiva de hombros", nivel: "Principiante", detalle: "10 min · 3 series" },
+];
+
 export function EntrenamientoDemoV2() {
   const [seleccionado, setSeleccionado] = useState(4);
+  const [direccion, setDireccion] = useState<1 | -1>(1);
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [verRutina, setVerRutina] = useState(false);
   const [iniciada, setIniciada] = useState(false);
@@ -61,12 +69,15 @@ export function EntrenamientoDemoV2() {
   const actual = DIAS.find((dia) => dia.numero === seleccionado) ?? DIAS[3];
 
   const elegirDia = (numero: number) => {
+    if (numero === seleccionado) return;
+    setDireccion(numero > seleccionado ? 1 : -1);
     setSeleccionado(numero);
     setIniciada(false);
     setVerRutina(false);
   };
 
   const cambiarDia = (desplazamiento: -1 | 1) => {
+    setDireccion(desplazamiento);
     setSeleccionado((numeroActual) => {
       const indice = DIAS.findIndex((dia) => dia.numero === numeroActual);
       const siguiente = Math.min(DIAS.length - 1, Math.max(0, indice + desplazamiento));
@@ -126,12 +137,14 @@ export function EntrenamientoDemoV2() {
             <button
               type="button"
               key={dia.numero}
-              className={`${styles.dayItem} ${dia.numero === seleccionado ? styles.dayActive : ""}`}
+              className={`${styles.dayItem} ${dia.numero === seleccionado ? styles.dayActive : ""} ${dia.numero < seleccionado ? styles.dayCompleted : ""}`}
               onClick={() => elegirDia(dia.numero)}
               aria-pressed={dia.numero === seleccionado}
             >
               <span className={styles.dayLabel}>{dia.etiqueta}</span>
-              <span className={styles.dayCircle}>{dia.descanso ? <Moon size={10} /> : dia.numero}</span>
+              <span className={styles.dayCircle}>
+                {dia.numero < seleccionado ? <Check size={11} strokeWidth={3} /> : dia.descanso ? <Moon size={10} /> : dia.numero}
+              </span>
             </button>
           ))}
         </div>
@@ -144,7 +157,7 @@ export function EntrenamientoDemoV2() {
         onPointerUp={terminarGesto}
         onPointerCancel={() => { inicioGesto.current = null; }}
       >
-        <div key={actual.numero} className={styles.heroAnimated}>
+        <div key={actual.numero} className={`${styles.heroAnimated} ${direccion > 0 ? styles.heroFromRight : styles.heroFromLeft}`}>
           <div className={styles.heroMedia}>
             <Image src={actual.foto} alt={`Entrenamiento de ${actual.titulo}`} fill sizes="(max-width: 460px) 100vw, 460px" loading="eager" className={styles.heroImage} />
           </div>
@@ -198,12 +211,20 @@ export function EntrenamientoDemoV2() {
         <span className={styles.impulsoBadge}>Activo</span>
       </section>
 
-      <div className={styles.sectionHeader}><div><h2>Entrenamientos adicionales</h2><p>Explora por categoría</p></div><button type="button">Ver todos</button></div>
-      <div className={styles.chipRow} aria-label="Categorías">
-        <span className={styles.chip}>Calentamiento</span><span className={styles.chip}>Favoritos</span><span className={styles.chip}>Poco tiempo</span><span className={styles.chip}>Movilidad</span>
+      <div className={styles.sectionHeader}>
+        <div><h2>Entrenamientos adicionales</h2><p>Explora por categoría</p></div>
+        <button type="button">Ver todos <ChevronRight size={14} /></button>
       </div>
-      <section className={styles.exerciseList} aria-label="Entrenamientos recomendados">
-        {EJERCICIOS.map((ejercicio) => <EjercicioDemo key={ejercicio.nombre} {...ejercicio} />)}
+      <div className={styles.chipRow} aria-label="Categorías">
+        <span className={`${styles.chip} ${styles.chipActive}`}>Calentamiento</span><span className={styles.chip}>Favoritos</span><span className={styles.chip}>Poco tiempo</span><span className={styles.chip}>Movilidad</span>
+      </div>
+      <section className={styles.additionalList} aria-label="Entrenamientos recomendados">
+        {ADICIONALES.map((entrenamiento) => (
+          <button type="button" className={styles.additionalCard} key={entrenamiento.nombre}>
+            <strong>{entrenamiento.nombre}</strong>
+            <span className={styles.additionalMeta}><b>{entrenamiento.nivel}</b><span>·</span>{entrenamiento.detalle}</span>
+          </button>
+        ))}
       </section>
 
       {menuAbierto && (
