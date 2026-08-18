@@ -1034,6 +1034,88 @@
 @keyframes calorieRingFill { from { stroke-dashoffset: 263.89; } to { stroke-dashoffset: var(--ring-offset); } }
 @keyframes macroBarFill { from { transform: scaleX(0); } to { transform: scaleX(var(--macro-scale)); } }
 
+.progressPage { padding: 12px 0 34px; }
+.progressSectionHeading { display: flex; min-height: 50px; align-items: center; justify-content: space-between; gap: 12px; }
+.progressSectionHeading h1,
+.progressSectionHeading h2 { color: #f7f7f4; font-size: 21px; font-weight: 760; letter-spacing: -.035em; }
+.progressSectionHeading button { display: flex; align-items: center; gap: 2px; color: #858885; font-size: 9px; font-weight: 670; }
+
+.bodyweightCard { overflow: hidden; border: 1px solid rgba(255,255,255,.045); border-radius: 11px; background: #171818; }
+.bodyweightMain { display: grid; min-height: 92px; grid-template-columns: 50px 1fr; align-items: center; gap: 12px; padding: 12px 14px; }
+.bodyweightMain > span { display: grid; width: 50px; height: 50px; place-items: center; border-radius: 10px; color: #c9cbc8; background: linear-gradient(145deg, #303131, #242525); }
+.bodyweightMain strong { display: block; color: #fff; font-size: 24px; font-weight: 680; letter-spacing: -.035em; }
+.bodyweightMain small { display: block; margin-top: 4px; color: #898c89; font-size: 9px; }
+.bodyweightFooter { display: flex; min-height: 48px; align-items: center; justify-content: space-between; padding: 0 14px; border-top: 1px solid rgba(255,255,255,.06); }
+.bodyweightFooter p { color: #888b88; font-size: 10px; }
+.bodyweightFooter p strong { color: #f5f6f2; font-size: 12px; }
+.bodyweightFooter button { display: flex; align-items: center; gap: 7px; color: #f0f1ed; font-size: 10px; font-weight: 660; }
+
+.lifetimeGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.lifetimeGrid article { position: relative; display: flex; min-height: 129px; flex-direction: column; justify-content: flex-end; overflow: hidden; padding: 13px; border: 1px solid rgba(255,255,255,.035); border-radius: 9px; background: #151616; }
+.lifetimeGrid article > svg { position: absolute; top: 13px; right: 13px; color: #555957; }
+.lifetimeGrid p { display: flex; align-items: baseline; gap: 4px; }
+.lifetimeGrid p strong { color: #fff; font-size: 30px; font-weight: 670; letter-spacing: -.045em; line-height: 1; }
+.lifetimeGrid p span { color: #858885; font-size: 11px; }
+.lifetimeGrid h3 { margin-top: 13px; color: #edeeea; font-size: 10px; font-weight: 620; line-height: 1.25; }
+.lifetimeGrid small { margin-top: 5px; color: #777a77; font-size: 8px; }
+.lifetimeGrid article:nth-child(1) small,
+.lifetimeGrid article:nth-child(2) small,
+.lifetimeGrid article:nth-child(5) small { color: #20d59c; }
+
+.programProgressCard { display: grid; width: 100%; gap: 13px; padding: 15px; border: 1px solid rgba(255,255,255,.045); border-radius: 10px; color: #f5f6f2; background: linear-gradient(145deg, #191a1a, #131414); text-align: left; }
+.programProgressCard div { display: grid; gap: 3px; }
+.programProgressCard div span { color: #1bd29a; font-size: 8px; font-weight: 740; letter-spacing: .06em; text-transform: uppercase; }
+.programProgressCard div strong { font-size: 17px; font-weight: 690; }
+.programProgressCard div small { color: #7e817e; font-size: 9px; }
+.programProgressCard > i { display: block; height: 4px; overflow: hidden; border-radius: 999px; background: #29302d; }
+.programProgressCard > i em { display: block; height: 100%; border-radius: inherit; background: #f1f2ee; }
+.programProgressCard > p { display: flex; justify-content: space-between; color: #777a77; font-size: 8px; }
+.programProgressCard > p b { color: #cfd1ce; font-weight: 650; }
+
+.latestMedalCard { display: grid; min-height: 100px; grid-template-columns: 70px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 13px; border: 1px solid rgba(255,255,255,.045); border-radius: 10px; background: #171818; }
+.latestMedalCard img { width: 68px; height: 68px; object-fit: contain; }
+.latestMedalCard div strong { display: block; color: #fff; font-size: 13px; }
+.latestMedalCard div span { display: block; margin-top: 4px; color: #858885; font-size: 8px; }
+.latestMedalCard p { display: flex; align-items: center; gap: 7px; color: #f1f2ee; font-size: 10px; font-weight: 720; white-space: nowrap; }
+
+.progressModalBackdrop { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.76); }
+.progressModal { width: min(460px, 100%); padding: 18px 16px calc(22px + env(safe-area-inset-bottom, 0px)); border: 1px solid rgba(255,255,255,.08); border-radius: 22px 22px 0 0; background: #121313; animation: sheetUp 200ms ease-out both; }
+.progressModal header { display: flex; align-items: center; justify-content: space-between; }
+.progressModal h2 { color: #f6f6f3; font-size: 21px; font-weight: 730; }
+.progressModal header button { display: grid; width: 38px; height: 38px; place-items: center; color: #d6d8d4; }
+.progressModal > p { margin-top: 4px; color: #818481; font-size: 9px; }
+.progressModal label { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 7px; margin: 20px 0 14px; padding: 12px 13px; border-radius: 9px; background: #1d1e1e; }
+.progressModal label span { grid-column: 1 / -1; color: #858885; font-size: 8px; }
+.progressModal input { min-width: 0; color: #fff; background: transparent; font-size: 26px; font-weight: 710; outline: none; }
+.progressModal label b { padding-bottom: 4px; color: #a7aaa6; font-size: 10px; }
+.progressSaveButton { display: flex; width: 100%; min-height: 47px; align-items: center; justify-content: center; border-radius: 8px; color: #090a0a; background: #f5f5f2; font-size: 10px; font-weight: 760; }
+.progressToast { position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); right: max(14px, calc((100vw - 460px) / 2 + 14px)); left: max(14px, calc((100vw - 460px) / 2 + 14px)); z-index: 90; display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 13px; border: 1px solid rgba(255,255,255,.09); border-radius: 9px; color: #f1f2ee; background: #1d2521; box-shadow: 0 12px 34px rgba(0,0,0,.55); font-size: 9px; text-align: left; animation: toastIn 180ms ease-out both; }
+
+.programDetail { position: fixed; inset: 0; z-index: 75; width: min(460px, 100%); margin: 0 auto; overflow-y: auto; padding: calc(10px + env(safe-area-inset-top, 0px)) 16px calc(28px + env(safe-area-inset-bottom, 0px)); color: #f5f5f2; background: #080909; animation: panelIn 180ms ease-out both; scrollbar-width: none; }
+.programDetail::-webkit-scrollbar { display: none; }
+.programDetail > header { min-height: 45px; }
+.programDetail > header button { display: grid; width: 42px; height: 42px; place-items: center; margin-left: -10px; color: #fff; }
+.programDetail > h2 { margin-top: 5px; font-size: 30px; font-weight: 790; letter-spacing: -.05em; }
+.programDetail > strong { display: block; margin-top: 24px; font-size: 17px; }
+.programDetail > p { margin-top: 5px; color: #858885; font-size: 11px; }
+.programCalendar { margin-top: 28px; padding: 27px 0 30px; border-top: 1px solid rgba(255,255,255,.1); border-bottom: 1px solid rgba(255,255,255,.1); }
+.programCalendar h3 { margin: 0 0 17px 17px; font-size: 23px; font-weight: 720; }
+.programWeek { position: relative; display: grid; grid-template-columns: 30px repeat(7, minmax(0, 1fr)); align-items: center; gap: 6px; margin-top: 10px; }
+.programWeek::before { content: ""; position: absolute; right: 12px; left: 50px; height: 2px; background: #292b2a; }
+.programWeek > span { position: relative; z-index: 1; color: #f1f2ee; font-size: 11px; }
+.programWeek i { position: relative; z-index: 1; display: grid; aspect-ratio: 1; place-items: center; border-radius: 10px; color: #323533; background: #151616; font-size: 9px; font-style: normal; font-weight: 660; }
+.programWeek .programDayDone { color: #f5f5f2; background: #292a2a; }
+.programWeek .programDayActive { color: #090a0a; background: #f6f6f3; font-size: 15px; }
+.programTotals { display: grid; grid-template-columns: repeat(2, 1fr); margin-top: 27px; }
+.programTotals span { min-width: 0; padding: 0 16px; }
+.programTotals span + span { border-left: 1px solid rgba(255,255,255,.09); }
+.programTotals strong { display: block; font-size: 21px; }
+.programTotals small { display: block; margin-top: 9px; color: #7f827f; font-size: 9px; }
+.impulsoProgressCard { display: grid; min-height: 62px; grid-template-columns: 29px 1fr auto; align-items: center; gap: 10px; margin-top: 28px; padding: 0 14px; border: 1px solid rgba(23,211,154,.19); border-radius: 10px; color: #1bd29a; background: #111a17; }
+.impulsoProgressCard div strong { display: block; color: #f0f2ee; font-size: 10px; }
+.impulsoProgressCard div span { display: block; margin-top: 2px; color: #828783; font-size: 8px; }
+.impulsoProgressCard > b { color: #e7eae6; font-size: 11px; }
+
 .simplePage { padding-top: 16px; }
 .simpleTitle { font-size: 29px; font-weight: 820; letter-spacing: -.05em; }
 .simpleLead { margin-top: 5px; color: var(--v2-muted); font-size: 10px; line-height: 1.5; }
@@ -1097,6 +1179,9 @@
   .sessionFinishSheet,
   .nutritionPanel,
   .nutritionToast,
+  .progressModal,
+  .progressToast,
+  .programDetail,
   .scannerViewport > i,
   .calorieRingProgress,
   .animatedMacroBars i em { animation: none; }
