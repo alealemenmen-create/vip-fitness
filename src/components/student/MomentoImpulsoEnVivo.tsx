@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useState, useSyncExternalStore } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Check, ShieldAlert, Target, X, Zap } from "lucide-react";
 import {
@@ -109,6 +109,18 @@ export function MomentoImpulsoEnVivo({
           objetivo todavía no se hizo → la instrucción completa.
        3. La serie objetivo ya se hizo → "¿cómo salió?". */
   const necesitaCalibrar = !listaParaMostrar;
+  // La nota de orientación (`esOrientacion && !esPersonalAle`, más abajo)
+  // no tiene reto que aceptar/rechazar ni formulario de resultado — es su
+  // propio return temprano, solo con un botón "Cerrar indicación". Nunca
+  // puede volver `decisionTomada`/`resuelta` verdaderos, así que NUNCA debe
+  // entrar en las condiciones que fuerzan `mostrarExpandido`: si entrara,
+  // "Cerrar indicación" dejaba de tener efecto (mismo bug de fondo que el
+  // de "Acepto el reto" de abajo) y la tarjeta quedaba trabada para
+  // siempre — desde que esto pasó a ser un overlay de pantalla completa
+  // (commit `29f96b3`), eso significa bloquear al alumno por completo.
+  // Bug real en producción, 2026-08-18 (alumna Fabiola Galleguillos, en
+  // pleno entrenamiento): reportado por Alejandro con captura de pantalla.
+  const esNotaOrientacion = esOrientacion && !esPersonalAle;
   // `!decisionTomada`: sin esto, "Acepto el reto" no tenía ningún efecto
   // visible — el botón solo hace `setExpandido(false)`, pero esta condición
   // por sí sola ya forzaba el panel abierto, así que quedaba igual pase lo
@@ -118,9 +130,21 @@ export function MomentoImpulsoEnVivo({
   // registrado. Bug reportado en vivo, 2026-08-17, mismo día del fix de
   // timing de arriba — efecto colateral de esa misma condición nueva.
   const decisionTomada = retoAceptado || retoRechazado;
-  const listoParaInstruccion = listaParaMostrar && puedeVerInstruccion && !serieTerminada && !decisionTomada;
-  const listoParaResultado = serieTerminada && !resuelta;
+  const listoParaInstruccion = !esNotaOrientacion
+    && listaParaMostrar && puedeVerInstruccion && !serieTerminada && !decisionTomada;
+  const listoParaResultado = !esNotaOrientacion && serieTerminada && !resuelta;
   const mostrarExpandido = expandido || necesitaCalibrar || listoParaInstruccion || listoParaResultado;
+  // La nota de orientación sí se abre sola UNA vez (pedido original: "Ale
+  // aparece una vez antes del cierre para ordenar el esfuerzo"), pero solo
+  // eso — a partir de ahí manda el propio "Cerrar indicación" del alumno
+  // (`expandido`), sin que nada la vuelva a forzar.
+  const avisadoOrientacionRef = useRef(false);
+  useEffect(() => {
+    if (esNotaOrientacion && listaParaMostrar && !avisadoOrientacionRef.current) {
+      avisadoOrientacionRef.current = true;
+      setExpandido(true);
+    }
+  }, [esNotaOrientacion, listaParaMostrar]);
   const pesoObjetivo = typeof intervencion.prescripcion?.pesoKg === "number"
     ? `sube a ${intervencion.prescripcion.pesoKg} kg`
     : intervencion.tipo === "rest_pause"
