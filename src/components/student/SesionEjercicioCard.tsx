@@ -2071,6 +2071,33 @@ export const SesionEjercicioCard = forwardRef<
   const explicacion = explicacionTecnica(`${tecnica?.texto ?? ""} ${ejercicio.tecnicaTipo ?? ""}`);
   const recomendacionImpulso = ejercicio.recomendacionImpulso;
   const intervencionesImpulso = ejercicio.intervencionesImpulso;
+  /** Serie objetivo del primer reto real del ejercicio (no cuenta
+   * `tempo_controlado`: esa es una orientación de mitad de ejercicio, no un
+   * reto que se pueda "perder" — nunca bloquea nada). `null` si el
+   * ejercicio no tiene ningún Momento Impulso. Pedido de Alejandro,
+   * 2026-08-18: avisar CON ANTICIPACIÓN de que este ejercicio tiene un
+   * reto, en vez de que la única señal sea la burbuja que recién aparece
+   * una serie antes — el riesgo real es dejar el teléfono apenas se marca
+   * el descanso y no volver a mirarlo hasta la serie objetivo. */
+  const retosImpulso = intervencionesImpulso.filter(
+    (i) => i.estado !== "cancelada" && i.tipo !== "tempo_controlado"
+  );
+  const primerRetoObjetivo = retosImpulso.length > 0
+    ? Math.min(...retosImpulso.map((i) => i.serieObjetivo))
+    : null;
+  /** Aviso único al entrar al ejercicio: "este tiene un Momento Impulso,
+   * mantente atento". Mismo patrón que `avisoTecnica` más abajo (parpadea
+   * unos segundos y se esconde sola, no tapa la pantalla). */
+  const [avisoEntradaImpulso, setAvisoEntradaImpulso] = useState(false);
+  const avisoEntradaImpulsoRef = useRef(false);
+  useEffect(() => {
+    if (activo && primerRetoObjetivo !== null && !avisoEntradaImpulsoRef.current) {
+      avisoEntradaImpulsoRef.current = true;
+      setAvisoEntradaImpulso(true);
+      const id = window.setTimeout(() => setAvisoEntradaImpulso(false), 5000);
+      return () => window.clearTimeout(id);
+    }
+  }, [activo, primerRetoObjetivo]);
   /** Por intervención: ¿el alumno ya aceptó o rechazó el reto? Mientras siga
    * en `false` para la que apunta a `serieVisibleNumero`, esa serie se
    * bloquea (ver `bloqueosImpulsoPorSerie` más abajo y `bloqueadaPorImpulso`
@@ -2979,6 +3006,32 @@ export const SesionEjercicioCard = forwardRef<
               </div>
             );
           })}
+        </div>
+      )}
+
+      {modoEnfocado && avisoEntradaImpulso && (
+        <div className="momento-especial-serie" role="note">
+          <div className="resumen-impulso-serie">
+            <Zap size={13} fill="currentColor" aria-hidden />
+            <strong>Impulso VIP</strong>
+            <span aria-hidden>·</span>
+            <span>este ejercicio tiene un reto</span>
+          </div>
+          <p>Mantente atento a partir de la serie {Math.max(1, (primerRetoObjetivo ?? 1) - 1)}.</p>
+        </div>
+      )}
+
+      {modoEnfocado
+        && primerRetoObjetivo !== null
+        && serieVisibleNumero === primerRetoObjetivo - 2
+        && !seriesHechas.has(primerRetoObjetivo - 2) && (
+        <div className="momento-especial-serie" role="note">
+          <div className="resumen-impulso-serie">
+            <Zap size={13} fill="currentColor" aria-hidden />
+            <strong>Impulso VIP</strong>
+            <span aria-hidden>·</span>
+            <span>se prepara para más adelante</span>
+          </div>
         </div>
       )}
 
