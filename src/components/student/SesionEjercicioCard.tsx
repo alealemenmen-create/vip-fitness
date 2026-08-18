@@ -1132,6 +1132,11 @@ export const FilaSerie = forwardRef<
      * quitas el original"). Undefined cuando el ejercicio no tiene video:
      * el botón no se muestra. */
     onVerTecnica?: () => void;
+    /** Esta serie tiene un Momento Impulso esperando respuesta (aceptar o
+     * rechazar el reto) — se bloquea el botón hasta que el alumno conteste,
+     * para que no se pueda completar a ciegas sin haber visto el mensaje de
+     * Ale. Ver `bloqueosImpulsoPorSerie` en el componente padre. */
+    bloqueadaPorImpulso?: boolean;
   }
 >(function FilaSerie(
   {
@@ -1161,6 +1166,7 @@ export const FilaSerie = forwardRef<
     textoAlSaltarDescanso = "Guarda y avanza",
     textoDescansoPendiente,
     onVerTecnica,
+    bloqueadaPorImpulso = false,
   },
   ref
 ) {
@@ -1576,6 +1582,14 @@ export const FilaSerie = forwardRef<
 
   function presionarListo() {
     if (soloLectura) return;
+    // Bug real, 2026-08-18: sin este freno se podía completar la serie
+    // objetivo de un Momento Impulso sin haber aceptado ni rechazado el
+    // reto — la intervención quedaba "preparada"/sin resultado para
+    // siempre. Solo aplica al gesto que RECIÉN va a marcar la serie: si ya
+    // está corriendo el descanso o ya está hecha, dejar cancelar/deshacer
+    // como siempre (por construcción `bloqueadaPorImpulso` nunca es `true`
+    // en esos casos — ver `bloqueosImpulsoPorSerie` en el padre).
+    if (bloqueadaPorImpulso) return;
 
     if (descansando) {
       // Tocarlo mientras corre CANCELA el descanso y deshace la serie: es el
@@ -1847,6 +1861,7 @@ export const FilaSerie = forwardRef<
           <button
             type="button"
             onClick={presionarListo}
+            disabled={bloqueadaPorImpulso}
             data-estado={estadoBoton}
             data-grupo-tecnica={colorGrupoTecnica && esLaQueToca ? "true" : "false"}
             className="boton-descanso"
@@ -1856,7 +1871,9 @@ export const FilaSerie = forwardRef<
                 : undefined
             }
             aria-label={
-              descansando
+              bloqueadaPorImpulso
+                ? "Responde el Momento Impulso de arriba antes de esta serie"
+                : descansando
                 ? activo
                   ? tocandoCancelarDescanso > 0
                     ? "Toca de nuevo para cancelar el descanso y deshacer esta serie"
@@ -1975,6 +1992,11 @@ export const FilaSerie = forwardRef<
           </button>
         )}
       </div>
+      {bloqueadaPorImpulso && (
+        <p className="mt-1 text-micro font-semibold text-vip">
+          Respondé el Momento Impulso de arriba antes de esta serie.
+        </p>
+      )}
       {segundosExceso > 0 && !excesoResuelto && (
         // Aviso chico, en vivo desde el segundo 1: primero avisa que el reloj
         // corre, y recién cuando se cruza el primer tramo (ver
@@ -2049,6 +2071,12 @@ export const SesionEjercicioCard = forwardRef<
   const explicacion = explicacionTecnica(`${tecnica?.texto ?? ""} ${ejercicio.tecnicaTipo ?? ""}`);
   const recomendacionImpulso = ejercicio.recomendacionImpulso;
   const intervencionesImpulso = ejercicio.intervencionesImpulso;
+  /** Por intervención: ¿el alumno ya aceptó o rechazó el reto? Mientras siga
+   * en `false` para la que apunta a `serieVisibleNumero`, esa serie se
+   * bloquea (ver `bloqueosImpulsoPorSerie` más abajo y `bloqueadaPorImpulso`
+   * en `FilaSerie`) — antes de esto se podía completar la serie sin haber
+   * tocado el Momento Impulso para nada. */
+  const [decisionesImpulso, setDecisionesImpulso] = useState<Record<string, boolean>>({});
   // Solo una recomendación APROBADA precarga algo — 'propuesta' (esperando
   // al entrenador) y 'bloqueada' (Regla E) nunca sugieren peso ni reps.
   const recomendacionAprobada =
@@ -2166,6 +2194,25 @@ export const SesionEjercicioCard = forwardRef<
     && intervencionesImpulso.some(
       (intervencion) => intervencion.serieObjetivo === serieVisibleNumero && intervencion.estado !== "cancelada"
     );
+  /** Series que no se pueden marcar todavía porque tienen un Momento Impulso
+   * esperando respuesta — bug real, 2026-08-18: sin este bloqueo se podía
+   * completar la serie objetivo sin haber aceptado ni rechazado el reto, y
+   * la intervención quedaba `estado: "preparada"`/`resultado: null` para
+   * siempre. Mismos requisitos que la tarjeta usa para revelar la
+   * instrucción completa (serie anterior resuelta de verdad) — si todavía no
+   * corresponde mostrarla, tampoco corresponde bloquear nada. */
+  const bloqueosImpulsoPorSerie = new Set(
+    intervencionesImpulso
+      .filter((intervencion) => {
+        if (intervencion.estado === "cancelada" || intervencion.tipo === "tempo_controlado") return false;
+        if (seriesHechas.has(intervencion.serieObjetivo)) return false;
+        const previa = intervencion.serieObjetivo - 1;
+        const previaResuelta = previa <= 0 || seriesHechas.has(previa);
+        if (!previaResuelta) return false;
+        return !(decisionesImpulso[intervencion.id] ?? intervencion.estado === "resuelta");
+      })
+      .map((intervencion) => intervencion.serieObjetivo)
+  );
   // La meta de reps de Impulso VIP (si hay una aprobada) manda por sobre el
   // techo del rango del PDF — mismo criterio que el peso: sin recomendación
   // aprobada, el comportamiento de precarga queda igual que siempre.
@@ -3011,6 +3058,11 @@ export const SesionEjercicioCard = forwardRef<
               visible={puedeCalibrar && (!esOrientacion || !terminada)}
               puedeVerInstruccion={previaResuelta}
               serieTerminada={terminada}
+              onDecision={(decidido) =>
+                setDecisionesImpulso((previo) =>
+                  previo[intervencion.id] === decidido ? previo : { ...previo, [intervencion.id]: decidido }
+                )
+              }
             />
           );
         })}
@@ -3083,6 +3135,7 @@ export const SesionEjercicioCard = forwardRef<
                     ? "Guardar y finalizar tu rutina"
                     : "Guardar y avanzar"
                 }
+                bloqueadaPorImpulso={bloqueosImpulsoPorSerie.has(n)}
               />
             </div>
           ))}

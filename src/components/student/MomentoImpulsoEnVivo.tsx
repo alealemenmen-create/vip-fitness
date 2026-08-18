@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useEffect, useState } from "react";
-import { Check, ShieldAlert, Target, Zap } from "lucide-react";
+import { Check, ShieldAlert, Target, X, Zap } from "lucide-react";
 import {
   calibrarIntervencionEnVivo,
   marcarIntervencionMostrada,
@@ -10,6 +10,7 @@ import {
   type ResolverIntervencionState,
 } from "@/app/alumno/entrenar/impulso-actions";
 import type { IntervencionImpulsoEnVivo } from "@/app/alumno/entrenar/data";
+import { guardarDecisionReto, leerDecisionReto } from "@/lib/entrenamiento/decision-impulso";
 
 const inicial: ResolverIntervencionState = { error: null, ok: false, verificada: false };
 const inicialCalibracion: CalibrarIntervencionState = { error: null, ok: false, instruccion: null, tipo: null, prescripcion: null };
@@ -19,6 +20,7 @@ export function MomentoImpulsoEnVivo({
   visible,
   puedeVerInstruccion,
   serieTerminada,
+  onDecision,
 }: {
   intervencion: IntervencionImpulsoEnVivo;
   visible: boolean;
@@ -32,6 +34,13 @@ export function MomentoImpulsoEnVivo({
    * el temporizador", no antes ni junto con la calibración. */
   puedeVerInstruccion: boolean;
   serieTerminada: boolean;
+  /** Avisa al padre (`SesionEjercicioCard`/`SesionGrupoCard`) si el alumno ya
+   * respondió el reto (aceptado o rechazado) — la serie objetivo se bloquea
+   * mientras esto siga en `false`, ver `bloqueadaPorImpulso` en `FilaSerie`.
+   * Bug real, 2026-08-18: sin este aviso se podía completar la serie sin
+   * haber tocado el Momento Impulso para nada — quedaba
+   * `estado: "preparada"`, `resultado: null` para siempre en la base. */
+  onDecision?: (decidido: boolean) => void;
 }) {
   const [state, action, pending] = useActionState(resolverIntervencionEnVivo, inicial);
   const [calibracion, calibrarAction, calibrando] = useActionState(
@@ -40,7 +49,9 @@ export function MomentoImpulsoEnVivo({
   );
   const [resultadoElegido, setResultadoElegido] = useState<string | null>(intervencion?.resultado ?? null);
   const [expandido, setExpandido] = useState(false);
-  const [retoAceptado, setRetoAceptado] = useState(false);
+  const decisionGuardada = intervencion ? leerDecisionReto(intervencion.id) : null;
+  const [retoAceptado, setRetoAceptado] = useState(decisionGuardada === "aceptado");
+  const [retoRechazado, setRetoRechazado] = useState(decisionGuardada === "rechazado");
   const esOrientacion = intervencion?.tipo === "tempo_controlado";
   const esPersonalAle = intervencion?.origen === "personal_ale" || intervencion?.origen === "preparada_por_ale";
   const tipoActual = calibracion.tipo ?? intervencion?.tipo ?? null;
@@ -58,15 +69,16 @@ export function MomentoImpulsoEnVivo({
           objetivo todavía no se hizo → la instrucción completa.
        3. La serie objetivo ya se hizo → "¿cómo salió?". */
   const necesitaCalibrar = !listaParaMostrar;
-  // `!retoAceptado`: sin esto, "Acepto el reto" no tenía ningún efecto
+  // `!decisionTomada`: sin esto, "Acepto el reto" no tenía ningún efecto
   // visible — el botón solo hace `setExpandido(false)`, pero esta condición
   // por sí sola ya forzaba el panel abierto, así que quedaba igual pase lo
-  // que pase. Aceptar el reto es justamente lo que le da permiso al alumno
-  // de replegarlo y arrancar la serie: la burbuja calma su pulso (ver
+  // que pase. Aceptar (o rechazar, ver el botón de al lado) es justamente lo
+  // que le da permiso al alumno de replegarlo: la burbuja calma su pulso (ver
   // `[data-reto-aceptado="true"]` en globals.css) para confirmar que quedó
   // registrado. Bug reportado en vivo, 2026-08-17, mismo día del fix de
   // timing de arriba — efecto colateral de esa misma condición nueva.
-  const listoParaInstruccion = listaParaMostrar && puedeVerInstruccion && !serieTerminada && !retoAceptado;
+  const decisionTomada = retoAceptado || retoRechazado;
+  const listoParaInstruccion = listaParaMostrar && puedeVerInstruccion && !serieTerminada && !decisionTomada;
   const listoParaResultado = serieTerminada && !resuelta;
   const mostrarExpandido = expandido || necesitaCalibrar || listoParaInstruccion || listoParaResultado;
   const pesoObjetivo = typeof intervencion.prescripcion?.pesoKg === "number"
@@ -82,6 +94,15 @@ export function MomentoImpulsoEnVivo({
     startTransition(() => void marcarIntervencionMostrada(intervencion.id));
   }, [intervencion, visible, listaParaMostrar]);
 
+  // Las técnicas de orientación a mitad de ejercicio (`tempo_controlado` sin
+  // ser un mensaje personal) no tienen reto que aceptar/rechazar — se
+  // resuelven solas más abajo con su propio return temprano, así que nunca
+  // deben bloquear ninguna serie.
+  useEffect(() => {
+    onDecision?.(decisionTomada || (esOrientacion && !esPersonalAle));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decisionTomada, esOrientacion, esPersonalAle]);
+
   if (!intervencion || !visible || intervencion.estado === "cancelada") return null;
 
   // En reposo ocupa solo el rayo. La instrucción se abre al tocarlo y el
@@ -93,7 +114,7 @@ export function MomentoImpulsoEnVivo({
           type="button"
           onClick={() => setExpandido(true)}
           className={`rayo-impulso-vivo relative inline-flex items-center justify-center gap-1.5 border ${resuelta ? "border-success/35 bg-success/10 text-success" : "border-vip/55 bg-vip/15 text-vip"}`}
-          data-reto-aceptado={retoAceptado ? "true" : "false"}
+          data-reto-aceptado={decisionTomada ? "true" : "false"}
           aria-label={resuelta ? "Ver resultado de Impulso VIP" : `Abrir indicación de Impulso VIP para la serie ${intervencion.serieObjetivo}`}
           title={resuelta ? "Resultado registrado" : "Indicación de Ale"}
         >
@@ -210,17 +231,38 @@ export function MomentoImpulsoEnVivo({
             </p>
           )}
           {!serieTerminada && (
-            <button
-              type="button"
-              onClick={() => {
-                setRetoAceptado(true);
-                setExpandido(false);
-              }}
-              className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-vip/55 bg-vip/15 px-3 text-caption font-extrabold text-vip shadow-[0_0_18px_color-mix(in_srgb,var(--color-vip)_16%,transparent)] active:scale-[.98]"
-            >
-              <Check size={15} strokeWidth={3} aria-hidden />
-              Acepto el reto
-            </button>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  guardarDecisionReto(intervencion.id, "aceptado");
+                  setRetoAceptado(true);
+                  setExpandido(false);
+                }}
+                className="flex min-h-10 flex-[2] items-center justify-center gap-2 rounded-xl border border-vip/55 bg-vip/15 px-3 text-caption font-extrabold text-vip shadow-[0_0_18px_color-mix(in_srgb,var(--color-vip)_16%,transparent)] active:scale-[.98]"
+              >
+                <Check size={15} strokeWidth={3} aria-hidden />
+                Acepto el reto
+              </button>
+              {/* La serie objetivo queda bloqueada (ver `bloqueadaPorImpulso`
+                  en FilaSerie) hasta que el alumno responda algo acá —
+                  aceptar o, con este botón, decir explícitamente que hoy no.
+                  Sin esta segunda opción, alguien que de verdad no quiere el
+                  reto quedaría trabado sin salida. */}
+              <button
+                type="button"
+                onClick={() => {
+                  guardarDecisionReto(intervencion.id, "rechazado");
+                  setRetoRechazado(true);
+                  setExpandido(false);
+                }}
+                aria-label="No aceptar el reto por ahora"
+                title="No aceptar el reto por ahora"
+                className="flex min-h-10 flex-1 items-center justify-center rounded-xl border border-white/12 bg-white/[0.04] text-text-secondary active:scale-[.98]"
+              >
+                <X size={15} strokeWidth={3} aria-hidden />
+              </button>
+            </div>
           )}
         </div>
       </div>
