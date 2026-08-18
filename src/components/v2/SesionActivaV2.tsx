@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownUp,
   Check,
@@ -22,6 +22,7 @@ import {
   Plus,
   Repeat2,
   Settings,
+  StickyNote,
   X,
 } from "lucide-react";
 import styles from "./SesionActivaV2.module.css";
@@ -50,7 +51,7 @@ type DescansoActivo = {
   segundos: number;
 };
 
-type PanelSesion = "consejo" | "historial" | "sustituir" | "reordenar" | "ajustes" | "informacion" | null;
+type PanelSesion = "consejo" | "historial" | "sustituir" | "reordenar" | "notas" | "ajustes" | "informacion" | null;
 type VistaSesion = "lista" | "video" | "descanso";
 
 const EJERCICIOS: EjercicioSesion[] = [
@@ -82,11 +83,15 @@ export function SesionActivaV2() {
   const [pausada, setPausada] = useState(false);
   const [registro, setRegistro] = useState(crearRegistroInicial);
   const [ejercicioActivoId, setEjercicioActivoId] = useState(EJERCICIOS[0].id);
+  const [ejercicioExpandidoId, setEjercicioExpandidoId] = useState<string | null>(EJERCICIOS[0].id);
   const [descanso, setDescanso] = useState<DescansoActivo | null>(null);
   const [vista, setVista] = useState<VistaSesion>("lista");
+  const [controlesVideoVisibles, setControlesVideoVisibles] = useState(true);
   const [panel, setPanel] = useState<PanelSesion>(null);
+  const [notas, setNotas] = useState<Record<string, string>>({});
   const [confirmarSalida, setConfirmarSalida] = useState(false);
   const [registrada, setRegistrada] = useState(false);
+  const gestoInicioX = useRef<number | null>(null);
 
   const totalSeries = useMemo(() => EJERCICIOS.reduce((total, ejercicio) => total + ejercicio.repeticiones.length, 0), []);
   const seriesCompletadas = useMemo(() => Object.values(registro).reduce(
@@ -118,6 +123,12 @@ export function SesionActivaV2() {
     return () => window.clearInterval(intervalo);
   }, [descanso, pausada]);
 
+  useEffect(() => {
+    if (vista !== "video" || !controlesVideoVisibles) return;
+    const temporizador = window.setTimeout(() => setControlesVideoVisibles(false), 2400);
+    return () => window.clearTimeout(temporizador);
+  }, [controlesVideoVisibles, ejercicioActivoId, vista]);
+
   const actualizarSerie = (ejercicioId: string, indice: number, campo: "reps" | "peso", valor: string) => {
     setRegistro((actual) => ({
       ...actual,
@@ -138,6 +149,10 @@ export function SesionActivaV2() {
       return;
     }
     setDescanso({ ejercicioId: ejercicio.id, serieIndice, segundos: ejercicio.descanso });
+
+    const esUltimaSerie = ejercicio.id === EJERCICIOS[EJERCICIOS.length - 1].id
+      && serieIndice === ejercicio.repeticiones.length - 1;
+    if (esUltimaSerie && seriesCompletadas + 1 === totalSeries) setConfirmarSalida(true);
   };
 
   const ajustarDescanso = (cantidad: number) => {
@@ -147,6 +162,22 @@ export function SesionActivaV2() {
   const moverEjercicio = (direccion: -1 | 1) => {
     const siguiente = limitar(ejercicioActivoIndice + direccion, 0, EJERCICIOS.length - 1);
     setEjercicioActivoId(EJERCICIOS[siguiente].id);
+    setEjercicioExpandidoId(EJERCICIOS[siguiente].id);
+    setControlesVideoVisibles(true);
+  };
+
+  const iniciarGesto = (clientX: number) => {
+    gestoInicioX.current = clientX;
+    setControlesVideoVisibles(true);
+  };
+
+  const terminarGesto = (clientX: number) => {
+    if (gestoInicioX.current === null) return;
+    const distancia = clientX - gestoInicioX.current;
+    gestoInicioX.current = null;
+    if (Math.abs(distancia) < 44) return;
+    moverEjercicio(distancia < 0 ? 1 : -1);
+    setVista("video");
   };
 
   if (registrada) {
@@ -183,7 +214,14 @@ export function SesionActivaV2() {
       </header>
 
       {vista === "descanso" ? (
-        <section className={styles.restImmersive} aria-live="polite">
+        <section
+          className={styles.restImmersive}
+          aria-live="polite"
+          onPointerDown={(evento) => iniciarGesto(evento.clientX)}
+          onPointerUp={(evento) => terminarGesto(evento.clientX)}
+        >
+          {ejercicioActivoIndice > 0 ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={() => { moverEjercicio(-1); setVista("video"); }} aria-label="Ver ejercicio anterior"><ChevronLeft size={25} /></button> : null}
+          {ejercicioActivoIndice < EJERCICIOS.length - 1 ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={() => { moverEjercicio(1); setVista("video"); }} aria-label="Ver ejercicio siguiente"><ChevronRight size={25} /></button> : null}
           <div className={styles.restCenter}>
             <span>Descanso</span><strong>{descanso?.segundos ?? 0}</strong><small>segundos</small>
             <div className={styles.restAdjustments}><button type="button" onClick={() => ajustarDescanso(-15)}><Minus size={13} />15 s</button><button type="button" onClick={() => ajustarDescanso(15)}><Plus size={13} />15 s</button></div>
@@ -194,15 +232,21 @@ export function SesionActivaV2() {
         </section>
       ) : vista === "video" ? (
         <section className={styles.videoMode}>
-          <div className={styles.videoStage}>
+          <div
+            className={styles.videoStage}
+            onPointerDown={(evento) => iniciarGesto(evento.clientX)}
+            onPointerUp={(evento) => terminarGesto(evento.clientX)}
+          >
             <Image src={ejercicioActivo.foto} alt={`Demostración de ${ejercicioActivo.nombre}`} fill priority sizes="(max-width: 460px) 100vw, 460px" />
             <div className={styles.videoShade} />
             <button type="button" className={styles.videoPlay} aria-label="Reproducir demostración"><Play size={23} fill="currentColor" /></button>
+            {controlesVideoVisibles && ejercicioActivoIndice > 0 ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={() => moverEjercicio(-1)} aria-label="Ver ejercicio anterior"><ChevronLeft size={25} /></button> : null}
+            {controlesVideoVisibles && ejercicioActivoIndice < EJERCICIOS.length - 1 ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={() => moverEjercicio(1)} aria-label="Ver ejercicio siguiente"><ChevronRight size={25} /></button> : null}
             <span className={styles.videoSpeed}>1× velocidad</span>
             <div className={styles.videoIdentity}><small>SERIE {ejercicioActivo.codigo}</small><h1>{ejercicioActivo.nombre}</h1><p>{ejercicioActivo.equipo}</p></div>
           </div>
           <div className={styles.videoActions}>
-            <button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={13} />Sustituir</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>
+            <button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={13} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={13} />Reordenar</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>
           </div>
           <div className={styles.videoSetStrip}>
             <span><b>Serie</b><em>1 TRB</em></span><span><b>Reps</b><strong>{registro[ejercicioActivo.id][0].reps}</strong></span><span><b>Peso</b><strong>{registro[ejercicioActivo.id][0].peso || "— kg"}</strong></span>
@@ -220,22 +264,22 @@ export function SesionActivaV2() {
       ) : (
         <main className={styles.workoutList}>
           {EJERCICIOS.map((ejercicio) => {
-            const activa = ejercicio.id === ejercicioActivo.id;
+            const activa = ejercicio.id === ejercicioExpandidoId;
             if (!activa) {
               return (
-                <button type="button" className={styles.compactExercise} key={ejercicio.id} onClick={() => setEjercicioActivoId(ejercicio.id)}>
+                <button type="button" className={styles.compactExercise} key={ejercicio.id} onClick={() => { setEjercicioActivoId(ejercicio.id); setEjercicioExpandidoId(ejercicio.id); }}>
                   <span className={styles.compactCode}>{ejercicio.codigo} SERIE</span><span className={styles.compactThumb}><Image src={ejercicio.foto} alt="" fill sizes="68px" /><i><Play size={12} fill="currentColor" /></i></span><span className={styles.compactCopy}><strong>{ejercicio.nombre}</strong><small>Reps: {ejercicio.repeticiones.join(" · ")}</small></span>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}
                 </button>
               );
             }
             return (
               <section className={styles.activeExercise} key={ejercicio.id}>
-                <div className={styles.seriesLabel}>SERIE {ejercicio.codigo}<i aria-hidden="true">›››</i>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}</div>
+                <button type="button" className={styles.seriesLabel} onClick={() => setEjercicioExpandidoId(null)} aria-label={`Contraer ${ejercicio.nombre}`}>SERIE {ejercicio.codigo}<i aria-hidden="true">›››</i>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}</button>
                 <div className={styles.exerciseHeading}>
                   <button type="button" className={styles.exerciseMedia} onClick={() => setVista("video")} aria-label={`Ver demostración de ${ejercicio.nombre}`}><Image src={ejercicio.foto} alt="" fill sizes="70px" priority={ejercicio.codigo === "A"} /><i><Play size={17} fill="currentColor" /></i></button>
                   <div><h1>{ejercicio.nombre}</h1><p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p></div>
                 </div>
-                <div className={styles.actionChips}><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={14} />Sustituir</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={14} />Reordenar</button></div>
+                <div className={styles.actionChips}><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={14} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={14} />Reordenar series</button></div>
                 <div className={styles.setTable}>
                   <div className={styles.setHead}><span>Serie</span><span>Reps</span><span>Peso</span><span>Descanso</span><span>Listo</span></div>
                   {registro[ejercicio.id].map((serie, serieIndice) => {
@@ -269,7 +313,15 @@ export function SesionActivaV2() {
         <button type="button" aria-label="Abrir temporizador" onClick={() => setVista("descanso")} disabled={descanso === null}><Clock3 size={19} /></button>
       </nav>
 
-      {panel !== null ? <PanelAuxiliar tipo={panel} ejercicio={ejercicioActivo} cerrar={() => setPanel(null)} /> : null}
+      {panel !== null ? (
+        <PanelAuxiliar
+          tipo={panel}
+          ejercicio={ejercicioActivo}
+          notaInicial={notas[ejercicioActivo.id] ?? ""}
+          guardarNota={(nota) => setNotas((actuales) => ({ ...actuales, [ejercicioActivo.id]: nota }))}
+          cerrar={() => setPanel(null)}
+        />
+      ) : null}
       {confirmarSalida ? (
         <div className={styles.sheetBackdrop} role="presentation" onClick={() => setConfirmarSalida(false)}>
           <section className={styles.finishSheet} role="dialog" aria-modal="true" aria-label="Finalizar entrenamiento" onClick={(evento) => evento.stopPropagation()}>
@@ -284,8 +336,21 @@ export function SesionActivaV2() {
   );
 }
 
-function PanelAuxiliar({ tipo, ejercicio, cerrar }: { tipo: Exclude<PanelSesion, null>; ejercicio: EjercicioSesion; cerrar: () => void }) {
-  const titulos = { consejo: "Consejo del entrenador", historial: "Historial del ejercicio", sustituir: "Sustituir ejercicio", reordenar: "Reordenar entrenamiento", ajustes: "Ajustes de la sesión", informacion: "Información del ejercicio" };
+function PanelAuxiliar({
+  tipo,
+  ejercicio,
+  notaInicial,
+  guardarNota,
+  cerrar,
+}: {
+  tipo: Exclude<PanelSesion, null>;
+  ejercicio: EjercicioSesion;
+  notaInicial: string;
+  guardarNota: (nota: string) => void;
+  cerrar: () => void;
+}) {
+  const [notaBorrador, setNotaBorrador] = useState(notaInicial);
+  const titulos = { consejo: "Consejo del entrenador", historial: "Historial del ejercicio", sustituir: "Sustituir ejercicio", reordenar: "Reordenar series", notas: "Notas del ejercicio", ajustes: "Ajustes de la sesión", informacion: "Información del ejercicio" };
   return (
     <div className={styles.sheetBackdrop} role="presentation" onClick={cerrar}>
       <section className={styles.auxSheet} role="dialog" aria-modal="true" aria-label={titulos[tipo]} onClick={(evento) => evento.stopPropagation()}>
@@ -294,7 +359,8 @@ function PanelAuxiliar({ tipo, ejercicio, cerrar }: { tipo: Exclude<PanelSesion,
         {tipo === "consejo" ? <p className={styles.sheetCopy}>Mantén el abdomen firme, controla el descenso y conserva la trayectoria estable durante toda la repetición.</p> : null}
         {tipo === "historial" ? <div className={styles.historyGrid}><span>Fecha</span><span>Reps</span><span>Peso</span><strong>11 ago.</strong><strong>10 · 10 · 10</strong><strong>42 kg</strong><strong>4 ago.</strong><strong>12 · 10 · 10</strong><strong>40 kg</strong></div> : null}
         {tipo === "sustituir" ? <div className={styles.swapList}><button type="button"><Dumbbell size={17} /><span><strong>Sentadilla goblet</strong><small>Mismo patrón de movimiento</small></span><Plus size={17} /></button><button type="button"><Dumbbell size={17} /><span><strong>Prensa horizontal</strong><small>Alternativa para cuádriceps</small></span><Plus size={17} /></button></div> : null}
-        {tipo === "reordenar" ? <p className={styles.sheetCopy}>El reordenamiento conservará todas las series y respetará las agrupaciones técnicas. La interacción de arrastre se conectará al motor real en la siguiente integración.</p> : null}
+        {tipo === "notas" ? <label className={styles.exerciseNotes}><span>Nota personal</span><textarea value={notaBorrador} onChange={(evento) => setNotaBorrador(evento.target.value)} placeholder="Escribe una observación para este ejercicio…" /><button type="button" onClick={() => { guardarNota(notaBorrador); cerrar(); }}>Guardar nota</button></label> : null}
+        {tipo === "reordenar" ? <div className={styles.reorderPreview}><span><b>1</b> Serie de trabajo <ArrowDownUp size={15} /></span><span><b>2</b> Serie de trabajo <ArrowDownUp size={15} /></span><span><b>3</b> Serie de trabajo <ArrowDownUp size={15} /></span><button type="button" onClick={cerrar}>Guardar orden</button></div> : null}
         {tipo === "ajustes" ? <div className={styles.settingRows}><span>Temporizador automático <b>Activo</b></span><span>Sonido al terminar <b>Activo</b></span><span>Unidad de peso <b>kg</b></span></div> : null}
         {tipo === "informacion" ? <div className={styles.infoGrid}><span><small>Equipo</small><strong>{ejercicio.equipo}</strong></span><span><small>Objetivo</small><strong>{ejercicio.grupo}</strong></span><span><small>Descanso</small><strong>{ejercicio.descanso} segundos</strong></span></div> : null}
       </section>
