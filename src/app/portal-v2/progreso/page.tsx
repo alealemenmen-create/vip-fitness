@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import {
   ArrowLeft,
@@ -121,7 +122,7 @@ export default function ProgresoV2Page() {
 
       <div className={styles.progressSectionHeading}>
         <h2>Comunidad</h2>
-        <button type="button">Ver clasificación <ChevronRight size={16} /></button>
+        <Link href="/portal-v2/progreso/comunidad">Ver clasificación <ChevronRight size={16} /></Link>
       </div>
       <section className={styles.communityPreview} aria-label="Clasificación de la comunidad">
         {COMUNIDAD.map(({ nombre, puntos, foto, puesto }) => (

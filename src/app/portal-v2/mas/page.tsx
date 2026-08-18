@@ -37,7 +37,7 @@ export default function MasV2Page() {
       </Link>
       <div className={styles.moreLevelTrack} aria-label="Progreso del nivel"><i style={{ width: "68%" }} /></div>
 
-      <Link href="/alumno/ranked" className={styles.moreCommunityBanner}>
+      <Link href="/portal-v2/progreso/comunidad" className={styles.moreCommunityBanner}>
         <div><strong>Nadie progresa solo</strong><span>Comparte avances y celebra a la comunidad VIP.</span></div>
         <b>Ver comunidad <ChevronRight size={14} /></b>
       </Link>
