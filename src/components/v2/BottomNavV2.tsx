@@ -1,0 +1,39 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Dumbbell, Layers3, LayoutGrid, UtensilsCrossed } from "lucide-react";
+import styles from "./PortalV2.module.css";
+
+const TABS = [
+  { href: "/portal-v2/entrenamiento", label: "Entrenamiento", icon: Dumbbell },
+  { href: "/portal-v2/nutricion", label: "Nutrición", icon: UtensilsCrossed },
+  { href: "/portal-v2/progreso", label: "Progreso", icon: LayoutGrid },
+  { href: "/portal-v2/mas", label: "Más", icon: Layers3 },
+];
+
+export function BottomNavV2() {
+  const pathname = usePathname();
+
+  return (
+    <div className={styles.navWrap}>
+      <nav className={styles.nav} aria-label="Navegación principal">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const activo = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={`${styles.navItem} ${activo ? styles.navActive : ""}`}
+              aria-current={activo ? "page" : undefined}
+            >
+              <Icon strokeWidth={activo ? 2.3 : 1.8} />
+              <span className={styles.navLabel}>{tab.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}

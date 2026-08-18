@@ -34,7 +34,7 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
     };
   }
 
-  redirect(perfil.rol === "alumno" ? "/alumno/inicio" : "/admin/alumnos");
+  redirect(perfil.rol === "alumno" ? "/portal-v2/entrenamiento" : "/admin/alumnos");
 }
 
 export type RecuperarState = { mensaje: string | null; error: string | null };

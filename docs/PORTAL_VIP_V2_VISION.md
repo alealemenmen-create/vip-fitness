@@ -6,11 +6,12 @@ Base de código: rama local `portal-v2`, nacida del commit `2c5996f`
 
 ## 1. Visión
 
-Portal VIP Fitness v2 tomará a STNDRD como referencia mínima de calidad de
-producto, simplicidad y experiencia inmersiva. La meta no es construir una
-versión reducida de STNDRD, sino alcanzar ese estándar y superarlo mediante las
-fortalezas propias de VIP Fitness: entrenador real, personalización, seguimiento,
-Impulso VIP, control profesional, comunidad local y evolución continua.
+Portal VIP Fitness v2 reproducirá de forma casi literal la estructura, jerarquía,
+navegación y experiencia de interacción observadas en STNDRD. La primera versión
+debe sentirse como una aplicación distinta del portal actual, no como un
+rediseño incremental. Sobre esa base se incorporarán gradualmente las fortalezas
+propias de VIP Fitness: entrenador real, personalización, seguimiento, Impulso
+VIP, control profesional, comunidad local y evolución continua.
 
 La rutina y el entrenamiento del día serán el centro de la experiencia. La
 interfaz aprovechará la pantalla completa, reducirá elementos decorativos que
@@ -32,6 +33,15 @@ preciso y natural para usuarios latinoamericanos.
 8. La v2 conservará los datos, funcionalidades útiles y servicios ya pagados.
 9. La publicación final utilizará el proyecto, dominio e infraestructura actuales.
 10. Ningún servicio adicional de pago se contratará sin autorización expresa.
+11. La v2 tendrá un marco visual independiente; no heredará el encabezado, la
+    navegación de cinco destinos ni la composición de pantallas del portal actual.
+12. Después del inicio de sesión se mostrará una pantalla oscura de arranque con
+    la marca VIP Fitness, equivalente en función y jerarquía a la referencia.
+13. La navegación principal tendrá exactamente cuatro destinos: Entrenamiento,
+    Nutrición, Progreso y Más.
+14. El selector de semana y días, la tarjeta fotográfica del entrenamiento, las
+    métricas, acciones, menú contextual y gestos seguirán primero la referencia;
+    las diferencias VIP se añadirán después de validar esa base.
 
 ## 3. Respaldo funcional: Vista clásica
 
@@ -127,8 +137,9 @@ Los patrones a adaptar incluyen:
 - progreso, peso, estadísticas, logros, medallas y clasificación;
 - configuración concentrada y sin saturar la navegación principal.
 
-No se copiarán marcas, textos, imágenes, videos ni recursos propietarios de
-STNDRD. VIP Fitness tendrá recursos, contenido y expresión visual propios.
+No se reutilizarán marcas, textos, imágenes, videos ni archivos propietarios de
+STNDRD. La réplica de estructura e interacción utilizará la marca, el léxico,
+las fotografías, los datos y el contenido propios de VIP Fitness.
 
 ## 7. Impulso VIP en la v2
 
@@ -172,10 +183,12 @@ antes de publicarse para alumnos reales.
 
 ### Etapa 1 — Estructura e Inicio
 
-- Nuevo marco móvil a pantalla completa.
-- Navegación principal simplificada.
-- Inicio centrado en rutina activa, semana y entrenamiento del día.
-- Menú contextual del programa.
+- Nuevo marco móvil independiente a pantalla completa.
+- Pantalla de arranque oscura con logotipo VIP Fitness.
+- Navegación de cuatro destinos equivalente a la referencia.
+- Inicio centrado en programa activo, semana, dial de días y entrenamiento.
+- Tarjeta fotográfica con métricas y acciones equivalentes a la referencia.
+- Menú contextual del programa con la misma jerarquía funcional.
 - Acceso a Vista clásica.
 
 ### Etapa 2 — Entrenamiento v2
@@ -213,4 +226,3 @@ afectar producción y deberá ser aprobada antes de ampliar el alcance. La intui
 de diseño puede orientar decisiones menores, pero los cambios que afecten datos,
 roles, cobros, publicación o comportamiento central se presentarán antes de
 activarse.
-
