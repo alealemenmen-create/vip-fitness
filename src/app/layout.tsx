@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import Script from "next/script";
+import { ThemeInitializer } from "@/components/ThemeInitializer";
 import "./globals.css";
 
 const inter = Inter({
@@ -62,38 +62,6 @@ export const viewport: Viewport = {
   interactiveWidget: "resizes-visual",
 };
 
-// Aplica el tema y el tamaño de texto guardados ANTES del primer paint (evita
-// el flash del tema o de la letra chica al cargar). Corre inline porque
-// next/font ya bloquea el body.
-const THEME_INIT_SCRIPT = `
-  try {
-    var t = localStorage.getItem("vip-theme");
-    if (t === "light") document.documentElement.setAttribute("data-theme", "light");
-    var b = localStorage.getItem("vip-tema-boton");
-    if (b === "vip" || b === "masculino" || b === "femenino") {
-      document.documentElement.setAttribute("data-tema-boton", b);
-    } else if (b !== "espejo") {
-      // Nadie eligió tema de botón todavía en este dispositivo: el default
-      // de la app es "VIP" (dorado), no "Espejo".
-      document.documentElement.setAttribute("data-tema-boton", "vip");
-      localStorage.setItem("vip-tema-boton", "vip");
-    }
-    var z = parseFloat(localStorage.getItem("vip-zoom-pantalla"));
-    if (!(z >= 0.8 && z <= 1.15)) {
-      // Migración de la clave vieja: hasta ahora esto solo agrandaba la LETRA
-      // ("vip-escala-texto", 0.75–1.3). Ahora achica/agranda la pantalla
-      // entera, así que el valor viejo se traduce al tamaño más cercano en
-      // vez de perderse — el alumno mayor que tenía la letra grande no se
-      // encuentra la app de vuelta en normal.
-      var viejo = parseFloat(localStorage.getItem("vip-escala-texto"));
-      z = viejo >= 1.15 ? 1.15 : viejo <= 0.8 ? 0.8 : viejo <= 0.9 ? 0.9 : 1;
-      if (!(z >= 0.8 && z <= 1.15)) z = 1;
-    }
-    document.documentElement.style.setProperty("--zoom-pantalla", String(z));
-    document.documentElement.setAttribute("data-zoom-pantalla", String(z));
-  } catch (e) {}
-`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -106,7 +74,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-bg" suppressHydrationWarning>
-        <Script id="tema-inicial" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <ThemeInitializer />
         {children}
       </body>
     </html>

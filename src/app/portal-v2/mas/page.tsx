@@ -1,20 +1,15 @@
 import Link from "next/link";
 import { ChevronRight, FileText, MessageCircle, Settings, Shield, Sparkles, Trophy, UserRound } from "lucide-react";
 import styles from "@/components/v2/PortalV2.module.css";
-import { requireAlumno } from "@/lib/auth";
-import { nombreAlumnoPublicado } from "@/lib/nombre";
 
-const iniciales = (nombre: string) => nombre.split(/\s+/).filter(Boolean).slice(0, 2).map((parte) => parte[0]).join("").toUpperCase();
-
-export default async function MasV2Page() {
-  const contexto = await requireAlumno();
-  const nombre = nombreAlumnoPublicado(contexto.nombre);
+export default function MasV2Page() {
+  const nombre = "Ale Mendoza";
 
   return (
     <section className={styles.simplePage}>
       <h1 className={styles.simpleTitle}>Más</h1>
       <div className={styles.profileCard}>
-        <span className={styles.avatar}>{iniciales(nombre)}</span>
+        <span className={styles.avatar}>AM</span>
         <div><strong>{nombre}</strong><span>Miembro VIP Fitness</span></div>
         <ChevronRight size={17} />
       </div>

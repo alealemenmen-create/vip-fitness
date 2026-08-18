@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // La rama V2 se revisa directamente en el teléfono; el indicador flotante
+  // de desarrollo de Next no forma parte de la interfaz del producto.
+  devIndicators: false,
   // Cada despliegue publica IDs nuevos para las Server Actions. El SHA hace
   // que Next detecte cuando un celular sigue abierto con el JavaScript del
   // despliegue anterior y fuerce una navegación completa antes de mezclar
@@ -35,6 +38,11 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "iowuocmxqwuddickiofi.supabase.co",
         pathname: "/storage/v1/object/public/**",
+      },
+      {
+        protocol: "https",
+        hostname: "**.cloudflarestream.com",
+        pathname: "/**",
       },
     ],
   },

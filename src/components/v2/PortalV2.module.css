@@ -5,7 +5,7 @@
   --v2-line: rgba(255, 255, 255, 0.08);
   --v2-muted: #8d9090;
   --v2-text: #f5f5f2;
-  --v2-accent: #d9ff3f;
+  --v2-accent: #f4f4f0;
   position: fixed;
   inset: 0;
   display: flex;
@@ -66,20 +66,27 @@
   animation: brandIn 480ms ease-out both;
 }
 
-.splashMark {
-  width: 88px;
-  height: 88px;
-  object-fit: contain;
+.splashGlow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 230px;
+  height: 120px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(255,255,255,.055);
+  filter: blur(34px);
 }
 
 .splashName {
+  position: relative;
   color: #fff;
-  font-size: 22px;
-  font-weight: 850;
-  letter-spacing: -.045em;
+  font-size: 30px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -.065em;
+  transform: skewX(-7deg);
 }
-
-.splashName span { color: #ffa100; }
 
 .navWrap {
   position: fixed;
@@ -145,6 +152,11 @@
   gap: 12px;
 }
 
+.trainingPage { padding-bottom: 8px; }
+
+.programIdentity { display: flex; align-items: center; gap: 8px; }
+.programSlashes { color: #fff; font-size: 18px; font-weight: 900; font-style: italic; letter-spacing: -.25em; transform: skewX(-12deg); }
+
 .programName {
   font-size: 18px;
   font-weight: 780;
@@ -169,6 +181,19 @@
   color: #d4d5d2;
   background: rgba(255,255,255,.025);
 }
+
+.transformation {
+  margin: 2px 0 4px;
+  padding: 10px 7px 8px;
+  border-top: 1px solid rgba(255,255,255,.035);
+}
+.transformationCopy { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.transformationCopy strong { display: block; font-size: 10px; font-weight: 760; }
+.transformationCopy span { display: block; margin-top: 3px; color: var(--v2-muted); font-size: 8px; }
+.transformationCopy button { color: #7e817f; font-size: 8px; }
+.progressSegments { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; margin-top: 9px; }
+.progressSegments span { height: 3px; border-radius: 999px; background: #282a29; }
+.progressSegments .progressDone { background: #f4f4f0; }
 
 .weekRow {
   display: grid;
@@ -225,9 +250,9 @@
 .dayActive { color: #f2f4ef; }
 .dayActive .dayCircle {
   border-color: var(--v2-accent);
-  color: #151700;
+  color: #080909;
   background: var(--v2-accent);
-  box-shadow: 0 0 0 4px rgba(217,255,63,.07);
+  box-shadow: 0 0 0 4px rgba(255,255,255,.055);
 }
 .dayDone { color: #9fc629; }
 .dayDone .dayCircle { border-color: #75901f; }
@@ -244,7 +269,7 @@
 
 .heroMedia {
   position: relative;
-  height: 208px;
+  height: 218px;
   overflow: hidden;
   background:
     linear-gradient(120deg, transparent 50%, rgba(217,255,63,.06)),
@@ -260,8 +285,8 @@
 
 .heroImage {
   object-fit: cover;
-  object-position: center 22%;
-  filter: saturate(.72) contrast(1.06);
+  object-position: center 48%;
+  filter: saturate(.62) contrast(1.08) brightness(.82);
 }
 
 .heroCopy {
@@ -341,8 +366,23 @@
 
 .heroActions form { display: flex; }
 .heroActions form .primaryButton { width: 100%; }
+.heroActionsSingle { grid-template-columns: 1fr; }
 
 .primaryButton:disabled { color: #747675; border-color: #2f3130; background: #202222; }
+
+.restChecklist {
+  position: absolute;
+  right: 12px;
+  bottom: 57px;
+  left: 12px;
+  z-index: 3;
+  display: grid;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--v2-line);
+  color: #d5d6d2;
+  font-size: 8px;
+}
 
 .utilityGrid {
   display: grid;
@@ -375,7 +415,8 @@
 }
 
 .sectionHeader h2 { font-size: 15px; font-weight: 760; letter-spacing: -.02em; }
-.sectionHeader span { color: var(--v2-muted); font-size: 9px; }
+.sectionHeader p { margin-top: 2px; color: var(--v2-muted); font-size: 8px; }
+.sectionHeader button { color: var(--v2-muted); font-size: 8px; }
 
 .chipRow {
   display: flex;
@@ -427,14 +468,14 @@
   gap: 10px;
   margin-top: 9px;
   padding: 11px;
-  border: 1px solid rgba(217,255,63,.18);
+  border: 1px solid rgba(255,255,255,.11);
   border-radius: 9px;
-  background: linear-gradient(110deg, rgba(217,255,63,.075), #121313 58%);
+  background: linear-gradient(110deg, rgba(255,255,255,.07), #121313 58%);
 }
-.impulsoIcon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 9px; color: #151700; background: var(--v2-accent); }
+.impulsoIcon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 9px; color: #080909; background: var(--v2-accent); }
 .impulso strong { display: block; font-size: 10px; }
 .impulso p { margin-top: 2px; color: var(--v2-muted); font-size: 8px; line-height: 1.35; }
-.impulsoBadge { color: var(--v2-accent); font-size: 7px; font-weight: 800; text-transform: uppercase; }
+.impulsoBadge { color: #f5f5f2; font-size: 7px; font-weight: 800; text-transform: uppercase; }
 
 .expanded { margin-top: 9px; }
 

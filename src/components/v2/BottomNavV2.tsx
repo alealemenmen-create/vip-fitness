@@ -6,7 +6,7 @@ import { Dumbbell, Layers3, LayoutGrid, UtensilsCrossed } from "lucide-react";
 import styles from "./PortalV2.module.css";
 
 const TABS = [
-  { href: "/portal-v2/entrenamiento", label: "Entrenamiento", icon: Dumbbell },
+  { href: "/portal-v2/entrenamiento", label: "Entrenar", icon: Dumbbell },
   { href: "/portal-v2/nutricion", label: "Nutrición", icon: UtensilsCrossed },
   { href: "/portal-v2/progreso", label: "Progreso", icon: LayoutGrid },
   { href: "/portal-v2/mas", label: "Más", icon: Layers3 },
