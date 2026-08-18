@@ -623,3 +623,40 @@ no deben inventarse silenciosamente:
 
 Hasta validarlos, se utilizará el comportamiento más seguro y reversible, y se
 mantendrá cada decisión aislada para poder ajustarla sin rehacer la pantalla.
+
+## 18. Correcciones confirmadas durante la prueba móvil
+
+Registradas por el propietario el 2026-08-18. Estas correcciones tienen prioridad
+en la próxima iteración de la sesión activa.
+
+### 18.1 Flechas inferiores: navegación por series
+
+Las flechas inferiores no deben cambiar directamente de ejercicio a ejercicio.
+Su unidad de navegación es la serie:
+
+- `Siguiente` avanza de la serie actual a la serie siguiente del mismo ejercicio.
+- Al avanzar desde la última serie, pasa a la primera serie del ejercicio
+  siguiente y despliega ese ejercicio.
+- `Anterior` retrocede a la serie anterior del mismo ejercicio.
+- Al retroceder desde la primera serie, pasa a la última serie del ejercicio
+  anterior y despliega ese ejercicio.
+- El cambio debe actualizar el foco y dejar visible la fila correspondiente.
+- Navegar no marca una serie como completada ni altera sus valores.
+- El descanso activo no debe reiniciarse sólo por navegar; se reinicia únicamente
+  cuando el usuario registra una nueva serie.
+
+El comportamiento actual, que salta un ejercicio completo por cada pulsación, es
+incorrecto y debe reemplazarse.
+
+### 18.2 Tocar nuevamente para contraer
+
+Un ejercicio compacto se despliega al tocar cualquier parte útil de su tarjeta.
+Cuando ya está desplegado, tocar nuevamente su encabezado o zona principal debe
+contraerlo y devolverlo al formato compacto.
+
+La zona táctil no puede limitarse al pequeño rótulo `SERIE A/B/C`; debe incluir la
+miniatura, el nombre y el encabezado principal, sin interferir con el botón de
+reproducción ni con los campos de la tabla.
+
+El comportamiento actual no cumple esta regla de manera consistente en el
+teléfono y queda pendiente de corrección y prueba táctil real.
