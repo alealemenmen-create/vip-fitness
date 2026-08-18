@@ -908,6 +908,78 @@
 
 @keyframes sheetUp { from { transform: translateY(28px); opacity: .5; } to { transform: none; opacity: 1; } }
 
+.nutritionPage { position: relative; min-height: 100%; padding: 18px 0 68px; }
+.nutritionDateTitle { display: flex; min-height: 43px; align-items: center; gap: 5px; color: #f4f5f1; font-size: 25px; font-weight: 780; letter-spacing: -.045em; }
+
+.nutritionDays { display: grid; grid-template-columns: repeat(7, 1fr); margin: 14px -4px 12px; }
+.nutritionDays button { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 3px; color: #666967; }
+.nutritionDays span { font-size: 7px; font-weight: 760; }
+.nutritionDays strong { font-size: 11px; font-weight: 720; }
+.nutritionDays .nutritionDayActive { color: #f2f3ef; }
+
+.macroStrip { display: grid; width: 100%; grid-template-columns: repeat(4, 1fr); gap: 9px; padding: 10px 0 14px; border-bottom: 1px solid rgba(255,255,255,.07); text-align: left; }
+.macroCompact { display: block; min-width: 0; }
+.macroCompact > span { display: flex; align-items: center; justify-content: space-between; gap: 3px; }
+.macroCompact b { color: #f3f4f0; font-size: 10px; font-weight: 750; }
+.macroCompact small { overflow: hidden; color: #8c8f8c; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.macroCompact > i,
+.macroOverviewGrid i { display: block; height: 4px; overflow: hidden; margin-top: 7px; border-radius: 999px; background: #063b2e; }
+.macroCompact > i em,
+.macroOverviewGrid i em { display: block; height: 100%; border-radius: inherit; background: #16d39a; }
+
+.nutritionTimeline { position: relative; padding: 11px 0 0; }
+.nutritionTimeline::before { content: ""; position: absolute; top: 0; bottom: 0; left: 45px; border-left: 2px dashed #303231; }
+.nutritionTimeRow { position: relative; display: grid; min-height: 71px; grid-template-columns: 88px 1fr; align-items: start; }
+.timePill { position: relative; z-index: 1; display: flex; width: 69px; min-height: 34px; align-items: center; justify-content: center; border-radius: 999px; color: #eeefeb; background: #252626; font-size: 10px; font-weight: 720; }
+.timeAdd { position: absolute; top: 0; left: 73px; z-index: 2; display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; color: #f0f1ed; background: #262727; }
+.loggedMeals { grid-column: 2; display: grid; gap: 6px; padding-left: 22px; }
+.loggedMeal { display: grid; min-height: 68px; grid-template-columns: 1fr 26px; align-items: center; padding: 10px 10px 10px 13px; border-radius: 8px; background: #191a1a; }
+.loggedMeal strong { display: block; font-size: 11px; }
+.loggedMeal span { display: block; margin-top: 2px; color: #8c8f8c; font-size: 8px; }
+.loggedMeal p { margin-top: 5px; color: #c4c6c2; font-size: 8px; }
+.loggedMeal button { color: #d0d2ce; font-size: 10px; }
+
+.nutritionQuickBar { position: fixed; right: max(14px, calc((100vw - 460px) / 2 + 14px)); bottom: calc(91px + env(safe-area-inset-bottom, 0px)); left: max(14px, calc((100vw - 460px) / 2 + 14px)); z-index: 48; display: flex; gap: 5px; overflow-x: auto; padding: 5px; border: 1px solid rgba(255,255,255,.07); border-radius: 999px; background: rgba(18,19,19,.96); box-shadow: 0 10px 28px rgba(0,0,0,.55); scrollbar-width: none; }
+.nutritionQuickBar::-webkit-scrollbar { display: none; }
+.nutritionQuickBar button { display: flex; min-height: 31px; flex: none; align-items: center; gap: 4px; padding: 0 9px; border-radius: 999px; color: #e0e1dd; background: #222323; font-size: 8px; }
+
+.nutritionPanelBackdrop { position: fixed; inset: 0; z-index: 75; display: flex; justify-content: center; background: rgba(0,0,0,.78); }
+.nutritionPanel { width: min(460px, 100%); height: 100%; overflow-y: auto; padding: calc(14px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px)); background: #090a0a; animation: panelIn 220ms ease-out both; scrollbar-width: none; }
+.nutritionPanel::-webkit-scrollbar { display: none; }
+.nutritionPanel header { display: flex; min-height: 48px; align-items: center; justify-content: space-between; }
+.nutritionPanel header > button:first-child { display: grid; width: 39px; height: 39px; place-items: center; color: #dddeda; }
+.adjustMacros { display: flex; min-height: 37px; align-items: center; gap: 6px; padding: 0 12px; border-radius: 999px; color: #e6e7e3; background: #202121; font-size: 9px; }
+.nutritionPanel h2 { margin-top: 12px; font-size: 26px; font-weight: 690; letter-spacing: -.045em; }
+
+.macroOverviewGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 13px 18px; margin: 27px 0 29px; }
+.macroOverviewGrid > span { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; }
+.macroOverviewGrid b { color: #eeeeea; font-size: 10px; }
+.macroOverviewGrid i { grid-column: 1 / -1; margin-top: 3px; }
+.macroOverviewGrid strong { grid-column: 1 / -1; color: #a0a39f; font-size: 8px; font-weight: 600; text-align: right; }
+.nutrientHeading { display: flex; align-items: center; justify-content: space-between; margin: 25px 0 5px; }
+.nutrientHeading h3 { font-size: 18px; font-weight: 690; letter-spacing: -.03em; }
+.nutrientHeading span { padding: 7px 9px; border-radius: 7px; color: #f0f1ed; background: #242525; font-size: 9px; font-weight: 720; }
+.nutrientRows { display: grid; }
+.nutrientRows > span { display: flex; min-height: 44px; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,.055); }
+.nutrientRows b { font-size: 11px; font-weight: 620; }
+.nutrientRows em { color: #b6b8b5; font-size: 10px; font-style: normal; font-weight: 610; }
+
+.foodSearchPanel { align-self: flex-end; height: calc(100% - 32px); border-radius: 22px 22px 0 0; background: #111212; }
+.foodSearchTabs { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0 -7px 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.foodSearchTabs span { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #858885; font-size: 7px; }
+.foodSearchTabs span:first-child { color: #f1f2ee; }
+.foodSearchPanel h2 { font-size: 23px; }
+.foodSearchInput { display: flex; min-height: 49px; align-items: center; gap: 10px; margin: 16px 0 17px; padding: 0 13px; border-radius: 8px; color: #7d807e; background: #1b1c1c; }
+.foodSearchInput input { min-width: 0; flex: 1; color: #f0f1ed; background: transparent; font-size: 11px; outline: none; }
+.foodList { display: grid; gap: 7px; }
+.foodList article { display: grid; min-height: 70px; grid-template-columns: 1fr 42px; align-items: center; padding: 10px 8px 10px 13px; border-radius: 8px; background: #191a1a; }
+.foodList strong { display: block; font-size: 12px; }
+.foodList span { display: block; margin-top: 2px; color: #858885; font-size: 8px; }
+.foodList p { margin-top: 6px; color: #c7c9c5; font-size: 8px; }
+.foodList button { display: grid; width: 40px; height: 40px; place-items: center; color: #ecece8; }
+
+@keyframes panelIn { from { transform: translateY(14px); opacity: .55; } to { transform: none; opacity: 1; } }
+
 .simplePage { padding-top: 16px; }
 .simpleTitle { font-size: 29px; font-weight: 820; letter-spacing: -.05em; }
 .simpleLead { margin-top: 5px; color: var(--v2-muted); font-size: 10px; line-height: 1.5; }
@@ -968,7 +1040,8 @@
   .heroAnimated,
   .menuBackdrop,
   .menuItem,
-  .sessionFinishSheet { animation: none; }
+  .sessionFinishSheet,
+  .nutritionPanel { animation: none; }
   .splash { transition: none; }
   .navItem,
   .navIcon,
