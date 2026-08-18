@@ -111,14 +111,17 @@
 .skipRest { position: absolute; right: 18px; bottom: 25px; display: flex; min-height: 40px; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid var(--blue); border-radius: 8px; color: #f3f4f1; background: #171819; font-size: 9px; }
 .switchView { position: absolute; bottom: 25px; left: 18px; display: flex; min-height: 40px; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid #303332; border-radius: 999px; color: #d9dbd7; background: #171818; font-size: 9px; }
 
-.videoMode { position: relative; min-height: calc(100dvh - 154px); margin: 0 -14px; padding-bottom: 92px; background: #050606; }
-.videoStage { position: relative; min-height: calc(100dvh - 300px); overflow: hidden; background: #101111; touch-action: pan-y; }
+.videoMode { position: relative; display: grid; height: calc(100dvh - 64px); grid-template-rows: minmax(250px, 1fr) auto auto auto; overflow: hidden; margin: 0 -14px; padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); background: #050606; }
+.videoStage { position: relative; min-height: 0; overflow: hidden; background: #101111; touch-action: pan-y; }
 .videoStage > img { object-fit: cover; filter: saturate(.72) contrast(1.05) brightness(.75); }
 .videoShade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .04), rgba(0, 0, 0, .1) 58%, #070808 100%); }
-.videoPlay { position: absolute; top: 42%; left: 50%; display: grid; width: 58px; height: 58px; transform: translate(-50%, -50%); place-items: center; border: 1px solid rgba(255, 255, 255, .32); border-radius: 50%; color: #fff; background: rgba(0, 0, 0, .38); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-.immersiveArrow { position: absolute; top: 46%; z-index: 5; display: grid; width: 42px; height: 58px; transform: translateY(-50%); place-items: center; border: 1px solid rgba(255, 255, 255, .09); border-radius: 999px; color: #fff; background: rgba(12, 13, 13, .48); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); animation: controlsIn 180ms ease-out both; }
+.videoPlay { position: absolute; top: 50%; left: 50%; display: grid; width: 58px; height: 58px; transform: translate(-50%, -50%); place-items: center; border: 1px solid rgba(255, 255, 255, .32); border-radius: 50%; color: #fff; background: rgba(0, 0, 0, .38); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.immersiveArrow { position: absolute; top: 50%; z-index: 5; display: grid; width: 42px; height: 58px; transform: translateY(-50%); place-items: center; border: 1px solid rgba(167, 216, 55, .22); border-radius: 999px; color: #a7d837; background: rgba(12, 13, 13, .52); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 0 18px rgba(10, 132, 255, .08); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); animation: controlsIn 180ms ease-out both; }
+.immersiveArrow svg { filter: drop-shadow(0 0 6px rgba(167, 216, 55, .28)); }
 .immersiveArrowLeft { left: 12px; }
 .immersiveArrowRight { right: 12px; }
+.immersiveArrowLeft svg { animation: indicateLeft 1.4s ease-in-out infinite; }
+.immersiveArrowRight svg { animation: indicateRight 1.4s ease-in-out infinite; }
 .videoSpeed { position: absolute; top: 12px; right: 13px; color: #dedfdd; font-size: 8px; }
 .videoIdentity { position: absolute; right: 15px; bottom: 18px; left: 15px; }
 .videoIdentity small { color: #b8dc38; font-size: 7px; font-weight: 800; }
@@ -131,7 +134,7 @@
 .videoSetStrip b { color: #969996; font-size: 7px; font-weight: 560; }
 .videoSetStrip strong, .videoSetStrip em { min-height: 30px; padding: 8px 5px; border-radius: 6px; color: #dcddda; background: #101111; font-size: 8px; font-style: normal; font-weight: 550; text-align: center; }
 .videoSetStrip button { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 50%; color: #fff; background: var(--blue); }
-.videoMode .switchView { bottom: 37px; }
+.videoMode .switchView { position: static; justify-self: end; margin: 9px 14px 8px; }
 
 .sheetBackdrop { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, .76); }
 .finishSheet, .auxSheet { position: relative; width: min(460px, 100%); padding: 22px 16px calc(18px + env(safe-area-inset-bottom, 0px)); border: 1px solid #303231; border-bottom: 0; border-radius: 22px 22px 0 0; color: #eff0ed; background: #171818; box-shadow: 0 -28px 55px rgba(0, 0, 0, .65); animation: sheetUp 220ms cubic-bezier(.22, .82, .3, 1) both; }
@@ -203,6 +206,8 @@
 
 @keyframes sheetUp { from { transform: translateY(26px); opacity: .45; } to { transform: none; opacity: 1; } }
 @keyframes controlsIn { from { transform: translateY(-50%) scale(.92); opacity: 0; } to { transform: translateY(-50%) scale(1); opacity: 1; } }
+@keyframes indicateLeft { 0%, 100% { transform: translateX(1px); opacity: .72; } 50% { transform: translateX(-3px); opacity: 1; } }
+@keyframes indicateRight { 0%, 100% { transform: translateX(-1px); opacity: .72; } 50% { transform: translateX(3px); opacity: 1; } }
 
 @media (max-width: 370px) {
   .topbar { margin-inline: -10px; padding-inline: 12px; }
@@ -219,5 +224,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .progressTrack i, .setRow { transition: none; }
-  .finishSheet, .auxSheet, .immersiveArrow { animation: none; }
+  .finishSheet, .auxSheet, .immersiveArrow, .immersiveArrow svg { animation: none; }
 }

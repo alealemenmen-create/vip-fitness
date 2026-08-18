@@ -307,6 +307,11 @@ de la pantalla:
 - campos de serie disponibles sin abandonar el modo;
 - acceso `Vista de lista` para regresar;
 - acceso a consejo, historial, sustitución e información del ejercicio.
+- al abrirse, el modo vuelve al inicio de su plano desplazable y queda encuadrado
+  en el centro de la pantalla;
+- `Vista de lista` se alinea al borde derecho del modo inmersivo;
+- las flechas laterales son dobles, indicativas, de color verde lima y con un
+  movimiento direccional discreto.
 
 El alumno puede registrar series tanto en lista como en video. Ambas vistas deben
 usar el mismo estado; cambiar de vista no pierde peso, repeticiones, checks ni
@@ -317,10 +322,16 @@ descanso.
 La sesión presenta cinco controles:
 
 1. ajustes;
-2. ejercicio anterior;
+2. serie anterior;
 3. pausa/reanudar;
-4. ejercicio siguiente;
+4. siguiente paso de la sesión;
 5. información o estado contextual.
+
+El avance nunca salta directamente de una serie a otra. La secuencia obligatoria
+es `serie → descanso → siguiente serie`; únicamente después del descanso de la
+última serie de un ejercicio se activa el primer bloque del ejercicio siguiente.
+Retroceder desde el descanso vuelve a la misma serie que lo originó, no a la
+serie anterior.
 
 En la referencia son iconos blancos, gruesos y bien centrados dentro de una barra
 negra elevada. Deben tener zonas táctiles amplias aunque el dibujo sea pequeño.
@@ -601,12 +612,14 @@ La primera entrega funcional del entrenamiento v2 se acepta cuando:
 2. `−15 s`, `+15 s` y `Saltar descanso` modifican el mismo temporizador.
 3. Completar otra serie mueve y reinicia correctamente el descanso.
 4. Lista, video y temporizador inmersivo conservan el mismo estado.
-5. Repeticiones y peso no se pierden al desplazar, cambiar de ejercicio o volver.
-6. El encabezado y los controles permanecen accesibles sin tapar contenido.
-7. La geometría a 428 px coincide visualmente con las capturas de referencia.
-8. El comportamiento sigue siendo usable entre 360 y 460 px.
-9. Finalizar muestra confirmación, resumen y retorno correcto.
-10. Ninguna acción modifica el portal clásico ni datos reales durante esta fase.
+5. En modo video, avanzar sigue `serie → descanso → siguiente serie` y no salta
+   directamente al ejercicio siguiente.
+6. Repeticiones y peso no se pierden al desplazar, cambiar de ejercicio o volver.
+7. El encabezado y los controles permanecen accesibles sin tapar contenido.
+8. La geometría a 428 px coincide visualmente con las capturas de referencia.
+9. El comportamiento sigue siendo usable entre 360 y 460 px.
+10. Finalizar muestra confirmación, resumen y retorno correcto.
+11. Ninguna acción modifica el portal clásico ni datos reales durante esta fase.
 
 ## 17. Puntos aún por validar durante la implementación
 

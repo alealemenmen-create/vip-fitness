@@ -8,6 +8,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   CircleCheck,
   Clock3,
   Dumbbell,
@@ -119,6 +121,7 @@ export function SesionActivaV2() {
   const [registrada, setRegistrada] = useState(false);
   const gestoInicioX = useRef<number | null>(null);
   const descansoAvisadoRef = useRef<string | null>(null);
+  const paginaSesionRef = useRef<HTMLDivElement | null>(null);
 
   const totalSeries = useMemo(() => EJERCICIOS.reduce((total, ejercicio) => total + ejercicio.repeticiones.length, 0), []);
   const seriesCompletadas = useMemo(() => Object.values(registro).reduce(
@@ -173,6 +176,12 @@ export function SesionActivaV2() {
   }, [controlesVideoVisibles, ejercicioActivoId, vista]);
 
   useEffect(() => {
+    if (vista === "lista") return;
+    window.scrollTo({ top: 0, behavior: "auto" });
+    paginaSesionRef.current?.parentElement?.scrollTo({ top: 0, behavior: "auto" });
+  }, [vista]);
+
+  useEffect(() => {
     const detenerAviso = () => cortarAviso();
     window.addEventListener("pointerdown", detenerAviso);
     window.addEventListener("focus", detenerAviso);
@@ -204,6 +213,7 @@ export function SesionActivaV2() {
         setEjercicioExpandidoId(siguienteEjercicio.id);
         setDescansoEnFoco(false);
       }
+      setDescanso(null);
       // El descanso es un campo propio. Solo al finalizar deja el foco y activa
       // la siguiente serie antes de volver a la demostración.
       if (vista === "descanso") setVista("video");
@@ -269,9 +279,49 @@ export function SesionActivaV2() {
       }
     }
     cortarAviso();
-    setDescanso((actual) => actual === null ? null : { ...actual, segundos: 0 });
+    setDescanso(null);
     setDescansoEnFoco(false);
     setVista("video");
+  };
+
+  const volverDesdeDescanso = () => {
+    if (descanso !== null) {
+      const ejercicioIndice = EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
+      const ejercicio = EJERCICIOS[ejercicioIndice];
+      setEjercicioActivoId(ejercicio.id);
+      setSerieActivaIndice(descanso.serieIndice);
+      setEjercicioExpandidoId(ejercicio.id);
+    }
+    cortarAviso();
+    descansoAvisadoRef.current = null;
+    setDescanso(null);
+    setDescansoEnFoco(false);
+    setControlesVideoVisibles(true);
+    setVista("video");
+  };
+
+  const avanzarDesdeVideo = () => {
+    const esUltimaSerieRutina = ejercicioActivoIndice === EJERCICIOS.length - 1
+      && serieActivaIndiceSeguro === ejercicioActivo.repeticiones.length - 1;
+
+    if (!serieActiva.completada) {
+      alternarSerie(ejercicioActivo, serieActivaIndiceSeguro);
+      return;
+    }
+    if (esUltimaSerieRutina) {
+      setConfirmarSalida(true);
+      return;
+    }
+
+    prepararAviso();
+    descansoAvisadoRef.current = null;
+    setDescanso({
+      ejercicioId: ejercicioActivo.id,
+      serieIndice: serieActivaIndiceSeguro,
+      segundos: ejercicioActivo.descanso,
+    });
+    setDescansoEnFoco(true);
+    setVista("descanso");
   };
 
   const moverSerie = (direccion: -1 | 1) => {
@@ -284,6 +334,26 @@ export function SesionActivaV2() {
     setControlesVideoVisibles(true);
   };
 
+  const retrocederPaso = () => {
+    if (vista === "descanso") {
+      volverDesdeDescanso();
+      return;
+    }
+    moverSerie(-1);
+  };
+
+  const avanzarPaso = () => {
+    if (vista === "descanso") {
+      saltarDescanso();
+      return;
+    }
+    if (vista === "video") {
+      avanzarDesdeVideo();
+      return;
+    }
+    moverSerie(1);
+  };
+
   const iniciarGesto = (clientX: number) => {
     gestoInicioX.current = clientX;
     setControlesVideoVisibles(true);
@@ -294,8 +364,8 @@ export function SesionActivaV2() {
     const distancia = clientX - gestoInicioX.current;
     gestoInicioX.current = null;
     if (Math.abs(distancia) < 44) return;
-    moverSerie(distancia < 0 ? 1 : -1);
-    setVista("video");
+    if (distancia < 0) avanzarPaso();
+    else retrocederPaso();
   };
 
   if (registrada) {
@@ -324,7 +394,7 @@ export function SesionActivaV2() {
   }
 
   return (
-    <div className={styles.sessionPage}>
+    <div ref={paginaSesionRef} className={styles.sessionPage}>
       <header className={styles.topbar}>
         <div className={styles.sessionStatus}><span>{formatearTiempo(segundosSesion)}</span><i aria-hidden="true" /><strong>Serie {serieActivaNumero}/{totalSeries}</strong></div>
         <button type="button" className={styles.endButton} onClick={() => setConfirmarSalida(true)}>Terminar</button>
@@ -338,8 +408,8 @@ export function SesionActivaV2() {
           onPointerDown={(evento) => iniciarGesto(evento.clientX)}
           onPointerUp={(evento) => terminarGesto(evento.clientX)}
         >
-          {puedeIrAtras ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={() => { moverSerie(-1); setVista("video"); }} aria-label="Ver serie anterior"><ChevronLeft size={25} /></button> : null}
-          {puedeIrAdelante ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={() => { moverSerie(1); setVista("video"); }} aria-label="Ver serie siguiente"><ChevronRight size={25} /></button> : null}
+          {descanso !== null ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={volverDesdeDescanso} aria-label="Volver a la serie actual"><ChevronsLeft size={27} strokeWidth={2.4} /></button> : null}
+          {puedeIrAdelante ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={saltarDescanso} aria-label="Ir a la siguiente serie"><ChevronsRight size={27} strokeWidth={2.4} /></button> : null}
           <div className={styles.restCenter}>
             <span>Descanso</span><strong>{descanso?.segundos ?? 0}</strong><small>segundos</small>
             <div className={styles.restAdjustments}><button type="button" onClick={() => ajustarDescanso(-15)}><Minus size={13} />15 s</button><button type="button" onClick={() => ajustarDescanso(15)}><Plus size={13} />15 s</button></div>
@@ -358,8 +428,8 @@ export function SesionActivaV2() {
             <Image src={ejercicioActivo.foto} alt={`Demostración de ${ejercicioActivo.nombre}`} fill priority sizes="(max-width: 460px) 100vw, 460px" />
             <div className={styles.videoShade} />
             <button type="button" className={styles.videoPlay} aria-label="Reproducir demostración"><Play size={23} fill="currentColor" /></button>
-            {controlesVideoVisibles && puedeIrAtras ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={() => moverSerie(-1)} aria-label="Ver serie anterior"><ChevronLeft size={25} /></button> : null}
-            {controlesVideoVisibles && puedeIrAdelante ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={() => moverSerie(1)} aria-label="Ver serie siguiente"><ChevronRight size={25} /></button> : null}
+            {controlesVideoVisibles && puedeIrAtras ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={() => moverSerie(-1)} aria-label="Ver serie anterior"><ChevronsLeft size={27} strokeWidth={2.4} /></button> : null}
+            {controlesVideoVisibles ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={avanzarDesdeVideo} aria-label={puedeIrAdelante ? "Finalizar serie e ir al descanso" : "Finalizar entrenamiento"}><ChevronsRight size={27} strokeWidth={2.4} /></button> : null}
             <span className={styles.videoSpeed}>1× velocidad</span>
             <div className={styles.videoIdentity}><small>SERIE {ejercicioActivo.codigo}</small><h1>{ejercicioActivo.nombre}</h1><p>{ejercicioActivo.equipo}</p></div>
           </div>
@@ -434,9 +504,9 @@ export function SesionActivaV2() {
 
       <nav className={styles.sessionControls} aria-label="Controles de la sesión">
         <button type="button" aria-label="Ajustes" onClick={() => setPanel("ajustes")}><Settings size={20} /></button>
-        <button type="button" aria-label="Serie anterior" onClick={() => moverSerie(-1)} disabled={!puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
+        <button type="button" aria-label={vista === "descanso" ? "Volver a la serie actual" : "Serie anterior"} onClick={retrocederPaso} disabled={vista !== "descanso" && !puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
         <button type="button" aria-label={pausada ? "Reanudar sesión" : "Pausar sesión"} onClick={() => setPausada((valor) => !valor)}>{pausada ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>
-        <button type="button" aria-label="Serie siguiente" onClick={() => moverSerie(1)} disabled={!puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
+        <button type="button" aria-label={vista === "descanso" ? "Ir a la siguiente serie" : vista === "video" ? "Finalizar serie e ir al descanso" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
         <button type="button" aria-label="Abrir temporizador" onClick={() => { setDescansoEnFoco(true); setVista("descanso"); }} disabled={descanso === null}><Clock3 size={19} /></button>
       </nav>
 
