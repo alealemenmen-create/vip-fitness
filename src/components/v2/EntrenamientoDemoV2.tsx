@@ -1,12 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import {
+  CalendarCheck2,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Dumbbell,
   History,
   LibraryBig,
@@ -15,7 +17,7 @@ import {
   Moon,
   Play,
   RotateCcw,
-  Sparkles,
+  RotateCw,
   X,
   Zap,
 } from "lucide-react";
@@ -54,15 +56,47 @@ export function EntrenamientoDemoV2() {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [verRutina, setVerRutina] = useState(false);
   const [iniciada, setIniciada] = useState(false);
-  const actual = useMemo(() => DIAS.find((dia) => dia.numero === seleccionado) ?? DIAS[3], [seleccionado]);
+  const inicioGesto = useRef<{ x: number; y: number } | null>(null);
+  const inicioGestoMenu = useRef<number | null>(null);
+  const actual = DIAS.find((dia) => dia.numero === seleccionado) ?? DIAS[3];
+
+  const elegirDia = (numero: number) => {
+    setSeleccionado(numero);
+    setIniciada(false);
+    setVerRutina(false);
+  };
+
+  const cambiarDia = (desplazamiento: -1 | 1) => {
+    setSeleccionado((numeroActual) => {
+      const indice = DIAS.findIndex((dia) => dia.numero === numeroActual);
+      const siguiente = Math.min(DIAS.length - 1, Math.max(0, indice + desplazamiento));
+      return DIAS[siguiente].numero;
+    });
+    setIniciada(false);
+    setVerRutina(false);
+  };
+
+  const comenzarGesto = (evento: ReactPointerEvent<HTMLElement>) => {
+    inicioGesto.current = { x: evento.clientX, y: evento.clientY };
+  };
+
+  const terminarGesto = (evento: ReactPointerEvent<HTMLElement>) => {
+    const inicio = inicioGesto.current;
+    inicioGesto.current = null;
+    if (!inicio) return;
+    const distanciaX = evento.clientX - inicio.x;
+    const distanciaY = evento.clientY - inicio.y;
+    if (Math.abs(distanciaX) < 48 || Math.abs(distanciaX) < Math.abs(distanciaY) * 1.25) return;
+    cambiarDia(distanciaX < 0 ? 1 : -1);
+  };
 
   return (
     <div className={styles.trainingPage}>
       <header className={styles.pageHeader}>
         <div className={styles.programIdentity}>
-          <span className={styles.programSlashes} aria-hidden="true">{"//"}</span>
+          <span className={styles.programMark} aria-hidden="true"><i /><i /><i /></span>
           <div>
-            <h1 className={styles.programName}>Método VIP</h1>
+            <h1 className={styles.programName}>Método VIP <ChevronRight size={15} /></h1>
             <p className={styles.phase}>Fase 1</p>
           </div>
         </div>
@@ -93,7 +127,7 @@ export function EntrenamientoDemoV2() {
               type="button"
               key={dia.numero}
               className={`${styles.dayItem} ${dia.numero === seleccionado ? styles.dayActive : ""}`}
-              onClick={() => { setSeleccionado(dia.numero); setIniciada(false); }}
+              onClick={() => elegirDia(dia.numero)}
               aria-pressed={dia.numero === seleccionado}
             >
               <span className={styles.dayLabel}>{dia.etiqueta}</span>
@@ -103,33 +137,41 @@ export function EntrenamientoDemoV2() {
         </div>
       </section>
 
-      <section className={styles.heroCard} aria-label={actual.titulo}>
-        <div className={styles.heroMedia}>
-          <Image src={actual.foto} alt={`Entrenamiento de ${actual.titulo}`} fill sizes="(max-width: 460px) 100vw, 460px" loading="eager" className={styles.heroImage} />
-        </div>
-        <div className={styles.heroCopy}>
-          <h2 className={styles.heroTitle}>{actual.titulo}</h2>
-          <p className={styles.heroSubtitle}>{actual.subtitulo}</p>
-        </div>
-        {actual.descanso ? (
-          <div className={styles.restChecklist}>
-            <span>✓ Libera tensión con movilidad suave</span>
-            <span>✓ Mantén una hidratación constante</span>
-            <span>✓ Prioriza entre 7 y 9 horas de sueño</span>
+      <section
+        className={styles.heroCard}
+        aria-label={`${actual.titulo}. Desliza horizontalmente para cambiar de día.`}
+        onPointerDown={comenzarGesto}
+        onPointerUp={terminarGesto}
+        onPointerCancel={() => { inicioGesto.current = null; }}
+      >
+        <div key={actual.numero} className={styles.heroAnimated}>
+          <div className={styles.heroMedia}>
+            <Image src={actual.foto} alt={`Entrenamiento de ${actual.titulo}`} fill sizes="(max-width: 460px) 100vw, 460px" loading="eager" className={styles.heroImage} />
           </div>
-        ) : (
-          <div className={styles.metrics}>
-            <div className={styles.metric}><strong>{actual.ejercicios}</strong><span>Ejercicios</span></div>
-            <div className={styles.metric}><strong>{actual.series}</strong><span>Series</span></div>
-            <div className={styles.metric}><strong>{actual.minutos}</strong><span>Minutos</span></div>
+          <div className={styles.heroCopy} aria-live="polite">
+            <h2 className={styles.heroTitle}>{actual.titulo}</h2>
+            <p className={styles.heroSubtitle}>{actual.subtitulo}</p>
           </div>
-        )}
-        <div className={`${styles.heroActions} ${actual.descanso ? styles.heroActionsSingle : ""}`}>
-          {!actual.descanso && <button type="button" className={styles.secondaryButton} onClick={() => setVerRutina((valor) => !valor)}>{verRutina ? "Ocultar rutina" : "Ver rutina"}</button>}
-          <button type="button" className={styles.primaryButton} onClick={() => setIniciada(true)}>
-            {!actual.descanso && <Play size={14} fill="currentColor" />}
-            {iniciada ? "Sesión preparada" : actual.descanso ? `Completar descanso ${actual.numero}` : `Iniciar día ${actual.numero}`}
-          </button>
+          {actual.descanso ? (
+            <div className={styles.restChecklist}>
+              <span>✓ Libera tensión con movilidad suave</span>
+              <span>✓ Mantén una hidratación constante</span>
+              <span>✓ Prioriza entre 7 y 9 horas de sueño</span>
+            </div>
+          ) : (
+            <div className={styles.metrics}>
+              <div className={styles.metric}><strong>{actual.ejercicios}</strong><span>Ejercicios</span></div>
+              <div className={styles.metric}><strong>{actual.series}</strong><span>Series</span></div>
+              <div className={styles.metric}><strong>{actual.minutos}</strong><span>Minutos</span></div>
+            </div>
+          )}
+          <div className={`${styles.heroActions} ${actual.descanso ? styles.heroActionsSingle : ""}`}>
+            {!actual.descanso ? <button type="button" className={styles.secondaryButton} onClick={() => setVerRutina((valor) => !valor)}>{verRutina ? "Ocultar rutina" : "Ver rutina"}</button> : null}
+            <button type="button" className={styles.primaryButton} onClick={() => setIniciada(true)}>
+              {!actual.descanso ? <Play size={14} fill="currentColor" /> : null}
+              {iniciada ? "Sesión preparada" : actual.descanso ? `Completar descanso ${actual.numero}` : `Iniciar día ${actual.numero}`}
+            </button>
+          </div>
         </div>
       </section>
 
@@ -166,14 +208,31 @@ export function EntrenamientoDemoV2() {
 
       {menuAbierto && (
         <div className={styles.menuBackdrop} role="presentation" onClick={() => setMenuAbierto(false)}>
-          <div className={styles.programMenu} role="dialog" aria-modal="true" aria-label="Opciones del programa" onClick={(evento) => evento.stopPropagation()}>
-            <button type="button" className={styles.menuItem} onClick={() => setMenuAbierto(false)}><span>Cerrar opciones</span><X size={16} /></button>
-            <button type="button" className={styles.menuItem}><span>Todos los programas</span><Dumbbell size={16} /></button>
-            <button type="button" className={styles.menuItem}><span>Registro de entrenamientos</span><History size={16} /></button>
-            <button type="button" className={styles.menuItem}><span>Calendario</span><CalendarDays size={16} /></button>
-            <button type="button" className={styles.menuItem}><span>Reordenar días</span><ListRestart size={16} /></button>
-            <button type="button" className={styles.menuItem}><span>Reiniciar fase</span><RotateCcw size={16} /></button>
-            <Link href="/alumno/inicio" className={styles.menuItem}><span>Abrir Portal VIP clásico</span><Sparkles size={16} /></Link>
+          <div
+            className={styles.programMenu}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Opciones del programa"
+            onClick={(evento) => evento.stopPropagation()}
+            onPointerDown={(evento) => { inicioGestoMenu.current = evento.clientX; }}
+            onPointerUp={(evento) => {
+              if (inicioGestoMenu.current !== null && evento.clientX - inicioGestoMenu.current > 45) setMenuAbierto(false);
+              inicioGestoMenu.current = null;
+            }}
+          >
+            <button type="button" className={styles.menuClose} onClick={() => setMenuAbierto(false)} aria-label="Cerrar opciones">
+              <Menu size={27} strokeWidth={2.3} />
+              <span className={styles.menuCloseBadge}><X size={13} strokeWidth={2.6} /></span>
+            </button>
+            <div className={styles.menuActions}>
+              <button type="button" className={styles.menuItem}><span>Todos los programas</span><i><ClipboardList size={21} /></i></button>
+              <button type="button" className={styles.menuItem}><span>Registro de entrenamientos</span><i><History size={21} /></i></button>
+              <button type="button" className={styles.menuItem}><span>Calendario</span><i><CalendarDays size={21} /></i></button>
+              <button type="button" className={styles.menuItem}><span>Horario de entrenamiento</span><i><CalendarCheck2 size={21} /></i></button>
+              <button type="button" className={styles.menuItem}><span>Reordenar días</span><i><ListRestart size={21} /></i></button>
+              <button type="button" className={styles.menuItem}><span>Reiniciar fase</span><i><RotateCcw size={21} /></i></button>
+              <button type="button" className={styles.menuItem}><span>Reiniciar programa</span><i><RotateCw size={21} /></i></button>
+            </div>
           </div>
         </div>
       )}

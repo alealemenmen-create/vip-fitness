@@ -28,7 +28,7 @@ export function BottomNavV2() {
               className={`${styles.navItem} ${activo ? styles.navActive : ""}`}
               aria-current={activo ? "page" : undefined}
             >
-              <Icon strokeWidth={activo ? 2.3 : 1.8} />
+              <span className={styles.navIcon}><Icon strokeWidth={activo ? 2.15 : 1.8} /></span>
               <span className={styles.navLabel}>{tab.label}</span>
             </Link>
           );
