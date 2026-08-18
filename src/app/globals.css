@@ -37,6 +37,10 @@
   --color-tecnica-triserie: #ec4899;
   --color-tecnica-giant: #f97316;
   --color-tecnica-circuito: #14b8a6;
+  --color-tecnica-finalizador: #ef4444;
+  --color-tecnica-complejo: #6366f1;
+  --color-tecnica-amrap: #84cc16;
+  --color-tecnica-emom: #06b6d4;
 
   /*
     Macros de AlimentaciÃ³n. NO son colores fijos: cada uno se tiÃ±e con el

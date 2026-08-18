@@ -1,9 +1,18 @@
 /**
  * Técnicas que encadenan varios ejercicios seguidos, casi sin descanso entre
- * uno y otro (superserie, biserie, triserie, circuito, giant set...): el
- * entrenador ya las escribe en `tecnica_tipo` como texto libre ("Superserie
- * (1/2)", "Biserie (2/2)", "Circuito metabólico (1/3)"), y los dos o más
+ * uno y otro (superserie, biserie, triserie, circuito, giant set, finalizador,
+ * complejo con barra, AMRAP, EMOM...): el entrenador ya las escribe en
+ * `tecnica_tipo` como texto libre ("Superserie (1/2)", "Biserie (2/2)",
+ * "Circuito metabólico (1/3)", "Finalizador (1/3)"), y los dos o más
  * ejercicios que forman el grupo comparten el mismo nombre de familia.
+ *
+ * Cualquier palabra clave que falte acá hace que esos ejercicios se vean
+ * como sueltos/separados en vez de agrupados — así se encontró el bug real
+ * de "Finalizador" (reportado 2026-08-17, circuito de 3 ejercicios en
+ * producción): la palabra nunca estaba en esta lista, aunque el generador
+ * de rutinas y la carga manual sí la usan. Si aparece un reporte parecido,
+ * revisar primero qué texto libre trae `tecnica_tipo` en la sesión real (no
+ * asumir) antes de tocar el código.
  *
  * Se usa en dos lugares: SesionEjercicioCard (color por familia, para que el
  * alumno VEA qué ejercicios van encadenados) y SesionEjercicios (para
@@ -22,6 +31,12 @@ export function resolverGrupoTecnica(tecnicaTipo: string | null | undefined): Gr
     return { color: "var(--color-tecnica-giant)", etiqueta: "Giant Set" };
   if (t.includes("circuito") || t.includes("tabata"))
     return { color: "var(--color-tecnica-circuito)", etiqueta: "Circuito" };
+  if (t.includes("finalizador"))
+    return { color: "var(--color-tecnica-finalizador)", etiqueta: "Finalizador" };
+  if (t.includes("complejo"))
+    return { color: "var(--color-tecnica-complejo)", etiqueta: "Complejo" };
+  if (t.includes("amrap")) return { color: "var(--color-tecnica-amrap)", etiqueta: "AMRAP" };
+  if (t.includes("emom")) return { color: "var(--color-tecnica-emom)", etiqueta: "EMOM" };
   return null;
 }
 

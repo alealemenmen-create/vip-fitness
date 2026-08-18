@@ -306,6 +306,10 @@ function colorTecnicaVisual(tipo: string | null | undefined): string | null {
   if (tecnica.includes("triserie")) return "var(--color-tecnica-triserie)";
   if (tecnica.includes("giant") || tecnica.includes("serie gigante")) return "var(--color-tecnica-giant)";
   if (tecnica.includes("circuito")) return "var(--color-tecnica-circuito)";
+  if (tecnica.includes("finalizador")) return "var(--color-tecnica-finalizador)";
+  if (tecnica.includes("complejo")) return "var(--color-tecnica-complejo)";
+  if (tecnica.includes("amrap")) return "var(--color-tecnica-amrap)";
+  if (tecnica.includes("emom")) return "var(--color-tecnica-emom)";
   return null;
 }
 

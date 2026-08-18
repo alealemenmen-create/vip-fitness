@@ -10,10 +10,21 @@ describe("resolverGrupoTecnica", () => {
     expect(resolverGrupoTecnica("Circuito metabólico")?.etiqueta).toBe("Circuito");
   });
 
+  it("reconoce finalizador, complejo con barra, AMRAP y EMOM — bug real: alumna con 'Finalizador (1/3)' salía como 3 ejercicios sueltos en vez de un grupo", () => {
+    expect(resolverGrupoTecnica("Finalizador (1/3)")?.etiqueta).toBe("Finalizador");
+    expect(resolverGrupoTecnica("Complejo con barra (2/4)")?.etiqueta).toBe("Complejo");
+    expect(resolverGrupoTecnica("AMRAP 5 minutos (1/3)")?.etiqueta).toBe("AMRAP");
+    expect(resolverGrupoTecnica("EMOM (3/4)")?.etiqueta).toBe("EMOM");
+  });
+
   it("sin tecnicaTipo o sin familia conocida, no hay grupo", () => {
     expect(resolverGrupoTecnica(null)).toBeNull();
     expect(resolverGrupoTecnica("")).toBeNull();
     expect(resolverGrupoTecnica("Rest-pause")).toBeNull();
+    // "Finisher" es una técnica de UN solo ejercicio (no encadena varios,
+    // nunca trae sufijo n/total) — no confundir con "Finalizador".
+    expect(resolverGrupoTecnica("Finisher")).toBeNull();
+    expect(resolverGrupoTecnica("Finisher oclusivo")).toBeNull();
   });
 });
 
