@@ -68,19 +68,30 @@ export function NutricionV2() {
   const [horaSeleccionada, setHoraSeleccionada] = useState(horaActual);
   const [comidas, setComidas] = useState(() => [{ ...ALIMENTOS[0], dia: 18, hora: horaActual }]);
   const [aviso, setAviso] = useState("");
+  const [colapsoSemana, setColapsoSemana] = useState(0);
   const lineaTiempoRef = useRef<HTMLElement>(null);
+  const inicioScrollRef = useRef(0);
 
   useEffect(() => {
     const lineaTiempo = lineaTiempoRef.current;
     if (!lineaTiempo) return;
     if (diaActivo !== 18) {
       lineaTiempo.scrollTop = 0;
+      inicioScrollRef.current = 0;
       return;
     }
     const filaActual = lineaTiempo.querySelector<HTMLElement>(`[data-hora="${horaActual}"]`);
     if (!filaActual) return;
-    lineaTiempo.scrollTop = Math.max(0, filaActual.offsetTop - 3 * 71);
+    const inicio = Math.max(0, filaActual.offsetTop - 3 * 71);
+    lineaTiempo.scrollTop = inicio;
+    inicioScrollRef.current = inicio;
   }, [diaActivo, horaActual]);
+
+  const manejarScrollHoras = (evento: React.UIEvent<HTMLElement>) => {
+    const recorrido = Math.max(0, evento.currentTarget.scrollTop - inicioScrollRef.current);
+    const siguiente = Math.min(1, recorrido / 52);
+    setColapsoSemana((actual) => Math.abs(actual - siguiente) > 0.015 ? siguiente : actual);
+  };
 
   const agregarComida = (alimento: (typeof ALIMENTOS)[number]) => {
     setComidas((actuales) => [...actuales, { ...alimento, dia: diaActivo, hora: horaSeleccionada }]);
@@ -102,28 +113,46 @@ export function NutricionV2() {
     setPanel(siguiente);
   };
 
+  const elegirDia = (dia: number) => {
+    setColapsoSemana(0);
+    setDiaActivo(dia);
+  };
+
   return (
     <div className={styles.nutritionPage}>
-      <button type="button" className={styles.nutritionDateTitle} onClick={() => abrirPanel("resumen")}>
-        {diaActivo} de agosto <ChevronRight size={17} />
-      </button>
+      <header className={styles.nutritionHeader}>
+        <button type="button" className={styles.nutritionDateTitle} onClick={() => abrirPanel("resumen")}>
+          {diaActivo} de agosto <ChevronRight size={17} />
+        </button>
 
-      <div className={styles.nutritionDays} aria-label="Semana de nutrición">
-        {DIAS_NUTRICION.map((dia) => (
-          <button type="button" key={dia.numero} className={dia.numero === diaActivo ? styles.nutritionDayActive : ""} onClick={() => setDiaActivo(dia.numero)} aria-pressed={dia.numero === diaActivo}>
-            <span>{dia.dia}</span><strong>{dia.numero}</strong>
-          </button>
-        ))}
-      </div>
+        <div
+          className={styles.nutritionDays}
+          aria-label="Semana de nutrición"
+          aria-hidden={colapsoSemana > 0.98}
+          style={{
+            height: `${31 * (1 - colapsoSemana)}px`,
+            marginTop: `${6 * (1 - colapsoSemana)}px`,
+            marginBottom: `${6 * (1 - colapsoSemana)}px`,
+            opacity: 1 - colapsoSemana,
+            transform: `translateY(${-5 * colapsoSemana}px)`,
+          }}
+        >
+          {DIAS_NUTRICION.map((dia) => (
+            <button type="button" tabIndex={colapsoSemana > 0.98 ? -1 : 0} key={dia.numero} className={dia.numero === diaActivo ? styles.nutritionDayActive : ""} onClick={() => elegirDia(dia.numero)} aria-pressed={dia.numero === diaActivo}>
+              <span>{dia.dia}</span><strong>{dia.numero}</strong>
+            </button>
+          ))}
+        </div>
 
-      <button type="button" className={styles.macroStrip} onClick={() => abrirPanel("resumen")} aria-label="Abrir resumen nutricional">
-        <MacroCompacto icon={<Flame size={13} fill="currentColor" />} valor="240 / 2846" progreso={8} />
-        <MacroCompacto nombre="P" valor="22 / 232" progreso={10} />
-        <MacroCompacto nombre="C" valor="31 / 239" progreso={13} />
-        <MacroCompacto nombre="G" valor="10 / 106" progreso={9} />
-      </button>
+        <button type="button" className={styles.macroStrip} onClick={() => abrirPanel("resumen")} aria-label="Abrir resumen nutricional">
+          <MacroCompacto icon={<Flame size={14} fill="currentColor" />} consumido="240" objetivo="2846" progreso={8} />
+          <MacroCompacto nombre="P" consumido="22" objetivo="232" progreso={10} />
+          <MacroCompacto nombre="C" consumido="31" objetivo="239" progreso={13} />
+          <MacroCompacto nombre="G" consumido="10" objetivo="106" progreso={9} />
+        </button>
+      </header>
 
-      <section ref={lineaTiempoRef} className={styles.nutritionTimeline} aria-label="Registro diario de comidas">
+      <section ref={lineaTiempoRef} className={styles.nutritionTimeline} aria-label="Registro diario de comidas" onScroll={manejarScrollHoras}>
         {HORAS.map(({ hora, etiqueta }) => {
           const comidasDeLaHora = comidas.filter((comida) => comida.dia === diaActivo && comida.hora === hora);
           const esAhora = diaActivo === 18 && hora === horaActual;
@@ -161,10 +190,10 @@ export function NutricionV2() {
   );
 }
 
-function MacroCompacto({ nombre, icon, valor, progreso }: { nombre?: string; icon?: React.ReactNode; valor: string; progreso: number }) {
+function MacroCompacto({ nombre, icon, consumido, objetivo, progreso }: { nombre?: string; icon?: React.ReactNode; consumido: string; objetivo: string; progreso: number }) {
   return (
     <span className={styles.macroCompact}>
-      <span><b>{icon ?? nombre}</b><small>{valor}</small></span>
+      <span><b>{icon ?? nombre}</b><small><strong>{consumido}</strong> / {objetivo}</small></span>
       <i><em style={{ width: `${progreso}%` }} /></i>
     </span>
   );
