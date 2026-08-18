@@ -66,12 +66,16 @@
 .setNumber { display: flex; align-items: center; justify-content: center; gap: 7px; }
 .setNumber b { width: 10px; color: #fff; font-size: 11px; font-weight: 650; }
 .setNumber em { padding: 5px 6px; border-radius: 5px; color: #edf4ff; background: #2a3038; font-size: 9px; font-style: normal; font-weight: 650; }
+.setRowSelected .setNumber b { color: var(--blue); }
+.setRowSelected .setNumber em { color: #fff; background: var(--blue); box-shadow: 0 0 0 1px rgba(10, 132, 255, .28); }
 .setRow input { width: 100%; height: 36px; border: 1px solid #292b2b; border-radius: 7px; color: #fff; background: #0b0c0c; font-size: 11px; font-weight: 620; text-align: center; outline: none; }
 .setRow input:focus { border-color: #4c5050; background: #101111; }
 .setRow input::placeholder { color: #606360; opacity: 1; }
 .restValue { text-align: center; }
 .checkButton { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; color: #e2e3e0; }
+.setRowSelected .checkButton { color: var(--blue); }
 .checkButton[aria-pressed="true"] { color: #fff; background: var(--blue); box-shadow: 0 0 0 1px rgba(10, 132, 255, .24); }
+.setRowSelected .checkButton[aria-pressed="true"], .setRowLocked .checkButton[aria-pressed="true"] { color: #fff; background: var(--blue); }
 
 .inlineRest { position: relative; display: grid; min-height: 50px; grid-template-columns: 76px 1fr 76px; align-items: center; gap: 6px; padding: 0 14px; background: #191a1b; }
 .inlineRest::before { content: ""; position: absolute; top: 7px; bottom: 7px; left: 0; width: 2px; border-radius: 0 2px 2px 0; background: #444745; }

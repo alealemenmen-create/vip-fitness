@@ -25,7 +25,6 @@ import {
   StickyNote,
   X,
 } from "lucide-react";
-import { programarAvisoDescanso } from "@/app/alumno/entrenar/push-actions";
 import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
 import styles from "./SesionActivaV2.module.css";
 
@@ -250,10 +249,6 @@ export function SesionActivaV2() {
     descansoAvisadoRef.current = null;
     setDescanso({ ejercicioId: ejercicio.id, serieIndice, segundos: ejercicio.descanso });
     setDescansoEnFoco(true);
-    void programarAvisoDescanso(ejercicio.descanso).catch(() => {
-      // En la vista previa sin sesión iniciada no existe alumno para asociar
-      // el push. Sonido y vibración locales continúan funcionando igualmente.
-    });
     if (vista === "video") setVista("descanso");
   };
 

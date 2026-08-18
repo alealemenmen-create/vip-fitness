@@ -684,8 +684,10 @@ En vista de video el mismo estado se presenta como una secuencia de pantallas:
 
 - El aviso local reutiliza el sistema del portal original: audio preparado desde
   el toque, vibración y notificación cuando la pestaña está oculta.
-- Si existe una sesión autenticada y una suscripción válida, también se programa
-  el push de servidor para sobrevivir al bloqueo de pantalla o cambio de app.
+- La vista previa V2 sin inicio de sesión no invoca todavía el push autenticado:
+  hacerlo redirige a `/login` porque el servidor no puede asociar un alumno. Se
+  conectará al integrar la identidad real de V2; hasta entonces se conservan el
+  sonido, la vibración y la notificación local sin expulsar al usuario.
 - `Saltar descanso` activa la serie siguiente sin reproducir la alarma local.
 - La última serie del último ejercicio no genera descanso: actúa como cierre y
   abre directamente la confirmación para registrar el entrenamiento.
