@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Beef,
   Bookmark,
@@ -29,7 +29,22 @@ const DIAS_NUTRICION = [
   { dia: "DOM", numero: 23 },
 ];
 
-const HORAS = ["12 AM", "1 AM", "2 AM", "3 AM", "4 AM", "5 AM", "6 AM", "7 AM", "8 AM", "9 AM", "10 AM", "11 AM"];
+function etiquetaHora(hora: number) {
+  if (hora === 0) return "12 AM";
+  if (hora === 12) return "12 PM";
+  return hora < 12 ? `${hora} AM` : `${hora - 12} PM`;
+}
+
+function horaActualChile() {
+  const hora = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    hourCycle: "h23",
+    timeZone: "America/Santiago",
+  }).format(new Date());
+  return Number(hora);
+}
+
+const HORAS = Array.from({ length: 24 }, (_, hora) => ({ hora, etiqueta: etiquetaHora(hora) }));
 
 const ALIMENTOS = [
   { nombre: "Pan blanco", marca: "Bimbo", detalle: "120 cal · 3 p · 26 c · 1 g" },
@@ -47,23 +62,42 @@ const OBJETIVOS_NUTRICION = [
 type PanelNutricion = "resumen" | "buscar" | "macros" | "escaner" | null;
 
 export function NutricionV2() {
+  const [horaActual] = useState(horaActualChile);
   const [diaActivo, setDiaActivo] = useState(18);
   const [panel, setPanel] = useState<PanelNutricion>(null);
-  const [comidas, setComidas] = useState(() => [ALIMENTOS[0]]);
+  const [horaSeleccionada, setHoraSeleccionada] = useState(horaActual);
+  const [comidas, setComidas] = useState(() => [{ ...ALIMENTOS[0], dia: 18, hora: horaActual }]);
   const [aviso, setAviso] = useState("");
+  const lineaTiempoRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const lineaTiempo = lineaTiempoRef.current;
+    if (!lineaTiempo) return;
+    if (diaActivo !== 18) {
+      lineaTiempo.scrollTop = 0;
+      return;
+    }
+    const filaActual = lineaTiempo.querySelector<HTMLElement>(`[data-hora="${horaActual}"]`);
+    if (!filaActual) return;
+    lineaTiempo.scrollTop = Math.max(0, filaActual.offsetTop - 3 * 71);
+  }, [diaActivo, horaActual]);
 
   const agregarComida = (alimento: (typeof ALIMENTOS)[number]) => {
-    setComidas((actuales) => [...actuales, alimento]);
+    setComidas((actuales) => [...actuales, { ...alimento, dia: diaActivo, hora: horaSeleccionada }]);
     setPanel(null);
-    setAviso(`${alimento.nombre} fue añadido a las 12 AM`);
+    setAviso(`${alimento.nombre} fue añadido a las ${etiquetaHora(horaSeleccionada)}`);
   };
 
   const copiarComida = () => {
-    setComidas((actuales) => [...actuales, actuales[0]]);
+    setComidas((actuales) => {
+      const primera = actuales[0];
+      return primera ? [...actuales, { ...primera, dia: diaActivo, hora: horaActual }] : actuales;
+    });
     setAviso("Comida copiada correctamente");
   };
 
-  const abrirPanel = (siguiente: Exclude<PanelNutricion, null>) => {
+  const abrirPanel = (siguiente: Exclude<PanelNutricion, null>, hora = horaActual) => {
+    setHoraSeleccionada(hora);
     setAviso("");
     setPanel(siguiente);
   };
@@ -71,7 +105,7 @@ export function NutricionV2() {
   return (
     <div className={styles.nutritionPage}>
       <button type="button" className={styles.nutritionDateTitle} onClick={() => abrirPanel("resumen")}>
-        18 de agosto <ChevronRight size={17} />
+        {diaActivo} de agosto <ChevronRight size={17} />
       </button>
 
       <div className={styles.nutritionDays} aria-label="Semana de nutrición">
@@ -89,14 +123,17 @@ export function NutricionV2() {
         <MacroCompacto nombre="G" valor="10 / 106" progreso={9} />
       </button>
 
-      <section className={styles.nutritionTimeline} aria-label="Registro diario de comidas">
-        {HORAS.map((hora, indice) => (
-          <div className={styles.nutritionTimeRow} key={hora}>
-            <span className={styles.timePill}>{hora}</span>
-            <button type="button" className={styles.timeAdd} onClick={() => abrirPanel("buscar")} aria-label={`Agregar comida a las ${hora}`}><Plus size={17} /></button>
-            {indice === 0 && comidas.length > 0 ? (
+      <section ref={lineaTiempoRef} className={styles.nutritionTimeline} aria-label="Registro diario de comidas">
+        {HORAS.map(({ hora, etiqueta }) => {
+          const comidasDeLaHora = comidas.filter((comida) => comida.dia === diaActivo && comida.hora === hora);
+          const esAhora = diaActivo === 18 && hora === horaActual;
+          return (
+          <div className={styles.nutritionTimeRow} key={hora} data-hora={hora}>
+            <span className={`${styles.timePill} ${esAhora ? styles.timePillActive : ""}`}>{etiqueta}{esAhora ? <small>Ahora</small> : null}</span>
+            <button type="button" className={styles.timeAdd} onClick={() => abrirPanel("buscar", hora)} aria-label={`Agregar comida a las ${etiqueta}`}><Plus size={17} /></button>
+            {comidasDeLaHora.length > 0 ? (
               <div className={styles.loggedMeals}>
-                {comidas.map((comida, comidaIndice) => (
+                {comidasDeLaHora.map((comida, comidaIndice) => (
                   <article className={styles.loggedMeal} key={`${comida.nombre}-${comidaIndice}`}>
                     <div><strong>{comida.nombre}</strong><span>{comida.marca}</span><p>{comida.detalle}</p></div><button type="button" aria-label={`Opciones de ${comida.nombre}`}>•••</button>
                   </article>
@@ -104,7 +141,8 @@ export function NutricionV2() {
               </div>
             ) : null}
           </div>
-        ))}
+          );
+        })}
       </section>
 
       <div className={styles.nutritionQuickBar} aria-label="Accesos rápidos de nutrición">
