@@ -1,6 +1,7 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { Check, ShieldAlert, Target, X, Zap } from "lucide-react";
 import {
   calibrarIntervencionEnVivo,
@@ -14,6 +15,45 @@ import { guardarDecisionReto, leerDecisionReto } from "@/lib/entrenamiento/decis
 
 const inicial: ResolverIntervencionState = { error: null, ok: false, verificada: false };
 const inicialCalibracion: CalibrarIntervencionState = { error: null, ok: false, instruccion: null, tipo: null, prescripcion: null };
+
+const suscribirSinCambios = () => () => {};
+
+/**
+ * Cuando Ale tiene algo que decir (calibrar, la instrucción del reto, o el
+ * resultado), la tarjeta se superpone a toda la pantalla en vez de vivir
+ * metida en el flujo normal — pedido de Alejandro, 2026-08-18: antes había
+ * que darse cuenta de que estaba ahí y bajar a buscarla entre los campos de
+ * la serie. Mismo patrón que el modal de "¿Cómo sentiste este ejercicio?"
+ * (`SelectorDificultad` más abajo en este archivo): portal a `document.body`
+ * con fondo oscuro, para no depender de dónde haya scrolleado el alumno.
+ * Tocar el fondo dispara `onCerrarFondo` — en las tarjetas que Ale FUERZA
+ * abiertas (todavía sin calibrar/responder) esto no alcanza para
+ * espantarla, porque `mostrarExpandido` la vuelve a abrir enseguida: es a
+ * propósito, mismo criterio que el bloqueo de la serie.
+ */
+function OverlayImpulso({
+  children,
+  onCerrarFondo,
+}: {
+  children: React.ReactNode;
+  onCerrarFondo?: () => void;
+}) {
+  const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
+  if (!montado) return null;
+  return createPortal(
+    <div
+      role="dialog"
+      aria-label="Impulso VIP"
+      onClick={onCerrarFondo}
+      className="fixed inset-0 z-[65] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"
+    >
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm">
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 export function MomentoImpulsoEnVivo({
   intervencion,
@@ -134,73 +174,80 @@ export function MomentoImpulsoEnVivo({
   // de Ale", el botón de avisar a Ale y el formulario de resultado.
   if (esOrientacion && !esPersonalAle) {
     return (
-      <section className="mb-2 flex items-start gap-2.5 rounded-[17px] border border-vip/25 bg-vip/[0.07] p-3">
-        <button type="button" onClick={() => setExpandido(false)} aria-label="Cerrar indicación" className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-vip/15 text-vip">
-          <Zap size={15} fill="currentColor" />
-        </button>
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-vip">Ale te marca el ritmo</p>
-          <p className="mt-0.5 text-caption leading-relaxed text-text">{intervencion.instruccion}</p>
-          <p className="mt-1 text-micro font-semibold text-text-secondary">{intervencion.firma}</p>
-        </div>
-      </section>
+      <OverlayImpulso onCerrarFondo={() => setExpandido(false)}>
+        <section className="flex items-start gap-2.5 rounded-[17px] border border-vip/25 bg-[#0b0c0e] p-3 shadow-[0_24px_80px_rgba(0,0,0,.72)]">
+          <button type="button" onClick={() => setExpandido(false)} aria-label="Cerrar indicación" className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-vip/15 text-vip">
+            <Zap size={15} fill="currentColor" />
+          </button>
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-vip">Ale te marca el ritmo</p>
+            <p className="mt-0.5 text-caption leading-relaxed text-text">{intervencion.instruccion}</p>
+            <p className="mt-1 text-micro font-semibold text-text-secondary">{intervencion.firma}</p>
+          </div>
+        </section>
+      </OverlayImpulso>
     );
   }
 
   if (!listaParaMostrar) {
     return (
-      <section className="relative mb-2 rounded-[18px] border border-vip/35 bg-vip/10 p-3">
-        <button type="button" onClick={() => setExpandido(false)} aria-label="Cerrar indicación" className="absolute right-2 top-2 grid size-7 place-items-center rounded-full text-vip"><Zap size={14} fill="currentColor" /></button>
-        <p className="text-[10px] font-black uppercase tracking-[0.15em] text-vip">Ale calibra tu ultima serie</p>
-        <p className="mt-1 text-caption font-bold text-text">¿Cuantas repeticiones mas podias hacer?</p>
-        <p className="mt-0.5 text-micro text-text-secondary">
-          Responde sobre la serie anterior. Impulso ajustara la exigencia sin pedirte esto en todas.
-        </p>
-        <form action={calibrarAction} className="mt-3 grid grid-cols-4 gap-2">
-          <input type="hidden" name="intervencion_id" value={intervencion.id} />
-          {[
-            ["0", "Ninguna"],
-            ["1", "Una"],
-            ["2", "Dos"],
-            ["3", "3 o mas"],
-          ].map(([valor, etiqueta]) => (
-            <button
-              key={valor}
-              type="submit"
-              name="rir"
-              value={valor}
-              disabled={calibrando}
-              className="min-h-11 rounded-[13px] border border-white/10 bg-white/[0.055] px-1 text-[10px] font-bold text-text active:border-vip active:text-vip disabled:opacity-50"
-            >
-              {etiqueta}
-            </button>
-          ))}
-        </form>
-        {calibracion.error && <p className="mt-2 text-micro text-error">{calibracion.error}</p>}
-      </section>
+      <OverlayImpulso onCerrarFondo={() => setExpandido(false)}>
+        <section className="relative rounded-[18px] border border-vip/35 bg-[#0b0c0e] p-3 shadow-[0_24px_80px_rgba(0,0,0,.72)]">
+          <button type="button" onClick={() => setExpandido(false)} aria-label="Cerrar indicación" className="absolute right-2 top-2 grid size-7 place-items-center rounded-full text-vip"><Zap size={14} fill="currentColor" /></button>
+          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-vip">Ale calibra tu ultima serie</p>
+          <p className="mt-1 text-caption font-bold text-text">¿Cuantas repeticiones mas podias hacer?</p>
+          <p className="mt-0.5 text-micro text-text-secondary">
+            Responde sobre la serie anterior. Impulso ajustara la exigencia sin pedirte esto en todas.
+          </p>
+          <form action={calibrarAction} className="mt-3 grid grid-cols-4 gap-2">
+            <input type="hidden" name="intervencion_id" value={intervencion.id} />
+            {[
+              ["0", "Ninguna"],
+              ["1", "Una"],
+              ["2", "Dos"],
+              ["3", "3 o mas"],
+            ].map(([valor, etiqueta]) => (
+              <button
+                key={valor}
+                type="submit"
+                name="rir"
+                value={valor}
+                disabled={calibrando}
+                className="min-h-11 rounded-[13px] border border-white/10 bg-white/[0.055] px-1 text-[10px] font-bold text-text active:border-vip active:text-vip disabled:opacity-50"
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </form>
+          {calibracion.error && <p className="mt-2 text-micro text-error">{calibracion.error}</p>}
+        </section>
+      </OverlayImpulso>
     );
   }
 
   if (resuelta) {
     const lograda = (resultadoElegido ?? intervencion.resultado) === "lograda";
     return (
-      <button type="button" onClick={() => setExpandido(false)} className="mb-2 w-full rounded-[18px] border border-vip/35 bg-vip/10 p-3 text-left" role="status">
-        <p className="flex items-center gap-2 text-caption font-bold text-vip">
-          <Check size={16} strokeWidth={3} /> Resultado registrado
-        </p>
-        <p className="mt-1 text-micro leading-snug text-text-secondary">
-          {lograda
-            ? state.verificada
-              ? "Objetivo logrado y verificado con los datos de tu serie. Queda en la memoria de Impulso VIP."
-              : "Objetivo declarado como logrado. Queda registrado, pero faltaron datos para verificarlo automaticamente."
-            : "Impulso VIP recordara este resultado para no exigirte a ciegas la proxima vez."}
-        </p>
-      </button>
+      <OverlayImpulso onCerrarFondo={() => setExpandido(false)}>
+        <button type="button" onClick={() => setExpandido(false)} className="w-full rounded-[18px] border border-vip/35 bg-[#0b0c0e] p-3 text-left shadow-[0_24px_80px_rgba(0,0,0,.72)]" role="status">
+          <p className="flex items-center gap-2 text-caption font-bold text-vip">
+            <Check size={16} strokeWidth={3} /> Resultado registrado
+          </p>
+          <p className="mt-1 text-micro leading-snug text-text-secondary">
+            {lograda
+              ? state.verificada
+                ? "Objetivo logrado y verificado con los datos de tu serie. Queda en la memoria de Impulso VIP."
+                : "Objetivo declarado como logrado. Queda registrado, pero faltaron datos para verificarlo automaticamente."
+              : "Impulso VIP recordara este resultado para no exigirte a ciegas la proxima vez."}
+          </p>
+        </button>
+      </OverlayImpulso>
     );
   }
 
   return (
-    <section className="momento-impulso-vivo mb-2 overflow-hidden rounded-[20px] border border-vip/45 bg-gradient-to-br from-vip/20 via-surface to-surface p-3 shadow-[0_0_26px_color-mix(in_srgb,var(--color-vip)_12%,transparent)]">
+    <OverlayImpulso onCerrarFondo={() => setExpandido(false)}>
+    <section className="momento-impulso-vivo overflow-hidden rounded-[20px] border border-vip/45 bg-gradient-to-br from-vip/20 via-[#0b0c0e] to-[#0b0c0e] p-3 shadow-[0_24px_80px_rgba(0,0,0,.72)]">
       <div className="flex items-start gap-2.5">
         <button type="button" onClick={() => setExpandido(false)} aria-label="Reducir indicación" className="grid size-10 shrink-0 place-items-center rounded-2xl bg-vip text-black shadow-[0_0_24px_color-mix(in_srgb,var(--color-vip)_38%,transparent)]">
           <Zap size={19} fill="currentColor" />
@@ -339,5 +386,6 @@ export function MomentoImpulsoEnVivo({
         </form>
       )}
     </section>
+    </OverlayImpulso>
   );
 }
