@@ -106,11 +106,21 @@ export function SesionEjercicios({
   const montado = useSyncExternalStore(suscribirSinCambios, () => true, () => false);
   const grupos = agruparPorTecnica(ejercicios);
   const [gruposTerminadosEnVista, setGruposTerminadosEnVista] = useState<Set<string>>(() => new Set());
+  /** `ejercicio.completado` es la foto del servidor al cargar la página:
+   * dentro de esta misma sesión, terminar un ejercicio nunca la actualiza
+   * sola (por diseño — un guardado de página completa en medio de un
+   * entrenamiento sería disruptivo). `gruposTerminadosEnVista` es la
+   * corrección local en tiempo real. Antes solo `indiceActivo` (abajo)
+   * consultaba las dos juntas — la píldora de navegación y el mapa de
+   * "toda la rutina" seguían el prop viejo nomás, así que una biserie o
+   * triserie recién terminada se quedaba marcada "pendiente" (sin tilde)
+   * en esos dos lugares por el resto de la sesión. Reportado en vivo,
+   * 2026-08-17. */
+  const grupoEstaCompleto = (grupo: EjercicioSesion[]) =>
+    grupo.every((ej) => ej.completado || gruposTerminadosEnVista.has(ej.sesionEjercicioId));
   const indiceActivo = Math.max(
     0,
-    grupos.findIndex((grupo) => grupo.some((ej) =>
-      !ej.completado && !gruposTerminadosEnVista.has(ej.sesionEjercicioId)
-    ))
+    grupos.findIndex((grupo) => !grupoEstaCompleto(grupo))
   );
   const [indiceVisible, setIndiceVisible] = useState(indiceActivo);
   const [mostrarRutina, setMostrarRutina] = useState(false);
@@ -422,12 +432,21 @@ export function SesionEjercicios({
     }, 2500);
   };
   const indiceEjercicioVisible = Math.max(0, ejercicios.findIndex((ejercicio) => ejercicio.sesionEjercicioId === grupoVisible?.[0]?.sesionEjercicioId));
+  /** `completados` (prop) es la foto del servidor al cargar la página — no
+   * se actualiza sola cuando se termina un ejercicio dentro de esta misma
+   * sesión, igual que `ejercicio.completado` (ver `gruposTerminadosEnVista`
+   * más arriba). Sin esta corrección, terminar una biserie/triserie hacía
+   * bajar (o directamente no subir) el % de la barra de progreso y los
+   * puntos previstos, aunque `indiceActivo` ya hubiera avanzado — reportado
+   * en vivo, 2026-08-17. */
+  const completadosEfectivos = completados
+    + ejercicios.filter((ej) => !ej.completado && gruposTerminadosEnVista.has(ej.sesionEjercicioId)).length;
   // Mismo cálculo que usa el servidor al Finalizar (`calcularPuntosEntrenamiento`
   // en lib/ranking/reglas.ts): proporcional a ejercicios completados, no
   // todo-o-nada. Acá solo se PREVISUALIZA — los puntos reales se confirman
   // recién al finalizar la sesión.
-  const puntosRankedPreparados = calcularPuntosEntrenamiento(completados, total);
-  const porcentajeRutina = total > 0 ? Math.round((completados / total) * 100) : 0;
+  const puntosRankedPreparados = calcularPuntosEntrenamiento(completadosEfectivos, total);
+  const porcentajeRutina = total > 0 ? Math.round((completadosEfectivos / total) * 100) : 0;
 
   // La corona de la cabecera (fuera de este árbol, en Logo.tsx) suma estos
   // puntos "preparados" a su saldo mientras dura la sesión, para que se vea
@@ -548,7 +567,7 @@ export function SesionEjercicios({
           </button>
           <ol className="lista-tira-navegacion" ref={listaTiraRef}>
             {grupos.map((grupo, indice) => {
-              const completa = grupo.every((ejercicio) => ejercicio.completado);
+              const completa = grupoEstaCompleto(grupo);
               const estado = completa ? "completa" : indice === indiceVisible ? "actual" : "pendiente";
               return (
                 <li key={grupo[0].sesionEjercicioId}>
@@ -597,7 +616,7 @@ export function SesionEjercicios({
             </header>
             <div className="lista-mapa-rutina">
               {grupos.map((grupo, indice) => {
-                const completa = grupo.every((ejercicio) => ejercicio.completado);
+                const completa = grupoEstaCompleto(grupo);
                 const totalSeriesGrupo = grupo.reduce((totalGrupo, ejercicio) => totalGrupo + ejercicio.seriesProgramadas, 0);
                 const hechasGrupo = grupo.reduce(
                   (totalGrupo, ejercicio) => totalGrupo + ejercicio.series.filter((serie) => serie.realizada).length,
@@ -650,7 +669,7 @@ export function SesionEjercicios({
       {!soloLectura && !modoCorreccion && indiceVisible === grupos.length - 1 && (
         <>
           <div className="flex flex-col gap-2">
-            <FinalizarEntrenamiento sesionId={sesionId} completados={completados} total={total} compacto />
+            <FinalizarEntrenamiento sesionId={sesionId} completados={completadosEfectivos} total={total} compacto />
           </div>
           <div className="h-16" aria-hidden="true" />
         </>
