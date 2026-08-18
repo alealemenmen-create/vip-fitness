@@ -36,7 +36,7 @@
 .seriesLabel i { color: #505352; font-size: 18px; font-style: normal; letter-spacing: -4px; }
 .seriesLabel em { margin-left: auto; color: #c29b48; font-size: 8px; font-style: normal; letter-spacing: 0; }
 .exerciseHeading { display: grid; min-height: 100px; grid-template-columns: 74px minmax(0, 1fr); align-items: center; gap: 13px; }
-.exerciseHeading > div { min-width: 0; }
+.exerciseHeadingToggle { min-width: 0; color: inherit; text-align: left; }
 .exerciseHeading h1 { overflow: hidden; color: #fff; font-size: clamp(18px, 4.8vw, 22px); font-weight: 780; letter-spacing: -.025em; text-overflow: ellipsis; white-space: nowrap; }
 .exerciseHeading p { margin-top: 7px; color: #c7c9c6; font-size: 11px; font-weight: 580; }
 .exerciseHeading p b { color: #f1f2ef; }
@@ -55,8 +55,14 @@
 .setGroup { position: relative; }
 .setRow { position: relative; min-height: 52px; color: #f4f5f2; font-size: 11px; font-weight: 590; transition: background 160ms ease; }
 .setRowDone { background: rgba(255, 255, 255, .012); }
+.setRowSelected { background: rgba(255, 255, 255, .045); }
+.setRowSelected::after { content: ""; position: absolute; top: 8px; bottom: 8px; left: 0; width: 2px; border-radius: 0 2px 2px 0; background: var(--blue); box-shadow: 0 0 10px rgba(10, 132, 255, .28); }
+.setRowLocked { color: #747774; cursor: pointer; }
+.setRowLocked input { border-color: #1b1d1c; color: #656865; background: #080909; cursor: pointer; }
+.setRowLocked .setNumber em { color: #777a77; background: #191b1b; }
+.setRowLocked .checkButton { color: #666966; }
 .setRowActive { background: #161819; }
-.setRowActive::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: var(--blue); }
+.setRowActive::before { content: ""; position: absolute; top: 8px; bottom: 8px; left: 0; width: 2px; border-radius: 0 2px 2px 0; background: #444745; }
 .setNumber { display: flex; align-items: center; justify-content: center; gap: 7px; }
 .setNumber b { width: 10px; color: #fff; font-size: 11px; font-weight: 650; }
 .setNumber em { padding: 5px 6px; border-radius: 5px; color: #edf4ff; background: #2a3038; font-size: 9px; font-style: normal; font-weight: 650; }
@@ -68,7 +74,8 @@
 .checkButton[aria-pressed="true"] { color: #fff; background: var(--blue); box-shadow: 0 0 0 1px rgba(10, 132, 255, .24); }
 
 .inlineRest { position: relative; display: grid; min-height: 50px; grid-template-columns: 76px 1fr 76px; align-items: center; gap: 6px; padding: 0 14px; background: #191a1b; }
-.inlineRest::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: var(--blue); }
+.inlineRest::before { content: ""; position: absolute; top: 7px; bottom: 7px; left: 0; width: 2px; border-radius: 0 2px 2px 0; background: #444745; }
+.inlineRestActive::before { background: var(--blue); box-shadow: 0 0 10px rgba(10, 132, 255, .28); }
 .inlineRest button { min-height: 38px; border-radius: 7px; color: #f4f5f2; background: #252627; font-size: 11px; }
 .inlineRest .inlineRestTime { color: #fff; background: transparent; font-weight: 720; }
 

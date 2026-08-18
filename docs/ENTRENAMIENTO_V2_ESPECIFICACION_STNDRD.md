@@ -626,8 +626,9 @@ mantendrá cada decisión aislada para poder ajustarla sin rehacer la pantalla.
 
 ## 18. Correcciones confirmadas durante la prueba móvil
 
-Registradas por el propietario el 2026-08-18. Estas correcciones tienen prioridad
-en la próxima iteración de la sesión activa.
+Registradas por el propietario el 2026-08-18 e implementadas en la sesión activa.
+Queda pendiente únicamente la validación táctil final del propietario en el
+teléfono.
 
 ### 18.1 Flechas inferiores: navegación por series
 
@@ -645,8 +646,9 @@ Su unidad de navegación es la serie:
 - El descanso activo no debe reiniciarse sólo por navegar; se reinicia únicamente
   cuando el usuario registra una nueva serie.
 
-El comportamiento actual, que salta un ejercicio completo por cada pulsación, es
-incorrecto y debe reemplazarse.
+Implementado: las flechas inferiores, las flechas inmersivas y el gesto lateral
+comparten ahora una posición de serie activa. El encabezado y la vista de video
+reflejan esa misma posición sin modificar el descanso ni completar registros.
 
 ### 18.2 Tocar nuevamente para contraer
 
@@ -658,5 +660,32 @@ La zona táctil no puede limitarse al pequeño rótulo `SERIE A/B/C`; debe inclu
 miniatura, el nombre y el encabezado principal, sin interferir con el botón de
 reproducción ni con los campos de la tabla.
 
-El comportamiento actual no cumple esta regla de manera consistente en el
-teléfono y queda pendiente de corrección y prueba táctil real.
+Implementado: el rótulo de la serie y la zona del nombre contraen el ejercicio;
+la miniatura conserva su acción de abrir la demostración. La comprobación táctil
+final queda a cargo de la prueba móvil del propietario.
+
+### 18.3 Serie y descanso son campos independientes
+
+El foco de ejecución avanza por campos, no directamente por filas de series:
+
+1. La serie activa muestra su segmento azul y es la única editable.
+2. Al tocar `Listo`, esa serie queda registrada y el foco azul pasa al campo de
+   descanso situado inmediatamente debajo.
+3. Durante el descanso, ninguna otra serie queda activa automáticamente.
+4. Al llegar a cero, se emite sonido, vibración y aviso; entonces el foco pasa a
+   la siguiente serie y su segmento se vuelve azul.
+5. Si el usuario selecciona manualmente otra serie, no se crea ni se reinicia un
+   descanso por esa navegación.
+
+En vista de video el mismo estado se presenta como una secuencia de pantallas:
+`video de serie → descanso inmersivo → video de la siguiente serie`.
+
+### 18.4 Avisos y cierre de la rutina
+
+- El aviso local reutiliza el sistema del portal original: audio preparado desde
+  el toque, vibración y notificación cuando la pestaña está oculta.
+- Si existe una sesión autenticada y una suscripción válida, también se programa
+  el push de servidor para sobrevivir al bloqueo de pantalla o cambio de app.
+- `Saltar descanso` activa la serie siguiente sin reproducir la alarma local.
+- La última serie del último ejercicio no genera descanso: actúa como cierre y
+  abre directamente la confirmación para registrar el entrenamiento.
