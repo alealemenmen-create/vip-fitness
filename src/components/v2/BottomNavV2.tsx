@@ -14,6 +14,9 @@ const TABS = [
 
 export function BottomNavV2() {
   const pathname = usePathname();
+  const pantallaInmersiva = pathname.startsWith("/portal-v2/entrenamiento/rutina") || pathname.startsWith("/portal-v2/entrenamiento/sesion");
+
+  if (pantallaInmersiva) return null;
 
   return (
     <div className={styles.navWrap}>

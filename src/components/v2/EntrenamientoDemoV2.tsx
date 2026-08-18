@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import {
@@ -46,12 +47,6 @@ const DIAS: DiaDemo[] = [
   { numero: 7, etiqueta: "DESC.", titulo: "Día de descanso", subtitulo: "Recuperación activa · Sueño · Movilidad", ejercicios: 3, series: 3, minutos: 20, foto: "/v2/piernas.webp", descanso: true },
 ];
 
-const EJERCICIOS = [
-  { nombre: "Sentadilla Smith", detalle: "Intermedio · 4 series · 12 repeticiones", foto: "/v2/piernas.webp" },
-  { nombre: "Peso muerto rumano", detalle: "Intermedio · 4 series · 10 repeticiones", foto: "/v2/espalda.webp" },
-  { nombre: "Impulso VIP de movilidad", detalle: "Preparación · 10 minutos", foto: "/v2/hombros.webp" },
-];
-
 const ADICIONALES = [
   { nombre: "Calentamiento dinámico", nivel: "Principiante", detalle: "10 min · 5 series" },
   { nombre: "Recuperación post-entreno", nivel: "Principiante", detalle: "5 min · 1 serie" },
@@ -62,7 +57,6 @@ export function EntrenamientoDemoV2() {
   const [seleccionado, setSeleccionado] = useState(4);
   const [direccion, setDireccion] = useState<1 | -1>(1);
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [verRutina, setVerRutina] = useState(false);
   const [iniciada, setIniciada] = useState(false);
   const inicioGesto = useRef<{ x: number; y: number } | null>(null);
   const inicioGestoMenu = useRef<number | null>(null);
@@ -73,7 +67,6 @@ export function EntrenamientoDemoV2() {
     setDireccion(numero > seleccionado ? 1 : -1);
     setSeleccionado(numero);
     setIniciada(false);
-    setVerRutina(false);
   };
 
   const cambiarDia = (desplazamiento: -1 | 1) => {
@@ -84,7 +77,6 @@ export function EntrenamientoDemoV2() {
       return DIAS[siguiente].numero;
     });
     setIniciada(false);
-    setVerRutina(false);
   };
 
   const comenzarGesto = (evento: ReactPointerEvent<HTMLElement>) => {
@@ -179,26 +171,21 @@ export function EntrenamientoDemoV2() {
             </div>
           )}
           <div className={`${styles.heroActions} ${actual.descanso ? styles.heroActionsSingle : ""}`}>
-            {!actual.descanso ? <button type="button" className={styles.secondaryButton} onClick={() => setVerRutina((valor) => !valor)}>{verRutina ? "Ocultar rutina" : "Ver rutina"}</button> : null}
-            <button type="button" className={styles.primaryButton} onClick={() => setIniciada(true)}>
-              {!actual.descanso ? <Play size={14} fill="currentColor" /> : null}
-              {iniciada ? "Sesión preparada" : actual.descanso ? `Completar descanso ${actual.numero}` : `Iniciar día ${actual.numero}`}
-            </button>
+            {!actual.descanso ? <Link href="/portal-v2/entrenamiento/rutina" className={styles.secondaryButton}>Ver rutina</Link> : null}
+            {!actual.descanso ? (
+              <Link href="/portal-v2/entrenamiento/sesion" className={styles.primaryButton}><Play size={14} fill="currentColor" />Iniciar día {actual.numero}</Link>
+            ) : (
+              <button type="button" className={styles.primaryButton} onClick={() => setIniciada(true)}>{iniciada ? "Descanso completado" : `Completar descanso ${actual.numero}`}</button>
+            )}
           </div>
         </div>
       </section>
 
-      {verRutina && !actual.descanso && (
-        <section className={`${styles.exerciseList} ${styles.expanded}`} aria-label="Rutina completa">
-          {EJERCICIOS.map((ejercicio) => <EjercicioDemo key={ejercicio.nombre} {...ejercicio} />)}
-        </section>
-      )}
-
       <div className={styles.utilityGrid}>
-        <button type="button" className={styles.utilityCard} onClick={() => setVerRutina(true)}>
+        <Link href="/portal-v2/entrenamiento/rutina" className={styles.utilityCard}>
           <span className={styles.utilityIcon} aria-hidden="true"><Archive size={28} strokeWidth={1.85} /></span>
           <span className={styles.utilityCopy}><strong>Biblioteca de ejercicios</strong><span>Explora más de 500 ejercicios</span></span>
-        </button>
+        </Link>
         <button type="button" className={styles.utilityCard} onClick={() => setMenuAbierto(true)}>
           <span className={styles.utilityIcon} aria-hidden="true">
             <LayoutGrid size={27} strokeWidth={1.75} />
@@ -261,15 +248,5 @@ export function EntrenamientoDemoV2() {
         </div>
       )}
     </div>
-  );
-}
-
-function EjercicioDemo({ nombre, detalle, foto }: { nombre: string; detalle: string; foto: string }) {
-  return (
-    <article className={styles.exerciseRow}>
-      <div className={styles.exerciseThumb}><Image src={foto} alt="" fill sizes="48px" /></div>
-      <div><strong>{nombre}</strong><span>{detalle}</span></div>
-      <span className={styles.exerciseMeta}>›</span>
-    </article>
   );
 }
