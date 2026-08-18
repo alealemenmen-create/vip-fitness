@@ -25,7 +25,7 @@ import {
   StickyNote,
   X,
 } from "lucide-react";
-import { avisarFinDescanso, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
+import { avisarFinDescansoV2, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
 import styles from "./SesionActivaV2.module.css";
 
 type SerieRegistrada = {
@@ -192,7 +192,7 @@ export function SesionActivaV2() {
     }
     if (descansoAvisadoRef.current === clave) return;
     descansoAvisadoRef.current = clave;
-    avisarFinDescanso();
+    avisarFinDescansoV2();
     if (!descansoEnFoco && vista !== "descanso") return;
     const transicion = window.setTimeout(() => {
       if (descansoEnFoco) {

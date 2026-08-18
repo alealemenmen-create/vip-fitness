@@ -67,7 +67,14 @@ export function prepararAviso() {
 
 /** Un tono con entrada y salida suaves — un tono pelado arranca y corta con un
  * chasquido bastante feo en el parlante del celular. */
-function tono(desde: number, hz: number, duracion: number) {
+function tono(
+  desde: number,
+  hz: number,
+  duracion: number,
+  volumen = 0.22,
+  ataque = 0.02,
+  salida = 0.05,
+) {
   if (!contexto) return;
   const osc = contexto.createOscillator();
   const gain = contexto.createGain();
@@ -76,8 +83,8 @@ function tono(desde: number, hz: number, duracion: number) {
 
   const t = contexto.currentTime + desde;
   gain.gain.setValueAtTime(0, t);
-  gain.gain.linearRampToValueAtTime(0.22, t + 0.02);
-  gain.gain.setValueAtTime(0.22, t + duracion - 0.05);
+  gain.gain.linearRampToValueAtTime(volumen, t + ataque);
+  gain.gain.setValueAtTime(volumen, t + duracion - salida);
   gain.gain.linearRampToValueAtTime(0, t + duracion);
 
   osc.connect(gain).connect(contexto.destination);
@@ -93,33 +100,22 @@ function tono(desde: number, hz: number, duracion: number) {
  * (ver `cortarAviso`) en vez de dejarla colgada en la bandeja. */
 let notificacionActiva: Notification | null = null;
 
-/** Vibra y suena. Se llama cuando la cuenta regresiva llega a cero.
- *
- * Si la pestaña está en segundo plano (el alumno cambió de app) y hay
- * permiso, además dispara una notificación del sistema — sin eso, la
- * vibración/sonido pueden no percibirse si el teléfono no está en la mano.
- * Requiere haber pedido permiso antes con `prepararAviso` (dentro de un
- * gesto del usuario); si no hay permiso, no hace nada extra.
- */
-export function avisarFinDescanso() {
+function vibrarFinDescanso() {
   try {
     navigator.vibrate?.(VIBRACION);
   } catch {
     // Si el navegador no permite vibrar, no pasa nada.
   }
+}
 
-  // Dos notas ascendentes: se reconoce como "listo, seguí" y no como el
-  // mensaje entrante de cualquier otra app.
-  tono(0, 880, 0.16);
-  tono(0.2, 1175, 0.26);
-
+function mostrarNotificacionFinDescanso() {
   try {
     if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
       notificacionActiva = new Notification("Se acabó el descanso", {
         body: "Vuelve a la app para tu siguiente serie.",
         icon: "/icons/icon-192.png",
         tag: "fin-descanso",
-        silent: true, // el sonido ya lo maneja Web Audio arriba
+        silent: true, // el sonido ya lo maneja Web Audio
       });
       notificacionActiva.onclick = () => {
         window.focus();
@@ -129,6 +125,40 @@ export function avisarFinDescanso() {
   } catch {
     // Sin notificaciones disponibles, sigue el aviso por vibración y sonido.
   }
+}
+
+/** Vibra y suena. Se llama cuando la cuenta regresiva llega a cero.
+ *
+ * Si la pestaña está en segundo plano (el alumno cambió de app) y hay
+ * permiso, además dispara una notificación del sistema — sin eso, la
+ * vibración/sonido pueden no percibirse si el teléfono no está en la mano.
+ * Requiere haber pedido permiso antes con `prepararAviso` (dentro de un
+ * gesto del usuario); si no hay permiso, no hace nada extra.
+ */
+export function avisarFinDescanso() {
+  vibrarFinDescanso();
+
+  // Dos notas ascendentes: se reconoce como "listo, seguí" y no como el
+  // mensaje entrante de cualquier otra app.
+  tono(0, 880, 0.16);
+  tono(0.2, 1175, 0.26);
+
+  mostrarNotificacionFinDescanso();
+}
+
+/**
+ * Aviso propio de Portal V2: dos notas redondas y contenidas, más cercanas a
+ * un "o-o" elegante que a un pitido de alarma. Se mantiene independiente para
+ * no modificar la experiencia sonora del portal clásico.
+ */
+export function avisarFinDescansoV2() {
+  vibrarFinDescanso();
+
+  // Una tercera mayor suave transmite avance sin resultar estridente.
+  tono(0, 523.25, 0.28, 0.13, 0.03, 0.07);
+  tono(0.32, 659.25, 0.38, 0.12, 0.03, 0.07);
+
+  mostrarNotificacionFinDescanso();
 }
 
 /**
