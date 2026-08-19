@@ -711,6 +711,13 @@ Validaciones locales completadas el 19-08-2026:
 1. Crear un respaldo lógico verificable antes del próximo cambio de esquema; el
    plan gratuito actual no incluye respaldos automáticos.
 2. Mantener `portal-v2` separada y desplegar una URL de preview.
+   La carpeta V2 está enlazada a `vip-fitness-center`, cuyo entorno Preview ya
+   contiene las variables de Supabase, correo, cron y Cloudflare. Un despliegue
+   sin `--prod` crea una URL aislada y no cambia `vipfitness.cl`.
+   El proyecto separado `vip-fitness-preview` no debe utilizarse en su estado
+   actual: está configurado como framework genérico, no tiene variables y sus
+   dos compilaciones históricas fallaron por falta de
+   `SUPABASE_SERVICE_ROLE_KEY`.
 3. `0104_personalizacion_sesion_v2.sql`,
    `0105_biblioteca_nutricion_v2.sql`, `0106_comunidad_social_v2.sql` y
    `0107_recompensas_vip.sql`, junto con el refuerzo
@@ -727,6 +734,8 @@ Validaciones locales completadas el 19-08-2026:
 5. Probar con cuentas reales de ensayo: alumno, entrenador y administrador.
 6. Ejecutar `npm run quality:v2`, que detiene la entrega si falla ESLint,
    TypeScript, cualquier prueba o la compilación de producción.
+   Después ejecutar `npm run preflight:v2-preview`: exige la rama `portal-v2`,
+   un árbol Git limpio y el proyecto Vercel auditado; nunca publica por sí solo.
 7. Probar iPhone/Android: cámara, teclado, sonido, vibración, segundo plano,
    red intermitente, safe areas y notificaciones.
 8. Revisar permisos de cámara/push bajo HTTPS y políticas RLS con intentos de

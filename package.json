@@ -17,7 +17,8 @@
     "cleanup:v2-qa-nutrition": "node scripts/limpiar-comidas-vacias-qa.mjs",
     "audit:v2-data": "node scripts/auditar-continuidad-datos-v2.mjs",
     "audit:v2-food-local": "node scripts/auditar-base-nutricional-local.mjs",
-    "generate:v2-food-migration": "node scripts/generar-migracion-catalogo-nutricional.mjs"
+    "generate:v2-food-migration": "node scripts/generar-migracion-catalogo-nutricional.mjs",
+    "preflight:v2-preview": "node scripts/preflight-preview-v2.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
