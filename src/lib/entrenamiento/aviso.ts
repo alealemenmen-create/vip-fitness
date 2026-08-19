@@ -151,12 +151,14 @@ export function avisarFinDescanso() {
  * un "o-o" elegante que a un pitido de alarma. Se mantiene independiente para
  * no modificar la experiencia sonora del portal clásico.
  */
-export function avisarFinDescansoV2() {
+export function avisarFinDescansoV2(conSonido = true) {
   vibrarFinDescanso();
 
   // Una tercera mayor suave transmite avance sin resultar estridente.
-  tono(0, 523.25, 0.28, 0.13, 0.03, 0.07);
-  tono(0.32, 659.25, 0.38, 0.12, 0.03, 0.07);
+  if (conSonido) {
+    tono(0, 523.25, 0.28, 0.13, 0.03, 0.07);
+    tono(0.32, 659.25, 0.38, 0.12, 0.03, 0.07);
+  }
 
   mostrarNotificacionFinDescanso();
 }

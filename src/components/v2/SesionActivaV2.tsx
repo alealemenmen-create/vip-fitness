@@ -56,6 +56,7 @@ type DescansoActivo = {
 
 type PanelSesion = "consejo" | "historial" | "sustituir" | "reordenar" | "notas" | "ajustes" | "informacion" | null;
 type VistaSesion = "lista" | "video" | "descanso";
+type UnidadPeso = "kg" | "lb";
 
 const EJERCICIOS: EjercicioSesion[] = [
   { id: "sentadilla-smith", codigo: "A", nombre: "Sentadilla Smith", repeticiones: [10, 10, 10, 10], descanso: 60, foto: "/v2/piernas.webp", equipo: "Máquina Smith", grupo: "Cuádriceps · glúteos" },
@@ -79,6 +80,19 @@ function formatearTiempo(total: number) {
 
 function limitar(valor: number, minimo: number, maximo: number) {
   return Math.min(Math.max(valor, minimo), maximo);
+}
+
+function convertirPeso(valor: string, desde: UnidadPeso, hasta: UnidadPeso) {
+  if (desde === hasta || valor.trim() === "") return valor;
+  const numero = Number(valor.replace(",", "."));
+  if (!Number.isFinite(numero)) return valor;
+  const convertido = desde === "kg" ? numero * 2.20462 : numero / 2.20462;
+  return String(Math.round(convertido * 10) / 10);
+}
+
+function pesoHistorico(kilos: number, unidad: UnidadPeso) {
+  const valor = unidad === "kg" ? kilos : Math.round(kilos * 2.20462 * 10) / 10;
+  return `${valor} ${unidad}`;
 }
 
 function desplazarPosicionSerie(ejercicioIndice: number, serieIndice: number, direccion: -1 | 1) {
@@ -119,6 +133,9 @@ export function SesionActivaV2() {
   const [notas, setNotas] = useState<Record<string, string>>({});
   const [confirmarSalida, setConfirmarSalida] = useState(false);
   const [registrada, setRegistrada] = useState(false);
+  const [temporizadorAutomatico, setTemporizadorAutomatico] = useState(true);
+  const [sonidoDescansoActivo, setSonidoDescansoActivo] = useState(true);
+  const [unidadPeso, setUnidadPeso] = useState<UnidadPeso>("kg");
   const gestoInicioX = useRef<number | null>(null);
   const descansoAvisadoRef = useRef<string | null>(null);
   const paginaSesionRef = useRef<HTMLDivElement | null>(null);
@@ -201,7 +218,7 @@ export function SesionActivaV2() {
     }
     if (descansoAvisadoRef.current === clave) return;
     descansoAvisadoRef.current = clave;
-    avisarFinDescansoV2();
+    avisarFinDescansoV2(sonidoDescansoActivo);
     if (!descansoEnFoco && vista !== "descanso") return;
     const transicion = window.setTimeout(() => {
       if (descansoEnFoco) {
@@ -219,7 +236,7 @@ export function SesionActivaV2() {
       if (vista === "descanso") setVista("video");
     }, 0);
     return () => window.clearTimeout(transicion);
-  }, [descanso, descansoEnFoco, vista]);
+  }, [descanso, descansoEnFoco, sonidoDescansoActivo, vista]);
 
   const actualizarSerie = (ejercicioId: string, indice: number, campo: "reps" | "peso", valor: string) => {
     setRegistro((actual) => ({
@@ -252,6 +269,18 @@ export function SesionActivaV2() {
       setDescanso(null);
       setDescansoEnFoco(false);
       setConfirmarSalida(true);
+      return;
+    }
+
+    if (!temporizadorAutomatico) {
+      const siguiente = desplazarPosicionSerie(ejercicioIndice, serieIndice, 1);
+      const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
+      cortarAviso();
+      setDescanso(null);
+      setDescansoEnFoco(false);
+      setEjercicioActivoId(siguienteEjercicio.id);
+      setSerieActivaIndice(siguiente.serieIndice);
+      setEjercicioExpandidoId(siguienteEjercicio.id);
       return;
     }
 
@@ -312,6 +341,15 @@ export function SesionActivaV2() {
       setConfirmarSalida(true);
       return;
     }
+    if (!temporizadorAutomatico) {
+      const siguiente = desplazarPosicionSerie(ejercicioActivoIndice, serieActivaIndiceSeguro, 1);
+      const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
+      setEjercicioActivoId(siguienteEjercicio.id);
+      setSerieActivaIndice(siguiente.serieIndice);
+      setEjercicioExpandidoId(siguienteEjercicio.id);
+      setControlesVideoVisibles(true);
+      return;
+    }
 
     prepararAviso();
     descansoAvisadoRef.current = null;
@@ -322,6 +360,29 @@ export function SesionActivaV2() {
     });
     setDescansoEnFoco(true);
     setVista("descanso");
+  };
+
+  const cambiarTemporizadorAutomatico = (activo: boolean) => {
+    setTemporizadorAutomatico(activo);
+    if (activo || descanso === null) return;
+    cortarAviso();
+    setDescanso(null);
+    setDescansoEnFoco(false);
+    if (vista === "descanso") setVista("video");
+  };
+
+  const cambiarUnidadPeso = (siguienteUnidad: UnidadPeso) => {
+    if (siguienteUnidad === unidadPeso) return;
+    setRegistro((actual) => Object.fromEntries(
+      Object.entries(actual).map(([ejercicioId, series]) => [
+        ejercicioId,
+        series.map((serie) => ({
+          ...serie,
+          peso: convertirPeso(serie.peso, unidadPeso, siguienteUnidad),
+        })),
+      ]),
+    ));
+    setUnidadPeso(siguienteUnidad);
   };
 
   const moverSerie = (direccion: -1 | 1) => {
@@ -437,7 +498,7 @@ export function SesionActivaV2() {
             <button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={13} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={13} />Reordenar</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>
           </div>
           <div className={styles.videoSetStrip}>
-            <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} TRB</em></span><span><b>Reps</b><strong>{serieActiva.reps}</strong></span><span><b>Peso</b><strong>{serieActiva.peso || "— kg"}</strong></span>
+            <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} TRB</em></span><span><b>Reps</b><strong>{serieActiva.reps}</strong></span><span><b>Peso ({unidadPeso})</b><strong>{serieActiva.peso || `— ${unidadPeso}`}</strong></span>
             <button
               type="button"
               onClick={() => alternarSerie(ejercicioActivo, serieActivaIndiceSeguro)}
@@ -469,7 +530,7 @@ export function SesionActivaV2() {
                 </div>
                 <div className={styles.actionChips}><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={14} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={14} />Reordenar series</button></div>
                 <div className={styles.setTable}>
-                  <div className={styles.setHead}><span>Serie</span><span>Reps</span><span>Peso</span><span>Descanso</span><span>Listo</span></div>
+                  <div className={styles.setHead}><span>Serie</span><span>Reps</span><span>Peso ({unidadPeso})</span><span>Descanso</span><span>Listo</span></div>
                   {registro[ejercicio.id].map((serie, serieIndice) => {
                     const descansoDeEstaSerie = descanso?.ejercicioId === ejercicio.id && descanso.serieIndice === serieIndice;
                     const esSerieActiva = !descansoEnFoco && ejercicio.id === ejercicioActivo.id && serieIndice === serieActivaIndiceSeguro;
@@ -486,7 +547,7 @@ export function SesionActivaV2() {
                         <div className={`${styles.setRow} ${serie.completada ? styles.setRowDone : ""} ${descansoDeEstaSerie ? styles.setRowActive : ""} ${esSerieActiva ? styles.setRowSelected : styles.setRowLocked}`} aria-current={esSerieActiva ? "step" : undefined} onClick={activarEstaSerie}>
                           <span className={styles.setNumber}><b>{serieIndice + 1}</b><em>TRB</em></span>
                           <input aria-label={`Repeticiones, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva} inputMode="numeric" value={serie.reps} readOnly={!esSerieActiva} tabIndex={esSerieActiva ? 0 : -1} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "reps", evento.target.value)} />
-                          <input aria-label={`Peso, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva} inputMode="decimal" value={serie.peso} readOnly={!esSerieActiva} tabIndex={esSerieActiva ? 0 : -1} placeholder="— kg" onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "peso", evento.target.value)} />
+                          <input aria-label={`Peso en ${unidadPeso}, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva} inputMode="decimal" value={serie.peso} readOnly={!esSerieActiva} tabIndex={esSerieActiva ? 0 : -1} placeholder={`— ${unidadPeso}`} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "peso", evento.target.value)} />
                           <span className={styles.restValue}>{esUltimaSerieRutina ? "Final" : `${ejercicio.descanso} s`}</span>
                           <button type="button" className={styles.checkButton} onClick={(evento) => { evento.stopPropagation(); if (esSerieActiva) alternarSerie(ejercicio, serieIndice); else activarEstaSerie(); }} aria-label={esSerieActiva ? `${serie.completada ? "Desmarcar" : "Registrar"} serie ${serieIndice + 1}` : `Activar serie ${serieIndice + 1}`} aria-pressed={serie.completada}>{serie.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}</button>
                         </div>
@@ -515,6 +576,12 @@ export function SesionActivaV2() {
           tipo={panel}
           ejercicio={ejercicioActivo}
           notaInicial={notas[ejercicioActivo.id] ?? ""}
+          temporizadorAutomatico={temporizadorAutomatico}
+          sonidoDescansoActivo={sonidoDescansoActivo}
+          unidadPeso={unidadPeso}
+          cambiarTemporizadorAutomatico={cambiarTemporizadorAutomatico}
+          cambiarSonidoDescanso={setSonidoDescansoActivo}
+          cambiarUnidadPeso={cambiarUnidadPeso}
           guardarNota={(nota) => setNotas((actuales) => ({ ...actuales, [ejercicioActivo.id]: nota }))}
           cerrar={() => setPanel(null)}
         />
@@ -537,12 +604,24 @@ function PanelAuxiliar({
   tipo,
   ejercicio,
   notaInicial,
+  temporizadorAutomatico,
+  sonidoDescansoActivo,
+  unidadPeso,
+  cambiarTemporizadorAutomatico,
+  cambiarSonidoDescanso,
+  cambiarUnidadPeso,
   guardarNota,
   cerrar,
 }: {
   tipo: Exclude<PanelSesion, null>;
   ejercicio: EjercicioSesion;
   notaInicial: string;
+  temporizadorAutomatico: boolean;
+  sonidoDescansoActivo: boolean;
+  unidadPeso: UnidadPeso;
+  cambiarTemporizadorAutomatico: (activo: boolean) => void;
+  cambiarSonidoDescanso: (activo: boolean) => void;
+  cambiarUnidadPeso: (unidad: UnidadPeso) => void;
   guardarNota: (nota: string) => void;
   cerrar: () => void;
 }) {
@@ -554,11 +633,26 @@ function PanelAuxiliar({
         <div className={styles.sheetHandle} />
         <header><div><small>SERIE {ejercicio.codigo}</small><h2>{titulos[tipo]}</h2></div><button type="button" onClick={cerrar} aria-label="Cerrar"><X size={17} /></button></header>
         {tipo === "consejo" ? <p className={styles.sheetCopy}>Mantén el abdomen firme, controla el descenso y conserva la trayectoria estable durante toda la repetición.</p> : null}
-        {tipo === "historial" ? <div className={styles.historyGrid}><span>Fecha</span><span>Reps</span><span>Peso</span><strong>11 ago.</strong><strong>10 · 10 · 10</strong><strong>42 kg</strong><strong>4 ago.</strong><strong>12 · 10 · 10</strong><strong>40 kg</strong></div> : null}
+        {tipo === "historial" ? <div className={styles.historyGrid}><span>Fecha</span><span>Reps</span><span>Peso</span><strong>11 ago.</strong><strong>10 · 10 · 10</strong><strong>{pesoHistorico(42, unidadPeso)}</strong><strong>4 ago.</strong><strong>12 · 10 · 10</strong><strong>{pesoHistorico(40, unidadPeso)}</strong></div> : null}
         {tipo === "sustituir" ? <div className={styles.swapList}><button type="button"><Dumbbell size={17} /><span><strong>Sentadilla goblet</strong><small>Mismo patrón de movimiento</small></span><Plus size={17} /></button><button type="button"><Dumbbell size={17} /><span><strong>Prensa horizontal</strong><small>Alternativa para cuádriceps</small></span><Plus size={17} /></button></div> : null}
         {tipo === "notas" ? <label className={styles.exerciseNotes}><span>Nota personal</span><textarea value={notaBorrador} onChange={(evento) => setNotaBorrador(evento.target.value)} placeholder="Escribe una observación para este ejercicio…" /><button type="button" onClick={() => { guardarNota(notaBorrador); cerrar(); }}>Guardar nota</button></label> : null}
         {tipo === "reordenar" ? <div className={styles.reorderPreview}><span><b>1</b> Serie de trabajo <ArrowDownUp size={15} /></span><span><b>2</b> Serie de trabajo <ArrowDownUp size={15} /></span><span><b>3</b> Serie de trabajo <ArrowDownUp size={15} /></span><button type="button" onClick={cerrar}>Guardar orden</button></div> : null}
-        {tipo === "ajustes" ? <div className={styles.settingRows}><span>Temporizador automático <b>Activo</b></span><span>Sonido al terminar <b>Activo</b></span><span>Unidad de peso <b>kg</b></span></div> : null}
+        {tipo === "ajustes" ? (
+          <div className={styles.settingRows}>
+            <div className={styles.settingRow}>
+              <span><strong>Temporizador automático</strong><small>Inicia el descanso al completar cada serie</small></span>
+              <button type="button" role="switch" aria-label="Temporizador automático" aria-checked={temporizadorAutomatico} className={styles.settingSwitch} onClick={() => cambiarTemporizadorAutomatico(!temporizadorAutomatico)}><i /></button>
+            </div>
+            <div className={styles.settingRow}>
+              <span><strong>Sonido al terminar</strong><small>La vibración permanece activa</small></span>
+              <button type="button" role="switch" aria-label="Sonido al terminar" aria-checked={sonidoDescansoActivo} className={styles.settingSwitch} onClick={() => cambiarSonidoDescanso(!sonidoDescansoActivo)}><i /></button>
+            </div>
+            <div className={styles.settingRow}>
+              <span><strong>Unidad de peso</strong><small>Convierte los pesos registrados</small></span>
+              <div className={styles.unitSelector} role="group" aria-label="Unidad de peso"><button type="button" aria-pressed={unidadPeso === "kg"} onClick={() => cambiarUnidadPeso("kg")}>kg</button><button type="button" aria-pressed={unidadPeso === "lb"} onClick={() => cambiarUnidadPeso("lb")}>lb</button></div>
+            </div>
+          </div>
+        ) : null}
         {tipo === "informacion" ? <div className={styles.infoGrid}><span><small>Equipo</small><strong>{ejercicio.equipo}</strong></span><span><small>Objetivo</small><strong>{ejercicio.grupo}</strong></span><span><small>Descanso</small><strong>{ejercicio.descanso} segundos</strong></span></div> : null}
       </section>
     </div>

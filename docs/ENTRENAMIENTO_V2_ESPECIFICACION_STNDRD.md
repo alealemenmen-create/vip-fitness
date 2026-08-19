@@ -336,6 +336,15 @@ serie anterior.
 En la referencia son iconos blancos, gruesos y bien centrados dentro de una barra
 negra elevada. Deben tener zonas táctiles amplias aunque el dibujo sea pequeño.
 
+El control de ajustes abre opciones funcionales para la sesión:
+
+- `Temporizador automático`: activo crea el descanso al completar una serie;
+  inactivo registra la serie y avanza sin abrir temporizador.
+- `Sonido al terminar`: silencia o activa las dos notas del fin de descanso sin
+  desactivar la vibración.
+- `Unidad de peso`: permite `kg` o `lb`, actualiza todos los rótulos y convierte
+  los pesos ya introducidos sin perderlos.
+
 ### 7.4 Detalle técnico del ejercicio
 
 La ficha multimedia muestra, cuando la información existe:
