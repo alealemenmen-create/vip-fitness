@@ -13,6 +13,7 @@ import {
   History,
   LayoutGrid,
   LibraryBig,
+  LogIn,
   Menu,
   Moon,
   Play,
@@ -93,6 +94,13 @@ export function EntrenamientoDemoV2() {
 
   return (
     <div className={styles.trainingPage}>
+      <section className={styles.demoAccessNotice} aria-label="Vista previa sin sesión">
+        <div>
+          <strong>Vista previa · Sin datos personales</strong>
+          <span>Este programa es una demostración. Inicia sesión para cargar tu rutina real.</span>
+        </div>
+        <Link href="/login"><LogIn size={14} />Ingresar</Link>
+      </section>
       <header className={styles.pageHeader}>
         <div className={styles.programIdentity}>
           <span className={styles.programMark} aria-hidden="true"><i /><i /><i /></span>

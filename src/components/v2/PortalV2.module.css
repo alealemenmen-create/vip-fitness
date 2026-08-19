@@ -250,6 +250,35 @@
 
 .trainingPage { padding-bottom: 8px; }
 
+.demoAccessNotice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 4px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 12px;
+  background: linear-gradient(105deg, #0d0e0e 0%, #171918 66%, #202321 100%);
+}
+.demoAccessNotice strong,
+.demoAccessNotice span { display: block; }
+.demoAccessNotice strong { color: #f5f6f2; font-size: 11px; font-weight: 780; }
+.demoAccessNotice span { margin-top: 3px; color: #9a9e9a; font-size: 9px; line-height: 1.35; }
+.demoAccessNotice a {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 11px;
+  border-radius: 999px;
+  color: #090a0a;
+  background: #f5f6f2;
+  font-size: 9px;
+  font-weight: 780;
+}
+
 .programIdentity { display: flex; align-items: center; gap: 8px; }
 .programMark {
   display: flex;
