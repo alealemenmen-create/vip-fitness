@@ -60,6 +60,9 @@ recibir aprobación expresa.
 
 - `/portal-v2/progreso/comunidad`: actividad verificada, clasificación mensual
   y acumulada, podio, desglose explicable de puntos y desafíos activos.
+- `/portal-v2/progreso/ranking`: Arena V2, rangos, tabla semanal/mensual/anual,
+  reglas públicas, movimientos auditables, retos y catálogo de recompensas;
+  permanece navegable como demostración segura sin enviarla al login clásico.
 - Los puntos provienen de eventos del servidor con claves idempotentes; no de
   clics del cliente. Existen topes, penalizaciones y cierre de actividad.
 - Aceptación/rechazo de torneos conectada a las acciones existentes.

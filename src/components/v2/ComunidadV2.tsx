@@ -182,7 +182,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
             ))}
           </div>
           <p className={styles.communityFairPlay}><ShieldCheck size={15} /> Solo cuentan sesiones finalizadas, registros válidos y eventos auditables. No se premian clics.</p>
-          <Link className={styles.communityRankedCta} href="/alumno/ranked"><Gift size={17} /><span><strong>Arena y recompensas VIP</strong><small>Retos, apuestas, premios y canjes con tu saldo real</small></span><ChevronRight size={16} /></Link>
+          <Link className={styles.communityRankedCta} href="/portal-v2/progreso/ranking"><Gift size={17} /><span><strong>Arena y recompensas VIP</strong><small>Retos, apuestas, premios y canjes con tu saldo real</small></span><ChevronRight size={16} /></Link>
         </section>
       )}
       {detallePuntos ? (

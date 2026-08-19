@@ -24,5 +24,6 @@ export async function solicitarCanjeVip(recompensaId: string) {
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/ranked");
   revalidatePath("/portal-v2/progreso/comunidad");
+  revalidatePath("/portal-v2/progreso/ranking");
   return { ok: true, error: null };
 }
