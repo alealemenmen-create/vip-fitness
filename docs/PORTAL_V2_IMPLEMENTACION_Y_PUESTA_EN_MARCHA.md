@@ -137,8 +137,10 @@ idempotente y contrastarse contra el registro original antes del piloto.
   reflejados tras confirmación del servidor; ante error o corte de red, la
   interfaz revierte al valor anterior y conserva la preferencia existente.
 - `/portal-v2/privacidad`: documento completo reutilizado del portal original,
-  con retorno a la V2; el cierre de sesión real sólo aparece cuando existe una
-  identidad autenticada.
+  con retorno a la V2. El texto se conserva como una sola fuente para evitar
+  versiones legales contradictorias, pero la presentación se adapta por
+  completo a tipografía, contraste, superficies y acento verde V2; el cierre
+  de sesión real sólo aparece cuando existe una identidad autenticada.
 - `/portal-v2/perfil`: edición autenticada de datos personales, temporizador,
   contraseña, correo y reseña reutilizando las acciones probadas del portal.
   La interfaz ya no incrusta las tarjetas clásicas: organiza esas funciones en
