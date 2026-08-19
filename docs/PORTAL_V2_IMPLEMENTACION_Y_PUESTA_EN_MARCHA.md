@@ -140,7 +140,11 @@ idempotente y contrastarse contra el registro original antes del piloto.
   botones, estados y jerarquía propios de la nueva experiencia. La vista
   directa protege la información sin redirigir al login.
 - `/portal-v2/soporte`: asistente contextual, recordatorios y marcas recientes
-  dentro del shell V2; la demostración no fabrica conversaciones privadas.
+  dentro del shell V2; la demostración no fabrica conversaciones privadas. El
+  panel heredado fue sustituido por componentes V2 propios y la prueba QA
+  confirmó una respuesta construida desde el historial real, con fechas
+  legibles en español y sin costo de IA para consultas que el motor local puede
+  resolver.
 - El plan muestra nombre, sesiones, frecuencia y estado reales de la cuenta.
 - Las notificaciones push son reversibles por dispositivo: activar suscribe el
   endpoint y desactivar lo elimina del servidor y del navegador.

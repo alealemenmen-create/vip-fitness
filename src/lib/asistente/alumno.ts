@@ -131,6 +131,13 @@ function normalizar(texto: string): string {
   return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es");
 }
 
+function fechaLegible(fecha: string | null): string {
+  if (!fecha) return "una fecha no registrada";
+  return new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "long", year: "numeric" }).format(
+    new Date(`${fecha}T12:00:00`)
+  );
+}
+
 /** Respuestas de historial que Portal VIP puede resolver sin IA ni costo. */
 export function responderConHistorialLocal(
   pregunta: string,
@@ -149,7 +156,7 @@ export function responderConHistorialLocal(
       .slice(0, 5)
       .map((sesion) => {
         const estado = sesion.estado === "completada" ? "completada" : "finalizada parcialmente";
-        return `${sesion.fecha}: ${sesion.dia} (${estado})`;
+        return `${fechaLegible(sesion.fecha)}: ${sesion.dia} (${estado})`;
       })
       .join("; ");
     return `Tus entrenamientos más recientes fueron: ${resumen}.`;
@@ -158,7 +165,7 @@ export function responderConHistorialLocal(
   if (/mi progreso|peso actual|cuanto peso/.test(texto)) {
     return contexto.progreso.pesoActual === null
       ? "Todavía no tienes un peso corporal reciente registrado."
-      : `Tu último peso registrado fue ${contexto.progreso.pesoActual} kg el ${contexto.progreso.fechaPeso}.`;
+      : `Tu último peso registrado fue ${contexto.progreso.pesoActual} kg el ${fechaLegible(contexto.progreso.fechaPeso)}.`;
   }
 
   if (/levante|levant|peso.*ejercicio|repeticion|reps|marca/.test(texto)) {
@@ -175,7 +182,7 @@ export function responderConHistorialLocal(
         ? "sin peso anotado"
         : `con ${marca.pesoKg} kg`;
     const reps = marca.repeticiones === null ? "sin repeticiones anotadas" : `${marca.repeticiones} repeticiones`;
-    return `La marca más reciente encontrada es ${marca.ejercicio}, el ${marca.fecha}: ${peso} y ${reps}.`;
+    return `La marca más reciente encontrada es ${marca.ejercicio}, el ${fechaLegible(marca.fecha)}: ${peso} y ${reps}.`;
   }
 
   return null;

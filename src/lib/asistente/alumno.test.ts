@@ -38,7 +38,7 @@ describe("responderConHistorialLocal", () => {
     );
 
     expect(respuesta).toBe(
-      "Tus entrenamientos más recientes fueron: 2026-08-19: Entrenamiento QA completo (finalizada parcialmente)."
+      "Tus entrenamientos más recientes fueron: 19 de agosto de 2026: Entrenamiento QA completo (finalizada parcialmente)."
     );
   });
 });
