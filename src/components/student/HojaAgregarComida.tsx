@@ -670,7 +670,7 @@ function Contenido({
         <div className="space-y-2">
           {biblioteca.recetas.map((receta) => (
             <article key={receta.id} className="radius-control flex min-h-[58px] items-center gap-2 border border-border bg-surface-2 px-3 py-2">
-              <button type="button" className="min-w-0 flex-1 text-left" onClick={() => usarReceta(receta)}><strong className="block truncate text-secondary text-text">{receta.nombre}</strong><small className="text-caption text-text-tertiary">{receta.ingredientes.length} ingredientes · {receta.porciones} porción</small></button>
+              <button type="button" className="min-w-0 flex-1 text-left" onClick={() => usarReceta(receta)}><strong className="block truncate text-secondary text-text">{receta.nombre}</strong><small className="text-caption text-text-tertiary">{receta.ingredientes.length === 1 ? "1 ingrediente" : `${receta.ingredientes.length} ingredientes`} · {receta.porciones === 1 ? "1 porción" : `${receta.porciones} porciones`}</small></button>
               <button type="button" aria-label={`Eliminar ${receta.nombre}`} disabled={guardandoBiblioteca} onClick={() => eliminarReceta(receta.id)} className="grid h-10 w-10 place-items-center rounded-full text-error"><Trash2 size={16} /></button>
             </article>
           ))}

@@ -9,6 +9,7 @@ export type RegistroPeso = {
   id: string;
   pesoKg: number;
   fecha: string;
+  createdAt: string;
   observacion: string | null;
   registradoPorNombre: string;
 };
@@ -19,14 +20,16 @@ export async function obtenerHistorialPeso(
 ): Promise<RegistroPeso[]> {
   const { data } = await supabase
     .from("pesos_corporales")
-    .select("id, peso_kg, fecha, observacion, registrado_por, perfiles!pesos_corporales_registrado_por_fkey(nombre)")
+    .select("id, peso_kg, fecha, created_at, observacion, registrado_por, perfiles!pesos_corporales_registrado_por_fkey(nombre)")
     .eq("alumno_id", alumnoId)
-    .order("fecha", { ascending: true });
+    .order("fecha", { ascending: true })
+    .order("created_at", { ascending: true });
 
   return (data ?? []).map((p) => ({
     id: p.id,
     pesoKg: p.peso_kg,
     fecha: p.fecha,
+    createdAt: p.created_at,
     observacion: p.observacion,
     registradoPorNombre:
       (p.perfiles as unknown as { nombre: string } | null)?.nombre ?? "Desconocido",

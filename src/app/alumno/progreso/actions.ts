@@ -65,13 +65,31 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
     return fail("Solo puedes registrar el peso de hoy o de ayer.");
   }
 
-  const { error } = await supabase.from("pesos_corporales").insert({
-    alumno_id: alumnoId,
-    peso_kg: pesoKg,
-    fecha,
-    registrado_por: alumnoId,
-    observacion: observacion || null,
-  });
+  const { data: registroDelDia, error: errorLectura } = await supabase
+    .from("pesos_corporales")
+    .select("id")
+    .eq("alumno_id", alumnoId)
+    .eq("fecha", fecha)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (errorLectura) return fail("No fue posible comprobar el peso de hoy. Revisa tu conexión e intenta nuevamente.");
+
+  const escritura = registroDelDia
+    ? supabase.from("pesos_corporales").update({
+        peso_kg: pesoKg,
+        observacion: observacion || null,
+      }).eq("id", registroDelDia.id)
+    : supabase.from("pesos_corporales").insert({
+        alumno_id: alumnoId,
+        peso_kg: pesoKg,
+        fecha,
+        registrado_por: alumnoId,
+        observacion: observacion || null,
+      });
+
+  const { error } = await escritura;
 
   if (error) return fail("No fue posible guardar el peso. Revisa tu conexión e intenta nuevamente.");
 
@@ -83,7 +101,12 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
   // `registrarPeso` devuelve el delta real (ver `guardarMovimientoConDelta`):
   // el segundo peso de la misma semana no acredita nada y hay que decirlo.
   if (!puntos) {
-    return { ...okState, aviso: "Peso guardado. Ya tenías la recompensa de peso de esta semana." };
+    return {
+      ...okState,
+      aviso: registroDelDia
+        ? "Peso de hoy actualizado. La recompensa semanal ya estaba registrada."
+        : "Peso guardado. Ya tenías la recompensa de peso de esta semana.",
+    };
   }
   return { ...okState, puntos };
 }

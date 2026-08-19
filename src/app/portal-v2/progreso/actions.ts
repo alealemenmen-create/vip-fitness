@@ -83,7 +83,13 @@ export async function obtenerProgresoV2Action(): Promise<ProgresoDatosV2 | null>
   ]);
   if (!seguimiento) return null;
 
-  const ultimoPeso = pesos.at(-1) ?? null;
+  // El portal histórico permitía más de un pesaje el mismo día. La V2
+  // representa un check-in diario: conserva las filas antiguas en la base,
+  // pero usa sólo la última de cada fecha para no convertir una corrección de
+  // minutos en una falsa variación de 30 días.
+  const pesosPorFecha = new Map(pesos.map((peso) => [peso.fecha, peso]));
+  const pesosDiarios = [...pesosPorFecha.values()];
+  const ultimoPeso = pesosDiarios.at(-1) ?? null;
   const filaActual = ranking.find((fila) => fila.alumnoId === contexto.alumnoId) ?? null;
   const seriesRegistradas = seguimiento.dias.reduce(
     (total, dia) => total + dia.sesiones.reduce((subtotal, sesion) => subtotal + sesion.seriesRealizadas, 0),
@@ -96,8 +102,8 @@ export async function obtenerProgresoV2Action(): Promise<ProgresoDatosV2 | null>
     soloLectura: contexto.soloLectura,
     peso: ultimoPeso?.pesoKg ?? seguimiento.evolucion.pesoActual,
     fechaPeso: ultimoPeso?.fecha ?? null,
-    variacionPeso: seguimiento.evolucion.variacionPeso,
-    historialPeso: pesos.map((registro) => ({
+    variacionPeso: pesosDiarios.length > 1 ? seguimiento.evolucion.variacionPeso : null,
+    historialPeso: pesosDiarios.map((registro) => ({
       id: registro.id,
       fecha: registro.fecha,
       pesoKg: registro.pesoKg,

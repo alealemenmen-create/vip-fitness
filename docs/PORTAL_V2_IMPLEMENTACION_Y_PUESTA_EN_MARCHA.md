@@ -356,6 +356,18 @@ Validaciones locales completadas el 19-08-2026:
   los números de “Volumen controlado” pero marcaba “Mantenimiento”. Ahora el
   preset seleccionado se deduce de los cuatro valores almacenados; una meta
   personalizada no marca falsamente ningún preset.
+- El recorrido autenticado de Progreso validó el peso corporal, historial,
+  programa, ranking, desglose público de puntos, comunidad y conexión al
+  check-in privado. El primer peso QA acreditó `75 XP`; una corrección del
+  mismo día actualizó el valor sin crear una tercera fila ni volver a premiar.
+  La V2 colapsa duplicados históricos por fecha sin borrar registros antiguos,
+  por lo que una corrección de minutos ya no se presenta como evolución de 30
+  días.
+- Se corrigieron además cuatro incoherencias detectadas con datos reales: el
+  rango se refresca en la misma pantalla después del pesaje, “sesiones
+  realizadas” ya no llama completada a una sesión incompleta, “Ver
+  clasificación” abre el ranking y la regla nutricional publicada coincide
+  con el motor (`-100` a `+250`, no `-150` en una tarjeta y `-100` en otra).
 
 1. Crear un respaldo lógico verificable antes del próximo cambio de esquema; el
    plan gratuito actual no incluye respaldos automáticos.

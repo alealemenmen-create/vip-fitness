@@ -9,7 +9,7 @@ import { cargarProgresoV2Action, obtenerProgresoV2Action, type ProgresoDatosV2 }
 import styles from "@/components/v2/PortalV2.module.css";
 
 const DEMO_ESTADISTICAS = [
-  { valor: "7", unidad: "", etiqueta: "Entrenamientos completados", detalle: "Últimos 30 días", Icono: Dumbbell },
+  { valor: "7", unidad: "", etiqueta: "Sesiones realizadas", detalle: "Últimos 30 días", Icono: Dumbbell },
   { valor: "1", unidad: "día", etiqueta: "Alimentación registrada", detalle: "Últimos 30 días", Icono: Utensils },
   { valor: "1,6", unidad: "", etiqueta: "Promedio semanal", detalle: "Últimos 30 días", Icono: Gauge },
   { valor: "6", unidad: "", etiqueta: "Impulsos cumplidos", detalle: "6 recomendaciones evaluadas", Icono: Zap },
@@ -83,7 +83,7 @@ export default function ProgresoV2Page() {
   }, []);
 
   const estadisticas = useMemo(() => datos ? [
-    { valor: String(datos.estadisticas.entrenamientos), unidad: "", etiqueta: "Entrenamientos completados", detalle: "Últimos 30 días", Icono: Dumbbell },
+    { valor: String(datos.estadisticas.entrenamientos), unidad: "", etiqueta: "Sesiones realizadas", detalle: "Últimos 30 días", Icono: Dumbbell },
     { valor: String(datos.estadisticas.diasAlimentacion), unidad: datos.estadisticas.diasAlimentacion === 1 ? "día" : "días", etiqueta: "Alimentación registrada", detalle: "Últimos 30 días", Icono: Utensils },
     { valor: datos.estadisticas.promedioSemanal.toLocaleString("es-CL"), unidad: "", etiqueta: "Promedio semanal", detalle: "Últimos 30 días", Icono: Gauge },
     { valor: String(datos.estadisticas.impulsosCumplidos), unidad: "", etiqueta: "Impulsos cumplidos", detalle: `${datos.estadisticas.impulsosEvaluados} recomendaciones evaluadas`, Icono: Zap },
@@ -126,7 +126,8 @@ export default function ProgresoV2Page() {
           setAviso(resultado.error || "No fue posible guardar el peso");
           return;
         }
-        setDatos((actual) => actual ? { ...actual, peso: numero, fechaPeso: actual.fechaHoy } : actual);
+        const actualizados = await obtenerProgresoV2Action();
+        if (actualizados) setDatos(actualizados);
         setAviso(resultado.aviso || (resultado.puntos ? `Peso guardado · +${resultado.puntos} XP` : "Peso registrado correctamente"));
       } else {
         setAviso("Peso registrado en la vista de demostración");
@@ -175,7 +176,7 @@ export default function ProgresoV2Page() {
         </Link>
         <Link href="/portal-v2/nutricion">
           <span><Utensils size={18} /></span>
-          <div><small>NUTRICIÓN</small><strong>{datos ? `${datos.hoy.calorias} kcal · ${datos.hoy.proteina} g proteína` : "Registro del día"}</strong><p>{datos ? `${datos.hoy.comidasRegistradas} comidas registradas hoy` : "Busca, escanea y registra tus alimentos"}</p></div>
+          <div><small>NUTRICIÓN</small><strong>{datos ? `${datos.hoy.calorias} kcal · ${datos.hoy.proteina} g proteína` : "Registro del día"}</strong><p>{datos ? datos.hoy.comidasRegistradas === 1 ? "1 comida registrada hoy" : `${datos.hoy.comidasRegistradas} comidas registradas hoy` : "Busca, escanea y registra tus alimentos"}</p></div>
           <ChevronRight size={17} />
         </Link>
       </section>
@@ -219,12 +220,12 @@ export default function ProgresoV2Page() {
           <small>{datos ? datos.programa ? `Próxima sesión · día ${datos.programa.sesionActual}` : "Tu entrenador aún no asigna una rutina" : "Semana 1 · Piernas"}</small>
         </div>
         <i><em style={{ width: `${porcentajePrograma}%` }} /></i>
-        <p><b>{datos ? `${datos.programa?.sesionesRealizadas ?? 0} sesiones realizadas` : "5 sesiones"}</b><span>{porcentajePrograma} % de adherencia</span></p>
+        <p><b>{datos ? (datos.programa?.sesionesRealizadas ?? 0) === 1 ? "1 sesión realizada" : `${datos.programa?.sesionesRealizadas ?? 0} sesiones realizadas` : "5 sesiones"}</b><span>{porcentajePrograma} % de adherencia</span></p>
       </button>
 
       <div className={styles.progressSectionHeading}>
         <h2>Rango actual</h2>
-        <Link href="/portal-v2/progreso/comunidad">Ver clasificación <ChevronRight size={16} /></Link>
+        <Link href="/portal-v2/progreso/ranking">Ver clasificación <ChevronRight size={16} /></Link>
       </div>
       <article className={styles.latestMedalCard}>
         <Image src={datos?.rango?.imagen || "/rangos/rank_bronze.png"} alt={`Rango ${datos ? datos.rango?.nombre ?? "inicial" : "Bronce"}`} width={76} height={76} />
@@ -355,7 +356,7 @@ function DetalleSeguimiento({
         <button type="submit" disabled={!datos || datos.soloLectura || guardando}>{guardando ? "Procesando…" : "Guardar fotografía"}</button>
       </form>
 
-      <div className={styles.followupTitle}><h3>Historial de peso</h3><span>{pesos.length} registros</span></div>
+      <div className={styles.followupTitle}><h3>Historial de peso</h3><span>{pesos.length === 1 ? "1 registro" : `${pesos.length} registros`}</span></div>
       <div className={styles.followupWeights}>{[...pesos].reverse().map((registro, indice, lista) => {
         const anterior = lista[indice + 1];
         const cambio = anterior ? Math.round((registro.pesoKg - anterior.pesoKg) * 10) / 10 : null;
