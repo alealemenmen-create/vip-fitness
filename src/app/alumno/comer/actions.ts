@@ -92,7 +92,7 @@ async function obtenerOComida(
   return nueva.id;
 }
 
-export type ComerActionState = { error: string | null; puntos?: number };
+export type ComerActionState = { error: string | null; puntos?: number; consumidoId?: string };
 
 /** Lo que se devuelve cuando el entrenador está mirando la cuenta de un alumno:
  * ahí no se puede escribir, y hay que decirlo en vez de guardar en el lugar
@@ -181,9 +181,11 @@ export async function agregarAlimentoAComida(
     const registroId = await obtenerORegistroDiario(supabase, quien.alumnoId, fecha);
     const comidaId = await obtenerOComida(supabase, registroId, tipoComida);
 
-    const { error } = await supabase
+    const { data: consumido, error } = await supabase
       .from("alimentos_consumidos")
-      .insert({ comida_id: comidaId, alimento_id: alimentoId, cantidad, unidad });
+      .insert({ comida_id: comidaId, alimento_id: alimentoId, cantidad, unidad })
+      .select("id")
+      .single();
 
     if (error) return { error: "No fue posible agregar el alimento." };
 
@@ -201,7 +203,9 @@ export async function agregarAlimentoAComida(
     revalidateTag(TAG_RANKING, { expire: 0 });
     revalidatePath(`/alumno/comer/${fecha}`);
     revalidatePath("/alumno/inicio");
-    return { error: null, puntos };
+    revalidatePath("/portal-v2/nutricion");
+    revalidatePath("/portal-v2/progreso");
+    return { error: null, puntos, consumidoId: consumido?.id };
   } catch (error) {
     if (error instanceof Error && error.message.includes("hoy o de ayer")) {
       return { error: error.message };
@@ -552,19 +556,23 @@ export async function crearAlimentoPersonalizado(
   }
 }
 
-export async function quitarAlimentoDeComida(alimentoConsumidoId: string, fechaSolicitada: string): Promise<void> {
+export async function quitarAlimentoDeComida(alimentoConsumidoId: string, fechaSolicitada: string): Promise<ComerActionState> {
   void fechaSolicitada;
   const quien = await alumnoDelDiario();
-  if (!quien.ok) return;
+  if (!quien.ok) return { error: quien.error };
   const supabase = await createClient();
   const fecha = await fechaRealDeAlimentoConsumido(supabase, alimentoConsumidoId, quien.alumnoId);
-  if (!fecha) return;
-  await supabase.from("alimentos_consumidos").delete().eq("id", alimentoConsumidoId);
+  if (!fecha) return { error: "No encontramos ese alimento en tu diario." };
+  const { error } = await supabase.from("alimentos_consumidos").delete().eq("id", alimentoConsumidoId);
+  if (error) return { error: "No fue posible eliminar el alimento." };
   await registrarCambioAlimentacion(quien.alumnoId, "quitar_alimento");
   await recalcularAlimentacionDia(quien.alumnoId, fecha);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/comer/${fecha}`);
   revalidatePath("/alumno/inicio");
+  revalidatePath("/portal-v2/nutricion");
+  revalidatePath("/portal-v2/progreso");
+  return { error: null };
 }
 
 export async function actualizarCantidadAlimento(
@@ -599,6 +607,8 @@ export async function actualizarCantidadAlimento(
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/comer/${fecha}`);
   revalidatePath("/alumno/inicio");
+  revalidatePath("/portal-v2/nutricion");
+  revalidatePath("/portal-v2/progreso");
   return { error: null, puntos };
 }
 

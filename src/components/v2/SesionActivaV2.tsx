@@ -2,9 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
-  ArrowDownUp,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -12,7 +11,6 @@ import {
   ChevronsRight,
   CircleCheck,
   Clock3,
-  Dumbbell,
   FastForward,
   History,
   Info,
@@ -22,38 +20,75 @@ import {
   Pause,
   Play,
   Plus,
-  Repeat2,
   Settings,
   StickyNote,
   X,
   Zap,
 } from "lucide-react";
 import { avisarFinDescansoV2, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
-import { planificarBloqueEncadenado, type TecnicaEncadenadaSlug } from "@/lib/entrenamiento/motor-tecnicas-sesion";
+import {
+  planificarBloqueEncadenado,
+  planificarSegmentosTecnica,
+  type SegmentoTecnicaSesion,
+  type TecnicaEncadenadaSlug,
+  type TecnicaIndividualSlug,
+} from "@/lib/entrenamiento/motor-tecnicas-sesion";
+import { tecnicaAplicaASerie } from "@/lib/entrenamiento/tecnica-series";
 import {
   seleccionarMomentosAlejandro,
   type MomentoSesionAlejandro,
 } from "@/lib/impulso-vip/alejandro-sesion";
+import {
+  actualizarTemporizadorDescansoAlumno,
+  guardarSesionV2,
+  guardarYFinalizarSesionV2,
+  type RegistroSesionV2,
+} from "@/app/alumno/entrenar/actions";
+import { ModalVideo } from "@/components/student/ModalVideo";
+import { ModalVideoCloudflare } from "@/components/student/ModalVideoCloudflare";
+import { VideoCloudflareAutomatico } from "@/components/student/VideoCloudflareAutomatico";
 import styles from "./SesionActivaV2.module.css";
 
-type SerieRegistrada = {
+export type SerieRegistradaV2 = {
   reps: string;
   peso: string;
   completada: boolean;
 };
 
-type EjercicioSesion = {
+export type EjercicioSesionV2 = {
   id: string;
+  sesionEjercicioId?: string;
+  bibliotecaEjercicioId?: string;
   codigo: string;
   nombre: string;
   repeticiones: number[];
   descanso: number;
   foto: string;
+  videoUrl?: string;
+  videoCloudflareListo?: boolean;
   equipo: string;
   grupo: string;
   tecnica?: string;
   bloqueId?: string;
   tecnicaSlug?: TecnicaEncadenadaSlug;
+  tecnicaIndividualSlug?: TecnicaIndividualSlug;
+  tecnicaSeries?: number[] | null;
+  tecnicaInstruccion?: string;
+  notaInicial?: string;
+  consejo?: string;
+  ultimoRegistro?: { fecha: string; reps: number | null; pesoKg: number | null; esPesoCorporal: boolean };
+  seriesIniciales?: SerieRegistradaV2[];
+};
+
+export type SesionActivaModeloV2 = {
+  id: string;
+  titulo: string;
+  fecha: string;
+  real: boolean;
+  soloLectura: boolean;
+  temporizadorAutomaticoInicial?: boolean;
+  ejercicios: EjercicioSesionV2[];
+  momentosAlejandro: MomentoSesionAlejandro[];
 };
 
 type DescansoActivo = {
@@ -64,11 +99,12 @@ type DescansoActivo = {
   vistaRetorno: Exclude<VistaSesion, "descanso">;
 };
 
-type PanelSesion = "consejo" | "historial" | "sustituir" | "reordenar" | "notas" | "ajustes" | "informacion" | "impulso" | null;
+type PanelSesion = "consejo" | "historial" | "notas" | "ajustes" | "informacion" | "impulso" | null;
 type VistaSesion = "lista" | "video" | "descanso";
 type UnidadPeso = "kg" | "lb";
+type PausaTecnica = { clave: string; segundos: number; pasoSiguiente: number };
 
-const EJERCICIOS: EjercicioSesion[] = [
+const EJERCICIOS_DEMO: EjercicioSesionV2[] = [
   { id: "sentadilla-smith", codigo: "A", nombre: "Sentadilla Smith", repeticiones: [10, 10, 10, 10], descanso: 60, foto: "/v2/piernas.webp", equipo: "Máquina Smith", grupo: "Cuádriceps · glúteos" },
   { id: "peso-muerto-rumano", codigo: "B1", nombre: "Peso muerto rumano", repeticiones: [8, 8, 8], descanso: 0, foto: "/v2/espalda.webp", equipo: "Barra", grupo: "Femoral · glúteos", tecnica: "Superserie", bloqueId: "superserie-b", tecnicaSlug: "superserie" },
   { id: "prensa-inclinada", codigo: "B2", nombre: "Prensa inclinada", repeticiones: [12, 12, 12], descanso: 90, foto: "/v2/piernas.webp", equipo: "Prensa 45°", grupo: "Cuádriceps", tecnica: "Superserie", bloqueId: "superserie-b", tecnicaSlug: "superserie" },
@@ -77,20 +113,20 @@ const EJERCICIOS: EjercicioSesion[] = [
 
 type PosicionSerie = { ejercicioIndice: number; serieIndice: number };
 
-function crearOrdenEjecucion(): PosicionSerie[] {
+function crearOrdenEjecucion(ejercicios: EjercicioSesionV2[]): PosicionSerie[] {
   const orden: PosicionSerie[] = [];
   let indice = 0;
-  while (indice < EJERCICIOS.length) {
-    const ejercicio = EJERCICIOS[indice];
+  while (indice < ejercicios.length) {
+    const ejercicio = ejercicios[indice];
     if (!ejercicio.bloqueId) {
       ejercicio.repeticiones.forEach((_, serieIndice) => orden.push({ ejercicioIndice: indice, serieIndice }));
       indice += 1;
       continue;
     }
     const inicio = indice;
-    const bloque: EjercicioSesion[] = [];
-    while (indice + bloque.length < EJERCICIOS.length && EJERCICIOS[indice + bloque.length].bloqueId === ejercicio.bloqueId) {
-      bloque.push(EJERCICIOS[indice + bloque.length]);
+    const bloque: EjercicioSesionV2[] = [];
+    while (indice + bloque.length < ejercicios.length && ejercicios[indice + bloque.length].bloqueId === ejercicio.bloqueId) {
+      bloque.push(ejercicios[indice + bloque.length]);
     }
     const pasos = planificarBloqueEncadenado({
       tecnica: ejercicio.tecnicaSlug ?? "superserie",
@@ -106,9 +142,8 @@ function crearOrdenEjecucion(): PosicionSerie[] {
   return orden;
 }
 
-const ORDEN_EJECUCION = crearOrdenEjecucion();
-
-const MOMENTOS_ALEJANDRO = seleccionarMomentosAlejandro({
+function crearMomentosDemo(ejercicios: EjercicioSesionV2[]) {
+  return seleccionarMomentosAlejandro({
   activo: true,
   nivel: "intermedio",
   sesionesValidas: 18,
@@ -118,7 +153,7 @@ const MOMENTOS_ALEJANDRO = seleccionarMomentosAlejandro({
   desafiosRecientes: 4,
   dolorORestriccion: false,
   intensidadAltaAutorizada: false,
-}, EJERCICIOS.map((ejercicio, posicion) => ({
+  }, ejercicios.map((ejercicio, posicion) => ({
   ejercicioId: ejercicio.id,
   nombre: ejercicio.nombre,
   totalSeries: ejercicio.repeticiones.length,
@@ -126,16 +161,17 @@ const MOMENTOS_ALEJANDRO = seleccionarMomentosAlejandro({
   compuesto: posicion < 2,
   tecnicaProgramada: Boolean(ejercicio.tecnica),
   perfilRevisado: true,
-  tecnicasPermitidas: posicion === EJERCICIOS.length - 1
+  tecnicasPermitidas: posicion === ejercicios.length - 1
     ? ["cierre_controlado", "drop_set"]
     : ["cierre_controlado", "repeticion_extra"],
-})));
+  })));
+}
 
-function crearRegistroInicial() {
-  return Object.fromEntries(EJERCICIOS.map((ejercicio) => [
+function crearRegistroInicial(ejercicios: EjercicioSesionV2[]) {
+  return Object.fromEntries(ejercicios.map((ejercicio) => [
     ejercicio.id,
-    ejercicio.repeticiones.map((reps) => ({ reps: String(reps), peso: "", completada: false })),
-  ])) as Record<string, SerieRegistrada[]>;
+    ejercicio.seriesIniciales ?? ejercicio.repeticiones.map((reps) => ({ reps: String(reps), peso: "", completada: false })),
+  ])) as Record<string, SerieRegistradaV2[]>;
 }
 
 function formatearTiempo(total: number) {
@@ -161,29 +197,43 @@ function pesoHistorico(kilos: number, unidad: UnidadPeso) {
   return `${valor} ${unidad}`;
 }
 
-function desplazarPosicionSerie(ejercicioIndice: number, serieIndice: number, direccion: -1 | 1) {
-  const actual = ORDEN_EJECUCION.findIndex((paso) =>
+function desplazarPosicionSerie(orden: PosicionSerie[], ejercicioIndice: number, serieIndice: number, direccion: -1 | 1) {
+  const actual = orden.findIndex((paso) =>
     paso.ejercicioIndice === ejercicioIndice && paso.serieIndice === serieIndice
   );
   if (actual < 0) return { ejercicioIndice, serieIndice };
-  return ORDEN_EJECUCION[limitar(actual + direccion, 0, ORDEN_EJECUCION.length - 1)];
+  return orden[limitar(actual + direccion, 0, orden.length - 1)];
 }
 
-function requiereDescansoDespues(ejercicioIndice: number, serieIndice: number) {
-  const actual = ORDEN_EJECUCION.findIndex((paso) =>
+function requiereDescansoDespues(ejercicios: EjercicioSesionV2[], orden: PosicionSerie[], ejercicioIndice: number, serieIndice: number) {
+  const actual = orden.findIndex((paso) =>
     paso.ejercicioIndice === ejercicioIndice && paso.serieIndice === serieIndice
   );
-  const siguiente = ORDEN_EJECUCION[actual + 1];
+  const siguiente = orden[actual + 1];
   if (actual < 0 || !siguiente) return false;
-  const ejercicio = EJERCICIOS[ejercicioIndice];
-  const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
+  const ejercicio = ejercicios[ejercicioIndice];
+  const siguienteEjercicio = ejercicios[siguiente.ejercicioIndice];
   return !(ejercicio.bloqueId && ejercicio.bloqueId === siguienteEjercicio.bloqueId && serieIndice === siguiente.serieIndice);
 }
 
-export function SesionActivaV2() {
+function segmentosDeSerie(ejercicio: EjercicioSesionV2, serieIndice: number): SegmentoTecnicaSesion[] {
+  if (!ejercicio.tecnicaIndividualSlug || !tecnicaAplicaASerie(ejercicio.tecnicaSeries, serieIndice + 1)) return [];
+  return planificarSegmentosTecnica({
+    tecnica: ejercicio.tecnicaIndividualSlug,
+    repsBase: String(ejercicio.repeticiones[serieIndice] ?? ""),
+  });
+}
+
+export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
+  const EJERCICIOS = sesion?.ejercicios?.length ? sesion.ejercicios : EJERCICIOS_DEMO;
+  const ORDEN_EJECUCION = useMemo(() => crearOrdenEjecucion(EJERCICIOS), [EJERCICIOS]);
+  const MOMENTOS_ALEJANDRO = useMemo(
+    () => sesion ? sesion.momentosAlejandro : crearMomentosDemo(EJERCICIOS),
+    [EJERCICIOS, sesion],
+  );
   const [segundosSesion, setSegundosSesion] = useState(0);
   const [pausada, setPausada] = useState(false);
-  const [registro, setRegistro] = useState(crearRegistroInicial);
+  const [registro, setRegistro] = useState(() => crearRegistroInicial(EJERCICIOS));
   const [ejercicioActivoId, setEjercicioActivoId] = useState(EJERCICIOS[0].id);
   const [serieActivaIndice, setSerieActivaIndice] = useState(0);
   const [ejercicioExpandidoId, setEjercicioExpandidoId] = useState<string | null>(EJERCICIOS[0].id);
@@ -192,21 +242,29 @@ export function SesionActivaV2() {
   const [vista, setVista] = useState<VistaSesion>("lista");
   const [controlesVideoVisibles, setControlesVideoVisibles] = useState(true);
   const [panel, setPanel] = useState<PanelSesion>(null);
-  const [notas, setNotas] = useState<Record<string, string>>({});
+  const [notas, setNotas] = useState<Record<string, string>>(() => Object.fromEntries(
+    EJERCICIOS.map((ejercicio) => [ejercicio.id, ejercicio.notaInicial ?? ""]),
+  ));
   const [confirmarSalida, setConfirmarSalida] = useState(false);
   const [registrada, setRegistrada] = useState(false);
-  const [temporizadorAutomatico, setTemporizadorAutomatico] = useState(true);
+  const [temporizadorAutomatico, setTemporizadorAutomatico] = useState(sesion?.temporizadorAutomaticoInicial ?? true);
   const [sonidoDescansoActivo, setSonidoDescansoActivo] = useState(true);
   const [unidadPeso, setUnidadPeso] = useState<UnidadPeso>("kg");
   const [impulsoAutomaticoActivo, setImpulsoAutomaticoActivo] = useState(true);
   const [momentosVistos, setMomentosVistos] = useState<Record<string, boolean>>({});
   const [momentosLogrados, setMomentosLogrados] = useState<Record<string, boolean>>({});
   const [momentoVisible, setMomentoVisible] = useState<MomentoSesionAlejandro | null>(null);
+  const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
+  const [pasosTecnica, setPasosTecnica] = useState<Record<string, number>>({});
+  const [pausaTecnica, setPausaTecnica] = useState<PausaTecnica | null>(null);
+  const [videoAmpliado, setVideoAmpliado] = useState(false);
+  const [mensajeCompartir, setMensajeCompartir] = useState<string | null>(null);
+  const [guardando, iniciarGuardado] = useTransition();
   const gestoInicioX = useRef<number | null>(null);
   const descansoAvisadoRef = useRef<string | null>(null);
   const paginaSesionRef = useRef<HTMLDivElement | null>(null);
 
-  const totalSeries = useMemo(() => EJERCICIOS.reduce((total, ejercicio) => total + ejercicio.repeticiones.length, 0), []);
+  const totalSeries = useMemo(() => EJERCICIOS.reduce((total, ejercicio) => total + ejercicio.repeticiones.length, 0), [EJERCICIOS]);
   const seriesCompletadas = useMemo(() => Object.values(registro).reduce(
     (total, series) => total + series.filter((serie) => serie.completada).length,
     0,
@@ -233,17 +291,41 @@ export function SesionActivaV2() {
     : EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
   const posicionDespuesDescanso = descanso === null || descanso.tipo === "manual"
     ? { ejercicioIndice: ejercicioActivoIndice, serieIndice: serieActivaIndiceSeguro }
-    : desplazarPosicionSerie(ejercicioDescansoIndice, descanso.serieIndice, 1);
+    : desplazarPosicionSerie(ORDEN_EJECUCION, ejercicioDescansoIndice, descanso.serieIndice, 1);
   const ejercicioDespuesDescanso = EJERCICIOS[posicionDespuesDescanso.ejercicioIndice];
   const progreso = totalSeries === 0 ? 0 : (seriesCompletadas / totalSeries) * 100;
   const impulsoActivo = MOMENTOS_ALEJANDRO.find((momento) =>
     momento.ejercicioId === ejercicioActivo.id && momentosVistos[momento.id]
   ) ?? null;
+  const claveTecnicaActiva = `${ejercicioActivo.id}-${serieActivaIndiceSeguro}`;
+  const segmentosTecnicaActiva = segmentosDeSerie(ejercicioActivo, serieActivaIndiceSeguro);
+  const pasoTecnicaActivo = Math.min(pasosTecnica[claveTecnicaActiva] ?? 0, Math.max(0, segmentosTecnicaActiva.length - 1));
 
   const cambiarImpulsoAutomatico = (activo: boolean) => {
     setImpulsoAutomaticoActivo(activo);
+    window.localStorage.setItem("vip-v2-impulso-automatico", String(activo));
     if (!activo) setMomentoVisible(null);
   };
+
+  useEffect(() => {
+    const cuadro = window.requestAnimationFrame(() => {
+      const sonido = window.localStorage.getItem("vip-v2-sonido-descanso");
+      const unidad = window.localStorage.getItem("vip-v2-unidad-peso");
+      const impulso = window.localStorage.getItem("vip-v2-impulso-automatico");
+      if (sonido !== null) setSonidoDescansoActivo(sonido === "true");
+      if (unidad === "lb") {
+        setRegistro((actual) => Object.fromEntries(
+          Object.entries(actual).map(([ejercicioId, series]) => [
+            ejercicioId,
+            series.map((serie) => ({ ...serie, peso: convertirPeso(serie.peso, "kg", "lb") })),
+          ]),
+        ));
+        setUnidadPeso("lb");
+      }
+      if (impulso !== null) setImpulsoAutomaticoActivo(impulso === "true");
+    });
+    return () => window.cancelAnimationFrame(cuadro);
+  }, []);
 
   useEffect(() => {
     if (pausada || registrada) return;
@@ -258,6 +340,25 @@ export function SesionActivaV2() {
     }, 1000);
     return () => window.clearInterval(intervalo);
   }, [descanso, pausada]);
+
+  useEffect(() => {
+    if (pausada || pausaTecnica === null || pausaTecnica.segundos <= 0) return;
+    const intervalo = window.setInterval(() => {
+      setPausaTecnica((actual) => actual === null ? null : { ...actual, segundos: Math.max(0, actual.segundos - 1) });
+    }, 1000);
+    return () => window.clearInterval(intervalo);
+  }, [pausaTecnica, pausada]);
+
+  useEffect(() => {
+    if (pausaTecnica === null || pausaTecnica.segundos > 0) return;
+    const { clave, pasoSiguiente } = pausaTecnica;
+    avisarFinDescansoV2(sonidoDescansoActivo);
+    const transicion = window.setTimeout(() => {
+      setPasosTecnica((actual) => ({ ...actual, [clave]: pasoSiguiente }));
+      setPausaTecnica(null);
+    }, 0);
+    return () => window.clearTimeout(transicion);
+  }, [pausaTecnica, sonidoDescansoActivo]);
 
   useEffect(() => {
     if (vista !== "video" || !controlesVideoVisibles) return;
@@ -296,7 +397,7 @@ export function SesionActivaV2() {
     const transicion = window.setTimeout(() => {
       if (descansoEnFoco && descanso.tipo === "automatico") {
         const ejercicioIndice = EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
-        const siguiente = desplazarPosicionSerie(ejercicioIndice, descanso.serieIndice, 1);
+        const siguiente = desplazarPosicionSerie(ORDEN_EJECUCION, ejercicioIndice, descanso.serieIndice, 1);
         const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
         setEjercicioActivoId(siguienteEjercicio.id);
         setSerieActivaIndice(siguiente.serieIndice);
@@ -309,7 +410,7 @@ export function SesionActivaV2() {
       if (vista === "descanso") setVista(descanso.vistaRetorno);
     }, 0);
     return () => window.clearTimeout(transicion);
-  }, [descanso, descansoEnFoco, sonidoDescansoActivo, vista]);
+  }, [descanso, descansoEnFoco, EJERCICIOS, ORDEN_EJECUCION, sonidoDescansoActivo, vista]);
 
   useEffect(() => {
     if (!impulsoAutomaticoActivo || descansoEnFoco || confirmarSalida || registrada) return;
@@ -319,12 +420,15 @@ export function SesionActivaV2() {
       && !momentosVistos[item.id]
       && !registro[ejercicioActivo.id][serieActivaIndiceSeguro].completada
     );
-    if (momento) setMomentoVisible(momento);
+    if (!momento) return;
+    const transicion = window.setTimeout(() => setMomentoVisible(momento), 0);
+    return () => window.clearTimeout(transicion);
   }, [
     confirmarSalida,
     descansoEnFoco,
     ejercicioActivo.id,
     impulsoAutomaticoActivo,
+    MOMENTOS_ALEJANDRO,
     momentosVistos,
     registrada,
     registro,
@@ -338,20 +442,94 @@ export function SesionActivaV2() {
     }));
   };
 
-  const alternarSerie = (ejercicio: EjercicioSesion, serieIndice: number) => {
+  const serializarSeries = (series: SerieRegistradaV2[]) => series.map((serie) => ({
+    ...serie,
+    peso: unidadPeso === "lb" ? convertirPeso(serie.peso, "lb", "kg") : serie.peso,
+  }));
+
+  const construirRegistroServidor = (
+    ejercicioObjetivo?: EjercicioSesionV2,
+    seriesObjetivo?: SerieRegistradaV2[],
+  ): RegistroSesionV2 | null => {
+    if (!sesion?.real || sesion.soloLectura) return null;
+    const ejercicios = ejercicioObjetivo
+      ? [{
+          sesionEjercicioId: ejercicioObjetivo.sesionEjercicioId ?? "",
+          nota: notas[ejercicioObjetivo.id] ?? "",
+          series: serializarSeries(seriesObjetivo ?? registro[ejercicioObjetivo.id]),
+        }]
+      : EJERCICIOS.map((ejercicio) => ({
+          sesionEjercicioId: ejercicio.sesionEjercicioId ?? "",
+          nota: notas[ejercicio.id] ?? "",
+          series: serializarSeries(registro[ejercicio.id]),
+        }));
+    return { sesionId: sesion.id, ejercicios };
+  };
+
+  const persistirEjercicio = (ejercicio: EjercicioSesionV2, series: SerieRegistradaV2[]) => {
+    const payload = construirRegistroServidor(ejercicio, series);
+    if (!payload) return;
+    iniciarGuardado(async () => {
+      const resultado = await guardarSesionV2(payload);
+      setErrorGuardado(resultado.error);
+    });
+  };
+
+  const guardarNotaEjercicio = (ejercicio: EjercicioSesionV2, nota: string) => {
+    setNotas((actuales) => ({ ...actuales, [ejercicio.id]: nota }));
+    if (!sesion?.real || sesion.soloLectura) return;
+    const payload: RegistroSesionV2 = {
+      sesionId: sesion.id,
+      ejercicios: [{
+        sesionEjercicioId: ejercicio.sesionEjercicioId ?? "",
+        nota,
+        series: serializarSeries(registro[ejercicio.id]),
+      }],
+    };
+    iniciarGuardado(async () => {
+      const resultado = await guardarSesionV2(payload);
+      setErrorGuardado(resultado.error);
+    });
+  };
+
+  const alternarSerie = (ejercicio: EjercicioSesionV2, serieIndice: number) => {
+    if (sesion?.soloLectura) return;
     const estabaCompletada = registro[ejercicio.id][serieIndice].completada;
+    const claveTecnica = `${ejercicio.id}-${serieIndice}`;
+    const segmentos = segmentosDeSerie(ejercicio, serieIndice);
+    const pasoActual = Math.min(pasosTecnica[claveTecnica] ?? 0, Math.max(0, segmentos.length - 1));
+    if (!estabaCompletada && segmentos.length > 1 && pasoActual < segmentos.length - 1) {
+      const siguientePaso = pasoActual + 1;
+      const siguienteSegmento = segmentos[siguientePaso];
+      setEjercicioActivoId(ejercicio.id);
+      setSerieActivaIndice(serieIndice);
+      setEjercicioExpandidoId(ejercicio.id);
+      setPasosTecnica((actual) => ({ ...actual, [claveTecnica]: siguientePaso }));
+      if (siguienteSegmento.tipo === "microdescanso") {
+        prepararAviso();
+        setPausaTecnica({
+          clave: claveTecnica,
+          segundos: siguienteSegmento.segundos ?? 15,
+          pasoSiguiente: Math.min(siguientePaso + 1, segmentos.length - 1),
+        });
+      }
+      return;
+    }
     const ejercicioIndice = EJERCICIOS.findIndex((item) => item.id === ejercicio.id);
     const esUltimaSerieRutina = ejercicioIndice === EJERCICIOS.length - 1
       && serieIndice === ejercicio.repeticiones.length - 1;
-    setRegistro((actual) => ({
-      ...actual,
-      [ejercicio.id]: actual[ejercicio.id].map((serie, indice) => indice === serieIndice ? { ...serie, completada: !serie.completada } : serie),
-    }));
+    const seriesActualizadas = registro[ejercicio.id].map((serie, indice) =>
+      indice === serieIndice ? { ...serie, completada: !serie.completada } : serie
+    );
+    setRegistro((actual) => ({ ...actual, [ejercicio.id]: seriesActualizadas }));
+    persistirEjercicio(ejercicio, seriesActualizadas);
     setEjercicioActivoId(ejercicio.id);
     setSerieActivaIndice(serieIndice);
     setEjercicioExpandidoId(ejercicio.id);
 
     if (estabaCompletada) {
+      setPasosTecnica((actual) => ({ ...actual, [claveTecnica]: 0 }));
+      setPausaTecnica((actual) => actual?.clave === claveTecnica ? null : actual);
       if (descanso?.ejercicioId === ejercicio.id && descanso.serieIndice === serieIndice) setDescansoEnFoco(false);
       setDescanso((actual) => actual?.ejercicioId === ejercicio.id && actual.serieIndice === serieIndice ? null : actual);
       return;
@@ -371,8 +549,8 @@ export function SesionActivaV2() {
       return;
     }
 
-    if (!requiereDescansoDespues(ejercicioIndice, serieIndice)) {
-      const siguiente = desplazarPosicionSerie(ejercicioIndice, serieIndice, 1);
+    if (!requiereDescansoDespues(EJERCICIOS, ORDEN_EJECUCION, ejercicioIndice, serieIndice)) {
+      const siguiente = desplazarPosicionSerie(ORDEN_EJECUCION, ejercicioIndice, serieIndice, 1);
       const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
       cortarAviso();
       setDescanso(null);
@@ -385,7 +563,7 @@ export function SesionActivaV2() {
     }
 
     if (!temporizadorAutomatico) {
-      const siguiente = desplazarPosicionSerie(ejercicioIndice, serieIndice, 1);
+      const siguiente = desplazarPosicionSerie(ORDEN_EJECUCION, ejercicioIndice, serieIndice, 1);
       const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
       cortarAviso();
       setDescanso(null);
@@ -418,7 +596,7 @@ export function SesionActivaV2() {
       descansoAvisadoRef.current = `${descanso.ejercicioId}-${descanso.serieIndice}`;
       if (descansoEnFoco && descanso.tipo === "automatico") {
         const ejercicioIndice = EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
-        const siguiente = desplazarPosicionSerie(ejercicioIndice, descanso.serieIndice, 1);
+        const siguiente = desplazarPosicionSerie(ORDEN_EJECUCION, ejercicioIndice, descanso.serieIndice, 1);
         const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
         setEjercicioActivoId(siguienteEjercicio.id);
         setSerieActivaIndice(siguiente.serieIndice);
@@ -461,8 +639,8 @@ export function SesionActivaV2() {
       setConfirmarSalida(true);
       return;
     }
-    if (!temporizadorAutomatico || !requiereDescansoDespues(ejercicioActivoIndice, serieActivaIndiceSeguro)) {
-      const siguiente = desplazarPosicionSerie(ejercicioActivoIndice, serieActivaIndiceSeguro, 1);
+    if (!temporizadorAutomatico || !requiereDescansoDespues(EJERCICIOS, ORDEN_EJECUCION, ejercicioActivoIndice, serieActivaIndiceSeguro)) {
+      const siguiente = desplazarPosicionSerie(ORDEN_EJECUCION, ejercicioActivoIndice, serieActivaIndiceSeguro, 1);
       const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
       setEjercicioActivoId(siguienteEjercicio.id);
       setSerieActivaIndice(siguiente.serieIndice);
@@ -486,6 +664,12 @@ export function SesionActivaV2() {
 
   const cambiarTemporizadorAutomatico = (activo: boolean) => {
     setTemporizadorAutomatico(activo);
+    if (sesion?.real && !sesion.soloLectura) {
+      iniciarGuardado(async () => {
+        const resultado = await actualizarTemporizadorDescansoAlumno(activo ? "entrenador" : "libre");
+        setErrorGuardado(resultado.error);
+      });
+    }
     if (activo || descanso === null) return;
     cortarAviso();
     setDescanso(null);
@@ -521,10 +705,28 @@ export function SesionActivaV2() {
       ]),
     ));
     setUnidadPeso(siguienteUnidad);
+    window.localStorage.setItem("vip-v2-unidad-peso", siguienteUnidad);
+  };
+
+  const cambiarSonidoDescanso = (activo: boolean) => {
+    setSonidoDescansoActivo(activo);
+    window.localStorage.setItem("vip-v2-sonido-descanso", String(activo));
+  };
+
+  const compartirResumen = async () => {
+    const texto = `${sesion?.titulo ?? "Entrenamiento VIP"}: ${seriesCompletadas} series y ${repeticionesCompletadas} repeticiones en ${formatearTiempo(segundosSesion)}.`;
+    try {
+      const comparteNativo = typeof navigator.share === "function";
+      if (comparteNativo) await navigator.share({ title: "Método VIP", text: texto });
+      else await navigator.clipboard.writeText(texto);
+      setMensajeCompartir(comparteNativo ? "Compartido" : "Resumen copiado");
+    } catch (error) {
+      if ((error as DOMException).name !== "AbortError") setMensajeCompartir("No se pudo compartir");
+    }
   };
 
   const moverSerie = (direccion: -1 | 1) => {
-    const siguiente = desplazarPosicionSerie(ejercicioActivoIndice, serieActivaIndiceSeguro, direccion);
+    const siguiente = desplazarPosicionSerie(ORDEN_EJECUCION, ejercicioActivoIndice, serieActivaIndiceSeguro, direccion);
     const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
     setEjercicioActivoId(siguienteEjercicio.id);
     setSerieActivaIndice(siguiente.serieIndice);
@@ -567,12 +769,27 @@ export function SesionActivaV2() {
     else retrocederPaso();
   };
 
+  const registrarEntrenamiento = () => {
+    if (!sesion?.real) {
+      setConfirmarSalida(false);
+      setRegistrada(true);
+      return;
+    }
+    const payload = construirRegistroServidor();
+    if (!payload) return;
+    iniciarGuardado(async () => {
+      const resultado = await guardarYFinalizarSesionV2(payload);
+      setErrorGuardado(resultado.error);
+      if (!resultado.error) setConfirmarSalida(false);
+    });
+  };
+
   if (registrada) {
     return (
       <section className={styles.summaryPage}>
         <span className={styles.summaryEyebrow}>ENTRENAMIENTO REGISTRADO</span>
-        <h1>Día de piernas</h1>
-        <p>18 de agosto de 2026 · {formatearTiempo(segundosSesion)}</p>
+        <h1>{sesion?.titulo ?? "Día de piernas"}</h1>
+        <p>{sesion?.fecha ?? "18 de agosto de 2026"} · {formatearTiempo(segundosSesion)}</p>
         <div className={styles.summaryMetrics}>
           <span><strong>{EJERCICIOS.length}</strong>Ejercicios</span>
           <span><strong>{seriesCompletadas}</strong>Series</span>
@@ -587,7 +804,8 @@ export function SesionActivaV2() {
           ))}
         </div>
         <label className={styles.notesField}><span>Notas de la sesión</span><textarea placeholder="Escribe cómo te sentiste o qué quieres recordar…" /></label>
-        <div className={styles.summaryActions}><button type="button">Compartir</button><Link href="/portal-v2/entrenamiento">Listo</Link></div>
+        {mensajeCompartir ? <p role="status">{mensajeCompartir}</p> : null}
+        <div className={styles.summaryActions}><button type="button" onClick={compartirResumen}>Compartir</button><Link href="/portal-v2/entrenamiento">Listo</Link></div>
       </section>
     );
   }
@@ -625,15 +843,16 @@ export function SesionActivaV2() {
             onPointerUp={(evento) => terminarGesto(evento.clientX)}
           >
             <Image src={ejercicioActivo.foto} alt={`Demostración de ${ejercicioActivo.nombre}`} fill priority sizes="(max-width: 460px) 100vw, 460px" />
+            {ejercicioActivo.videoCloudflareListo ? <VideoCloudflareAutomatico ejercicioId={ejercicioActivo.bibliotecaEjercicioId} activo nombre={ejercicioActivo.nombre} /> : null}
             <div className={styles.videoShade} />
-            <button type="button" className={styles.videoPlay} aria-label="Reproducir demostración"><Play size={23} fill="currentColor" /></button>
+            {(ejercicioActivo.videoCloudflareListo || ejercicioActivo.videoUrl) ? <button type="button" className={styles.videoPlay} onClick={() => setVideoAmpliado(true)} aria-label="Reproducir demostración completa"><Play size={23} fill="currentColor" /></button> : null}
             {controlesVideoVisibles && puedeIrAtras ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={() => moverSerie(-1)} aria-label="Ver serie anterior"><ChevronsLeft size={27} strokeWidth={2.4} /></button> : null}
             {controlesVideoVisibles ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={avanzarDesdeVideo} aria-label={puedeIrAdelante ? "Finalizar serie e ir al descanso" : "Finalizar entrenamiento"}><ChevronsRight size={27} strokeWidth={2.4} /></button> : null}
             <span className={styles.videoSpeed}>1× velocidad</span>
             <div className={styles.videoIdentity}><small>SERIE {ejercicioActivo.codigo}</small><h1>{ejercicioActivo.nombre}</h1><p>{ejercicioActivo.equipo}</p></div>
           </div>
           <div className={styles.videoActions}>
-            <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={13} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={13} />Reordenar</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>
+            <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>
           </div>
           {impulsoActivo ? (
             <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
@@ -642,8 +861,9 @@ export function SesionActivaV2() {
               <b>{momentosLogrados[impulsoActivo.id] ? "Logrado" : `Serie ${impulsoActivo.serieIndice + 1}`}</b>
             </button>
           ) : null}
+          {segmentosTecnicaActiva.length ? <TecnicaActivaCard ejercicio={ejercicioActivo} segmentos={segmentosTecnicaActiva} paso={pasoTecnicaActivo} pausa={pausaTecnica?.clave === claveTecnicaActiva ? pausaTecnica.segundos : null} /> : null}
           <div className={`${styles.videoSetStrip} ${impulsoActivo?.serieIndice === serieActivaIndiceSeguro ? styles.videoSetStripImpulse : ""}`}>
-            <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} TRB</em></span><span><b>Reps</b><strong>{serieActiva.reps}</strong></span><span><b>Peso ({unidadPeso})</b><strong>{serieActiva.peso || `— ${unidadPeso}`}</strong></span>
+            <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} · trabajo</em></span><span><b>Reps</b><strong>{serieActiva.reps}</strong></span><span><b>Peso ({unidadPeso})</b><strong>{serieActiva.peso || `— ${unidadPeso}`}</strong></span>
             <button
               type="button"
               onClick={() => alternarSerie(ejercicioActivo, serieActivaIndiceSeguro)}
@@ -677,7 +897,7 @@ export function SesionActivaV2() {
                   <button type="button" className={styles.exerciseMedia} onClick={() => setVista("video")} aria-label={`Ver demostración de ${ejercicio.nombre}`}><Image src={ejercicio.foto} alt="" fill sizes="70px" priority={ejercicio.codigo === "A"} /><i><Play size={17} fill="currentColor" /></i></button>
                   <button type="button" className={styles.exerciseHeadingToggle} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)}><h1>{ejercicio.nombre}</h1><p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p></button>
                 </div>
-                <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={14} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={14} />Reordenar series</button></div>
+                <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button></div>
                 {impulsoEjercicio ? (
                   <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
                     <Zap size={15} fill="currentColor" />
@@ -685,6 +905,7 @@ export function SesionActivaV2() {
                     <b>{momentosLogrados[impulsoEjercicio.id] ? "Logrado" : `Serie ${impulsoEjercicio.serieIndice + 1}`}</b>
                   </button>
                 ) : null}
+                {ejercicio.id === ejercicioActivo.id && segmentosTecnicaActiva.length ? <TecnicaActivaCard ejercicio={ejercicio} segmentos={segmentosTecnicaActiva} paso={pasoTecnicaActivo} pausa={pausaTecnica?.clave === claveTecnicaActiva ? pausaTecnica.segundos : null} /> : null}
                 <div className={styles.setTable}>
                   <div className={styles.setHead}><span>Serie</span><span>Reps</span><span>Peso ({unidadPeso})</span><span>Descanso</span><span>Listo</span></div>
                   {registro[ejercicio.id].map((serie, serieIndice) => {
@@ -702,11 +923,11 @@ export function SesionActivaV2() {
                     return (
                       <div className={styles.setGroup} key={`${ejercicio.id}-${serieIndice}`}>
                         <div className={`${styles.setRow} ${serie.completada ? styles.setRowDone : ""} ${descansoDeEstaSerie ? styles.setRowActive : ""} ${esSerieActiva ? styles.setRowSelected : styles.setRowLocked} ${esObjetivoImpulso ? styles.setRowImpulse : ""}`} aria-current={esSerieActiva ? "step" : undefined} onClick={activarEstaSerie}>
-                          <span className={styles.setNumber}><b>{serieIndice + 1}</b><em>TRB</em></span>
-                          <input aria-label={`Repeticiones, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva} inputMode="numeric" value={serie.reps} readOnly={!esSerieActiva} tabIndex={esSerieActiva ? 0 : -1} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "reps", evento.target.value)} />
-                          <input aria-label={`Peso en ${unidadPeso}, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva} inputMode="decimal" value={serie.peso} readOnly={!esSerieActiva} tabIndex={esSerieActiva ? 0 : -1} placeholder={`— ${unidadPeso}`} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "peso", evento.target.value)} />
-                          <span className={styles.restValue}>{esUltimaSerieRutina ? "Final" : requiereDescansoDespues(EJERCICIOS.findIndex((item) => item.id === ejercicio.id), serieIndice) ? `${ejercicio.descanso} s` : "Avanza"}</span>
-                          <button type="button" className={styles.checkButton} onClick={(evento) => { evento.stopPropagation(); if (esSerieActiva) alternarSerie(ejercicio, serieIndice); else activarEstaSerie(); }} aria-label={esSerieActiva ? `${serie.completada ? "Desmarcar" : "Registrar"} serie ${serieIndice + 1}` : `Activar serie ${serieIndice + 1}`} aria-pressed={serie.completada}>{serie.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}</button>
+                          <span className={styles.setNumber}><b>{serieIndice + 1}</b><em aria-label="Serie de trabajo">TRAB.</em></span>
+                          <input aria-label={`Repeticiones, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva || sesion?.soloLectura} inputMode="numeric" value={serie.reps} readOnly={!esSerieActiva || sesion?.soloLectura} tabIndex={esSerieActiva && !sesion?.soloLectura ? 0 : -1} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "reps", evento.target.value)} />
+                          <input aria-label={`Peso en ${unidadPeso}, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva || sesion?.soloLectura} inputMode="decimal" value={serie.peso} readOnly={!esSerieActiva || sesion?.soloLectura} tabIndex={esSerieActiva && !sesion?.soloLectura ? 0 : -1} placeholder={`— ${unidadPeso}`} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "peso", evento.target.value)} />
+                          <span className={styles.restValue}>{esUltimaSerieRutina ? "Final" : requiereDescansoDespues(EJERCICIOS, ORDEN_EJECUCION, EJERCICIOS.findIndex((item) => item.id === ejercicio.id), serieIndice) ? `${ejercicio.descanso} s` : "Avanza"}</span>
+                          <button type="button" className={styles.checkButton} disabled={sesion?.soloLectura} onClick={(evento) => { evento.stopPropagation(); if (esSerieActiva) alternarSerie(ejercicio, serieIndice); else activarEstaSerie(); }} aria-label={esSerieActiva ? `${serie.completada ? "Desmarcar" : "Registrar"} serie ${serieIndice + 1}` : `Activar serie ${serieIndice + 1}`} aria-pressed={serie.completada}>{serie.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}</button>
                         </div>
                         {descansoDeEstaSerie ? <div className={`${styles.inlineRest} ${descansoEnFoco ? styles.inlineRestActive : ""}`} aria-current={descansoEnFoco ? "step" : undefined} aria-live="polite"><button type="button" onClick={() => ajustarDescanso(-15)}>−15 s</button><button type="button" className={styles.inlineRestTime} onClick={() => { setDescansoEnFoco(true); setVista("descanso"); }}>Descanso {descanso.segundos} s</button><button type="button" onClick={() => ajustarDescanso(15)}>+15 s</button></div> : null}
                       </div>
@@ -738,16 +959,18 @@ export function SesionActivaV2() {
           impulsoAutomaticoActivo={impulsoAutomaticoActivo}
           unidadPeso={unidadPeso}
           cambiarTemporizadorAutomatico={cambiarTemporizadorAutomatico}
-          cambiarSonidoDescanso={setSonidoDescansoActivo}
+          cambiarSonidoDescanso={cambiarSonidoDescanso}
           cambiarImpulsoAutomatico={cambiarImpulsoAutomatico}
           cambiarUnidadPeso={cambiarUnidadPeso}
           impulsoActual={impulsoActivo}
           cupoImpulso={MOMENTOS_ALEJANDRO.length}
           impulsosLogrados={Object.keys(momentosLogrados).length}
-          guardarNota={(nota) => setNotas((actuales) => ({ ...actuales, [ejercicioActivo.id]: nota }))}
+          guardarNota={(nota) => guardarNotaEjercicio(ejercicioActivo, nota)}
           cerrar={() => setPanel(null)}
         />
       ) : null}
+      {videoAmpliado && ejercicioActivo.videoCloudflareListo && ejercicioActivo.bibliotecaEjercicioId ? <ModalVideoCloudflare ejercicioId={ejercicioActivo.bibliotecaEjercicioId} nombre={ejercicioActivo.nombre} onCerrar={() => setVideoAmpliado(false)} /> : null}
+      {videoAmpliado && !ejercicioActivo.videoCloudflareListo && ejercicioActivo.videoUrl ? <ModalVideo videoUrl={ejercicioActivo.videoUrl} nombre={ejercicioActivo.nombre} onCerrar={() => setVideoAmpliado(false)} /> : null}
       {momentoVisible ? (
         <div className={styles.impulsoMomentBackdrop} role="presentation">
           <section className={styles.impulsoMoment} role="alertdialog" aria-modal="true" aria-labelledby="momento-alejandro-titulo">
@@ -770,13 +993,26 @@ export function SesionActivaV2() {
         <div className={styles.sheetBackdrop} role="presentation" onClick={() => setConfirmarSalida(false)}>
           <section className={styles.finishSheet} role="dialog" aria-modal="true" aria-label="Finalizar entrenamiento" onClick={(evento) => evento.stopPropagation()}>
             <button type="button" className={styles.closeButton} onClick={() => setConfirmarSalida(false)} aria-label="Cerrar"><X size={18} /></button>
-            <h2>¿Finalizar y registrar?</h2><p>Registra tu entrenamiento para guardar el progreso. Si sales y descartas, esta sesión no quedará registrada.</p>
+            <h2>¿Finalizar y registrar?</h2><p>Registra el entrenamiento para cerrar la sesión y calcular tu progreso. Si continúas después, los datos ya guardados permanecen en borrador.</p>
             <div className={styles.finishMetrics}><span><strong>{formatearTiempo(segundosSesion)}</strong>Tiempo total</span><span><strong>{seriesCompletadas}</strong>Series registradas</span></div>
-            <div className={styles.finishActions}><Link href="/portal-v2/entrenamiento">Salir y descartar</Link><button type="button" onClick={() => { setConfirmarSalida(false); setRegistrada(true); }}>Registrar entrenamiento</button></div>
+            {errorGuardado ? <p role="alert">{errorGuardado}</p> : null}
+            <div className={styles.finishActions}><Link href="/portal-v2/entrenamiento">Continuar después</Link><button type="button" disabled={guardando || sesion?.soloLectura} onClick={registrarEntrenamiento}>{guardando ? "Guardando…" : "Registrar entrenamiento"}</button></div>
           </section>
         </div>
       ) : null}
     </div>
+  );
+}
+
+function TecnicaActivaCard({ ejercicio, segmentos, paso, pausa }: { ejercicio: EjercicioSesionV2; segmentos: SegmentoTecnicaSesion[]; paso: number; pausa: number | null }) {
+  const actual = segmentos[paso];
+  return (
+    <section className={styles.techniqueFlow} aria-live="polite">
+      <header><span>{ejercicio.tecnica ?? "Técnica avanzada"}</span><b>{paso + 1}/{segmentos.length}</b></header>
+      <div><Zap size={16} fill="currentColor" /><strong>{actual.etiqueta}</strong><em>{pausa !== null ? `${pausa} s` : actual.reps ?? (actual.ajusteCargaPorcentaje ? `${actual.ajusteCargaPorcentaje}% de carga` : "LISTO")}</em></div>
+      {ejercicio.tecnicaInstruccion ? <p>{ejercicio.tecnicaInstruccion}</p> : null}
+      <i aria-hidden="true"><span style={{ width: `${((paso + 1) / segmentos.length) * 100}%` }} /></i>
+    </section>
   );
 }
 
@@ -799,7 +1035,7 @@ function PanelAuxiliar({
   cerrar,
 }: {
   tipo: Exclude<PanelSesion, null>;
-  ejercicio: EjercicioSesion;
+  ejercicio: EjercicioSesionV2;
   notaInicial: string;
   temporizadorAutomatico: boolean;
   sonidoDescansoActivo: boolean;
@@ -816,14 +1052,14 @@ function PanelAuxiliar({
   cerrar: () => void;
 }) {
   const [notaBorrador, setNotaBorrador] = useState(notaInicial);
-  const titulos = { consejo: "Consejo del entrenador", historial: "Historial del ejercicio", sustituir: "Sustituir ejercicio", reordenar: "Reordenar series", notas: "Notas del ejercicio", ajustes: "Ajustes de la sesión", informacion: "Información del ejercicio", impulso: "Alejandro · Impulso VIP" };
+  const titulos = { consejo: "Consejo del entrenador", historial: "Último registro", notas: "Notas del ejercicio", ajustes: "Ajustes de la sesión", informacion: "Información del ejercicio", impulso: "Alejandro · Impulso VIP" };
   return (
     <div className={styles.sheetBackdrop} role="presentation" onClick={cerrar}>
       <section className={styles.auxSheet} role="dialog" aria-modal="true" aria-label={titulos[tipo]} onClick={(evento) => evento.stopPropagation()}>
         <div className={styles.sheetHandle} />
         <header><div><small>SERIE {ejercicio.codigo}</small><h2>{titulos[tipo]}</h2></div><button type="button" onClick={cerrar} aria-label="Cerrar"><X size={17} /></button></header>
-        {tipo === "consejo" ? <p className={styles.sheetCopy}>Mantén el abdomen firme, controla el descenso y conserva la trayectoria estable durante toda la repetición.</p> : null}
-        {tipo === "historial" ? <div className={styles.historyGrid}><span>Fecha</span><span>Reps</span><span>Peso</span><strong>11 ago.</strong><strong>10 · 10 · 10</strong><strong>{pesoHistorico(42, unidadPeso)}</strong><strong>4 ago.</strong><strong>12 · 10 · 10</strong><strong>{pesoHistorico(40, unidadPeso)}</strong></div> : null}
+        {tipo === "consejo" ? <p className={styles.sheetCopy}>{ejercicio.consejo ?? "Tu entrenador no dejó una indicación adicional para este ejercicio. Sigue la técnica mostrada y evita compensaciones."}</p> : null}
+        {tipo === "historial" ? ejercicio.ultimoRegistro ? <div className={styles.historyGrid}><span>Fecha</span><span>Reps</span><span>Peso</span><strong>{new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short", timeZone: "America/Santiago" }).format(new Date(`${ejercicio.ultimoRegistro.fecha}T12:00:00`))}</strong><strong>{ejercicio.ultimoRegistro.reps ?? "—"}</strong><strong>{ejercicio.ultimoRegistro.esPesoCorporal ? "Corporal" : ejercicio.ultimoRegistro.pesoKg === null ? "—" : pesoHistorico(ejercicio.ultimoRegistro.pesoKg, unidadPeso)}</strong></div> : <p className={styles.sheetCopy}>Todavía no hay un registro anterior de este ejercicio. Lo que guardes hoy será tu primera referencia real.</p> : null}
         {tipo === "impulso" ? (
           <div className={styles.impulsoPanel}>
             <div className={styles.alejandroAutomatico} data-active={impulsoAutomaticoActivo}>
@@ -839,9 +1075,7 @@ function PanelAuxiliar({
             <button type="button" className={styles.impulsoDone} onClick={cerrar}>Listo</button>
           </div>
         ) : null}
-        {tipo === "sustituir" ? <div className={styles.swapList}><button type="button"><Dumbbell size={17} /><span><strong>Sentadilla goblet</strong><small>Mismo patrón de movimiento</small></span><Plus size={17} /></button><button type="button"><Dumbbell size={17} /><span><strong>Prensa horizontal</strong><small>Alternativa para cuádriceps</small></span><Plus size={17} /></button></div> : null}
         {tipo === "notas" ? <label className={styles.exerciseNotes}><span>Nota personal</span><textarea value={notaBorrador} onChange={(evento) => setNotaBorrador(evento.target.value)} placeholder="Escribe una observación para este ejercicio…" /><button type="button" onClick={() => { guardarNota(notaBorrador); cerrar(); }}>Guardar nota</button></label> : null}
-        {tipo === "reordenar" ? <div className={styles.reorderPreview}><span><b>1</b> Serie de trabajo <ArrowDownUp size={15} /></span><span><b>2</b> Serie de trabajo <ArrowDownUp size={15} /></span><span><b>3</b> Serie de trabajo <ArrowDownUp size={15} /></span><button type="button" onClick={cerrar}>Guardar orden</button></div> : null}
         {tipo === "ajustes" ? (
           <div className={styles.settingRows}>
             <div className={styles.settingRow}>

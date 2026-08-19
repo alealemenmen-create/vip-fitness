@@ -411,6 +411,44 @@ export async function iniciarRutinaDesdeCalendario(formData: FormData): Promise<
   redirect(`/alumno/entrenar/sesion/${sesionId}`);
 }
 
+/** Mismo motor transaccional del portal original, con continuidad visual V2. */
+export async function iniciarRutinaDesdeCalendarioV2(formData: FormData): Promise<void> {
+  const diaId = String(formData.get("dia_id") || "");
+  const rutinaId = String(formData.get("rutina_id") || "");
+  const numero = Number(formData.get("numero_calendario") || 0);
+  if (!diaId || !rutinaId || !numero) redirect("/portal-v2/entrenamiento");
+
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) redirect("/portal-v2/entrenamiento");
+  const supabase = createAdminClient();
+  const activa = await buscarOtraSesionRealEnProgreso(supabase, alumnoId);
+  if (activa) redirect(`/portal-v2/entrenamiento/sesion?id=${activa.id}`);
+
+  const sesionId = await crearOEntrarSesion(supabase, alumnoId, diaId, rutinaId, numero);
+  const plan = await obtenerEstadoPlanMensual(supabase as unknown as SupabaseClient, alumnoId);
+  if (plan?.pausado || (plan && plan.restantes <= 0)) {
+    redirect(`/portal-v2/entrenamiento?plan=${plan.pausado ? "pausado" : "agotado"}`);
+  }
+
+  const { error } = await supabase.from("sesiones_entrenamiento")
+    .update({ rutina_iniciada_en: new Date().toISOString() })
+    .eq("id", sesionId)
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "en_progreso")
+    .is("rutina_iniciada_en", null);
+  if (error) redirect(`/portal-v2/entrenamiento/sesion?id=${sesionId}`);
+
+  const { data: ejerciciosSesion } = await supabase.from("sesion_ejercicios")
+    .select("id, dia_ejercicio_id").eq("sesion_id", sesionId);
+  await entregarIndicacionesProgramadas(supabase, {
+    alumnoId,
+    sesionEjercicios: ejerciciosSesion ?? [],
+  }).catch(() => null);
+  revalidatePath("/portal-v2/entrenamiento");
+  revalidatePath("/portal-v2/entrenamiento/sesion");
+  redirect(`/portal-v2/entrenamiento/sesion?id=${sesionId}`);
+}
+
 /** Núcleo compartido de "arrancar el cronómetro" de una sesión ya creada:
  * chequea el plan, marca `rutina_iniciada_en` y dispara las indicaciones de
  * Impulso VIP. Usado por `iniciarRutina` (camino normal, sin conflicto) y por
@@ -514,6 +552,24 @@ export async function cancelarOtraYIniciarRutina(formData: FormData): Promise<vo
 }
 
 export type GuardarSeriesState = { error: string | null };
+
+export type SerieRegistroV2 = {
+  reps: string;
+  peso: string;
+  completada: boolean;
+};
+
+export type EjercicioRegistroV2 = {
+  sesionEjercicioId: string;
+  nota?: string;
+  series: SerieRegistroV2[];
+};
+
+export type RegistroSesionV2 = {
+  sesionId: string;
+  ejercicios: EjercicioRegistroV2[];
+  comentario?: string;
+};
 
 /**
  * Núcleo de guardado de un ejercicio: upsert de sus series + nota +
@@ -755,6 +811,61 @@ export async function guardarSeriesGrupo(
   return { error: null };
 }
 
+/**
+ * Adaptador seguro de la experiencia V2 al motor probado del portal original.
+ * El cliente solo describe lo que ve; `guardarUnEjercicio` vuelve a validar
+ * pertenencia, cantidad asignada, límites y estado de la sesión en servidor.
+ */
+export async function guardarSesionV2(registro: RegistroSesionV2): Promise<GuardarSeriesState> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (!registro.sesionId || soloLectura) return { error: "Esta sesión ya no se puede editar." };
+  if (!Array.isArray(registro.ejercicios) || registro.ejercicios.length > 80) {
+    return { error: "El registro de la sesión no es válido." };
+  }
+
+  const supabase = createAdminClient();
+  if (!(await sesionAceptaEscritura(supabase, registro.sesionId, alumnoId))) {
+    return { error: "La sesión ya fue cerrada. No se sobrescribió ningún registro." };
+  }
+
+  for (const ejercicio of registro.ejercicios) {
+    if (!ejercicio.sesionEjercicioId || !Array.isArray(ejercicio.series) || ejercicio.series.length > 50) {
+      return { error: "Uno de los ejercicios contiene datos no válidos." };
+    }
+    const formData = new FormData();
+    formData.set("sesion_ejercicio_id", ejercicio.sesionEjercicioId);
+    formData.set("cantidad_series", String(ejercicio.series.length));
+    formData.set("cantidad_series_registradas", String(ejercicio.series.length));
+    formData.set("nota_ejercicio", ejercicio.nota ?? "");
+    ejercicio.series.forEach((serie, indice) => {
+      const numero = indice + 1;
+      formData.set(`reps_${numero}`, serie.reps);
+      formData.set(`peso_${numero}`, serie.peso);
+      formData.set(`realizada_${numero}`, String(serie.completada));
+    });
+    const resultado = await guardarUnEjercicio(supabase, formData, "", registro.sesionId, alumnoId);
+    if (resultado.error) return { error: resultado.error };
+  }
+
+  revalidatePath("/portal-v2/entrenamiento/sesion");
+  revalidatePath("/portal-v2/entrenamiento");
+  revalidatePath(`/alumno/entrenar/sesion/${registro.sesionId}`);
+  revalidatePath("/alumno/inicio");
+  revalidatePath("/alumno/entrenar");
+  return { error: null };
+}
+
+export async function guardarYFinalizarSesionV2(registro: RegistroSesionV2): Promise<GuardarSeriesState> {
+  const guardado = await guardarSesionV2(registro);
+  if (guardado.error) return guardado;
+  const formData = new FormData();
+  formData.set("sesion_id", registro.sesionId);
+  formData.set("comentario", registro.comentario ?? "");
+  formData.set("origen_v2", "true");
+  await finalizarSesion(formData);
+  return { error: null };
+}
+
 /** Compara las series recién guardadas contra la recomendación congelada de
  * este ejercicio (si existe) y guarda el resultado — cumplida, superada,
  * parcial o no cumplida. Regla E nunca se evalúa (`resolverCumplimiento`
@@ -805,8 +916,13 @@ async function resolverCumplimientoImpulso(
 export async function finalizarSesion(formData: FormData): Promise<void> {
   const sesionId = String(formData.get("sesion_id") || "");
   const comentario = String(formData.get("comentario") || "").trim();
+  const origenV2 = formData.get("origen_v2") === "true";
+  const rutaEntrenamiento = origenV2 ? "/portal-v2/entrenamiento" : "/alumno/entrenar";
+  const rutaSesion = origenV2
+    ? `/portal-v2/entrenamiento/sesion?id=${sesionId}`
+    : `/alumno/entrenar/sesion/${sesionId}`;
   const { alumnoId, soloLectura } = await requireAlumno();
-  if (soloLectura) redirect("/alumno/entrenar");
+  if (soloLectura) redirect(rutaEntrenamiento);
 
   const supabase = createAdminClient();
   const [{ data: sesion }, { data: ejercicios }, { data: alumnoPerfil }] = await Promise.all([
@@ -823,8 +939,8 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
       .eq("user_id", alumnoId)
       .maybeSingle(),
   ]);
-  if (!sesion) redirect("/alumno/entrenar");
-  if (sesion.estado !== "en_progreso") redirect(`/alumno/entrenar/sesion/${sesionId}`);
+  if (!sesion) redirect(rutaEntrenamiento);
+  if (sesion.estado !== "en_progreso") redirect(rutaSesion);
 
   const total = ejercicios?.length ?? 0;
   const completados = ejercicios?.filter((e) => e.completado).length ?? 0;
@@ -832,7 +948,7 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
   // acción «Iniciar rutina». Evita fabricar una sesión terminada llamando
   // directamente a esta Server Action.
   if (total > 0 && !sesion.rutina_iniciada_en) {
-    redirect(`/alumno/entrenar/sesion/${sesionId}?aviso=debes-iniciar`);
+    redirect(origenV2 ? `${rutaSesion}&aviso=debes-iniciar` : `${rutaSesion}?aviso=debes-iniciar`);
   }
   // total === 0 pasa en días de descanso (sin ejercicios) — cuentan como completados.
   const estado = completados === total ? "completada" : "finalizada_incompleta";
@@ -848,7 +964,7 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
 
   // Cierre atómico: si otra petición ya la finalizó, no se vuelve a ejecutar
   // ninguna lógica de recompensas ni se muestra un premio inexistente.
-  if (!sesionCerrada) redirect(`/alumno/entrenar/sesion/${sesionId}`);
+  if (!sesionCerrada) redirect(rutaSesion);
 
   const puntos = await registrarEntrenamiento({
     alumnoId,
@@ -870,7 +986,7 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
-  redirect(`/alumno/entrenar?puntos=${puntos + puntosImpulso}`);
+  redirect(`${rutaEntrenamiento}?puntos=${puntos + puntosImpulso}`);
 }
 
 /**

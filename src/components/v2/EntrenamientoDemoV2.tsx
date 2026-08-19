@@ -6,20 +6,15 @@ import { useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   Archive,
-  CalendarCheck2,
   CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   History,
   LayoutGrid,
-  ListRestart,
   Menu,
   Moon,
   Play,
-  RotateCcw,
-  RotateCw,
   X,
   Zap,
 } from "lucide-react";
@@ -58,6 +53,8 @@ export function EntrenamientoDemoV2() {
   const [direccion, setDireccion] = useState<1 | -1>(1);
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [iniciada, setIniciada] = useState(false);
+  const [semana, setSemana] = useState(1);
+  const [explicacion, setExplicacion] = useState(false);
   const inicioGesto = useRef<{ x: number; y: number } | null>(null);
   const inicioGestoMenu = useRef<number | null>(null);
   const actual = DIAS.find((dia) => dia.numero === seleccionado) ?? DIAS[3];
@@ -111,18 +108,19 @@ export function EntrenamientoDemoV2() {
       <section className={styles.transformation} aria-label="Progreso del programa">
         <div className={styles.transformationCopy}>
           <div><strong>Impulsa tu transformación</strong><span>1 entrenamiento para completar</span></div>
-          <button type="button">¿Por qué?</button>
+          <button type="button" onClick={() => setExplicacion((valor) => !valor)} aria-expanded={explicacion}>¿Por qué?</button>
         </div>
+        {explicacion ? <p className={styles.sheetCopy}>La barra avanza con sesiones registradas, no con visitas a la pantalla. El último tramo se completa al cerrar el entrenamiento pendiente.</p> : null}
         <div className={styles.progressSegments} aria-hidden="true">
           <span className={styles.progressDone} /><span className={styles.progressDone} /><span className={styles.progressDone} /><span />
         </div>
       </section>
 
-      <section aria-label="Semana 1">
+      <section id="semana-entrenamiento" aria-label={`Semana ${semana}`}>
         <div className={styles.weekRow}>
-          <button type="button" className={styles.iconButton} aria-label="Semana anterior"><ChevronLeft size={18} /></button>
-          <p className={styles.weekTitle}>Semana 1</p>
-          <button type="button" className={styles.iconButton} aria-label="Semana siguiente"><ChevronRight size={18} /></button>
+          <button type="button" className={styles.iconButton} aria-label="Semana anterior" disabled={semana === 1} onClick={() => setSemana((valor) => Math.max(1, valor - 1))}><ChevronLeft size={18} /></button>
+          <p className={styles.weekTitle}>Semana {semana}</p>
+          <button type="button" className={styles.iconButton} aria-label="Semana siguiente" disabled={semana === 8} onClick={() => setSemana((valor) => Math.min(8, valor + 1))}><ChevronRight size={18} /></button>
         </div>
         <div className={styles.dayDial}>
           {DIAS.map((dia) => (
@@ -184,15 +182,15 @@ export function EntrenamientoDemoV2() {
       <div className={styles.utilityGrid}>
         <Link href="/portal-v2/entrenamiento/rutina" className={styles.utilityCard}>
           <span className={styles.utilityIcon} aria-hidden="true"><Archive size={28} strokeWidth={1.85} /></span>
-          <span className={styles.utilityCopy}><strong>Biblioteca de ejercicios</strong><span>Explora más de 500 ejercicios</span></span>
+          <span className={styles.utilityCopy}><strong>Rutina del programa</strong><span>Revisa ejercicios, series y técnica</span></span>
         </Link>
-        <button type="button" className={styles.utilityCard} onClick={() => setMenuAbierto(true)}>
+        <Link href="/portal-v2/progreso" className={styles.utilityCard}>
           <span className={styles.utilityIcon} aria-hidden="true">
             <LayoutGrid size={27} strokeWidth={1.75} />
             <i className={styles.utilityIconPlus}>+</i>
           </span>
-          <span className={styles.utilityCopy}><strong>Constructor de rutinas</strong><span>Crea entrenamientos personalizados</span></span>
-        </button>
+          <span className={styles.utilityCopy}><strong>Mi progreso</strong><span>Rendimiento, constancia y clasificación</span></span>
+        </Link>
       </div>
 
       <section className={styles.impulso}>
@@ -203,17 +201,17 @@ export function EntrenamientoDemoV2() {
 
       <div className={styles.sectionHeader}>
         <div><h2>Entrenamientos adicionales</h2><p>Explora por categoría</p></div>
-        <button type="button">Ver todos <ChevronRight size={14} /></button>
+        <Link href="/portal-v2/entrenamiento/rutina">Ver todos <ChevronRight size={14} /></Link>
       </div>
       <div className={styles.chipRow} aria-label="Categorías">
         <span className={`${styles.chip} ${styles.chipActive}`}>Calentamiento</span><span className={styles.chip}>Favoritos</span><span className={styles.chip}>Poco tiempo</span><span className={styles.chip}>Movilidad</span>
       </div>
       <section className={styles.additionalList} aria-label="Entrenamientos recomendados">
         {ADICIONALES.map((entrenamiento) => (
-          <button type="button" className={styles.additionalCard} key={entrenamiento.nombre}>
+          <Link href="/portal-v2/entrenamiento/rutina" className={styles.additionalCard} key={entrenamiento.nombre}>
             <strong>{entrenamiento.nombre}</strong>
             <span className={styles.additionalMeta}><b>{entrenamiento.nivel}</b><span>·</span>{entrenamiento.detalle}</span>
-          </button>
+          </Link>
         ))}
       </section>
 
@@ -236,13 +234,10 @@ export function EntrenamientoDemoV2() {
               <span className={styles.menuCloseBadge}><X size={13} strokeWidth={2.6} /></span>
             </button>
             <div className={styles.menuActions}>
-              <button type="button" className={styles.menuItem}><span>Todos los programas</span><i><ClipboardList size={21} /></i></button>
-              <button type="button" className={styles.menuItem}><span>Registro de entrenamientos</span><i><History size={21} /></i></button>
-              <button type="button" className={styles.menuItem}><span>Calendario</span><i><CalendarDays size={21} /></i></button>
-              <button type="button" className={styles.menuItem}><span>Horario de entrenamiento</span><i><CalendarCheck2 size={21} /></i></button>
-              <button type="button" className={styles.menuItem}><span>Reordenar días</span><i><ListRestart size={21} /></i></button>
-              <button type="button" className={styles.menuItem}><span>Reiniciar fase</span><i><RotateCcw size={21} /></i></button>
-              <button type="button" className={styles.menuItem}><span>Reiniciar programa</span><i><RotateCw size={21} /></i></button>
+              <Link href="/portal-v2/entrenamiento/rutina" className={styles.menuItem}><span>Programa y ejercicios</span><i><Archive size={21} /></i></Link>
+              <Link href="/portal-v2/progreso" className={styles.menuItem}><span>Registro y rendimiento</span><i><History size={21} /></i></Link>
+              <a href="#semana-entrenamiento" className={styles.menuItem} onClick={() => setMenuAbierto(false)}><span>Calendario</span><i><CalendarDays size={21} /></i></a>
+              <Link href="/portal-v2/nutricion" className={styles.menuItem}><span>Nutrición del día</span><i><LayoutGrid size={21} /></i></Link>
             </div>
           </div>
         </div>

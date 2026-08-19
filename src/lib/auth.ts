@@ -21,6 +21,51 @@ export type ContextoAlumno = {
 };
 
 /**
+ * Variante no redireccionante para superficies públicas de demostración.
+ *
+ * Portal V2 puede abrirse sin credenciales para revisar el diseño, pero solo
+ * entrega datos reales cuando la cookie corresponde a un alumno válido (o a
+ * la vista segura de un entrenador sobre uno de sus alumnos). Un usuario
+ * anónimo, un perfil sin ficha de alumno o un alumno bloqueado reciben
+ * `null`; nunca se filtra información para sostener la maqueta pública.
+ */
+export const obtenerContextoAlumnoOpcional = cache(async (): Promise<ContextoAlumno | null> => {
+  const contexto = await obtenerSesionConAlumno();
+  if (!contexto) return null;
+
+  const { sesion, esAlumno, accesoBloqueado } = contexto;
+  const esEntrenador = sesion.rol === "entrenador" || sesion.rol === "admin";
+
+  if (esEntrenador) {
+    const cookieStore = await cookies();
+    const vistaAlumnoId = cookieStore.get(COOKIE_VISTA_ALUMNO)?.value;
+    if (vistaAlumnoId) {
+      const supabase = await createClient();
+      const { data: alumno } = await supabase
+        .from("alumno_perfil")
+        .select("user_id, perfiles!alumno_perfil_user_id_fkey(nombre)")
+        .eq("user_id", vistaAlumnoId)
+        .maybeSingle();
+
+      if (alumno) {
+        const nombreAlumno =
+          (alumno.perfiles as unknown as { nombre: string } | null)?.nombre ?? "Alumno";
+        return { alumnoId: vistaAlumnoId, nombre: nombreAlumno, rolSesion: sesion.rol, soloLectura: true };
+      }
+    }
+  }
+
+  if (!esAlumno || accesoBloqueado) return null;
+
+  return {
+    alumnoId: sesion.userId,
+    nombre: sesion.nombre,
+    rolSesion: sesion.rol,
+    soloLectura: false,
+  };
+});
+
+/**
  * El id del usuario de la sesión actual, o `null` si no hay sesión válida.
  *
  * Va con `getClaims()` y NO con `getUser()`: el proyecto firma los JWT con

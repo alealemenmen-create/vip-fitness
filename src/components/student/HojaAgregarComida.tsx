@@ -111,10 +111,12 @@ export function HojaAgregarComida({
   hora,
   onCerrar,
   onConfirmar,
+  modoInicial = "buscar",
 }: {
   hora: number | null;
   onCerrar: () => void;
   onConfirmar: (elegidos: AlimentoElegido[]) => void;
+  modoInicial?: "buscar" | "escanear";
 }) {
   /** Lo levanta "Confirmar" justo antes de cerrar: es el único cierre que
    * deja un click sintético en el aire. */
@@ -136,6 +138,7 @@ export function HojaAgregarComida({
   return createPortal(
     <Contenido
       hora={hora}
+      modoInicial={modoInicial}
       onCerrar={() => {
         cerroConfirmando.current = false;
         onCerrar();
@@ -153,10 +156,12 @@ function Contenido({
   hora,
   onCerrar,
   onConfirmar,
+  modoInicial,
 }: {
   hora: number;
   onCerrar: () => void;
   onConfirmar: (elegidos: AlimentoElegido[]) => void;
+  modoInicial: "buscar" | "escanear";
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [resultados, setResultados] = useState<AlimentoCatalogo[]>([]);
@@ -172,7 +177,7 @@ function Contenido({
   const [usarMedida, setUsarMedida] = useState(false);
   const [elegidos, setElegidos] = useState<AlimentoElegido[]>([]);
   const [creando, setCreando] = useState(false);
-  const [escaneando, setEscaneando] = useState(false);
+  const [escaneando, setEscaneando] = useState(modoInicial === "escanear");
   /** Código de barras que no estaba en OFF: se precarga en el formulario de
    * alimento personalizado cuando el escáner cede el paso a "Crear alimento". */
   const [offIdParaCrear, setOffIdParaCrear] = useState<string | null>(null);

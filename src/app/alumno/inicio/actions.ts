@@ -90,6 +90,7 @@ export async function responderInvitacionTorneo(formData: FormData): Promise<voi
 
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/ranked");
+  revalidatePath("/portal-v2/progreso/comunidad");
   revalidatePath("/admin/torneos");
 }
 

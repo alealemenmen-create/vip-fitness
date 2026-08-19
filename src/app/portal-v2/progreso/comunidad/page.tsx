@@ -1,5 +1,7 @@
 import { ComunidadV2 } from "@/components/v2/ComunidadV2";
+import { obtenerComunidadV2 } from "./data";
 
-export default function ComunidadV2Page() {
-  return <ComunidadV2 />;
+export default async function ComunidadV2Page() {
+  const datos = await obtenerComunidadV2();
+  return <ComunidadV2 datos={datos} />;
 }

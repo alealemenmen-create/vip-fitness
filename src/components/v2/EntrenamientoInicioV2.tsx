@@ -10,16 +10,14 @@ import {
   Dumbbell,
   History,
   LibraryBig,
-  ListRestart,
   Menu,
   Moon,
   Play,
-  RotateCcw,
   Sparkles,
   X,
   Zap,
 } from "lucide-react";
-import { iniciarRutinaDesdeCalendario } from "@/app/alumno/entrenar/actions";
+import { iniciarRutinaDesdeCalendarioV2 } from "@/app/alumno/entrenar/actions";
 import type { DiaVistaPrevia, NumeroCalendario } from "@/app/alumno/entrenar/data";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { FOTOS_GRUPO_MUSCULAR } from "@/lib/grupos-musculares/fotos";
@@ -157,21 +155,24 @@ export function EntrenamientoInicioV2({
           <div className={styles.metric}><strong>{resumen?.minutosEstimados ?? 0}</strong><span>Minutos</span></div>
         </div>
         <div className={styles.heroActions}>
-          <button type="button" className={styles.secondaryButton} onClick={() => setVerRutina((valor) => !valor)}>
-            {verRutina ? "Ocultar rutina" : "Ver rutina"}
-          </button>
+          <Link
+            href={`/portal-v2/entrenamiento/rutina?dia=${actual.dia.id}&numero=${actual.numero}`}
+            className={styles.secondaryButton}
+          >
+            Ver rutina
+          </Link>
           {sesionSeleccionadaActiva ? (
-            <Link href={`/alumno/entrenar/sesion/${actual.sesionId}`} className={styles.primaryButton}>
+            <Link href={`/portal-v2/entrenamiento/sesion?id=${actual.sesionId}`} className={styles.primaryButton}>
               <Play size={14} fill="currentColor" /> Continuar día {actual.numero}
             </Link>
           ) : sesionEnProgresoId ? (
-            <Link href={`/alumno/entrenar/sesion/${sesionEnProgresoId}`} className={styles.primaryButton}>
+            <Link href={`/portal-v2/entrenamiento/sesion?id=${sesionEnProgresoId}`} className={styles.primaryButton}>
               <Play size={14} fill="currentColor" /> Continuar sesión
             </Link>
           ) : actual.estado === "completado" && actual.sesionId ? (
-            <Link href={`/alumno/entrenar/sesion/${actual.sesionId}`} className={styles.primaryButton}>Ver registro</Link>
+            <Link href={`/portal-v2/entrenamiento/sesion?id=${actual.sesionId}`} className={styles.primaryButton}>Ver registro</Link>
           ) : (
-            <form action={iniciarRutinaDesdeCalendario}>
+            <form action={iniciarRutinaDesdeCalendarioV2}>
               <input type="hidden" name="dia_id" value={actual.dia.id} />
               <input type="hidden" name="rutina_id" value={rutinaId} />
               <input type="hidden" name="numero_calendario" value={actual.numero} />
@@ -190,9 +191,9 @@ export function EntrenamientoInicioV2({
       )}
 
       <div className={styles.utilityGrid}>
-        <button type="button" className={styles.utilityCard} onClick={() => setVerRutina(true)}>
+        <button type="button" className={styles.utilityCard} onClick={() => setVerRutina((valor) => !valor)} aria-expanded={verRutina}>
           <LibraryBig size={20} />
-          <span><strong>Biblioteca de ejercicios</strong><span>Explora tu sesión asignada</span></span>
+          <span><strong>{verRutina ? "Ocultar ejercicios" : "Rutina asignada"}</strong><span>Revisa tu sesión completa</span></span>
         </button>
         <Link href="/alumno/entrenar/historial" className={styles.utilityCard}>
           <History size={20} />
@@ -233,9 +234,7 @@ export function EntrenamientoInicioV2({
             </button>
             <Link href="/alumno/entrenar/historial" className={styles.menuItem}><span>Todos mis programas</span><Dumbbell size={16} /></Link>
             <Link href="/alumno/entrenar/historial" className={styles.menuItem}><span>Registro de entrenamientos</span><History size={16} /></Link>
-            <button type="button" className={styles.menuItem} onClick={() => setMenuAbierto(false)}><span>Calendario</span><CalendarDays size={16} /></button>
-            <button type="button" className={styles.menuItem} disabled><span>Reordenar días</span><ListRestart size={16} /></button>
-            <button type="button" className={styles.menuItem} disabled><span>Reiniciar programa</span><RotateCcw size={16} /></button>
+            <a href="#semana" className={styles.menuItem} onClick={() => setMenuAbierto(false)}><span>Calendario</span><CalendarDays size={16} /></a>
             <Link href="/alumno/entrenar" className={styles.menuItem}><span>Vista clásica del portal</span><Sparkles size={16} /></Link>
           </div>
         </div>

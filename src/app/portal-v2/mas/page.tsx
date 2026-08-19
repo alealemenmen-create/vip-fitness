@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bell,
   ChevronRight,
@@ -19,23 +19,42 @@ import {
   X,
 } from "lucide-react";
 import styles from "@/components/v2/PortalV2.module.css";
+import { asegurarSuscripcionPush } from "@/lib/entrenamiento/push";
+import { obtenerMasV2Action, type MasDatosV2 } from "./actions";
 
 type Panel = "notificaciones" | "plan" | "terminos" | "social" | null;
 
 export default function MasV2Page() {
   const [panel, setPanel] = useState<Panel>(null);
-  const [notificaciones, setNotificaciones] = useState({ entrenamientos: true, impulso: true, comunidad: false });
+  const [datos, setDatos] = useState<MasDatosV2 | null>(null);
+  const [permisoNotificaciones, setPermisoNotificaciones] = useState<NotificationPermission | "no-disponible">(
+    () => typeof Notification === "undefined" ? "no-disponible" : Notification.permission,
+  );
+
+  useEffect(() => {
+    obtenerMasV2Action().then(setDatos).catch(() => setDatos(null));
+  }, []);
+
+  const activarNotificaciones = async () => {
+    if (typeof Notification === "undefined") {
+      setPermisoNotificaciones("no-disponible");
+      return;
+    }
+    const permiso = await Notification.requestPermission();
+    setPermisoNotificaciones(permiso);
+    if (permiso === "granted") await asegurarSuscripcionPush();
+  };
 
   return (
     <section className={styles.morePage}>
       <h1 className={styles.moreTitle}>Más</h1>
 
       <Link href="/alumno/perfil" className={styles.moreProfile}>
-        <span className={styles.moreAvatar}>AM</span>
-        <div><strong>Ale Mendoza</strong><small>Administrador · Entrenador · Alumno</small></div>
-        <span className={styles.moreXp}>900 XP <Trophy size={12} /></span>
+        <span className={styles.moreAvatar}>{datos?.iniciales ?? "AM"}</span>
+        <div><strong>{datos?.nombre ?? "Ale Mendoza"}</strong><small>{datos ? `${datos.rango} · ${datos.rol === "admin" ? "Administrador" : datos.rol === "entrenador" ? "Entrenador" : "Alumno"}` : "Método VIP"}</small></div>
+        <span className={styles.moreXp}>{(datos?.puntos ?? 900).toLocaleString("es-CL")} XP <Trophy size={12} /></span>
       </Link>
-      <div className={styles.moreLevelTrack} aria-label="Progreso del nivel"><i style={{ width: "68%" }} /></div>
+      <div className={styles.moreLevelTrack} aria-label="Progreso del nivel"><i style={{ width: `${datos?.progresoRango ?? 68}%` }} /></div>
 
       <Link href="/portal-v2/progreso/comunidad" className={styles.moreCommunityBanner}>
         <div><strong>Nadie progresa solo</strong><span>Comparte avances y celebra a la comunidad VIP.</span></div>
@@ -45,8 +64,8 @@ export default function MasV2Page() {
       <p className={styles.moreGroupLabel}>Mis espacios</p>
       <div className={styles.moreCard}>
         <Fila href="/portal-v2/entrenamiento" icon={Dumbbell} texto="Mi entrenamiento" detalle="Vista personal" />
-        <Fila href="/admin/alumnos" icon={UsersRound} texto="Portal del entrenador" detalle="Alumnos y seguimiento" />
-        <Fila href="/admin" icon={PanelsTopLeft} texto="Administración" detalle="Control total de VIP Fitness" />
+        {datos?.rol === "entrenador" || datos?.rol === "admin" ? <Fila href="/admin/alumnos" icon={UsersRound} texto="Portal del entrenador" detalle="Alumnos y seguimiento" /> : null}
+        {datos?.rol === "admin" ? <Fila href="/admin" icon={PanelsTopLeft} texto="Administración" detalle="Control total de VIP Fitness" /> : null}
       </div>
 
       <p className={styles.moreGroupLabel}>Cuenta y configuración</p>
@@ -77,13 +96,13 @@ export default function MasV2Page() {
             <header><h2>{tituloPanel(panel)}</h2><button type="button" onClick={() => setPanel(null)} aria-label="Cerrar"><X size={19} /></button></header>
             {panel === "notificaciones" ? (
               <div className={styles.moreSwitchList}>
-                <Interruptor etiqueta="Recordatorios de entrenamiento" activo={notificaciones.entrenamientos} onChange={() => setNotificaciones((actual) => ({ ...actual, entrenamientos: !actual.entrenamientos }))} />
-                <Interruptor etiqueta="Impulso VIP diario" activo={notificaciones.impulso} onChange={() => setNotificaciones((actual) => ({ ...actual, impulso: !actual.impulso }))} />
-                <Interruptor etiqueta="Actividad de la comunidad" activo={notificaciones.comunidad} onChange={() => setNotificaciones((actual) => ({ ...actual, comunidad: !actual.comunidad }))} />
+                <Interruptor etiqueta="Avisos de descanso en este dispositivo" activo={permisoNotificaciones === "granted"} onChange={activarNotificaciones} />
+                <Link href="/alumno/perfil" className={styles.moreSettingsLink}><span>Temporizador de descanso</span><b>{datos?.temporizadorActivo === false ? "Apagado" : datos?.descansoPreferido ? `${datos.descansoPreferido} s` : "Según rutina"}</b><ChevronRight size={15} /></Link>
+                <p className={styles.moreNotificationNote}>{permisoNotificaciones === "denied" ? "Las notificaciones están bloqueadas en el navegador. Actívalas desde los ajustes del teléfono." : "El sonido y la vibración se ejecutan al terminar cada descanso. El push cubre pantalla bloqueada o cambio de aplicación."}</p>
               </div>
             ) : null}
             {panel === "plan" ? <div className={styles.morePlanPanel}><span>PLAN ACTUAL</span><strong>Método VIP</strong><p>Entrenamiento, nutrición, progreso y seguimiento personalizado en un solo lugar.</p><b>Activo</b></div> : null}
-            {panel === "terminos" ? <p className={styles.moreSheetCopy}>Las condiciones definitivas se conectarán con los documentos legales del portal antes de publicar la V2. Tu acceso actual y tus datos permanecen sin cambios durante esta etapa.</p> : null}
+            {panel === "terminos" ? <div><p className={styles.moreSheetCopy}>El portal registra entrenamientos, alimentación y progreso para prestar el servicio contratado. Los puntos y premios requieren actividad verificable; cualquier manipulación puede invalidarlos. Las indicaciones no reemplazan evaluación médica.</p><Link href="/alumno/politica-privacidad" className={styles.moreSettingsLink}><span>Leer política de privacidad completa</span><ChevronRight size={15} /></Link></div> : null}
             {panel === "social" ? <div className={styles.moreSocialList}><span>Instagram <b>@vipfitness</b></span><span>Facebook <b>VIP Fitness</b></span><span>Comunidad <b>Dentro de la aplicación</b></span></div> : null}
           </section>
         </div>

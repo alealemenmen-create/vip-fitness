@@ -37,8 +37,8 @@ const BASE_URL_BUSQUEDA = "https://world.openfoodfacts.org/cgi/search.pl";
 const BASE_URL_PRODUCTO = "https://world.openfoodfacts.org/api/v2/product";
 const TIMEOUT_MS = 5000;
 
-// Cache en memoria del navegador: dura mientras el alumno tiene la página
-// abierta, para no repetir la misma consulta si borra y vuelve a escribir.
+// Cache corta en memoria del proceso servidor. Evita repetir la misma consulta
+// si el alumno borra y vuelve a escribir; nunca contiene datos personales.
 const cache = new Map<string, ProductoOFF[]>();
 
 type RawProducto = {
@@ -175,6 +175,9 @@ export async function buscarEnOFF(texto: string, pais: "chile" | "global"): Prom
     action: "process",
     json: "1",
     page_size: "20",
+    // OFF recomienda pedir solo los campos utilizados: la respuesta completa
+    // puede pesar cientos de KB por búsqueda y en datos móviles se nota.
+    fields: "code,product_name_es,product_name,brands,nutriments,serving_size,serving_quantity,image_front_small_url",
   });
   if (pais === "chile") {
     params.set("tagtype_0", "countries");
