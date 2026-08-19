@@ -348,7 +348,17 @@ export async function importarAlimentoOFF(
   try {
     const supabase = await createClient();
 
-    const nombre = producto.nombre.trim().slice(0, 80);
+    const codigo = producto.offId.trim();
+    if (!/^\d{4,24}$/.test(codigo)) return fallo("El código de barras del producto no es válido.");
+    // Nunca se confían nombre ni macros enviados por el navegador: cualquiera
+    // puede alterar una Server Action desde DevTools. El servidor vuelve a
+    // consultar el código y usa exclusivamente la respuesta validada de OFF.
+    const verificacion = await buscarPorCodigoOFF(codigo);
+    if (!verificacion.ok) return fallo("No pudimos verificar el producto en Open Food Facts. Intenta nuevamente.");
+    if (!verificacion.producto) return fallo("El producto ya no está disponible o sus datos nutricionales no son válidos.");
+    const productoVerificado = verificacion.producto;
+
+    const nombre = productoVerificado.nombre.trim().slice(0, 80);
     if (!nombre) return fallo("Producto sin nombre válido.");
 
     // No todos los productos de Open Food Facts traen su porción de envase
@@ -357,14 +367,14 @@ export async function importarAlimentoOFF(
     // función que ya usa el catálogo curado para saber que el aceite se mide
     // en cucharadas, la leche en vasos, el huevo en unidades, etc. — se usa acá
     // de respaldo cuando el producto no trae su propia medida.
-    const medidaRespaldo = producto.medidaNombre ? null : deducirMedidaCasera(nombre);
-    const medidaNombre = producto.medidaNombre ?? medidaRespaldo?.nombre ?? null;
-    const medidaGramos = producto.medidaNombre ? producto.medidaGramos : (medidaRespaldo?.gramos ?? null);
+    const medidaRespaldo = productoVerificado.medidaNombre ? null : deducirMedidaCasera(nombre);
+    const medidaNombre = productoVerificado.medidaNombre ?? medidaRespaldo?.nombre ?? null;
+    const medidaGramos = productoVerificado.medidaNombre ? productoVerificado.medidaGramos : (medidaRespaldo?.gramos ?? null);
 
     const { data: existente } = await supabase
       .from("alimentos")
       .select(COLUMNAS_ALIMENTO)
-      .eq("off_id", producto.offId)
+      .eq("off_id", codigo)
       .maybeSingle();
     if (existente) return { error: null, alimento: filaACatalogo(existente) };
 
@@ -394,16 +404,16 @@ export async function importarAlimentoOFF(
         nombre,
         porcion_base: 100,
         unidad: "g",
-        kcal: producto.kcal,
-        prot: producto.prot,
-        carb: producto.carb,
-        grasa: producto.grasa,
-        fibra: producto.fibra,
-        azucares: producto.azucares,
-        sodio: producto.sodio,
-        marca: producto.marca,
-        off_id: producto.offId,
-        imagen_url: producto.imagenUrl,
+        kcal: productoVerificado.kcal,
+        prot: productoVerificado.prot,
+        carb: productoVerificado.carb,
+        grasa: productoVerificado.grasa,
+        fibra: productoVerificado.fibra,
+        azucares: productoVerificado.azucares,
+        sodio: productoVerificado.sodio,
+        marca: productoVerificado.marca,
+        off_id: codigo,
+        imagen_url: productoVerificado.imagenUrl,
         origen: "openfoodfacts",
         aprobado: true,
         medida_nombre: medidaNombre,
@@ -418,7 +428,7 @@ export async function importarAlimentoOFF(
         const { data: porOffId } = await supabase
           .from("alimentos")
           .select(COLUMNAS_ALIMENTO)
-          .eq("off_id", producto.offId)
+          .eq("off_id", codigo)
           .maybeSingle();
         if (porOffId) return { error: null, alimento: filaACatalogo(porOffId) };
       }

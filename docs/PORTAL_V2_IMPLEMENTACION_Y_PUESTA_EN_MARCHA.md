@@ -39,6 +39,12 @@ recibir aprobación expresa.
   calorías/macros y línea de tiempo de 24 horas.
 - Buscar: catálogo propio primero; Open Food Facts Chile y luego global como
   complemento; creación manual cuando no hay resultado.
+- Los productos externos se vuelven a consultar por código en el servidor:
+  nombre y macros enviados por el navegador nunca se confían, se rechazan
+  rangos imposibles y la caché pública tiene caducidad y tamaño máximo.
+- La búsqueda externa es explícita, no se dispara por cada tecla: respeta el
+  límite oficial de Open Food Facts de 10 búsquedas por minuto e IP; el
+  catálogo VIP local conserva la búsqueda inmediata.
 - Escanear: lector de código de barras; en producción necesita HTTPS y permiso
   de cámara.
 - Registrar, editar cantidad, borrar y copiar alimentos recientes.
@@ -82,6 +88,9 @@ recibir aprobación expresa.
 - El plan muestra nombre, sesiones, frecuencia y estado reales de la cuenta.
 - Las notificaciones push son reversibles por dispositivo: activar suscribe el
   endpoint y desactivar lo elimina del servidor y del navegador.
+- La demostración directa no expulsa al login al abrir perfil, soporte,
+  privacidad, progreso o Arena: resuelve el destino dentro de la V2 y mantiene
+  bloqueadas únicamente las escrituras que requieren una identidad real.
 - Alumno: experiencia personal.
 - Entrenador: acceso a alumnos y seguimiento.
 - Administrador: control total mediante el panel existente.
@@ -152,6 +161,28 @@ migraciones históricas están en `supabase/migrations/0001_init.sql` a
 - Anthropic: funciones de IA administrativas y de apoyo; Alejandro no depende
   de una respuesta generativa en vivo para decidir una serie.
 - ZXing: lectura de códigos en el navegador.
+
+Decisión de fuentes (verificada el 19-08-2026):
+
+- [Open Food Facts](https://openfoodfacts.github.io/documentation/docs/Product-Opener/api/)
+  es la mejor capa gratuita para productos envasados y marcas chilenas: lectura
+  sin autenticación, códigos de barras y licencia abierta ODbL. Sus datos son
+  colaborativos y no garantizan exactitud; por eso nunca sustituyen la etiqueta
+  ni entran al catálogo VIP sin reconsulta y controles de coherencia.
+- La propia documentación limita la búsqueda a 10 consultas/minuto/IP y
+  desaconseja buscar con cada tecla. La V2 consulta OFF sólo por acción expresa,
+  con caché; para texto mantiene el endpoint legado porque la API v3 actual aún
+  no ofrece búsqueda full-text equivalente.
+- La [tabla chilena publicada por MINSAL](https://www.minsal.cl/composicion-de-alimentos/)
+  y la [recopilación INTA 2018](https://inta.uchile.cl/noticias/201337/tabla-de-composicion-de-alimentos-2018)
+  son referencias nacionales útiles para alimentos genéricos, pero no ofrecen
+  una API gratuita vigente de productos de supermercado; la edición INTA 2018
+  se comercializa. Se usarán para revisión humana y semillas, no como consulta
+  automática ni como si cubrieran Soprole u otras marcas actuales.
+- [USDA FoodData Central](https://fdc.nal.usda.gov/api-guide/) es CC0 y dispone
+  de API, pero requiere clave y su catálogo de marcas está orientado a Estados
+  Unidos. Queda como respaldo futuro para genéricos ausentes, no por delante
+  del catálogo VIP ni de OFF Chile.
 
 Variables requeridas para producción:
 

@@ -182,6 +182,7 @@ function Contenido({
   const [offResultados, setOffResultados] = useState<ProductoOFF[]>([]);
   const [offEstado, setOffEstado] = useState<"inactivo" | "buscando" | "listo">("inactivo");
   const [offError, setOffError] = useState<string | null>(null);
+  const versionBusqueda = useRef(0);
   const [importandoOffId, setImportandoOffId] = useState<string | null>(null);
   const [seleccionado, setSeleccionado] = useState<AlimentoCatalogo | null>(null);
   const [cantidad, setCantidad] = useState("100");
@@ -248,10 +249,10 @@ function Contenido({
     };
   }, []);
 
-  // El catálogo tiene miles de alimentos: se consulta al servidor a medida que
-  // el alumno escribe, con una pausa para no disparar una consulta por tecla.
-  // Si el catálogo propio no alcanza, se completa con Open Food Facts
-  // (Chile primero; a todo el mundo solo si Chile tampoco encontró nada).
+  // El catálogo VIP sí se consulta mientras se escribe porque vive en nuestra
+  // base. Open Food Facts NO: su límite oficial es 10 búsquedas/min/IP y pide
+  // expresamente no implementar search-as-you-type. La consulta externa se
+  // dispara con el botón visible más abajo.
   useEffect(() => {
     const q = busqueda.trim();
     // Con menos de 2 letras no se consulta; la lista ya la vació el onChange.
@@ -271,49 +272,6 @@ function Contenido({
         if (!vigente) return;
         setResultados(encontrados);
         setBuscandoAhora(false);
-
-        if (encontrados.length >= LIMITE_BUSQUEDA_ALIMENTOS) {
-          setOffResultados([]);
-          setOffEstado("inactivo");
-          return;
-        }
-
-        setOffEstado("buscando");
-        setOffError(null);
-        const chile = await buscarEnOFFAction(q, "chile");
-        if (!vigente) return;
-
-        let combinados: ProductoOFF[] = [];
-        let error: string | null = null;
-
-        if (chile.ok) {
-          combinados = chile.productos.filter((p) => !esDuplicadoDeLocal(p, encontrados));
-        } else {
-          error = chile.error;
-        }
-
-        // Se abre a todo el mundo mientras falten resultados para llenar la
-        // lista, no solo cuando Chile no encontró nada: fruta fresca y otros
-        // productos sin marca casi no tienen presencia en el catálogo de OFF
-        // filtrado por Chile, así que "encontró 1" no significa "encontró todo".
-        if (encontrados.length + combinados.length < LIMITE_BUSQUEDA_ALIMENTOS) {
-          const global = await buscarEnOFFAction(q, "global");
-          if (!vigente) return;
-          if (global.ok) {
-            const vistos = new Set(combinados.map((p) => p.offId));
-            combinados = [
-              ...combinados,
-              ...global.productos.filter((p) => !vistos.has(p.offId) && !esDuplicadoDeLocal(p, encontrados)),
-            ];
-            error = null;
-          } else if (!error) {
-            error = global.error;
-          }
-        }
-
-        setOffResultados(combinados.slice(0, LIMITE_BUSQUEDA_ALIMENTOS));
-        setOffError(error);
-        setOffEstado("listo");
       } catch {
         if (!vigente) return;
         setBuscandoAhora(false);
@@ -328,6 +286,40 @@ function Contenido({
       clearTimeout(id);
     };
   }, [busqueda]);
+
+  const buscarCatalogoExterno = async () => {
+    const q = busqueda.trim();
+    if (q.length < 2 || offEstado === "buscando") return;
+    const version = versionBusqueda.current;
+    setOffEstado("buscando");
+    setOffError(null);
+    try {
+      const chile = await buscarEnOFFAction(q, "chile");
+      if (version !== versionBusqueda.current) return;
+      let combinados: ProductoOFF[] = [];
+      let error: string | null = null;
+      if (chile.ok) combinados = chile.productos.filter((p) => !esDuplicadoDeLocal(p, resultados));
+      else error = chile.error;
+
+      if (resultados.length + combinados.length < LIMITE_BUSQUEDA_ALIMENTOS) {
+        const global = await buscarEnOFFAction(q, "global");
+        if (version !== versionBusqueda.current) return;
+        if (global.ok) {
+          const vistos = new Set(combinados.map((p) => p.offId));
+          combinados = [...combinados, ...global.productos.filter((p) => !vistos.has(p.offId) && !esDuplicadoDeLocal(p, resultados))];
+          error = null;
+        } else if (!error) error = global.error;
+      }
+      setOffResultados(combinados.slice(0, LIMITE_BUSQUEDA_ALIMENTOS));
+      setOffError(error);
+      setOffEstado("listo");
+    } catch {
+      if (version !== versionBusqueda.current) return;
+      setOffResultados([]);
+      setOffError("No se pudo consultar el catálogo externo. Intenta nuevamente.");
+      setOffEstado("listo");
+    }
+  };
 
   /** Deja el alimento listo para ingresar la cantidad. Si trae medida propia
    * (1 cucharada, 1 unidad), se arranca en ella en vez de en 100 g. */
@@ -544,6 +536,7 @@ function Contenido({
     if (!pendiente) return;
     setElegidos((prev) => [...prev, pendiente]);
     setSeleccionado(null);
+    versionBusqueda.current += 1;
     setBusqueda("");
     setResultados([]);
     // También los de Open Food Facts: al vaciar la búsqueda el efecto sale por
@@ -699,6 +692,7 @@ function Contenido({
               // Un onChange con el mismo texto no es una edición real: es
               // ruido del teclado del celular y no debe borrar nada.
               if (valor === busqueda) return;
+              versionBusqueda.current += 1;
               setBusqueda(valor);
               const corta = valor.trim().length < 2;
               setBuscandoAhora(!corta);
@@ -715,6 +709,7 @@ function Contenido({
               type="button"
               aria-label="Limpiar búsqueda"
               onClick={() => {
+                versionBusqueda.current += 1;
                 setBusqueda("");
                 setResultados([]);
                 setBuscandoAhora(false);
@@ -740,6 +735,12 @@ function Contenido({
 
       {!seleccionado && vistaBiblioteca === "buscar" && buscandoAhora && (
         <p className="text-caption px-1 py-2 text-text-tertiary">Buscando…</p>
+      )}
+
+      {!seleccionado && vistaBiblioteca === "buscar" && !buscandoAhora && busqueda.trim().length >= 2 && resultados.length < LIMITE_BUSQUEDA_ALIMENTOS && offEstado === "inactivo" && (
+        <button type="button" onClick={buscarCatalogoExterno} className="radius-control flex min-h-11 w-full items-center justify-center gap-2 border border-vip/25 bg-vip/5 px-3 text-caption font-semibold text-vip">
+          <Search size={15} /> Buscar productos y marcas de Chile
+        </button>
       )}
 
       {/* Cuando no hay resultados NO alcanza con decir "sin resultados": el

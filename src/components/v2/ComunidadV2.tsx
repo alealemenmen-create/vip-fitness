@@ -74,7 +74,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
       <header className={styles.communityHeader}>
         <Link href="/portal-v2/progreso" aria-label="Volver a Progreso"><ArrowLeft size={22} /></Link>
         <h1>Comunidad</h1>
-        <Link href="/alumno/progreso" aria-label="Registrar avance corporal"><Camera size={20} /></Link>
+        <Link href={datos ? "/alumno/progreso" : "/portal-v2/progreso"} aria-label="Registrar avance corporal"><Camera size={20} /></Link>
       </header>
 
       <section className={styles.communityMe}>
@@ -102,7 +102,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
               <span><Camera size={17} /></span><strong>Compartir avance con la comunidad</strong><ChevronRight size={16} />
             </button>
           ) : (
-            <Link className={styles.communityComposer} href="/alumno/progreso">
+            <Link className={styles.communityComposer} href="/portal-v2/progreso">
               <span><Camera size={17} /></span><strong>Registrar foto de progreso privada</strong><ChevronRight size={16} />
             </Link>
           )}
@@ -133,7 +133,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
               <header><strong>Desafíos activos</strong><span>{datos.retos.length}</span></header>
               {datos.retos.slice(0, 2).map((reto) => (
                 <article key={reto.id}>
-                  <Link href="/alumno/inicio#arena-vip">
+                  <Link href="/portal-v2/progreso/ranking">
                     <Trophy size={18} />
                     <div><strong>{reto.nombre}</strong><small>{reto.participantes} participantes · termina {fechaCorta(reto.fechaFin)}</small></div>
                     <b>{reto.puntos.toLocaleString("es-CL")} XP</b>

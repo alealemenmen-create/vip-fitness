@@ -35,11 +35,14 @@ export type ResultadoProductoOFF = { ok: true; producto: ProductoOFF | null } | 
 
 const BASE_URL_BUSQUEDA = "https://world.openfoodfacts.org/cgi/search.pl";
 const BASE_URL_PRODUCTO = "https://world.openfoodfacts.org/api/v2/product";
+const CAMPOS_OFF = "code,product_name_es,product_name,brands,nutriments,serving_size,serving_quantity,image_front_small_url";
 const TIMEOUT_MS = 5000;
 
 // Cache corta en memoria del proceso servidor. Evita repetir la misma consulta
 // si el alumno borra y vuelve a escribir; nunca contiene datos personales.
-const cache = new Map<string, ProductoOFF[]>();
+const CACHE_TTL_MS = 15 * 60 * 1000;
+const CACHE_MAX_ENTRADAS = 250;
+const cache = new Map<string, { expira: number; productos: ProductoOFF[] }>();
 
 type RawProducto = {
   code?: string;
@@ -56,6 +59,12 @@ function numero(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function nutriente(v: unknown, maximo: number): number | null {
+  const valor = numero(v);
+  if (valor === null) return null;
+  return valor >= 0 && valor <= maximo ? valor : null;
 }
 
 /** Convierte "125 g" / serving_quantity en una medida casera usable. */
@@ -80,9 +89,24 @@ function medidaDesdeServing(
 
 function normalizarProducto(p: RawProducto): ProductoOFF | null {
   const nombre = (p.product_name_es || p.product_name || "").trim();
-  const kcal = numero(p.nutriments?.["energy-kcal_100g"]);
+  const kcalCrudas = numero(p.nutriments?.["energy-kcal_100g"]);
   // Sin nombre o sin calorías por 100g, el producto no sirve para el registro.
-  if (!nombre || kcal === null || !p.code) return null;
+  if (!nombre || kcalCrudas === null || kcalCrudas < 0 || kcalCrudas > 900 || !p.code) return null;
+
+  const campos = [
+    ["proteins_100g", 100],
+    ["carbohydrates_100g", 100],
+    ["fat_100g", 100],
+    ["fiber_100g", 100],
+    ["sugars_100g", 100],
+    ["sodium_100g", 100],
+  ] as const;
+  for (const [campo, maximo] of campos) {
+    const crudo = p.nutriments?.[campo];
+    // Un campo ausente es aceptable; uno presente pero imposible invalida el
+    // producto completo en vez de convertir silenciosamente basura en cero.
+    if (crudo !== undefined && nutriente(crudo, maximo) === null) return null;
+  }
 
   const medida = medidaDesdeServing(p.serving_size, p.serving_quantity);
 
@@ -90,13 +114,13 @@ function normalizarProducto(p: RawProducto): ProductoOFF | null {
     offId: String(p.code),
     nombre,
     marca: p.brands ? p.brands.split(",")[0].trim() || null : null,
-    kcal,
-    prot: numero(p.nutriments?.["proteins_100g"]) ?? 0,
-    carb: numero(p.nutriments?.["carbohydrates_100g"]) ?? 0,
-    grasa: numero(p.nutriments?.["fat_100g"]) ?? 0,
-    fibra: numero(p.nutriments?.["fiber_100g"]),
-    azucares: numero(p.nutriments?.["sugars_100g"]),
-    sodio: numero(p.nutriments?.["sodium_100g"]),
+    kcal: kcalCrudas,
+    prot: nutriente(p.nutriments?.["proteins_100g"], 100) ?? 0,
+    carb: nutriente(p.nutriments?.["carbohydrates_100g"], 100) ?? 0,
+    grasa: nutriente(p.nutriments?.["fat_100g"], 100) ?? 0,
+    fibra: nutriente(p.nutriments?.["fiber_100g"], 100),
+    azucares: nutriente(p.nutriments?.["sugars_100g"], 100),
+    sodio: nutriente(p.nutriments?.["sodium_100g"], 100),
     medidaNombre: medida?.nombre ?? null,
     medidaGramos: medida?.gramos ?? null,
     imagenUrl: p.image_front_small_url || null,
@@ -167,7 +191,13 @@ export async function buscarEnOFF(texto: string, pais: "chile" | "global"): Prom
 
   const clave = `${pais}:${q.toLowerCase()}`;
   const cacheada = cache.get(clave);
-  if (cacheada) return { ok: true, productos: cacheada };
+  if (cacheada && cacheada.expira > Date.now()) {
+    // Renovar su posición mantiene las consultas recientes al final del Map.
+    cache.delete(clave);
+    cache.set(clave, cacheada);
+    return { ok: true, productos: cacheada.productos };
+  }
+  if (cacheada) cache.delete(clave);
 
   const params = new URLSearchParams({
     search_terms: q,
@@ -177,7 +207,7 @@ export async function buscarEnOFF(texto: string, pais: "chile" | "global"): Prom
     page_size: "20",
     // OFF recomienda pedir solo los campos utilizados: la respuesta completa
     // puede pesar cientos de KB por búsqueda y en datos móviles se nota.
-    fields: "code,product_name_es,product_name,brands,nutriments,serving_size,serving_quantity,image_front_small_url",
+    fields: CAMPOS_OFF,
   });
   if (pais === "chile") {
     params.set("tagtype_0", "countries");
@@ -186,7 +216,14 @@ export async function buscarEnOFF(texto: string, pais: "chile" | "global"): Prom
   }
 
   const resultado = await consultar(`${BASE_URL_BUSQUEDA}?${params.toString()}`);
-  if (resultado.ok) cache.set(clave, resultado.productos);
+  if (resultado.ok) {
+    cache.set(clave, { expira: Date.now() + CACHE_TTL_MS, productos: resultado.productos });
+    while (cache.size > CACHE_MAX_ENTRADAS) {
+      const masAntigua = cache.keys().next().value;
+      if (!masAntigua) break;
+      cache.delete(masAntigua);
+    }
+  }
   return resultado;
 }
 
@@ -196,7 +233,7 @@ export async function buscarPorCodigoOFF(codigo: string): Promise<ResultadoProdu
   const c = codigo.trim();
   if (!c) return { ok: true, producto: null };
 
-  const resultado = await fetchConReintento(`${BASE_URL_PRODUCTO}/${encodeURIComponent(c)}.json`);
+  const resultado = await fetchConReintento(`${BASE_URL_PRODUCTO}/${encodeURIComponent(c)}.json?fields=${encodeURIComponent(CAMPOS_OFF)}`);
   if (!resultado.ok) return resultado;
 
   const json = resultado.json as { status?: number; product?: RawProducto };

@@ -68,7 +68,17 @@ export async function desactivarSuscripcionPush(): Promise<void> {
   const registro = await navigator.serviceWorker.getRegistration("/sw.js") ?? await navigator.serviceWorker.getRegistration();
   const suscripcion = await registro?.pushManager.getSubscription();
   if (!suscripcion) return;
-  const { eliminarSuscripcionPush } = await import("@/app/alumno/entrenar/push-actions");
-  await eliminarSuscripcionPush(suscripcion.endpoint);
-  await suscripcion.unsubscribe();
+  try {
+    const { eliminarSuscripcionPush } = await import("@/app/alumno/entrenar/push-actions");
+    await eliminarSuscripcionPush(suscripcion.endpoint);
+  } catch {
+    // Una sesión vencida no debe impedir que la persona retire el permiso
+    // efectivo de este navegador. El endpoint inválido se elimina cuando el
+    // siguiente envío recibe la respuesta de baja del proveedor push.
+  } finally {
+    // La baja local nunca depende de que siga existiendo una sesión. Si el
+    // alumno cerró sesión, el endpoint remoto deja de ser entregable en cuanto
+    // el navegador invalida esta suscripción y el servidor lo purga al fallar.
+    await suscripcion.unsubscribe();
+  }
 }
