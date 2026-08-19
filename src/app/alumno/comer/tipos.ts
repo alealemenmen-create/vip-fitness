@@ -81,6 +81,8 @@ export type DocumentoDieta = { nombreArchivo: string; url: string } | null;
 export type AlimentoCatalogo = {
   id: string;
   nombre: string;
+  /** Marca comercial cuando corresponde (Soprole, Colun, etc.). */
+  marca: string | null;
   categoria: string | null;
   porcionBase: number;
   unidad: string;

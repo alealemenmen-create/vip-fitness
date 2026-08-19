@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { AlimentoCatalogo } from "@/app/alumno/comer/tipos";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const CAMPOS_ALIMENTO = "id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos, fibra, azucares, sodio";
+const CAMPOS_ALIMENTO = "id, nombre, marca, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos, fibra, azucares, sodio";
 
 type RecetaV2 = {
   id: string;
@@ -26,13 +26,14 @@ function faltaMigracion(error: { code?: string; message?: string } | null) {
 }
 
 function aCatalogo(fila: {
-  id: string; nombre: string; categoria: string | null; porcion_base: number; unidad: string;
+  id: string; nombre: string; marca: string | null; categoria: string | null; porcion_base: number; unidad: string;
   kcal: number; prot: number; carb: number; grasa: number; medida_nombre: string | null;
   medida_gramos: number | null; fibra: number | null; azucares: number | null; sodio: number | null;
 }): AlimentoCatalogo {
   return {
     id: fila.id,
     nombre: fila.nombre,
+    marca: fila.marca,
     categoria: fila.categoria,
     porcionBase: Number(fila.porcion_base),
     unidad: fila.unidad,

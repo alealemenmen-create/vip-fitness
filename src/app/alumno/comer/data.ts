@@ -77,7 +77,12 @@ export async function obtenerDocumentoDieta(
 }
 
 const COLUMNAS_ALIMENTO =
-  "id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos, fibra, azucares, sodio";
+  "id, nombre, marca, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos, fibra, azucares, sodio";
+
+// Respaldo cuando existen las marcas de 0038 pero aún faltan medidas o
+// micronutrientes de otras migraciones.
+const COLUMNAS_ALIMENTO_MARCA_BASICAS =
+  "id, nombre, marca, categoria, porcion_base, unidad, kcal, prot, carb, grasa";
 
 // Sin las columnas de la migración 0013 (medida) y 0033 (micronutrientes),
 // por si todavía no se corrieron en la base (ya pasó con 0009 y 0010: el
@@ -88,6 +93,7 @@ const COLUMNAS_ALIMENTO_BASICAS =
 type FilaAlimento = {
   id: string;
   nombre: string;
+  marca?: string | null;
   categoria: string | null;
   porcion_base: number;
   unidad: string;
@@ -118,6 +124,7 @@ function aCatalogo(a: FilaAlimento): AlimentoCatalogo {
   return {
     id: a.id,
     nombre: a.nombre,
+    marca: a.marca ?? null,
     categoria: a.categoria,
     porcionBase: a.porcion_base,
     unidad: a.unidad,
@@ -134,7 +141,7 @@ function aCatalogo(a: FilaAlimento): AlimentoCatalogo {
 }
 
 /**
- * Busca alimentos por nombre en la base. Con un catálogo de miles de items ya
+ * Busca alimentos por nombre o marca en la base. Con un catálogo de miles de items ya
  * no se puede mandar entero al teléfono ni filtrar en el cliente (Supabase
  * además corta en 1000 filas por consulta), así que la búsqueda vive acá.
  */
@@ -156,33 +163,57 @@ export async function buscarAlimentos(
    * antes que la P. Con una sola consulta no alcanza: el alimento buscado puede
    * quedar fuera del límite.
    */
-  const consultar = (columnas: string, patron: string, tope: number) =>
+  const consultar = (columnas: string, campo: "nombre" | "marca", patron: string, tope: number) =>
     supabase
       .from("alimentos")
       .select(columnas)
       .eq("activo", true)
-      .ilike("nombre", patron)
+      .ilike(campo, patron)
       .order("nombre")
       .limit(tope);
 
-  const buscarCon = async (patron: string, tope: number) => {
-    const intento = await consultar(COLUMNAS_ALIMENTO, patron, tope);
+  const buscarPorNombre = async (patron: string, tope: number) => {
+    const intento = await consultar(COLUMNAS_ALIMENTO, "nombre", patron, tope);
     const { data } = intento.error
-      ? await consultar(COLUMNAS_ALIMENTO_BASICAS, patron, tope)
+      ? await consultar(COLUMNAS_ALIMENTO_BASICAS, "nombre", patron, tope)
       : intento;
     return (data ?? []) as unknown as FilaAlimento[];
   };
 
-  const empiezan = await buscarCon(`${escapado}%`, limite);
-  if (empiezan.length >= limite) return empiezan.map(aCatalogo);
+  const buscarPorMarca = async (patron: string, tope: number) => {
+    const intento = await consultar(COLUMNAS_ALIMENTO, "marca", patron, tope);
+    if (!intento.error) return (intento.data ?? []) as unknown as FilaAlimento[];
 
-  // Se completa con los que lo mencionan en cualquier parte del nombre.
-  const contienen = await buscarCon(`%${escapado}%`, limite);
-  const yaEstan = new Set(empiezan.map((a) => a.id));
+    // Si solo faltan medidas/micronutrientes, todavía podemos buscar por
+    // marca. Si falta la propia migración 0038, esta segunda consulta también
+    // falla y se vuelve una lista vacía sin romper el buscador por nombre.
+    const respaldo = await consultar(COLUMNAS_ALIMENTO_MARCA_BASICAS, "marca", patron, tope);
+    return respaldo.error ? [] : (respaldo.data ?? []) as unknown as FilaAlimento[];
+  };
 
-  return [...empiezan, ...contienen.filter((a) => !yaEstan.has(a.id))]
-    .slice(0, limite)
-    .map(aCatalogo);
+  // Prioridad deliberada: nombre que empieza, marca que empieza, nombre que
+  // contiene y marca que contiene. Así "leche" encuentra primero el alimento
+  // y "Soprole" encuentra sus productos sin volver a consultar internet.
+  // Son consultas independientes: en paralelo conservan la prioridad del
+  // arreglo sin multiplicar por cuatro el tiempo que espera el teléfono.
+  const grupos = await Promise.all([
+    buscarPorNombre(`${escapado}%`, limite),
+    buscarPorMarca(`${escapado}%`, limite),
+    buscarPorNombre(`%${escapado}%`, limite),
+    buscarPorMarca(`%${escapado}%`, limite),
+  ]);
+  const vistos = new Set<string>();
+  const ordenados: FilaAlimento[] = [];
+  for (const grupo of grupos) {
+    for (const alimento of grupo) {
+      if (vistos.has(alimento.id)) continue;
+      vistos.add(alimento.id);
+      ordenados.push(alimento);
+      if (ordenados.length >= limite) return ordenados.map(aCatalogo);
+    }
+  }
+
+  return ordenados.map(aCatalogo);
 }
 
 /** Solo para procesos del servidor que necesitan el catálogo completo (el

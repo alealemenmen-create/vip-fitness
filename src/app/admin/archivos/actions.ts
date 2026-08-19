@@ -409,6 +409,7 @@ export async function recalcularAlimento(
   const alimento = {
     id: data.id,
     nombre: data.nombre,
+    marca: null,
     categoria: data.categoria,
     porcionBase: data.porcion_base,
     unidad: data.unidad,

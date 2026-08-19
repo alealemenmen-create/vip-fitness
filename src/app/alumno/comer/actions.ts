@@ -262,6 +262,7 @@ export async function eliminarComida(comidaId: string, fechaSolicitada: string):
 function filaACatalogo(a: {
   id: string;
   nombre: string;
+  marca?: string | null;
   categoria: string | null;
   porcion_base: number;
   unidad: string;
@@ -288,6 +289,7 @@ function filaACatalogo(a: {
   return {
     id: a.id,
     nombre: a.nombre,
+    marca: a.marca ?? null,
     categoria: a.categoria,
     porcionBase: a.porcion_base,
     unidad: a.unidad,
@@ -304,7 +306,7 @@ function filaACatalogo(a: {
 }
 
 const COLUMNAS_ALIMENTO =
-  "id, nombre, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos, fibra, azucares, sodio";
+  "id, nombre, marca, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos, fibra, azucares, sodio";
 
 export type ProductoOFFInput = {
   offId: string;
@@ -547,6 +549,7 @@ export async function crearAlimentoPersonalizado(
       alimento: {
         id: data.id,
         nombre: data.nombre,
+        marca: null,
         categoria: data.categoria,
         porcionBase: data.porcion_base,
         unidad: data.unidad,

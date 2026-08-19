@@ -41,8 +41,9 @@ function esDuplicadoDeLocal(producto: ProductoOFF, locales: AlimentoCatalogo[]):
   const conMarca = producto.marca ? normalizar(`${producto.marca} ${producto.nombre}`) : objetivo;
   return locales.some((l) => {
     const n = normalizar(l.nombre);
+    const nConMarca = l.marca ? normalizar(`${l.marca} ${l.nombre}`) : n;
     if (!n) return false;
-    if (n === objetivo || n === conMarca) return true;
+    if (n === objetivo || n === conMarca || nConMarca === conMarca) return true;
     const corto = Math.min(n.length, objetivo.length);
     if (corto < LARGO_MINIMO_INCLUSION) return false;
     return n.includes(objetivo) || objetivo.includes(n);
@@ -289,7 +290,7 @@ function Contenido({
 
   const buscarCatalogoExterno = async () => {
     const q = busqueda.trim();
-    if (q.length < 2 || offEstado === "buscando") return;
+    if (q.length < 2 || buscandoAhora || offEstado === "buscando") return;
     const version = versionBusqueda.current;
     setOffEstado("buscando");
     setOffError(null);
@@ -681,12 +682,30 @@ function Contenido({
       {errorBiblioteca ? <p className="radius-control border border-error/30 bg-error/10 p-3 text-secondary text-error" role="alert">{errorBiblioteca}</p> : null}
 
       {!seleccionado && vistaBiblioteca === "buscar" && (
-        <div className="radius-control flex items-center gap-2 border border-border bg-surface-2 px-3 py-2.5">
-          <Search size={16} className="shrink-0 text-text-secondary" />
+        <form
+          className="radius-control flex items-center gap-2 border border-border bg-surface-2 px-3 py-2.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void buscarCatalogoExterno();
+          }}
+        >
+          <button
+            type="submit"
+            aria-label="Buscar en el catálogo completo"
+            disabled={busqueda.trim().length < 2 || buscandoAhora || offEstado === "buscando"}
+            className="shrink-0 text-text-secondary disabled:opacity-50"
+          >
+            <Search size={16} />
+          </button>
           <input
             ref={campo}
             autoFocus
             value={busqueda}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              void buscarCatalogoExterno();
+            }}
             onChange={(e) => {
               const valor = e.target.value;
               // Un onChange con el mismo texto no es una edición real: es
@@ -730,11 +749,11 @@ function Contenido({
           >
             <Camera size={17} />
           </button>
-        </div>
+        </form>
       )}
 
       {!seleccionado && vistaBiblioteca === "buscar" && buscandoAhora && (
-        <p className="text-caption px-1 py-2 text-text-tertiary">Buscando…</p>
+        <p className="text-caption px-1 py-2 text-text-tertiary" role="status" aria-live="polite">Buscando…</p>
       )}
 
       {!seleccionado && vistaBiblioteca === "buscar" && !buscandoAhora && busqueda.trim().length >= 2 && resultados.length < LIMITE_BUSQUEDA_ALIMENTOS && offEstado === "inactivo" && (
@@ -749,7 +768,7 @@ function Contenido({
           listo para reutilizar. */}
       {!seleccionado && vistaBiblioteca === "buscar" &&
         !buscandoAhora &&
-        offEstado !== "buscando" &&
+        offEstado === "listo" &&
         busqueda.trim().length >= 2 &&
         resultados.length === 0 &&
         offResultados.length === 0 && (
@@ -792,7 +811,12 @@ function Contenido({
               onClick={() => alClickDeFila(`local:${r.id}`, () => elegirAlimento(r))}
               className="radius-control flex min-h-[44px] w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2"
             >
-              <span className="text-secondary min-w-0 flex-1 truncate text-text">{r.nombre}</span>
+              <span className="min-w-0 flex-1">
+                <span className="text-secondary block truncate text-text">{r.nombre}</span>
+                {r.marca ? (
+                  <span className="text-caption block truncate text-text-tertiary">{r.marca}</span>
+                ) : null}
+              </span>
               <span className="text-caption shrink-0 text-text-tertiary">
                 {Math.round(r.kcal)} kcal · {r.porcionBase} {r.unidad}
               </span>
@@ -802,7 +826,7 @@ function Contenido({
       )}
 
       {!seleccionado && vistaBiblioteca === "buscar" && offEstado === "buscando" && (
-        <p className="text-caption px-1 py-2 text-text-tertiary">Buscando en Open Food Facts…</p>
+        <p className="text-caption px-1 py-2 text-text-tertiary" role="status" aria-live="polite">Buscando productos de Chile…</p>
       )}
 
       {!seleccionado && vistaBiblioteca === "buscar" && offResultados.length > 0 && (
@@ -848,7 +872,7 @@ function Contenido({
       )}
 
       {!seleccionado && vistaBiblioteca === "buscar" && offError && (
-        <p className="text-caption px-1 py-1 text-text-tertiary">{offError}</p>
+        <p className="text-caption px-1 py-1 text-text-tertiary" role="alert">{offError}</p>
       )}
 
       {seleccionado && (
