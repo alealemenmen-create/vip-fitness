@@ -1516,6 +1516,9 @@
 .communityRankingList button > b { color: #a4a8a5; font-size: 8px; white-space: nowrap; }
 .communityRankingList button > em { color: #1bd09a; font-size: 10px; font-style: normal; }
 .communityRankingList .communityRankingMine { background: #1b211f; }
+.communityRankingGap { display: grid; min-height: 28px; place-items: center; border-top: 1px solid rgba(255,255,255,.045); border-bottom: 1px solid rgba(255,255,255,.045); color: #545956; background: #121313; font-size: 10px; letter-spacing: .22em; }
+.communityRankingToggle { display: flex; width: 100%; min-height: 39px; align-items: center; justify-content: center; margin-top: 8px; border: 1px solid rgba(255,255,255,.06); border-radius: 9px; color: #a9adaa; background: linear-gradient(105deg,#111212,#202220); font-size: 8px; font-weight: 750; }
+.communityRankingToggle[aria-expanded="true"] { color: #e8ebe6; }
 .communityPodiumInitial { display: grid; place-items: center; background: linear-gradient(145deg, #2a2d2b, #111212) !important; }
 .communityPodiumInitial > b { color: #f4f6f1; font-size: 24px; }
 .communityFairPlay { display: flex; align-items: flex-start; gap: 7px; margin: 13px 3px 0; color: #767b77; font-size: 8px; line-height: 1.45; }

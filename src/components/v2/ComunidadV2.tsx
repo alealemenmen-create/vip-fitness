@@ -3,11 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { ArrowLeft, CalendarDays, Camera, Check, ChevronRight, Flag, Gift, Heart, Medal, MessageCircle, Send, ShieldCheck, Sparkles, Trash2, Trophy, X } from "lucide-react";
 import type { ComunidadDatosV2, FilaComunidadV2 } from "@/app/portal-v2/progreso/comunidad/data";
 import { obtenerDesglosePuntosAlumno, type DesglosePuntos } from "@/app/alumno/inicio/actions";
 import { alternarAplausoComunidadV2, comentarComunidadV2, crearPublicacionComunidadV2, eliminarContenidoComunidadV2, reportarPublicacionComunidadV2, responderRetoComunidadV2 } from "@/app/portal-v2/progreso/comunidad/actions";
+import { resumirClasificacionComunidad } from "@/lib/comunidad/clasificacion";
 import styles from "./PortalV2.module.css";
 
 type Vista = "actividad" | "clasificacion";
@@ -37,6 +38,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
   const router = useRouter();
   const [vista, setVista] = useState<Vista>("actividad");
   const [periodo, setPeriodo] = useState<Periodo>("mensual");
+  const [clasificacionExpandida, setClasificacionExpandida] = useState(false);
   const [detallePuntos, setDetallePuntos] = useState<{ nombre: string; datos: DesglosePuntos; demo?: boolean } | null>(null);
   const [cargandoDetalle, iniciarDetalle] = useTransition();
   const [procesandoSocial, iniciarSocial] = useTransition();
@@ -50,6 +52,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
   const clasificacionVisible = periodo === "general"
     ? (datos ? datos.general : DEMO_FILAS)
     : (datos ? datos.mensual : DEMO_FILAS);
+  const filasClasificacion = resumirClasificacionComunidad(clasificacionVisible, clasificacionExpandida);
   const actividad = datos ? datos.actividad : DEMO_ACTIVIDAD;
 
   const abrirDesglose = (persona: FilaComunidadV2) => {
@@ -200,19 +203,29 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
       ) : (
         <section className={styles.communityRanking}>
           <div className={styles.communityPeriod} role="tablist" aria-label="Periodo de clasificación">
-            <button type="button" role="tab" aria-selected={periodo === "general"} onClick={() => setPeriodo("general")}>Acumulado</button>
-            <button type="button" role="tab" aria-selected={periodo === "mensual"} onClick={() => setPeriodo("mensual")}>Este mes</button>
+            <button type="button" role="tab" aria-selected={periodo === "general"} onClick={() => { setPeriodo("general"); setClasificacionExpandida(false); }}>Acumulado</button>
+            <button type="button" role="tab" aria-selected={periodo === "mensual"} onClick={() => { setPeriodo("mensual"); setClasificacionExpandida(false); }}>Este mes</button>
           </div>
           <div className={styles.communityPodium}>
             {clasificacionVisible.slice(0, 3).map((persona) => <Podio key={`${periodo}-${persona.alumnoId}`} persona={persona} />)}
           </div>
           <div className={styles.communityRankingList}>
-            {clasificacionVisible.map((persona) => (
-              <button type="button" disabled={cargandoDetalle} onClick={() => abrirDesglose(persona)} className={persona.esActual ? styles.communityRankingMine : ""} key={persona.alumnoId}>
-                <span>{persona.puesto}</span><i>{persona.iniciales}</i><strong>{persona.nombre}</strong><b>{persona.puntos.toLocaleString("es-CL")} XP</b>{persona.esActual ? <em>•</em> : null}
-              </button>
+            {filasClasificacion.map((persona, indice) => (
+              <Fragment key={persona.alumnoId}>
+                {indice > 0 && persona.puesto > filasClasificacion[indice - 1].puesto + 1 ? (
+                  <div className={styles.communityRankingGap} aria-label={`${persona.puesto - filasClasificacion[indice - 1].puesto - 1} posiciones intermedias`}>•••</div>
+                ) : null}
+                <button type="button" disabled={cargandoDetalle} onClick={() => abrirDesglose(persona)} className={persona.esActual ? styles.communityRankingMine : ""}>
+                  <span>{persona.puesto}</span><i>{persona.iniciales}</i><strong>{persona.nombre}</strong><b>{persona.puntos.toLocaleString("es-CL")} XP</b>{persona.esActual ? <em>•</em> : null}
+                </button>
+              </Fragment>
             ))}
           </div>
+          {clasificacionVisible.length > 10 ? (
+            <button type="button" className={styles.communityRankingToggle} aria-expanded={clasificacionExpandida} onClick={() => setClasificacionExpandida((actual) => !actual)}>
+              {clasificacionExpandida ? "Volver al resumen" : `Ver clasificación completa · ${clasificacionVisible.length}`}
+            </button>
+          ) : null}
           <p className={styles.communityFairPlay}><ShieldCheck size={15} /> Solo cuentan sesiones finalizadas, registros válidos y eventos auditables. No se premian clics.</p>
           <Link className={styles.communityRankedCta} href="/portal-v2/progreso/ranking"><Gift size={17} /><span><strong>Arena y recompensas VIP</strong><small>Retos, apuestas, premios y canjes con tu saldo real</small></span><ChevronRight size={16} /></Link>
         </section>

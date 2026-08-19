@@ -50,6 +50,8 @@ export type CargaProgresoV2 =
   | { estado: "real"; datos: ProgresoDatosV2 }
   | { estado: "error"; mensaje: string };
 
+type ContextoAlumnoV2 = NonNullable<Awaited<ReturnType<typeof obtenerContextoAlumnoOpcional>>>;
+
 /** Distingue una visita anónima intencional de un fallo con cuenta real.
  * Nunca permite que un error de datos termine mostrando métricas demo como si
  * pertenecieran al alumno autenticado. */
@@ -57,7 +59,7 @@ export async function cargarProgresoV2Action(): Promise<CargaProgresoV2> {
   const contexto = await obtenerContextoAlumnoOpcional();
   if (!contexto) return { estado: "demo" };
   try {
-    const datos = await obtenerProgresoV2Action();
+    const datos = await construirProgresoV2(contexto);
     return datos
       ? { estado: "real", datos }
       : { estado: "error", mensaje: "No pudimos reconstruir tu seguimiento con los datos actuales." };
@@ -69,16 +71,22 @@ export async function cargarProgresoV2Action(): Promise<CargaProgresoV2> {
 export async function obtenerProgresoV2Action(): Promise<ProgresoDatosV2 | null> {
   const contexto = await obtenerContextoAlumnoOpcional();
   if (!contexto) return null;
+  return construirProgresoV2(contexto);
+}
+
+async function construirProgresoV2(contexto: ContextoAlumnoV2): Promise<ProgresoDatosV2 | null> {
   const supabase = await createClient();
-  const rutina = await obtenerRutinaActiva(contexto.alumnoId);
-  const [pesos, fotos, seguimiento, ranking, avance, sesionEnProgresoId, alimentacionHoy, seguimientoHoy] = await Promise.all([
+  const rutinaPromise = obtenerRutinaActiva(contexto.alumnoId);
+  const avancePromise = rutinaPromise.then((rutina) => rutina
+    ? obtenerAvanceCiclo(supabase, contexto.alumnoId, rutina.id)
+    : { proximoNumero: 1, ultimoNumeroHecho: 0 });
+  const [rutina, pesos, fotos, seguimiento, ranking, avance, sesionEnProgresoId, alimentacionHoy, seguimientoHoy] = await Promise.all([
+    rutinaPromise,
     obtenerHistorialPeso(supabase, contexto.alumnoId),
     obtenerFotosProgreso(supabase, contexto.alumnoId),
     obtenerSeguimientoIntegral(supabase, contexto.alumnoId, 30),
     obtenerRanking("mes"),
-    rutina
-      ? obtenerAvanceCiclo(supabase, contexto.alumnoId, rutina.id)
-      : Promise.resolve({ proximoNumero: 1, ultimoNumeroHecho: 0 }),
+    avancePromise,
     contexto.soloLectura ? Promise.resolve(null) : obtenerSesionEnProgreso(supabase, contexto.alumnoId),
     obtenerResumenAlimentacionHoy(supabase, contexto.alumnoId),
     obtenerSeguimientoHoy(supabase, contexto.alumnoId),

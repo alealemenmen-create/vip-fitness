@@ -103,6 +103,11 @@ idempotente y contrastarse contra el registro original antes del piloto.
 - `/portal-v2/progreso`: estado del día conectado a entrenamiento y nutrición,
   peso, variación, sesiones, series, adherencia, calidad, Impulsos, programa,
   rango y clasificación.
+- Una cuenta autenticada recibe ese dashboard ya resuelto desde el servidor:
+  no espera una segunda petición del cliente para descubrir sus métricas. La
+  visita directa conserva primero el esqueleto protegido y sólo habilita su
+  demostración después de hidratar, por lo que el HTML anónimo no incluye
+  identidades ni cifras simuladas.
 - Registro de peso mediante la acción original, con ventana temporal y puntos
   protegidos contra duplicación.
 - Historial corporal y galería privados integrados en V2: evolución por fecha,
@@ -113,6 +118,10 @@ idempotente y contrastarse contra el registro original antes del piloto.
 
 - `/portal-v2/progreso/comunidad`: actividad verificada, clasificación mensual
   y acumulada, podio, desglose explicable de puntos y desafíos activos.
+- La clasificación dentro de Comunidad muestra el top 10 y, cuando el alumno
+  está más abajo, también su posición y las dos personas vecinas. La lista
+  completa sigue disponible por acción expresa y se vuelve a compactar al
+  cambiar de período; Arena continúa siendo el destino competitivo detallado.
 - `/portal-v2/progreso/ranking`: Arena V2, rangos, tabla semanal/mensual/anual,
   reglas públicas, movimientos auditables, retos y catálogo de recompensas;
   permanece navegable como demostración segura sin enviarla al login clásico.
