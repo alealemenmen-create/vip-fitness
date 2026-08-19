@@ -56,3 +56,19 @@ export async function asegurarSuscripcionPush(): Promise<void> {
     // app sigue en pantalla — sigue funcionando igual.
   }
 }
+
+export async function suscripcionPushActiva(): Promise<boolean> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+  const registro = await navigator.serviceWorker.getRegistration("/sw.js") ?? await navigator.serviceWorker.getRegistration();
+  return Boolean(await registro?.pushManager.getSubscription());
+}
+
+export async function desactivarSuscripcionPush(): Promise<void> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  const registro = await navigator.serviceWorker.getRegistration("/sw.js") ?? await navigator.serviceWorker.getRegistration();
+  const suscripcion = await registro?.pushManager.getSubscription();
+  if (!suscripcion) return;
+  const { eliminarSuscripcionPush } = await import("@/app/alumno/entrenar/push-actions");
+  await eliminarSuscripcionPush(suscripcion.endpoint);
+  await suscripcion.unsubscribe();
+}

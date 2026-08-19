@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import styles from "@/components/v2/PortalV2.module.css";
-import { asegurarSuscripcionPush } from "@/lib/entrenamiento/push";
+import { asegurarSuscripcionPush, desactivarSuscripcionPush, suscripcionPushActiva } from "@/lib/entrenamiento/push";
 import { obtenerMasV2Action, type MasDatosV2 } from "./actions";
 
 type Panel = "notificaciones" | "plan" | "terminos" | "social" | null;
@@ -30,19 +30,29 @@ export default function MasV2Page() {
   const [permisoNotificaciones, setPermisoNotificaciones] = useState<NotificationPermission | "no-disponible">(
     () => typeof Notification === "undefined" ? "no-disponible" : Notification.permission,
   );
+  const [pushActiva, setPushActiva] = useState(false);
 
   useEffect(() => {
     obtenerMasV2Action().then(setDatos).catch(() => setDatos(null));
+    suscripcionPushActiva().then(setPushActiva).catch(() => setPushActiva(false));
   }, []);
 
-  const activarNotificaciones = async () => {
+  const cambiarNotificaciones = async () => {
+    if (pushActiva) {
+      await desactivarSuscripcionPush();
+      setPushActiva(false);
+      return;
+    }
     if (typeof Notification === "undefined") {
       setPermisoNotificaciones("no-disponible");
       return;
     }
     const permiso = await Notification.requestPermission();
     setPermisoNotificaciones(permiso);
-    if (permiso === "granted") await asegurarSuscripcionPush();
+    if (permiso === "granted") {
+      await asegurarSuscripcionPush();
+      setPushActiva(await suscripcionPushActiva());
+    }
   };
 
   return (
@@ -96,12 +106,12 @@ export default function MasV2Page() {
             <header><h2>{tituloPanel(panel)}</h2><button type="button" onClick={() => setPanel(null)} aria-label="Cerrar"><X size={19} /></button></header>
             {panel === "notificaciones" ? (
               <div className={styles.moreSwitchList}>
-                <Interruptor etiqueta="Avisos de descanso en este dispositivo" activo={permisoNotificaciones === "granted"} onChange={activarNotificaciones} />
+                <Interruptor etiqueta="Avisos de descanso en este dispositivo" activo={pushActiva} onChange={cambiarNotificaciones} />
                 <Link href="/alumno/perfil" className={styles.moreSettingsLink}><span>Temporizador de descanso</span><b>{datos?.temporizadorActivo === false ? "Apagado" : datos?.descansoPreferido ? `${datos.descansoPreferido} s` : "Según rutina"}</b><ChevronRight size={15} /></Link>
-                <p className={styles.moreNotificationNote}>{permisoNotificaciones === "denied" ? "Las notificaciones están bloqueadas en el navegador. Actívalas desde los ajustes del teléfono." : "El sonido y la vibración se ejecutan al terminar cada descanso. El push cubre pantalla bloqueada o cambio de aplicación."}</p>
+                <p className={styles.moreNotificationNote}>{permisoNotificaciones === "denied" ? "Las notificaciones están bloqueadas en el navegador. Actívalas desde los ajustes del teléfono." : pushActiva ? "Este dispositivo recibirá avisos aun con la pantalla bloqueada. Puedes desactivarlos aquí sin cambiar los permisos del teléfono." : "Los avisos push de VIP Fitness están desactivados en este dispositivo."}</p>
               </div>
             ) : null}
-            {panel === "plan" ? <div className={styles.morePlanPanel}><span>PLAN ACTUAL</span><strong>Método VIP</strong><p>Entrenamiento, nutrición, progreso y seguimiento personalizado en un solo lugar.</p><b>Activo</b></div> : null}
+            {panel === "plan" ? <div className={styles.morePlanPanel}><span>PLAN ACTUAL</span><strong>{datos?.planNombre ?? "Método VIP"}</strong><p>{datos?.planDetalle ?? "Entrenamiento, nutrición, progreso y seguimiento personalizado"}</p><b>{datos?.planActivo === false ? "Pausado" : "Activo"}</b></div> : null}
             {panel === "terminos" ? <div><p className={styles.moreSheetCopy}>El portal registra entrenamientos, alimentación y progreso para prestar el servicio contratado. Los puntos y premios requieren actividad verificable; cualquier manipulación puede invalidarlos. Las indicaciones no reemplazan evaluación médica.</p><Link href="/alumno/politica-privacidad" className={styles.moreSettingsLink}><span>Leer política de privacidad completa</span><ChevronRight size={15} /></Link></div> : null}
             {panel === "social" ? <div className={styles.moreSocialList}><span>Instagram <b>@vipfitness</b></span><span>Facebook <b>VIP Fitness</b></span><span>Comunidad <b>Dentro de la aplicación</b></span></div> : null}
           </section>

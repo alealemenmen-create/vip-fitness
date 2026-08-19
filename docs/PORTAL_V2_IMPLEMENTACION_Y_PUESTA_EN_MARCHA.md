@@ -76,6 +76,9 @@ recibir aprobación expresa.
 
 - `/portal-v2/mas`: perfil, rango, puntos, notificaciones, plan, privacidad,
   soporte, redes y retorno a la Vista clásica.
+- El plan muestra nombre, sesiones, frecuencia y estado reales de la cuenta.
+- Las notificaciones push son reversibles por dispositivo: activar suscribe el
+  endpoint y desactivar lo elimina del servidor y del navegador.
 - Alumno: experiencia personal.
 - Entrenador: acceso a alumnos y seguimiento.
 - Administrador: control total mediante el panel existente.

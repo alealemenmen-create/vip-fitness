@@ -34,6 +34,14 @@ export async function guardarSuscripcionPush(sub: {
   );
 }
 
+/** Retira únicamente este navegador. El permiso del sistema operativo puede
+ * seguir concedido, pero VIP Fitness deja de enviar a ese endpoint. */
+export async function eliminarSuscripcionPush(endpoint: string): Promise<void> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura || !endpoint) return;
+  await createAdminClient().from("push_suscripciones").delete().eq("alumno_id", alumnoId).eq("endpoint", endpoint);
+}
+
 async function esperar(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
