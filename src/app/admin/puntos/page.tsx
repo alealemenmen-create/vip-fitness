@@ -2,6 +2,8 @@ import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { OtorgarPuntosPanel } from "@/components/admin/OtorgarPuntosPanel";
+import { RecompensasAdminPanel } from "@/components/admin/RecompensasAdminPanel";
+import { obtenerAdminRecompensasVip } from "@/lib/recompensas/data";
 
 /** Otorgar Puntos VIP a mano.
  *
@@ -25,6 +27,7 @@ export default async function PuntosPage() {
       nombre: nombreAlumnoPublicado((f.perfiles as unknown as { nombre: string } | null)?.nombre ?? "Alumno"),
     }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  const recompensas = await obtenerAdminRecompensasVip();
 
   return (
     <div className="space-y-2">
@@ -34,6 +37,7 @@ export default async function PuntosPage() {
         que gana entrenando, y el alumno ve el motivo que escribas.
       </p>
       <OtorgarPuntosPanel alumnos={alumnos} />
+      <div className="pt-4"><RecompensasAdminPanel {...recompensas} /></div>
     </div>
   );
 }

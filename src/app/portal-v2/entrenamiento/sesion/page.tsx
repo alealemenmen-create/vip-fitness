@@ -17,6 +17,7 @@ import styles from "@/components/v2/PortalV2.module.css";
 
 type FichaEjercicioV2 = Pick<Database["public"]["Tables"]["ejercicios"]["Row"],
   | "id" | "nombre" | "grupo_muscular" | "categoria" | "equipo" | "activo" | "calidad_ficha"
+  | "patron_movimiento"
   | "foto_completa_url" | "foto_miniatura_url" | "video_url" | "video_cloudflare_uid"
   | "video_cloudflare_estado" | "video_cloudflare_miniatura_url"
 >;
@@ -112,7 +113,7 @@ export default async function SesionV2Page({
     const sustituto = personalizacionPorId.get(ejercicio.sesionEjercicioId)?.ejercicio_sustituto_id;
     return [ejercicio.ejercicioId, sustituto].filter((id): id is string => Boolean(id));
   }));
-  const camposFicha = "id, nombre, grupo_muscular, categoria, equipo, activo, calidad_ficha, foto_completa_url, foto_miniatura_url, video_url, video_cloudflare_uid, video_cloudflare_estado, video_cloudflare_miniatura_url";
+  const camposFicha = "id, nombre, grupo_muscular, categoria, patron_movimiento, equipo, activo, calidad_ficha, foto_completa_url, foto_miniatura_url, video_url, video_cloudflare_uid, video_cloudflare_estado, video_cloudflare_miniatura_url";
   const { data: fichasBase } = idsBiblioteca.size
     ? await supabase.from("ejercicios").select(camposFicha).in("id", [...idsBiblioteca])
     : { data: [] };
@@ -150,7 +151,8 @@ export default async function SesionV2Page({
     alternativas[ejercicio.sesionEjercicioId] = (candidatas ?? [])
       .filter((ficha) => ficha.id !== origen.id
         && ficha.grupo_muscular === origen.grupo_muscular
-        && (!origen.categoria || !ficha.categoria || ficha.categoria === origen.categoria))
+        && (!origen.categoria || !ficha.categoria || ficha.categoria === origen.categoria)
+        && (!origen.patron_movimiento || !ficha.patron_movimiento || ficha.patron_movimiento === origen.patron_movimiento))
       .sort((a, b) => Number(b.categoria === origen.categoria) - Number(a.categoria === origen.categoria)
         || Number(a.equipo !== origen.equipo) - Number(b.equipo !== origen.equipo)
         || a.nombre.localeCompare(b.nombre, "es"))

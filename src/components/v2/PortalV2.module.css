@@ -1223,6 +1223,11 @@
 .communityPodiumInitial > b { color: #f4f6f1; font-size: 24px; }
 .communityFairPlay { display: flex; align-items: flex-start; gap: 7px; margin: 13px 3px 0; color: #767b77; font-size: 8px; line-height: 1.45; }
 .communityFairPlay svg { flex: 0 0 auto; color: #1bd09a; }
+.communityRankedCta { display: grid; min-height: 50px; grid-template-columns: 25px minmax(0,1fr) 18px; align-items: center; gap: 8px; margin-top: 11px; padding: 0 11px; border: 1px solid rgba(35,211,156,.18); border-radius: 10px; color: #e8ebe6; background: linear-gradient(112deg,#121816,#202624 58%,#121514); }
+.communityRankedCta > svg:first-child { color: #23d39c; }
+.communityRankedCta span strong { display: block; font-size: 9px; }
+.communityRankedCta span small { display: block; margin-top: 3px; color: #767d79; font-size: 7px; }
+.communityRankedCta > svg:last-child { color: #69706c; }
 .communityChallenges { overflow: hidden; border: 1px solid rgba(35,211,156,.16); border-radius: 10px; background: #121816; }
 .communityChallenges > header { display: flex; min-height: 38px; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid rgba(255,255,255,.05); }
 .communityChallenges > header strong { font-size: 10px; }

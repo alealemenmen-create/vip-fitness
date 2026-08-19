@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Check,
@@ -251,6 +252,7 @@ function segmentosDeSerie(ejercicio: EjercicioSesionV2, serieIndice: number): Se
 }
 
 export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
+  const router = useRouter();
   const [ejerciciosSesion, setEjerciciosSesion] = useState<EjercicioSesionV2[]>(() =>
     sesion?.ejercicios?.length ? sesion.ejercicios : EJERCICIOS_DEMO
   );
@@ -562,6 +564,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         return;
       }
       aplicarLocal();
+      router.refresh();
     });
   };
 

@@ -10,6 +10,8 @@ import { HistorialTorneos } from "@/components/student/HistorialTorneos";
 import { Card } from "@/components/ui/Card";
 import { Crown, Gem, Swords } from "lucide-react";
 import { GuiaPuntos } from "@/components/student/GuiaPuntos";
+import { CatalogoRecompensasVip } from "@/components/student/CatalogoRecompensasVip";
+import { obtenerRecompensasAlumnoVip } from "@/lib/recompensas/data";
 
 export default async function RankedPage() {
   const { alumnoId, nombre } = await requireAlumno();
@@ -30,6 +32,9 @@ export default async function RankedPage() {
         <RangoActual alumnoId={alumnoId} />
       </Suspense>
       <GuiaPuntos />
+      <Suspense fallback={<div className="h-36 animate-pulse rounded-xl bg-surface-2" />}>
+        <Recompensas alumnoId={alumnoId} />
+      </Suspense>
       <Suspense fallback={<div className="h-32 animate-pulse rounded-xl bg-surface-2" />}>
         <ArenaVip alumnoId={alumnoId} nombre={nombre} />
       </Suspense>
@@ -38,6 +43,12 @@ export default async function RankedPage() {
       </Suspense>
     </div>
   );
+}
+
+async function Recompensas({ alumnoId }: { alumnoId: string }) {
+  const datos = await obtenerRecompensasAlumnoVip(alumnoId);
+  if (!datos.disponible) return null;
+  return <CatalogoRecompensasVip saldo={datos.saldo} catalogo={datos.catalogo} canjes={datos.canjes} />;
 }
 
 async function RangoActual({ alumnoId }: { alumnoId: string }) {

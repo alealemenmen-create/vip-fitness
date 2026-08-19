@@ -63,6 +63,10 @@ recibir aprobación expresa.
 - Los puntos provienen de eventos del servidor con claves idempotentes; no de
   clics del cliente. Existen topes, penalizaciones y cierre de actividad.
 - Aceptación/rechazo de torneos conectada a las acciones existentes.
+- Tienda VIP con catálogo administrable, stock, saldo real, solicitud de canje,
+  aprobación, entrega y reintegro automático al rechazar.
+- El canje se ejecuta en PostgreSQL como una sola transacción: valida saldo,
+  reserva stock y registra el descuento sin permitir dobles envíos simultáneos.
 - Publicaciones voluntarias, selección explícita de una foto privada, aplausos,
   comentarios, eliminación propia, reportes y límites diarios contra spam.
 - Las fotos corporales permanecen privadas salvo la foto concreta elegida por
@@ -91,7 +95,7 @@ superserie, circuito o serie gigante.
 
 La definición exhaustiva y tipada está en `src/lib/supabase/types.ts`; las
 migraciones históricas están en `supabase/migrations/0001_init.sql` a
-`0106_comunidad_social_v2.sql`. Las tablas que sostienen esta V2 son:
+`0107_recompensas_vip.sql`. Las tablas que sostienen esta V2 son:
 
 | Área | Tabla | Campos esenciales |
 | --- | --- | --- |
@@ -118,6 +122,7 @@ migraciones históricas están en `supabase/migrations/0001_init.sql` a
 | Ranking | `ranking_semanas` | alumno, semana, desglose, total, cierre y auditoría |
 | Retos | `torneos`, `torneo_participantes` | reglas, modalidad, fechas, bolsa, estado, invitación, aceptación y resultado |
 | Comunidad social | `comunidad_publicaciones`, `comunidad_reacciones`, `comunidad_comentarios`, `comunidad_reportes` | autor, consentimiento de foto, texto, estado, aplauso, comentario, reporte y moderación |
+| Recompensas | `recompensas_vip_catalogo`, `recompensas_vip_canjes` | nombre, tipo, costo, stock, vigencia, estado, costo congelado, responsable y resolución |
 | Impulso | `impulso_vip_recomendaciones` | alumno, ejercicio, prescripción congelada, evidencia, confianza, estado y resultado |
 | Impulso en vivo | `impulso_vip_intervenciones` | sesión/serie, momento, instrucción, respuesta, carga, RIR y trazabilidad |
 | Memoria | `impulso_vip_memoria_tecnicas` | alumno, ejercicio/técnica, exposición, tolerancia, resultado y próxima elegibilidad |
@@ -154,6 +159,13 @@ Variables requeridas para producción:
 - `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
 - `CRON_SECRET`
 - `ANTHROPIC_API_KEY` si se habilitan las funciones de IA opcionales.
+
+Funciones SQL de seguridad:
+
+- `solicitar_canje_vip`: serializa por alumno, confirma saldo, congela costo,
+  reserva stock y descuenta puntos en la misma transacción.
+- `resolver_canje_vip`: sólo entrenador/administrador; aprueba, entrega o
+  rechaza, reintegrando stock y puntos de manera idempotente.
 
 ## Qué mantener, adaptar y retirar
 
@@ -196,7 +208,8 @@ Variables requeridas para producción:
 1. Crear un respaldo verificable de la base y del despliegue actual.
 2. Mantener `portal-v2` separada y desplegar una URL de preview.
 3. En preview, aplicar y validar en orden `0104_personalizacion_sesion_v2.sql`,
-   `0105_biblioteca_nutricion_v2.sql` y `0106_comunidad_social_v2.sql`. Son
+   `0105_biblioteca_nutricion_v2.sql`, `0106_comunidad_social_v2.sql` y
+   `0107_recompensas_vip.sql`. Son
    aditivas, pero no deben aplicarse a producción sin respaldo y autorización.
 4. Configurar variables de preview y producción por separado.
 5. Probar con cuentas reales de ensayo: alumno, entrenador y administrador.
@@ -212,14 +225,17 @@ Variables requeridas para producción:
 
 ## Trabajo que no debe presentarse como terminado todavía
 
-- Activación de `0104`, `0105` y `0106` en un Supabase de preview y prueba con
+- Activación de `0104` a `0107` en un Supabase de preview y prueba con
   cuentas reales autorizadas. El código y los contratos están construidos; si
   una tabla falta, la interfaz degrada de forma segura y oculta la función.
-- Premios físicos o monetarios del ranking: los puntos, retos y apuestas existen;
-  la entrega de un premio requiere catálogo, inventario, términos y aprobación.
-- Analítica histórica de Impulso sobre un ejercicio sustituido: la pantalla V2
-  ejecuta y audita el sustituto, pero antes del piloto se debe decidir si sus
-  marcas alimentan el historial del ejercicio sustituto, del prescrito o ambos.
+- Definir el catálogo comercial real, disponibilidad, responsables de entrega
+  y condiciones de cada premio. El sistema de catálogo, stock, canje y
+  reintegro está construido; no debe inventar premios que VIP Fitness no haya
+  decidido ofrecer.
+- Historial longitudinal completo del ejercicio sustituido: el sistema ya
+  bloquea la meta anterior y evita comparar implementos distintos. Falta
+  acumular suficientes sesiones del sustituto antes de proponer aumentos de
+  carga automáticos sobre ese movimiento.
 - Validación destructiva de escrituras con una cuenta real: debe hacerse con una
   cuenta de prueba autorizada en el preview, nunca con alumnos activos.
 - Publicación en el dominio y cambio de vista predeterminada: sólo después del

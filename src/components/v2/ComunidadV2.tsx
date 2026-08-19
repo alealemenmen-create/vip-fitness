@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowLeft, CalendarDays, Camera, Check, ChevronRight, Flag, Heart, Medal, MessageCircle, Send, ShieldCheck, Sparkles, Trash2, Trophy, X } from "lucide-react";
+import { ArrowLeft, CalendarDays, Camera, Check, ChevronRight, Flag, Gift, Heart, Medal, MessageCircle, Send, ShieldCheck, Sparkles, Trash2, Trophy, X } from "lucide-react";
 import type { ComunidadDatosV2, FilaComunidadV2 } from "@/app/portal-v2/progreso/comunidad/data";
 import { obtenerDesglosePuntosAlumno, responderInvitacionTorneo, type DesglosePuntos } from "@/app/alumno/inicio/actions";
 import { alternarAplausoComunidadV2, comentarComunidadV2, crearPublicacionComunidadV2, eliminarContenidoComunidadV2, reportarPublicacionComunidadV2 } from "@/app/portal-v2/progreso/comunidad/actions";
@@ -182,6 +182,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
             ))}
           </div>
           <p className={styles.communityFairPlay}><ShieldCheck size={15} /> Solo cuentan sesiones finalizadas, registros válidos y eventos auditables. No se premian clics.</p>
+          <Link className={styles.communityRankedCta} href="/alumno/ranked"><Gift size={17} /><span><strong>Arena y recompensas VIP</strong><small>Retos, apuestas, premios y canjes con tu saldo real</small></span><ChevronRight size={16} /></Link>
         </section>
       )}
       {detallePuntos ? (

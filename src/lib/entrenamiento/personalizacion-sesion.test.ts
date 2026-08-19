@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bloquesPermanecenUnidos, sustitucionEsCompatible, validarConjuntoOrdenado } from "./personalizacion-sesion";
+import { bloquesPermanecenUnidos, cargasSonComparables, sustitucionEsCompatible, validarConjuntoOrdenado } from "./personalizacion-sesion";
 
 describe("personalización segura de una sesión", () => {
   it("acepta el mismo conjunto en otro orden", () => {
@@ -21,10 +21,17 @@ describe("personalización segura de una sesión", () => {
   });
 
   it("sólo permite reemplazos activos, aprobados y biomecánicamente compatibles", () => {
-    const origen = { id: "sentadilla", grupoMuscular: "piernas", categoria: "pierna", activo: true, fichaCompleta: true };
-    expect(sustitucionEsCompatible(origen, { id: "hack", grupoMuscular: "piernas", categoria: "pierna", activo: true, fichaCompleta: true })).toBe(true);
+    const origen = { id: "sentadilla", grupoMuscular: "piernas", categoria: "pierna", patronMovimiento: "sentadilla", equipo: "smith", activo: true, fichaCompleta: true };
+    expect(sustitucionEsCompatible(origen, { id: "hack", grupoMuscular: "piernas", categoria: "pierna", patronMovimiento: "sentadilla", equipo: "maquina", activo: true, fichaCompleta: true })).toBe(true);
+    expect(sustitucionEsCompatible(origen, { id: "peso-muerto", grupoMuscular: "piernas", categoria: "pierna", patronMovimiento: "bisagra", equipo: "barra", activo: true, fichaCompleta: true })).toBe(false);
     expect(sustitucionEsCompatible(origen, { id: "remo", grupoMuscular: "espalda", categoria: "traccion", activo: true, fichaCompleta: true })).toBe(false);
     expect(sustitucionEsCompatible(origen, { id: "hack", grupoMuscular: "piernas", categoria: "pierna", activo: false, fichaCompleta: true })).toBe(false);
     expect(sustitucionEsCompatible(origen, { id: "hack", grupoMuscular: "piernas", categoria: "pierna", activo: true, fichaCompleta: false })).toBe(false);
+  });
+
+  it("no compara cargas entre implementos distintos aunque el reemplazo sea válido", () => {
+    const base = { id: "press-smith", grupoMuscular: "pecho", categoria: "empuje", patronMovimiento: "empuje_horizontal", equipo: "smith", activo: true, fichaCompleta: true };
+    expect(cargasSonComparables(base, { ...base, id: "otro-smith" })).toBe(true);
+    expect(cargasSonComparables(base, { ...base, id: "press-mancuernas", equipo: "mancuerna" })).toBe(false);
   });
 });

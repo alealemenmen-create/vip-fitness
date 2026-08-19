@@ -1745,8 +1745,14 @@ export interface Database {
           motivo: string;
           prescripcion?: Record<string, unknown>;
           estado?: EstadoIntervencionImpulso;
+          resultado?: ResultadoIntervencionImpulso | null;
+          resultado_data?: Record<string, unknown>;
+          verificacion?: VerificacionIntervencionImpulso | null;
           motor_version?: string;
           decision_data?: Record<string, unknown>;
+          mostrada_en?: string | null;
+          resuelta_en?: string | null;
+          created_at?: string;
         };
         Update: {
           estado?: EstadoIntervencionImpulso;
@@ -2493,9 +2499,25 @@ export interface Database {
           },
         ];
       };
+      recompensas_vip_catalogo: {
+        Row: { id: string; nombre: string; descripcion: string; tipo: "digital" | "servicio" | "fisica"; costo_puntos: number; stock: number | null; requiere_aprobacion: boolean; imagen_url: string | null; activo: boolean; vigente_desde: string; vigente_hasta: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; nombre: string; descripcion?: string; tipo: "digital" | "servicio" | "fisica"; costo_puntos: number; stock?: number | null; requiere_aprobacion?: boolean; imagen_url?: string | null; activo?: boolean; vigente_desde?: string; vigente_hasta?: string | null; created_at?: string; updated_at?: string };
+        Update: { nombre?: string; descripcion?: string; tipo?: "digital" | "servicio" | "fisica"; costo_puntos?: number; stock?: number | null; requiere_aprobacion?: boolean; imagen_url?: string | null; activo?: boolean; vigente_desde?: string; vigente_hasta?: string | null; updated_at?: string };
+        Relationships: [];
+      };
+      recompensas_vip_canjes: {
+        Row: { id: string; alumno_id: string; recompensa_id: string; costo_congelado: number; estado: "solicitado" | "aprobado" | "entregado" | "rechazado" | "cancelado"; nota_admin: string | null; solicitado_en: string; actualizado_en: string; resuelto_por: string | null };
+        Insert: { id?: string; alumno_id: string; recompensa_id: string; costo_congelado: number; estado?: "solicitado" | "aprobado" | "entregado" | "rechazado" | "cancelado"; nota_admin?: string | null; solicitado_en?: string; actualizado_en?: string; resuelto_por?: string | null };
+        Update: { estado?: "solicitado" | "aprobado" | "entregado" | "rechazado" | "cancelado"; nota_admin?: string | null; actualizado_en?: string; resuelto_por?: string | null };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      solicitar_canje_vip: { Args: { p_recompensa_id: string }; Returns: string };
+      resolver_canje_vip: { Args: { p_canje_id: string; p_estado: string; p_nota?: string | null }; Returns: undefined };
+      ajustar_stock_recompensa_vip: { Args: { p_recompensa_id: string; p_delta: number; p_sin_limite?: boolean }; Returns: number | null };
+    };
     Enums: Record<string, never>;
   };
 }

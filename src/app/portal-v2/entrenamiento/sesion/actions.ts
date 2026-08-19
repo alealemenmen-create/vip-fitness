@@ -5,7 +5,7 @@ import { requireAlumno } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { esTecnicaEncadenada, normalizarTecnicaSesion } from "@/lib/entrenamiento/motor-tecnicas-sesion";
 import { tamanoGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
-import { bloquesPermanecenUnidos, sustitucionEsCompatible, validarConjuntoOrdenado } from "@/lib/entrenamiento/personalizacion-sesion";
+import { bloquesPermanecenUnidos, cargasSonComparables, sustitucionEsCompatible, validarConjuntoOrdenado } from "@/lib/entrenamiento/personalizacion-sesion";
 
 type ResultadoPersonalizacion = { ok: boolean; error: string | null };
 
@@ -61,7 +61,7 @@ export async function sustituirEjercicioSesionV2(input: {
 
   const { data: prescrito } = await db
     .from("rutina_dia_ejercicios")
-    .select("ejercicio_id, grupo_muscular")
+    .select("ejercicio_id, grupo_muscular, series_programadas")
     .eq("id", sesionEjercicio.dia_ejercicio_id)
     .maybeSingle();
   if (!prescrito?.ejercicio_id || prescrito.ejercicio_id === sustitutoId) {
@@ -70,15 +70,14 @@ export async function sustituirEjercicioSesionV2(input: {
 
   const { data: fichas, error: errorFichas } = await db
     .from("ejercicios")
-    .select("id, grupo_muscular, categoria, activo, calidad_ficha")
+    .select("id, grupo_muscular, categoria, patron_movimiento, equipo, activo, calidad_ficha")
     .in("id", [prescrito.ejercicio_id, sustitutoId]);
   if (errorFichas || !fichas || fichas.length !== 2) return { ok: false, error: "No pudimos validar la compatibilidad del reemplazo." };
   const origen = fichas.find((fila) => fila.id === prescrito.ejercicio_id);
   const sustituto = fichas.find((fila) => fila.id === sustitutoId);
-  if (!origen || !sustituto || !sustitucionEsCompatible(
-    { id: origen.id, grupoMuscular: origen.grupo_muscular, categoria: origen.categoria, activo: origen.activo, fichaCompleta: origen.calidad_ficha === "completa" },
-    { id: sustituto.id, grupoMuscular: sustituto.grupo_muscular, categoria: sustituto.categoria, activo: sustituto.activo, fichaCompleta: sustituto.calidad_ficha === "completa" },
-  )) {
+  const fichaOrigen = origen ? { id: origen.id, grupoMuscular: origen.grupo_muscular, categoria: origen.categoria, patronMovimiento: origen.patron_movimiento, equipo: origen.equipo, activo: origen.activo, fichaCompleta: origen.calidad_ficha === "completa" } : null;
+  const fichaSustituto = sustituto ? { id: sustituto.id, grupoMuscular: sustituto.grupo_muscular, categoria: sustituto.categoria, patronMovimiento: sustituto.patron_movimiento, equipo: sustituto.equipo, activo: sustituto.activo, fichaCompleta: sustituto.calidad_ficha === "completa" } : null;
+  if (!fichaOrigen || !fichaSustituto || !sustitucionEsCompatible(fichaOrigen, fichaSustituto)) {
     return { ok: false, error: "Ese reemplazo no está aprobado o no conserva el patrón del ejercicio." };
   }
 
@@ -94,6 +93,39 @@ export async function sustituirEjercicioSesionV2(input: {
     if (faltaMigracion(error)) return { ok: false, error: "La personalización de sesiones todavía no está habilitada en este entorno." };
     return { ok: false, error: "No pudimos guardar el reemplazo. Intenta nuevamente." };
   }
+  // La meta y el Momento Alejandro existentes fueron calculados para el
+  // ejercicio prescrito. Se conservan auditables, pero dejan de poder salir.
+  await Promise.all([
+    db.from("impulso_vip_recomendaciones")
+      .update({ estado: "bloqueada", resuelto_en: ahora })
+      .eq("sesion_ejercicio_id", sesionEjercicioId)
+      .in("estado", ["propuesta", "aprobada", "modificada"]),
+    db.from("impulso_vip_intervenciones")
+      .update({ estado: "cancelada", resultado: "omitida", verificacion: "datos", resuelta_en: ahora })
+      .eq("sesion_ejercicio_id", sesionEjercicioId)
+      .in("estado", ["preparada", "mostrada"]),
+  ]);
+  const cargaComparable = cargasSonComparables(fichaOrigen, fichaSustituto);
+  const serieObjetivo = Math.max(1, prescrito.series_programadas);
+  await db.from("impulso_vip_intervenciones").upsert({
+    sesion_ejercicio_id: sesionEjercicioId,
+    alumno_id: alumnoId,
+    serie_objetivo: serieObjetivo,
+    tipo: "cierre_controlado",
+    origen: "metodo_ale",
+    firma: "Método de Ale Mendoza",
+    instruccion: cargaComparable ? "ÚLTIMA SERIE: TERMINA A 1–2 RIR." : "CARGA NUEVA: TERMINA A 2 RIR.",
+    motivo: cargaComparable
+      ? "Reemplazo compatible con el mismo implemento; no se aumenta carga durante el cambio."
+      : "El implemento cambió: se protege la técnica y se construye una nueva referencia de carga.",
+    prescripcion: { ejercicioSustitutoId: sustitutoId, cargaComparable, progresionCarga: false },
+    estado: "preparada",
+    resultado: null,
+    verificacion: null,
+    decision_data: { origen: "sustitucion_v2" },
+    mostrada_en: null,
+    resuelta_en: null,
+  }, { onConflict: "sesion_ejercicio_id,serie_objetivo" });
   revalidatePath("/portal-v2/entrenamiento/sesion");
   return { ok: true, error: null };
 }

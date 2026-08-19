@@ -2,6 +2,8 @@ export type FichaCompatibilidadEjercicio = {
   id: string;
   grupoMuscular: string | null;
   categoria: string | null;
+  patronMovimiento?: string | null;
+  equipo?: string | null;
   activo: boolean;
   fichaCompleta: boolean;
 };
@@ -29,5 +31,17 @@ export function sustitucionEsCompatible(
 ) {
   if (origen.id === sustituto.id || !sustituto.activo || !sustituto.fichaCompleta) return false;
   if (!origen.grupoMuscular || origen.grupoMuscular !== sustituto.grupoMuscular) return false;
-  return !origen.categoria || !sustituto.categoria || origen.categoria === sustituto.categoria;
+  if (origen.categoria && sustituto.categoria && origen.categoria !== sustituto.categoria) return false;
+  return !origen.patronMovimiento || !sustituto.patronMovimiento || origen.patronMovimiento === sustituto.patronMovimiento;
+}
+
+/** Dos cargas solo alimentan la misma progresión si el implemento también es
+ * el mismo. Un press de 40 kg en máquina no equivale a 40 kg con mancuernas. */
+export function cargasSonComparables(
+  origen: FichaCompatibilidadEjercicio,
+  sustituto: FichaCompatibilidadEjercicio,
+) {
+  return sustitucionEsCompatible(origen, sustituto)
+    && Boolean(origen.equipo)
+    && origen.equipo === sustituto.equipo;
 }
