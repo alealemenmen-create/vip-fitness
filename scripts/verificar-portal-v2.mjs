@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 const base = (process.env.V2_BASE_URL || "http://127.0.0.1:3100").replace(/\/$/, "");
 
 const rutas = [
@@ -20,6 +23,26 @@ const rutas = [
 
 const fallos = [];
 const resultados = [];
+
+function archivosTsx(directorio) {
+  if (!fs.existsSync(directorio)) return [];
+  return fs.readdirSync(directorio, { withFileTypes: true }).flatMap((entrada) => {
+    const ruta = path.join(directorio, entrada.name);
+    if (entrada.isDirectory()) return archivosTsx(ruta);
+    return entrada.isFile() && ruta.endsWith(".tsx") ? [ruta] : [];
+  });
+}
+
+const enlacesDeclarados = new Set();
+for (const archivo of [
+  ...archivosTsx(path.join(process.cwd(), "src", "app", "portal-v2")),
+  ...archivosTsx(path.join(process.cwd(), "src", "components", "v2")),
+]) {
+  const contenido = fs.readFileSync(archivo, "utf8");
+  for (const coincidencia of contenido.matchAll(/href\s*=\s*["'](\/portal-v2[^"']*)["']/g)) {
+    enlacesDeclarados.add(coincidencia[1]);
+  }
+}
 
 for (const ruta of rutas) {
   const inicio = performance.now();
@@ -54,11 +77,27 @@ for (const ruta of rutas) {
   }
 }
 
+for (const href of enlacesDeclarados) {
+  const destino = href.split("#")[0] || "/portal-v2";
+  if (rutas.includes(destino)) continue;
+  try {
+    const respuesta = await fetch(`${base}${destino}`, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(15_000),
+      headers: { "user-agent": "VIP-Fitness-V2-Link-Audit/1.0" },
+    });
+    const redirigeLogin = new URL(respuesta.url).pathname.startsWith("/login");
+    if (respuesta.status !== 200 || redirigeLogin) fallos.push(`Enlace ${href}: HTTP ${respuesta.status}, final ${respuesta.url}`);
+  } catch (error) {
+    fallos.push(`Enlace ${href}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 console.table(resultados);
 if (fallos.length) {
   console.error("\nVerificación V2 fallida:");
   for (const fallo of fallos) console.error(`- ${fallo}`);
   process.exitCode = 1;
 } else {
-  console.log(`\nPortal V2 verificado: ${resultados.length} rutas, sin redirecciones al login ni datos demo durante la carga.`);
+  console.log(`\nPortal V2 verificado: ${resultados.length} rutas y ${enlacesDeclarados.size} conexiones declaradas, sin redirecciones al login ni datos demo durante la carga.`);
 }

@@ -457,6 +457,12 @@ Validaciones locales completadas el 19-08-2026:
   consume esas mismas tablas: no existe una copia vacía que obligue a reiniciar
   el progreso. Los totales son una fotografía de auditoría y cambiarán con el
   uso normal del portal activo.
+- `npm run verify:v2` además de probar las `15` rutas principales extrae los
+  destinos V2 declarados en páginas y componentes y comprueba que respondan sin
+  caer al login. La última ejecución verificó `15` conexiones estáticas. Los
+  destinos con estado —por ejemplo `Progreso#checkin` y
+  `Perfil#descanso`— también fueron abiertos en navegador: ambos muestran el
+  panel correspondiente, no sólo la página general.
 
 1. Crear un respaldo lógico verificable antes del próximo cambio de esquema; el
    plan gratuito actual no incluye respaldos automáticos.
