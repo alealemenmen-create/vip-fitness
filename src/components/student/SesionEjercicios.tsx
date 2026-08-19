@@ -310,6 +310,7 @@ export function SesionEjercicios({
   };
 
   const grupoVisible = grupos[indiceVisible] ?? grupos[0];
+  const primerEjercicioVisibleId = grupoVisible[0]?.sesionEjercicioId;
   const grupoAnterior = grupos[indiceVisible - 1] ?? null;
   const grupoSiguiente = grupos[indiceVisible + 1] ?? null;
   // Se puede recorrer toda la sesión con las flechas, pero un ejercicio no se
@@ -386,7 +387,7 @@ export function SesionEjercicios({
       observadorHtml.disconnect();
       delete scroll.dataset.entrenamientoAjustado;
     };
-  }, [indiceVisible, grupoVisible.length, grupoVisible[0]?.sesionEjercicioId]);
+  }, [indiceVisible, grupoVisible.length, primerEjercicioVisibleId]);
 
   useEffect(() => {
     hayGrupoSiguienteRef.current = Boolean(grupoSiguiente);

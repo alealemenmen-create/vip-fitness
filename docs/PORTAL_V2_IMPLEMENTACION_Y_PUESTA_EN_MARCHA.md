@@ -242,6 +242,19 @@ Funciones SQL de seguridad:
 
 ## Comprobación antes de publicar
 
+Validaciones locales completadas el 19-08-2026:
+
+- Next.js `16.3.1`, React `19.2.8` y ESLint `9.39.5`; actualización hecha con
+  el codemod oficial, revisando y descartando transformaciones de páginas que
+  no aplicaban porque `cacheComponents` no está activado.
+- Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
+- `51` archivos de pruebas y `488` pruebas aprobadas; ESLint sin advertencias,
+  TypeScript sin errores y compilación de producción completa (`62` rutas).
+- Las migraciones `0104` a `0107` se ejecutaron juntas en PostgreSQL efímero.
+  Se comprobó la transacción de canje (saldo y stock) y el reintegro idempotente
+  al rechazar. Esta comprobación valida sintaxis y reglas transaccionales; no
+  sustituye la prueba de Auth, RLS y Storage en un Supabase de preview.
+
 1. Crear un respaldo verificable de la base y del despliegue actual.
 2. Mantener `portal-v2` separada y desplegar una URL de preview.
 3. En preview, aplicar y validar en orden `0104_personalizacion_sesion_v2.sql`,
@@ -263,8 +276,11 @@ Funciones SQL de seguridad:
 ## Trabajo que no debe presentarse como terminado todavía
 
 - Activación de `0104` a `0107` en un Supabase de preview y prueba con
-  cuentas reales autorizadas. El código y los contratos están construidos; si
-  una tabla falta, la interfaz degrada de forma segura y oculta la función.
+  cuentas reales autorizadas. La ejecución en PostgreSQL efímero y la
+  transacción de canje/reintegro ya están verificadas; quedan Auth, RLS,
+  Storage y acceso cruzado propios de Supabase. El código y los contratos están
+  construidos; si una tabla falta, la interfaz degrada de forma segura y oculta
+  la función.
 - Definir el catálogo comercial real, disponibilidad, responsables de entrega
   y condiciones de cada premio. El sistema de catálogo, stock, canje y
   reintegro está construido; no debe inventar premios que VIP Fitness no haya

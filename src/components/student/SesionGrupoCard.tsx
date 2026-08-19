@@ -224,6 +224,8 @@ export const SesionGrupoCard = forwardRef<
   // Recupera de forma segura una superserie que tiene todas sus filas hechas
   // pero cuya cabecera llegó desactualizada (`completado=false`). Así un
   // guardado anterior no puede dejar al siguiente ejercicio inaccesible.
+  /* eslint-disable react-hooks/exhaustive-deps -- `guardarAhora` no es estable;
+     las guardas del efecto vuelven este rescate idempotente. */
   useEffect(() => {
     if (!modoEnfocado || soloLectura || completoTodo || !programadasGrupoHechas || recienCompletado) return;
     setRecienCompletado(true);
@@ -234,6 +236,7 @@ export const SesionGrupoCard = forwardRef<
     const frame = window.requestAnimationFrame(() => guardarAhora());
     return () => window.cancelAnimationFrame(frame);
   }, [modoEnfocado, soloLectura, completoTodo, programadasGrupoHechas, recienCompletado, onGrupoCompletado]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   // Rediseño en tarjetas apiladas (modo enfocado): en vez de mostrar los
   // pasos intercalados de a uno, se ve toda la ronda actual junta — un
@@ -494,11 +497,16 @@ export const SesionGrupoCard = forwardRef<
   // Esperamos al render que abre la fila nueva. Una ronda consultada a mano
   // no se interrumpe; al tocar para continuar, `alIniciar` vuelve al paso
   // efectivo y esta misma regla lo centra de nuevo.
+  const pasoResaltadoPos = pasoResaltado?.pos ?? null;
+  const pasoResaltadoNumero = pasoResaltado?.numero ?? null;
   useEffect(() => {
-    if (!modoEnfocado || !pasoResaltado || rondaVista !== null) return;
-    const frame = window.requestAnimationFrame(() => centrarPasoActivo(pasoResaltado));
+    if (!modoEnfocado || pasoResaltadoPos === null || pasoResaltadoNumero === null || rondaVista !== null) return;
+    const frame = window.requestAnimationFrame(() => centrarPasoActivo({
+      pos: pasoResaltadoPos,
+      numero: pasoResaltadoNumero,
+    }));
     return () => window.cancelAnimationFrame(frame);
-  }, [modoEnfocado, pasoResaltado?.pos, pasoResaltado?.numero, rondaVista, serieActiva?.pos, serieActiva?.numero]);
+  }, [modoEnfocado, pasoResaltadoPos, pasoResaltadoNumero, rondaVista, serieActiva?.pos, serieActiva?.numero]);
 
   const esTiempoPorPos = ejercicios.map((e) => esEjercicioDeTiempo(e.repsProgramadas));
 

@@ -109,6 +109,7 @@ export function FichaAlumnoForm({
         {/* Recarga completa a propósito: el bloqueo del layout se evalúa en el
             servidor, así que un router.push() del cliente volvería a rebotar
             acá con datos viejos. */}
+        {/* eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Debe reevaluar en servidor el bloqueo del layout. */}
         <Button onClick={() => window.location.assign("/alumno/inicio")} className="mt-4">
           Entrar a mi entrenamiento
         </Button>

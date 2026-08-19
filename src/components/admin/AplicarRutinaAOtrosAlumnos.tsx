@@ -66,6 +66,7 @@ export function AplicarRutinaAOtrosAlumnos({ rutinaId, nombreRutina }: { rutinaI
       // el respaldo local ANTES de que existiera este que acabamos de
       // guardar— en vez de volver a montarla. Con una recarga dura no queda
       // duda: monta de cero y lee el respaldo recién escrito.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- La recarga dura es necesaria por el respaldo local explicado arriba.
       window.location.href = "/admin/armar-rutina";
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo preparar la rutina.");
