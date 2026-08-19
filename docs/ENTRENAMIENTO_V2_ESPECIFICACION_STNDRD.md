@@ -2,7 +2,7 @@
 
 Actualizado: 2026-08-18
 
-Estado: análisis de referencias terminado; listo para implementación
+Estado: motor local de sesión implementado; integración con datos reales pendiente
 
 Alcance: portada de entrenamiento, vista previa, sesión activa, descansos, video,
 acciones auxiliares, cierre y resumen
@@ -531,34 +531,34 @@ contraste. No se considerará terminado sólo porque contenga los mismos element
 
 - ruta independiente de sesión v2;
 - encabezado con tiempo, contador y acción de cierre;
-- ejercicio principal y cola de ejercicios;
-- campos de repeticiones y peso;
-- checks visuales;
-- chips básicos;
-- barra inferior de cinco controles;
-- confirmación básica de salida;
+- ejercicio activo expandible y cola de ejercicios compactos;
+- campos de repeticiones y peso bloqueados según la serie activa;
+- checks, progreso y navegación real serie por serie;
+- descanso en línea e inmersivo con ajustes, salto, sonido y vibración;
+- vistas de lista y video compartiendo la misma posición;
+- ajustes funcionales de temporizador, sonido y unidad de peso;
+- reloj inferior como temporizador manual independiente de la rutina;
+- notas por ejercicio, consejo, historial e información;
+- confirmación de salida y resumen local;
+- Impulso VIP local que interpreta la última serie y prepara la siguiente;
 - marco oscuro separado del portal clásico.
 
 ### Falta o está incompleto
 
 1. La sesión usa datos demostrativos fijos y no el motor real compartido.
-2. El estado de checks no está separado por ejercicio.
-3. No existe la fila de descanso en línea.
-4. No existen `−15 s`, `+15 s` ni `Saltar descanso`.
-5. No existe el temporizador inmersivo.
-6. No existe cambio real entre lista y video.
-7. Las miniaturas no tienen la proporción vertical ni reproducción correcta.
-8. El progreso superior no refleja series registradas.
-9. Los controles anterior/siguiente/ajustes están dibujados, pero no completan el
-   flujo observado.
-10. Consejo, historial, sustitución y reordenamiento no están implementados.
-11. Los valores no se persisten al cambiar de ejercicio o vista.
-12. No existe gestión correcta del teclado y viewport móvil.
-13. No hay foco automático, desplazamiento controlado ni conservación de posición.
-14. El cierre no registra una sesión real ni abre el resumen observado.
-15. No existen notas, compartir, logros ni regreso al siguiente día.
-16. No existe integración con Impulso VIP dentro de la sesión v2.
-17. No existe ActivityKit para la pantalla bloqueada de iPhone.
+2. Las imágenes demostrativas todavía no están vinculadas a los videos privados
+   reales de cada ejercicio.
+3. Sustitución y reordenamiento abren sus paneles, pero todavía no modifican el
+   entrenamiento.
+4. Historial usa datos demostrativos y no consultas reales del alumno.
+5. El cierre muestra un resumen local, pero no registra todavía la sesión en la
+   base de datos ni comparte contenido.
+6. Los valores sobreviven a cambios de ejercicio y vista, pero no a una recarga o
+   cierre forzado de la aplicación.
+7. Impulso VIP ya adapta la siguiente serie dentro de la sesión, pero aún debe
+   conectarse con el motor histórico y la persistencia del portal original.
+8. Falta la validación final del teclado y viewport en distintos teléfonos.
+9. No existe ActivityKit para la pantalla bloqueada de iPhone.
 
 ## 15. Orden de implementación acordado por dependencia
 
@@ -713,3 +713,35 @@ En vista de video el mismo estado se presenta como una secuencia de pantallas:
 - `Saltar descanso` activa la serie siguiente sin reproducir la alarma local.
 - La última serie del último ejercicio no genera descanso: actúa como cierre y
   abre directamente la confirmación para registrar el entrenamiento.
+
+### 18.5 Reloj inferior y temporizador manual
+
+- El reloj de la esquina inferior derecha siempre está disponible.
+- Si no existe un descanso, abre un temporizador manual con la duración asignada
+  al ejercicio actual.
+- El temporizador manual no completa, desmarca ni adelanta ninguna serie.
+- Al finalizar o saltar, vuelve exactamente a la serie y vista desde donde se
+  abrió.
+- Si ya existe un descanso automático, el reloj abre ese mismo temporizador; no
+  crea una cuenta paralela.
+
+### 18.6 Impulso VIP dentro de la sesión
+
+La versión local no exige RIR ni terminología técnica. Después de completar una
+serie, el alumno describe la sensación con una de cuatro respuestas: `Podía hacer
+más`, `Estuvo justo`, `Muy difícil` o `No la completé`.
+
+- `Podía hacer más`: aumenta carga cuando existe peso registrado; si no, aumenta
+  repeticiones.
+- `Estuvo justo`: conserva carga y repeticiones.
+- `Muy difícil`: reduce moderadamente carga o repeticiones.
+- `No la completé`: aplica una reducción mayor y prioriza una meta segura.
+- El ajuste se escribe en la siguiente serie pendiente, se destaca visualmente y
+  puede revisarse desde la tarjeta de Impulso VIP.
+- Si el ejercicio ya no tiene series pendientes, la respuesta se conserva como
+  recomendación para la próxima sesión.
+
+Esta primera integración es deliberadamente local porque la sesión v2 todavía
+usa ejercicios de demostración. Al conectar los identificadores reales, la misma
+interacción deberá guardar la respuesta en el motor histórico de Impulso VIP del
+portal original.

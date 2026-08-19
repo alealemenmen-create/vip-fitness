@@ -26,6 +26,7 @@ import {
   Settings,
   StickyNote,
   X,
+  Zap,
 } from "lucide-react";
 import { avisarFinDescansoV2, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
 import styles from "./SesionActivaV2.module.css";
@@ -52,11 +53,21 @@ type DescansoActivo = {
   ejercicioId: string;
   serieIndice: number;
   segundos: number;
+  tipo: "automatico" | "manual";
+  vistaRetorno: Exclude<VistaSesion, "descanso">;
 };
 
-type PanelSesion = "consejo" | "historial" | "sustituir" | "reordenar" | "notas" | "ajustes" | "informacion" | null;
+type PanelSesion = "consejo" | "historial" | "sustituir" | "reordenar" | "notas" | "ajustes" | "informacion" | "impulso" | null;
 type VistaSesion = "lista" | "video" | "descanso";
 type UnidadPeso = "kg" | "lb";
+type RespuestaImpulso = "mas" | "justo" | "dificil" | "no_pude";
+
+type AjusteImpulso = {
+  respuesta: RespuestaImpulso;
+  mensaje: string;
+  serieObjetivo: number | null;
+  aplicado: boolean;
+};
 
 const EJERCICIOS: EjercicioSesion[] = [
   { id: "sentadilla-smith", codigo: "A", nombre: "Sentadilla Smith", repeticiones: [10, 10, 10, 10], descanso: 60, foto: "/v2/piernas.webp", equipo: "Máquina Smith", grupo: "Cuádriceps · glúteos" },
@@ -93,6 +104,10 @@ function convertirPeso(valor: string, desde: UnidadPeso, hasta: UnidadPeso) {
 function pesoHistorico(kilos: number, unidad: UnidadPeso) {
   const valor = unidad === "kg" ? kilos : Math.round(kilos * 2.20462 * 10) / 10;
   return `${valor} ${unidad}`;
+}
+
+function formatearCarga(valor: number) {
+  return String(Math.round(valor * 10) / 10);
 }
 
 function desplazarPosicionSerie(ejercicioIndice: number, serieIndice: number, direccion: -1 | 1) {
@@ -136,6 +151,7 @@ export function SesionActivaV2() {
   const [temporizadorAutomatico, setTemporizadorAutomatico] = useState(true);
   const [sonidoDescansoActivo, setSonidoDescansoActivo] = useState(true);
   const [unidadPeso, setUnidadPeso] = useState<UnidadPeso>("kg");
+  const [impulsos, setImpulsos] = useState<Record<string, AjusteImpulso>>({});
   const gestoInicioX = useRef<number | null>(null);
   const descansoAvisadoRef = useRef<string | null>(null);
   const paginaSesionRef = useRef<HTMLDivElement | null>(null);
@@ -166,11 +182,17 @@ export function SesionActivaV2() {
   const ejercicioDescansoIndice = descanso === null
     ? ejercicioActivoIndice
     : EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
-  const posicionDespuesDescanso = descanso === null
+  const posicionDespuesDescanso = descanso === null || descanso.tipo === "manual"
     ? { ejercicioIndice: ejercicioActivoIndice, serieIndice: serieActivaIndiceSeguro }
     : desplazarPosicionSerie(ejercicioDescansoIndice, descanso.serieIndice, 1);
   const ejercicioDespuesDescanso = EJERCICIOS[posicionDespuesDescanso.ejercicioIndice];
   const progreso = totalSeries === 0 ? 0 : (seriesCompletadas / totalSeries) * 100;
+  const impulsoActivo = impulsos[ejercicioActivo.id] ?? null;
+  const ultimaSerieCompletadaIndice = registro[ejercicioActivo.id].reduce(
+    (ultima, serie, indice) => serie.completada ? indice : ultima,
+    -1,
+  );
+  const puedeCalibrarImpulso = ultimaSerieCompletadaIndice >= 0;
 
   useEffect(() => {
     if (pausada || registrada) return;
@@ -221,19 +243,19 @@ export function SesionActivaV2() {
     avisarFinDescansoV2(sonidoDescansoActivo);
     if (!descansoEnFoco && vista !== "descanso") return;
     const transicion = window.setTimeout(() => {
-      if (descansoEnFoco) {
+      if (descansoEnFoco && descanso.tipo === "automatico") {
         const ejercicioIndice = EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
         const siguiente = desplazarPosicionSerie(ejercicioIndice, descanso.serieIndice, 1);
         const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
         setEjercicioActivoId(siguienteEjercicio.id);
         setSerieActivaIndice(siguiente.serieIndice);
         setEjercicioExpandidoId(siguienteEjercicio.id);
-        setDescansoEnFoco(false);
       }
+      setDescansoEnFoco(false);
       setDescanso(null);
       // El descanso es un campo propio. Solo al finalizar deja el foco y activa
       // la siguiente serie antes de volver a la demostración.
-      if (vista === "descanso") setVista("video");
+      if (vista === "descanso") setVista(descanso.vistaRetorno);
     }, 0);
     return () => window.clearTimeout(transicion);
   }, [descanso, descansoEnFoco, sonidoDescansoActivo, vista]);
@@ -286,7 +308,13 @@ export function SesionActivaV2() {
 
     prepararAviso();
     descansoAvisadoRef.current = null;
-    setDescanso({ ejercicioId: ejercicio.id, serieIndice, segundos: ejercicio.descanso });
+    setDescanso({
+      ejercicioId: ejercicio.id,
+      serieIndice,
+      segundos: ejercicio.descanso,
+      tipo: "automatico",
+      vistaRetorno: vista === "video" ? "video" : "lista",
+    });
     setDescansoEnFoco(true);
     if (vista === "video") setVista("descanso");
   };
@@ -298,7 +326,7 @@ export function SesionActivaV2() {
   const saltarDescanso = () => {
     if (descanso !== null) {
       descansoAvisadoRef.current = `${descanso.ejercicioId}-${descanso.serieIndice}`;
-      if (descansoEnFoco) {
+      if (descansoEnFoco && descanso.tipo === "automatico") {
         const ejercicioIndice = EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
         const siguiente = desplazarPosicionSerie(ejercicioIndice, descanso.serieIndice, 1);
         const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
@@ -308,12 +336,14 @@ export function SesionActivaV2() {
       }
     }
     cortarAviso();
+    const vistaRetorno = descanso?.vistaRetorno ?? "video";
     setDescanso(null);
     setDescansoEnFoco(false);
-    setVista("video");
+    setVista(vistaRetorno);
   };
 
   const volverDesdeDescanso = () => {
+    const vistaRetorno = descanso?.vistaRetorno ?? "video";
     if (descanso !== null) {
       const ejercicioIndice = EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
       const ejercicio = EJERCICIOS[ejercicioIndice];
@@ -326,7 +356,7 @@ export function SesionActivaV2() {
     setDescanso(null);
     setDescansoEnFoco(false);
     setControlesVideoVisibles(true);
-    setVista("video");
+    setVista(vistaRetorno);
   };
 
   const avanzarDesdeVideo = () => {
@@ -357,6 +387,8 @@ export function SesionActivaV2() {
       ejercicioId: ejercicioActivo.id,
       serieIndice: serieActivaIndiceSeguro,
       segundos: ejercicioActivo.descanso,
+      tipo: "automatico",
+      vistaRetorno: "video",
     });
     setDescansoEnFoco(true);
     setVista("descanso");
@@ -368,7 +400,23 @@ export function SesionActivaV2() {
     cortarAviso();
     setDescanso(null);
     setDescansoEnFoco(false);
-    if (vista === "descanso") setVista("video");
+    if (vista === "descanso") setVista(descanso.vistaRetorno);
+  };
+
+  const abrirTemporizador = () => {
+    prepararAviso();
+    descansoAvisadoRef.current = null;
+    if (descanso === null) {
+      setDescanso({
+        ejercicioId: ejercicioActivo.id,
+        serieIndice: serieActivaIndiceSeguro,
+        segundos: ejercicioActivo.descanso,
+        tipo: "manual",
+        vistaRetorno: vista === "video" ? "video" : "lista",
+      });
+    }
+    setDescansoEnFoco(true);
+    setVista("descanso");
   };
 
   const cambiarUnidadPeso = (siguienteUnidad: UnidadPeso) => {
@@ -383,6 +431,86 @@ export function SesionActivaV2() {
       ]),
     ));
     setUnidadPeso(siguienteUnidad);
+  };
+
+  const resolverImpulso = (respuesta: RespuestaImpulso) => {
+    const series = registro[ejercicioActivo.id];
+    const serieBaseIndice = series.reduce(
+      (ultima, serie, indice) => serie.completada ? indice : ultima,
+      -1,
+    );
+    if (serieBaseIndice < 0) return;
+
+    const serieObjetivo = series.findIndex((serie, indice) => indice > serieBaseIndice && !serie.completada);
+    if (serieObjetivo < 0) {
+      setImpulsos((actuales) => ({
+        ...actuales,
+        [ejercicioActivo.id]: {
+          respuesta,
+          mensaje: "Respuesta guardada para ajustar este ejercicio en tu próxima sesión.",
+          serieObjetivo: null,
+          aplicado: false,
+        },
+      }));
+      return;
+    }
+
+    const serieBase = series[serieBaseIndice];
+    const pesoBase = Number(serieBase.peso.replace(",", "."));
+    const tienePeso = Number.isFinite(pesoBase) && serieBase.peso.trim() !== "";
+    const repsBase = Math.max(1, Number.parseInt(serieBase.reps, 10) || ejercicioActivo.repeticiones[serieBaseIndice]);
+    let pesoObjetivo = serieBase.peso;
+    let repsObjetivo = repsBase;
+    let instruccion = "Mantén la carga y repite con la misma técnica.";
+
+    if (respuesta === "mas") {
+      if (tienePeso) {
+        pesoObjetivo = formatearCarga(pesoBase + (unidadPeso === "kg" ? 2.5 : 5));
+        instruccion = `Sube a ${pesoObjetivo} ${unidadPeso} manteniendo ${repsBase} repeticiones.`;
+      } else {
+        repsObjetivo = repsBase + 2;
+        instruccion = `Busca ${repsObjetivo} repeticiones con ejecución limpia.`;
+      }
+    } else if (respuesta === "dificil") {
+      if (tienePeso) {
+        const paso = unidadPeso === "kg" ? 0.5 : 1;
+        pesoObjetivo = formatearCarga(Math.max(0, Math.round((pesoBase * 0.95) / paso) * paso));
+        instruccion = `Ajusta a ${pesoObjetivo} ${unidadPeso} y prioriza el control.`;
+      } else {
+        repsObjetivo = Math.max(1, repsBase - 1);
+        instruccion = `Baja a ${repsObjetivo} repeticiones y conserva la técnica.`;
+      }
+    } else if (respuesta === "no_pude") {
+      repsObjetivo = Math.max(1, repsBase - 2);
+      if (tienePeso) {
+        const paso = unidadPeso === "kg" ? 0.5 : 1;
+        pesoObjetivo = formatearCarga(Math.max(0, Math.round((pesoBase * 0.9) / paso) * paso));
+        instruccion = `Reduce a ${pesoObjetivo} ${unidadPeso} y completa ${repsObjetivo} repeticiones seguras.`;
+      } else {
+        instruccion = `Haz ${repsObjetivo} repeticiones seguras antes de volver a progresar.`;
+      }
+    }
+
+    setRegistro((actual) => ({
+      ...actual,
+      [ejercicioActivo.id]: actual[ejercicioActivo.id].map((serie, indice) => indice === serieObjetivo
+        ? { ...serie, reps: String(repsObjetivo), peso: pesoObjetivo }
+        : serie),
+    }));
+    setImpulsos((actuales) => ({
+      ...actuales,
+      [ejercicioActivo.id]: {
+        respuesta,
+        mensaje: instruccion,
+        serieObjetivo,
+        aplicado: true,
+      },
+    }));
+    if (!descansoEnFoco) {
+      setEjercicioActivoId(ejercicioActivo.id);
+      setSerieActivaIndice(serieObjetivo);
+      setEjercicioExpandidoId(ejercicioActivo.id);
+    }
   };
 
   const moverSerie = (direccion: -1 | 1) => {
@@ -470,12 +598,12 @@ export function SesionActivaV2() {
           onPointerUp={(evento) => terminarGesto(evento.clientX)}
         >
           {descanso !== null ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={volverDesdeDescanso} aria-label="Volver a la serie actual"><ChevronsLeft size={27} strokeWidth={2.4} /></button> : null}
-          {puedeIrAdelante ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={saltarDescanso} aria-label="Ir a la siguiente serie"><ChevronsRight size={27} strokeWidth={2.4} /></button> : null}
+          {descanso !== null && (descanso.tipo === "manual" || puedeIrAdelante) ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={saltarDescanso} aria-label={descanso.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie"}><ChevronsRight size={27} strokeWidth={2.4} /></button> : null}
           <div className={styles.restCenter}>
             <span>Descanso</span><strong>{descanso?.segundos ?? 0}</strong><small>segundos</small>
             <div className={styles.restAdjustments}><button type="button" onClick={() => ajustarDescanso(-15)}><Minus size={13} />15 s</button><button type="button" onClick={() => ajustarDescanso(15)}><Plus size={13} />15 s</button></div>
           </div>
-          <div className={styles.upNext}><span>SIGUE</span><strong>{ejercicioDespuesDescanso.nombre}</strong><small>Serie {posicionDespuesDescanso.serieIndice + 1} · {ejercicioDespuesDescanso.repeticiones[posicionDespuesDescanso.serieIndice]} repeticiones</small></div>
+          <div className={styles.upNext}><span>{descanso?.tipo === "manual" ? "CONTINÚAS" : "SIGUE"}</span><strong>{ejercicioDespuesDescanso.nombre}</strong><small>Serie {posicionDespuesDescanso.serieIndice + 1} · {ejercicioDespuesDescanso.repeticiones[posicionDespuesDescanso.serieIndice]} repeticiones</small></div>
           <button type="button" className={styles.skipRest} onClick={saltarDescanso}><FastForward size={15} /> Saltar descanso</button>
           <button type="button" className={styles.switchView} onClick={() => setVista("lista")}><ListVideo size={14} /> Vista de lista</button>
         </section>
@@ -495,9 +623,16 @@ export function SesionActivaV2() {
             <div className={styles.videoIdentity}><small>SERIE {ejercicioActivo.codigo}</small><h1>{ejercicioActivo.nombre}</h1><p>{ejercicioActivo.equipo}</p></div>
           </div>
           <div className={styles.videoActions}>
-            <button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={13} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={13} />Reordenar</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>
+            <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Impulso VIP</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={13} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={13} />Reordenar</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>
           </div>
-          <div className={styles.videoSetStrip}>
+          {impulsoActivo ? (
+            <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
+              <Zap size={15} fill="currentColor" />
+              <span><strong>Impulso VIP</strong><small>{impulsoActivo.mensaje}</small></span>
+              <b>{impulsoActivo.serieObjetivo === null ? "Guardado" : `Serie ${impulsoActivo.serieObjetivo + 1}`}</b>
+            </button>
+          ) : null}
+          <div className={`${styles.videoSetStrip} ${impulsoActivo?.serieObjetivo === serieActivaIndiceSeguro && impulsoActivo.aplicado ? styles.videoSetStripImpulse : ""}`}>
             <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} TRB</em></span><span><b>Reps</b><strong>{serieActiva.reps}</strong></span><span><b>Peso ({unidadPeso})</b><strong>{serieActiva.peso || `— ${unidadPeso}`}</strong></span>
             <button
               type="button"
@@ -514,9 +649,11 @@ export function SesionActivaV2() {
         <main className={styles.workoutList}>
           {EJERCICIOS.map((ejercicio) => {
             const activa = ejercicio.id === ejercicioExpandidoId;
+            const impulsoEjercicio = impulsos[ejercicio.id] ?? null;
             if (!activa) {
+              const primeraPendiente = registro[ejercicio.id].findIndex((serie) => !serie.completada);
               return (
-                <button type="button" className={styles.compactExercise} key={ejercicio.id} aria-expanded="false" onClick={() => { setEjercicioActivoId(ejercicio.id); setSerieActivaIndice(0); setEjercicioExpandidoId(ejercicio.id); setDescansoEnFoco(false); }}>
+                <button type="button" className={styles.compactExercise} key={ejercicio.id} aria-expanded="false" onClick={() => { setEjercicioActivoId(ejercicio.id); setSerieActivaIndice(ejercicio.id === ejercicioActivo.id ? serieActivaIndiceSeguro : Math.max(0, primeraPendiente)); setEjercicioExpandidoId(ejercicio.id); setDescansoEnFoco(false); }}>
                   <span className={styles.compactCode}>{ejercicio.codigo} SERIE</span><span className={styles.compactThumb}><Image src={ejercicio.foto} alt="" fill sizes="68px" /><i><Play size={12} fill="currentColor" /></i></span><span className={styles.compactCopy}><strong>{ejercicio.nombre}</strong><small>Reps: {ejercicio.repeticiones.join(" · ")}</small></span>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}
                 </button>
               );
@@ -528,12 +665,20 @@ export function SesionActivaV2() {
                   <button type="button" className={styles.exerciseMedia} onClick={() => setVista("video")} aria-label={`Ver demostración de ${ejercicio.nombre}`}><Image src={ejercicio.foto} alt="" fill sizes="70px" priority={ejercicio.codigo === "A"} /><i><Play size={17} fill="currentColor" /></i></button>
                   <button type="button" className={styles.exerciseHeadingToggle} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)}><h1>{ejercicio.nombre}</h1><p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p></button>
                 </div>
-                <div className={styles.actionChips}><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={14} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={14} />Reordenar series</button></div>
+                <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Impulso VIP</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={14} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={14} />Reordenar series</button></div>
+                {impulsoEjercicio ? (
+                  <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
+                    <Zap size={15} fill="currentColor" />
+                    <span><strong>Impulso VIP</strong><small>{impulsoEjercicio.mensaje}</small></span>
+                    <b>{impulsoEjercicio.serieObjetivo === null ? "Guardado" : `Serie ${impulsoEjercicio.serieObjetivo + 1}`}</b>
+                  </button>
+                ) : null}
                 <div className={styles.setTable}>
                   <div className={styles.setHead}><span>Serie</span><span>Reps</span><span>Peso ({unidadPeso})</span><span>Descanso</span><span>Listo</span></div>
                   {registro[ejercicio.id].map((serie, serieIndice) => {
                     const descansoDeEstaSerie = descanso?.ejercicioId === ejercicio.id && descanso.serieIndice === serieIndice;
                     const esSerieActiva = !descansoEnFoco && ejercicio.id === ejercicioActivo.id && serieIndice === serieActivaIndiceSeguro;
+                    const esObjetivoImpulso = impulsoEjercicio?.aplicado === true && impulsoEjercicio.serieObjetivo === serieIndice;
                     const esUltimaSerieRutina = ejercicio.id === EJERCICIOS[EJERCICIOS.length - 1].id
                       && serieIndice === ejercicio.repeticiones.length - 1;
                     const activarEstaSerie = () => {
@@ -544,7 +689,7 @@ export function SesionActivaV2() {
                     };
                     return (
                       <div className={styles.setGroup} key={`${ejercicio.id}-${serieIndice}`}>
-                        <div className={`${styles.setRow} ${serie.completada ? styles.setRowDone : ""} ${descansoDeEstaSerie ? styles.setRowActive : ""} ${esSerieActiva ? styles.setRowSelected : styles.setRowLocked}`} aria-current={esSerieActiva ? "step" : undefined} onClick={activarEstaSerie}>
+                        <div className={`${styles.setRow} ${serie.completada ? styles.setRowDone : ""} ${descansoDeEstaSerie ? styles.setRowActive : ""} ${esSerieActiva ? styles.setRowSelected : styles.setRowLocked} ${esObjetivoImpulso ? styles.setRowImpulse : ""}`} aria-current={esSerieActiva ? "step" : undefined} onClick={activarEstaSerie}>
                           <span className={styles.setNumber}><b>{serieIndice + 1}</b><em>TRB</em></span>
                           <input aria-label={`Repeticiones, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva} inputMode="numeric" value={serie.reps} readOnly={!esSerieActiva} tabIndex={esSerieActiva ? 0 : -1} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "reps", evento.target.value)} />
                           <input aria-label={`Peso en ${unidadPeso}, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva} inputMode="decimal" value={serie.peso} readOnly={!esSerieActiva} tabIndex={esSerieActiva ? 0 : -1} placeholder={`— ${unidadPeso}`} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "peso", evento.target.value)} />
@@ -567,8 +712,8 @@ export function SesionActivaV2() {
         <button type="button" aria-label="Ajustes" onClick={() => setPanel("ajustes")}><Settings size={20} /></button>
         <button type="button" aria-label={vista === "descanso" ? "Volver a la serie actual" : "Serie anterior"} onClick={retrocederPaso} disabled={vista !== "descanso" && !puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
         <button type="button" aria-label={pausada ? "Reanudar sesión" : "Pausar sesión"} onClick={() => setPausada((valor) => !valor)}>{pausada ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>
-        <button type="button" aria-label={vista === "descanso" ? "Ir a la siguiente serie" : vista === "video" ? "Finalizar serie e ir al descanso" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
-        <button type="button" aria-label="Abrir temporizador" onClick={() => { setDescansoEnFoco(true); setVista("descanso"); }} disabled={descanso === null}><Clock3 size={19} /></button>
+        <button type="button" aria-label={vista === "descanso" ? descanso?.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie" : vista === "video" ? "Finalizar serie e ir al descanso" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
+        <button type="button" aria-label={descanso === null ? "Iniciar temporizador manual" : "Abrir temporizador activo"} onClick={abrirTemporizador}><Clock3 size={19} /></button>
       </nav>
 
       {panel !== null ? (
@@ -582,6 +727,9 @@ export function SesionActivaV2() {
           cambiarTemporizadorAutomatico={cambiarTemporizadorAutomatico}
           cambiarSonidoDescanso={setSonidoDescansoActivo}
           cambiarUnidadPeso={cambiarUnidadPeso}
+          impulsoActual={impulsoActivo}
+          puedeCalibrarImpulso={puedeCalibrarImpulso}
+          resolverImpulso={resolverImpulso}
           guardarNota={(nota) => setNotas((actuales) => ({ ...actuales, [ejercicioActivo.id]: nota }))}
           cerrar={() => setPanel(null)}
         />
@@ -610,6 +758,9 @@ function PanelAuxiliar({
   cambiarTemporizadorAutomatico,
   cambiarSonidoDescanso,
   cambiarUnidadPeso,
+  impulsoActual,
+  puedeCalibrarImpulso,
+  resolverImpulso,
   guardarNota,
   cerrar,
 }: {
@@ -622,11 +773,14 @@ function PanelAuxiliar({
   cambiarTemporizadorAutomatico: (activo: boolean) => void;
   cambiarSonidoDescanso: (activo: boolean) => void;
   cambiarUnidadPeso: (unidad: UnidadPeso) => void;
+  impulsoActual: AjusteImpulso | null;
+  puedeCalibrarImpulso: boolean;
+  resolverImpulso: (respuesta: RespuestaImpulso) => void;
   guardarNota: (nota: string) => void;
   cerrar: () => void;
 }) {
   const [notaBorrador, setNotaBorrador] = useState(notaInicial);
-  const titulos = { consejo: "Consejo del entrenador", historial: "Historial del ejercicio", sustituir: "Sustituir ejercicio", reordenar: "Reordenar series", notas: "Notas del ejercicio", ajustes: "Ajustes de la sesión", informacion: "Información del ejercicio" };
+  const titulos = { consejo: "Consejo del entrenador", historial: "Historial del ejercicio", sustituir: "Sustituir ejercicio", reordenar: "Reordenar series", notas: "Notas del ejercicio", ajustes: "Ajustes de la sesión", informacion: "Información del ejercicio", impulso: "Impulso VIP" };
   return (
     <div className={styles.sheetBackdrop} role="presentation" onClick={cerrar}>
       <section className={styles.auxSheet} role="dialog" aria-modal="true" aria-label={titulos[tipo]} onClick={(evento) => evento.stopPropagation()}>
@@ -634,6 +788,23 @@ function PanelAuxiliar({
         <header><div><small>SERIE {ejercicio.codigo}</small><h2>{titulos[tipo]}</h2></div><button type="button" onClick={cerrar} aria-label="Cerrar"><X size={17} /></button></header>
         {tipo === "consejo" ? <p className={styles.sheetCopy}>Mantén el abdomen firme, controla el descenso y conserva la trayectoria estable durante toda la repetición.</p> : null}
         {tipo === "historial" ? <div className={styles.historyGrid}><span>Fecha</span><span>Reps</span><span>Peso</span><strong>11 ago.</strong><strong>10 · 10 · 10</strong><strong>{pesoHistorico(42, unidadPeso)}</strong><strong>4 ago.</strong><strong>12 · 10 · 10</strong><strong>{pesoHistorico(40, unidadPeso)}</strong></div> : null}
+        {tipo === "impulso" ? (
+          <div className={styles.impulsoPanel}>
+            <p className={styles.impulsoIntro}>Cuéntanos cómo sentiste la última serie completada. Ajustaremos la próxima serie sin pedirte cálculos ni escalas técnicas.</p>
+            {puedeCalibrarImpulso ? (
+              <div className={styles.impulsoOptions} role="group" aria-label="Sensación de la última serie">
+                <button type="button" aria-pressed={impulsoActual?.respuesta === "mas"} onClick={() => resolverImpulso("mas")}><strong>Podía hacer más</strong><small>Aumentar el estímulo</small></button>
+                <button type="button" aria-pressed={impulsoActual?.respuesta === "justo"} onClick={() => resolverImpulso("justo")}><strong>Estuvo justo</strong><small>Mantener el objetivo</small></button>
+                <button type="button" aria-pressed={impulsoActual?.respuesta === "dificil"} onClick={() => resolverImpulso("dificil")}><strong>Muy difícil</strong><small>Reducir un poco</small></button>
+                <button type="button" aria-pressed={impulsoActual?.respuesta === "no_pude"} onClick={() => resolverImpulso("no_pude")}><strong>No la completé</strong><small>Priorizar seguridad</small></button>
+              </div>
+            ) : <p className={styles.impulsoEmpty}>Completa al menos una serie de este ejercicio para activar una recomendación.</p>}
+            {impulsoActual ? (
+              <div className={styles.impulsoResult}><Check size={16} strokeWidth={3} /><span><strong>Ajuste preparado</strong><small>{impulsoActual.mensaje}</small></span><b>{impulsoActual.serieObjetivo === null ? "Próxima sesión" : `Serie ${impulsoActual.serieObjetivo + 1}`}</b></div>
+            ) : null}
+            <button type="button" className={styles.impulsoDone} onClick={cerrar}>Listo</button>
+          </div>
+        ) : null}
         {tipo === "sustituir" ? <div className={styles.swapList}><button type="button"><Dumbbell size={17} /><span><strong>Sentadilla goblet</strong><small>Mismo patrón de movimiento</small></span><Plus size={17} /></button><button type="button"><Dumbbell size={17} /><span><strong>Prensa horizontal</strong><small>Alternativa para cuádriceps</small></span><Plus size={17} /></button></div> : null}
         {tipo === "notas" ? <label className={styles.exerciseNotes}><span>Nota personal</span><textarea value={notaBorrador} onChange={(evento) => setNotaBorrador(evento.target.value)} placeholder="Escribe una observación para este ejercicio…" /><button type="button" onClick={() => { guardarNota(notaBorrador); cerrar(); }}>Guardar nota</button></label> : null}
         {tipo === "reordenar" ? <div className={styles.reorderPreview}><span><b>1</b> Serie de trabajo <ArrowDownUp size={15} /></span><span><b>2</b> Serie de trabajo <ArrowDownUp size={15} /></span><span><b>3</b> Serie de trabajo <ArrowDownUp size={15} /></span><button type="button" onClick={cerrar}>Guardar orden</button></div> : null}
