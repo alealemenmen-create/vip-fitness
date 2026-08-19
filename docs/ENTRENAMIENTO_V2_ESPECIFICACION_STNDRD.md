@@ -731,11 +731,20 @@ La versión local no exige RIR ni terminología técnica. Después de completar 
 serie, el alumno describe la sensación con una de cuatro respuestas: `Podía hacer
 más`, `Estuvo justo`, `Muy difícil` o `No la completé`.
 
-- `Podía hacer más`: aumenta carga cuando existe peso registrado; si no, aumenta
-  repeticiones.
+- Al completar una serie, Impulso prepara silenciosamente la siguiente copiando
+  la base de carga y repeticiones; no abre paneles ni interrumpe el descanso.
+- Una preparación automática nunca aumenta la carga por sí sola.
+- `Podía hacer más`: aplica un aumento moderado según el equipo: mancuernas
+  `+2,5 kg`, barra `+5 kg`, máquina `+5 kg`; si no hay peso, añade una repetición.
+- `Estuvo fácil`: mantiene el tope de `+2,5 kg` en mancuernas y permite `+10 kg`
+  en barra o máquina; sin carga, añade dos repeticiones.
+- `Estuvo muy fácil`: autoriza un salto mayor, todavía acotado por el equipo:
+  mancuernas `+2,5 kg`, barra `+10 kg`, máquina `+15 kg`; si no hay peso, añade
+  tres repeticiones.
 - `Estuvo justo`: conserva carga y repeticiones.
-- `Muy difícil`: reduce moderadamente carga o repeticiones.
-- `No la completé`: aplica una reducción mayor y prioriza una meta segura.
+- `Muy difícil`: baja un nivel pequeño en mancuernas y un nivel de `5 kg` en
+  barra o máquina, o reduce una repetición cuando no existe carga.
+- `No la completé`: aplica una reducción segura de dos niveles y dos repeticiones.
 - El ajuste se escribe en la siguiente serie pendiente, se destaca visualmente y
   puede revisarse desde la tarjeta de Impulso VIP.
 - Si el ejercicio ya no tiene series pendientes, la respuesta se conserva como

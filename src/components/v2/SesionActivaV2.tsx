@@ -60,13 +60,15 @@ type DescansoActivo = {
 type PanelSesion = "consejo" | "historial" | "sustituir" | "reordenar" | "notas" | "ajustes" | "informacion" | "impulso" | null;
 type VistaSesion = "lista" | "video" | "descanso";
 type UnidadPeso = "kg" | "lb";
-type RespuestaImpulso = "mas" | "justo" | "dificil" | "no_pude";
+type RespuestaImpulso = "muy_facil" | "facil" | "mas" | "justo" | "dificil" | "no_pude";
+type TipoCargaImpulso = "mancuernas" | "barra" | "maquina" | "libre";
 
 type AjusteImpulso = {
-  respuesta: RespuestaImpulso;
+  respuesta: RespuestaImpulso | null;
   mensaje: string;
   serieObjetivo: number | null;
   aplicado: boolean;
+  origen: "automatico" | "respuesta";
 };
 
 const EJERCICIOS: EjercicioSesion[] = [
@@ -108,6 +110,31 @@ function pesoHistorico(kilos: number, unidad: UnidadPeso) {
 
 function formatearCarga(valor: number) {
   return String(Math.round(valor * 10) / 10);
+}
+
+function tipoCargaImpulso(ejercicio: EjercicioSesion): TipoCargaImpulso {
+  const referencia = `${ejercicio.nombre} ${ejercicio.equipo}`.toLocaleLowerCase("es");
+  if (referencia.includes("mancuerna")) return "mancuernas";
+  if (referencia.includes("barra")) return "barra";
+  if (referencia.includes("máquina") || referencia.includes("maquina") || referencia.includes("prensa")) return "maquina";
+  return "libre";
+}
+
+function convertirSaltoImpulso(kilos: number, unidad: UnidadPeso) {
+  if (unidad === "kg") return kilos;
+  return Math.max(5, Math.round((kilos * 2.20462) / 5) * 5);
+}
+
+function saltoImpulso(ejercicio: EjercicioSesion, respuesta: "mas" | "facil" | "muy_facil", unidad: UnidadPeso) {
+  const tipo = tipoCargaImpulso(ejercicio);
+  const kilos = tipo === "mancuernas"
+    ? 2.5
+    : tipo === "barra"
+      ? respuesta === "mas" ? 5 : 10
+      : tipo === "maquina"
+        ? respuesta === "muy_facil" ? 15 : respuesta === "facil" ? 10 : 5
+        : 0;
+  return convertirSaltoImpulso(kilos, unidad);
 }
 
 function desplazarPosicionSerie(ejercicioIndice: number, serieIndice: number, direccion: -1 | 1) {
@@ -267,6 +294,48 @@ export function SesionActivaV2() {
     }));
   };
 
+  const prepararImpulsoAutomatico = (ejercicio: EjercicioSesion, serieIndice: number) => {
+    const series = registro[ejercicio.id];
+    const serieBase = series[serieIndice];
+    const serieObjetivo = series.findIndex((serie, indice) => indice > serieIndice && !serie.completada);
+
+    if (serieObjetivo < 0) {
+      setImpulsos((actuales) => ({
+        ...actuales,
+        [ejercicio.id]: {
+          respuesta: null,
+          mensaje: "Ejercicio completado. La próxima progresión quedará limitada a un solo salto de peso.",
+          serieObjetivo: null,
+          aplicado: false,
+          origen: "automatico",
+        },
+      }));
+      return;
+    }
+
+    const objetivoActual = series[serieObjetivo];
+    const pesoBase = objetivoActual.peso.trim() || serieBase.peso.trim();
+    const repsBase = objetivoActual.reps.trim() || serieBase.reps.trim();
+    setRegistro((actual) => ({
+      ...actual,
+      [ejercicio.id]: actual[ejercicio.id].map((serie, indice) => indice === serieObjetivo
+        ? { ...serie, peso: pesoBase, reps: repsBase }
+        : serie),
+    }));
+    setImpulsos((actuales) => ({
+      ...actuales,
+      [ejercicio.id]: {
+        respuesta: null,
+        mensaje: pesoBase
+          ? `Próxima serie preparada en ${pesoBase} ${unidadPeso}. Solo subiremos un salto si tú confirmas que sobró margen.`
+          : `Próxima serie preparada en ${repsBase} repeticiones. Solo aumentaremos si tú confirmas que sobró margen.`,
+        serieObjetivo,
+        aplicado: true,
+        origen: "automatico",
+      },
+    }));
+  };
+
   const alternarSerie = (ejercicio: EjercicioSesion, serieIndice: number) => {
     const estabaCompletada = registro[ejercicio.id][serieIndice].completada;
     const ejercicioIndice = EJERCICIOS.findIndex((item) => item.id === ejercicio.id);
@@ -285,6 +354,7 @@ export function SesionActivaV2() {
       setDescanso((actual) => actual?.ejercicioId === ejercicio.id && actual.serieIndice === serieIndice ? null : actual);
       return;
     }
+    prepararImpulsoAutomatico(ejercicio, serieIndice);
     if (esUltimaSerieRutina) {
       descansoAvisadoRef.current = null;
       cortarAviso();
@@ -450,6 +520,7 @@ export function SesionActivaV2() {
           mensaje: "Respuesta guardada para ajustar este ejercicio en tu próxima sesión.",
           serieObjetivo: null,
           aplicado: false,
+          origen: "respuesta",
         },
       }));
       return;
@@ -463,19 +534,28 @@ export function SesionActivaV2() {
     let repsObjetivo = repsBase;
     let instruccion = "Mantén la carga y repite con la misma técnica.";
 
-    if (respuesta === "mas") {
+    if (respuesta === "mas" || respuesta === "facil" || respuesta === "muy_facil") {
+      const repsExtra = respuesta === "muy_facil" ? 3 : respuesta === "facil" ? 2 : 1;
       if (tienePeso) {
-        pesoObjetivo = formatearCarga(pesoBase + (unidadPeso === "kg" ? 2.5 : 5));
-        instruccion = `Sube a ${pesoObjetivo} ${unidadPeso} manteniendo ${repsBase} repeticiones.`;
+        const salto = saltoImpulso(ejercicioActivo, respuesta, unidadPeso);
+        if (salto === 0) {
+          repsObjetivo = repsBase + repsExtra;
+          instruccion = `Añade ${repsExtra} ${repsExtra === 1 ? "repetición" : "repeticiones"}: busca ${repsObjetivo} con ejecución limpia.`;
+        } else {
+          pesoObjetivo = formatearCarga(pesoBase + salto);
+          instruccion = `${respuesta === "muy_facil" ? "Estímulo claramente bajo" : respuesta === "facil" ? "Carga cómoda" : "Sobró margen"}: sube a ${pesoObjetivo} ${unidadPeso} (+${salto} ${unidadPeso}) según el equipo.`;
+        }
       } else {
-        repsObjetivo = repsBase + 2;
-        instruccion = `Busca ${repsObjetivo} repeticiones con ejecución limpia.`;
+        repsObjetivo = repsBase + repsExtra;
+        instruccion = `Añade ${repsExtra} ${repsExtra === 1 ? "repetición" : "repeticiones"}: busca ${repsObjetivo} con ejecución limpia.`;
       }
     } else if (respuesta === "dificil") {
       if (tienePeso) {
-        const paso = unidadPeso === "kg" ? 0.5 : 1;
-        pesoObjetivo = formatearCarga(Math.max(0, Math.round((pesoBase * 0.95) / paso) * paso));
-        instruccion = `Ajusta a ${pesoObjetivo} ${unidadPeso} y prioriza el control.`;
+        const tipo = tipoCargaImpulso(ejercicioActivo);
+        const kilos = tipo === "mancuernas" ? 2.5 : 5;
+        const salto = convertirSaltoImpulso(kilos, unidadPeso);
+        pesoObjetivo = formatearCarga(Math.max(0, pesoBase - salto));
+        instruccion = `Baja un solo nivel a ${pesoObjetivo} ${unidadPeso} y prioriza el control.`;
       } else {
         repsObjetivo = Math.max(1, repsBase - 1);
         instruccion = `Baja a ${repsObjetivo} repeticiones y conserva la técnica.`;
@@ -483,8 +563,10 @@ export function SesionActivaV2() {
     } else if (respuesta === "no_pude") {
       repsObjetivo = Math.max(1, repsBase - 2);
       if (tienePeso) {
-        const paso = unidadPeso === "kg" ? 0.5 : 1;
-        pesoObjetivo = formatearCarga(Math.max(0, Math.round((pesoBase * 0.9) / paso) * paso));
+        const tipo = tipoCargaImpulso(ejercicioActivo);
+        const kilos = tipo === "mancuernas" ? 5 : 10;
+        const saltoSeguro = convertirSaltoImpulso(kilos, unidadPeso);
+        pesoObjetivo = formatearCarga(Math.max(0, pesoBase - saltoSeguro));
         instruccion = `Reduce a ${pesoObjetivo} ${unidadPeso} y completa ${repsObjetivo} repeticiones seguras.`;
       } else {
         instruccion = `Haz ${repsObjetivo} repeticiones seguras antes de volver a progresar.`;
@@ -504,6 +586,7 @@ export function SesionActivaV2() {
         mensaje: instruccion,
         serieObjetivo,
         aplicado: true,
+        origen: "respuesta",
       },
     }));
     if (!descansoEnFoco) {
@@ -791,16 +874,19 @@ function PanelAuxiliar({
         {tipo === "impulso" ? (
           <div className={styles.impulsoPanel}>
             <p className={styles.impulsoIntro}>Cuéntanos cómo sentiste la última serie completada. Ajustaremos la próxima serie sin pedirte cálculos ni escalas técnicas.</p>
+            <div className={styles.impulsoRule}><Zap size={15} fill="currentColor" /><span><strong>Progresión según el equipo</strong><small>Impulso prepara la siguiente serie sin subirla. Cuando confirmas margen, calcula un salto distinto para mancuernas, barra o máquina.</small></span></div>
             {puedeCalibrarImpulso ? (
               <div className={styles.impulsoOptions} role="group" aria-label="Sensación de la última serie">
-                <button type="button" aria-pressed={impulsoActual?.respuesta === "mas"} onClick={() => resolverImpulso("mas")}><strong>Podía hacer más</strong><small>Aumentar el estímulo</small></button>
+                <button type="button" aria-pressed={impulsoActual?.respuesta === "muy_facil"} onClick={() => resolverImpulso("muy_facil")}><strong>Estuvo muy fácil</strong><small>Aumento mayor según equipo</small></button>
+                <button type="button" aria-pressed={impulsoActual?.respuesta === "facil"} onClick={() => resolverImpulso("facil")}><strong>Estuvo fácil</strong><small>Aumento medio según equipo</small></button>
+                <button type="button" aria-pressed={impulsoActual?.respuesta === "mas"} onClick={() => resolverImpulso("mas")}><strong>Podía hacer más</strong><small>Subir un nivel</small></button>
                 <button type="button" aria-pressed={impulsoActual?.respuesta === "justo"} onClick={() => resolverImpulso("justo")}><strong>Estuvo justo</strong><small>Mantener el objetivo</small></button>
                 <button type="button" aria-pressed={impulsoActual?.respuesta === "dificil"} onClick={() => resolverImpulso("dificil")}><strong>Muy difícil</strong><small>Reducir un poco</small></button>
                 <button type="button" aria-pressed={impulsoActual?.respuesta === "no_pude"} onClick={() => resolverImpulso("no_pude")}><strong>No la completé</strong><small>Priorizar seguridad</small></button>
               </div>
             ) : <p className={styles.impulsoEmpty}>Completa al menos una serie de este ejercicio para activar una recomendación.</p>}
             {impulsoActual ? (
-              <div className={styles.impulsoResult}><Check size={16} strokeWidth={3} /><span><strong>Ajuste preparado</strong><small>{impulsoActual.mensaje}</small></span><b>{impulsoActual.serieObjetivo === null ? "Próxima sesión" : `Serie ${impulsoActual.serieObjetivo + 1}`}</b></div>
+              <div className={styles.impulsoResult}><Check size={16} strokeWidth={3} /><span><strong>{impulsoActual.origen === "automatico" ? "Preparación automática" : "Ajuste confirmado"}</strong><small>{impulsoActual.mensaje}</small></span><b>{impulsoActual.serieObjetivo === null ? "Próxima sesión" : `Serie ${impulsoActual.serieObjetivo + 1}`}</b></div>
             ) : null}
             <button type="button" className={styles.impulsoDone} onClick={cerrar}>Listo</button>
           </div>
