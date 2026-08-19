@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SesionActivaV2, type SesionActivaModeloV2 } from "@/components/v2/SesionActivaV2";
+import { SesionActivaV2, type AlternativaEjercicioV2, type SesionActivaModeloV2 } from "@/components/v2/SesionActivaV2";
 import { obtenerContextoAlumnoOpcional } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerSesionCompleta } from "@/app/alumno/entrenar/data";
@@ -12,7 +12,14 @@ import {
   type TecnicaIndividualSlug,
 } from "@/lib/entrenamiento/motor-tecnicas-sesion";
 import { resolverGrupoTecnica, tamanoGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import type { Database } from "@/lib/supabase/types";
 import styles from "@/components/v2/PortalV2.module.css";
+
+type FichaEjercicioV2 = Pick<Database["public"]["Tables"]["ejercicios"]["Row"],
+  | "id" | "nombre" | "grupo_muscular" | "categoria" | "equipo" | "activo" | "calidad_ficha"
+  | "foto_completa_url" | "foto_miniatura_url" | "video_url" | "video_cloudflare_uid"
+  | "video_cloudflare_estado" | "video_cloudflare_miniatura_url"
+>;
 
 function objetivoRepeticiones(texto: string, cantidad: number) {
   const numeros = texto.match(/\d+/g)?.map(Number).filter(Number.isFinite) ?? [];
@@ -85,14 +92,82 @@ export default async function SesionV2Page({
     );
   }
 
-  const bloquesTecnica = construirBloquesTecnica(sesion.ejercicios);
-  const ejercicios = sesion.ejercicios.map((ejercicio, indice) => {
+  const idsSesionEjercicio = sesion.ejercicios.map((ejercicio) => ejercicio.sesionEjercicioId);
+  const { data: personalizaciones, error: errorPersonalizaciones } = await supabase
+    .from("sesion_ejercicio_personalizaciones")
+    .select("sesion_ejercicio_id, ejercicio_sustituto_id, orden_ejecucion")
+    .in("sesion_ejercicio_id", idsSesionEjercicio);
+  const personalizacionDisponible = !errorPersonalizaciones;
+  const personalizacionPorId = new Map((personalizaciones ?? []).map((fila) => [fila.sesion_ejercicio_id, fila]));
+  const ejerciciosSesionOrdenados = sesion.ejercicios
+    .map((ejercicio, indiceOriginal) => ({
+      ejercicio,
+      indiceOriginal,
+      ordenPersonal: personalizacionPorId.get(ejercicio.sesionEjercicioId)?.orden_ejecucion,
+    }))
+    .sort((a, b) => (a.ordenPersonal ?? 10_000 + a.indiceOriginal) - (b.ordenPersonal ?? 10_000 + b.indiceOriginal))
+    .map((fila) => fila.ejercicio);
+
+  const idsBiblioteca = new Set(ejerciciosSesionOrdenados.flatMap((ejercicio) => {
+    const sustituto = personalizacionPorId.get(ejercicio.sesionEjercicioId)?.ejercicio_sustituto_id;
+    return [ejercicio.ejercicioId, sustituto].filter((id): id is string => Boolean(id));
+  }));
+  const camposFicha = "id, nombre, grupo_muscular, categoria, equipo, activo, calidad_ficha, foto_completa_url, foto_miniatura_url, video_url, video_cloudflare_uid, video_cloudflare_estado, video_cloudflare_miniatura_url";
+  const { data: fichasBase } = idsBiblioteca.size
+    ? await supabase.from("ejercicios").select(camposFicha).in("id", [...idsBiblioteca])
+    : { data: [] };
+  const gruposPresentes = [...new Set((fichasBase ?? []).map((ficha) => ficha.grupo_muscular).filter((grupo): grupo is NonNullable<typeof grupo> => Boolean(grupo)))];
+  const { data: candidatas } = personalizacionDisponible && gruposPresentes.length
+    ? await supabase
+        .from("ejercicios")
+        .select(camposFicha)
+        .in("grupo_muscular", gruposPresentes)
+        .eq("activo", true)
+        .eq("calidad_ficha", "completa")
+        .limit(180)
+    : { data: [] };
+  const fichaPorId = new Map([...(fichasBase ?? []), ...(candidatas ?? [])].map((ficha) => [ficha.id, ficha]));
+
+  const fotoFicha = (ficha: FichaEjercicioV2 | undefined, grupo: string | null) =>
+    ficha?.video_cloudflare_miniatura_url
+      ?? ficha?.foto_completa_url
+      ?? ficha?.foto_miniatura_url
+      ?? (grupo ? FOTOS_GRUPO_MUSCULAR[grupo as keyof typeof FOTOS_GRUPO_MUSCULAR]?.[0] : null)
+      ?? "/v2/piernas.webp";
+  const alternativaVisual = (ficha: FichaEjercicioV2): AlternativaEjercicioV2 => ({
+    id: ficha.id,
+    nombre: ficha.nombre,
+    foto: fotoFicha(ficha, ficha.grupo_muscular),
+    equipo: ficha.equipo ? ficha.equipo.replaceAll("_", " ") : "Equipo compatible",
+    grupo: ficha.grupo_muscular ? ETIQUETAS_GRUPO_MUSCULAR[ficha.grupo_muscular] : "Entrenamiento",
+    videoUrl: ficha.video_url ?? undefined,
+    videoCloudflareListo: Boolean(ficha.video_cloudflare_uid && ficha.video_cloudflare_estado === "listo"),
+  });
+  const alternativas: Record<string, AlternativaEjercicioV2[]> = {};
+  for (const ejercicio of ejerciciosSesionOrdenados) {
+    const origen = ejercicio.ejercicioId ? fichaPorId.get(ejercicio.ejercicioId) : undefined;
+    if (!origen?.grupo_muscular) continue;
+    alternativas[ejercicio.sesionEjercicioId] = (candidatas ?? [])
+      .filter((ficha) => ficha.id !== origen.id
+        && ficha.grupo_muscular === origen.grupo_muscular
+        && (!origen.categoria || !ficha.categoria || ficha.categoria === origen.categoria))
+      .sort((a, b) => Number(b.categoria === origen.categoria) - Number(a.categoria === origen.categoria)
+        || Number(a.equipo !== origen.equipo) - Number(b.equipo !== origen.equipo)
+        || a.nombre.localeCompare(b.nombre, "es"))
+      .slice(0, 8)
+      .map(alternativaVisual);
+  }
+
+  const bloquesTecnica = construirBloquesTecnica(ejerciciosSesionOrdenados);
+  const ejercicios = ejerciciosSesionOrdenados.map((ejercicio, indice) => {
     const slug = normalizarTecnicaSesion(ejercicio.tecnicaTipo);
     const encadenada = slug !== null && esTecnicaEncadenada(slug);
     const familia = resolverGrupoTecnica(ejercicio.tecnicaTipo)?.etiqueta ?? "";
     const bloqueId = bloquesTecnica.get(ejercicio.sesionEjercicioId);
 
-    const foto = ejercicio.videoCloudflareMiniaturaUrl
+    const sustitutoId = personalizacionPorId.get(ejercicio.sesionEjercicioId)?.ejercicio_sustituto_id;
+    const fichaSustituta = sustitutoId ? fichaPorId.get(sustitutoId) : undefined;
+    const foto = fichaSustituta ? fotoFicha(fichaSustituta, fichaSustituta.grupo_muscular) : ejercicio.videoCloudflareMiniaturaUrl
       ?? ejercicio.fotoCompletaUrl
       ?? ejercicio.fotoMiniaturaUrl
       ?? (ejercicio.grupoMuscular ? FOTOS_GRUPO_MUSCULAR[ejercicio.grupoMuscular]?.[0] : null)
@@ -102,16 +177,20 @@ export default async function SesionV2Page({
     return {
       id: ejercicio.sesionEjercicioId,
       sesionEjercicioId: ejercicio.sesionEjercicioId,
-      bibliotecaEjercicioId: ejercicio.ejercicioId ?? undefined,
+      bibliotecaEjercicioId: fichaSustituta?.id ?? ejercicio.ejercicioId ?? undefined,
       codigo: String.fromCharCode(65 + (indice % 26)),
-      nombre: ejercicio.nombre,
+      nombre: fichaSustituta?.nombre ?? ejercicio.nombre,
       repeticiones: objetivos,
       descanso: ejercicio.descansoPersonalizadoSegundos ?? ejercicio.descansoSegundos ?? 60,
       foto,
-      videoUrl: ejercicio.videoUrl ?? undefined,
-      videoCloudflareListo: Boolean(ejercicio.videoCloudflareUid && ejercicio.videoCloudflareEstado === "listo"),
-      equipo: ejercicio.tecnicaSugerida ?? "Equipo asignado",
-      grupo: ejercicio.grupoMuscular ? ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular] : "Entrenamiento",
+      videoUrl: fichaSustituta?.video_url ?? ejercicio.videoUrl ?? undefined,
+      videoCloudflareListo: fichaSustituta
+        ? Boolean(fichaSustituta.video_cloudflare_uid && fichaSustituta.video_cloudflare_estado === "listo")
+        : Boolean(ejercicio.videoCloudflareUid && ejercicio.videoCloudflareEstado === "listo"),
+      equipo: fichaSustituta?.equipo?.replaceAll("_", " ") ?? ejercicio.tecnicaSugerida ?? "Equipo asignado",
+      grupo: fichaSustituta?.grupo_muscular
+        ? ETIQUETAS_GRUPO_MUSCULAR[fichaSustituta.grupo_muscular]
+        : ejercicio.grupoMuscular ? ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular] : "Entrenamiento",
       tecnica: familia || ejercicio.tecnicaTipo || undefined,
       bloqueId,
       tecnicaSlug: encadenada ? slug as TecnicaEncadenadaSlug : undefined,
@@ -147,6 +226,8 @@ export default async function SesionV2Page({
     soloLectura: contexto.soloLectura || sesion.estado !== "en_progreso",
     temporizadorAutomaticoInicial: sesion.ejercicios[0]?.temporizadorDescanso ?? true,
     ejercicios,
+    personalizacionDisponible,
+    alternativas,
     momentosAlejandro: sesion.ejercicios.flatMap((ejercicio) =>
       ejercicio.intervencionesImpulso
         .filter((momento) => momento.estado !== "cancelada")
@@ -162,5 +243,5 @@ export default async function SesionV2Page({
     ),
   };
 
-  return <SesionActivaV2 sesion={modelo} />;
+  return <SesionActivaV2 key={modelo.id} sesion={modelo} />;
 }

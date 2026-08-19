@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Check,
+  ArrowDown,
+  ArrowUp,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -21,6 +23,7 @@ import {
   Play,
   Plus,
   Settings,
+  Shuffle,
   StickyNote,
   X,
   Zap,
@@ -44,6 +47,7 @@ import {
   guardarYFinalizarSesionV2,
   type RegistroSesionV2,
 } from "@/app/alumno/entrenar/actions";
+import { reordenarEjerciciosSesionV2, sustituirEjercicioSesionV2 } from "@/app/portal-v2/entrenamiento/sesion/actions";
 import { ModalVideo } from "@/components/student/ModalVideo";
 import { ModalVideoCloudflare } from "@/components/student/ModalVideoCloudflare";
 import { VideoCloudflareAutomatico } from "@/components/student/VideoCloudflareAutomatico";
@@ -80,6 +84,16 @@ export type EjercicioSesionV2 = {
   seriesIniciales?: SerieRegistradaV2[];
 };
 
+export type AlternativaEjercicioV2 = {
+  id: string;
+  nombre: string;
+  foto: string;
+  equipo: string;
+  grupo: string;
+  videoUrl?: string;
+  videoCloudflareListo?: boolean;
+};
+
 export type SesionActivaModeloV2 = {
   id: string;
   titulo: string;
@@ -89,6 +103,8 @@ export type SesionActivaModeloV2 = {
   temporizadorAutomaticoInicial?: boolean;
   ejercicios: EjercicioSesionV2[];
   momentosAlejandro: MomentoSesionAlejandro[];
+  personalizacionDisponible?: boolean;
+  alternativas?: Record<string, AlternativaEjercicioV2[]>;
 };
 
 type DescansoActivo = {
@@ -99,7 +115,7 @@ type DescansoActivo = {
   vistaRetorno: Exclude<VistaSesion, "descanso">;
 };
 
-type PanelSesion = "consejo" | "historial" | "notas" | "ajustes" | "informacion" | "impulso" | null;
+type PanelSesion = "consejo" | "historial" | "notas" | "ajustes" | "informacion" | "impulso" | "sustituir" | "reordenar" | null;
 type VistaSesion = "lista" | "video" | "descanso";
 type UnidadPeso = "kg" | "lb";
 type PausaTecnica = { clave: string; segundos: number; pasoSiguiente: number };
@@ -110,6 +126,16 @@ const EJERCICIOS_DEMO: EjercicioSesionV2[] = [
   { id: "prensa-inclinada", codigo: "B2", nombre: "Prensa inclinada", repeticiones: [12, 12, 12], descanso: 90, foto: "/v2/piernas.webp", equipo: "Prensa 45°", grupo: "Cuádriceps", tecnica: "Superserie", bloqueId: "superserie-b", tecnicaSlug: "superserie" },
   { id: "extension-cuadriceps", codigo: "C", nombre: "Extensión de cuádriceps", repeticiones: [15, 15, 15], descanso: 75, foto: "/v2/hombros.webp", equipo: "Máquina de extensión", grupo: "Cuádriceps" },
 ];
+
+const ALTERNATIVAS_DEMO: Record<string, AlternativaEjercicioV2[]> = {
+  "sentadilla-smith": [
+    { id: "hack-demo", nombre: "Sentadilla Hack", foto: "/v2/piernas.webp", equipo: "Máquina Hack", grupo: "Cuádriceps · glúteos" },
+    { id: "prensa-demo", nombre: "Prensa inclinada", foto: "/v2/piernas.webp", equipo: "Prensa 45°", grupo: "Cuádriceps · glúteos" },
+  ],
+  "extension-cuadriceps": [
+    { id: "sissy-demo", nombre: "Sentadilla Sissy asistida", foto: "/v2/piernas.webp", equipo: "Peso corporal", grupo: "Cuádriceps" },
+  ],
+};
 
 type PosicionSerie = { ejercicioIndice: number; serieIndice: number };
 
@@ -225,7 +251,12 @@ function segmentosDeSerie(ejercicio: EjercicioSesionV2, serieIndice: number): Se
 }
 
 export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
-  const EJERCICIOS = sesion?.ejercicios?.length ? sesion.ejercicios : EJERCICIOS_DEMO;
+  const [ejerciciosSesion, setEjerciciosSesion] = useState<EjercicioSesionV2[]>(() =>
+    sesion?.ejercicios?.length ? sesion.ejercicios : EJERCICIOS_DEMO
+  );
+  const EJERCICIOS = ejerciciosSesion;
+  const alternativas = sesion ? (sesion.alternativas ?? {}) : ALTERNATIVAS_DEMO;
+  const personalizacionDisponible = sesion ? Boolean(sesion.personalizacionDisponible) : true;
   const ORDEN_EJECUCION = useMemo(() => crearOrdenEjecucion(EJERCICIOS), [EJERCICIOS]);
   const MOMENTOS_ALEJANDRO = useMemo(
     () => sesion ? sesion.momentosAlejandro : crearMomentosDemo(EJERCICIOS),
@@ -260,6 +291,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [videoAmpliado, setVideoAmpliado] = useState(false);
   const [mensajeCompartir, setMensajeCompartir] = useState<string | null>(null);
   const [guardando, iniciarGuardado] = useTransition();
+  const [personalizando, iniciarPersonalizacion] = useTransition();
+  const [errorPersonalizacion, setErrorPersonalizacion] = useState<string | null>(null);
   const gestoInicioX = useRef<number | null>(null);
   const descansoAvisadoRef = useRef<string | null>(null);
   const paginaSesionRef = useRef<HTMLDivElement | null>(null);
@@ -492,6 +525,80 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     });
   };
 
+  const aplicarSustitucion = (alternativa: AlternativaEjercicioV2) => {
+    if (registro[ejercicioActivo.id].some((serie) => serie.completada)) {
+      setErrorPersonalizacion("Desmarca primero las series realizadas para que el historial no mezcle dos ejercicios.");
+      return;
+    }
+    const aplicarLocal = () => {
+      setEjerciciosSesion((actuales) => actuales.map((ejercicio) => ejercicio.id === ejercicioActivo.id
+        ? {
+            ...ejercicio,
+            bibliotecaEjercicioId: alternativa.id,
+            nombre: alternativa.nombre,
+            foto: alternativa.foto,
+            equipo: alternativa.equipo,
+            grupo: alternativa.grupo,
+            videoUrl: alternativa.videoUrl,
+            videoCloudflareListo: alternativa.videoCloudflareListo,
+            ultimoRegistro: undefined,
+          }
+        : ejercicio));
+      setErrorPersonalizacion(null);
+      setPanel(null);
+    };
+    if (!sesion?.real) {
+      aplicarLocal();
+      return;
+    }
+    iniciarPersonalizacion(async () => {
+      const resultado = await sustituirEjercicioSesionV2({
+        sesionEjercicioId: ejercicioActivo.sesionEjercicioId ?? ejercicioActivo.id,
+        ejercicioSustitutoId: alternativa.id,
+        motivo: "Sustitución elegida por el alumno durante la sesión V2",
+      });
+      if (!resultado.ok) {
+        setErrorPersonalizacion(resultado.error);
+        return;
+      }
+      aplicarLocal();
+    });
+  };
+
+  const moverBloqueEjercicio = (ejercicioId: string, direccion: -1 | 1) => {
+    const bloques: EjercicioSesionV2[][] = [];
+    for (const ejercicio of EJERCICIOS) {
+      const ultimo = bloques.at(-1);
+      if (ejercicio.bloqueId && ultimo?.[0]?.bloqueId === ejercicio.bloqueId) ultimo.push(ejercicio);
+      else bloques.push([ejercicio]);
+    }
+    const bloqueIndice = bloques.findIndex((bloque) => bloque.some((ejercicio) => ejercicio.id === ejercicioId));
+    const destino = bloqueIndice + direccion;
+    if (bloqueIndice < 0 || destino < 0 || destino >= bloques.length) return;
+    const siguientesBloques = [...bloques];
+    [siguientesBloques[bloqueIndice], siguientesBloques[destino]] = [siguientesBloques[destino], siguientesBloques[bloqueIndice]];
+    const siguientes = siguientesBloques.flat();
+    const aplicarLocal = () => {
+      setEjerciciosSesion(siguientes);
+      setErrorPersonalizacion(null);
+    };
+    if (!sesion?.real) {
+      aplicarLocal();
+      return;
+    }
+    iniciarPersonalizacion(async () => {
+      const resultado = await reordenarEjerciciosSesionV2({
+        sesionId: sesion.id,
+        ejerciciosOrdenados: siguientes.map((ejercicio) => ejercicio.sesionEjercicioId ?? ejercicio.id),
+      });
+      if (!resultado.ok) {
+        setErrorPersonalizacion(resultado.error);
+        return;
+      }
+      aplicarLocal();
+    });
+  };
+
   const alternarSerie = (ejercicio: EjercicioSesionV2, serieIndice: number) => {
     if (sesion?.soloLectura) return;
     const estabaCompletada = registro[ejercicio.id][serieIndice].completada;
@@ -693,6 +800,17 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     setVista("descanso");
   };
 
+  const abrirVistaVideo = () => {
+    // El descanso no desaparece al cambiar el modo visual: es un paso real de
+    // la sesión, igual que una serie. Solo cambiamos la vista a la que volverá.
+    if (descanso !== null && descansoEnFoco) {
+      setDescanso((actual) => actual === null ? null : { ...actual, vistaRetorno: "video" });
+      setVista("descanso");
+      return;
+    }
+    setVista("video");
+  };
+
   const cambiarUnidadPeso = (siguienteUnidad: UnidadPeso) => {
     if (siguienteUnidad === unidadPeso) return;
     setRegistro((actual) => Object.fromEntries(
@@ -852,7 +970,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             <div className={styles.videoIdentity}><small>SERIE {ejercicioActivo.codigo}</small><h1>{ejercicioActivo.nombre}</h1><p>{ejercicioActivo.equipo}</p></div>
           </div>
           <div className={styles.videoActions}>
-            <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>
+            <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicioActivo.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={13} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={13} />Orden</button> : null}
           </div>
           {impulsoActivo ? (
             <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
@@ -894,10 +1012,10 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
               <section className={styles.activeExercise} key={ejercicio.id}>
                 <button type="button" className={styles.seriesLabel} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)} aria-label={`Contraer ${ejercicio.nombre}`}>SERIE {ejercicio.codigo}<i aria-hidden="true">›››</i>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}</button>
                 <div className={styles.exerciseHeading}>
-                  <button type="button" className={styles.exerciseMedia} onClick={() => setVista("video")} aria-label={`Ver demostración de ${ejercicio.nombre}`}><Image src={ejercicio.foto} alt="" fill sizes="70px" priority={ejercicio.codigo === "A"} /><i><Play size={17} fill="currentColor" /></i></button>
+                  <button type="button" className={styles.exerciseMedia} onClick={abrirVistaVideo} aria-label={`Ver demostración de ${ejercicio.nombre}`}><Image src={ejercicio.foto} alt="" fill sizes="70px" priority={ejercicio.codigo === "A"} /><i><Play size={17} fill="currentColor" /></i></button>
                   <button type="button" className={styles.exerciseHeadingToggle} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)}><h1>{ejercicio.nombre}</h1><p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p></button>
                 </div>
-                <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button></div>
+                <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicio.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={14} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={14} />Orden</button> : null}</div>
                 {impulsoEjercicio ? (
                   <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
                     <Zap size={15} fill="currentColor" />
@@ -937,7 +1055,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
               </section>
             );
           })}
-          <button type="button" className={styles.videoViewButton} onClick={() => setVista("video")}><ListVideo size={14} /> Vista de video</button>
+          <button type="button" className={styles.videoViewButton} onClick={abrirVistaVideo}><ListVideo size={14} /> Vista de video</button>
         </main>
       )}
 
@@ -965,6 +1083,12 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           impulsoActual={impulsoActivo}
           cupoImpulso={MOMENTOS_ALEJANDRO.length}
           impulsosLogrados={Object.keys(momentosLogrados).length}
+          alternativas={alternativas[ejercicioActivo.id] ?? []}
+          ejerciciosSesion={EJERCICIOS}
+          personalizando={personalizando}
+          errorPersonalizacion={errorPersonalizacion}
+          onSustituir={aplicarSustitucion}
+          onMover={moverBloqueEjercicio}
           guardarNota={(nota) => guardarNotaEjercicio(ejercicioActivo, nota)}
           cerrar={() => setPanel(null)}
         />
@@ -1031,6 +1155,12 @@ function PanelAuxiliar({
   impulsoActual,
   cupoImpulso,
   impulsosLogrados,
+  alternativas,
+  ejerciciosSesion,
+  personalizando,
+  errorPersonalizacion,
+  onSustituir,
+  onMover,
   guardarNota,
   cerrar,
 }: {
@@ -1048,11 +1178,17 @@ function PanelAuxiliar({
   impulsoActual: MomentoSesionAlejandro | null;
   cupoImpulso: number;
   impulsosLogrados: number;
+  alternativas: AlternativaEjercicioV2[];
+  ejerciciosSesion: EjercicioSesionV2[];
+  personalizando: boolean;
+  errorPersonalizacion: string | null;
+  onSustituir: (alternativa: AlternativaEjercicioV2) => void;
+  onMover: (ejercicioId: string, direccion: -1 | 1) => void;
   guardarNota: (nota: string) => void;
   cerrar: () => void;
 }) {
   const [notaBorrador, setNotaBorrador] = useState(notaInicial);
-  const titulos = { consejo: "Consejo del entrenador", historial: "Último registro", notas: "Notas del ejercicio", ajustes: "Ajustes de la sesión", informacion: "Información del ejercicio", impulso: "Alejandro · Impulso VIP" };
+  const titulos = { consejo: "Consejo del entrenador", historial: "Último registro", notas: "Notas del ejercicio", ajustes: "Ajustes de la sesión", informacion: "Información del ejercicio", impulso: "Alejandro · Impulso VIP", sustituir: "Cambiar ejercicio", reordenar: "Orden de la sesión" };
   return (
     <div className={styles.sheetBackdrop} role="presentation" onClick={cerrar}>
       <section className={styles.auxSheet} role="dialog" aria-modal="true" aria-label={titulos[tipo]} onClick={(evento) => evento.stopPropagation()}>
@@ -1097,6 +1233,35 @@ function PanelAuxiliar({
           </div>
         ) : null}
         {tipo === "informacion" ? <div className={styles.infoGrid}><span><small>Equipo</small><strong>{ejercicio.equipo}</strong></span><span><small>Objetivo</small><strong>{ejercicio.grupo}</strong></span><span><small>Descanso</small><strong>{ejercicio.descanso} segundos</strong></span></div> : null}
+        {tipo === "sustituir" ? (
+          <div className={styles.swapList}>
+            <p className={styles.sheetCopy}>Sólo aparecen alternativas aprobadas que conservan el grupo muscular y el patrón. El cambio afecta esta sesión, no la rutina publicada.</p>
+            {alternativas.map((alternativa) => (
+              <button type="button" key={alternativa.id} disabled={personalizando} onClick={() => onSustituir(alternativa)}>
+                <Shuffle size={16} /><span><strong>{alternativa.nombre}</strong><small>{alternativa.equipo} · {alternativa.grupo}</small></span><ChevronRight size={17} />
+              </button>
+            ))}
+            {alternativas.length === 0 ? <p className={styles.sheetCopy}>No hay una alternativa compatible y aprobada para este ejercicio.</p> : null}
+            {errorPersonalizacion ? <p className={styles.personalizationError} role="alert">{errorPersonalizacion}</p> : null}
+          </div>
+        ) : null}
+        {tipo === "reordenar" ? (
+          <div className={styles.reorderPreview}>
+            <p className={styles.sheetCopy}>Mueve ejercicios completos. Las biseries, trisets y series gigantes permanecen unidas.</p>
+            {ejerciciosSesion.map((item, indice) => {
+              const esInicioBloque = !item.bloqueId || ejerciciosSesion[indice - 1]?.bloqueId !== item.bloqueId;
+              const esFinBloque = !item.bloqueId || ejerciciosSesion[indice + 1]?.bloqueId !== item.bloqueId;
+              return (
+                <div key={item.id} data-blocked={!esInicioBloque && !esFinBloque}>
+                  <span><b>{item.codigo}</b><strong>{item.nombre}</strong>{item.tecnica ? <small>{item.tecnica}</small> : null}</span>
+                  {esInicioBloque ? <button type="button" disabled={personalizando || indice === 0} onClick={() => onMover(item.id, -1)} aria-label={`Subir ${item.nombre}`}><ArrowUp size={16} /></button> : <i />}
+                  {esFinBloque ? <button type="button" disabled={personalizando || indice === ejerciciosSesion.length - 1} onClick={() => onMover(item.id, 1)} aria-label={`Bajar ${item.nombre}`}><ArrowDown size={16} /></button> : <i />}
+                </div>
+              );
+            })}
+            {errorPersonalizacion ? <p className={styles.personalizationError} role="alert">{errorPersonalizacion}</p> : null}
+          </div>
+        ) : null}
       </section>
     </div>
   );

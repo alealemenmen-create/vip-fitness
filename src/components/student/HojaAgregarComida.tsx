@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { Search, X, Plus, ChevronLeft, Camera, ImageOff } from "lucide-react";
+import { Search, X, Plus, ChevronLeft, Camera, ImageOff, Bookmark, ChefHat, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -13,6 +13,13 @@ import {
 } from "@/app/alumno/comer/actions";
 import { LIMITE_BUSQUEDA_ALIMENTOS, type AlimentoCatalogo } from "@/app/alumno/comer/tipos";
 import type { ProductoOFF } from "@/lib/alimentos/openFoodFacts";
+import {
+  alternarFavoritoNutricionV2,
+  eliminarRecetaNutricionV2,
+  guardarRecetaNutricionV2,
+  obtenerBibliotecaNutricionV2,
+  type BibliotecaNutricionV2,
+} from "@/app/portal-v2/nutricion/actions";
 import { normalizar } from "@/lib/alimentos/emparejar";
 import { EscanerCodigoBarras } from "./EscanerCodigoBarras";
 
@@ -112,11 +119,13 @@ export function HojaAgregarComida({
   onCerrar,
   onConfirmar,
   modoInicial = "buscar",
+  bibliotecaV2 = false,
 }: {
   hora: number | null;
   onCerrar: () => void;
   onConfirmar: (elegidos: AlimentoElegido[]) => void;
   modoInicial?: "buscar" | "escanear";
+  bibliotecaV2?: boolean;
 }) {
   /** Lo levanta "Confirmar" justo antes de cerrar: es el único cierre que
    * deja un click sintético en el aire. */
@@ -139,6 +148,7 @@ export function HojaAgregarComida({
     <Contenido
       hora={hora}
       modoInicial={modoInicial}
+      bibliotecaV2={bibliotecaV2}
       onCerrar={() => {
         cerroConfirmando.current = false;
         onCerrar();
@@ -157,11 +167,13 @@ function Contenido({
   onCerrar,
   onConfirmar,
   modoInicial,
+  bibliotecaV2,
 }: {
   hora: number;
   onCerrar: () => void;
   onConfirmar: (elegidos: AlimentoElegido[]) => void;
   modoInicial: "buscar" | "escanear";
+  bibliotecaV2: boolean;
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [resultados, setResultados] = useState<AlimentoCatalogo[]>([]);
@@ -178,10 +190,24 @@ function Contenido({
   const [elegidos, setElegidos] = useState<AlimentoElegido[]>([]);
   const [creando, setCreando] = useState(false);
   const [escaneando, setEscaneando] = useState(modoInicial === "escanear");
+  const [vistaBiblioteca, setVistaBiblioteca] = useState<"buscar" | "favoritos" | "recetas">("buscar");
+  const [biblioteca, setBiblioteca] = useState<BibliotecaNutricionV2>({ disponible: false, favoritos: [], recetas: [] });
+  const [nombreReceta, setNombreReceta] = useState("");
+  const [errorBiblioteca, setErrorBiblioteca] = useState<string | null>(null);
+  const [guardandoBiblioteca, iniciarGuardadoBiblioteca] = useTransition();
   /** Código de barras que no estaba en OFF: se precarga en el formulario de
    * alimento personalizado cuando el escáner cede el paso a "Crear alimento". */
   const [offIdParaCrear, setOffIdParaCrear] = useState<string | null>(null);
   const campo = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!bibliotecaV2) return;
+    let vigente = true;
+    void obtenerBibliotecaNutricionV2()
+      .then((resultado) => { if (vigente) setBiblioteca(resultado); })
+      .catch(() => { if (vigente) setErrorBiblioteca("No pudimos abrir tus guardados."); });
+    return () => { vigente = false; };
+  }, [bibliotecaV2]);
 
   // Escape cierra.
   useEffect(() => {
@@ -391,6 +417,60 @@ function Contenido({
    * comida" antes de confirmar. */
   const aGuardar = pendiente ? [...elegidos, pendiente] : elegidos;
 
+  const idsFavoritos = new Set(biblioteca.favoritos.map((alimento) => alimento.id));
+  const refrescarBiblioteca = async () => {
+    const siguiente = await obtenerBibliotecaNutricionV2();
+    setBiblioteca(siguiente);
+    return siguiente;
+  };
+  const alternarFavorito = (alimento: AlimentoCatalogo) => {
+    iniciarGuardadoBiblioteca(async () => {
+      setErrorBiblioteca(null);
+      const resultado = await alternarFavoritoNutricionV2(alimento.id, !idsFavoritos.has(alimento.id));
+      if (!resultado.ok) {
+        setErrorBiblioteca(resultado.error);
+        return;
+      }
+      await refrescarBiblioteca();
+    });
+  };
+  const guardarComoReceta = () => {
+    const ingredientes = aGuardar;
+    iniciarGuardadoBiblioteca(async () => {
+      setErrorBiblioteca(null);
+      const resultado = await guardarRecetaNutricionV2({
+        nombre: nombreReceta,
+        ingredientes: ingredientes.map((item) => ({ alimentoId: item.alimento.id, cantidadBase: item.cantidadBase })),
+      });
+      if (!resultado.ok) {
+        setErrorBiblioteca(resultado.error);
+        return;
+      }
+      setNombreReceta("");
+      await refrescarBiblioteca();
+      setVistaBiblioteca("recetas");
+      setSeleccionado(null);
+    });
+  };
+  const usarReceta = (receta: BibliotecaNutricionV2["recetas"][number]) => {
+    setElegidos(receta.ingredientes.map((ingrediente) => ({
+      alimento: ingrediente.alimento,
+      cantidadBase: ingrediente.cantidadBase / Math.max(1, receta.porciones),
+    })));
+    setSeleccionado(null);
+    setVistaBiblioteca("buscar");
+  };
+  const eliminarReceta = (recetaId: string) => {
+    iniciarGuardadoBiblioteca(async () => {
+      const resultado = await eliminarRecetaNutricionV2(recetaId);
+      if (!resultado.ok) {
+        setErrorBiblioteca(resultado.error);
+        return;
+      }
+      await refrescarBiblioteca();
+    });
+  };
+
   /**
    * Corre la acción una sola vez aunque lleguen `pointerup` y `click`.
    *
@@ -573,7 +653,41 @@ function Contenido({
       titulo={`Agregar a las ${etiquetaHora(hora)}`}
       pie={acciones}
     >
-      {!seleccionado && (
+      {bibliotecaV2 && biblioteca.disponible && !seleccionado ? (
+        <div className="grid grid-cols-4 gap-1" role="tablist" aria-label="Biblioteca nutricional">
+          <button type="button" role="tab" aria-selected={vistaBiblioteca === "buscar"} onClick={() => setVistaBiblioteca("buscar")} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] ${vistaBiblioteca === "buscar" ? "bg-surface-2 text-text" : "text-text-tertiary"}`}><Search size={16} />Buscar</button>
+          <button type="button" role="tab" aria-selected={vistaBiblioteca === "favoritos"} onClick={() => setVistaBiblioteca("favoritos")} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] ${vistaBiblioteca === "favoritos" ? "bg-surface-2 text-text" : "text-text-tertiary"}`}><Bookmark size={16} />Guardados</button>
+          <button type="button" role="tab" aria-selected={vistaBiblioteca === "recetas"} onClick={() => setVistaBiblioteca("recetas")} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] ${vistaBiblioteca === "recetas" ? "bg-surface-2 text-text" : "text-text-tertiary"}`}><ChefHat size={16} />Recetas</button>
+          <button type="button" onClick={() => setEscaneando(true)} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] text-text-tertiary"><Camera size={16} />Escanear</button>
+        </div>
+      ) : null}
+
+      {!seleccionado && vistaBiblioteca === "favoritos" ? (
+        <div className="space-y-1">
+          {biblioteca.favoritos.map((alimento) => (
+            <button type="button" key={alimento.id} onClick={() => elegirAlimento(alimento)} className="radius-control flex min-h-[48px] w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-surface-2">
+              <span className="min-w-0 flex-1 truncate text-secondary text-text">{alimento.nombre}</span><span className="text-caption text-text-tertiary">{Math.round(alimento.kcal)} kcal</span>
+            </button>
+          ))}
+          {biblioteca.favoritos.length === 0 ? <p className="p-3 text-center text-secondary text-text-tertiary">Marca alimentos desde el buscador para encontrarlos aquí.</p> : null}
+        </div>
+      ) : null}
+
+      {!seleccionado && vistaBiblioteca === "recetas" ? (
+        <div className="space-y-2">
+          {biblioteca.recetas.map((receta) => (
+            <article key={receta.id} className="radius-control flex min-h-[58px] items-center gap-2 border border-border bg-surface-2 px-3 py-2">
+              <button type="button" className="min-w-0 flex-1 text-left" onClick={() => usarReceta(receta)}><strong className="block truncate text-secondary text-text">{receta.nombre}</strong><small className="text-caption text-text-tertiary">{receta.ingredientes.length} ingredientes · {receta.porciones} porción</small></button>
+              <button type="button" aria-label={`Eliminar ${receta.nombre}`} disabled={guardandoBiblioteca} onClick={() => eliminarReceta(receta.id)} className="grid h-10 w-10 place-items-center rounded-full text-error"><Trash2 size={16} /></button>
+            </article>
+          ))}
+          {biblioteca.recetas.length === 0 ? <p className="p-3 text-center text-secondary text-text-tertiary">Agrega ingredientes y guárdalos como receta para reutilizarlos.</p> : null}
+        </div>
+      ) : null}
+
+      {errorBiblioteca ? <p className="radius-control border border-error/30 bg-error/10 p-3 text-secondary text-error" role="alert">{errorBiblioteca}</p> : null}
+
+      {!seleccionado && vistaBiblioteca === "buscar" && (
         <div className="radius-control flex items-center gap-2 border border-border bg-surface-2 px-3 py-2.5">
           <Search size={16} className="shrink-0 text-text-secondary" />
           <input
@@ -624,7 +738,7 @@ function Contenido({
         </div>
       )}
 
-      {!seleccionado && buscandoAhora && (
+      {!seleccionado && vistaBiblioteca === "buscar" && buscandoAhora && (
         <p className="text-caption px-1 py-2 text-text-tertiary">Buscando…</p>
       )}
 
@@ -632,7 +746,7 @@ function Contenido({
           socio queda sin saber qué hacer y abandona la carga. Acá se le
           ofrecen las dos salidas que tiene, con el nombre que ya escribió
           listo para reutilizar. */}
-      {!seleccionado &&
+      {!seleccionado && vistaBiblioteca === "buscar" &&
         !buscandoAhora &&
         offEstado !== "buscando" &&
         busqueda.trim().length >= 2 &&
@@ -659,7 +773,7 @@ function Contenido({
           </div>
         )}
 
-      {!seleccionado && resultados.length > 0 && (
+      {!seleccionado && vistaBiblioteca === "buscar" && resultados.length > 0 && (
         <div className="space-y-1">
           {resultados.map((r) => (
             <button
@@ -686,11 +800,11 @@ function Contenido({
         </div>
       )}
 
-      {!seleccionado && offEstado === "buscando" && (
+      {!seleccionado && vistaBiblioteca === "buscar" && offEstado === "buscando" && (
         <p className="text-caption px-1 py-2 text-text-tertiary">Buscando en Open Food Facts…</p>
       )}
 
-      {!seleccionado && offResultados.length > 0 && (
+      {!seleccionado && vistaBiblioteca === "buscar" && offResultados.length > 0 && (
         <div className="space-y-1">
           {resultados.length > 0 && (
             <p className="text-caption px-1 pt-1 text-text-tertiary">Open Food Facts</p>
@@ -732,7 +846,7 @@ function Contenido({
         </div>
       )}
 
-      {!seleccionado && offError && (
+      {!seleccionado && vistaBiblioteca === "buscar" && offError && (
         <p className="text-caption px-1 py-1 text-text-tertiary">{offError}</p>
       )}
 
@@ -750,6 +864,7 @@ function Contenido({
             <p className="text-secondary min-w-0 flex-1 truncate font-medium text-text">
               {seleccionado.nombre}
             </p>
+            {biblioteca.disponible ? <button type="button" disabled={guardandoBiblioteca} aria-label={idsFavoritos.has(seleccionado.id) ? `Quitar ${seleccionado.nombre} de guardados` : `Guardar ${seleccionado.nombre}`} aria-pressed={idsFavoritos.has(seleccionado.id)} onClick={() => alternarFavorito(seleccionado)} className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${idsFavoritos.has(seleccionado.id) ? "bg-vip/15 text-vip" : "text-text-tertiary"}`}><Bookmark size={17} fill={idsFavoritos.has(seleccionado.id) ? "currentColor" : "none"} /></button> : null}
           </div>
 
           <div className="flex items-center gap-2">
@@ -863,6 +978,13 @@ function Contenido({
           ))}
         </div>
       )}
+
+      {biblioteca.disponible && aGuardar.length > 0 ? (
+        <div className="radius-control grid grid-cols-[1fr_auto] gap-2 border border-border bg-surface-2 p-2">
+          <label className="min-w-0"><span className="sr-only">Nombre de la receta</span><input value={nombreReceta} onChange={(evento) => setNombreReceta(evento.target.value)} maxLength={60} placeholder="Nombre para guardar como receta" className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-secondary text-text outline-none" /></label>
+          <button type="button" disabled={guardandoBiblioteca || nombreReceta.trim().length < 2} onClick={guardarComoReceta} className="flex min-h-11 items-center gap-1.5 rounded-lg bg-vip px-3 text-[12px] font-semibold text-black disabled:opacity-40"><Save size={15} />Guardar</button>
+        </div>
+      ) : null}
 
     </Marco>
   );

@@ -42,6 +42,8 @@ recibir aprobación expresa.
 - Escanear: lector de código de barras; en producción necesita HTTPS y permiso
   de cámara.
 - Registrar, editar cantidad, borrar y copiar alimentos recientes.
+- Favoritos personales y recetas reutilizables con ingredientes reales,
+  porciones y macros derivados del catálogo (`0105_biblioteca_nutricion_v2`).
 - Objetivos de calorías, proteína, carbohidratos y grasas persistentes.
 - Panel de distribución nutricional sin inventar micronutrientes ausentes.
 
@@ -61,8 +63,10 @@ recibir aprobación expresa.
 - Los puntos provienen de eventos del servidor con claves idempotentes; no de
   clics del cliente. Existen topes, penalizaciones y cierre de actividad.
 - Aceptación/rechazo de torneos conectada a las acciones existentes.
-- Las fotos corporales permanecen en el módulo privado de progreso. No se
-  publican como red social sin consentimiento y moderación.
+- Publicaciones voluntarias, selección explícita de una foto privada, aplausos,
+  comentarios, eliminación propia, reportes y límites diarios contra spam.
+- Las fotos corporales permanecen privadas salvo la foto concreta elegida por
+  su dueño al publicar. Los reportes se resuelven en `/admin/reportes`.
 
 ### Más, cuenta y roles
 
@@ -77,15 +81,17 @@ recibir aprobación expresa.
 
 La navegación principal tiene cuatro destinos: Entrenar, Nutrición, Progreso y
 Más. Las sesiones inmersivas ocultan esa barra para no competir con el ejercicio.
-Cada acción visible tiene destino, panel, cambio de estado o respuesta. Las
-acciones no seguras que todavía no tienen contrato de servidor —sustituir y
-reordenar ejercicios desde la cuenta del alumno— no se simulan.
+Cada acción visible tiene destino, panel, cambio de estado o respuesta. Cambiar
+o reordenar ejercicios usa una personalización separada y auditable de la
+sesión: no modifica la rutina publicada del entrenador, bloquea sustituciones
+después de comenzar y mantiene unidos los bloques de biserie, triserie,
+superserie, circuito o serie gigante.
 
 ## Tablas y campos necesarios
 
 La definición exhaustiva y tipada está en `src/lib/supabase/types.ts`; las
 migraciones históricas están en `supabase/migrations/0001_init.sql` a
-`0103_tema_boton_masculino.sql`. Las tablas que sostienen esta V2 son:
+`0106_comunidad_social_v2.sql`. Las tablas que sostienen esta V2 son:
 
 | Área | Tabla | Campos esenciales |
 | --- | --- | --- |
@@ -97,10 +103,12 @@ migraciones históricas están en `supabase/migrations/0001_init.sql` a
 | Biblioteca | `ejercicios` | nombre, grupo, equipo, instrucciones, foto, video/Cloudflare, dimensiones, calidad y alias |
 | Sesión | `sesiones_entrenamiento` | `id`, alumno, rutina/día, número, estado, inicio/fin, duración, corrección y puntos |
 | Ejercicio ejecutado | `sesion_ejercicios` | `sesion_id`, `dia_ejercicio_id`, completado, nota y estado |
+| Personalización de sesión | `sesion_ejercicio_personalizaciones` | alumno, ejercicio de sesión, sustituto aprobado, orden y motivo |
 | Serie real | `series_realizadas` | sesión-ejercicio, número, repeticiones, peso, unidad, realizada, técnica y trazabilidad |
 | Día alimentario | `registros_diarios` | `id`, `alumno_id`, `fecha` |
 | Comida | `comidas_registradas` | registro, tipo/hora, observación, omitida y fecha de registro |
 | Consumo | `alimentos_consumidos` | `comida_id`, `alimento_id`, `cantidad`, `unidad` |
+| Biblioteca nutricional | `alimentos_favoritos`, `recetas_alumno`, `receta_ingredientes` | propiedad, alimento, cantidad, porciones, orden y fechas |
 | Catálogo | `alimentos` | nombre, marca, porción, macros, micronutrientes, medida casera, código, origen OFF, imagen y aprobación |
 | Peso | `pesos_corporales` | alumno, fecha, `peso_kg`, observación y creación |
 | Fotos | `fotos_progreso` | alumno, ruta, fecha, categoría, comentario y creación |
@@ -109,6 +117,7 @@ migraciones históricas están en `supabase/migrations/0001_init.sql` a
 | Puntos | `puntos_vip_movimientos` | alumno, clave única, concepto, puntos, fecha, estado y metadatos |
 | Ranking | `ranking_semanas` | alumno, semana, desglose, total, cierre y auditoría |
 | Retos | `torneos`, `torneo_participantes` | reglas, modalidad, fechas, bolsa, estado, invitación, aceptación y resultado |
+| Comunidad social | `comunidad_publicaciones`, `comunidad_reacciones`, `comunidad_comentarios`, `comunidad_reportes` | autor, consentimiento de foto, texto, estado, aplauso, comentario, reporte y moderación |
 | Impulso | `impulso_vip_recomendaciones` | alumno, ejercicio, prescripción congelada, evidencia, confianza, estado y resultado |
 | Impulso en vivo | `impulso_vip_intervenciones` | sesión/serie, momento, instrucción, respuesta, carga, RIR y trazabilidad |
 | Memoria | `impulso_vip_memoria_tecnicas` | alumno, ejercicio/técnica, exposición, tolerancia, resultado y próxima elegibilidad |
@@ -165,6 +174,10 @@ Variables requeridas para producción:
 - Ranking a explicación pública sin revelar alimentación o salud privada.
 - Noticias del sistema a actividad comunitaria verificable.
 - Nutrición a una línea de tiempo móvil, conservando acciones del servidor.
+- Sustituciones y orden de sesión como capa personal auditable, sin reescribir
+  la prescripción maestra.
+- Fotos privadas a publicaciones únicamente mediante consentimiento explícito,
+  con moderación y trazabilidad.
 - Seguimiento a un dashboard diario con conexiones directas.
 
 ### Retirar o no trasladar
@@ -175,15 +188,16 @@ Variables requeridas para producción:
 - Encuestas obligatorias en cada serie.
 - Datos simulados cuando existe un usuario real autenticado.
 - Puntos creados desde el navegador o recompensas por simples clics.
-- Sustitución/reordenamiento improvisado que altere una rutina publicada sin
-  autorización y auditoría del entrenador.
+- Cualquier sustitución/reordenamiento que altere la rutina maestra o rompa un
+  bloque técnico.
 
 ## Comprobación antes de publicar
 
 1. Crear un respaldo verificable de la base y del despliegue actual.
 2. Mantener `portal-v2` separada y desplegar una URL de preview.
-3. Confirmar que todas las migraciones existentes están aplicadas, sin aplicar
-   cambios destructivos sobre producción.
+3. En preview, aplicar y validar en orden `0104_personalizacion_sesion_v2.sql`,
+   `0105_biblioteca_nutricion_v2.sql` y `0106_comunidad_social_v2.sql`. Son
+   aditivas, pero no deben aplicarse a producción sin respaldo y autorización.
 4. Configurar variables de preview y producción por separado.
 5. Probar con cuentas reales de ensayo: alumno, entrenador y administrador.
 6. Ejecutar `npm run lint`, `npx tsc --noEmit`, `npm test` y `npm run build`.
@@ -198,16 +212,14 @@ Variables requeridas para producción:
 
 ## Trabajo que no debe presentarse como terminado todavía
 
-- Recetas y favoritos persistentes: no existe aún un modelo dedicado con
-  ingredientes, porciones y propiedad. El buscador, escáner, registro, edición
-  y copia sí están operativos.
-- Publicaciones sociales con fotos, comentarios y “me gusta”: requieren
-  consentimiento, moderación, reportes, privacidad y tablas propias. La V2 usa
-  actividad verificada y enlaza la galería privada; no publica fotos por defecto.
-- Sustituir o reordenar ejercicios desde el alumno: se retiró de la V2 hasta
-  definir reglas de compatibilidad y guardar una revisión auditable.
+- Activación de `0104`, `0105` y `0106` en un Supabase de preview y prueba con
+  cuentas reales autorizadas. El código y los contratos están construidos; si
+  una tabla falta, la interfaz degrada de forma segura y oculta la función.
 - Premios físicos o monetarios del ranking: los puntos, retos y apuestas existen;
   la entrega de un premio requiere catálogo, inventario, términos y aprobación.
+- Analítica histórica de Impulso sobre un ejercicio sustituido: la pantalla V2
+  ejecuta y audita el sustituto, pero antes del piloto se debe decidir si sus
+  marcas alimentan el historial del ejercicio sustituto, del prescrito o ambos.
 - Validación destructiva de escrituras con una cuenta real: debe hacerse con una
   cuenta de prueba autorizada en el preview, nunca con alumnos activos.
 - Publicación en el dominio y cambio de vista predeterminada: sólo después del

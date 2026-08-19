@@ -1167,6 +1167,7 @@
 .communityPost > header div strong { display: block; font-size: 9px; }
 .communityPost > header div small { display: block; margin-top: 2px; color: #727673; font-size: 7px; }
 .communityPost > header > b { color: #1dcd98; font-size: 7px; font-weight: 650; }
+.communityPost > header > button { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; color: #737875; }
 .communityPostPhoto { position: relative; aspect-ratio: 1.18; overflow: hidden; background: #101111; }
 .communityPostPhoto::after { position: absolute; inset: 58% 0 0; background: linear-gradient(180deg, transparent, rgba(0,0,0,.45)); content: ""; }
 .communityPostPhoto > img { object-fit: cover; filter: saturate(.78) contrast(1.08) brightness(.92); }
@@ -1183,6 +1184,17 @@
 .communityPost > footer span { display: flex; align-items: center; gap: 5px; color: #777b78; font-size: 8px; }
 .communityPost > footer span { margin-left: auto; }
 .communityPost > footer .communityLiked { color: #f1f2ee; }
+.communitySocialError { padding: 9px 11px; border: 1px solid rgba(255,100,100,.18); border-radius: 9px; color: #ffaaaa; background: rgba(120,20,20,.13); font-size: 9px; line-height: 1.4; }
+.communityComments { display: grid; gap: 8px; padding: 9px 12px; border-top: 1px solid rgba(255,255,255,.04); background: #131414; }
+.communityComments > div { display: grid; grid-template-columns: 24px minmax(0,1fr) 20px; align-items: start; gap: 7px; }
+.communityComments i { display: grid; width: 23px; height: 23px; place-items: center; border-radius: 50%; color: #111; background: #d8dbd6; font-size: 6px; font-style: normal; font-weight: 850; }
+.communityComments p { color: #c9cdc8; font-size: 8px; line-height: 1.45; }
+.communityComments p strong { display: block; margin-bottom: 2px; color: #f0f2ed; font-size: 8px; }
+.communityComments button { display: grid; width: 20px; height: 20px; place-items: center; color: #747976; }
+.communityCommentForm { display: grid; grid-template-columns: minmax(0,1fr) 34px; gap: 7px; padding: 9px 11px; border-top: 1px solid rgba(255,255,255,.04); }
+.communityCommentForm input { min-width: 0; height: 34px; border: 1px solid #292c2a; border-radius: 9px; outline: 0; padding: 0 10px; color: #eef0ec; background: #1a1c1b; font-size: 9px; }
+.communityCommentForm input:focus { border-color: #545956; }
+.communityCommentForm button { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 9px; color: #08100d; background: #dfe4de; }
 .communityRanking { padding-top: 13px; }
 .communityPeriod { display: grid; grid-template-columns: repeat(2, 1fr); min-height: 35px; border: 1px solid rgba(255,255,255,.05); border-radius: 8px; background: #141515; padding: 3px; }
 .communityPeriod button { border-radius: 6px; color: #727673; font-size: 8px; font-weight: 650; }
@@ -1236,10 +1248,14 @@
 .communityPublishSheet > header { display: flex; min-height: 34px; align-items: center; justify-content: space-between; }
 .communityPublishSheet > header h2 { font-size: 17px; }
 .communityPublishSheet > header button { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; color: #c8cac6; background: #252626; }
-.communityPhotoPicker { position: relative; display: flex; min-height: 135px; flex-direction: column; align-items: center; justify-content: center; gap: 5px; overflow: hidden; margin-top: 12px; border: 1px dashed rgba(255,255,255,.13); border-radius: 10px; color: #9ca09d; background: #181919; }
+.communityPhotoPicker { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; max-height: 250px; overflow-y: auto; margin-top: 12px; }
+.communityPhotoPicker button { position: relative; aspect-ratio: .82; overflow: hidden; border: 2px solid transparent; border-radius: 10px; color: #9ca09d; background: #181919; }
+.communityPhotoPicker button[aria-pressed="true"] { border-color: #f2f4ef; box-shadow: 0 0 0 2px #151616, 0 0 0 3px #f2f4ef; }
 .communityPhotoPicker img { object-fit: cover; }
-.communityPhotoPicker strong { color: #e1e3df; font-size: 9px; }
-.communityPhotoPicker span { color: #6e726f; font-size: 7px; }
+.communityPhotoPicker span { position: absolute; right: 0; bottom: 0; left: 0; z-index: 2; padding: 16px 4px 5px; color: #f1f3ef; background: linear-gradient(transparent,rgba(0,0,0,.82)); font-size: 7px; }
+.communityComposeText { width: 100%; min-height: 90px; resize: vertical; margin-top: 12px; padding: 11px; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; outline: 0; color: #eef0ec; background: #191a1a; font: inherit; font-size: 10px; line-height: 1.5; }
+.communityComposeText:focus { border-color: rgba(255,255,255,.2); }
+.communityNoPhotos { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding: 0 11px; border: 1px solid rgba(255,255,255,.06); border-radius: 9px; color: #c9ccc8; background: #191a1a; font-size: 8px; }
 .communityPublishSheet textarea { width: 100%; min-height: 77px; resize: none; margin-top: 10px; padding: 11px; border: 1px solid rgba(255,255,255,.06); border-radius: 9px; outline: 0; color: #eef0ec; background: #1a1b1b; font: inherit; font-size: 9px; line-height: 1.5; }
 .communityPublishSheet textarea:focus { border-color: rgba(255,255,255,.16); }
 .communityPublishButton { display: flex; width: 100%; min-height: 42px; align-items: center; justify-content: center; gap: 7px; margin-top: 10px; border-radius: 9px; color: #090a0a; background: #f3f4f0; font-size: 9px; font-weight: 760; }

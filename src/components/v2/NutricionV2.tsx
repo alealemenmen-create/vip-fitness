@@ -367,7 +367,7 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
       {panel === "macros" ? <AjustarMacros objetivos={objetivos} real={Boolean(datos)} onClose={() => setPanel(null)} onApply={(nuevos) => { setObjetivosLocales(nuevos); setPanel(null); setAviso("Objetivos nutricionales actualizados"); }} /> : null}
       {panel === "copiar" ? <CopiarAlimentos comidas={comidas} onClose={() => setPanel(null)} onCopy={copiarComida} /> : null}
       {panel === "escaner" && !datos ? <EscanerNutricional onClose={() => setPanel(null)} onAdd={() => agregarComida(ALIMENTOS[3])} /> : null}
-      {datos ? <HojaAgregarComida hora={panel === "buscar" || panel === "escaner" ? horaSeleccionada : null} modoInicial={panel === "escaner" ? "escanear" : "buscar"} onCerrar={() => setPanel(null)} onConfirmar={confirmarAlimentosReales} /> : null}
+      {datos ? <HojaAgregarComida hora={panel === "buscar" || panel === "escaner" ? horaSeleccionada : null} modoInicial={panel === "escaner" ? "escanear" : "buscar"} bibliotecaV2 onCerrar={() => setPanel(null)} onConfirmar={confirmarAlimentosReales} /> : null}
       {comidaSeleccionada ? (
         <div className={styles.nutritionPanelBackdrop} role="presentation" onClick={() => setComidaSeleccionada(null)}>
           <section className={`${styles.nutritionPanel} ${styles.foodOptionsPanel}`} role="dialog" aria-modal="true" aria-label={`Editar ${comidaSeleccionada.nombre}`} onClick={(evento) => evento.stopPropagation()}>

@@ -1,10 +1,11 @@
-import { Bug } from "lucide-react";
+import { Bug, Flag, ShieldCheck } from "lucide-react";
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { ListaReportesBugs, type ReporteBug } from "@/components/admin/ListaReportesBugs";
 import { Card } from "@/components/ui/Card";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
+import { resolverReporteComunidad } from "./actions";
 
 export default async function ReportesBugsPage() {
   await requireRol(["entrenador", "admin"]);
@@ -73,6 +74,21 @@ export default async function ReportesBugsPage() {
   }));
 
   const pendientes = reportes.filter((r) => r.estado === "pendiente").length;
+  const { data: reportesSociales, error: errorSocial } = await supabase
+    .from("comunidad_reportes")
+    .select("id, publicacion_id, reportado_por, motivo, estado, created_at")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  const idsPublicaciones = [...new Set((reportesSociales ?? []).map((reporte) => reporte.publicacion_id))];
+  const idsReportantes = [...new Set((reportesSociales ?? []).map((reporte) => reporte.reportado_por))];
+  const [{ data: publicacionesSociales }, { data: perfilesSociales }] = !errorSocial
+    ? await Promise.all([
+        idsPublicaciones.length ? supabase.from("comunidad_publicaciones").select("id, alumno_id, texto, estado, created_at").in("id", idsPublicaciones) : Promise.resolve({ data: [] }),
+        idsReportantes.length ? supabase.from("perfiles").select("id, nombre").in("id", idsReportantes) : Promise.resolve({ data: [] }),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const publicacionPorId = new Map((publicacionesSociales ?? []).map((publicacion) => [publicacion.id, publicacion]));
+  const reportantePorId = new Map((perfilesSociales ?? []).map((perfil) => [perfil.id, perfil.nombre]));
 
   return (
     <div className="space-y-6 pb-8">
@@ -94,6 +110,26 @@ export default async function ReportesBugsPage() {
       ) : (
         <ListaReportesBugs reportes={reportes} pendientes={pendientes} />
       )}
+      <section className="space-y-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">Comunidad V2</p>
+          <h2 className="mt-1 text-lg font-bold text-text">Moderación social</h2>
+        </div>
+        {errorSocial ? (
+          <Card className="border border-border" padding="p-5">
+            <ShieldCheck size={21} className="text-text-tertiary" />
+            <p className="text-caption mt-2 text-text-secondary">Se habilita al ejecutar la migración 0106_comunidad_social_v2.sql.</p>
+          </Card>
+        ) : !(reportesSociales ?? []).length ? (
+          <Card padding="p-5"><ShieldCheck size={21} className="text-success" /><p className="text-body mt-2 font-bold text-text">Sin reportes sociales</p><p className="text-caption mt-1 text-text-secondary">La comunidad no tiene contenido pendiente de revisión.</p></Card>
+        ) : (reportesSociales ?? []).map((reporte) => {
+          const publicacion = publicacionPorId.get(reporte.publicacion_id);
+          return <Card key={reporte.id} padding="p-4" className={reporte.estado === "pendiente" ? "border border-warning/35" : ""}>
+            <div className="flex items-start gap-3"><Flag size={18} className="mt-0.5 shrink-0 text-warning" /><div className="min-w-0 flex-1"><p className="text-body font-bold text-text">{reporte.motivo}</p><p className="text-caption mt-1 text-text-secondary">Reportado por {nombreAlumnoPublicado(reportantePorId.get(reporte.reportado_por) ?? "Alumno")} · estado {reporte.estado}</p>{publicacion ? <p className="text-caption mt-3 rounded-xl bg-surface-2 p-3 text-text">{publicacion.texto || "Publicación con fotografía"}</p> : <p className="text-caption mt-3 text-text-tertiary">La publicación ya no está disponible.</p>}</div></div>
+            {reporte.estado === "pendiente" ? <div className="mt-3 flex gap-2"><form action={resolverReporteComunidad}><input type="hidden" name="id" value={reporte.id} /><input type="hidden" name="decision" value="ocultar" /><button type="submit" className="rounded-xl bg-error/15 px-3 py-2 text-xs font-semibold text-error">Ocultar publicación</button></form><form action={resolverReporteComunidad}><input type="hidden" name="id" value={reporte.id} /><input type="hidden" name="decision" value="descartar" /><button type="submit" className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-text-secondary">Descartar reporte</button></form></div> : null}
+          </Card>;
+        })}
+      </section>
     </div>
   );
 }

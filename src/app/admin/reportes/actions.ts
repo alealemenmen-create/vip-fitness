@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ResolverReporteState = { error: string | null; ok: boolean };
 
@@ -34,4 +35,22 @@ export async function cambiarEstadoReporteBug(
 
   revalidatePath("/admin/reportes");
   return { error: null, ok: true };
+}
+
+/** Resuelve moderación social sin borrar evidencia: se puede ocultar la
+ * publicación o descartar el reporte, y el reporte queda trazable. */
+export async function resolverReporteComunidad(formData: FormData) {
+  await requireRol(["entrenador", "admin"]);
+  const id = String(formData.get("id") || "");
+  const decision = String(formData.get("decision") || "");
+  if (!id || (decision !== "ocultar" && decision !== "descartar")) return;
+  const db = createAdminClient();
+  const { data: reporte } = await db.from("comunidad_reportes").select("id, publicacion_id").eq("id", id).eq("estado", "pendiente").maybeSingle();
+  if (!reporte) return;
+  if (decision === "ocultar") {
+    await db.from("comunidad_publicaciones").update({ estado: "oculta", updated_at: new Date().toISOString() }).eq("id", reporte.publicacion_id);
+  }
+  await db.from("comunidad_reportes").update({ estado: decision === "ocultar" ? "revisado" : "descartado" }).eq("id", id);
+  revalidatePath("/admin/reportes");
+  revalidatePath("/portal-v2/progreso/comunidad");
 }

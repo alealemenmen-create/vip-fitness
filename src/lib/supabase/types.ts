@@ -795,6 +795,45 @@ export interface Database {
           },
         ];
       };
+      // 0104_personalizacion_sesion_v2.sql — diferencias de una sesión sin
+      // alterar la rutina publicada del entrenador.
+      sesion_ejercicio_personalizaciones: {
+        Row: {
+          sesion_ejercicio_id: string;
+          alumno_id: string;
+          ejercicio_sustituto_id: string | null;
+          orden_ejecucion: number | null;
+          motivo: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          sesion_ejercicio_id: string;
+          alumno_id: string;
+          ejercicio_sustituto_id?: string | null;
+          orden_ejecucion?: number | null;
+          motivo?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sesion_ejercicio_personalizaciones"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "sesion_ejercicio_personalizaciones_sesion_ejercicio_id_fkey";
+            columns: ["sesion_ejercicio_id"];
+            isOneToOne: true;
+            referencedRelation: "sesion_ejercicios";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sesion_ejercicio_personalizaciones_ejercicio_sustituto_id_fkey";
+            columns: ["ejercicio_sustituto_id"];
+            isOneToOne: false;
+            referencedRelation: "ejercicios";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       series_realizadas: {
         Row: {
           id: string;
@@ -1115,6 +1154,25 @@ export interface Database {
           },
         ];
       };
+      // 0105_biblioteca_nutricion_v2.sql
+      alimentos_favoritos: {
+        Row: { alumno_id: string; alimento_id: string; created_at: string };
+        Insert: { alumno_id: string; alimento_id: string; created_at?: string };
+        Update: never;
+        Relationships: [];
+      };
+      recetas_alumno: {
+        Row: { id: string; alumno_id: string; nombre: string; porciones: number; created_at: string; updated_at: string };
+        Insert: { id?: string; alumno_id: string; nombre: string; porciones?: number; created_at?: string; updated_at?: string };
+        Update: { nombre?: string; porciones?: number; updated_at?: string };
+        Relationships: [];
+      };
+      receta_ingredientes: {
+        Row: { receta_id: string; alimento_id: string; cantidad: number; orden: number };
+        Insert: { receta_id: string; alimento_id: string; cantidad: number; orden?: number };
+        Update: { cantidad?: number; orden?: number };
+        Relationships: [];
+      };
       pesos_corporales: {
         Row: {
           id: string;
@@ -1163,6 +1221,30 @@ export interface Database {
           comentario?: string | null;
         };
         Update: { fecha_foto?: string; categoria?: CategoriaFoto | null; comentario?: string | null };
+        Relationships: [];
+      };
+      comunidad_publicaciones: {
+        Row: { id: string; alumno_id: string; foto_progreso_id: string | null; texto: string; estado: "publicada" | "oculta" | "eliminada"; created_at: string; updated_at: string };
+        Insert: { id?: string; alumno_id: string; foto_progreso_id?: string | null; texto?: string; estado?: "publicada" | "oculta" | "eliminada"; created_at?: string; updated_at?: string };
+        Update: { texto?: string; estado?: "publicada" | "oculta" | "eliminada"; updated_at?: string };
+        Relationships: [];
+      };
+      comunidad_reacciones: {
+        Row: { publicacion_id: string; alumno_id: string; tipo: "aplauso"; created_at: string };
+        Insert: { publicacion_id: string; alumno_id: string; tipo?: "aplauso"; created_at?: string };
+        Update: never;
+        Relationships: [];
+      };
+      comunidad_comentarios: {
+        Row: { id: string; publicacion_id: string; alumno_id: string; texto: string; estado: "publicado" | "oculto" | "eliminado"; created_at: string };
+        Insert: { id?: string; publicacion_id: string; alumno_id: string; texto: string; estado?: "publicado" | "oculto" | "eliminado"; created_at?: string };
+        Update: { estado?: "publicado" | "oculto" | "eliminado" };
+        Relationships: [];
+      };
+      comunidad_reportes: {
+        Row: { id: string; publicacion_id: string; reportado_por: string; motivo: string; estado: "pendiente" | "revisado" | "descartado"; created_at: string };
+        Insert: { id?: string; publicacion_id: string; reportado_por: string; motivo: string; estado?: "pendiente" | "revisado" | "descartado"; created_at?: string };
+        Update: { estado?: "pendiente" | "revisado" | "descartado" };
         Relationships: [];
       };
       documentos: {

@@ -189,6 +189,8 @@
 .swapList strong, .swapList small { display: block; }
 .swapList strong { font-size: 10px; }
 .swapList small { margin-top: 3px; color: #888b88; font-size: 8px; }
+.swapList > .sheetCopy { margin: 0 0 5px; }
+.personalizationError { padding: 10px 11px; border: 1px solid rgba(255, 112, 92, .28); border-radius: 8px; color: #ffb3a7; background: #241514; font-size: 11px; line-height: 1.45; }
 .settingRows { overflow: hidden; margin-top: 17px; border: 1px solid #303231; border-radius: 11px; background: #202121; }
 .settingRow { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 14px; padding: 9px 12px; }
 .settingRow + .settingRow { border-top: 1px solid #303230; }
@@ -264,10 +266,16 @@
 .exerciseNotes > span { color: #a9aca8; font-size: 9px; }
 .exerciseNotes textarea { min-height: 104px; padding: 12px; border: 1px solid #303230; border-radius: 9px; color: #fff; background: #0e0f0f; font: inherit; font-size: 11px; resize: vertical; outline: none; }
 .exerciseNotes button, .reorderPreview > button { min-height: 44px; border-radius: 8px; color: #080909; background: #f6f6f3; font-size: 10px; font-weight: 740; }
-.reorderPreview { display: grid; gap: 1px; overflow: hidden; margin-top: 17px; border-radius: 9px; background: #303230; }
-.reorderPreview span { display: grid; min-height: 48px; grid-template-columns: 30px 1fr 30px; align-items: center; padding: 0 12px; color: #f1f2ef; background: #202121; font-size: 10px; }
-.reorderPreview span svg { color: #8f928f; }
-.reorderPreview > button { margin-top: 8px; }
+.reorderPreview { display: grid; gap: 5px; margin-top: 17px; }
+.reorderPreview > .sheetCopy { margin: 0 0 7px; }
+.reorderPreview > div { display: grid; min-height: 54px; grid-template-columns: minmax(0, 1fr) 40px 40px; align-items: center; gap: 5px; padding: 5px 7px 5px 11px; border: 1px solid #303230; border-radius: 8px; color: #f1f2ef; background: #202121; }
+.reorderPreview > div[data-blocked="true"] { min-height: 45px; margin-top: -5px; border-top: 0; border-radius: 0 0 8px 8px; background: #1b1d1c; }
+.reorderPreview > div > span { display: grid; min-width: 0; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 5px; }
+.reorderPreview span b { color: #7dbbff; font-size: 9px; }
+.reorderPreview span strong { overflow: hidden; color: #fff; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.reorderPreview span small { grid-column: 2; color: #9da09c; font-size: 8px; }
+.reorderPreview > div > button { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid #383b39; border-radius: 8px; color: #fff; background: #292b2a; }
+.reorderPreview > div > i { width: 38px; }
 
 .summaryPage { min-height: 100%; padding: 24px 0 28px; color: #f2f3f0; }
 .summaryEyebrow { color: #25cb98; font-size: 8px; font-weight: 800; letter-spacing: .1em; }
