@@ -102,6 +102,12 @@ idempotente y contrastarse contra el registro original antes del piloto.
 - `/portal-v2/progreso/ranking`: Arena V2, rangos, tabla semanal/mensual/anual,
   reglas públicas, movimientos auditables, retos y catálogo de recompensas;
   permanece navegable como demostración segura sin enviarla al login clásico.
+- Arena conserva el rango y la identidad cromática propia de cada medalla, pero
+  dejó atrás la sala ámbar heredada: encabezado, superficies, tarjetas,
+  pestañas, estados activos, tienda, guía y retos usan ahora el sistema negro,
+  blanco, gris pulido y verde de la V2. La prueba QA mantuvo exactamente el
+  saldo real de `175 XP`, su rango Bronze y su posición calculada; el rediseño
+  no recalcula ni reinicia puntos.
 - Los puntos provienen de eventos del servidor con claves idempotentes; no de
   clics del cliente. Existen topes, penalizaciones y cierre de actividad.
 - Aceptación/rechazo de torneos conectada a las acciones existentes.

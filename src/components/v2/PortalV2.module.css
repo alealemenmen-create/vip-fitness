@@ -1815,6 +1815,36 @@
 .supportV2Marks b { color: #dfe1dd; font-size: 9px; font-weight: 700; text-align: right; }
 .supportV2Marks b small { margin-top: 3px; color: #1ed29d; font-size: 7px; }
 .supportV2Empty { padding: 18px; color: #777c78; font-size: 8px; text-align: center; }
+.rankingV2Page:global(.ranked-casino) { --color-surface: #111312; --color-surface-2: #1a1d1b; --color-border: #303431; --color-text: #f5f6f2; --color-text-secondary: #b4b8b4; --color-text-tertiary: #777c78; --color-vip: #1ed29d; padding-right: 0; padding-left: 0; }
+.rankingV2Page:global(.ranked-casino)::before { inset: -12px 0 -40px; background: radial-gradient(circle at 90% 2%,rgba(31,210,157,.10),transparent 25%),radial-gradient(circle at 2% 38%,rgba(107,122,116,.07),transparent 27%),linear-gradient(180deg,#080a09 0%,#060707 100%); }
+.rankingV2Page > header { min-height: 56px; }
+.rankingV2Page > header > a { border-color: rgba(255,255,255,.055); border-radius: 10px; color: #f2f3ef; background: var(--v2-polished-button); box-shadow: inset 0 1px 0 rgba(255,255,255,.045); }
+.rankingV2Page > header h1 { color: #f7f8f4; font-size: 24px; font-weight: 810; letter-spacing: -.045em; }
+.rankingV2Page :global(.ranked-casino-kicker) { color: #1ed29d; font-size: 7px; letter-spacing: .12em; }
+.rankingV2Page :global(.ranked-casino-live) { border-color: rgba(31,210,157,.21); color: #67dcb9; background: rgba(31,210,157,.055); font-size: 7px; }
+.rankingV2Page :global(.ranked-casino-live > span) { background: #1ed29d; box-shadow: 0 0 9px rgba(31,210,157,.7); }
+.rankingV2Page :global(.ranked-casino-card) { border-color: rgba(255,255,255,.055); background: linear-gradient(122deg,rgba(255,255,255,.025),transparent 25%),linear-gradient(145deg,#151716 0%,#0c0e0d 60%,#1b1e1c 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.045),0 15px 30px -25px rgba(0,0,0,.85); }
+.rankingV2Page :global(.ranked-diamond-card) { border-color: rgba(31,210,157,.13); background: linear-gradient(132deg,rgba(255,255,255,.065),transparent 22%),radial-gradient(circle at 26% 25%,rgba(31,210,157,.09),transparent 31%),linear-gradient(145deg,#151a18 0%,#090b0a 57%,#171a18 100%); }
+.rankingV2Page :global(.ranked-diamond-card::before) { background: linear-gradient(115deg,transparent 28%,rgba(255,255,255,.04) 28.3%,transparent 29%),linear-gradient(55deg,transparent 72%,rgba(31,210,157,.055) 72.3%,transparent 73%); }
+.rankingV2Page :global(.ranked-diamond-facet--two) { border-color: rgba(31,210,157,.08); }
+.rankingV2Page :global(.ranked-rango-badge > span:last-child) { border-color: rgba(31,210,157,.25); color: #82e6c8; background: #090b0a; }
+.rankingV2Page :global(.ranked-jackpot-total > span) { color: #f8f8f5; }
+.rankingV2Page :global(.ranked-section-icon) { border-color: rgba(31,210,157,.14); border-radius: 9px; color: #1ed29d; background: linear-gradient(145deg,rgba(31,210,157,.11),rgba(31,210,157,.025)); box-shadow: inset 0 1px 0 rgba(255,255,255,.045); }
+.rankingV2Page :global(.ranked-torneo-card::before) { background: linear-gradient(90deg,transparent,rgba(31,210,157,.6),transparent); }
+.rankingV2Page :global(.ranked-periodos) { border-color: rgba(255,255,255,.055); background: #0b0d0c; }
+.rankingV2Page :global(.ranked-posicion) { border-color: rgba(31,210,157,.15); background: radial-gradient(circle at 10% 30%,rgba(31,210,157,.10),transparent 48%),rgba(31,210,157,.025); }
+.rankingV2Page :global(.ranked-fila) { border-color: rgba(255,255,255,.045); background: linear-gradient(105deg,#111312,#191b1a); }
+.rankingV2Page :global(.ranked-fila:nth-child(-n + 3)) { background: linear-gradient(90deg,rgba(255,255,255,.045),rgba(255,255,255,.018)); }
+.rankingV2Page :global(.ranked-fila--propia) { border-color: rgba(31,210,157,.32); background: linear-gradient(90deg,rgba(31,210,157,.13),rgba(31,210,157,.03)) !important; box-shadow: inset 3px 0 0 #1ed29d; }
+.rankingV2Page :global(.text-vip) { color: #1ed29d !important; }
+.rankingV2Page :global(.bg-vip) { background-color: #1ed29d !important; }
+.rankingV2Page :global(.bg-vip\/15) { background-color: rgba(31,210,157,.12) !important; }
+.rankingV2Page :global(.bg-vip\/10) { background-color: rgba(31,210,157,.08) !important; }
+.rankingV2Page :global(.bg-vip\/5) { background-color: rgba(31,210,157,.045) !important; }
+.rankingV2Page :global(.border-vip\/30),.rankingV2Page :global(.border-vip\/25),.rankingV2Page :global(.border-vip\/20) { border-color: rgba(31,210,157,.18) !important; }
+.rankingV2Page :global(.ranked-casino-card.radius-control),.rankingV2Page :global(.ranked-casino-card.radius-card) { border-radius: 11px; }
+.rankingV2Page :global(.ranked-section-heading) h2 { color: #eff1ed; font-size: 13px; }
+.rankingV2Page :global(.ranked-section-heading) p:not(.ranked-casino-kicker) { color: #777c78; }
 .v2PrivacyPage { padding: 9px 0 28px; }
 .moreLogoutForm { margin-top: 9px; }
 .moreLogoutForm button { display: flex; width: 100%; min-height: 46px; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(255,255,255,.055); border-radius: 9px; color: #d9dcd8; background: var(--v2-polished-button); font-size: 9px; font-weight: 680; }

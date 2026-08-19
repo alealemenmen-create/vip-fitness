@@ -11,6 +11,7 @@ import { GuiaPuntos } from "@/components/student/GuiaPuntos";
 import { CatalogoRecompensasVip } from "@/components/student/CatalogoRecompensasVip";
 import { TorneoActivoCard } from "@/components/student/TorneoActivoCard";
 import { Card } from "@/components/ui/Card";
+import styles from "@/components/v2/PortalV2.module.css";
 
 const ID_DEMO = "demo-alumno-vip";
 
@@ -63,7 +64,7 @@ export default async function RankingV2Page() {
   const saldo = recompensas.saldo;
 
   return (
-    <section className="ranked-casino space-y-4 px-3 pb-8 pt-3 sm:px-4">
+    <section className={`${styles.rankingV2Page} ranked-casino space-y-4 px-3 pb-8 pt-3 sm:px-4`}>
       <header className="flex items-center justify-between gap-3">
         <Link href="/portal-v2/progreso/comunidad" aria-label="Volver a Comunidad" className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/[.04] text-white">
           <ArrowLeft size={20} />
