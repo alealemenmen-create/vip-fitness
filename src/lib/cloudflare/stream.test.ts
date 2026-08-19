@@ -1,9 +1,14 @@
 import { createHmac } from "node:crypto";
-import { describe, expect, it } from "vitest";
-import { firmaWebhookValida } from "./stream";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { firmaWebhookValida, urlMiniaturaFirmada } from "./stream";
 
 const SECRETO = "secreto-de-prueba";
 const AHORA = 1_700_000_000_000;
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
 
 function firma(cuerpo: string, time = "1700000000") {
   const sig1 = createHmac("sha256", SECRETO).update(`${time}.${cuerpo}`).digest("hex");
@@ -26,6 +31,29 @@ describe("firmaWebhookValida", () => {
   it("rechaza reenvíos con más de cinco minutos", () => {
     const cuerpo = '{"uid":"abc"}';
     expect(firmaWebhookValida(cuerpo, firma(cuerpo), SECRETO, AHORA + 301_000)).toBe(false);
+  });
+});
+
+describe("urlMiniaturaFirmada", () => {
+  it("usa el token privado en lugar del UID y lo reutiliza durante su vigencia", async () => {
+    vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "cuenta-qa");
+    vi.stubEnv("CLOUDFLARE_STREAM_API_TOKEN", "token-api-qa");
+    vi.stubEnv("CLOUDFLARE_STREAM_CUSTOMER_CODE", "cliente-qa");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, result: { token: "token-firmado-qa" } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const primera = await urlMiniaturaFirmada("video-privado-qa");
+    const segunda = await urlMiniaturaFirmada("video-privado-qa");
+
+    expect(primera).toBe(
+      "https://customer-cliente-qa.cloudflarestream.com/token-firmado-qa/thumbnails/thumbnail.jpg"
+    );
+    expect(segunda).toBe(primera);
+    expect(primera).not.toContain("video-privado-qa");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 

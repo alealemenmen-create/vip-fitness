@@ -14,6 +14,8 @@ import {
 import { resolverGrupoTecnica, tamanoGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import type { Database } from "@/lib/supabase/types";
 import styles from "@/components/v2/PortalV2.module.css";
+import { firmarMiniaturasCloudflareV2 } from "@/lib/cloudflare/miniaturas-v2";
+import { urlMiniaturaFirmada } from "@/lib/cloudflare/stream";
 
 type FichaEjercicioV2 = Pick<Database["public"]["Tables"]["ejercicios"]["Row"],
   | "id" | "nombre" | "grupo_muscular" | "categoria" | "equipo" | "activo" | "calidad_ficha"
@@ -100,7 +102,7 @@ export default async function SesionV2Page({
     .in("sesion_ejercicio_id", idsSesionEjercicio);
   const personalizacionDisponible = !errorPersonalizaciones;
   const personalizacionPorId = new Map((personalizaciones ?? []).map((fila) => [fila.sesion_ejercicio_id, fila]));
-  const ejerciciosSesionOrdenados = sesion.ejercicios
+  const ejerciciosSesionOrdenadosSinFirma = sesion.ejercicios
     .map((ejercicio, indiceOriginal) => ({
       ejercicio,
       indiceOriginal,
@@ -108,6 +110,7 @@ export default async function SesionV2Page({
     }))
     .sort((a, b) => (a.ordenPersonal ?? 10_000 + a.indiceOriginal) - (b.ordenPersonal ?? 10_000 + b.indiceOriginal))
     .map((fila) => fila.ejercicio);
+  const ejerciciosSesionOrdenados = await firmarMiniaturasCloudflareV2(ejerciciosSesionOrdenadosSinFirma);
 
   const idsBiblioteca = new Set(ejerciciosSesionOrdenados.flatMap((ejercicio) => {
     const sustituto = personalizacionPorId.get(ejercicio.sesionEjercicioId)?.ejercicio_sustituto_id;
@@ -129,10 +132,32 @@ export default async function SesionV2Page({
     : { data: [] };
   const fichaPorId = new Map([...(fichasBase ?? []), ...(candidatas ?? [])].map((ficha) => [ficha.id, ficha]));
 
+  const fichasAlternativas = new Map<string, FichaEjercicioV2[]>();
+  for (const ejercicio of ejerciciosSesionOrdenados) {
+    const origen = ejercicio.ejercicioId ? fichaPorId.get(ejercicio.ejercicioId) : undefined;
+    if (!origen?.grupo_muscular) continue;
+    fichasAlternativas.set(ejercicio.sesionEjercicioId, (candidatas ?? [])
+      .filter((ficha) => ficha.id !== origen.id
+        && ficha.grupo_muscular === origen.grupo_muscular
+        && (!origen.categoria || !ficha.categoria || ficha.categoria === origen.categoria)
+        && (!origen.patron_movimiento || !ficha.patron_movimiento || ficha.patron_movimiento === origen.patron_movimiento))
+      .sort((a, b) => Number(b.categoria === origen.categoria) - Number(a.categoria === origen.categoria)
+        || Number(a.equipo !== origen.equipo) - Number(b.equipo !== origen.equipo)
+        || a.nombre.localeCompare(b.nombre, "es"))
+      .slice(0, 8));
+  }
+  const fichasQueSeMuestran = [...(fichasBase ?? []), ...[...fichasAlternativas.values()].flat()];
+  const uidsMiniatura = [...new Set(fichasQueSeMuestran
+    .filter((ficha) => ficha.video_cloudflare_uid && ficha.video_cloudflare_estado === "listo")
+    .map((ficha) => ficha.video_cloudflare_uid as string))];
+  const miniaturaFirmadaPorUid = new Map(await Promise.all(
+    uidsMiniatura.map(async (uid) => [uid, await urlMiniaturaFirmada(uid)] as const)
+  ));
+
   const fotoFicha = (ficha: FichaEjercicioV2 | undefined, grupo: string | null) =>
-    ficha?.video_cloudflare_miniatura_url
-      ?? ficha?.foto_completa_url
+    ficha?.foto_completa_url
       ?? ficha?.foto_miniatura_url
+      ?? (ficha?.video_cloudflare_uid ? miniaturaFirmadaPorUid.get(ficha.video_cloudflare_uid) : null)
       ?? (grupo ? FOTOS_GRUPO_MUSCULAR[grupo as keyof typeof FOTOS_GRUPO_MUSCULAR]?.[0] : null)
       ?? "/v2/piernas.webp";
   const alternativaVisual = (ficha: FichaEjercicioV2): AlternativaEjercicioV2 => ({
@@ -146,17 +171,7 @@ export default async function SesionV2Page({
   });
   const alternativas: Record<string, AlternativaEjercicioV2[]> = {};
   for (const ejercicio of ejerciciosSesionOrdenados) {
-    const origen = ejercicio.ejercicioId ? fichaPorId.get(ejercicio.ejercicioId) : undefined;
-    if (!origen?.grupo_muscular) continue;
-    alternativas[ejercicio.sesionEjercicioId] = (candidatas ?? [])
-      .filter((ficha) => ficha.id !== origen.id
-        && ficha.grupo_muscular === origen.grupo_muscular
-        && (!origen.categoria || !ficha.categoria || ficha.categoria === origen.categoria)
-        && (!origen.patron_movimiento || !ficha.patron_movimiento || ficha.patron_movimiento === origen.patron_movimiento))
-      .sort((a, b) => Number(b.categoria === origen.categoria) - Number(a.categoria === origen.categoria)
-        || Number(a.equipo !== origen.equipo) - Number(b.equipo !== origen.equipo)
-        || a.nombre.localeCompare(b.nombre, "es"))
-      .slice(0, 8)
+    alternativas[ejercicio.sesionEjercicioId] = (fichasAlternativas.get(ejercicio.sesionEjercicioId) ?? [])
       .map(alternativaVisual);
   }
 
@@ -169,9 +184,9 @@ export default async function SesionV2Page({
 
     const sustitutoId = personalizacionPorId.get(ejercicio.sesionEjercicioId)?.ejercicio_sustituto_id;
     const fichaSustituta = sustitutoId ? fichaPorId.get(sustitutoId) : undefined;
-    const foto = fichaSustituta ? fotoFicha(fichaSustituta, fichaSustituta.grupo_muscular) : ejercicio.videoCloudflareMiniaturaUrl
-      ?? ejercicio.fotoCompletaUrl
+    const foto = fichaSustituta ? fotoFicha(fichaSustituta, fichaSustituta.grupo_muscular) : ejercicio.fotoCompletaUrl
       ?? ejercicio.fotoMiniaturaUrl
+      ?? ejercicio.videoCloudflareMiniaturaUrl
       ?? (ejercicio.grupoMuscular ? FOTOS_GRUPO_MUSCULAR[ejercicio.grupoMuscular]?.[0] : null)
       ?? "/v2/piernas.webp";
     const historicoPorNumero = new Map(ejercicio.series.map((serie) => [serie.numeroSerie, serie]));

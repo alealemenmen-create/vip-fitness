@@ -370,6 +370,12 @@ Validaciones locales completadas el 19-08-2026:
   realizadas” ya no llama completada a una sesión incompleta, “Ver
   clasificación” abre el ranking y la regla nutricional publicada coincide
   con el motor (`-100` a `+250`, no `-150` en una tarjeta y `-100` en otra).
+- Los recursos privados de Cloudflare Stream ya no usan el UID público que
+  provocaba `401`: miniatura y reproductor comparten un token temporal emitido
+  por el servidor y reutilizado con margen de expiración. En el entorno local
+  actual no están definidas las tres variables de Stream, por lo que la V2 cae
+  a la foto real del ejercicio sin exponer ni simular el video; la reproducción
+  local queda pendiente de configurar esas credenciales.
 
 1. Crear un respaldo lógico verificable antes del próximo cambio de esquema; el
    plan gratuito actual no incluye respaldos automáticos.
@@ -409,10 +415,11 @@ Validaciones locales completadas el 19-08-2026:
   real de EAN, permisos y cambio entre cámara trasera/frontal sigue requiriendo
   un teléfono físico bajo HTTPS; la automatización de escritorio no sustituye
   esa prueba.
-- Algunas miniaturas privadas de Cloudflare Stream respondieron `401` al
-  optimizador de imágenes de Next.js durante el recorrido QA. Antes del piloto
-  hay que validar firma/visibilidad de esas miniaturas o servirlas mediante el
-  mecanismo autenticado previsto; no debe ocultarse con una imagen simulada.
+- La firma temporal de miniaturas privadas de Cloudflare Stream está resuelta
+  y el recorrido QA dejó de producir `401`. Falta cargar en el entorno local
+  `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_API_TOKEN` y
+  `CLOUDFLARE_STREAM_CUSTOMER_CODE` para validar allí el iframe completo; sin
+  esas variables se muestra la foto real disponible y no una imagen simulada.
 - Publicación en el dominio y cambio de vista predeterminada: sólo después del
   piloto y de una orden expresa del propietario.
 - Cobro, renovación o cancelación del plan desde la V2: hoy se muestran datos

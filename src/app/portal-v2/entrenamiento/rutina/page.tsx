@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { obtenerDiaVistaPrevia, obtenerDiasRutina, obtenerRutinaActiva } from "@/app/alumno/entrenar/data";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { FOTOS_GRUPO_MUSCULAR } from "@/lib/grupos-musculares/fotos";
+import { firmarMiniaturasCloudflareV2 } from "@/lib/cloudflare/miniaturas-v2";
 
 export default async function RutinaV2Page({
   searchParams,
@@ -17,10 +18,13 @@ export default async function RutinaV2Page({
   const supabase = await createClient();
   const rutina = await obtenerRutinaActiva(contexto.alumnoId);
   if (!rutina) return <RutinaDetalleV2 />;
-  const [vista, dias] = await Promise.all([
+  const [vistaSinFirma, dias] = await Promise.all([
     obtenerDiaVistaPrevia(supabase, contexto.alumnoId, diaId),
     obtenerDiasRutina(rutina.id),
   ]);
+  const vista = vistaSinFirma
+    ? { ...vistaSinFirma, ejercicios: await firmarMiniaturasCloudflareV2(vistaSinFirma.ejercicios) }
+    : null;
   if (!vista || vista.tipo !== "entrenamiento") return <RutinaDetalleV2 />;
 
   const dia = dias.find((item) => item.id === diaId);

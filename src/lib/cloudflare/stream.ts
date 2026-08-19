@@ -7,6 +7,52 @@ function credencialesApi(): { accountId: string; token: string } | null {
   return accountId && token ? { accountId, token } : null;
 }
 
+type TokenFirmadoCache = { token: string; validoHasta: number };
+const tokensFirmados = new Map<string, TokenFirmadoCache>();
+const MAX_TOKENS_CACHE = 256;
+
+async function obtenerTokenFirmado(uid: string, expSegundos: number): Promise<string | null> {
+  const credenciales = credencialesApi();
+  if (!credenciales) return null;
+  const ahora = Date.now();
+  const existente = tokensFirmados.get(uid);
+  if (existente && existente.validoHasta > ahora) return existente.token;
+
+  try {
+    const exp = Math.floor(ahora / 1000) + expSegundos;
+    const respuesta = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${credenciales.accountId}/stream/${uid}/token`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${credenciales.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ exp }),
+        signal: AbortSignal.timeout(10_000),
+      }
+    );
+    type Respuesta = { success?: boolean; result?: { token?: string } };
+    const cuerpo = (await respuesta.json().catch(() => null)) as Respuesta | null;
+    const token = cuerpo?.success ? cuerpo.result?.token : null;
+    if (!respuesta.ok || !token) return null;
+
+    for (const [clave, valor] of tokensFirmados) {
+      if (valor.validoHasta <= ahora) tokensFirmados.delete(clave);
+    }
+    if (tokensFirmados.size >= MAX_TOKENS_CACHE) {
+      const primero = tokensFirmados.keys().next().value as string | undefined;
+      if (primero) tokensFirmados.delete(primero);
+    }
+    // Se deja un minuto de margen para que ningún recurso empiece a cargar con
+    // un token a punto de vencer.
+    tokensFirmados.set(uid, { token, validoHasta: (exp - 60) * 1000 });
+    return token;
+  } catch {
+    return null;
+  }
+}
+
 export type SubidaDirecta = { endpoint: string; uid: string };
 export type EstadoVideoCloudflare = {
   estado: "procesando" | "listo" | "error";
@@ -140,27 +186,12 @@ export async function urlEmbedFirmada(
   expSegundos = 4 * 60 * 60
 ): Promise<string | null> {
   const codigo = process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE;
-  const credenciales = credencialesApi();
-  if (!codigo || !credenciales) return null;
+  if (!codigo) return null;
   const completo = opciones.modo === "completo";
 
   try {
-    const respuesta = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${credenciales.accountId}/stream/${uid}/token`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${credenciales.token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ exp: Math.floor(Date.now() / 1000) + expSegundos }),
-        signal: AbortSignal.timeout(10_000),
-      }
-    );
-    type Respuesta = { success?: boolean; result?: { token?: string } };
-    const cuerpo = (await respuesta.json().catch(() => null)) as Respuesta | null;
-    const token = cuerpo?.success ? cuerpo.result?.token : null;
-    if (!respuesta.ok || !token) return null;
+    const token = await obtenerTokenFirmado(uid, expSegundos);
+    if (!token) return null;
     const parametros = new URLSearchParams({
       autoplay: "true",
       muted: completo ? "false" : "true",
@@ -181,6 +212,24 @@ export async function urlEmbedFirmada(
   } catch {
     return null;
   }
+}
+
+/**
+ * Miniatura temporal para un video privado de Stream. Los videos que sube el
+ * portal exigen URL firmada, por lo que el UID guardado por el webhook no se
+ * puede usar directamente en `/thumbnails/thumbnail.jpg`: Cloudflare responde
+ * 401. El mismo token corto del reproductor sirve para sus recursos derivados.
+ */
+export async function urlMiniaturaFirmada(
+  uid: string,
+  expSegundos = 4 * 60 * 60
+): Promise<string | null> {
+  const codigo = process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE;
+  if (!codigo) return null;
+  const token = await obtenerTokenFirmado(uid, expSegundos);
+  return token
+    ? `https://customer-${codigo}.cloudflarestream.com/${token}/thumbnails/thumbnail.jpg`
+    : null;
 }
 
 export function firmaWebhookValida(

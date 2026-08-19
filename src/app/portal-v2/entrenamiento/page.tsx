@@ -12,6 +12,7 @@ import {
   obtenerSesionEnProgreso,
 } from "@/app/alumno/entrenar/data";
 import { descansosDespuesDe, diasQueNumeran, semanaDelNumero } from "@/lib/entrenamiento/ciclo-sesiones";
+import { firmarMiniaturasCloudflareV2 } from "@/lib/cloudflare/miniaturas-v2";
 import styles from "@/components/v2/PortalV2.module.css";
 
 export default async function EntrenamientoV2Page({
@@ -73,7 +74,10 @@ export default async function EntrenamientoV2Page({
   const seleccionInicial = numeroEnProgreso
     ?? (numeros.some((numero) => numero.numero === avance.proximoNumero) ? avance.proximoNumero : numeros[0].numero);
   const diasUnicos = [...new Set(numeros.map((numero) => numero.dia.id))];
-  const vistas = await Promise.all(diasUnicos.map((diaId) => obtenerDiaVistaPrevia(supabase, alumnoId, diaId)));
+  const vistasSinFirma = await Promise.all(diasUnicos.map((diaId) => obtenerDiaVistaPrevia(supabase, alumnoId, diaId)));
+  const vistas = await Promise.all(vistasSinFirma.map(async (vista) => vista
+    ? { ...vista, ejercicios: await firmarMiniaturasCloudflareV2(vista.ejercicios) }
+    : null));
   const vistasPrevias = Object.fromEntries(
     vistas.filter((vista): vista is NonNullable<typeof vista> => vista !== null).map((vista) => [vista.id, vista]),
   );
