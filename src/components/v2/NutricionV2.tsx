@@ -8,6 +8,7 @@ import { guardarMisMacros } from "@/app/alumno/macros/actions";
 import type { HoraDia, PlanAlimentacion } from "@/app/alumno/comer/tipos";
 import type { ProductoOFF } from "@/lib/alimentos/openFoodFacts";
 import { errorMetasNutricionales } from "@/lib/alimentos/metasNutricionales";
+import { resumirMicronutrientes, sodioGramosAMiligramos, type ResumenMicronutrientes } from "@/lib/alimentos/resumenMicronutrientes";
 import {
   Beef,
   ChevronRight,
@@ -98,6 +99,9 @@ type ComidaVisual = (typeof ALIMENTOS)[number] & {
   cantidad?: number;
   unidad?: string;
   consumidoId?: string;
+  fibra?: number | null;
+  azucares?: number | null;
+  sodio?: number | null;
 };
 
 function comidasDesdeRegistros(registros: Record<string, HoraDia[]>): ComidaVisual[] {
@@ -110,6 +114,9 @@ function comidasDesdeRegistros(registros: Record<string, HoraDia[]>): ComidaVisu
       prot: alimento.prot,
       carb: alimento.carb,
       grasa: alimento.grasa,
+      fibra: alimento.fibra,
+      azucares: alimento.azucares,
+      sodio: alimento.sodio,
       fecha,
       hora: franja.hora,
       alimentoId: alimento.alimentoId,
@@ -178,6 +185,10 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
       grasa: acumulado.grasa + comida.grasa,
     }), { kcal: 0, prot: 0, carb: 0, grasa: 0 }), [comidas, fechaActiva]);
   const objetivos = objetivosLocales;
+  const micronutrientes = useMemo(
+    () => resumirMicronutrientes(comidas.filter((comida) => comida.fecha === fechaActiva)),
+    [comidas, fechaActiva],
+  );
   const porcentaje = (valor: number, objetivo: number) => objetivo > 0
     ? Math.min(100, (valor / objetivo) * 100)
     : 0;
@@ -270,6 +281,9 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
           prot: elegido.alimento.prot * factor,
           carb: elegido.alimento.carb * factor,
           grasa: elegido.alimento.grasa * factor,
+          fibra: elegido.alimento.fibra === null ? null : elegido.alimento.fibra * factor,
+          azucares: elegido.alimento.azucares === null ? null : elegido.alimento.azucares * factor,
+          sodio: elegido.alimento.sodio === null ? null : elegido.alimento.sodio * factor,
           alimentoId: elegido.alimento.id,
           consumidoId: resultado.consumidoId,
           cantidad: elegido.cantidadBase,
@@ -316,6 +330,9 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
         prot: comida.prot * factor,
         carb: comida.carb * factor,
         grasa: comida.grasa * factor,
+        fibra: comida.fibra === null || comida.fibra === undefined ? comida.fibra : comida.fibra * factor,
+        azucares: comida.azucares === null || comida.azucares === undefined ? comida.azucares : comida.azucares * factor,
+        sodio: comida.sodio === null || comida.sodio === undefined ? comida.sodio : comida.sodio * factor,
         detalle: `${Math.round(comida.kcal * factor)} cal · ${Math.round(comida.prot * factor)} p · ${Math.round(comida.carb * factor)} c · ${Math.round(comida.grasa * factor)} g`,
       } : comida));
       setComidaSeleccionada(null);
@@ -415,7 +432,7 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
       </div>
 
       {aviso ? <button type="button" className={styles.nutritionToast} onClick={() => setAviso("")}><span>{aviso}</span><X size={14} /></button> : null}
-      {panel === "resumen" ? <ResumenNutricional totales={totales} objetivos={objetivos} reales={Boolean(datos)} onClose={() => setPanel(null)} onAdjust={() => setPanel("macros")} /> : null}
+      {panel === "resumen" ? <ResumenNutricional totales={totales} objetivos={objetivos} micronutrientes={micronutrientes} reales={Boolean(datos)} onClose={() => setPanel(null)} onAdjust={() => setPanel("macros")} /> : null}
       {panel === "buscar" && !datos ? <BuscarAlimento onClose={() => setPanel(null)} onScan={() => setPanel("escaner")} onAdd={agregarComida} /> : null}
       {panel === "macros" ? <AjustarMacros objetivos={objetivos} real={Boolean(datos)} onClose={() => setPanel(null)} onApply={(nuevos) => { setObjetivosLocales(nuevos); setPanel(null); setAviso("Objetivos nutricionales actualizados"); }} /> : null}
       {panel === "copiar" ? <CopiarAlimentos comidas={comidas} copiando={operacion === "copiar"} onClose={() => setPanel(null)} onCopy={copiarComida} /> : null}
@@ -472,12 +489,14 @@ function ResumenNutricional({
   onAdjust,
   totales,
   objetivos,
+  micronutrientes,
   reales,
 }: {
   onClose: () => void;
   onAdjust: () => void;
   totales: TotalesNutricionV2;
   objetivos: TotalesNutricionV2;
+  micronutrientes: ResumenMicronutrientes;
   reales: boolean;
 }) {
   return (
@@ -486,9 +505,9 @@ function ResumenNutricional({
         <header><button type="button" onClick={onClose} aria-label="Cerrar resumen"><X size={19} /></button><button type="button" className={styles.adjustMacros} onClick={onAdjust}><PieChart size={14} />Ajustar macros</button></header>
         <h2>Resumen nutricional</h2>
         <ResumenMacrosAnimado totales={totales} objetivos={objetivos} />
-        <div className={styles.nutrientHeading}><h3>Distribución de nutrientes</h3><span>g&nbsp;&nbsp;%</span></div>
+        <div className={styles.nutrientHeading}><h3>Distribución de nutrientes</h3><span>{reales ? "Cantidad · cobertura" : "g  %"}</span></div>
         <div className={styles.nutrientRows}>{reales
-          ? <span><b>Datos verificables</b><em>Los micronutrientes aparecerán cuando los productos registrados incluyan una etiqueta completa.</em></span>
+          ? <MicronutrientesReales resumen={micronutrientes} />
           : <><span><b>Fibra</b><em>3 / 38 g</em></span><span><b>Azúcar</b><em>7 / 36 g</em></span><span><b>Colesterol</b><em>30 / 300 mg</em></span><span><b>Sodio</b><em>920 / 1500 mg</em></span></>
         }</div>
         {!reales ? <><div className={styles.nutrientHeading}><h3>Micronutrientes</h3><span>g&nbsp;&nbsp;%</span></div><div className={styles.nutrientRows}>
@@ -497,6 +516,27 @@ function ResumenNutricional({
       </section>
     </div>
   );
+}
+
+function MicronutrientesReales({ resumen }: { resumen: ResumenMicronutrientes }) {
+  if (resumen.totalAlimentos === 0) {
+    return <span><b>Sin alimentos registrados</b><em>Agrega un alimento para ver sus nutrientes.</em></span>;
+  }
+
+  const filas = [
+    { nombre: "Fibra", unidad: "g", dato: resumen.fibra, convertir: (valor: number) => Math.round(valor * 10) / 10 },
+    { nombre: "Azúcares", unidad: "g", dato: resumen.azucares, convertir: (valor: number) => Math.round(valor * 10) / 10 },
+    { nombre: "Sodio", unidad: "mg", dato: resumen.sodio, convertir: sodioGramosAMiligramos },
+  ];
+
+  return <>{filas.map(({ nombre, unidad, dato, convertir }) => (
+    <span key={nombre}>
+      <b>{nombre}</b>
+      <em>{dato.total === null
+        ? "Sin dato en las etiquetas"
+        : `${convertir(dato.total)} ${unidad} · ${dato.conDatos}/${resumen.totalAlimentos} con datos`}</em>
+    </span>
+  ))}</>;
 }
 
 function AjustarMacros({

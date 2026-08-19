@@ -260,7 +260,7 @@ export async function obtenerRegistrosRango(
     .select(
       "fecha, comidas_registradas(id, tipo_comida, omitida, observacion, " +
         "alimentos_consumidos(id, alimento_id, cantidad, unidad, " +
-        "alimentos(nombre, kcal, prot, carb, grasa, porcion_base)))"
+        "alimentos(nombre, kcal, prot, carb, grasa, fibra, azucares, sodio, porcion_base)))"
     )
     .eq("alumno_id", alumnoId)
     .gte("fecha", desde)
@@ -277,6 +277,9 @@ export async function obtenerRegistrosRango(
       prot: number;
       carb: number;
       grasa: number;
+      fibra: number | null;
+      azucares: number | null;
+      sodio: number | null;
       porcion_base: number;
     } | null;
   };
@@ -310,6 +313,9 @@ export async function obtenerRegistrosRango(
           prot: a.prot * factor,
           carb: a.carb * factor,
           grasa: a.grasa * factor,
+          fibra: a.fibra === null ? null : a.fibra * factor,
+          azucares: a.azucares === null ? null : a.azucares * factor,
+          sodio: a.sodio === null ? null : a.sodio * factor,
         });
       }
 

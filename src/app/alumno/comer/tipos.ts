@@ -116,6 +116,11 @@ export type AlimentoEnComida = {
   prot: number;
   carb: number;
   grasa: number;
+  /** Valores ya escalados a la cantidad consumida. null = etiqueta sin dato. */
+  fibra: number | null;
+  azucares: number | null;
+  /** Gramos de sodio consumidos; la interfaz los convierte a mg al mostrar. */
+  sodio: number | null;
 };
 
 export type Totales = { kcal: number; prot: number; carb: number; grasa: number };

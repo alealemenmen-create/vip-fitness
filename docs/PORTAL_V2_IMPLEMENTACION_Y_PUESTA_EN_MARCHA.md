@@ -93,6 +93,12 @@ idempotente y contrastarse contra el registro original antes del piloto.
 - Escanear: lector de código de barras; en producción necesita HTTPS y permiso
   de cámara.
 - Registrar, editar cantidad, borrar y copiar alimentos recientes.
+- El resumen calcula fibra, azúcares y sodio desde las etiquetas reales y los
+  escala por la cantidad consumida. Un nutriente ausente se mantiene como
+  “sin dato” en vez de convertirse en cero; cada fila declara además cuántos
+  alimentos del día aportan información. El sodio se conserva internamente en
+  gramos, como lo entrega Open Food Facts, y se convierte a miligramos al
+  mostrarlo.
 - La hoja de alimentos mantiene cinco destinos V2 conectados: Buscar,
   Guardados, Creados, Recetas y Escanear. La portada recupera los alimentos
   usados recientemente por el alumno desde su registro real, respetando el
@@ -412,7 +418,7 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `68` archivos de pruebas y `551` pruebas aprobadas; ESLint sin advertencias,
+- `69` archivos de pruebas y `555` pruebas aprobadas; ESLint sin advertencias,
   TypeScript sin errores y compilación de producción completa (`67` rutas).
 - Las 15 rutas de la V2 respondieron `200` en el servidor de producción local,
   incluida la búsqueda prefiltrada de la biblioteca y la nueva pantalla de
@@ -525,6 +531,10 @@ Validaciones locales completadas el 19-08-2026:
   porción de `155 g`, actualización inmediata de Nutrición y Progreso, y
   eliminación posterior del registro QA para restaurar los totales iniciales.
   No hubo errores de navegador.
+- El mismo recorrido comprobó después que la etiqueta nutricional atraviesa la
+  cadena completa catálogo → consumo → recarga → resumen. El resumen mostró
+  azúcares y sodio escalados a la porción, señaló la ausencia real de fibra y
+  expresó el sodio en `mg`; el consumo QA se eliminó al finalizar.
 - La hoja autenticada de “Buscar comida” dejó de reutilizar la presentación
   clásica. Conserva el motor real —catálogo propio, búsqueda por nombre y
   marca, productos de Chile, favoritos, recetas, escáner y carga múltiple—,

@@ -362,6 +362,9 @@ export function PantallaComer({
         prot: e.alimento.prot * factor,
         carb: e.alimento.carb * factor,
         grasa: e.alimento.grasa * factor,
+        fibra: e.alimento.fibra === null ? null : e.alimento.fibra * factor,
+        azucares: e.alimento.azucares === null ? null : e.alimento.azucares * factor,
+        sodio: e.alimento.sodio === null ? null : e.alimento.sodio * factor,
       };
     });
 
