@@ -9,11 +9,11 @@ import { buscarAlimentos } from "./data";
 import { etiquetaDeHora, type AlimentoCatalogo } from "./tipos";
 import { debeEliminarComidaVacia } from "@/lib/alimentos/limpiezaComida";
 import {
-  buscarEnOFF,
   buscarPorCodigoOFF,
   type ResultadoOFF,
   type ResultadoProductoOFF,
 } from "@/lib/alimentos/openFoodFacts";
+import { buscarEnOFFConCache } from "@/lib/alimentos/openFoodFactsCache";
 import { deducirMedidaCasera, medidaDeAlimento } from "@/lib/alimentos/medidaCasera";
 import { recalcularAlimentacionDia } from "@/lib/ranking/movimientos";
 import { fechaEnVentanaValida } from "@/lib/date";
@@ -26,12 +26,14 @@ import { registrarActividadAlumno } from "@/lib/ingresos/data";
  * acá, servidor a servidor, donde CORS no aplica.
  */
 export async function buscarEnOFFAction(texto: string, pais: "chile" | "global"): Promise<ResultadoOFF> {
-  return buscarEnOFF(texto, pais);
+  await requireAlumno();
+  return buscarEnOFFConCache(texto, pais);
 }
 
 /** El endpoint de código de barras sí manda CORS y funcionaría directo desde
  * el navegador, pero se centraliza acá igual, por consistencia. */
 export async function buscarPorCodigoOFFAction(codigo: string): Promise<ResultadoProductoOFF> {
+  await requireAlumno();
   return buscarPorCodigoOFF(codigo);
 }
 

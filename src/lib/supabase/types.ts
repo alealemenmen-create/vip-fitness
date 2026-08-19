@@ -1173,6 +1173,13 @@ export interface Database {
         Update: { cantidad?: number; orden?: number };
         Relationships: [];
       };
+      // 0109_cache_open_food_facts.sql — solo service role.
+      open_food_facts_cache: {
+        Row: { consulta: string; pais: "chile" | "global"; productos: unknown; expira_en: string; actualizado_en: string };
+        Insert: { consulta: string; pais: "chile" | "global"; productos?: unknown; expira_en: string; actualizado_en?: string };
+        Update: { productos?: unknown; expira_en?: string; actualizado_en?: string };
+        Relationships: [];
+      };
       pesos_corporales: {
         Row: {
           id: string;

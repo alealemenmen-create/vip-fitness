@@ -307,16 +307,22 @@ function Contenido({
       if (version !== versionBusqueda.current) return;
       let combinados: ProductoOFF[] = [];
       let error: string | null = null;
-      if (chile.ok) combinados = chile.productos.filter((p) => !esDuplicadoDeLocal(p, resultados));
+      if (chile.ok) {
+        combinados = chile.productos.filter((p) => !esDuplicadoDeLocal(p, resultados));
+        error = chile.aviso ?? null;
+      }
       else error = chile.error;
 
-      if (resultados.length + combinados.length < LIMITE_BUSQUEDA_ALIMENTOS) {
+      // Si la consulta chilena falló, no castigamos al mismo proveedor con una
+      // segunda consulta global. Esto reducía la disponibilidad y podía gastar
+      // cuatro solicitudes (reintentos + fallback) por un solo toque.
+      if (chile.ok && !chile.aviso && resultados.length + combinados.length < LIMITE_BUSQUEDA_ALIMENTOS) {
         const global = await buscarEnOFFAction(q, "global");
         if (version !== versionBusqueda.current) return;
         if (global.ok) {
           const vistos = new Set(combinados.map((p) => p.offId));
           combinados = [...combinados, ...global.productos.filter((p) => !vistos.has(p.offId) && !esDuplicadoDeLocal(p, resultados))];
-          error = null;
+          error = global.aviso ?? error;
         } else if (!error) error = global.error;
       }
       setOffResultados(combinados.slice(0, LIMITE_BUSQUEDA_ALIMENTOS));
@@ -744,6 +750,7 @@ function Contenido({
               if (corta) setResultados([]);
             }}
             placeholder="Buscar alimentos"
+            maxLength={120}
             className="min-w-0 flex-1 bg-transparent text-secondary text-text outline-none"
           />
           {busqueda && (

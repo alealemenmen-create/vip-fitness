@@ -129,14 +129,29 @@ describe("Open Food Facts", () => {
     }), { status: 200, headers: { "content-type": "application/json" } });
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(caida)
-      .mockResolvedValueOnce(new Response("temporal", { status: 503 }))
       .mockResolvedValueOnce(legado);
     vi.stubGlobal("fetch", fetchMock);
 
     const resultado = await buscarEnOFF("Leche fallback unico", "chile");
 
-    expect(resultado).toEqual({ ok: true, productos: [expect.objectContaining({ nombre: "Leche Entera", marca: "Soprole" })] });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(String(fetchMock.mock.calls[2]?.[0])).toContain("/cgi/search.pl?");
+    expect(resultado).toMatchObject({
+      ok: true,
+      productos: [expect.objectContaining({ nombre: "Leche Entera", marca: "Soprole" })],
+      aviso: expect.stringContaining("respaldo"),
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("/cgi/search.pl?");
+  });
+
+  it("no multiplica una búsqueda de texto cuando ambos servicios están saturados", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response("temporal", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultado = await buscarEnOFF("consulta saturada irrepetible", "chile");
+
+    expect(resultado).toMatchObject({ ok: false, causa: "limite" });
+    // Una llamada al buscador actual y una al respaldo histórico. Antes eran
+    // cuatro por los reintentos, precisamente lo peor ante un límite por IP.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

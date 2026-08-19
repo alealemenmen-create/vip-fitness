@@ -29,8 +29,12 @@ export type ProductoOFF = {
   imagenUrl: string | null;
 };
 
-export type ResultadoOFF = { ok: true; productos: ProductoOFF[] } | { ok: false; error: string };
-export type ResultadoProductoOFF = { ok: true; producto: ProductoOFF | null } | { ok: false; error: string };
+export type ResultadoOFF =
+  | { ok: true; productos: ProductoOFF[]; origen?: "externo" | "cache"; aviso?: string }
+  | { ok: false; error: string; causa?: "limite" | "tiempo" | "conexion" | "servicio" };
+export type ResultadoProductoOFF =
+  | { ok: true; producto: ProductoOFF | null }
+  | { ok: false; error: string; causa?: "limite" | "tiempo" | "conexion" | "servicio" };
 
 const BASE_URL_BUSQUEDA = "https://search.openfoodfacts.org/search";
 const BASE_URL_BUSQUEDA_LEGACY = "https://world.openfoodfacts.org/cgi/search.pl";
@@ -161,19 +165,24 @@ function normalizarProducto(p: RawProducto): ProductoOFF | null {
   };
 }
 
-type ResultadoJSON = { ok: true; json: unknown } | { ok: false; error: string };
+type ResultadoJSON =
+  | { ok: true; json: unknown }
+  | { ok: false; error: string; causa?: "limite" | "tiempo" | "conexion" | "servicio" };
 
-/** Fetch con timeout de 5 s y un reintento — ante 429 (saturado) o cualquier
- * otro error, porque en la práctica `cgi/search.pl` (el buscador legado de
- * OFF) falla seguido de forma pasajera, sin relación con el texto buscado
- * ("mang" y "pudin" fallaron, "mango" no). Común a la búsqueda por texto y a
- * la consulta directa por código de barras. */
+/** Fetch con timeout de 5 s. La consulta directa por código puede reintentar
+ * una vez ante 429/5xx; las búsquedas de texto no, porque tienen un límite por
+ * IP mucho más estricto y ya cuentan con caché compartida. */
 // OFF pide identificar a quién consulta su API (User-Agent propio); el
 // navegador no deja mandar este header desde `fetch`, pero acá corre en el
 // servidor, donde sí se puede — y evita que nos traten como tráfico anónimo.
-const USER_AGENT = "VIPFitness/1.0 (gimnasio, app de nutricion; contacto via app)";
+const USER_AGENT = `VIPFitness/2.0 (${process.env.OPENFOODFACTS_CONTACT ?? "soporte@vipfitness.cl"})`;
 
-async function fetchConReintento(url: string, opciones: RequestInit = {}, reintentando = false): Promise<ResultadoJSON> {
+async function fetchConReintento(
+  url: string,
+  opciones: RequestInit = {},
+  reintentando = false,
+  permiteReintento = true,
+): Promise<ResultadoJSON> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -190,15 +199,16 @@ async function fetchConReintento(url: string, opciones: RequestInit = {}, reinte
       // resultado válido (producto ausente), no una caída que debamos reintentar
       // ni presentar como error de conexión.
       if (res.status === 404) return { ok: true, json: { status: 0 } };
-      if (!reintentando) {
+      if (permiteReintento && !reintentando && (res.status === 429 || res.status >= 500)) {
         await new Promise((resolve) => setTimeout(resolve, res.status === 429 ? 1500 : 500));
-        return fetchConReintento(url, opciones, true);
+        return fetchConReintento(url, opciones, true, permiteReintento);
       }
       // Queda en los logs del servidor para poder ver por qué, la próxima vez
       // que pase — al alumno se le muestra un mensaje simple, no esto.
       console.error("Open Food Facts respondió mal:", res.status, (await res.text()).slice(0, 300));
       return {
         ok: false,
+        causa: res.status === 429 || res.status === 503 ? "limite" : "servicio",
         error:
           res.status === 429
             ? "Open Food Facts está saturado ahora mismo. Intenta de nuevo en un momento."
@@ -209,23 +219,13 @@ async function fetchConReintento(url: string, opciones: RequestInit = {}, reinte
     return { ok: true, json: await res.json() };
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
-      return { ok: false, error: "Open Food Facts no respondió a tiempo." };
+      return { ok: false, causa: "tiempo", error: "Open Food Facts no respondió a tiempo." };
     }
     console.error("Open Food Facts fetch error:", err);
-    return { ok: false, error: "No se pudo conectar con Open Food Facts." };
+    return { ok: false, causa: "conexion", error: "No se pudo conectar con Open Food Facts." };
   } finally {
     clearTimeout(timeout);
   }
-}
-
-async function consultar(url: string): Promise<ResultadoOFF> {
-  const resultado = await fetchConReintento(url);
-  if (!resultado.ok) return resultado;
-
-  const json = resultado.json as { products?: unknown };
-  const crudos = Array.isArray(json?.products) ? (json.products as RawProducto[]) : [];
-  const productos = crudos.map(normalizarProducto).filter((p): p is ProductoOFF => p !== null);
-  return { ok: true, productos };
 }
 
 function escaparConsultaLucene(texto: string): string {
@@ -249,7 +249,7 @@ async function consultarSearchALicious(texto: string, pais: "chile" | "global"):
       boost_phrase: true,
       fields: CAMPOS_OFF,
     }),
-  });
+  }, false, false);
   if (!resultado.ok) return resultado;
   const json = resultado.json as { hits?: unknown };
   const crudos = Array.isArray(json?.hits) ? (json.hits as RawProducto[]) : [];
@@ -270,7 +270,11 @@ async function consultarBusquedaLegacy(texto: string, pais: "chile" | "global"):
     params.set("tag_contains_0", "contains");
     params.set("tag_0", "chile");
   }
-  return consultar(`${BASE_URL_BUSQUEDA_LEGACY}?${params.toString()}`);
+  const resultado = await fetchConReintento(`${BASE_URL_BUSQUEDA_LEGACY}?${params.toString()}`, {}, false, false);
+  if (!resultado.ok) return resultado;
+  const json = resultado.json as { products?: unknown };
+  const crudos = Array.isArray(json?.products) ? (json.products as RawProducto[]) : [];
+  return { ok: true, productos: crudos.map(normalizarProducto).filter((p): p is ProductoOFF => p !== null) };
 }
 
 /** Busca productos por texto, priorizando Chile o abriendo a todo el catálogo global. */
@@ -288,15 +292,27 @@ export async function buscarEnOFF(texto: string, pais: "chile" | "global"): Prom
   }
   if (cacheada) cache.delete(clave);
 
-  // Search-a-licious es el buscador oficial de texto actual. Si está caído,
-  // se intenta una vez el endpoint histórico para que una incidencia de uno
-  // de los dos servicios no deje al alumno sin catálogo externo.
+  // Search-a-licious es el buscador oficial de texto actual. Cada buscador se
+  // intenta una sola vez: el endpoint histórico tiene un límite estricto por
+  // IP y reintentar en cascada podía convertir un solo toque en cuatro
+  // solicitudes. La caché compartida se encarga de la continuidad.
   let resultado = await consultarSearchALicious(q, pais);
-  if (!resultado.ok) resultado = await consultarBusquedaLegacy(q, pais);
+  if (!resultado.ok) {
+    const respaldo = await consultarBusquedaLegacy(q, pais);
+    resultado = respaldo.ok
+      ? {
+          ...respaldo,
+          aviso: "El buscador principal está ocupado; mostramos el respaldo disponible.",
+        }
+      : respaldo;
+  }
   if (!resultado.ok) {
     return {
       ok: false,
-      error: "El catálogo externo está temporalmente fuera de servicio. El catálogo VIP sigue disponible y también puedes crear el producto.",
+      causa: resultado.causa,
+      error: resultado.causa === "limite"
+        ? "Open Food Facts está ocupado. El catálogo VIP sigue disponible; inténtalo nuevamente en un minuto."
+        : "El catálogo externo está temporalmente fuera de servicio. El catálogo VIP sigue disponible y también puedes crear el producto.",
     };
   }
   if (resultado.ok) {

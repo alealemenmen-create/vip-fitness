@@ -77,11 +77,19 @@ idempotente y contrastarse contra el registro original antes del piloto.
   siempre existe creación manual cuando no hay resultado.
 - Los productos externos se vuelven a consultar por código en el servidor:
   nombre y macros enviados por el navegador nunca se confían, se rechazan
-  rangos imposibles y la caché pública tiene caducidad y tamaño máximo.
+  rangos imposibles y la caché compartida sólo puede escribirla la service
+  role. Una fila JSON dañada se descarta antes de llegar a la interfaz.
 - La búsqueda externa es explícita, no se dispara por cada tecla: protege la
   disponibilidad del servicio público; el catálogo VIP local conserva la
   búsqueda inmediata. Si Search-a-licious falla, se intenta el endpoint
   histórico una vez y la interfaz mantiene catálogo local y creación manual.
+  Cada buscador se consulta una sola vez: un toque ya no puede generar cuatro
+  reintentos contra una API limitada por IP.
+- `open_food_facts_cache` comparte respuestas entre procesos y alumnos: siete
+  días para resultados y seis horas para búsquedas vacías. Ante una caída usa
+  un respaldo de hasta 30 días; tres fallos consecutivos abren durante un
+  minuto un circuito que deja de insistir. Consultas simultáneas iguales
+  también se agrupan en una sola petición.
 - Escanear: lector de código de barras; en producción necesita HTTPS y permiso
   de cámara.
 - Registrar, editar cantidad, borrar y copiar alimentos recientes.
@@ -237,7 +245,7 @@ adicionales separadas, jamás modificar silenciosamente la rutina publicada.
 
 La definición exhaustiva y tipada está en `src/lib/supabase/types.ts`; las
 migraciones históricas están en `supabase/migrations/0001_init.sql` a
-`0108_recompensas_vip_solo_alumnos.sql`. Las tablas que sostienen esta V2 son:
+`0109_cache_open_food_facts.sql`. Las tablas que sostienen esta V2 son:
 
 | Área | Tabla | Campos esenciales |
 | --- | --- | --- |
@@ -256,6 +264,7 @@ migraciones históricas están en `supabase/migrations/0001_init.sql` a
 | Consumo | `alimentos_consumidos` | `comida_id`, `alimento_id`, `cantidad`, `unidad` |
 | Biblioteca nutricional | `alimentos_favoritos`, `recetas_alumno`, `receta_ingredientes` | propiedad, alimento, cantidad, porciones, orden y fechas |
 | Catálogo | `alimentos` | nombre, marca, porción, macros, micronutrientes, medida casera, código, origen OFF, imagen y aprobación |
+| Caché nutricional externa | `open_food_facts_cache` | consulta normalizada, país, productos validados, expiración y actualización; acceso exclusivo de service role |
 | Peso | `pesos_corporales` | alumno, fecha, `peso_kg`, observación y creación |
 | Fotos | `fotos_progreso` | alumno, ruta, fecha, categoría, comentario y creación |
 | Seguimiento | `seguimientos_diarios` | alumno, fecha, energía, ánimo, sueño, dolor/molestias y notas |
@@ -325,6 +334,8 @@ Variables requeridas para producción:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` (sólo servidor)
+- `OPENFOODFACTS_CONTACT` (correo o URL real que identifica VIP Fitness ante
+  Open Food Facts; respaldo actual: `soporte@vipfitness.cl`)
 - `NEXT_PUBLIC_SITE_URL`
 - `NEXT_PUBLIC_INSTAGRAM_URL` y `NEXT_PUBLIC_FACEBOOK_URL` cuando las cuentas
   oficiales estén confirmadas; si faltan, la V2 lo declara y no inventa URLs.
@@ -395,7 +406,7 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `64` archivos de pruebas y `532` pruebas aprobadas; ESLint sin advertencias,
+- `65` archivos de pruebas y `538` pruebas aprobadas; ESLint sin advertencias,
   TypeScript sin errores y compilación de producción completa (`67` rutas).
 - Las 15 rutas de la V2 respondieron `200` en el servidor de producción local,
   incluida la búsqueda prefiltrada de la biblioteca y la nueva pantalla de
@@ -408,6 +419,12 @@ Validaciones locales completadas el 19-08-2026:
 - `0108_recompensas_vip_solo_alumnos.sql` cierra el acceso directo de
   entrenador o administrador al RPC de solicitud: estar autenticado ya no
   basta; el solicitante debe tener rol `alumno`.
+- `0109_cache_open_food_facts.sql` se aplicó al Supabase activo: RLS habilitado
+  y todos los permisos revocados para `anon` y `authenticated`. Una búsqueda
+  autenticada de `yogur soprole frutilla` devolvió productos reales y dejó una
+  sola fila chilena compartida con `14` productos y expiración vigente. Las
+  pruebas aíslan además caché, deduplicación simultánea, respaldo recuperable
+  y circuito abierto sin depender de una caída real del proveedor.
 - La sesión activa conserva un borrador local validado y aislado por id durante
   48 horas. Una recarga recupera los últimos pesos, repeticiones, notas, tiempo
   y posición sin pisar series que el servidor ya confirmó; los fallos de red se
@@ -594,7 +611,8 @@ Validaciones locales completadas el 19-08-2026:
 3. `0104_personalizacion_sesion_v2.sql`,
    `0105_biblioteca_nutricion_v2.sql`, `0106_comunidad_social_v2.sql` y
    `0107_recompensas_vip.sql`, junto con el refuerzo
-   `0108_recompensas_vip_solo_alumnos.sql`, ya quedaron instaladas y
+   `0108_recompensas_vip_solo_alumnos.sql` y la caché externa
+   `0109_cache_open_food_facts.sql`, ya quedaron instaladas y
    verificadas en el proyecto activo. Mantener una instancia de preview para las pruebas
    destructivas y los cambios siguientes.
 4. Configurar variables de preview y producción por separado.
