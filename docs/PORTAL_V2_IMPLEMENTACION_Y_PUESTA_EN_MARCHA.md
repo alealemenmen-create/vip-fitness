@@ -421,6 +421,11 @@ Validaciones locales completadas el 19-08-2026:
   autenticado. La eliminación física no se ejecutó durante esta prueba porque
   la foto QA se conserva deliberadamente como fixture y una acción destructiva
   requiere confirmación expresa.
+- `npm run verify:v2-storage` creó una segunda identidad sintética y aislada,
+  claramente marcada como QA. La prueba real confirmó que esa cuenta recibe
+  cero filas de `fotos_progreso` pertenecientes al primer alumno QA y tampoco
+  puede descargar su objeto privado de Storage. No se consultó ni modificó la
+  fotografía de ningún alumno activo.
 - Los recursos privados de Cloudflare Stream ya no usan el UID público que
   provocaba `401`: miniatura y reproductor comparten un token temporal emitido
   por el servidor y reutilizado con margen de expiración. En el entorno local
@@ -477,8 +482,9 @@ Validaciones locales completadas el 19-08-2026:
 
 - Auth, escrituras reales y límites RLS principales ya están comprobados con
   cuentas QA aisladas. Storage ya tiene carga, lectura firmada y reemplazo
-  reales verificados; quedan la prueba negativa de lectura cruzada con un
-  segundo alumno aislado y la eliminación física confirmada. Cámara,
+  reales verificados, además del bloqueo de lectura y descarga cruzada entre
+  dos alumnos QA. Sólo queda ejecutar la eliminación física cuando exista una
+  confirmación expresa para retirar el fixture sintético. Cámara,
   notificaciones y segundo plano todavía requieren dispositivos físicos bajo
   HTTPS. Estas pruebas nunca deben utilizar alumnos activos.
 - Definir el catálogo comercial real, disponibilidad, responsables de entrega
