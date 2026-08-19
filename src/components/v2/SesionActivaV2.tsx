@@ -29,6 +29,7 @@ import {
   Zap,
 } from "lucide-react";
 import { avisarFinDescansoV2, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
+import { planificarBloqueEncadenado, type TecnicaEncadenadaSlug } from "@/lib/entrenamiento/motor-tecnicas-sesion";
 import {
   seleccionarMomentosAlejandro,
   type MomentoSesionAlejandro,
@@ -51,6 +52,8 @@ type EjercicioSesion = {
   equipo: string;
   grupo: string;
   tecnica?: string;
+  bloqueId?: string;
+  tecnicaSlug?: TecnicaEncadenadaSlug;
 };
 
 type DescansoActivo = {
@@ -67,10 +70,43 @@ type UnidadPeso = "kg" | "lb";
 
 const EJERCICIOS: EjercicioSesion[] = [
   { id: "sentadilla-smith", codigo: "A", nombre: "Sentadilla Smith", repeticiones: [10, 10, 10, 10], descanso: 60, foto: "/v2/piernas.webp", equipo: "Máquina Smith", grupo: "Cuádriceps · glúteos" },
-  { id: "peso-muerto-rumano", codigo: "B1", nombre: "Peso muerto rumano", repeticiones: [8, 8, 8], descanso: 90, foto: "/v2/espalda.webp", equipo: "Barra", grupo: "Femoral · glúteos", tecnica: "Superserie" },
-  { id: "prensa-inclinada", codigo: "B2", nombre: "Prensa inclinada", repeticiones: [12, 12, 12], descanso: 120, foto: "/v2/piernas.webp", equipo: "Prensa 45°", grupo: "Cuádriceps", tecnica: "Superserie" },
+  { id: "peso-muerto-rumano", codigo: "B1", nombre: "Peso muerto rumano", repeticiones: [8, 8, 8], descanso: 0, foto: "/v2/espalda.webp", equipo: "Barra", grupo: "Femoral · glúteos", tecnica: "Superserie", bloqueId: "superserie-b", tecnicaSlug: "superserie" },
+  { id: "prensa-inclinada", codigo: "B2", nombre: "Prensa inclinada", repeticiones: [12, 12, 12], descanso: 90, foto: "/v2/piernas.webp", equipo: "Prensa 45°", grupo: "Cuádriceps", tecnica: "Superserie", bloqueId: "superserie-b", tecnicaSlug: "superserie" },
   { id: "extension-cuadriceps", codigo: "C", nombre: "Extensión de cuádriceps", repeticiones: [15, 15, 15], descanso: 75, foto: "/v2/hombros.webp", equipo: "Máquina de extensión", grupo: "Cuádriceps" },
 ];
+
+type PosicionSerie = { ejercicioIndice: number; serieIndice: number };
+
+function crearOrdenEjecucion(): PosicionSerie[] {
+  const orden: PosicionSerie[] = [];
+  let indice = 0;
+  while (indice < EJERCICIOS.length) {
+    const ejercicio = EJERCICIOS[indice];
+    if (!ejercicio.bloqueId) {
+      ejercicio.repeticiones.forEach((_, serieIndice) => orden.push({ ejercicioIndice: indice, serieIndice }));
+      indice += 1;
+      continue;
+    }
+    const inicio = indice;
+    const bloque: EjercicioSesion[] = [];
+    while (indice + bloque.length < EJERCICIOS.length && EJERCICIOS[indice + bloque.length].bloqueId === ejercicio.bloqueId) {
+      bloque.push(EJERCICIOS[indice + bloque.length]);
+    }
+    const pasos = planificarBloqueEncadenado({
+      tecnica: ejercicio.tecnicaSlug ?? "superserie",
+      ejercicios: bloque.map((item) => ({ ejercicioId: item.id, series: item.repeticiones.length })),
+      descansoFinalSegundos: bloque.at(-1)?.descanso ?? 90,
+    });
+    pasos.filter((paso) => paso.tipo === "serie").forEach((paso) => {
+      const posicionBloque = bloque.findIndex((item) => item.id === paso.ejercicioId);
+      orden.push({ ejercicioIndice: inicio + posicionBloque, serieIndice: (paso.serieNumero ?? 1) - 1 });
+    });
+    indice += bloque.length;
+  }
+  return orden;
+}
+
+const ORDEN_EJECUCION = crearOrdenEjecucion();
 
 const MOMENTOS_ALEJANDRO = seleccionarMomentosAlejandro({
   activo: true,
@@ -126,26 +162,22 @@ function pesoHistorico(kilos: number, unidad: UnidadPeso) {
 }
 
 function desplazarPosicionSerie(ejercicioIndice: number, serieIndice: number, direccion: -1 | 1) {
-  let siguienteEjercicioIndice = ejercicioIndice;
-  let siguienteSerieIndice = serieIndice + direccion;
+  const actual = ORDEN_EJECUCION.findIndex((paso) =>
+    paso.ejercicioIndice === ejercicioIndice && paso.serieIndice === serieIndice
+  );
+  if (actual < 0) return { ejercicioIndice, serieIndice };
+  return ORDEN_EJECUCION[limitar(actual + direccion, 0, ORDEN_EJECUCION.length - 1)];
+}
+
+function requiereDescansoDespues(ejercicioIndice: number, serieIndice: number) {
+  const actual = ORDEN_EJECUCION.findIndex((paso) =>
+    paso.ejercicioIndice === ejercicioIndice && paso.serieIndice === serieIndice
+  );
+  const siguiente = ORDEN_EJECUCION[actual + 1];
+  if (actual < 0 || !siguiente) return false;
   const ejercicio = EJERCICIOS[ejercicioIndice];
-
-  if (siguienteSerieIndice < 0 && ejercicioIndice > 0) {
-    siguienteEjercicioIndice -= 1;
-    siguienteSerieIndice = EJERCICIOS[siguienteEjercicioIndice].repeticiones.length - 1;
-  } else if (siguienteSerieIndice >= ejercicio.repeticiones.length && ejercicioIndice < EJERCICIOS.length - 1) {
-    siguienteEjercicioIndice += 1;
-    siguienteSerieIndice = 0;
-  }
-
-  return {
-    ejercicioIndice: siguienteEjercicioIndice,
-    serieIndice: limitar(
-      siguienteSerieIndice,
-      0,
-      EJERCICIOS[siguienteEjercicioIndice].repeticiones.length - 1,
-    ),
-  };
+  const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
+  return !(ejercicio.bloqueId && ejercicio.bloqueId === siguienteEjercicio.bloqueId && serieIndice === siguiente.serieIndice);
 }
 
 export function SesionActivaV2() {
@@ -190,13 +222,12 @@ export function SesionActivaV2() {
   const ejercicioActivo = EJERCICIOS[ejercicioActivoIndice] ?? EJERCICIOS[0];
   const serieActivaIndiceSeguro = limitar(serieActivaIndice, 0, ejercicioActivo.repeticiones.length - 1);
   const serieActiva = registro[ejercicioActivo.id][serieActivaIndiceSeguro];
-  const serieActivaNumero = EJERCICIOS.slice(0, ejercicioActivoIndice).reduce(
-    (total, ejercicio) => total + ejercicio.repeticiones.length,
-    serieActivaIndiceSeguro + 1,
+  const indicePasoActivo = ORDEN_EJECUCION.findIndex((paso) =>
+    paso.ejercicioIndice === ejercicioActivoIndice && paso.serieIndice === serieActivaIndiceSeguro
   );
-  const puedeIrAtras = ejercicioActivoIndice > 0 || serieActivaIndiceSeguro > 0;
-  const puedeIrAdelante = ejercicioActivoIndice < EJERCICIOS.length - 1
-    || serieActivaIndiceSeguro < ejercicioActivo.repeticiones.length - 1;
+  const serieActivaNumero = Math.max(0, indicePasoActivo) + 1;
+  const puedeIrAtras = indicePasoActivo > 0;
+  const puedeIrAdelante = indicePasoActivo >= 0 && indicePasoActivo < ORDEN_EJECUCION.length - 1;
   const ejercicioDescansoIndice = descanso === null
     ? ejercicioActivoIndice
     : EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
@@ -340,6 +371,19 @@ export function SesionActivaV2() {
       return;
     }
 
+    if (!requiereDescansoDespues(ejercicioIndice, serieIndice)) {
+      const siguiente = desplazarPosicionSerie(ejercicioIndice, serieIndice, 1);
+      const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
+      cortarAviso();
+      setDescanso(null);
+      setDescansoEnFoco(false);
+      setEjercicioActivoId(siguienteEjercicio.id);
+      setSerieActivaIndice(siguiente.serieIndice);
+      setEjercicioExpandidoId(siguienteEjercicio.id);
+      setControlesVideoVisibles(true);
+      return;
+    }
+
     if (!temporizadorAutomatico) {
       const siguiente = desplazarPosicionSerie(ejercicioIndice, serieIndice, 1);
       const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
@@ -417,7 +461,7 @@ export function SesionActivaV2() {
       setConfirmarSalida(true);
       return;
     }
-    if (!temporizadorAutomatico) {
+    if (!temporizadorAutomatico || !requiereDescansoDespues(ejercicioActivoIndice, serieActivaIndiceSeguro)) {
       const siguiente = desplazarPosicionSerie(ejercicioActivoIndice, serieActivaIndiceSeguro, 1);
       const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
       setEjercicioActivoId(siguienteEjercicio.id);
@@ -661,7 +705,7 @@ export function SesionActivaV2() {
                           <span className={styles.setNumber}><b>{serieIndice + 1}</b><em>TRB</em></span>
                           <input aria-label={`Repeticiones, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva} inputMode="numeric" value={serie.reps} readOnly={!esSerieActiva} tabIndex={esSerieActiva ? 0 : -1} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "reps", evento.target.value)} />
                           <input aria-label={`Peso en ${unidadPeso}, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva} inputMode="decimal" value={serie.peso} readOnly={!esSerieActiva} tabIndex={esSerieActiva ? 0 : -1} placeholder={`— ${unidadPeso}`} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "peso", evento.target.value)} />
-                          <span className={styles.restValue}>{esUltimaSerieRutina ? "Final" : `${ejercicio.descanso} s`}</span>
+                          <span className={styles.restValue}>{esUltimaSerieRutina ? "Final" : requiereDescansoDespues(EJERCICIOS.findIndex((item) => item.id === ejercicio.id), serieIndice) ? `${ejercicio.descanso} s` : "Avanza"}</span>
                           <button type="button" className={styles.checkButton} onClick={(evento) => { evento.stopPropagation(); if (esSerieActiva) alternarSerie(ejercicio, serieIndice); else activarEstaSerie(); }} aria-label={esSerieActiva ? `${serie.completada ? "Desmarcar" : "Registrar"} serie ${serieIndice + 1}` : `Activar serie ${serieIndice + 1}`} aria-pressed={serie.completada}>{serie.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}</button>
                         </div>
                         {descansoDeEstaSerie ? <div className={`${styles.inlineRest} ${descansoEnFoco ? styles.inlineRestActive : ""}`} aria-current={descansoEnFoco ? "step" : undefined} aria-live="polite"><button type="button" onClick={() => ajustarDescanso(-15)}>−15 s</button><button type="button" className={styles.inlineRestTime} onClick={() => { setDescansoEnFoco(true); setVista("descanso"); }}>Descanso {descanso.segundos} s</button><button type="button" onClick={() => ajustarDescanso(15)}>+15 s</button></div> : null}
