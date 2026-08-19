@@ -444,6 +444,14 @@ Validaciones locales completadas el 19-08-2026:
   los retos extra; una señal intermedia limita el cupo a uno; una preparación
   estable conserva los momentos planificados. Sin check-in aplica por seguridad
   un máximo de un momento. La rutina base nunca se altera ni se diagnostica.
+- `npm run audit:v2-data` ejecuta una auditoría agregada y estrictamente de
+  sólo lectura contra las fuentes activas. El 19-08-2026 confirmó, entre otros,
+  `124` programas, `4.239` ejercicios prescritos, `514` sesiones históricas,
+  `3.937` ejercicios ejecutados, `11.149` series con sus cargas, `99` pesajes,
+  `6` fotos privadas, `535` comidas y `2.625` movimientos de puntos. La V2
+  consume esas mismas tablas: no existe una copia vacía que obligue a reiniciar
+  el progreso. Los totales son una fotografía de auditoría y cambiarán con el
+  uso normal del portal activo.
 
 1. Crear un respaldo lógico verificable antes del próximo cambio de esquema; el
    plan gratuito actual no incluye respaldos automáticos.

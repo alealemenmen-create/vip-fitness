@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "verify:v2": "node scripts/verificar-portal-v2.mjs"
+    "verify:v2": "node scripts/verificar-portal-v2.mjs",
+    "audit:v2-data": "node scripts/auditar-continuidad-datos-v2.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
