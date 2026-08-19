@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { CircleCheck, Clock3, Inbox, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { LinkRegistro } from "@/components/admin/LinkRegistro";
@@ -12,7 +12,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
 
 export default async function SolicitudesPage() {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   const config = await obtenerConfiguracionRegistro();
 

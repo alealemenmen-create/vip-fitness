@@ -1,5 +1,5 @@
 import { Trash2 } from "lucide-react";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
@@ -9,7 +9,7 @@ import {
 import { Card } from "@/components/ui/Card";
 
 export default async function BorradosPage() {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const { data: filas, error } = await supabase

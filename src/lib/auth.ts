@@ -157,6 +157,18 @@ export async function requireRol(rolesPermitidos: Rol[]): Promise<SesionActual> 
 }
 
 /**
+ * Operaciones que pertenecen al dueño/administrador del portal, no al trabajo
+ * cotidiano de un entrenador. Un entrenador autenticado vuelve a su directorio
+ * en lugar de caer al login, porque su sesión sigue siendo válida.
+ */
+export async function requireAdmin(): Promise<SesionActual> {
+  const sesion = await obtenerSesion();
+  if (!sesion) redirect("/login");
+  if (sesion.rol !== "admin") redirect("/admin/alumnos");
+  return sesion;
+}
+
+/**
  * Acceso a /alumno/* — se basa en tener una fila en `alumno_perfil`, no en
  * `perfiles.rol`: así un entrenador/admin con perfil de alumno propio también
  * puede entrar (ver plan "vista de entrenador sobre alumnos"). Si quien pide

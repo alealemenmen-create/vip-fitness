@@ -1,5 +1,5 @@
 import { MessageCircle, Star } from "lucide-react";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { Card } from "@/components/ui/Card";
@@ -7,7 +7,7 @@ import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { linkWhatsApp } from "@/lib/generador-rutinas/whatsapp";
 
 export default async function ResenasAppPage() {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const { data: filas, error } = await supabase

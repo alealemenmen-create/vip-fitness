@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TAG_CONFIG_SUPERVISION } from "@/lib/configuracion/supervision";
 import { TAG_CONFIG_REGISTRO } from "@/lib/configuracion/registro";
@@ -26,7 +26,7 @@ export async function actualizarConfiguracionReconocimientos(
   _prev: ConfiguracionState,
   formData: FormData
 ): Promise<ConfiguracionState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const maxPorSemana = numeroEntero(formData.get("maxPorSemana"), 1, 5);
   const minPuntaje = numeroEntero(formData.get("minPuntaje"), 0, 100);
   const diasSinEntrenar = numeroEntero(formData.get("diasSinEntrenar"), 1, 30);
@@ -106,7 +106,7 @@ export async function actualizarConfiguracionRegistro(
   _prev: ConfiguracionState,
   formData: FormData
 ): Promise<ConfiguracionState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
 
   const montoTexto = String(formData.get("pago_monto") ?? "").trim();
   const monto = montoTexto ? Number(montoTexto) : null;
@@ -157,7 +157,7 @@ export async function actualizarConfiguracionRegistro(
 }
 
 export async function cambiarMiCorreo(_prevState: FormState, formData: FormData): Promise<FormState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const nuevoCorreo = String(formData.get("correo") || "");
 
   const mensajeError = await cambiarCorreoDeUsuario(sesion.userId, nuevoCorreo);
@@ -170,7 +170,7 @@ export async function actualizarConfiguracionAsistente(
   _prev: ConfiguracionState,
   formData: FormData
 ): Promise<ConfiguracionState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const presupuesto = Number(formData.get("presupuesto"));
   if (!Number.isFinite(presupuesto) || presupuesto < 0 || presupuesto > 1000) {
     return { ok: false, mensaje: "El presupuesto debe estar entre US$0 y US$1.000." };
@@ -202,7 +202,7 @@ export async function cargarSaldoIA(
   _prev: ConfiguracionState,
   formData: FormData
 ): Promise<ConfiguracionState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const saldo = Number(formData.get("saldo"));
   if (!Number.isFinite(saldo) || saldo < 0 || saldo > 100_000) {
     return { ok: false, mensaje: "El saldo debe ser un monto en dólares entre 0 y 100.000." };
@@ -228,7 +228,7 @@ export async function generarReconocimientosAhora(
 ): Promise<ConfiguracionState> {
   void _prev;
   void _formData;
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const [resultado, motivacion, notas] = await Promise.all([
     generarReconocimientosSemanales(true),
     generarMotivacionPeso(),

@@ -1,4 +1,4 @@
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { OtorgarPuntosPanel } from "@/components/admin/OtorgarPuntosPanel";
@@ -12,7 +12,7 @@ import { obtenerAdminRecompensasVip } from "@/lib/recompensas/data";
  * devolvérselos era escribir en la base de datos a mano — algo que el
  * entrenador no puede hacer solo y que no deja rastro de por qué se hizo. */
 export default async function PuntosPage() {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const { data } = await supabase

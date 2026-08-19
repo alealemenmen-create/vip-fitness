@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 
 export type FormState = { error: string | null; ok: boolean };
 const okState: FormState = { error: null, ok: true };
 
 export async function crearAnuncio(_prevState: FormState, formData: FormData): Promise<FormState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
 
   const titulo = String(formData.get("titulo") || "").trim();
   const mensaje = String(formData.get("mensaje") || "").trim();
@@ -37,7 +37,7 @@ export async function crearAnuncio(_prevState: FormState, formData: FormData): P
 }
 
 export async function descartarBorrador(formData: FormData): Promise<void> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const id = String(formData.get("id") || "");
   if (!id) return;
   const supabase = await createClient();
@@ -46,7 +46,7 @@ export async function descartarBorrador(formData: FormData): Promise<void> {
 }
 
 export async function eliminarAnuncio(formData: FormData): Promise<void> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const id = String(formData.get("id") || "");
   if (!id) return;
 

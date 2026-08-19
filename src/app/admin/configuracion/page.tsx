@@ -1,4 +1,4 @@
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { obtenerConfiguracionReconocimientos } from "@/lib/ai/reconocimientosSemanales";
 import { obtenerConfiguracionSupervision } from "@/lib/configuracion/supervision";
 import { obtenerConfiguracionRegistro } from "@/lib/configuracion/registro";
@@ -18,7 +18,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
 
 export default async function ConfiguracionAdminPage() {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   // El saldo va aparte del `Promise.all`, no adentro: sumarlo como quinto
   // elemento hacía que TypeScript perdiera la inferencia de la tupla y tratara
   // todo el resultado como `any[]` (el build lo rechaza aunque `tsc --noEmit`

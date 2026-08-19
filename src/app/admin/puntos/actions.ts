@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { guardarMovimiento } from "@/lib/ranking/movimientos";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { hoyISO } from "@/lib/date";
@@ -30,7 +30,7 @@ export async function otorgarPuntosManual(params: {
   puntos: number;
   motivo: string;
 }): Promise<ResultadoAjuste> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
 
   const puntos = Math.round(params.puntos);
   if (!params.alumnoId) return { ok: false, error: "Falta elegir al alumno." };

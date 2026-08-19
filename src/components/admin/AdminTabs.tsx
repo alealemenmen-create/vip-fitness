@@ -5,9 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ClipboardCheck, Dumbbell, MoreHorizontal, Users, PencilRuler } from "lucide-react";
 import { contarNovedadesSinVer } from "@/lib/novedades-vistas-local";
-import { GRUPOS_DESTINOS } from "@/lib/admin/destinos";
+import { gruposDestinosParaRol } from "@/lib/admin/destinos";
 
 type AdminTabsProps = {
+  rol: "entrenador" | "admin";
   alimentosPendientes?: number;
   solicitudesPendientes?: number;
   gastosPendientes?: number;
@@ -91,6 +92,7 @@ export function pendientesDe(
 }
 
 export function AdminTabs({
+  rol,
   alimentosPendientes = 0,
   solicitudesPendientes = 0,
   novedadesFechas = [],
@@ -99,6 +101,7 @@ export function AdminTabs({
 }: AdminTabsProps) {
   const pathname = usePathname();
   const [novedadesSinVer, setNovedadesSinVer] = useState(0);
+  const etiquetaPanel = rol === "admin" ? "Panel de administración" : "Panel del entrenador";
 
   // Diferido un tick: `localStorage` no existe en el servidor y el primer
   // render tiene que salir igual en servidor y cliente para no desajustar la
@@ -113,8 +116,8 @@ export function AdminTabs({
 
   if (variant === "sidebar") {
     return (
-      <nav className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto py-5" aria-label="Panel del entrenador">
-        {GRUPOS_DESTINOS.map((group) => (
+      <nav className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto py-5" aria-label={etiquetaPanel}>
+        {gruposDestinosParaRol(rol).map((group) => (
           <div key={group.label}>
             <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
               {group.label}
@@ -159,7 +162,7 @@ export function AdminTabs({
     // tapaba el cristal de la placa flotante que lo envuelve, así que la barra
     // de abajo se veía negra mientras la de arriba mostraba el verde y el azul.
     // El borde y el desenfoque los pone la placa; acá sobraban.
-    <nav className="navegacion-aero flex items-stretch gap-1 px-2 pb-[max(4px,env(safe-area-inset-bottom))] pt-2" aria-label="Navegación del entrenador">
+    <nav className="navegacion-aero flex items-stretch gap-1 px-2 pb-[max(4px,env(safe-area-inset-bottom))] pt-2" aria-label={`Navegación · ${etiquetaPanel}`}>
       {MOBILE_TABS.map((tab) => {
         const Icon = tab.icon;
         const active = estaActivo(pathname, tab.href, tab.section);

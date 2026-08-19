@@ -45,6 +45,8 @@ export type DestinoAdmin = {
   detalle: string;
   icon: LucideIcon;
   seccion: string;
+  /** Sólo el propietario/administrador puede ver y abrir esta herramienta. */
+  soloAdmin?: boolean;
 };
 
 export type GrupoDestinos = {
@@ -69,6 +71,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Quién pidió entrar al gimnasio",
         icon: ClipboardList,
         seccion: "solicitudes",
+        soloAdmin: true,
       },
       {
         href: "/admin/ingresos",
@@ -154,6 +157,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Historial y hallazgos por revisar",
         icon: ShieldCheck,
         seccion: "auditoria",
+        soloAdmin: true,
       },
       {
         href: "/admin/puntos",
@@ -161,6 +165,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Ajustes manuales de Puntos VIP",
         icon: Sparkles,
         seccion: "puntos",
+        soloAdmin: true,
       },
       {
         href: "/admin/reportes",
@@ -168,6 +173,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Fallas que avisaron los alumnos",
         icon: Bug,
         seccion: "reportes",
+        soloAdmin: true,
       },
       {
         href: "/admin/resenas",
@@ -175,6 +181,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Estrellas y sugerencias de los alumnos",
         icon: Star,
         seccion: "resenas",
+        soloAdmin: true,
       },
       {
         href: "/admin/borrados",
@@ -182,6 +189,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Solicitudes de eliminación de datos",
         icon: Trash2,
         seccion: "borrados",
+        soloAdmin: true,
       },
     ],
   },
@@ -194,6 +202,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Competencias y temporadas",
         icon: Trophy,
         seccion: "torneos",
+        soloAdmin: true,
       },
       {
         href: "/admin/noticias",
@@ -201,6 +210,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Avisos que ven los alumnos",
         icon: Megaphone,
         seccion: "noticias",
+        soloAdmin: true,
       },
     ],
   },
@@ -213,6 +223,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Pagos de servicios y vencimientos",
         icon: CircleDollarSign,
         seccion: "gastos",
+        soloAdmin: true,
       },
       {
         href: "/admin/novedades",
@@ -220,6 +231,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Qué cambió en cada versión",
         icon: Bell,
         seccion: "novedades",
+        soloAdmin: true,
       },
       {
         href: "/admin/configuracion",
@@ -227,6 +239,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Cuenta, apariencia y ajustes",
         icon: Settings,
         seccion: "configuracion",
+        soloAdmin: true,
       },
     ],
   },
@@ -234,6 +247,15 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
 
 /** Plano, para buscar en Más sin recorrer los grupos a mano. */
 export const DESTINOS_ADMIN: DestinoAdmin[] = GRUPOS_DESTINOS.flatMap((grupo) => grupo.items);
+
+export function gruposDestinosParaRol(rol: "entrenador" | "admin"): GrupoDestinos[] {
+  return GRUPOS_DESTINOS
+    .map((grupo) => ({
+      ...grupo,
+      items: grupo.items.filter((item) => rol === "admin" || !item.soloAdmin),
+    }))
+    .filter((grupo) => grupo.items.length > 0);
+}
 
 /**
  * Las cuatro puertas de "Rutinas". Es la misma lista que el grupo homónimo de

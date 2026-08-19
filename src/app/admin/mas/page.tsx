@@ -28,6 +28,7 @@ export const metadata = { title: "Más · Panel VIP" };
  */
 export default async function MasPage() {
   const sesion = await requireRol(["entrenador", "admin"]);
+  const esAdmin = sesion.rol === "admin";
   const supabase = await createClient();
 
   const [
@@ -39,14 +40,14 @@ export default async function MasPage() {
     { count: alimentosPendientes },
     { data: miAlumnoPerfil },
   ] = await Promise.all([
-    obtenerHallazgosPendientes(),
-    obtenerResumenAlertasGastos(),
-    supabase.from("solicitudes_registro").select("id", { count: "exact", head: true }).eq("estado", "pendiente"),
-    supabase.from("reportes_bugs").select("id", { count: "exact", head: true }).eq("estado", "pendiente"),
-    supabase
+    esAdmin ? obtenerHallazgosPendientes() : Promise.resolve([]),
+    esAdmin ? obtenerResumenAlertasGastos() : Promise.resolve({ pendientes: 0, vencidos: 0, proximos: 0 }),
+    esAdmin ? supabase.from("solicitudes_registro").select("id", { count: "exact", head: true }).eq("estado", "pendiente") : Promise.resolve({ count: 0 }),
+    esAdmin ? supabase.from("reportes_bugs").select("id", { count: "exact", head: true }).eq("estado", "pendiente") : Promise.resolve({ count: 0 }),
+    esAdmin ? supabase
       .from("solicitudes_borrado_sesion")
       .select("id", { count: "exact", head: true })
-      .eq("estado", "pendiente"),
+      .eq("estado", "pendiente") : Promise.resolve({ count: 0 }),
     supabase
       .from("alimentos")
       .select("id", { count: "exact", head: true })
@@ -72,7 +73,7 @@ export default async function MasPage() {
         description="Todas las funciones del panel están acá. Nunca hace falta girar el teléfono ni abrir la barra lateral."
       />
 
-      <DirectorioPanel contadores={contadores} />
+      <DirectorioPanel rol={esAdmin ? "admin" : "entrenador"} contadores={contadores} />
 
       <section className="tarjeta-menu-panel">
         <h2 className="tarjeta-menu-panel-titulo">Esta sesión</h2>

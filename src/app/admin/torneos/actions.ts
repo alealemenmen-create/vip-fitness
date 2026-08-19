@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { calcularResultadoTorneo } from "@/lib/torneos/puntos";
 import { calcularValoresCompetencia } from "@/lib/torneos/metricas";
@@ -25,7 +25,7 @@ const METRICAS: TorneoMetrica[] = ["peso_baja", "peso_sube", "asistencia", "prog
 const MODALIDADES: TorneoModalidad[] = ["duelo", "reto_coach", "copa_constancia"];
 
 export async function crearTorneo(_prevState: FormState, formData: FormData): Promise<FormState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
 
   const nombre = String(formData.get("nombre") || "").trim();
   const descripcion = String(formData.get("descripcion") || "").trim();
@@ -91,7 +91,7 @@ export async function crearTorneo(_prevState: FormState, formData: FormData): Pr
   }
 
   const admin = createAdminClient();
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
 
   const { data: torneo, error: errorTorneo } = await admin
     .from("torneos")
@@ -151,7 +151,7 @@ export async function cargarResultadoManual(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
 
   const torneoId = String(formData.get("torneo_id") || "");
   const alumnoId = String(formData.get("alumno_id") || "");
@@ -185,7 +185,7 @@ export async function cargarResultadoManual(
 }
 
 export async function cerrarTorneo(_prevState: FormState, formData: FormData): Promise<FormState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
 
   const torneoId = String(formData.get("torneo_id") || "");
   if (!torneoId) return fail("Falta el torneo.");
@@ -348,7 +348,7 @@ export async function cerrarTorneo(_prevState: FormState, formData: FormData): P
  * decir, les cobraría una apuesta que ya no existe.
  */
 export async function eliminarTorneo(_prevState: FormState, formData: FormData): Promise<FormState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
 
   const torneoId = String(formData.get("torneo_id") || "");
   if (!torneoId) return fail("Falta el torneo.");

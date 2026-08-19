@@ -1,4 +1,4 @@
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerTorneosAdmin } from "@/lib/torneos/data";
 import { CrearTorneoForm, type BorradorRetoIA } from "@/components/admin/CrearTorneoForm";
@@ -21,7 +21,7 @@ export default async function TorneosPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const { data: alumnosData } = await supabase

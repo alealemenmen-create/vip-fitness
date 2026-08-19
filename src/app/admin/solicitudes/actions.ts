@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { generarPassword } from "@/lib/cuenta/password";
 import { enviarCorreo, plantillaCredenciales } from "@/lib/email/resend";
 import { EMAIL_RE, TELEFONO_RE } from "@/lib/solicitudes/campos";
@@ -35,7 +35,7 @@ export async function aceptarSolicitud(
   _prevState: SolicitudActionState,
   formData: FormData
 ): Promise<SolicitudActionState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const solicitudId = String(formData.get("solicitud_id") || "");
   if (!solicitudId) return fail("Falta la solicitud.");
 
@@ -175,7 +175,7 @@ export async function corregirContactoSolicitud(
   _prevState: SolicitudActionState,
   formData: FormData
 ): Promise<SolicitudActionState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const solicitudId = String(formData.get("solicitud_id") || "");
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const telefono = String(formData.get("telefono") || "").trim();
@@ -216,7 +216,7 @@ export async function marcarPagoVerificado(
   _prevState: SolicitudActionState,
   formData: FormData
 ): Promise<SolicitudActionState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const solicitudId = String(formData.get("solicitud_id") || "");
   const verificado = formData.get("verificado") === "true";
   if (!solicitudId) return fail("Falta la solicitud.");
@@ -243,7 +243,7 @@ export async function rechazarSolicitud(
   _prevState: SolicitudActionState,
   formData: FormData
 ): Promise<SolicitudActionState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const solicitudId = String(formData.get("solicitud_id") || "");
   const motivo = String(formData.get("motivo") || "").trim();
   if (!solicitudId) return fail("Falta la solicitud.");

@@ -130,6 +130,10 @@ recibir aprobación expresa.
 - Entrenador: acceso a alumnos y seguimiento.
 - Administrador: control total mediante el panel existente.
 - Las opciones administrativas se muestran por rol verificado en servidor.
+- La separación de roles se aplica también a las acciones: un entrenador sólo
+  conserva alumnos, asistencia, rutinas, bibliotecas, pendientes y asistente.
+  Altas, equipo, puntos, auditoría, reportes, borrados, Arena, noticias, gastos
+  y configuración requieren administrador; escribir la URL no evita el control.
 
 ## Navegación y conexiones
 
@@ -300,7 +304,7 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `54` archivos de pruebas y `499` pruebas aprobadas; ESLint sin advertencias,
+- `56` archivos de pruebas y `504` pruebas aprobadas; ESLint sin advertencias,
   TypeScript sin errores y compilación de producción completa (`67` rutas).
 - Las 15 rutas de la V2 respondieron `200` en el servidor de producción local,
   incluida la búsqueda prefiltrada de la biblioteca y la nueva pantalla de
@@ -376,6 +380,10 @@ Validaciones locales completadas el 19-08-2026:
   actual no están definidas las tres variables de Stream, por lo que la V2 cae
   a la foto real del ejercicio sin exponer ni simular el video; la reproducción
   local queda pendiente de configurar esas credenciales.
+- La prueba autenticada de roles confirmó que el entrenador conserva su sesión
+  al intentar una URL reservada pero vuelve a Alumnos, sin ver altas, equipo ni
+  administración. El administrador mantiene el mapa completo y su encabezado
+  se identifica expresamente como `Panel de administración`.
 
 1. Crear un respaldo lógico verificable antes del próximo cambio de esquema; el
    plan gratuito actual no incluye respaldos automáticos.

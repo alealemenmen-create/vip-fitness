@@ -1,4 +1,4 @@
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { obtenerNovedades } from "@/lib/novedades";
 import { Novedades } from "@/components/admin/Novedades";
 import { MarcarNovedadesVistas } from "@/components/admin/MarcarNovedadesVistas";
@@ -10,7 +10,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
  * saber si había algo nuevo — `MarcarNovedadesVistas` es lo que apaga el
  * contador de la navegación al entrar acá. */
 export default async function NovedadesAdminPage() {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const novedades = await obtenerNovedades();
 
   return (

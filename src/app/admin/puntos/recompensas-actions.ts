@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { TAG_RANKING } from "@/lib/ranking/data";
 
 export async function guardarRecompensaVip(input: { nombre: string; descripcion: string; tipo: "digital" | "servicio" | "fisica"; costo: number; stock: number | null }) {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const nombre = input.nombre.trim().replace(/\s+/g, " ").slice(0, 80);
   const descripcion = input.descripcion.trim().slice(0, 500);
   const costo = Math.round(input.costo);
@@ -21,7 +21,7 @@ export async function guardarRecompensaVip(input: { nombre: string; descripcion:
 }
 
 export async function cambiarEstadoRecompensaVip(id: string, activa: boolean) {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const { error } = await createAdminClient().from("recompensas_vip_catalogo").update({ activo: activa, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) return { ok: false, error: "No pudimos actualizar la recompensa." };
   revalidatePath("/admin/puntos");
@@ -30,7 +30,7 @@ export async function cambiarEstadoRecompensaVip(id: string, activa: boolean) {
 }
 
 export async function ajustarStockRecompensaVip(id: string, delta: number, sinLimite = false) {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   if (!Number.isInteger(delta) || Math.abs(delta) > 100_000) return { ok: false, error: "El ajuste de stock no es válido." };
   const supabase = await createClient();
   const { error } = await supabase.rpc("ajustar_stock_recompensa_vip", { p_recompensa_id: id, p_delta: delta, p_sin_limite: sinLimite });
@@ -41,7 +41,7 @@ export async function ajustarStockRecompensaVip(id: string, delta: number, sinLi
 }
 
 export async function resolverCanjeVip(id: string, estado: "aprobado" | "entregado" | "rechazado", nota: string) {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase.rpc("resolver_canje_vip", { p_canje_id: id, p_estado: estado, p_nota: nota.trim().slice(0, 500) || null });
   if (error) return { ok: false, error: "No pudimos resolver el canje. Verifica su estado actual." };

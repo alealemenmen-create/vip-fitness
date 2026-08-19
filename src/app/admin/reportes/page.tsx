@@ -1,5 +1,5 @@
 import { Bug, Flag, ShieldCheck } from "lucide-react";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { ListaReportesBugs, type ReporteBug } from "@/components/admin/ListaReportesBugs";
@@ -8,7 +8,7 @@ import { nombreAlumnoPublicado } from "@/lib/nombre";
 import { resolverReporteComunidad } from "./actions";
 
 export default async function ReportesBugsPage() {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const { data: filas, error } = await supabase

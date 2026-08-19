@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ResolverReporteState = { error: string | null; ok: boolean };
@@ -13,7 +13,7 @@ export async function cambiarEstadoReporteBug(
   _prevState: ResolverReporteState,
   formData: FormData
 ): Promise<ResolverReporteState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
 
   const id = String(formData.get("id") || "");
   const nuevoEstado = String(formData.get("estado") || "");
@@ -40,7 +40,7 @@ export async function cambiarEstadoReporteBug(
 /** Resuelve moderación social sin borrar evidencia: se puede ocultar la
  * publicación o descartar el reporte, y el reporte queda trazable. */
 export async function resolverReporteComunidad(formData: FormData) {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const id = String(formData.get("id") || "");
   const decision = String(formData.get("decision") || "");
   if (!id || (decision !== "ocultar" && decision !== "descartar")) return;

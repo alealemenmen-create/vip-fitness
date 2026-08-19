@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireRol, COOKIE_VISTA_ALUMNO } from "@/lib/auth";
+import { requireAdmin, requireRol, COOKIE_VISTA_ALUMNO } from "@/lib/auth";
 import { enviarCorreo, plantillaCredenciales } from "@/lib/email/resend";
 import { cambiarCorreoDeUsuario } from "@/lib/cuenta/correo";
 import { generarPassword } from "@/lib/cuenta/password";
@@ -45,7 +45,7 @@ export async function crearAlumnoYEnviarCorreo(
   _prevState: FormStateCredenciales,
   formData: FormData
 ): Promise<FormStateCredenciales> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
 
   const nombre = String(formData.get("nombre") || "").trim();
   const email = String(formData.get("email") || "").trim().toLowerCase();
@@ -127,7 +127,7 @@ export async function restablecerPasswordAlumno(
   _prevState: FormStateCredenciales,
   formData: FormData
 ): Promise<FormStateCredenciales> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
 
   const alumnoId = String(formData.get("alumno_id") || "");
   if (!alumnoId) return failCred("Falta el alumno.");
@@ -169,7 +169,7 @@ export async function restablecerPasswordAlumno(
  * `on delete cascade` desde `perfiles.id` — ver 0001_init.sql. Es irreversible.
  */
 export async function eliminarAlumno(_prevState: FormState, formData: FormData): Promise<FormState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const alumnoId = String(formData.get("alumno_id") || "");
   if (!alumnoId) return fail("Falta el alumno.");
 
@@ -195,7 +195,7 @@ export async function eliminarEntrenador(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const entrenadorId = String(formData.get("entrenador_id") || "");
   if (!entrenadorId) return fail("Falta el entrenador.");
 
@@ -229,7 +229,7 @@ export async function actualizarCorreoPerfil(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const perfilId = String(formData.get("perfil_id") || "");
   const nuevoCorreo = String(formData.get("correo") || "");
   if (!perfilId) return fail("Falta el perfil.");
@@ -266,7 +266,7 @@ export async function actualizarNombrePerfil(
 }
 
 export async function crearEntrenador(_prevState: FormState, formData: FormData): Promise<FormState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
 
   const nombre = String(formData.get("nombre") || "").trim();
   const email = String(formData.get("email") || "").trim().toLowerCase();

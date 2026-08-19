@@ -1,4 +1,4 @@
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerAnuncios, obtenerBorradoresNoticias } from "@/lib/noticias/data";
 import { AnunciosManager } from "@/components/admin/AnunciosManager";
@@ -11,7 +11,7 @@ export default async function NoticiasAdminPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   const [anuncios, borradores] = await Promise.all([
     obtenerAnuncios(supabase),

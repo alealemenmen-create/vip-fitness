@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { obtenerHallazgosPendientes } from "@/lib/auditoria/data";
 import { AuditoriaHallazgos } from "@/components/admin/AuditoriaHallazgos";
 import { CorreccionMacrosActivos } from "@/components/admin/CorreccionMacrosActivos";
@@ -9,7 +9,7 @@ import { CerrarBacklogAuditoria } from "@/components/admin/CerrarBacklogAuditori
 const FECHA_CORTE_AVISO_SERIES = "2026-08-11";
 
 export default async function AuditoriaPage() {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const hallazgos = await obtenerHallazgosPendientes();
   const backlogViejo = hallazgos.filter(
     (h) => h.tipo === "series_sin_registro" && h.fecha < FECHA_CORTE_AVISO_SERIES

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { eliminarMovimientosDeSesiones } from "@/lib/ranking/movimientos";
 
@@ -32,7 +32,7 @@ export async function aprobarBorradoSesion(
   _prevState: ResolverBorradoState,
   formData: FormData
 ): Promise<ResolverBorradoState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const id = String(formData.get("id") || "");
   if (!id) return { error: "Falta la solicitud.", ok: false };
 
@@ -91,7 +91,7 @@ export async function rechazarBorradoSesion(
   _prevState: ResolverBorradoState,
   formData: FormData
 ): Promise<ResolverBorradoState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const id = String(formData.get("id") || "");
   if (!id) return { error: "Falta la solicitud.", ok: false };
 

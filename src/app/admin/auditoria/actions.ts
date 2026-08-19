@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { guardarMovimiento } from "@/lib/ranking/movimientos";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { obtenerHallazgosPendientes, type TipoHallazgo } from "@/lib/auditoria/data";
@@ -32,7 +32,7 @@ export async function corregirMacrosActivos(
 ): Promise<CorreccionMacrosState> {
   void _prevState;
   void _formData;
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const admin = createAdminClient();
   const { data: planes, error } = await admin
     .from("planes_alimentacion")
@@ -104,7 +104,7 @@ async function registrarRevision(datos: {
 /** Descartar = falso positivo: no se toca ni un punto del alumno, solo se
  * deja de mostrar este hallazgo puntual. */
 export async function descartarHallazgo(formData: FormData): Promise<void> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const tipo = String(formData.get("tipo") || "") as TipoHallazgo;
   const referenciaId = String(formData.get("referencia_id") || "");
   const alumnoId = String(formData.get("alumno_id") || "");
@@ -139,7 +139,7 @@ export async function cerrarBacklogSeriesSinRegistro(
   _formData: FormData
 ): Promise<CerrarBacklogState> {
   void _formData;
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const hallazgos = await obtenerHallazgosPendientes();
   const backlog = hallazgos.filter(
     (h) => h.tipo === "series_sin_registro" && h.fecha < FECHA_CORTE_AVISO_SERIES
@@ -183,7 +183,7 @@ export async function cerrarBacklogSeriesSinRegistro(
  * explícita: nunca actuar en silencio contra un alumno.
  */
 export async function penalizarHallazgo(prevState: FormState, formData: FormData): Promise<FormState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const tipo = String(formData.get("tipo") || "") as TipoHallazgo;
   const referenciaId = String(formData.get("referencia_id") || "");
   const alumnoId = String(formData.get("alumno_id") || "");

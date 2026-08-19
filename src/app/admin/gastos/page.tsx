@@ -1,5 +1,5 @@
 import { CircleDollarSign } from "lucide-react";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { obtenerGastosApp } from "@/lib/gastos/data";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { GastosAppManager } from "@/components/admin/GastosAppManager";
@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { hoyISO } from "@/lib/date";
 
 export default async function GastosAppPage() {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const { disponible, gastos, pagos } = await obtenerGastosApp();
   return (
     <div className="space-y-6 pb-8">

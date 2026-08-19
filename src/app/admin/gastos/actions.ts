@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { siguienteFechaPago, type CicloGasto } from "@/lib/gastos/calendario";
 
@@ -34,7 +34,7 @@ export async function guardarGasto(
   _prev: EstadoGastoAccion,
   formData: FormData,
 ): Promise<EstadoGastoAccion> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const entrada = esquemaGasto.safeParse(Object.fromEntries(formData));
   if (!entrada.success) return { ok: false, mensaje: "Revisa el nombre, monto, fecha y días de aviso." };
   const { id, ...valores } = entrada.data;
@@ -64,7 +64,7 @@ export async function marcarGastoPagado(
   _prev: EstadoGastoAccion,
   formData: FormData,
 ): Promise<EstadoGastoAccion> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const entrada = esquemaPago.safeParse(Object.fromEntries(formData));
   if (!entrada.success) return { ok: false, mensaje: "Revisa la fecha y el monto pagado." };
   const db = dbSinTipos();
@@ -107,7 +107,7 @@ export async function marcarGastoPagado(
 }
 
 export async function cambiarEstadoGasto(formData: FormData): Promise<void> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const id = z.string().uuid().safeParse(formData.get("id"));
   const activo = formData.get("activo") === "true";
   if (!id.success) return;

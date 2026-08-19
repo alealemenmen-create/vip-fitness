@@ -30,6 +30,7 @@ export default async function AlumnosPage({
   searchParams: Promise<{ estado?: string; propuesta?: string }>;
 }) {
   const sesion = await requireRol(["entrenador", "admin"]);
+  const esAdmin = sesion.rol === "admin";
   const supabase = await createClient();
 
   // Cualquier entrenador ve a todos los alumnos (equipo de confianza, sin
@@ -65,15 +66,15 @@ export default async function AlumnosPage({
       obtenerPropuestasImpulso(supabase),
       obtenerHistorialImpulsoReciente(supabase),
       obtenerIngresos("semana"),
-      supabase
+      esAdmin ? supabase
         .from("perfiles")
         .select("id, nombre")
         .eq("rol", "entrenador")
-        .order("nombre", { ascending: true }),
-      supabase
+        .order("nombre", { ascending: true }) : Promise.resolve({ data: [] }),
+      esAdmin ? supabase
         .from("solicitudes_registro")
         .select("id", { count: "exact", head: true })
-        .eq("estado", "pendiente"),
+        .eq("estado", "pendiente") : Promise.resolve({ count: 0 }),
     ]);
   const entrenadores = entrenadoresData ?? [];
 
@@ -101,11 +102,11 @@ export default async function AlumnosPage({
         eyebrow="Prioridad diaria"
         title="Alumnos"
         description="Primero lo que requiere decisión; después, el directorio completo."
-        actions={
+        actions={esAdmin ?
           <Link href="/admin/solicitudes" className="boton-panel-secundario">
             Solicitudes{solicitudesPendientes ? ` · ${solicitudesPendientes}` : ""}
           </Link>
-        }
+        : undefined}
       />
 
       {/* Las cinco tarjetas grandes de colores que iban acá se eliminaron
@@ -144,7 +145,7 @@ export default async function AlumnosPage({
           <PropuestasImpulsoVIP iniciales={propuestasImpulso} destacadaId={query.propuesta} />
           <HistorialImpulsoVIP historial={historialImpulso} />
           <MemoriaImpulsoVIP memorias={memoriasImpulso} />
-          <div className="admin-panel-card rounded-3xl p-4">
+          {esAdmin ? <div className="admin-panel-card rounded-3xl p-4">
             <div className="mb-4 flex items-center gap-2">
               <Sparkles size={17} className="text-vip" />
               <div>
@@ -156,7 +157,7 @@ export default async function AlumnosPage({
               <CrearAlumnoForm />
               <AvisoSolicitudes pendientes={solicitudesPendientes ?? 0} />
             </div>
-          </div>
+          </div> : null}
 
           <SugerenciasHoy reportes={reportes} />
           <AlumnosSinIngresar resumen={resumenIngresos} />
@@ -168,12 +169,12 @@ export default async function AlumnosPage({
           `agent/reorganizar-panel-admin`): gestionar el EQUIPO no es la tarea
           de esta pantalla -es Alumnos- así que no necesita ocupar espacio
           propio debajo del directorio salvo que el entrenador la abra. */}
-      <GavetaConfig titulo="Equipo de entrenadores" subtitulo={`${entrenadores.length} con acceso al portal`}>
+      {esAdmin ? <GavetaConfig titulo="Equipo de entrenadores" subtitulo={`${entrenadores.length} con acceso al portal`}>
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
           <ListaEntrenadores entrenadores={entrenadores} sesionUserId={sesion.userId} />
           <InvitarEntrenadorForm />
         </div>
-      </GavetaConfig>
+      </GavetaConfig> : null}
       </div>
   );
 }

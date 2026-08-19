@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Search } from "lucide-react";
-import { GRUPOS_DESTINOS } from "@/lib/admin/destinos";
+import { gruposDestinosParaRol } from "@/lib/admin/destinos";
 
 /** Sin acentos y en minúsculas: "auditoria" tiene que encontrar "Auditoría". */
 function normalizar(texto: string) {
@@ -22,19 +22,26 @@ function normalizar(texto: string) {
  * dibuja solo cuando es mayor que cero: un cero en cada fila vuelve a
  * convertir el contador en decoración.
  */
-export function DirectorioPanel({ contadores = {} }: { contadores?: Record<string, number> }) {
+export function DirectorioPanel({
+  rol,
+  contadores = {},
+}: {
+  rol: "entrenador" | "admin";
+  contadores?: Record<string, number>;
+}) {
   const [consulta, setConsulta] = useState("");
 
   const grupos = useMemo(() => {
+    const disponibles = gruposDestinosParaRol(rol);
     const buscado = normalizar(consulta.trim());
-    if (!buscado) return GRUPOS_DESTINOS;
-    return GRUPOS_DESTINOS.map((grupo) => ({
+    if (!buscado) return disponibles;
+    return disponibles.map((grupo) => ({
       ...grupo,
       items: grupo.items.filter((item) =>
         normalizar(`${item.label} ${item.detalle} ${grupo.label}`).includes(buscado)
       ),
     })).filter((grupo) => grupo.items.length > 0);
-  }, [consulta]);
+  }, [consulta, rol]);
 
   return (
     <div className="space-y-3">

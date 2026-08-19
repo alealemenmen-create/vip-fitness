@@ -20,11 +20,13 @@ import { AlertTriangle } from "lucide-react";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const sesion = await requireRol(["entrenador", "admin"]);
+  const esAdmin = sesion.rol === "admin";
+  const nombrePanel = esAdmin ? "Panel de administración" : "Panel del entrenador";
   const supabase = await createClient();
 
   // El registro de la versión debe terminar antes de leer las novedades, pero
   // puede correr en paralelo con el resto de consultas del layout.
-  const registroDespliegue = registrarDespliegueActual();
+  const registroDespliegue = esAdmin ? registrarDespliegueActual() : Promise.resolve();
   const miAlumnoPerfilPromise = supabase
     .from("alumno_perfil")
     .select("user_id")
@@ -45,19 +47,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       .select("id", { count: "exact", head: true })
       .eq("aprobado", false)
       .eq("activo", true),
-    supabase
+    esAdmin ? supabase
       .from("solicitudes_registro")
       .select("id", { count: "exact", head: true })
-      .eq("estado", "pendiente"),
+      .eq("estado", "pendiente") : Promise.resolve({ count: 0 }),
     // Solo las fechas: es lo único que necesita el contador de "sin ver" de
     // la navegación (ver `lib/novedades-vistas-local.ts`), y no vale la pena
     // mandar título/resumen de todas al cliente en cada carga del panel.
-    registroDespliegue.then(() => obtenerNovedades(10)),
-    obtenerResumenAlertasGastos(),
+    esAdmin ? registroDespliegue.then(() => obtenerNovedades(10)) : Promise.resolve([]),
+    esAdmin ? obtenerResumenAlertasGastos() : Promise.resolve({ pendientes: 0, vencidos: 0, proximos: 0 }),
     contarNotificacionesSinLeer(),
   ]);
 
   const badges = {
+    rol: esAdmin ? "admin" as const : "entrenador" as const,
     alimentosPendientes: alimentosPendientes ?? 0,
     solicitudesPendientes: solicitudesPendientes ?? 0,
     novedadesFechas: novedades.map((n) => n.creadoEn),
@@ -85,7 +88,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           />
           <div className="admin-profile-card mt-4 rounded-2xl p-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
-              Panel del entrenador
+              {nombrePanel}
             </p>
             <p className="mt-1 truncate text-sm font-semibold text-text">
               {nombrePublicado(sesion.nombre)}
@@ -137,7 +140,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Logo compact height={20} className="!w-[110px] !rounded-lg !px-2 !py-1" />
           <div className="min-w-0 flex-1">
             <p className="text-[8px] font-semibold uppercase leading-none tracking-[0.14em] text-text-tertiary">
-              Panel del entrenador
+              {nombrePanel}
             </p>
             <p className="mt-0.5 truncate text-[11px] font-semibold leading-tight text-text">
               {nombrePublicado(sesion.nombre)}
@@ -164,7 +167,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
         <main className="pantalla-scroll min-w-0 flex-1 px-4 pb-28 md:px-8 md:pb-10 lg:px-10">
           <div className="mx-auto w-full max-w-7xl">
-            {gastosAlerta.pendientes > 0 && (
+            {esAdmin && gastosAlerta.pendientes > 0 && (
               <Link href="/admin/gastos" className="mb-4 flex items-center gap-2 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-caption font-semibold text-text">
                 <AlertTriangle size={17} className={gastosAlerta.vencidos ? "text-error" : "text-warning"} />
                 {gastosAlerta.vencidos > 0
