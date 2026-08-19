@@ -76,7 +76,7 @@ export default function MasV2Page() {
     <section className={styles.morePage}>
       <h1 className={styles.moreTitle}>Más</h1>
 
-      {datos ? <Link href="/alumno/perfil" className={styles.moreProfile}>
+      {datos ? <Link href="/portal-v2/perfil" className={styles.moreProfile}>
         <span className={styles.moreAvatar}>{datos?.iniciales ?? "AM"}</span>
         <div><strong>{datos?.nombre ?? "Ale Mendoza"}</strong><small>{datos ? `${datos.rango} · ${datos.rol === "admin" ? "Administrador" : datos.rol === "entrenador" ? "Entrenador" : "Alumno"}` : "Método VIP"}</small></div>
         <span className={styles.moreXp}>{(datos?.puntos ?? 900).toLocaleString("es-CL")} XP <Trophy size={12} /></span>
@@ -99,15 +99,15 @@ export default function MasV2Page() {
 
       <p className={styles.moreGroupLabel}>Cuenta y configuración</p>
       <div className={styles.moreCard}>
-        <Fila href={datos ? "/alumno/perfil" : undefined} icon={UserRound} texto="Gestionar perfil" onClick={!datos ? () => setPanel("perfil") : undefined} />
+        <Fila href={datos ? "/portal-v2/perfil" : undefined} icon={UserRound} texto="Gestionar perfil" onClick={!datos ? () => setPanel("perfil") : undefined} />
         <Fila icon={Bell} texto="Gestionar notificaciones" onClick={() => setPanel("notificaciones")} />
         <Fila icon={CreditCard} texto="Plan VIP" onClick={() => setPanel("plan")} />
       </div>
 
       <p className={styles.moreGroupLabel}>Soporte</p>
       <div className={styles.moreCard}>
-        <Fila href={datos ? "/alumno/asistente" : undefined} icon={Headphones} texto="Contactar soporte" onClick={!datos ? () => setPanel("soporte") : undefined} />
-        <Fila href={datos ? "/alumno/politica-privacidad" : undefined} icon={ShieldCheck} texto="Política de privacidad" onClick={!datos ? () => setPanel("privacidad") : undefined} />
+        <Fila href={datos ? "/portal-v2/soporte" : undefined} icon={Headphones} texto="Contactar soporte" onClick={!datos ? () => setPanel("soporte") : undefined} />
+        <Fila icon={ShieldCheck} texto="Política de privacidad" onClick={() => setPanel("privacidad")} />
         <Fila icon={FileText} texto="Términos y condiciones" onClick={() => setPanel("terminos")} />
         <Fila icon={Globe2} texto="Redes sociales" onClick={() => setPanel("social")} />
       </div>
@@ -126,7 +126,7 @@ export default function MasV2Page() {
             {panel === "notificaciones" ? (
               <div className={styles.moreSwitchList}>
                 <Interruptor etiqueta="Avisos de descanso en este dispositivo" activo={pushActiva} onChange={cambiarNotificaciones} disabled={procesandoNotificaciones} />
-                {datos ? <Link href="/alumno/perfil" className={styles.moreSettingsLink}><span>Temporizador de descanso</span><b>{datos.temporizadorActivo === false ? "Apagado" : datos.descansoPreferido ? `${datos.descansoPreferido} s` : "Según rutina"}</b><ChevronRight size={15} /></Link> : <button type="button" className={styles.moreSettingsLink} onClick={() => setPanel("perfil")}><span>Temporizador de descanso</span><b>Según rutina</b><ChevronRight size={15} /></button>}
+                {datos ? <Link href="/portal-v2/perfil#descanso" className={styles.moreSettingsLink}><span>Temporizador de descanso</span><b>{datos.temporizadorActivo === false ? "Apagado" : datos.descansoPreferido ? `${datos.descansoPreferido} s` : "Según rutina"}</b><ChevronRight size={15} /></Link> : <button type="button" className={styles.moreSettingsLink} onClick={() => setPanel("perfil")}><span>Temporizador de descanso</span><b>Según rutina</b><ChevronRight size={15} /></button>}
                 <p className={styles.moreNotificationNote}>{mensajeNotificaciones ?? (permisoNotificaciones === "denied" ? "Las notificaciones están bloqueadas en el navegador. Actívalas desde los ajustes del teléfono." : pushActiva ? "Este dispositivo recibirá avisos aun con la pantalla bloqueada. Puedes desactivarlos aquí sin cambiar los permisos del teléfono." : "Los avisos push de VIP Fitness están desactivados en este dispositivo.")}</p>
               </div>
             ) : null}
@@ -134,7 +134,7 @@ export default function MasV2Page() {
             {panel === "plan" ? <div className={styles.morePlanPanel}><span>PLAN ACTUAL</span><strong>{datos?.planNombre ?? "Método VIP"}</strong><p>{datos?.planDetalle ?? "Entrenamiento, nutrición, progreso y seguimiento personalizado"}</p><b>{datos?.planActivo === false ? "Pausado" : "Activo"}</b></div> : null}
             {panel === "soporte" ? <div className={styles.morePlanPanel}><span>SOPORTE VIP</span><strong>La conversación queda ligada a tu cuenta</strong><p>En la vista directa no fingimos el envío de mensajes. Al usar una cuenta autorizada, este acceso abre el asistente y conserva el contexto para que el equipo pueda responder.</p><b>Sin mensajes perdidos</b></div> : null}
             {panel === "privacidad" ? <div><p className={styles.moreSheetCopy}>Entrenamientos, alimentación, peso y fotografías son datos privados. Las fotos sólo aparecen en Comunidad cuando su dueño elige una publicación concreta; los puntos públicos no revelan alimentos ni datos de salud. Puedes solicitar revisión o eliminación desde tu cuenta.</p></div> : null}
-            {panel === "terminos" ? <div><p className={styles.moreSheetCopy}>El portal registra entrenamientos, alimentación y progreso para prestar el servicio contratado. Los puntos y premios requieren actividad verificable; cualquier manipulación puede invalidarlos. Las indicaciones no reemplazan evaluación médica.</p>{datos ? <Link href="/alumno/politica-privacidad" className={styles.moreSettingsLink}><span>Leer política de privacidad completa</span><ChevronRight size={15} /></Link> : <button type="button" className={styles.moreSettingsLink} onClick={() => setPanel("privacidad")}><span>Leer política de privacidad</span><ChevronRight size={15} /></button>}</div> : null}
+            {panel === "terminos" ? <div><p className={styles.moreSheetCopy}>El portal registra entrenamientos, alimentación y progreso para prestar el servicio contratado. Los puntos y premios requieren actividad verificable; cualquier manipulación puede invalidarlos. Las indicaciones no reemplazan evaluación médica.</p><button type="button" className={styles.moreSettingsLink} onClick={() => setPanel("privacidad")}><span>Leer política de privacidad</span><ChevronRight size={15} /></button></div> : null}
             {panel === "social" ? <div className={styles.moreSocialList}><span>Instagram <b>@vipfitness</b></span><span>Facebook <b>VIP Fitness</b></span><span>Comunidad <b>Dentro de la aplicación</b></span></div> : null}
           </section>
         </div>

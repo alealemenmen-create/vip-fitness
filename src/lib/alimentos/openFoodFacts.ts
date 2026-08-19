@@ -146,6 +146,10 @@ async function fetchConReintento(url: string, reintentando = false): Promise<Res
     const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": USER_AGENT } });
 
     if (!res.ok) {
+      // La API de producto responde 404 cuando el código no existe. Eso es un
+      // resultado válido (producto ausente), no una caída que debamos reintentar
+      // ni presentar como error de conexión.
+      if (res.status === 404) return { ok: true, json: { status: 0 } };
       if (!reintentando) {
         await new Promise((resolve) => setTimeout(resolve, res.status === 429 ? 1500 : 500));
         return fetchConReintento(url, true);

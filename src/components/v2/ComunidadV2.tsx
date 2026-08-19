@@ -74,7 +74,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
       <header className={styles.communityHeader}>
         <Link href="/portal-v2/progreso" aria-label="Volver a Progreso"><ArrowLeft size={22} /></Link>
         <h1>Comunidad</h1>
-        <Link href={datos ? "/alumno/progreso" : "/portal-v2/progreso"} aria-label="Registrar avance corporal"><Camera size={20} /></Link>
+        <Link href="/portal-v2/progreso#checkin" aria-label="Registrar avance corporal"><Camera size={20} /></Link>
       </header>
 
       <section className={styles.communityMe}>
@@ -204,7 +204,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
             <h2>Compartir un avance</h2>
             <p className={styles.copyFoodsIntro}>Solo la foto que elijas aquí se mostrará en Comunidad. Tu galería continúa privada.</p>
             <textarea className={styles.communityComposeText} value={textoPublicacion} onChange={(evento) => setTextoPublicacion(evento.target.value)} maxLength={500} placeholder="Cuenta qué lograste, qué aprendiste o qué viene ahora." />
-            {datos.fotosPublicables.length ? <div className={styles.communityPhotoPicker} aria-label="Fotos privadas disponibles">{datos.fotosPublicables.map((foto) => <button type="button" aria-pressed={fotoElegida === foto.id} key={foto.id} onClick={() => setFotoElegida(fotoElegida === foto.id ? null : foto.id)}>{foto.url ? <Image src={foto.url} alt={`Foto del ${fechaCorta(foto.fecha)}`} fill sizes="96px" /> : <Camera size={19} />}<span>{fechaCorta(foto.fecha)}</span></button>)}</div> : <Link className={styles.communityNoPhotos} href="/alumno/progreso">Aún no tienes fotos. Registrar una en Progreso <ChevronRight size={14} /></Link>}
+            {datos.fotosPublicables.length ? <div className={styles.communityPhotoPicker} aria-label="Fotos privadas disponibles">{datos.fotosPublicables.map((foto) => <button type="button" aria-pressed={fotoElegida === foto.id} key={foto.id} onClick={() => setFotoElegida(fotoElegida === foto.id ? null : foto.id)}>{foto.url ? <Image src={foto.url} alt={`Foto del ${fechaCorta(foto.fecha)}`} fill sizes="96px" /> : <Camera size={19} />}<span>{fechaCorta(foto.fecha)}</span></button>)}</div> : <Link className={styles.communityNoPhotos} href="/portal-v2/progreso#checkin">Aún no tienes fotos. Registrar una en Progreso <ChevronRight size={14} /></Link>}
             <button className={styles.communityPublishButton} type="button" disabled={procesandoSocial || (!textoPublicacion.trim() && !fotoElegida)} onClick={() => ejecutarSocial(() => crearPublicacionComunidadV2({ texto: textoPublicacion, fotoId: fotoElegida }), () => { setTextoPublicacion(""); setFotoElegida(null); setComponiendo(false); })}>{procesandoSocial ? "Publicando…" : "Publicar en Comunidad"}</button>
           </section>
         </div>

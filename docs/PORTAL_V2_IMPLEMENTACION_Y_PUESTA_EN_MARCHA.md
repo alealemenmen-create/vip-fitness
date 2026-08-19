@@ -27,6 +27,9 @@ recibir aprobación expresa.
 - `/portal-v2/entrenamiento/sesion`: ejecución por campos `serie → descanso →
   serie`, lista y video, controles anterior/siguiente, pausa, temporizador
   manual, sonido, vibración, notificación, notas, historial y cierre.
+- `/portal-v2/entrenamiento/historial`: programas entrenados, sesiones reales,
+  duración, cumplimiento, ejercicios completados y reapertura de cada registro,
+  sin abandonar la navegación V2.
 - Alejandro / Impulso VIP: automático, escaso, contextual, auditable y
   desactivable. No obliga a cambiar carga en cada serie; reserva los momentos
   fuertes para series estratégicas y bloquea intensidad ante señales de dolor.
@@ -60,7 +63,9 @@ recibir aprobación expresa.
   rango y clasificación.
 - Registro de peso mediante la acción original, con ventana temporal y puntos
   protegidos contra duplicación.
-- Acceso al historial corporal y galería de progreso existentes.
+- Historial corporal y galería privados integrados en V2: evolución por fecha,
+  fotografía quincenal, carga, reemplazo/borrado sólo en la quincena vigente y
+  acceso directo desde Comunidad sin regresar a la interfaz clásica.
 
 ### Comunidad, ranking y retos
 
@@ -85,6 +90,11 @@ recibir aprobación expresa.
 
 - `/portal-v2/mas`: perfil, rango, puntos, notificaciones, plan, privacidad,
   soporte, redes y retorno a la Vista clásica.
+- `/portal-v2/perfil`: edición autenticada de datos personales, temporizador,
+  contraseña, correo y reseña reutilizando las acciones probadas del portal;
+  la vista directa protege la información sin redirigir al login.
+- `/portal-v2/soporte`: asistente contextual, recordatorios y marcas recientes
+  dentro del shell V2; la demostración no fabrica conversaciones privadas.
 - El plan muestra nombre, sesiones, frecuencia y estado reales de la cuenta.
 - Las notificaciones push son reversibles por dispositivo: activar suscribe el
   endpoint y desactivar lo elimina del servidor y del navegador.

@@ -78,6 +78,7 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
   const puntos = await registrarPeso(alumnoId, fecha);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
+  revalidatePath("/portal-v2/progreso");
   revalidatePath("/alumno/inicio");
   // `registrarPeso` devuelve el delta real (ver `guardarMovimientoConDelta`):
   // el segundo peso de la misma semana no acredita nada y hay que decirlo.
@@ -100,6 +101,7 @@ export async function eliminarPeso(pesoId: string): Promise<void> {
   if (peso?.fecha) await recalcularPesoSemana(alumnoId, peso.fecha);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
+  revalidatePath("/portal-v2/progreso");
   revalidatePath("/alumno/inicio");
 }
 
@@ -224,6 +226,7 @@ export async function subirFotoProgreso(
   const puntos = await registrarFoto(alumnoId, fechaFoto);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
+  revalidatePath("/portal-v2/progreso");
   revalidatePath("/alumno/inicio");
   if (!puntos) {
     return { ...okState, aviso: "Foto guardada. Ya tenías la recompensa de foto de esta quincena." };
@@ -252,5 +255,6 @@ export async function eliminarFotoProgreso(fotoId: string, storagePath: string):
   await recalcularFotoQuincena(alumnoId, foto.fecha_foto);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
+  revalidatePath("/portal-v2/progreso");
   revalidatePath("/alumno/inicio");
 }

@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { ArrowLeft, ChevronRight, Dumbbell, Gauge, Images, ListChecks, Medal, Plus, Trophy, Utensils, X, Zap } from "lucide-react";
-import { agregarPeso } from "@/app/alumno/progreso/actions";
+import { ArrowLeft, Camera, ChevronRight, Dumbbell, Gauge, Images, ListChecks, Medal, Plus, Trash2, Trophy, Upload, Utensils, X, Zap } from "lucide-react";
+import { agregarPeso, eliminarFotoProgreso, subirFotoProgreso } from "@/app/alumno/progreso/actions";
 import { obtenerProgresoV2Action, type ProgresoDatosV2 } from "@/app/portal-v2/progreso/actions";
 import styles from "@/components/v2/PortalV2.module.css";
 
@@ -29,14 +29,21 @@ function fechaLegible(fecha: string | null) {
     .format(new Date(`${fecha}T12:00:00-04:00`));
 }
 
+function esFotoDeQuincenaActual(fecha: string, hoy: string) {
+  if (fecha.slice(0, 7) !== hoy.slice(0, 7)) return false;
+  return (Number(fecha.slice(8, 10)) <= 15) === (Number(hoy.slice(8, 10)) <= 15);
+}
+
 export default function ProgresoV2Page() {
   const [datos, setDatos] = useState<ProgresoDatosV2 | null | undefined>(undefined);
   const [peso, setPeso] = useState("88.0");
   const [pesoBorrador, setPesoBorrador] = useState(peso);
   const [modalPeso, setModalPeso] = useState(false);
   const [detallePrograma, setDetallePrograma] = useState(false);
+  const [detalleSeguimiento, setDetalleSeguimiento] = useState(false);
   const [aviso, setAviso] = useState("");
   const [guardando, iniciarGuardado] = useTransition();
+  const [guardandoFoto, iniciarGuardadoFoto] = useTransition();
 
   useEffect(() => {
     let activo = true;
@@ -119,17 +126,17 @@ export default function ProgresoV2Page() {
 
       <div className={styles.progressSectionHeading}>
         <h2>Peso corporal</h2>
-        <Link href="/alumno/progreso">Ver historial <ChevronRight size={16} /></Link>
+        <button type="button" onClick={() => setDetalleSeguimiento(true)}>Ver historial <ChevronRight size={16} /></button>
       </div>
 
-      <section className={styles.bodyweightCard} aria-label="Peso corporal actual">
+      <section id="checkin" className={styles.bodyweightCard} aria-label="Peso corporal actual">
         <div className={styles.bodyweightMain}>
           <span><Images size={24} /></span>
           <div><strong>{peso ? `${peso} kg` : "Sin registro"}</strong><small>{datos === undefined ? "Cargando último registro…" : datos === null ? "Vista de demostración" : `Último registro: ${fechaLegible(datos.fechaPeso)}`}</small></div>
         </div>
         <div className={styles.bodyweightFooter}>
           <p><strong>{datos?.variacionPeso == null ? "0" : `${datos.variacionPeso > 0 ? "+" : ""}${datos.variacionPeso.toLocaleString("es-CL")}`} kg</strong> en 30 días</p>
-          <button type="button" onClick={abrirPeso} disabled={datos?.soloLectura}>Registrar <Plus size={17} /></button>
+          <div><button type="button" onClick={() => setDetalleSeguimiento(true)}><Camera size={15} /> Foto</button><button type="button" onClick={abrirPeso} disabled={datos?.soloLectura}>Registrar <Plus size={17} /></button></div>
         </div>
       </section>
 
@@ -198,7 +205,106 @@ export default function ProgresoV2Page() {
       ) : null}
 
       {detallePrograma ? <DetallePrograma datos={datos} porcentaje={porcentajePrograma} onClose={() => setDetallePrograma(false)} /> : null}
+      {detalleSeguimiento ? <DetalleSeguimiento
+        datos={datos}
+        guardando={guardandoFoto}
+        onClose={() => setDetalleSeguimiento(false)}
+        onAviso={setAviso}
+        onActualizar={setDatos}
+        iniciarGuardado={iniciarGuardadoFoto}
+      /> : null}
       {aviso ? <button type="button" className={styles.progressToast} onClick={() => setAviso("")}><span>{aviso}</span><X size={14} /></button> : null}
+    </section>
+  );
+}
+
+function DetalleSeguimiento({
+  datos,
+  guardando,
+  onClose,
+  onAviso,
+  onActualizar,
+  iniciarGuardado,
+}: {
+  datos: ProgresoDatosV2 | null | undefined;
+  guardando: boolean;
+  onClose: () => void;
+  onAviso: (mensaje: string) => void;
+  onActualizar: (datos: ProgresoDatosV2 | null) => void;
+  iniciarGuardado: React.TransitionStartFunction;
+}) {
+  const [fotoAEliminar, setFotoAEliminar] = useState<string | null>(null);
+  const pesos = datos?.historialPeso ?? [
+    { id: "demo-1", fecha: "2026-07-22", pesoKg: 89.2, observacion: null },
+    { id: "demo-2", fecha: "2026-08-05", pesoKg: 88.6, observacion: null },
+    { id: "demo-3", fecha: "2026-08-18", pesoKg: 88, observacion: null },
+  ];
+  const refrescar = async () => {
+    const actualizados = await obtenerProgresoV2Action();
+    onActualizar(actualizados);
+  };
+  const subir = (evento: React.FormEvent<HTMLFormElement>) => {
+    evento.preventDefault();
+    if (!datos) {
+      onAviso("La vista directa no guarda fotografías privadas");
+      return;
+    }
+    const formularioNodo = evento.currentTarget;
+    const formulario = new FormData(formularioNodo);
+    formulario.set("fecha_foto", datos.fechaHoy);
+    iniciarGuardado(async () => {
+      const resultado = await subirFotoProgreso({ error: null, ok: false }, formulario);
+      if (!resultado.ok) {
+        onAviso(resultado.error || "No fue posible subir la foto");
+        return;
+      }
+      await refrescar();
+      formularioNodo.reset();
+      onAviso(resultado.aviso || (resultado.puntos ? `Foto guardada · +${resultado.puntos} XP` : "Foto guardada"));
+    });
+  };
+  const eliminar = (foto: NonNullable<ProgresoDatosV2["fotos"]>[number]) => {
+    if (fotoAEliminar !== foto.id) {
+      setFotoAEliminar(foto.id);
+      return;
+    }
+    iniciarGuardado(async () => {
+      await eliminarFotoProgreso(foto.id, foto.storagePath);
+      await refrescar();
+      setFotoAEliminar(null);
+      onAviso("Foto eliminada de la quincena actual");
+    });
+  };
+
+  return (
+    <section className={styles.followupDetail} role="dialog" aria-modal="true" aria-label="Historial de peso y fotografías">
+      <header><button type="button" onClick={onClose} aria-label="Volver a Progreso"><ArrowLeft size={24} /></button><span>CHECK-IN</span></header>
+      <h2>Tu evolución</h2>
+      <p>Peso semanal y fotografía quincenal. Los registros privados sólo se comparten cuando tú eliges publicarlos en Comunidad.</p>
+
+      <div className={styles.followupTitle}><h3>Fotografías</h3><span>{datos ? `${datos.fotos.length} guardadas` : "Vista protegida"}</span></div>
+      {datos?.fotos.length ? <div className={styles.followupPhotos}>{[...datos.fotos].reverse().map((foto) => (
+        <article key={foto.id}>
+          {foto.url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={foto.url} alt={`Progreso del ${fechaLegible(foto.fecha)}`} />
+          ) : <span><Images size={22} /></span>}
+          <small>{fechaLegible(foto.fecha)}</small>
+          {!datos.soloLectura && esFotoDeQuincenaActual(foto.fecha, datos.fechaHoy) ? <button type="button" disabled={guardando} onClick={() => eliminar(foto)}><Trash2 size={13} />{fotoAEliminar === foto.id ? "Confirmar" : "Eliminar"}</button> : null}
+        </article>
+      ))}</div> : <div className={styles.followupNoPhotos}><Camera size={23} /><strong>{datos ? "Tu primera comparación comienza aquí" : "Tus fotos reales permanecen privadas"}</strong><p>{datos ? "Sube una foto de la quincena actual para construir un historial comparable." : "Inicia con una cuenta autorizada para ver y registrar fotografías."}</p></div>}
+
+      <form className={styles.followupUpload} onSubmit={subir}>
+        <label><Upload size={17} /><span><strong>Nueva foto de esta quincena</strong><small>JPG, PNG, WEBP o HEIC · máximo 12 MB</small></span><input type="file" name="archivo" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" required disabled={!datos || datos.soloLectura || guardando} /></label>
+        <button type="submit" disabled={!datos || datos.soloLectura || guardando}>{guardando ? "Procesando…" : "Guardar fotografía"}</button>
+      </form>
+
+      <div className={styles.followupTitle}><h3>Historial de peso</h3><span>{pesos.length} registros</span></div>
+      <div className={styles.followupWeights}>{[...pesos].reverse().map((registro, indice, lista) => {
+        const anterior = lista[indice + 1];
+        const cambio = anterior ? Math.round((registro.pesoKg - anterior.pesoKg) * 10) / 10 : null;
+        return <article key={registro.id}><span>{fechaLegible(registro.fecha)}</span><strong>{registro.pesoKg.toLocaleString("es-CL")} kg</strong><b>{cambio == null ? "Inicio" : `${cambio > 0 ? "+" : ""}${cambio.toLocaleString("es-CL")} kg`}</b>{registro.observacion ? <p>{registro.observacion}</p> : null}</article>;
+      })}</div>
     </section>
   );
 }

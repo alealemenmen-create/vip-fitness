@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HojaAgregarComida, type AlimentoElegido } from "@/components/student/HojaAgregarComida";
 import { agregarAlimentoAHora, actualizarCantidadAlimento, quitarAlimentoDeComida } from "@/app/alumno/comer/actions";
+import { buscarEnOFFAction, buscarPorCodigoOFFAction } from "@/app/alumno/comer/actions";
 import { guardarMisMacros } from "@/app/alumno/macros/actions";
 import type { HoraDia, PlanAlimentacion } from "@/app/alumno/comer/tipos";
+import type { ProductoOFF } from "@/lib/alimentos/openFoodFacts";
 import {
   Beef,
   ChevronRight,
@@ -66,6 +68,18 @@ const ALIMENTOS = [
   { nombre: "Salsa de tomate", marca: "Natural", detalle: "15 cal · 1 p · 4 c · 0 g", kcal: 15, prot: 1, carb: 4, grasa: 0 },
   { nombre: "Yogur alto en proteína", marca: "VIP Selection", detalle: "145 cal · 15 p · 12 c · 3 g", kcal: 145, prot: 15, carb: 12, grasa: 3 },
 ];
+
+function alimentoVisualDesdeOFF(producto: ProductoOFF): (typeof ALIMENTOS)[number] {
+  return {
+    nombre: producto.nombre,
+    marca: producto.marca ?? "Open Food Facts",
+    detalle: `${Math.round(producto.kcal)} cal · ${Math.round(producto.prot)} p · ${Math.round(producto.carb)} c · ${Math.round(producto.grasa)} g / 100 g`,
+    kcal: producto.kcal,
+    prot: producto.prot,
+    carb: producto.carb,
+    grasa: producto.grasa,
+  };
+}
 
 export type NutricionDatosV2 = {
   fechaInicial: string;
@@ -366,7 +380,7 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
       {panel === "buscar" && !datos ? <BuscarAlimento onClose={() => setPanel(null)} onScan={() => setPanel("escaner")} onAdd={agregarComida} /> : null}
       {panel === "macros" ? <AjustarMacros objetivos={objetivos} real={Boolean(datos)} onClose={() => setPanel(null)} onApply={(nuevos) => { setObjetivosLocales(nuevos); setPanel(null); setAviso("Objetivos nutricionales actualizados"); }} /> : null}
       {panel === "copiar" ? <CopiarAlimentos comidas={comidas} onClose={() => setPanel(null)} onCopy={copiarComida} /> : null}
-      {panel === "escaner" && !datos ? <EscanerNutricional onClose={() => setPanel(null)} onAdd={() => agregarComida(ALIMENTOS[3])} /> : null}
+      {panel === "escaner" && !datos ? <EscanerNutricional onClose={() => setPanel(null)} onAdd={agregarComida} /> : null}
       {datos ? <HojaAgregarComida hora={panel === "buscar" || panel === "escaner" ? horaSeleccionada : null} modoInicial={panel === "escaner" ? "escanear" : "buscar"} bibliotecaV2 onCerrar={() => setPanel(null)} onConfirmar={confirmarAlimentosReales} /> : null}
       {comidaSeleccionada ? (
         <div className={styles.nutritionPanelBackdrop} role="presentation" onClick={() => setComidaSeleccionada(null)}>
@@ -505,7 +519,31 @@ function AjustarMacros({
   );
 }
 
-function EscanerNutricional({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
+function EscanerNutricional({ onClose, onAdd }: { onClose: () => void; onAdd: (alimento: (typeof ALIMENTOS)[number]) => void }) {
+  const [codigo, setCodigo] = useState("");
+  const [producto, setProducto] = useState<ProductoOFF | null>(null);
+  const [consultando, setConsultando] = useState(false);
+  const [error, setError] = useState("");
+  const consultar = async () => {
+    const limpio = codigo.replace(/\D/g, "");
+    if (limpio.length < 4) {
+      setError("Ingresa un código de barras válido");
+      return;
+    }
+    setConsultando(true);
+    setError("");
+    setProducto(null);
+    try {
+      const resultado = await buscarPorCodigoOFFAction(limpio);
+      if (!resultado.ok) setError(resultado.error);
+      else if (!resultado.producto) setError("Ese producto aún no está en Open Food Facts");
+      else setProducto(resultado.producto);
+    } catch {
+      setError("No se pudo consultar el código. Revisa tu conexión.");
+    } finally {
+      setConsultando(false);
+    }
+  };
   return (
     <div className={styles.nutritionPanelBackdrop} role="presentation" onClick={onClose}>
       <section className={`${styles.nutritionPanel} ${styles.scannerPanel}`} role="dialog" aria-modal="true" aria-label="Escáner nutricional" onClick={(evento) => evento.stopPropagation()}>
@@ -516,8 +554,11 @@ function EscanerNutricional({ onClose, onAdd }: { onClose: () => void; onAdd: ()
           <i />
         </div>
         <h2>Escanea el alimento</h2>
-        <p>Centra el código o la etiqueta dentro del recuadro. En esta vista de prueba puedes simular una lectura.</p>
-        <button type="button" className={styles.macroApplyButton} onClick={onAdd}>Simular lectura de prueba</button>
+        <p>La cámara real se activa con HTTPS y una cuenta autorizada. En este localhost puedes comprobar ahora mismo el código contra Open Food Facts.</p>
+        <label className={styles.foodSearchInput}><ScanLine size={18} /><input aria-label="Código de barras" inputMode="numeric" placeholder="Ej. 5449000000996" value={codigo} onChange={(evento) => setCodigo(evento.target.value)} /></label>
+        <button type="button" className={styles.macroApplyButton} disabled={consultando} onClick={consultar}>{consultando ? "Consultando…" : "Consultar código real"}</button>
+        {error ? <p role="alert">{error}</p> : null}
+        {producto ? <article className={styles.scannerResult}><div><strong>{producto.nombre}</strong><span>{producto.marca ?? "Open Food Facts"}</span><p>{Math.round(producto.kcal)} cal · {Math.round(producto.prot)} p · {Math.round(producto.carb)} c · {Math.round(producto.grasa)} g / 100 g</p></div><button type="button" onClick={() => onAdd(alimentoVisualDesdeOFF(producto))}><Plus size={18} />Agregar</button></article> : null}
       </section>
     </div>
   );
@@ -564,7 +605,29 @@ function ResumenMacrosAnimado({ totales, objetivos }: { totales: TotalesNutricio
 
 function BuscarAlimento({ onClose, onScan, onAdd }: { onClose: () => void; onScan: () => void; onAdd: (alimento: (typeof ALIMENTOS)[number]) => void }) {
   const [consulta, setConsulta] = useState("");
+  const [externos, setExternos] = useState<ProductoOFF[]>([]);
+  const [buscandoExternos, setBuscandoExternos] = useState(false);
+  const [errorExterno, setErrorExterno] = useState("");
   const visibles = ALIMENTOS.filter((alimento) => `${alimento.nombre} ${alimento.marca}`.toLocaleLowerCase("es").includes(consulta.trim().toLocaleLowerCase("es")));
+  const buscarChile = async () => {
+    if (consulta.trim().length < 2) return;
+    setBuscandoExternos(true);
+    setErrorExterno("");
+    try {
+      const resultado = await buscarEnOFFAction(consulta, "chile");
+      if (!resultado.ok) {
+        setExternos([]);
+        setErrorExterno(resultado.error);
+      } else {
+        setExternos(resultado.productos.slice(0, 12));
+        if (resultado.productos.length === 0) setErrorExterno("No encontramos productos chilenos con ese nombre");
+      }
+    } catch {
+      setErrorExterno("No se pudo consultar Open Food Facts");
+    } finally {
+      setBuscandoExternos(false);
+    }
+  };
   return (
     <div className={styles.nutritionPanelBackdrop} role="presentation" onClick={onClose}>
       <section className={`${styles.nutritionPanel} ${styles.foodSearchPanel}`} role="dialog" aria-modal="true" aria-label="Buscar alimentos" onClick={(evento) => evento.stopPropagation()}>
@@ -572,11 +635,16 @@ function BuscarAlimento({ onClose, onScan, onAdd }: { onClose: () => void; onSca
         <div className={styles.foodSearchTabs} aria-label="Método para agregar alimentos"><button type="button" aria-current="page"><Search size={18} />Buscar</button><button type="button" onClick={onScan}><ScanLine size={18} />Escanear</button></div>
         <h2>Buscar alimentos</h2>
         <label className={styles.foodSearchInput}><Search size={18} /><input aria-label="Nombre del alimento" placeholder="Busca por nombre o marca" value={consulta} onChange={(evento) => setConsulta(evento.target.value)} autoFocus /></label>
+        <button type="button" className={styles.foodExternalSearch} onClick={buscarChile} disabled={consulta.trim().length < 2 || buscandoExternos}>{buscandoExternos ? "Buscando productos de Chile…" : "Buscar también en productos de Chile"}</button>
         <div className={styles.foodList}>
           {visibles.map((alimento) => (
             <article key={alimento.nombre}><div><strong>{alimento.nombre}</strong><span>{alimento.marca}</span><p>{alimento.detalle}</p></div><button type="button" onClick={() => onAdd(alimento)} aria-label={`Agregar ${alimento.nombre}`}><Plus size={21} /></button></article>
           ))}
-          {visibles.length === 0 ? <p>No encontramos coincidencias en esta vista de demostración.</p> : null}
+          {externos.map((producto) => {
+            const alimento = alimentoVisualDesdeOFF(producto);
+            return <article key={producto.offId}><div><strong>{producto.nombre}</strong><span>{producto.marca ?? "Open Food Facts"}</span><p>{alimento.detalle}</p></div><button type="button" onClick={() => onAdd(alimento)} aria-label={`Agregar ${producto.nombre}`}><Plus size={21} /></button></article>;
+          })}
+          {errorExterno ? <p role="alert">{errorExterno}</p> : visibles.length === 0 && externos.length === 0 ? <p>Busca también en el catálogo abierto de productos de Chile.</p> : null}
         </div>
       </section>
     </div>

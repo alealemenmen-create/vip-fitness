@@ -59,4 +59,16 @@ describe("Open Food Facts", () => {
     const resultado = await buscarPorCodigoOFF("7800000000002");
     expect(resultado).toEqual({ ok: true, producto: null });
   });
+
+  it("trata un 404 como producto ausente y no como una falla del servicio", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ status: 0, status_verbose: "product not found" }),
+      { status: 404, headers: { "content-type": "application/json" } },
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultado = await buscarPorCodigoOFF("0000000000000");
+    expect(resultado).toEqual({ ok: true, producto: null });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

@@ -2,7 +2,7 @@
 
 import { obtenerContextoAlumnoOpcional } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { obtenerHistorialPeso } from "@/app/alumno/progreso/data";
+import { obtenerFotosProgreso, obtenerHistorialPeso } from "@/app/alumno/progreso/data";
 import { obtenerSeguimientoIntegral } from "@/lib/seguimiento/data";
 import { obtenerRanking } from "@/lib/ranking/data";
 import { obtenerAvanceCiclo, obtenerRutinaActiva, obtenerSesionEnProgreso } from "@/app/alumno/entrenar/data";
@@ -16,6 +16,8 @@ export type ProgresoDatosV2 = {
   peso: number | null;
   fechaPeso: string | null;
   variacionPeso: number | null;
+  historialPeso: { id: string; fecha: string; pesoKg: number; observacion: string | null }[];
+  fotos: { id: string; fecha: string; url: string | null; storagePath: string }[];
   estadisticas: {
     entrenamientos: number;
     diasAlimentacion: number;
@@ -47,8 +49,9 @@ export async function obtenerProgresoV2Action(): Promise<ProgresoDatosV2 | null>
   if (!contexto) return null;
   const supabase = await createClient();
   const rutina = await obtenerRutinaActiva(contexto.alumnoId);
-  const [pesos, seguimiento, ranking, avance, sesionEnProgresoId, alimentacionHoy] = await Promise.all([
+  const [pesos, fotos, seguimiento, ranking, avance, sesionEnProgresoId, alimentacionHoy] = await Promise.all([
     obtenerHistorialPeso(supabase, contexto.alumnoId),
+    obtenerFotosProgreso(supabase, contexto.alumnoId),
     obtenerSeguimientoIntegral(supabase, contexto.alumnoId, 30),
     obtenerRanking("mes"),
     rutina
@@ -73,6 +76,18 @@ export async function obtenerProgresoV2Action(): Promise<ProgresoDatosV2 | null>
     peso: ultimoPeso?.pesoKg ?? seguimiento.evolucion.pesoActual,
     fechaPeso: ultimoPeso?.fecha ?? null,
     variacionPeso: seguimiento.evolucion.variacionPeso,
+    historialPeso: pesos.map((registro) => ({
+      id: registro.id,
+      fecha: registro.fecha,
+      pesoKg: registro.pesoKg,
+      observacion: registro.observacion,
+    })),
+    fotos: fotos.map((foto) => ({
+      id: foto.id,
+      fecha: foto.fechaFoto,
+      url: foto.url,
+      storagePath: foto.storagePath,
+    })),
     estadisticas: {
       entrenamientos: seguimiento.resumen.sesionesRealizadas,
       diasAlimentacion: seguimiento.resumen.diasConAlimentacion,
