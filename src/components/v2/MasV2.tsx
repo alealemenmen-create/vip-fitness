@@ -140,14 +140,14 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
     <section className={styles.morePage}>
       <h1 className={styles.moreTitle}>Más</h1>
 
-      {datos ? <Link href="/portal-v2/perfil" className={styles.moreProfile}>
+      {datos ? <Link href={datos.tienePerfilAlumno ? "/portal-v2/perfil" : "/admin/mas"} className={styles.moreProfile}>
         <span className={styles.moreAvatar}>{datos?.iniciales ?? "AM"}</span>
-        <div><strong>{datos?.nombre ?? "Ale Mendoza"}</strong><small>{datos ? `${datos.rango} · ${datos.rol === "admin" ? "Administrador" : datos.rol === "entrenador" ? "Entrenador" : "Alumno"}` : "Método VIP"}</small></div>
-        <span className={styles.moreXp}>{(datos?.puntos ?? 900).toLocaleString("es-CL")} XP <Trophy size={12} /></span>
+        <div><strong>{datos?.nombre ?? "Ale Mendoza"}</strong><small>{datos ? `${datos.tienePerfilAlumno ? `${datos.rango} · ` : ""}${datos.rol === "admin" ? "Administrador" : datos.rol === "entrenador" ? "Entrenador" : "Alumno"}` : "Método VIP"}</small></div>
+        <span className={styles.moreXp}>{datos.tienePerfilAlumno ? <>{datos.puntos.toLocaleString("es-CL")} XP <Trophy size={12} /></> : <>CONTROL <ShieldCheck size={12} /></>}</span>
       </Link> : <button type="button" className={styles.moreProfile} onClick={() => setPanel("perfil")}>
         <span className={styles.moreAvatar}>AM</span><div><strong>Ale Mendoza</strong><small>Método VIP · vista directa</small></div><span className={styles.moreXp}>900 XP <Trophy size={12} /></span>
       </button>}
-      <div className={styles.moreLevelTrack} aria-label="Progreso del nivel"><i style={{ width: `${datos?.progresoRango ?? 68}%` }} /></div>
+      {datos?.tienePerfilAlumno !== false ? <div className={styles.moreLevelTrack} aria-label="Progreso del nivel"><i style={{ width: `${datos?.progresoRango ?? 68}%` }} /></div> : null}
 
       <Link href="/portal-v2/progreso/comunidad" className={styles.moreCommunityBanner}>
         <div><strong>Nadie progresa solo</strong><span>Comparte avances y celebra a la comunidad VIP.</span></div>
@@ -156,14 +156,14 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
 
       <p className={styles.moreGroupLabel}>Mis espacios</p>
       <div className={styles.moreCard}>
-        <Fila href="/portal-v2/entrenamiento" icon={Dumbbell} texto="Mi entrenamiento" detalle="Vista personal" />
+        <Fila href={datos && !datos.tienePerfilAlumno ? "/admin/mas" : "/portal-v2/entrenamiento"} icon={Dumbbell} texto="Mi entrenamiento" detalle={datos && !datos.tienePerfilAlumno ? "Activa primero tu perfil personal" : "Vista personal"} />
         {datos?.rol === "entrenador" || datos?.rol === "admin" ? <Fila href="/admin/alumnos" icon={UsersRound} texto="Portal del entrenador" detalle="Alumnos y seguimiento" /> : null}
         {datos?.rol === "admin" ? <Fila href="/admin" icon={PanelsTopLeft} texto="Administración" detalle="Control total de VIP Fitness" /> : null}
       </div>
 
       <p className={styles.moreGroupLabel}>Cuenta y configuración</p>
       <div className={styles.moreCard}>
-        <Fila href={datos ? "/portal-v2/perfil" : undefined} icon={UserRound} texto="Gestionar perfil" onClick={!datos ? () => setPanel("perfil") : undefined} />
+        <Fila href={datos ? (datos.tienePerfilAlumno ? "/portal-v2/perfil" : "/admin/mas") : undefined} icon={UserRound} texto="Gestionar perfil" onClick={!datos ? () => setPanel("perfil") : undefined} />
         <Fila icon={Bell} texto="Gestionar notificaciones" onClick={() => setPanel("notificaciones")} />
         <Fila icon={CreditCard} texto="Plan VIP" onClick={() => setPanel("plan")} />
       </div>

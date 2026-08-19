@@ -190,7 +190,17 @@ idempotente y contrastarse contra el registro original antes del piloto.
   bloqueadas únicamente las escrituras que requieren una identidad real.
 - Alumno: experiencia personal.
 - Entrenador: acceso a alumnos y seguimiento.
-- Administrador: control total mediante el panel existente.
+- Administrador: control total mediante el panel operativo. La lógica probada
+  del portal original se conserva, pero su marco ya usa negro OLED, grafito,
+  blanco y verde mineral V2; la marca amarilla antigua no reaparece al cambiar
+  de espacio.
+- “Más” resuelve siempre la identidad de la sesión, no la cookie usada para
+  observar a otro alumno. Un entrenador o administrador sin ficha personal ya
+  no cae en la identidad ficticia de demostración: ve su rol real, sus accesos
+  profesionales y una ruta explícita para activar su propio perfil de alumno.
+- El panel profesional ofrece regreso visible a `/portal-v2/mas` en escritorio
+  y móvil. “Mi rutina” entra en `/portal-v2/entrenamiento`, mientras “Portal
+  del entrenador” y “Administración” mantienen permisos separados.
 - Las opciones administrativas se muestran por rol verificado en servidor.
 - La separación de roles se aplica también a las acciones: un entrenador sólo
   conserva alumnos, asistencia, armado de rutinas, documentos, pendientes,
@@ -501,6 +511,13 @@ Validaciones locales completadas el 19-08-2026:
   sesión se alternaron y restauraron con la cuenta QA; la unidad cambió la
   tabla entre kg y lb y el temporizador manual volvió a la misma serie sin
   registrar trabajo. Alejandro respondió usando el historial QA real.
+- Se recorrió “Más” con las tres cuentas QA. El alumno conservó rango, XP y
+  sólo su espacio personal; el entrenador obtuvo su portal sin controles de
+  administración; el administrador recibió los tres accesos. Una cuenta
+  profesional sin ficha personal fue guiada a “Activar mi perfil de alumno” en
+  vez de ser sustituida por datos demo. Desde el panel administrativo se volvió
+  a la V2 mediante navegación visible, y la revisión visual confirmó la misma
+  paleta, contraste y jerarquía de la nueva experiencia.
 - Cuando todavía no existen recomendaciones evaluadas, el progreso de Impulso
   Alejandro ya no presenta un falso `0 %`: muestra un estado neutral hasta que
   exista una medición válida.
@@ -557,7 +574,8 @@ Validaciones locales completadas el 19-08-2026:
   no se presenta como un fallo vacío ni se confunde con pérdida de datos.
 - `npm run verify:v2` además de probar las `15` rutas principales extrae los
   destinos V2 declarados en páginas y componentes y comprueba que respondan sin
-  caer al login. La última ejecución verificó `15` conexiones estáticas. Los
+  caer al login. La última ejecución verificó `16` conexiones, incluidos los
+  destinos condicionales por rol. Los
   destinos con estado —por ejemplo `Progreso#checkin` y
   `Perfil#descanso`— también fueron abiertos en navegador: ambos muestran el
   panel correspondiente, no sólo la página general.

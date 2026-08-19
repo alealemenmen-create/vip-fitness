@@ -1,9 +1,8 @@
 "use server";
 
-import { obtenerContextoAlumnoOpcional } from "@/lib/auth";
+import { obtenerSesionActualOpcional, type SesionActual } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { obtenerRanking } from "@/lib/ranking/data";
-import { progresoAlSiguiente } from "@/lib/ranking/puntos";
+import { progresoAlSiguiente, rangoDePuntos } from "@/lib/ranking/puntos";
 import { resolverPlanEntrenamiento } from "@/lib/planes-entrenamiento";
 
 export type MasDatosV2 = {
@@ -19,6 +18,7 @@ export type MasDatosV2 = {
   planDetalle: string;
   planActivo: boolean;
   soloLectura: boolean;
+  tienePerfilAlumno: boolean;
 };
 
 export type CargaMasV2 =
@@ -26,13 +26,11 @@ export type CargaMasV2 =
   | { estado: "real"; datos: MasDatosV2 }
   | { estado: "error"; mensaje: string };
 
-type ContextoAlumnoV2 = NonNullable<Awaited<ReturnType<typeof obtenerContextoAlumnoOpcional>>>;
-
 export async function cargarMasV2Action(): Promise<CargaMasV2> {
-  const contexto = await obtenerContextoAlumnoOpcional();
-  if (!contexto) return { estado: "demo" };
+  const sesion = await obtenerSesionActualOpcional();
+  if (!sesion) return { estado: "demo" };
   try {
-    const datos = await construirMasV2(contexto);
+    const datos = await construirMasV2(sesion);
     return datos
       ? { estado: "real", datos }
       : { estado: "error", mensaje: "No pudimos reconstruir la configuración de esta cuenta." };
@@ -41,28 +39,33 @@ export async function cargarMasV2Action(): Promise<CargaMasV2> {
   }
 }
 
-async function construirMasV2(contexto: ContextoAlumnoV2): Promise<MasDatosV2> {
+async function construirMasV2(sesion: SesionActual): Promise<MasDatosV2> {
   const supabase = await createClient();
-  const [ranking, { data: perfil, error: errorPerfil }] = await Promise.all([
-    obtenerRanking("mes"),
-    supabase.from("alumno_perfil").select("temporizador_descanso, segundos_descanso_preferido, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana, plan_entrenamiento_pausado").eq("user_id", contexto.alumnoId).maybeSingle(),
+  const [{ data: perfil, error: errorPerfil }, { data: movimientos, error: errorPuntos }] = await Promise.all([
+    supabase.from("alumno_perfil").select("temporizador_descanso, segundos_descanso_preferido, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana, plan_entrenamiento_pausado").eq("user_id", sesion.userId).maybeSingle(),
+    supabase.from("puntos_vip_movimientos").select("puntos").eq("alumno_id", sesion.userId),
   ]);
   if (errorPerfil) throw new Error("No fue posible leer la configuración del alumno.");
-  const fila = ranking.find((item) => item.alumnoId === contexto.alumnoId);
-  const puntos = fila?.puntosAcumulados ?? 0;
+  if (errorPuntos) throw new Error("No fue posible leer los Puntos VIP de la cuenta.");
+  const tienePerfilAlumno = Boolean(perfil);
+  const puntos = tienePerfilAlumno
+    ? Math.max(0, (movimientos ?? []).reduce((total, movimiento) => total + movimiento.puntos, 0))
+    : 0;
+  const rango = rangoDePuntos(puntos);
   const plan = resolverPlanEntrenamiento(perfil?.plan_entrenamiento, perfil?.sesiones_mensuales, perfil?.dias_entrenamiento_semana);
   return {
-    nombre: contexto.nombre,
-    iniciales: contexto.nombre.split(/\s+/).filter(Boolean).slice(0, 2).map((parte) => parte[0]).join("").toUpperCase() || "VIP",
-    rol: contexto.rolSesion,
+    nombre: sesion.nombre,
+    iniciales: sesion.nombre.split(/\s+/).filter(Boolean).slice(0, 2).map((parte) => parte[0]).join("").toUpperCase() || "VIP",
+    rol: sesion.rol,
     puntos,
-    rango: fila?.rango.nombre ?? "Bronze",
+    rango: rango.nombre,
     progresoRango: progresoAlSiguiente(puntos)?.pct ?? 100,
     temporizadorActivo: perfil?.temporizador_descanso ?? true,
     descansoPreferido: perfil?.segundos_descanso_preferido ?? null,
-    planNombre: plan?.nombre ?? "Método VIP",
-    planDetalle: plan ? `${plan.sesionesMensuales} sesiones al mes · ${plan.diasSemana} días por semana` : "Entrenamiento, nutrición y seguimiento personalizado",
-    planActivo: perfil?.plan_entrenamiento_pausado !== true,
-    soloLectura: contexto.soloLectura,
+    planNombre: plan?.nombre ?? (tienePerfilAlumno ? "Método VIP" : "Perfil personal no activado"),
+    planDetalle: plan ? `${plan.sesionesMensuales} sesiones al mes · ${plan.diasSemana} días por semana` : tienePerfilAlumno ? "Entrenamiento, nutrición y seguimiento personalizado" : "Actívalo desde el panel para separar tu entrenamiento de tu trabajo profesional.",
+    planActivo: tienePerfilAlumno && perfil?.plan_entrenamiento_pausado !== true,
+    soloLectura: false,
+    tienePerfilAlumno,
   };
 }

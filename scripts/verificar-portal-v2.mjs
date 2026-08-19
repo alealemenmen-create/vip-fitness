@@ -42,6 +42,15 @@ for (const archivo of [
   for (const coincidencia of contenido.matchAll(/href\s*=\s*["'](\/portal-v2[^"']*)["']/g)) {
     enlacesDeclarados.add(coincidencia[1]);
   }
+  // Los destinos por rol viven dentro de expresiones JSX, por ejemplo
+  // `href={esCoach ? "/admin/mas" : "/portal-v2/entrenamiento"}`. Extraemos
+  // cada literal V2 del bloque para que volver condicional un enlace no lo
+  // haga desaparecer falsamente de la auditoría.
+  for (const expresion of contenido.matchAll(/href\s*=\s*\{([^}]+)\}/g)) {
+    for (const coincidencia of expresion[1].matchAll(/["'](\/portal-v2[^"']*)["']/g)) {
+      enlacesDeclarados.add(coincidencia[1]);
+    }
+  }
 }
 
 for (const ruta of rutas) {

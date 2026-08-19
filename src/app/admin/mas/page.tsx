@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Dumbbell } from "lucide-react";
+import { Dumbbell, PanelsTopLeft } from "lucide-react";
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerHallazgosPendientes } from "@/lib/auditoria/data";
@@ -80,8 +80,11 @@ export default async function MasPage() {
         <div className="flex flex-wrap items-center gap-2 border-t border-[#292c32] p-3">
           <ZoomPanel />
           <ThemeToggle />
+          <Link href="/portal-v2/mas" className="boton-panel-secundario">
+            <PanelsTopLeft size={15} /> Portal V2
+          </Link>
           {miAlumnoPerfil ? (
-            <Link href="/alumno/inicio" className="boton-panel-secundario">
+            <Link href="/portal-v2/entrenamiento" className="boton-panel-secundario">
               <Dumbbell size={15} /> Mi rutina
             </Link>
           ) : (

@@ -106,6 +106,17 @@ const obtenerSesion = cache(async (): Promise<SesionActual | null> => {
 });
 
 /**
+ * Sesión real sin redirección para superficies que también admiten una vista
+ * pública. A diferencia del contexto de alumno, conserva la identidad del
+ * entrenador o administrador aunque todavía no tenga ficha personal de
+ * entrenamiento y aunque esté observando a un alumno mediante la cookie de
+ * vista segura.
+ */
+export async function obtenerSesionActualOpcional(): Promise<SesionActual | null> {
+  return obtenerSesion();
+}
+
+/**
  * Perfil + si el usuario tiene ficha de alumno, en UNA sola consulta.
  *
  * Antes eran dos viajes encadenados (`perfiles` y después `alumno_perfil`,

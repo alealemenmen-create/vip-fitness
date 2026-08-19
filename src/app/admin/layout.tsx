@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bot, Dumbbell } from "lucide-react";
+import { Bot, Dumbbell, PanelsTopLeft } from "lucide-react";
 import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { nombrePublicado } from "@/lib/nombre";
@@ -9,7 +9,6 @@ import { registrarDespliegueActual } from "@/lib/novedades-deploy";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { AvisoNuevaActualizacion } from "@/components/admin/AvisoNuevaActualizacion";
 import { LogoutButton } from "@/components/LogoutButton";
-import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ZoomPanel } from "@/components/admin/ZoomPanel";
 import { AlternarPanelLateral } from "@/components/admin/AlternarPanelLateral";
@@ -75,17 +74,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       <aside className="admin-sidebar hidden w-72 shrink-0 flex-col overflow-y-auto border-r border-border px-4 md:flex">
         <div className="shrink-0 border-b border-border pb-4 pt-5">
-          <Logo
-            compact
-            height={34}
-            corner={
-              <span className="flex items-center gap-1.5">
-                <ZoomPanel />
-                <ThemeToggle />
-                <AlternarPanelLateral modo="cerrar" />
-              </span>
-            }
-          />
+          <div className="flex items-center justify-between gap-3">
+            <Link href="/portal-v2/mas" className="admin-v2-brand" aria-label="Volver a Portal VIP V2">
+              <strong>VIP FITNESS</strong>
+              <small>CONTROL V2</small>
+            </Link>
+            <span className="flex items-center gap-1.5">
+              <ZoomPanel />
+              <ThemeToggle />
+              <AlternarPanelLateral modo="cerrar" />
+            </span>
+          </div>
           <div className="admin-profile-card mt-4 rounded-2xl p-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
               {nombrePanel}
@@ -99,9 +98,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <AdminTabs variant="sidebar" {...badges} />
 
         <div className="shrink-0 space-y-2 border-t border-border py-4">
+          <Link
+            href="/portal-v2/mas"
+            className="flex items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-medium text-vip hover:bg-surface-2"
+          >
+            <PanelsTopLeft size={16} /> Volver a Portal V2
+          </Link>
           {miAlumnoPerfil ? (
             <Link
-              href="/alumno/inicio"
+              href="/portal-v2/entrenamiento"
               className="flex items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-medium text-vip hover:bg-surface-2"
             >
               <Dumbbell size={16} /> Ver mi entrenamiento
@@ -137,7 +142,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             con el dorado de Asistente; sin texto bajo 380px, igual que
             Asistente, para no repetir el amontonamiento original. */}
         <header className="panel-aero-superior imprimir-oculto z-30 flex h-14 shrink-0 items-center gap-2.5 px-3 md:hidden">
-          <Logo compact height={20} className="!w-[110px] !rounded-lg !px-2 !py-1" />
+          <Link href="/portal-v2/mas" className="admin-v2-brand admin-v2-brand-mobile" aria-label="Volver a Portal VIP V2">
+            <strong>VIP FITNESS</strong>
+            <small>CONTROL V2</small>
+          </Link>
           <div className="min-w-0 flex-1">
             <p className="text-[8px] font-semibold uppercase leading-none tracking-[0.14em] text-text-tertiary">
               {nombrePanel}
@@ -148,7 +156,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
           {miAlumnoPerfil && (
             <Link
-              href="/alumno/inicio"
+              href="/portal-v2/entrenamiento"
               aria-label="Ver mi rutina"
               className="radius-control flex h-9 shrink-0 items-center gap-1.5 border border-white/15 px-2.5 text-[11px] font-semibold text-text-secondary"
             >
