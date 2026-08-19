@@ -443,6 +443,12 @@ Validaciones locales completadas el 19-08-2026:
   `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_API_TOKEN` y
   `CLOUDFLARE_STREAM_CUSTOMER_CODE` para validar allí el iframe completo; sin
   esas variables se muestra la foto real disponible y no una imagen simulada.
+- Los avisos push de descanso y sesión inconclusa ya abren directamente la
+  sesión o el entrenamiento V2. El entorno local no contiene
+  `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` ni `VAPID_SUBJECT`; por
+  eso Configuración muestra el interruptor deshabilitado y explica la causa en
+  lugar de solicitar permisos que el servidor todavía no podría usar. Sonido y
+  vibración locales continúan operativos sin esas claves.
 - Publicación en el dominio y cambio de vista predeterminada: sólo después del
   piloto y de una orden expresa del propietario.
 - Cobro, renovación o cancelación del plan desde la V2: hoy se muestran datos

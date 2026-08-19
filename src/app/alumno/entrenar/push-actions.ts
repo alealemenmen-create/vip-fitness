@@ -115,7 +115,7 @@ export async function programarAvisoSesionSinCerrar(
         ? "Te falta cerrarla para que se sumen tus Puntos VIP."
         : `Llevas ${completados} de ${total} ejercicios. Ciérrala para no perder el registro.`,
       tag: `sesion-sin-cerrar-${sesionId}`,
-      url: `/alumno/entrenar/sesion/${sesionId}`,
+      url: `/portal-v2/entrenamiento/sesion?id=${sesionId}`,
     };
     await Promise.all(suscripciones.map((sub) => enviarPush(admin, sub, payload)));
   });
@@ -155,7 +155,7 @@ export async function programarAvisoDescanso(segundos: number): Promise<void> {
       title: "Se acabó el descanso",
       body: "Vuelve a la app para tu siguiente serie.",
       tag: "fin-descanso",
-      url: "/alumno/entrenar",
+      url: "/portal-v2/entrenamiento",
     };
     await Promise.all(suscripciones.map((sub) => enviarPush(admin, sub, payload)));
   });

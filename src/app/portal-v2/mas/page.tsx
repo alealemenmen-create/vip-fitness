@@ -30,6 +30,7 @@ type Panel = "perfil" | "notificaciones" | "plan" | "soporte" | "terminos" | "so
 
 const INSTAGRAM_URL = process.env.NEXT_PUBLIC_INSTAGRAM_URL?.trim();
 const FACEBOOK_URL = process.env.NEXT_PUBLIC_FACEBOOK_URL?.trim();
+const PUSH_SERVIDOR_CONFIGURADO = Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim());
 
 export default function MasV2Page() {
   const [panel, setPanel] = useState<Panel>(null);
@@ -69,6 +70,10 @@ export default function MasV2Page() {
 
   const cambiarNotificaciones = async () => {
     setMensajeNotificaciones(null);
+    if (!PUSH_SERVIDOR_CONFIGURADO) {
+      setMensajeNotificaciones("Los avisos push todavía no están configurados en este entorno. El sonido y la vibración dentro de la sesión siguen funcionando.");
+      return;
+    }
     if (!datos) {
       setMensajeNotificaciones("La vista directa no modifica dispositivos. Con una cuenta del piloto podrás activar aquí los avisos reales.");
       return;
@@ -182,9 +187,9 @@ export default function MasV2Page() {
             <header><h2>{tituloPanel(panel)}</h2><button type="button" onClick={() => setPanel(null)} aria-label="Cerrar"><X size={19} /></button></header>
             {panel === "notificaciones" ? (
               <div className={styles.moreSwitchList}>
-                <Interruptor etiqueta="Avisos de descanso en este dispositivo" activo={pushActiva} onChange={cambiarNotificaciones} disabled={procesandoNotificaciones} />
+                <Interruptor etiqueta="Avisos de descanso en este dispositivo" activo={pushActiva} onChange={cambiarNotificaciones} disabled={procesandoNotificaciones || !PUSH_SERVIDOR_CONFIGURADO || permisoNotificaciones === "no-disponible"} />
                 {datos ? <Link href="/portal-v2/perfil#descanso" className={styles.moreSettingsLink}><span>Temporizador de descanso</span><b>{datos.temporizadorActivo === false ? "Apagado" : datos.descansoPreferido ? `${datos.descansoPreferido} s` : "Según rutina"}</b><ChevronRight size={15} /></Link> : <button type="button" className={styles.moreSettingsLink} onClick={() => setPanel("perfil")}><span>Temporizador de descanso</span><b>Según rutina</b><ChevronRight size={15} /></button>}
-                <p className={styles.moreNotificationNote}>{mensajeNotificaciones ?? (permisoNotificaciones === "denied" ? "Las notificaciones están bloqueadas en el navegador. Actívalas desde los ajustes del teléfono." : pushActiva ? "Este dispositivo recibirá avisos aun con la pantalla bloqueada. Puedes desactivarlos aquí sin cambiar los permisos del teléfono." : "Los avisos push de VIP Fitness están desactivados en este dispositivo.")}</p>
+                <p className={styles.moreNotificationNote}>{mensajeNotificaciones ?? (!PUSH_SERVIDOR_CONFIGURADO ? "Pendiente de configurar las claves VAPID del servidor. El temporizador local, el sonido y la vibración no dependen de este ajuste." : permisoNotificaciones === "no-disponible" ? "Este navegador no admite avisos push. El temporizador local seguirá funcionando." : permisoNotificaciones === "denied" ? "Las notificaciones están bloqueadas en el navegador. Actívalas desde los ajustes del teléfono." : pushActiva ? "Este dispositivo recibirá avisos aun con la pantalla bloqueada. Puedes desactivarlos aquí sin cambiar los permisos del teléfono." : "Los avisos push de VIP Fitness están desactivados en este dispositivo.")}</p>
               </div>
             ) : null}
             {panel === "perfil" ? <div className={styles.morePlanPanel}><span>PERFIL DE DEMOSTRACIÓN</span><strong>Ale Mendoza</strong><p>Esta identidad permite recorrer la experiencia completa sin exponer alumnos. Los cambios personales, el historial y las notificaciones reales sólo se guardan con una cuenta autorizada del piloto.</p><b>Modo seguro</b></div> : null}

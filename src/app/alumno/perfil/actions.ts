@@ -83,6 +83,8 @@ export async function guardarDatosPersonales(
 
   revalidatePath("/alumno/perfil");
   revalidatePath("/alumno/inicio");
+  revalidatePath("/portal-v2/perfil");
+  revalidatePath("/portal-v2/mas");
   revalidatePath(`/admin/alumnos/${alumnoId}`);
   return okState;
 }
