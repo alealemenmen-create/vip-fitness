@@ -16,6 +16,24 @@ forma correcta de probar la nueva experiencia sin exponer ni duplicar alumnos.
 La Vista clásica se conserva. No se elimina hasta completar un piloto real y
 recibir aprobación expresa.
 
+## Regla de migración visual y de continuidad
+
+Del Portal VIP original se heredan el motor, las validaciones y la información
+real; no se copian sus componentes visuales sin adaptación. Toda función que
+llegue a la V2 debe reconstruirse dentro del sistema V2: tipografía, escala,
+peso del blanco, superficies, bordes, radios, gradientes, iconografía,
+espaciado, alineación, estados, transiciones, safe areas y tamaños táctiles.
+Una tarjeta, modal o formulario con apariencia clásica se considera una
+migración incompleta aunque su acción técnica funcione.
+
+La continuidad del alumno es obligatoria. La V2 consulta las mismas identidades
+y registros autorizados del portal activo: programas, sesiones, ejercicios,
+series, cargas, repeticiones, pesos corporales, fotografías, alimentación,
+seguimientos, puntos, rangos y comunidad. No reinicia historiales, no entrega
+puntos por migrar y no duplica filas para llenar una pantalla nueva. Cuando una
+estructura nueva necesite datos derivados, deben reconstruirse de forma
+idempotente y contrastarse contra el registro original antes del piloto.
+
 ## Módulos y pantallas construidos
 
 ### Entrenamiento
@@ -376,6 +394,18 @@ Validaciones locales completadas el 19-08-2026:
   realizadas” ya no llama completada a una sesión incompleta, “Ver
   clasificación” abre el ranking y la regla nutricional publicada coincide
   con el motor (`-100` a `+250`, no `-150` en una tarjeta y `-100` en otra).
+- El almacenamiento privado de fotografías de progreso se probó de punta a
+  punta con una imagen sintética y la cuenta QA: carga, lectura mediante URL
+  firmada y reemplazo dentro de la misma quincena conservaron una sola foto.
+  El reemplazo no volvió a acreditar los `100 XP` y la interfaz lo comunicó de
+  forma explícita. No se observó ningún error de navegador durante el flujo.
+- El reemplazo ahora adopta primero el archivo nuevo y sólo entonces retira el
+  anterior. Si falla la base de datos, elimina el archivo nuevo huérfano y
+  preserva la foto vigente. La eliminación tampoco confía en una ruta enviada
+  por el navegador: recupera `storage_path` desde la fila del alumno
+  autenticado. La eliminación física no se ejecutó durante esta prueba porque
+  la foto QA se conserva deliberadamente como fixture y una acción destructiva
+  requiere confirmación expresa.
 - Los recursos privados de Cloudflare Stream ya no usan el UID público que
   provocaba `401`: miniatura y reproductor comparten un token temporal emitido
   por el servidor y reutilizado con margen de expiración. En el entorno local
@@ -423,9 +453,11 @@ Validaciones locales completadas el 19-08-2026:
 ## Trabajo que no debe presentarse como terminado todavía
 
 - Auth, escrituras reales y límites RLS principales ya están comprobados con
-  cuentas QA aisladas. Quedan Storage (subida/lectura cruzada), cámara,
-  notificaciones y segundo plano en dispositivos físicos; estas pruebas nunca
-  deben utilizar alumnos activos.
+  cuentas QA aisladas. Storage ya tiene carga, lectura firmada y reemplazo
+  reales verificados; quedan la prueba negativa de lectura cruzada con un
+  segundo alumno aislado y la eliminación física confirmada. Cámara,
+  notificaciones y segundo plano todavía requieren dispositivos físicos bajo
+  HTTPS. Estas pruebas nunca deben utilizar alumnos activos.
 - Definir el catálogo comercial real, disponibilidad, responsables de entrega
   y condiciones de cada premio. El sistema de catálogo, stock, canje y
   reintegro está construido; no debe inventar premios que VIP Fitness no haya

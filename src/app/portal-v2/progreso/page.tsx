@@ -336,7 +336,11 @@ function DetalleSeguimiento({
       return;
     }
     iniciarGuardado(async () => {
-      await eliminarFotoProgreso(foto.id, foto.storagePath);
+      const resultado = await eliminarFotoProgreso(foto.id);
+      if (!resultado.ok) {
+        onAviso(resultado.error ?? "No fue posible eliminar la foto");
+        return;
+      }
       await refrescar();
       setFotoAEliminar(null);
       onAviso("Foto eliminada de la quincena actual");

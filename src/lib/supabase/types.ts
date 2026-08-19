@@ -1220,7 +1220,7 @@ export interface Database {
           categoria?: CategoriaFoto | null;
           comentario?: string | null;
         };
-        Update: { fecha_foto?: string; categoria?: CategoriaFoto | null; comentario?: string | null };
+        Update: { storage_path?: string; fecha_foto?: string; categoria?: CategoriaFoto | null; comentario?: string | null };
         Relationships: [];
       };
       comunidad_publicaciones: {

@@ -207,12 +207,9 @@ export async function subirFotoProgreso(
     }
   }
 
-  // Reemplaza, no acumula: si ya había una foto para esta quincena (el
-  // alumno la sube de nuevo sin pasar por "Eliminar" primero, o dos
-  // pestañas abiertas a la vez), la vieja se borra de Storage y de la tabla
-  // antes de guardar la nueva. Defensivo — el flujo normal ya borra a mano
-  // primero, esto solo evita que dos fotos convivan en la misma quincena
-  // por una carrera de clics.
+  // Reemplaza, no acumula. La foto anterior NO se borra todavía: primero se
+  // sube y registra la nueva. Así, una caída de red o un error de base no deja
+  // al alumno sin la única foto válida de su quincena.
   const inicioQuincena = quincenaDeISO(fechaFoto);
   const { data: existente } = await supabase
     .from("fotos_progreso")
@@ -221,11 +218,6 @@ export async function subirFotoProgreso(
     .gte("fecha_foto", inicioQuincena)
     .lte("fecha_foto", finQuincenaISO(inicioQuincena))
     .maybeSingle();
-  if (existente) {
-    await supabase.storage.from("fotos-progreso").remove([existente.storage_path]);
-    await supabase.from("fotos_progreso").delete().eq("id", existente.id);
-  }
-
   const storagePath = `${alumnoId}/${Date.now()}.${extensionFinal}`;
 
   const { error: errorSubida } = await supabase.storage
@@ -234,13 +226,21 @@ export async function subirFotoProgreso(
 
   if (errorSubida) return fail("No fue posible subir la foto. Revisa tu conexión e intenta nuevamente.");
 
-  const { error: errorInsert } = await supabase.from("fotos_progreso").insert({
-    alumno_id: alumnoId,
-    storage_path: storagePath,
-    fecha_foto: fechaFoto,
-  });
+  const escritura = existente
+    ? supabase.from("fotos_progreso").update({ storage_path: storagePath, fecha_foto: fechaFoto }).eq("id", existente.id).eq("alumno_id", alumnoId)
+    : supabase.from("fotos_progreso").insert({ alumno_id: alumnoId, storage_path: storagePath, fecha_foto: fechaFoto });
+  const { error: errorRegistro } = await escritura;
 
-  if (errorInsert) return fail("La foto se subió, pero no fue posible registrarla.");
+  if (errorRegistro) {
+    // Compensación: si la tabla no adoptó el archivo nuevo, se retira para no
+    // acumular objetos huérfanos. La foto anterior sigue intacta.
+    await supabase.storage.from("fotos-progreso").remove([storagePath]);
+    return fail("La foto se subió, pero no fue posible registrarla. Tu foto anterior se conserva.");
+  }
+
+  if (existente?.storage_path && existente.storage_path !== storagePath) {
+    await supabase.storage.from("fotos-progreso").remove([existente.storage_path]);
+  }
 
   // Toda foto aceptada acá ya cayó dentro de la quincena en curso (se
   // validó arriba), así que siempre corresponde la recompensa. `registrarFoto`
@@ -257,27 +257,34 @@ export async function subirFotoProgreso(
   return { ...okState, puntos };
 }
 
-export async function eliminarFotoProgreso(fotoId: string, storagePath: string): Promise<void> {
+export async function eliminarFotoProgreso(fotoId: string): Promise<FormState> {
   const { alumnoId, soloLectura } = await requireAlumno();
-  if (soloLectura) return;
+  if (soloLectura) return fail(ERROR_SOLO_LECTURA);
   const supabase = await createClient();
   const { data: foto } = await supabase
     .from("fotos_progreso")
-    .select("fecha_foto")
+    .select("fecha_foto, storage_path")
     .eq("id", fotoId)
+    .eq("alumno_id", alumnoId)
     .maybeSingle();
-  if (!foto) return;
+  if (!foto) return fail("No encontramos esa fotografía en tu cuenta.");
   // Solo la foto de la quincena EN CURSO se puede borrar: "la puede borrar,
   // puede hacer lo que quiera, pero dentro de la quincena" — una quincena
   // ya cerrada queda fija para siempre, con o sin foto. La interfaz ya no
   // ofrece el botón de borrar fuera de la quincena actual; este chequeo es
   // la versión que no se puede saltar desde el cliente.
-  if (!fechaEnQuincenaActualValida(foto.fecha_foto)) return;
-  await supabase.storage.from("fotos-progreso").remove([storagePath]);
-  await supabase.from("fotos_progreso").delete().eq("id", fotoId);
+  if (!fechaEnQuincenaActualValida(foto.fecha_foto)) return fail("Esta quincena ya está cerrada y no admite cambios.");
+  const { error: errorRegistro } = await supabase.from("fotos_progreso").delete().eq("id", fotoId).eq("alumno_id", alumnoId);
+  if (errorRegistro) return fail("No pudimos actualizar la galería. Tu fotografía se conserva para volver a intentarlo.");
+  // Primero se confirma la baja lógica. Si Storage falla después, el alumno ya
+  // no ve ni puede compartir la imagen y sólo queda un objeto privado huérfano
+  // para limpieza técnica; nunca una fila visible que apunte a un archivo roto.
+  const { error: errorArchivo } = await supabase.storage.from("fotos-progreso").remove([foto.storage_path]);
+  if (errorArchivo) console.error("No fue posible retirar el objeto privado de una foto eliminada", errorArchivo);
   await recalcularFotoQuincena(alumnoId, foto.fecha_foto);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
   revalidatePath("/portal-v2/progreso");
   revalidatePath("/alumno/inicio");
+  return okState;
 }

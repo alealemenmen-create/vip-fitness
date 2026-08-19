@@ -220,7 +220,7 @@ function EstaQuincenaConFoto({ quincena }: { quincena: QuincenaGaleria }) {
           </div>
         )}
         <button
-          onClick={() => eliminarFotoProgreso(foto.id, foto.storagePath)}
+          onClick={() => void eliminarFotoProgreso(foto.id)}
           aria-label="Borrar foto de esta quincena"
           className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full"
           style={{ background: "rgba(0,0,0,0.7)" }}
