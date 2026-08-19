@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   configuracionFst7,
+  esUltimaPosicionSerie,
   normalizarTecnicaSesion,
   planificarBloqueEncadenado,
   planificarSegmentosTecnica,
@@ -42,6 +43,25 @@ describe("planificarBloqueEncadenado", () => {
     });
     expect(pasos.filter((paso) => paso.tipo === "serie")).toHaveLength(4);
     expect(pasos.some((paso) => paso.tipo === "descanso_bloque")).toBe(false);
+  });
+
+  it("detecta el cierre real cuando las estaciones tienen distintas series", () => {
+    const pasos = planificarBloqueEncadenado({
+      tecnica: "superserie",
+      ejercicios: [
+        { ejercicioId: "a", series: 4 },
+        { ejercicioId: "b", series: 3 },
+      ],
+      descansoFinalSegundos: 90,
+    }).filter((paso) => paso.tipo === "serie");
+    const orden = pasos.map((paso) => ({
+      ejercicioIndice: paso.ejercicioId === "a" ? 0 : 1,
+      serieIndice: (paso.serieNumero ?? 1) - 1,
+    }));
+
+    expect(orden.at(-1)).toEqual({ ejercicioIndice: 0, serieIndice: 3 });
+    expect(esUltimaPosicionSerie(orden, 0, 3)).toBe(true);
+    expect(esUltimaPosicionSerie(orden, 1, 2)).toBe(false);
   });
 });
 

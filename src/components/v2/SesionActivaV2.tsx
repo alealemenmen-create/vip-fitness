@@ -39,6 +39,7 @@ import {
 import { reconciliarDuracionSesionSegundos } from "@/lib/entrenamiento/duracion-sesion";
 import { claveDescansoSesion, destinoAlAvanzarSerieCompletada } from "@/lib/entrenamiento/descanso-navegacion";
 import {
+  esUltimaPosicionSerie,
   planificarBloqueEncadenado,
   planificarSegmentosTecnica,
   type SegmentoTecnicaSesion,
@@ -406,6 +407,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         setSerieActivaIndice(borrador.serieActivaIndice);
         setEjercicioExpandidoId(borrador.ejercicioActivoId);
         setUnidadPeso(borrador.unidadPeso);
+        setPasosTecnica(borrador.pasosTecnica);
+        setPausaTecnica(borrador.pausaTecnica);
         setAvisoBorrador("Recuperamos el progreso que estaba pendiente en este dispositivo.");
       } else if (window.localStorage.getItem(clave)) {
         window.localStorage.removeItem(clave);
@@ -429,6 +432,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         ejercicioActivoId,
         serieActivaIndice,
         unidadPeso,
+        pasosTecnica,
+        pausaTecnica,
       };
       window.localStorage.setItem(clave, JSON.stringify(borrador));
     }, 180);
@@ -437,6 +442,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     borradorCargado,
     ejercicioActivoId,
     notas,
+    pasosTecnica,
+    pausaTecnica,
     registrada,
     registro,
     segundosSesion,
@@ -719,8 +726,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       return;
     }
     const ejercicioIndice = EJERCICIOS.findIndex((item) => item.id === ejercicio.id);
-    const esUltimaSerieRutina = ejercicioIndice === EJERCICIOS.length - 1
-      && serieIndice === ejercicio.repeticiones.length - 1;
+    const esUltimaSerieRutina = esUltimaPosicionSerie(ORDEN_EJECUCION, ejercicioIndice, serieIndice);
     const seriesActualizadas = registro[ejercicio.id].map((serie, indice) =>
       indice === serieIndice ? { ...serie, completada: !serie.completada } : serie
     );
@@ -838,8 +844,11 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   };
 
   const avanzarDesdeVideo = () => {
-    const esUltimaSerieRutina = ejercicioActivoIndice === EJERCICIOS.length - 1
-      && serieActivaIndiceSeguro === ejercicioActivo.repeticiones.length - 1;
+    const esUltimaSerieRutina = esUltimaPosicionSerie(
+      ORDEN_EJECUCION,
+      ejercicioActivoIndice,
+      serieActivaIndiceSeguro,
+    );
 
     if (!serieActiva.completada) {
       alternarSerie(ejercicioActivo, serieActivaIndiceSeguro);
@@ -1162,8 +1171,11 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                     const descansoDeEstaSerie = descanso?.ejercicioId === ejercicio.id && descanso.serieIndice === serieIndice;
                     const esSerieActiva = !descansoEnFoco && ejercicio.id === ejercicioActivo.id && serieIndice === serieActivaIndiceSeguro;
                     const esObjetivoImpulso = impulsoEjercicio?.serieIndice === serieIndice;
-                    const esUltimaSerieRutina = ejercicio.id === EJERCICIOS[EJERCICIOS.length - 1].id
-                      && serieIndice === ejercicio.repeticiones.length - 1;
+                    const esUltimaSerieRutina = esUltimaPosicionSerie(
+                      ORDEN_EJECUCION,
+                      EJERCICIOS.findIndex((item) => item.id === ejercicio.id),
+                      serieIndice,
+                    );
                     const activarEstaSerie = () => {
                       setEjercicioActivoId(ejercicio.id);
                       setSerieActivaIndice(serieIndice);

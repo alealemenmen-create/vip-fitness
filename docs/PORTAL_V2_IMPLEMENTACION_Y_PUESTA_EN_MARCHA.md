@@ -62,7 +62,11 @@ idempotente y contrastarse contra el registro original antes del piloto.
   desactivable. No obliga a cambiar carga en cada serie; reserva los momentos
   fuertes para series estratégicas y bloquea intensidad ante señales de dolor.
 - Técnicas: biserie, triserie, superserie, serie gigante, circuito, drop-set,
-  rest-pause, myo-reps, cluster, FST-7 y fallo técnico cuando son elegibles.
+  rest-pause, myo-reps, cluster, FST-7 y fallo técnico cuando son elegibles. La
+  secuencia se calcula por rondas: no descansa entre estaciones y reconoce el
+  último trabajo real incluso si los ejercicios tienen cantidades distintas de
+  series. Los pasos internos y microdescansos sobreviven una recarga sin repetir
+  la técnica ni reiniciar su cuenta atrás.
 
 ### Nutrición
 
@@ -339,7 +343,7 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `61` archivos de pruebas y `520` pruebas aprobadas; ESLint sin advertencias,
+- `61` archivos de pruebas y `523` pruebas aprobadas; ESLint sin advertencias,
   TypeScript sin errores y compilación de producción completa (`67` rutas).
 - Las 15 rutas de la V2 respondieron `200` en el servidor de producción local,
   incluida la búsqueda prefiltrada de la biblioteca y la nueva pantalla de

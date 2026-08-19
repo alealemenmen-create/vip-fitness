@@ -17,6 +17,11 @@ export type PasoBloqueSesion = {
   totalBloque?: number;
 };
 
+export type PosicionSerieSesion = {
+  ejercicioIndice: number;
+  serieIndice: number;
+};
+
 export type SegmentoTecnicaSesion = {
   tipo: "trabajo" | "microdescanso" | "ajuste_carga";
   clave: string;
@@ -89,6 +94,21 @@ export function planificarBloqueEncadenado(input: {
     }
   }
   return pasos;
+}
+
+/**
+ * La última serie visible no siempre pertenece al último ejercicio físico.
+ * En un bloque A(4) + B(3), por ejemplo, el orden termina en A4. La sesión
+ * debe decidir el cierre según la secuencia ejecutable y no según el arreglo
+ * original de ejercicios.
+ */
+export function esUltimaPosicionSerie(
+  orden: readonly PosicionSerieSesion[],
+  ejercicioIndice: number,
+  serieIndice: number,
+) {
+  const ultima = orden.at(-1);
+  return ultima?.ejercicioIndice === ejercicioIndice && ultima.serieIndice === serieIndice;
 }
 
 /**

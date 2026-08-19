@@ -16,6 +16,8 @@ export type BorradorSesionV2 = {
   ejercicioActivoId: string;
   serieActivaIndice: number;
   unidadPeso: "kg" | "lb";
+  pasosTecnica: Record<string, number>;
+  pausaTecnica: { clave: string; segundos: number; pasoSiguiente: number } | null;
 };
 
 type RestaurarBorradorInput = {
@@ -53,6 +55,16 @@ function pesoServidorEnUnidad(valor: string, unidad: "kg" | "lb") {
   const numero = Number(valor.replace(",", "."));
   if (!Number.isFinite(numero)) return valor;
   return String(Math.round(numero * 2.20462 * 10) / 10);
+}
+
+function posicionTecnicaValida(clave: string, registro: RegistroBorradorSesionV2) {
+  for (const [ejercicioId, series] of Object.entries(registro)) {
+    const prefijo = `${ejercicioId}-`;
+    if (!clave.startsWith(prefijo)) continue;
+    const indice = Number(clave.slice(prefijo.length));
+    return Number.isInteger(indice) && indice >= 0 && indice < series.length && !series[indice].completada;
+  }
+  return false;
 }
 
 /**
@@ -118,6 +130,35 @@ export function restaurarBorradorSesionV2(
     ];
   }));
   const segundos = Number(valor.segundosSesion);
+  const pasosCrudos = esObjeto(valor.pasosTecnica) ? valor.pasosTecnica : {};
+  const pasosTecnica = Object.fromEntries(Object.entries(pasosCrudos).flatMap(([clave, paso]) => {
+    const numero = Number(paso);
+    return posicionTecnicaValida(clave, registro) && Number.isInteger(numero) && numero >= 0 && numero <= 20
+      ? [[clave, numero]]
+      : [];
+  }));
+  let pausaTecnica: BorradorSesionV2["pausaTecnica"] = null;
+  if (esObjeto(valor.pausaTecnica)) {
+    const clave = typeof valor.pausaTecnica.clave === "string" ? valor.pausaTecnica.clave : "";
+    const segundosPausa = Number(valor.pausaTecnica.segundos);
+    const pasoSiguiente = Number(valor.pausaTecnica.pasoSiguiente);
+    if (
+      posicionTecnicaValida(clave, registro)
+      && Number.isFinite(segundosPausa)
+      && segundosPausa >= 0
+      && segundosPausa <= 5 * 60
+      && Number.isInteger(pasoSiguiente)
+      && pasoSiguiente >= 0
+      && pasoSiguiente <= 20
+    ) {
+      const transcurridos = Math.max(0, Math.floor((ahora - actualizadoEn) / 1_000));
+      pausaTecnica = {
+        clave,
+        segundos: Math.max(0, Math.floor(segundosPausa) - transcurridos),
+        pasoSiguiente,
+      };
+    }
+  }
 
   return {
     version: VERSION,
@@ -129,5 +170,7 @@ export function restaurarBorradorSesionV2(
     ejercicioActivoId,
     serieActivaIndice,
     unidadPeso,
+    pasosTecnica,
+    pausaTecnica,
   };
 }
