@@ -12,6 +12,7 @@ import {
   ChevronRight,
   History,
   LayoutGrid,
+  LibraryBig,
   Menu,
   Moon,
   Play,
@@ -191,6 +192,10 @@ export function EntrenamientoDemoV2() {
           </span>
           <span className={styles.utilityCopy}><strong>Mi progreso</strong><span>Rendimiento, constancia y clasificación</span></span>
         </Link>
+        <Link href="/portal-v2/entrenamiento/biblioteca" className={styles.utilityCard}>
+          <span className={styles.utilityIcon} aria-hidden="true"><LibraryBig size={27} strokeWidth={1.75} /></span>
+          <span className={styles.utilityCopy}><strong>Biblioteca de ejercicios</strong><span>Busca técnica, equipo y demostraciones</span></span>
+        </Link>
       </div>
 
       <section className={styles.impulso}>
@@ -201,7 +206,7 @@ export function EntrenamientoDemoV2() {
 
       <div className={styles.sectionHeader}>
         <div><h2>Entrenamientos adicionales</h2><p>Explora por categoría</p></div>
-        <Link href="/portal-v2/entrenamiento/rutina">Ver todos <ChevronRight size={14} /></Link>
+        <Link href="/portal-v2/entrenamiento/biblioteca">Ver biblioteca <ChevronRight size={14} /></Link>
       </div>
       <div className={styles.chipRow} aria-label="Categorías">
         <span className={`${styles.chip} ${styles.chipActive}`}>Calentamiento</span><span className={styles.chip}>Favoritos</span><span className={styles.chip}>Poco tiempo</span><span className={styles.chip}>Movilidad</span>
@@ -235,6 +240,7 @@ export function EntrenamientoDemoV2() {
             </button>
             <div className={styles.menuActions}>
               <Link href="/portal-v2/entrenamiento/rutina" className={styles.menuItem}><span>Programa y ejercicios</span><i><Archive size={21} /></i></Link>
+              <Link href="/portal-v2/entrenamiento/biblioteca" className={styles.menuItem}><span>Biblioteca de ejercicios</span><i><LibraryBig size={21} /></i></Link>
               <Link href="/portal-v2/progreso" className={styles.menuItem}><span>Registro y rendimiento</span><i><History size={21} /></i></Link>
               <a href="#semana-entrenamiento" className={styles.menuItem} onClick={() => setMenuAbierto(false)}><span>Calendario</span><i><CalendarDays size={21} /></i></a>
               <Link href="/portal-v2/nutricion" className={styles.menuItem}><span>Nutrición del día</span><i><LayoutGrid size={21} /></i></Link>

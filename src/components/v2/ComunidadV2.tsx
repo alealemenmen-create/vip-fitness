@@ -37,7 +37,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
   const router = useRouter();
   const [vista, setVista] = useState<Vista>("actividad");
   const [periodo, setPeriodo] = useState<Periodo>("mensual");
-  const [detallePuntos, setDetallePuntos] = useState<{ nombre: string; datos: DesglosePuntos } | null>(null);
+  const [detallePuntos, setDetallePuntos] = useState<{ nombre: string; datos: DesglosePuntos; demo?: boolean } | null>(null);
   const [cargandoDetalle, iniciarDetalle] = useTransition();
   const [procesandoSocial, iniciarSocial] = useTransition();
   const [componiendo, setComponiendo] = useState(false);
@@ -52,7 +52,22 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
   const actividad = datos ? datos.actividad : DEMO_ACTIVIDAD;
 
   const abrirDesglose = (persona: FilaComunidadV2) => {
-    if (!datos) return;
+    if (!datos) {
+      const fecha = "2026-08-19";
+      setDetallePuntos({
+        nombre: persona.nombre,
+        demo: true,
+        datos: {
+          rango: "semana",
+          movimientos: [
+            { id: `${persona.alumnoId}-sesion`, categoria: "entrenamiento", puntos: 300, titulo: "Sesión finalizada", fecha },
+            { id: `${persona.alumnoId}-constancia`, categoria: "constancia", puntos: 30, titulo: "Constancia diaria", fecha },
+            { id: `${persona.alumnoId}-progreso`, categoria: "progreso", puntos: 75, titulo: "Seguimiento registrado", fecha: "2026-08-18" },
+          ],
+        },
+      });
+      return;
+    }
     iniciarDetalle(async () => {
       const desglose = await obtenerDesglosePuntosAlumno(persona.alumnoId);
       setDetallePuntos({ nombre: persona.nombre, datos: desglose });
@@ -102,7 +117,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
               <span><Camera size={17} /></span><strong>Compartir avance con la comunidad</strong><ChevronRight size={16} />
             </button>
           ) : (
-            <Link className={styles.communityComposer} href="/portal-v2/progreso">
+            <Link className={styles.communityComposer} href="/portal-v2/progreso#checkin">
               <span><Camera size={17} /></span><strong>Registrar foto de progreso privada</strong><ChevronRight size={16} />
             </Link>
           )}
@@ -176,7 +191,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
           </div>
           <div className={styles.communityRankingList}>
             {clasificacionVisible.map((persona) => (
-              <button type="button" disabled={!datos || cargandoDetalle} onClick={() => abrirDesglose(persona)} className={persona.esActual ? styles.communityRankingMine : ""} key={persona.alumnoId}>
+              <button type="button" disabled={cargandoDetalle} onClick={() => abrirDesglose(persona)} className={persona.esActual ? styles.communityRankingMine : ""} key={persona.alumnoId}>
                 <span>{persona.puesto}</span><i>{persona.iniciales}</i><strong>{persona.nombre}</strong><b>{persona.puntos.toLocaleString("es-CL")} XP</b>{persona.esActual ? <em>•</em> : null}
               </button>
             ))}
@@ -190,7 +205,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
           <section className={styles.nutritionPanel} role="dialog" aria-modal="true" aria-label={`Puntos de ${detallePuntos.nombre}`} onClick={(evento) => evento.stopPropagation()}>
             <header><button type="button" onClick={() => setDetallePuntos(null)} aria-label="Cerrar"><X size={19} /></button></header>
             <h2>{detallePuntos.nombre}</h2>
-            <p className={styles.copyFoodsIntro}>Movimientos verificables de {detallePuntos.datos.rango === "dia" ? "hoy" : "esta semana"}. No se exponen datos privados de alimentación.</p>
+            <p className={styles.copyFoodsIntro}>{detallePuntos.demo ? "Ejemplo de cómo V2 explica cada punto sin exponer información privada." : `Movimientos verificables de ${detallePuntos.datos.rango === "dia" ? "hoy" : "esta semana"}. No se exponen datos privados de alimentación.`}</p>
             <div className={styles.communityPointsBreakdown}>
               {detallePuntos.datos.movimientos.length ? detallePuntos.datos.movimientos.map((movimiento) => <article key={movimiento.id}><span>{movimiento.categoria}</span><strong>{movimiento.titulo}</strong><b>{movimiento.puntos > 0 ? "+" : ""}{movimiento.puntos} XP</b></article>) : <p>No hay movimientos puntuables en este periodo.</p>}
             </div>

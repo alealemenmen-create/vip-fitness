@@ -57,6 +57,15 @@ export default function ProgresoV2Page() {
     return () => { activo = false; };
   }, []);
 
+  useEffect(() => {
+    const abrirDesdeEnlace = () => {
+      if (window.location.hash === "#checkin") setDetalleSeguimiento(true);
+    };
+    abrirDesdeEnlace();
+    window.addEventListener("hashchange", abrirDesdeEnlace);
+    return () => window.removeEventListener("hashchange", abrirDesdeEnlace);
+  }, []);
+
   const estadisticas = useMemo(() => datos ? [
     { valor: String(datos.estadisticas.entrenamientos), unidad: "", etiqueta: "Entrenamientos completados", detalle: "Últimos 30 días", Icono: Dumbbell },
     { valor: String(datos.estadisticas.diasAlimentacion), unidad: datos.estadisticas.diasAlimentacion === 1 ? "día" : "días", etiqueta: "Alimentación registrada", detalle: "Últimos 30 días", Icono: Utensils },
@@ -71,6 +80,13 @@ export default function ProgresoV2Page() {
   const abrirPeso = () => {
     setPesoBorrador(peso);
     setModalPeso(true);
+  };
+
+  const cerrarSeguimiento = () => {
+    setDetalleSeguimiento(false);
+    if (window.location.hash === "#checkin") {
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    }
   };
 
   const guardarPeso = () => {
@@ -208,7 +224,7 @@ export default function ProgresoV2Page() {
       {detalleSeguimiento ? <DetalleSeguimiento
         datos={datos}
         guardando={guardandoFoto}
-        onClose={() => setDetalleSeguimiento(false)}
+        onClose={cerrarSeguimiento}
         onAviso={setAviso}
         onActualizar={setDatos}
         iniciarGuardado={iniciarGuardadoFoto}

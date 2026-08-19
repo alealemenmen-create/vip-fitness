@@ -30,6 +30,11 @@ recibir aprobación expresa.
 - `/portal-v2/entrenamiento/historial`: programas entrenados, sesiones reales,
   duración, cumplimiento, ejercicios completados y reapertura de cada registro,
   sin abandonar la navegación V2.
+- `/portal-v2/entrenamiento/biblioteca`: catálogo real del gimnasio con 130
+  fichas activas en el entorno actual, búsqueda tolerante a tildes y alias,
+  filtros musculares, equipo, nivel, técnica, consejos, errores frecuentes,
+  fotografías y video privado para cuentas autorizadas. Es deliberadamente de
+  consulta: un alumno no puede sobrescribir la prescripción del entrenador.
 - Alejandro / Impulso VIP: automático, escaso, contextual, auditable y
   desactivable. No obliga a cambiar carga en cada serie; reserva los momentos
   fuertes para series estratégicas y bloquea intensidad ante señales de dolor.
@@ -90,6 +95,9 @@ recibir aprobación expresa.
 
 - `/portal-v2/mas`: perfil, rango, puntos, notificaciones, plan, privacidad,
   soporte, redes y retorno a la Vista clásica.
+- `/portal-v2/privacidad`: documento completo reutilizado del portal original,
+  con retorno a la V2; el cierre de sesión real sólo aparece cuando existe una
+  identidad autenticada.
 - `/portal-v2/perfil`: edición autenticada de datos personales, temporizador,
   contraseña, correo y reseña reutilizando las acciones probadas del portal;
   la vista directa protege la información sin redirigir al login.
@@ -115,6 +123,12 @@ o reordenar ejercicios usa una personalización separada y auditable de la
 sesión: no modifica la rutina publicada del entrenador, bloquea sustituciones
 después de comenzar y mantiene unidos los bloques de biserie, triserie,
 superserie, circuito o serie gigante.
+
+La biblioteca de ejercicios cubre la exploración y educación que Standrd
+presenta como `Exercise Library`. No se trasladó un `Workout Builder` libre al
+alumno: en VIP Fitness el programa es una prescripción profesional. Si en el
+futuro se ofrecen entrenamientos autónomos, deben vivir como sesiones
+adicionales separadas, jamás modificar silenciosamente la rutina publicada.
 
 ## Tablas y campos necesarios
 
@@ -224,6 +238,7 @@ Funciones SQL de seguridad:
 - Seguimiento integral, pesos, fotos, torneos, push y Cloudflare Stream.
 - Motor histórico, trazabilidad, memoria y supervisión de Impulso VIP.
 - Paneles de entrenador y administrador.
+- Biblioteca maestra de ejercicios, multimedia, alias y perfiles de seguridad.
 
 ### Adaptar
 
@@ -238,6 +253,8 @@ Funciones SQL de seguridad:
 - Fotos privadas a publicaciones únicamente mediante consentimiento explícito,
   con moderación y trazabilidad.
 - Seguimiento a un dashboard diario con conexiones directas.
+- Biblioteca técnica del entrenador a una experiencia de consulta móvil para
+  el alumno, manteniendo videos privados y la rutina maestra inmutable.
 
 ### Retirar o no trasladar
 
@@ -258,12 +275,17 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `51` archivos de pruebas y `488` pruebas aprobadas; ESLint sin advertencias,
-  TypeScript sin errores y compilación de producción completa (`62` rutas).
+- `51` archivos de pruebas y `489` pruebas aprobadas; ESLint sin advertencias,
+  TypeScript sin errores y compilación de producción completa (`66` rutas).
 - Las migraciones `0104` a `0107` se ejecutaron juntas en PostgreSQL efímero.
   Se comprobó la transacción de canje (saldo y stock) y el reintegro idempotente
   al rechazar. Esta comprobación valida sintaxis y reglas transaccionales; no
   sustituye la prueba de Auth, RLS y Storage en un Supabase de preview.
+- Una consulta de sólo lectura al Supabase activo confirmó que las tablas
+  originales de alumnos, sesiones, series, peso, fotos, seguimiento e Impulso
+  no entregan filas a un visitante anónimo. También confirmó que las tablas de
+  `0104` a `0107` aún no están instaladas allí (`PGRST205`), por lo que no se
+  alteró la base usada por los alumnos.
 
 1. Crear un respaldo verificable de la base y del despliegue actual.
 2. Mantener `portal-v2` separada y desplegar una URL de preview.
@@ -303,6 +325,11 @@ Validaciones locales completadas el 19-08-2026:
   cuenta de prueba autorizada en el preview, nunca con alumnos activos.
 - Publicación en el dominio y cambio de vista predeterminada: sólo después del
   piloto y de una orden expresa del propietario.
+- Cobro, renovación o cancelación del plan desde la V2: hoy se muestran datos
+  reales del plan, pero no existe en el portal original un proveedor de pagos
+  conectado que permita ejecutar esas operaciones sin inventarlas.
+- Revisión jurídica del borrador de privacidad y términos antes de publicarlos
+  como documentos contractuales definitivos.
 
 Estos puntos son ampliaciones reales de producto, no detalles visuales. Fingirlos
 con botones sería peor que declararlos pendientes y construirlos con seguridad.

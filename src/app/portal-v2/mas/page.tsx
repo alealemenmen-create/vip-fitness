@@ -11,6 +11,7 @@ import {
   Globe2,
   Headphones,
   LayoutDashboard,
+  LogOut,
   PanelsTopLeft,
   ShieldCheck,
   Trophy,
@@ -18,11 +19,12 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import { logout } from "@/app/actions";
 import styles from "@/components/v2/PortalV2.module.css";
 import { asegurarSuscripcionPush, desactivarSuscripcionPush, suscripcionPushActiva } from "@/lib/entrenamiento/push";
 import { obtenerMasV2Action, type MasDatosV2 } from "./actions";
 
-type Panel = "perfil" | "notificaciones" | "plan" | "soporte" | "privacidad" | "terminos" | "social" | null;
+type Panel = "perfil" | "notificaciones" | "plan" | "soporte" | "terminos" | "social" | null;
 
 export default function MasV2Page() {
   const [panel, setPanel] = useState<Panel>(null);
@@ -107,7 +109,7 @@ export default function MasV2Page() {
       <p className={styles.moreGroupLabel}>Soporte</p>
       <div className={styles.moreCard}>
         <Fila href={datos ? "/portal-v2/soporte" : undefined} icon={Headphones} texto="Contactar soporte" onClick={!datos ? () => setPanel("soporte") : undefined} />
-        <Fila icon={ShieldCheck} texto="Política de privacidad" onClick={() => setPanel("privacidad")} />
+        <Fila href="/portal-v2/privacidad" icon={ShieldCheck} texto="Política de privacidad" />
         <Fila icon={FileText} texto="Términos y condiciones" onClick={() => setPanel("terminos")} />
         <Fila icon={Globe2} texto="Redes sociales" onClick={() => setPanel("social")} />
       </div>
@@ -117,6 +119,7 @@ export default function MasV2Page() {
         <span><strong>{datos ? "Abrir portal clásico" : "Portal clásico protegido"}</strong><small>{datos ? "Tu versión actual permanece disponible" : "La V2 directa continúa abierta sin contraseña"}</small></span>
         <ChevronRight size={16} />
       </Link>
+      {datos ? <form action={logout} className={styles.moreLogoutForm}><button type="submit"><LogOut size={16} />Cerrar sesión</button></form> : null}
       <p className={styles.moreVersion}>VIP FITNESS V2 · VISTA DE DESARROLLO</p>
 
       {panel ? (
@@ -133,8 +136,7 @@ export default function MasV2Page() {
             {panel === "perfil" ? <div className={styles.morePlanPanel}><span>PERFIL DE DEMOSTRACIÓN</span><strong>Ale Mendoza</strong><p>Esta identidad permite recorrer la experiencia completa sin exponer alumnos. Los cambios personales, el historial y las notificaciones reales sólo se guardan con una cuenta autorizada del piloto.</p><b>Modo seguro</b></div> : null}
             {panel === "plan" ? <div className={styles.morePlanPanel}><span>PLAN ACTUAL</span><strong>{datos?.planNombre ?? "Método VIP"}</strong><p>{datos?.planDetalle ?? "Entrenamiento, nutrición, progreso y seguimiento personalizado"}</p><b>{datos?.planActivo === false ? "Pausado" : "Activo"}</b></div> : null}
             {panel === "soporte" ? <div className={styles.morePlanPanel}><span>SOPORTE VIP</span><strong>La conversación queda ligada a tu cuenta</strong><p>En la vista directa no fingimos el envío de mensajes. Al usar una cuenta autorizada, este acceso abre el asistente y conserva el contexto para que el equipo pueda responder.</p><b>Sin mensajes perdidos</b></div> : null}
-            {panel === "privacidad" ? <div><p className={styles.moreSheetCopy}>Entrenamientos, alimentación, peso y fotografías son datos privados. Las fotos sólo aparecen en Comunidad cuando su dueño elige una publicación concreta; los puntos públicos no revelan alimentos ni datos de salud. Puedes solicitar revisión o eliminación desde tu cuenta.</p></div> : null}
-            {panel === "terminos" ? <div><p className={styles.moreSheetCopy}>El portal registra entrenamientos, alimentación y progreso para prestar el servicio contratado. Los puntos y premios requieren actividad verificable; cualquier manipulación puede invalidarlos. Las indicaciones no reemplazan evaluación médica.</p><button type="button" className={styles.moreSettingsLink} onClick={() => setPanel("privacidad")}><span>Leer política de privacidad</span><ChevronRight size={15} /></button></div> : null}
+            {panel === "terminos" ? <div><p className={styles.moreSheetCopy}>El portal registra entrenamientos, alimentación y progreso para prestar el servicio contratado. Los puntos y premios requieren actividad verificable; cualquier manipulación puede invalidarlos. Las indicaciones no reemplazan evaluación médica.</p><Link href="/portal-v2/privacidad" className={styles.moreSettingsLink}><span>Leer política de privacidad</span><ChevronRight size={15} /></Link></div> : null}
             {panel === "social" ? <div className={styles.moreSocialList}><span>Instagram <b>@vipfitness</b></span><span>Facebook <b>VIP Fitness</b></span><span>Comunidad <b>Dentro de la aplicación</b></span></div> : null}
           </section>
         </div>
@@ -144,7 +146,7 @@ export default function MasV2Page() {
 }
 
 function tituloPanel(panel: Exclude<Panel, null>) {
-  return { perfil: "Perfil", notificaciones: "Notificaciones", plan: "Plan VIP", soporte: "Soporte", privacidad: "Privacidad", terminos: "Términos y condiciones", social: "Redes sociales" }[panel];
+  return { perfil: "Perfil", notificaciones: "Notificaciones", plan: "Plan VIP", soporte: "Soporte", terminos: "Términos y condiciones", social: "Redes sociales" }[panel];
 }
 
 function Fila({ href, icon: Icon, texto, detalle, onClick }: { href?: string; icon: typeof UserRound; texto: string; detalle?: string; onClick?: () => void }) {

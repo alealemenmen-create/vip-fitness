@@ -18,10 +18,10 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
  * darle valor legal real, sobre todo por los datos de salud/alimentación
  * que maneja la app. El aviso queda explícito abajo, en la propia página.
  */
-export default function PoliticaPrivacidadPage() {
+export function PoliticaPrivacidadContenido({ volverA = "/alumno/inicio" }: { volverA?: string }) {
   return (
     <div className="space-y-4 pb-8">
-      <Link href="/alumno/inicio" className="flex items-center gap-2">
+      <Link href={volverA} className="flex items-center gap-2">
         <ArrowLeft size={20} className="text-text-secondary" />
         <span className="text-h3 text-text">Política de uso y privacidad</span>
       </Link>
@@ -218,4 +218,8 @@ export default function PoliticaPrivacidadPage() {
       </Seccion>
     </div>
   );
+}
+
+export default function PoliticaPrivacidadPage() {
+  return <PoliticaPrivacidadContenido />;
 }
