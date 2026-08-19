@@ -5,12 +5,11 @@
  *
  * Corre en el SERVIDOR, llamado desde las Server Actions de
  * `@/app/alumno/comer/actions` (`buscarEnOFFAction`, `buscarPorCodigoOFFAction`).
- * El endpoint de búsqueda por texto (`cgi/search.pl`) no manda cabeceras CORS
- * para orígenes de terceros: llamado directo desde el navegador del alumno,
- * `fetch` fallaba con un error genérico de conexión (el endpoint de código de
- * barras, `api/v2/product`, sí las manda, por eso el escáner funcionaba pero
- * la búsqueda por texto no). Un fetch servidor-a-servidor no tiene esa
- * restricción — CORS es una regla del navegador, no del servidor.
+ * La búsqueda principal usa Search-a-licious, el buscador de texto actual de
+ * Open Food Facts. `cgi/search.pl` queda como respaldo porque sigue siendo el
+ * único buscador de texto de Product Opener, pero su disponibilidad es menor.
+ * Todo corre servidor-a-servidor para identificar la aplicación, controlar el
+ * tiempo de espera y no depender de CORS en el teléfono del alumno.
  */
 
 export type ProductoOFF = {
@@ -33,9 +32,11 @@ export type ProductoOFF = {
 export type ResultadoOFF = { ok: true; productos: ProductoOFF[] } | { ok: false; error: string };
 export type ResultadoProductoOFF = { ok: true; producto: ProductoOFF | null } | { ok: false; error: string };
 
-const BASE_URL_BUSQUEDA = "https://world.openfoodfacts.org/cgi/search.pl";
+const BASE_URL_BUSQUEDA = "https://search.openfoodfacts.org/search";
+const BASE_URL_BUSQUEDA_LEGACY = "https://world.openfoodfacts.org/cgi/search.pl";
 const BASE_URL_PRODUCTO = "https://world.openfoodfacts.org/api/v2/product";
-const CAMPOS_OFF = "code,product_name_es,product_name,brands,nutriments,serving_size,serving_quantity,image_front_small_url";
+const CAMPOS_OFF = ["code", "product_name_es", "product_name", "brands", "nutriments", "serving_size", "serving_quantity", "image_front_small_url"] as const;
+const CAMPOS_OFF_QUERY = CAMPOS_OFF.join(",");
 const TIMEOUT_MS = 5000;
 
 // Cache corta en memoria del proceso servidor. Evita repetir la misma consulta
@@ -48,7 +49,7 @@ type RawProducto = {
   code?: string;
   product_name?: string;
   product_name_es?: string;
-  brands?: string;
+  brands?: string | string[];
   nutriments?: Record<string, number | string>;
   serving_size?: string;
   serving_quantity?: number | string;
@@ -144,7 +145,9 @@ function normalizarProducto(p: RawProducto): ProductoOFF | null {
   return {
     offId: String(p.code),
     nombre,
-    marca: p.brands ? p.brands.split(",")[0].trim() || null : null,
+    marca: Array.isArray(p.brands)
+      ? p.brands.find((marca) => marca.trim())?.trim() ?? null
+      : p.brands?.split(",")[0]?.trim() || null,
     kcal: kcalCrudas,
     prot: nutriente(p.nutriments?.["proteins_100g"], 100) ?? 0,
     carb: nutriente(p.nutriments?.["carbohydrates_100g"], 100) ?? 0,
@@ -170,11 +173,17 @@ type ResultadoJSON = { ok: true; json: unknown } | { ok: false; error: string };
 // servidor, donde sí se puede — y evita que nos traten como tráfico anónimo.
 const USER_AGENT = "VIPFitness/1.0 (gimnasio, app de nutricion; contacto via app)";
 
-async function fetchConReintento(url: string, reintentando = false): Promise<ResultadoJSON> {
+async function fetchConReintento(url: string, opciones: RequestInit = {}, reintentando = false): Promise<ResultadoJSON> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal, headers: { "User-Agent": USER_AGENT } });
+    const headers = new Headers(opciones.headers);
+    headers.set("User-Agent", USER_AGENT);
+    const res = await fetch(url, {
+      ...opciones,
+      signal: controller.signal,
+      headers,
+    });
 
     if (!res.ok) {
       // La API de producto responde 404 cuando el código no existe. Eso es un
@@ -183,7 +192,7 @@ async function fetchConReintento(url: string, reintentando = false): Promise<Res
       if (res.status === 404) return { ok: true, json: { status: 0 } };
       if (!reintentando) {
         await new Promise((resolve) => setTimeout(resolve, res.status === 429 ? 1500 : 500));
-        return fetchConReintento(url, true);
+        return fetchConReintento(url, opciones, true);
       }
       // Queda en los logs del servidor para poder ver por qué, la próxima vez
       // que pase — al alumno se le muestra un mensaje simple, no esto.
@@ -219,6 +228,51 @@ async function consultar(url: string): Promise<ResultadoOFF> {
   return { ok: true, productos };
 }
 
+function escaparConsultaLucene(texto: string): string {
+  // Search-a-licious entiende Lucene. La búsqueda del alumno es texto, no una
+  // consulta avanzada: escapar sus operadores evita errores 400 y filtros
+  // accidentales cuando una marca trae signos como +, /, ( o ).
+  return texto.replace(/([+\-=&|><!(){}\[\]^"~*?:\\/])/g, "\\$1").replace(/\s+/g, " ").trim();
+}
+
+async function consultarSearchALicious(texto: string, pais: "chile" | "global"): Promise<ResultadoOFF> {
+  const consulta = escaparConsultaLucene(texto);
+  const q = pais === "chile" ? `${consulta} countries_tags:"en:chile"` : consulta;
+  const resultado = await fetchConReintento(BASE_URL_BUSQUEDA, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      q,
+      page: 1,
+      page_size: 20,
+      langs: ["es", "en"],
+      boost_phrase: true,
+      fields: CAMPOS_OFF,
+    }),
+  });
+  if (!resultado.ok) return resultado;
+  const json = resultado.json as { hits?: unknown };
+  const crudos = Array.isArray(json?.hits) ? (json.hits as RawProducto[]) : [];
+  return { ok: true, productos: crudos.map(normalizarProducto).filter((p): p is ProductoOFF => p !== null) };
+}
+
+async function consultarBusquedaLegacy(texto: string, pais: "chile" | "global"): Promise<ResultadoOFF> {
+  const params = new URLSearchParams({
+    search_terms: texto,
+    search_simple: "1",
+    action: "process",
+    json: "1",
+    page_size: "20",
+    fields: CAMPOS_OFF_QUERY,
+  });
+  if (pais === "chile") {
+    params.set("tagtype_0", "countries");
+    params.set("tag_contains_0", "contains");
+    params.set("tag_0", "chile");
+  }
+  return consultar(`${BASE_URL_BUSQUEDA_LEGACY}?${params.toString()}`);
+}
+
 /** Busca productos por texto, priorizando Chile o abriendo a todo el catálogo global. */
 export async function buscarEnOFF(texto: string, pais: "chile" | "global"): Promise<ResultadoOFF> {
   const q = texto.trim();
@@ -234,23 +288,17 @@ export async function buscarEnOFF(texto: string, pais: "chile" | "global"): Prom
   }
   if (cacheada) cache.delete(clave);
 
-  const params = new URLSearchParams({
-    search_terms: q,
-    search_simple: "1",
-    action: "process",
-    json: "1",
-    page_size: "20",
-    // OFF recomienda pedir solo los campos utilizados: la respuesta completa
-    // puede pesar cientos de KB por búsqueda y en datos móviles se nota.
-    fields: CAMPOS_OFF,
-  });
-  if (pais === "chile") {
-    params.set("tagtype_0", "countries");
-    params.set("tag_contains_0", "contains");
-    params.set("tag_0", "chile");
+  // Search-a-licious es el buscador oficial de texto actual. Si está caído,
+  // se intenta una vez el endpoint histórico para que una incidencia de uno
+  // de los dos servicios no deje al alumno sin catálogo externo.
+  let resultado = await consultarSearchALicious(q, pais);
+  if (!resultado.ok) resultado = await consultarBusquedaLegacy(q, pais);
+  if (!resultado.ok) {
+    return {
+      ok: false,
+      error: "El catálogo externo está temporalmente fuera de servicio. El catálogo VIP sigue disponible y también puedes crear el producto.",
+    };
   }
-
-  const resultado = await consultar(`${BASE_URL_BUSQUEDA}?${params.toString()}`);
   if (resultado.ok) {
     cache.set(clave, { expira: Date.now() + CACHE_TTL_MS, productos: resultado.productos });
     while (cache.size > CACHE_MAX_ENTRADAS) {
@@ -268,7 +316,7 @@ export async function buscarPorCodigoOFF(codigo: string): Promise<ResultadoProdu
   const c = codigo.trim();
   if (!c) return { ok: true, producto: null };
 
-  const resultado = await fetchConReintento(`${BASE_URL_PRODUCTO}/${encodeURIComponent(c)}.json?fields=${encodeURIComponent(CAMPOS_OFF)}`);
+  const resultado = await fetchConReintento(`${BASE_URL_PRODUCTO}/${encodeURIComponent(c)}.json?fields=${encodeURIComponent(CAMPOS_OFF_QUERY)}`);
   if (!resultado.ok) return resultado;
 
   const json = resultado.json as { status?: number; product?: RawProducto };

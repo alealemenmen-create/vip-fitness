@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buscarPorCodigoOFF, etiquetaMedidaEnEspanol } from "./openFoodFacts";
+import { buscarEnOFF, buscarPorCodigoOFF, etiquetaMedidaEnEspanol } from "./openFoodFacts";
 
 function respuesta(product: Record<string, unknown>) {
   return new Response(JSON.stringify({ status: 1, product }), {
@@ -76,5 +76,67 @@ describe("Open Food Facts", () => {
     const resultado = await buscarPorCodigoOFF("0000000000000");
     expect(resultado).toEqual({ ok: true, producto: null });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("usa Search-a-licious para encontrar marcas chilenas y normaliza marcas en arreglo", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      hits: [{
+        code: "7802900001407",
+        product_name_es: "Soprole protein",
+        brands: ["Soprole"],
+        countries_tags: ["en:chile"],
+        nutriments: {
+          "energy-kcal_100g": 68,
+          "proteins_100g": 6.6,
+          "carbohydrates_100g": 6.3,
+          "fat_100g": 1.8,
+        },
+      }],
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultado = await buscarEnOFF("Soprole prueba buscador actual", "chile");
+
+    expect(resultado).toEqual({
+      ok: true,
+      productos: [expect.objectContaining({ offId: "7802900001407", nombre: "Soprole protein", marca: "Soprole", kcal: 68 })],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://search.openfoodfacts.org/search");
+    const opciones = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(opciones.method).toBe("POST");
+    expect(JSON.parse(String(opciones.body))).toMatchObject({
+      q: expect.stringContaining('countries_tags:"en:chile"'),
+      langs: ["es", "en"],
+      page_size: 20,
+    });
+  });
+
+  it("recurre al buscador histórico si Search-a-licious no está disponible", async () => {
+    const caida = new Response("temporal", { status: 503 });
+    const legado = new Response(JSON.stringify({
+      products: [{
+        code: "7802900001292",
+        product_name_es: "Leche Entera",
+        brands: "Soprole",
+        nutriments: {
+          "energy-kcal_100g": 61,
+          "proteins_100g": 3.1,
+          "carbohydrates_100g": 4.7,
+          "fat_100g": 3.3,
+        },
+      }],
+    }), { status: 200, headers: { "content-type": "application/json" } });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(caida)
+      .mockResolvedValueOnce(new Response("temporal", { status: 503 }))
+      .mockResolvedValueOnce(legado);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultado = await buscarEnOFF("Leche fallback unico", "chile");
+
+    expect(resultado).toEqual({ ok: true, productos: [expect.objectContaining({ nombre: "Leche Entera", marca: "Soprole" })] });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(String(fetchMock.mock.calls[2]?.[0])).toContain("/cgi/search.pl?");
   });
 });

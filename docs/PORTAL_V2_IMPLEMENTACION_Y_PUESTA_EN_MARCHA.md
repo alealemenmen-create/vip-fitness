@@ -72,14 +72,16 @@ idempotente y contrastarse contra el registro original antes del piloto.
 
 - `/portal-v2/nutricion`: fecha chilena, semana colapsable, resumen fijo de
   calorías/macros y línea de tiempo de 24 horas.
-- Buscar: catálogo propio primero; Open Food Facts Chile y luego global como
-  complemento; creación manual cuando no hay resultado.
+- Buscar: catálogo propio primero; Search-a-licious de Open Food Facts para
+  texto en Chile y luego global; el buscador histórico queda como respaldo y
+  siempre existe creación manual cuando no hay resultado.
 - Los productos externos se vuelven a consultar por código en el servidor:
   nombre y macros enviados por el navegador nunca se confían, se rechazan
   rangos imposibles y la caché pública tiene caducidad y tamaño máximo.
-- La búsqueda externa es explícita, no se dispara por cada tecla: respeta el
-  límite oficial de Open Food Facts de 10 búsquedas por minuto e IP; el
-  catálogo VIP local conserva la búsqueda inmediata.
+- La búsqueda externa es explícita, no se dispara por cada tecla: protege la
+  disponibilidad del servicio público; el catálogo VIP local conserva la
+  búsqueda inmediata. Si Search-a-licious falla, se intenta el endpoint
+  histórico una vez y la interfaz mantiene catálogo local y creación manual.
 - Escanear: lector de código de barras; en producción necesita HTTPS y permiso
   de cámara.
 - Registrar, editar cantidad, borrar y copiar alimentos recientes.
@@ -255,7 +257,8 @@ migraciones históricas están en `supabase/migrations/0001_init.sql` a
 
 - Supabase Auth, Postgres, RLS y Storage: identidad, datos, fotografías y
   archivos. Es el mismo proyecto contratado actualmente.
-- Open Food Facts API: búsqueda y código de barras. Estrategia obligatoria:
+- Open Food Facts: Search-a-licious para texto, Product API para verificación
+  por código de barras y buscador histórico sólo como respaldo. Estrategia:
   catálogo VIP local → OFF Chile → OFF global → creación manual.
 - Catálogo chileno propio: semillas y respaldo en `supabase/seeds` y
   `supabase/respaldos`; debe enriquecerse continuamente con productos y marcas
@@ -447,6 +450,13 @@ Validaciones locales completadas el 19-08-2026:
   receta reutilizable. Base de datos e interfaz coincidieron al terminar:
   `250 g`, `150 kcal`, `8 g` de proteína, `12 g` de carbohidratos y `7,8 g` de
   grasa. La meta nutricional elegida también persistió en el plan activo.
+- El 19-08-2026 el endpoint de texto heredado de Open Food Facts respondió
+  `503` incluso después del reintento. Se migró la búsqueda principal a
+  Search-a-licious y se comprobó desde la interfaz: cuatro resultados Soprole
+  locales más siete productos chilenos externos válidos, importación de una
+  porción de `155 g`, actualización inmediata de Nutrición y Progreso, y
+  eliminación posterior del registro QA para restaurar los totales iniciales.
+  No hubo errores de navegador.
 - La hoja autenticada de “Buscar comida” dejó de reutilizar la presentación
   clásica. Conserva el motor real —catálogo propio, búsqueda por nombre y
   marca, productos de Chile, favoritos, recetas, escáner y carga múltiple—,
