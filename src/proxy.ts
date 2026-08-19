@@ -1,7 +1,12 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { PREVIEW_ACCESS_COOKIE, previewPrivadaActiva, validarCookiePreview } from "@/lib/preview-access";
 
 export async function proxy(request: NextRequest) {
+  if (previewPrivadaActiva() && !request.nextUrl.pathname.startsWith("/preview-acceso")) {
+    const autorizada = validarCookiePreview(request.cookies.get(PREVIEW_ACCESS_COOKIE)?.value);
+    if (!autorizada) return NextResponse.redirect(new URL("/preview-acceso", request.url));
+  }
   return updateSession(request);
 }
 
