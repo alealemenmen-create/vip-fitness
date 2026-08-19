@@ -330,6 +330,21 @@ Validaciones locales completadas el 19-08-2026:
   secretos. El `401` observado previamente procedía de una prueba HTTP
   incorrecta que trataba una clave nueva como token `Bearer`, no de credenciales
   vencidas.
+- Se crearon tres cuentas claramente identificadas como QA (alumno, entrenador
+  y administrador), sin copiar datos personales ni enviar correos, más una
+  rutina completamente sintética. `scripts/configurar-y-verificar-qa-v2.mjs`
+  deja sus credenciales sólo en `.env.qa.local`, ignorado por Git, y permite
+  repetir la prueba sin duplicar cuentas ni rutinas.
+- La prueba RLS real confirmó: anónimos sin acceso a rutinas; alumno aislado a
+  sus propios datos y autorizado únicamente para registrar su sesión;
+  entrenador con el acceso global decidido en la migración `0005`, pero sin
+  capacidad de registrar sesiones en nombre del alumno; administrador
+  operativo; y escritura directa bloqueada en personalizaciones, recetas,
+  comunidad y canjes V2.
+- El recorrido autenticado Programas → Entrenamiento → Sesión → Historial se
+  ejecutó de punta a punta. Una serie QA de `10` repeticiones con `10 kg`
+  persistió, la sesión cerró como `finalizada_incompleta`, apareció en el
+  historial y no otorgó puntos por trabajo incompleto.
 
 1. Crear un respaldo lógico verificable antes del próximo cambio de esquema; el
    plan gratuito actual no incluye respaldos automáticos.
@@ -353,10 +368,10 @@ Validaciones locales completadas el 19-08-2026:
 
 ## Trabajo que no debe presentarse como terminado todavía
 
-- Probar Auth, Storage, escrituras reales e intentos de acceso cruzado con
-  cuentas autorizadas de ensayo de alumno, entrenador y administrador. Las
-  claves, la instalación, RLS declarativo y las funciones ya están verificadas;
-  estas pruebas nunca deben utilizar alumnos activos.
+- Auth, escrituras reales y límites RLS principales ya están comprobados con
+  cuentas QA aisladas. Quedan Storage (subida/lectura cruzada), cámara,
+  notificaciones y segundo plano en dispositivos físicos; estas pruebas nunca
+  deben utilizar alumnos activos.
 - Definir el catálogo comercial real, disponibilidad, responsables de entrega
   y condiciones de cada premio. El sistema de catálogo, stock, canje y
   reintegro está construido; no debe inventar premios que VIP Fitness no haya
