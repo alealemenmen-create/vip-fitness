@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buscarPorCodigoOFF } from "./openFoodFacts";
+import { buscarPorCodigoOFF, etiquetaMedidaEnEspanol } from "./openFoodFacts";
 
 function respuesta(product: Record<string, unknown>) {
   return new Response(JSON.stringify({ status: 1, product }), {
@@ -13,6 +13,12 @@ afterEach(() => {
 });
 
 describe("Open Food Facts", () => {
+  it("presenta las porciones importadas en español sin envolturas duplicadas", () => {
+    expect(etiquetaMedidaEnEspanol("porción (1 portion (200 ml))")).toBe("porción (200 ml)");
+    expect(etiquetaMedidaEnEspanol("porción (1 pote (125 g))")).toBe("porción (1 pote · 125 g)");
+    expect(etiquetaMedidaEnEspanol("1 cup (240 ml)")).toBe("1 taza (240 ml)");
+  });
+
   it("normaliza un producto válido por 100 gramos", async () => {
     const fetchMock = vi.fn().mockResolvedValue(respuesta({
       code: "7801234567890",

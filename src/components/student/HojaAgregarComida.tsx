@@ -12,7 +12,7 @@ import {
   buscarEnOFFAction,
 } from "@/app/alumno/comer/actions";
 import { LIMITE_BUSQUEDA_ALIMENTOS, type AlimentoCatalogo } from "@/app/alumno/comer/tipos";
-import type { ProductoOFF } from "@/lib/alimentos/openFoodFacts";
+import { etiquetaMedidaEnEspanol, type ProductoOFF } from "@/lib/alimentos/openFoodFacts";
 import {
   alternarFavoritoNutricionV2,
   eliminarRecetaNutricionV2,
@@ -21,6 +21,7 @@ import {
   type BibliotecaNutricionV2,
 } from "@/app/portal-v2/nutricion/actions";
 import { normalizar } from "@/lib/alimentos/emparejar";
+import v2Styles from "@/components/v2/PortalV2.module.css";
 import { EscanerCodigoBarras } from "./EscanerCodigoBarras";
 
 /**
@@ -562,7 +563,7 @@ function Contenido({
 
   if (creando) {
     return (
-      <Marco onCerrar={onCerrar} titulo={`Alimento nuevo · ${etiquetaHora(hora)}`}>
+      <Marco onCerrar={onCerrar} titulo={`Alimento nuevo · ${etiquetaHora(hora)}`} v2={bibliotecaV2}>
         <FormularioAlimento
           offIdInicial={offIdParaCrear}
           // Lo que ya escribió en el buscador: no tiene por qué tipearlo dos
@@ -584,7 +585,7 @@ function Contenido({
 
   if (escaneando) {
     return (
-      <Marco onCerrar={onCerrar} titulo={`Escanear código · ${etiquetaHora(hora)}`}>
+      <Marco onCerrar={onCerrar} titulo={`Escanear código · ${etiquetaHora(hora)}`} v2={bibliotecaV2}>
         <EscanerCodigoBarras
           onEncontrado={(alimento) => {
             setEscaneando(false);
@@ -604,11 +605,11 @@ function Contenido({
   /* La fila que no puede irse de pantalla: se le pasa al Marco como `pie` en
      vez de ir con el resto del contenido. Ver el comentario en Marco. */
   const acciones = (
-    <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+    <div className={`${bibliotecaV2 ? v2Styles.foodLibraryFooterActions : ""} flex items-center justify-between gap-3 border-t border-border pt-3`}>
       <button
         type="button"
         onClick={() => setCreando(true)}
-        className="text-caption font-medium text-vip underline"
+        className={`${bibliotecaV2 ? v2Styles.foodLibraryCreate : ""} text-caption font-medium text-vip underline`}
       >
         Crear alimento personalizado
       </button>
@@ -627,7 +628,7 @@ function Contenido({
       */}
       <Button
         size="sm"
-        className="w-auto px-5"
+        className={`${bibliotecaV2 ? v2Styles.foodLibraryConfirm : ""} w-auto px-5`}
         disabled={aGuardar.length === 0}
         onPointerDown={(e) => {
           if (aGuardar.length === 0) return;
@@ -646,9 +647,10 @@ function Contenido({
       onCerrar={onCerrar}
       titulo={`Agregar a las ${etiquetaHora(hora)}`}
       pie={acciones}
+      v2={bibliotecaV2}
     >
       {bibliotecaV2 && biblioteca.disponible && !seleccionado ? (
-        <div className="grid grid-cols-4 gap-1" role="tablist" aria-label="Biblioteca nutricional">
+        <div className={`${v2Styles.foodLibraryTabs} grid grid-cols-4 gap-1`} role="tablist" aria-label="Biblioteca nutricional">
           <button type="button" role="tab" aria-selected={vistaBiblioteca === "buscar"} onClick={() => setVistaBiblioteca("buscar")} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] ${vistaBiblioteca === "buscar" ? "bg-surface-2 text-text" : "text-text-tertiary"}`}><Search size={16} />Buscar</button>
           <button type="button" role="tab" aria-selected={vistaBiblioteca === "favoritos"} onClick={() => setVistaBiblioteca("favoritos")} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] ${vistaBiblioteca === "favoritos" ? "bg-surface-2 text-text" : "text-text-tertiary"}`}><Bookmark size={16} />Guardados</button>
           <button type="button" role="tab" aria-selected={vistaBiblioteca === "recetas"} onClick={() => setVistaBiblioteca("recetas")} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] ${vistaBiblioteca === "recetas" ? "bg-surface-2 text-text" : "text-text-tertiary"}`}><ChefHat size={16} />Recetas</button>
@@ -683,7 +685,7 @@ function Contenido({
 
       {!seleccionado && vistaBiblioteca === "buscar" && (
         <form
-          className="radius-control flex items-center gap-2 border border-border bg-surface-2 px-3 py-2.5"
+          className={`${bibliotecaV2 ? v2Styles.foodLibrarySearch : ""} radius-control flex items-center gap-2 border border-border bg-surface-2 px-3 py-2.5`}
           onSubmit={(e) => {
             e.preventDefault();
             void buscarCatalogoExterno();
@@ -904,7 +906,7 @@ function Contenido({
             />
             <span className="text-secondary text-text-tertiary">
               {usarMedida && seleccionado.medidaNombre
-                ? seleccionado.medidaNombre
+                ? etiquetaMedidaEnEspanol(seleccionado.medidaNombre)
                 : seleccionado.unidad}
             </span>
           </div>
@@ -925,7 +927,7 @@ function Contenido({
               >
                 {usarMedida
                   ? `Medir en ${seleccionado.unidad}`
-                  : `Medir en ${seleccionado.medidaNombre}`}
+                  : `Medir en ${etiquetaMedidaEnEspanol(seleccionado.medidaNombre)}`}
               </button>
               {usarMedida && (
                 <span className="text-caption text-text-tertiary">
@@ -1109,6 +1111,7 @@ function Marco({
   onCerrar,
   pie,
   children,
+  v2 = false,
 }: {
   titulo: string;
   onCerrar: () => void;
@@ -1124,6 +1127,7 @@ function Marco({
    */
   pie?: React.ReactNode;
   children: React.ReactNode;
+  v2?: boolean;
 }) {
   const altoTeclado = useAltoTeclado();
 
@@ -1165,7 +1169,7 @@ function Marco({
           if (inicioEnFondo.current) onCerrar();
           inicioEnFondo.current = false;
         }}
-        className="absolute inset-0 touch-none bg-black/60 animate-[aparecer-hoja_200ms_ease-out]"
+        className={`${v2 ? v2Styles.foodLibraryBackdrop : ""} absolute inset-0 touch-none bg-black/60 animate-[aparecer-hoja_200ms_ease-out]`}
       />
       {/*
         Columna de tres piezas: encabezado y pie de alto fijo, y en el medio lo
@@ -1177,20 +1181,20 @@ function Marco({
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
-        className="franja-segura-inferior relative mx-auto flex max-h-[85%] w-full max-w-md flex-col overflow-hidden rounded-t-[24px] border-t border-border bg-surface animate-[subir-hoja_220ms_cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none"
+        className={`${v2 ? `${v2Styles.foodLibraryV2} ${v2Styles.foodLibrarySheet}` : ""} franja-segura-inferior relative mx-auto flex max-h-[85%] w-full max-w-md flex-col overflow-hidden rounded-t-[24px] border-t border-border bg-surface animate-[subir-hoja_220ms_cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none`}
       >
         {/* `touch-none`: el encabezado y el pie no scrollean nada, pero sin
             esto iOS toma el arrastre que empieza sobre ellos y lo aplica al
             documento de atrás igual —aunque no tenga scroll, rebota—, que es
             lo que hacía saltar toda la hoja al deslizar desde el título. La
             lista del medio conserva su `touch-pan-y`. */}
-        <div className="flex shrink-0 touch-none items-center justify-between gap-3 px-4 pb-3 pt-4">
+        <div className={`${v2 ? v2Styles.foodLibraryHeader : ""} flex shrink-0 touch-none items-center justify-between gap-3 px-4 pb-3 pt-4`}>
           <p className="text-card-title min-w-0 truncate text-text">{titulo}</p>
           <button
             type="button"
             aria-label="Cerrar"
             onClick={onCerrar}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-text-secondary active:scale-95"
+            className={`${v2 ? v2Styles.foodLibraryClose : ""} flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-text-secondary active:scale-95`}
           >
             <X size={17} />
           </button>
@@ -1204,10 +1208,10 @@ function Marco({
             atrás, y en el celular eso esconde y vuelve a mostrar la barra de
             direcciones. Cada uno de esos cambios reposicionaba el panel, que
             se veía temblando mientras se scrolleaba. */}
-        <div className="min-h-0 flex-1 touch-pan-y space-y-3 overflow-y-auto overscroll-contain px-4 pb-1">
+        <div className={`${v2 ? v2Styles.foodLibraryBody : ""} min-h-0 flex-1 touch-pan-y space-y-3 overflow-y-auto overscroll-contain px-4 pb-1`}>
           {children}
         </div>
-        {pie && <div className="shrink-0 touch-none px-4 pb-4 pt-3">{pie}</div>}
+        {pie && <div className={`${v2 ? v2Styles.foodLibraryFooter : ""} shrink-0 touch-none px-4 pb-4 pt-3`}>{pie}</div>}
       </div>
     </div>
   );

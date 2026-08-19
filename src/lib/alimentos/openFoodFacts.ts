@@ -67,6 +67,37 @@ function nutriente(v: unknown, maximo: number): number | null {
   return valor >= 0 && valor <= maximo ? valor : null;
 }
 
+/**
+ * Open Food Facts mezcla etiquetas en distintos idiomas incluso cuando el
+ * producto y la interfaz están en español. Normalizamos las palabras de uso
+ * habitual y eliminamos la doble envoltura "porción (1 porción (...))" sin
+ * tocar unidades ni cantidades.
+ */
+export function etiquetaMedidaEnEspanol(valor: string): string {
+  const etiqueta = valor
+    .trim()
+    .replace(/\bportions?\b/gi, "porción")
+    .replace(/\bservings?\b/gi, "porción")
+    .replace(/\bpieces?\b/gi, "unidad")
+    .replace(/\bunits?\b/gi, "unidad")
+    .replace(/\bslices?\b/gi, "rebanada")
+    .replace(/\bcups?\b/gi, "taza")
+    .replace(/\btbsp\b/gi, "cucharada")
+    .replace(/\btsp\b/gi, "cucharadita")
+    .replace(/\s+/g, " ");
+
+  const doblePorcion = etiqueta.match(/^porción\s*\(\s*1\s+porción\s*\((.+)\)\s*\)$/i);
+  if (doblePorcion?.[1]) return `porción (${doblePorcion[1].trim()})`;
+
+  const porcionSimple = etiqueta.match(/^1\s+porción\s*\((.+)\)$/i);
+  if (porcionSimple?.[1]) return `porción (${porcionSimple[1].trim()})`;
+
+  // "porción (1 pote (125 g))" se lee mejor sin paréntesis anidados.
+  const anidada = etiqueta.match(/^porción\s*\((.+)\s*\(([^()]+)\)\s*\)$/i);
+  if (anidada?.[1] && anidada[2]) return `porción (${anidada[1].trim()} · ${anidada[2].trim()})`;
+  return etiqueta;
+}
+
 /** Convierte "125 g" / serving_quantity en una medida casera usable. */
 function medidaDesdeServing(
   servingSize: string | undefined,
@@ -75,7 +106,7 @@ function medidaDesdeServing(
   const gramosDirectos = numero(servingQuantity);
   if (gramosDirectos && gramosDirectos > 0) {
     return {
-      nombre: servingSize ? `porción (${servingSize.trim()})` : `porción (${gramosDirectos} g)`,
+      nombre: etiquetaMedidaEnEspanol(servingSize ? `porción (${servingSize.trim()})` : `porción (${gramosDirectos} g)`),
       gramos: gramosDirectos,
     };
   }
@@ -84,7 +115,7 @@ function medidaDesdeServing(
   if (!match) return null;
   const valor = Number(match[1].replace(",", "."));
   if (!Number.isFinite(valor) || valor <= 0) return null;
-  return { nombre: `porción (${servingSize.trim()})`, gramos: valor };
+  return { nombre: etiquetaMedidaEnEspanol(`porción (${servingSize.trim()})`), gramos: valor };
 }
 
 function normalizarProducto(p: RawProducto): ProductoOFF | null {
