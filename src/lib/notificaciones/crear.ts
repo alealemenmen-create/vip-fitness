@@ -37,35 +37,24 @@ export async function crearNotificacionEntrenador({
   ruta?: string;
   claveDedup?: string;
   horasDedup?: number;
-}): Promise<void> {
+}): Promise<boolean> {
   try {
     const admin = createAdminClient();
-
-    if (claveDedup) {
-      const desde = new Date(Date.now() - horasDedup * 60 * 60 * 1000).toISOString();
-      const { data: existente } = await admin
-        .from("notificaciones_entrenador")
-        .select("id")
-        .eq("clave_dedup", claveDedup)
-        .gte("creado_en", desde)
-        .limit(1)
-        .maybeSingle();
-      if (existente) return;
-    }
-
-    const { error } = await admin.from("notificaciones_entrenador").insert({
-      tipo,
-      alumno_id: alumnoId ?? null,
-      titulo,
-      cuerpo,
-      prioridad,
-      ruta: ruta ?? null,
-      clave_dedup: claveDedup ?? null,
+    const desde = new Date(Date.now() - horasDedup * 60 * 60 * 1000).toISOString();
+    const { data: creadaId, error } = await admin.rpc("crear_notificacion_entrenador_dedup", {
+      p_tipo: tipo,
+      p_alumno_id: alumnoId ?? null,
+      p_titulo: titulo,
+      p_cuerpo: cuerpo,
+      p_prioridad: prioridad,
+      p_ruta: ruta ?? null,
+      p_clave_dedup: claveDedup ?? null,
+      p_desde: desde,
     });
-    if (error) {
+    if (error || !creadaId) {
       // Tabla sin migración corrida todavía, u otro problema — no bloquea
       // la acción original. Mismo criterio best-effort que `enviarPush`.
-      return;
+      return false;
     }
 
     if (prioridad === "alta") {
@@ -76,7 +65,9 @@ export async function crearNotificacionEntrenador({
         url: ruta ?? "/admin/notificaciones",
       });
     }
+    return true;
   } catch {
     // Best-effort — ver comentario de la función.
+    return false;
   }
 }

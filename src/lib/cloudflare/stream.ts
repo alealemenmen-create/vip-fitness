@@ -238,6 +238,8 @@ export function firmaWebhookValida(
   secreto: string,
   ahoraMs = Date.now()
 ): boolean {
+  const timeMs = tiempoFirmaWebhookCloudflare(headerFirma);
+  if (timeMs === null || Math.abs(ahoraMs - timeMs) > 5 * 60 * 1000) return false;
   if (!headerFirma) return false;
   const partes = Object.fromEntries(
     headerFirma.split(",").map((par) => {
@@ -245,9 +247,7 @@ export function firmaWebhookValida(
       return [clave?.trim(), valor?.trim()];
     })
   );
-  if (!partes.time || !partes.sig1) return false;
-  const timeMs = Number(partes.time) * 1000;
-  if (!Number.isFinite(timeMs) || Math.abs(ahoraMs - timeMs) > 5 * 60 * 1000) return false;
+  if (!partes.time || !partes.sig1 || !/^[a-f\d]{64}$/i.test(partes.sig1)) return false;
 
   const esperada = createHmac("sha256", secreto)
     .update(`${partes.time}.${cuerpoCrudo}`)
@@ -255,6 +255,20 @@ export function firmaWebhookValida(
   const a = Buffer.from(esperada, "hex");
   const b = Buffer.from(partes.sig1, "hex");
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Instante firmado por Cloudflare, en milisegundos. El handler lo persiste
+ * para que un reenvío antiguo no pueda pisar un estado más nuevo. */
+export function tiempoFirmaWebhookCloudflare(headerFirma: string | null): number | null {
+  if (!headerFirma) return null;
+  const parteTiempo = headerFirma
+    .split(",")
+    .map((parte) => parte.trim())
+    .find((parte) => parte.startsWith("time="));
+  const valor = parteTiempo?.slice("time=".length);
+  if (!valor || !/^\d{10,13}$/.test(valor)) return null;
+  const segundos = Number(valor);
+  return Number.isFinite(segundos) ? segundos * 1000 : null;
 }
 
 export function verificarWebhookCloudflare(cuerpoCrudo: string, headerFirma: string | null): boolean {

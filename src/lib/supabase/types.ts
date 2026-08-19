@@ -934,6 +934,7 @@ export interface Database {
           video_cloudflare_duracion_seg: number | null;
           video_cloudflare_miniatura_url: string | null;
           video_cloudflare_error: string | null;
+          video_cloudflare_webhook_en: string | null;
           // 0102_ejercicio_video_cloudflare_dimensiones.sql — para recortar
           // el reproductor y cubrir el cuadro 16:9 sin franjas.
           video_cloudflare_ancho: number | null;
@@ -1021,6 +1022,7 @@ export interface Database {
           video_cloudflare_duracion_seg?: number | null;
           video_cloudflare_miniatura_url?: string | null;
           video_cloudflare_error?: string | null;
+          video_cloudflare_webhook_en?: string | null;
           video_cloudflare_ancho?: number | null;
           video_cloudflare_alto?: number | null;
           video_cloudflare_uid_anterior?: string | null;
@@ -2521,6 +2523,10 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      crear_notificacion_entrenador_dedup: {
+        Args: { p_tipo: string; p_alumno_id: string | null; p_titulo: string; p_cuerpo: string; p_prioridad: string; p_ruta: string | null; p_clave_dedup: string | null; p_desde: string };
+        Returns: string | null;
+      };
       solicitar_canje_vip: { Args: { p_recompensa_id: string }; Returns: string };
       resolver_canje_vip: { Args: { p_canje_id: string; p_estado: string; p_nota?: string | null }; Returns: undefined };
       ajustar_stock_recompensa_vip: { Args: { p_recompensa_id: string; p_delta: number; p_sin_limite?: boolean }; Returns: number | null };

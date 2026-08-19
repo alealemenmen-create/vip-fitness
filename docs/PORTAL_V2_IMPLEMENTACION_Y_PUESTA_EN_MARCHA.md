@@ -245,7 +245,7 @@ adicionales separadas, jamás modificar silenciosamente la rutina publicada.
 
 La definición exhaustiva y tipada está en `src/lib/supabase/types.ts`; las
 migraciones históricas están en `supabase/migrations/0001_init.sql` a
-`0109_cache_open_food_facts.sql`. Las tablas que sostienen esta V2 son:
+`0110_automatizaciones_idempotentes.sql`. Las tablas que sostienen esta V2 son:
 
 | Área | Tabla | Campos esenciales |
 | --- | --- | --- |
@@ -293,6 +293,9 @@ migraciones históricas están en `supabase/migrations/0001_init.sql` a
 - INTA/Universidad de Chile: referencia nutricional nacional para alimentos
   genéricos; su licencia y formato deben revisarse antes de importar en masa.
 - Cloudflare Stream: video de ejercicios y webhooks.
+- El webhook de Stream exige HMAC reciente, limita el cuerpo, valida UID y
+  metadatos y persiste el instante firmado. Un evento antiguo no puede pisar
+  uno nuevo; “procesando” tampoco puede hacer retroceder “listo” o “error”.
 - Las imágenes dinámicas de ejercicios utilizan una cadena segura y sin
   duplicados: recurso principal, miniatura o imagen muscular contextual y, en
   última instancia, portada V2. Un archivo histórico eliminado de Storage no
@@ -352,6 +355,9 @@ Funciones SQL de seguridad:
   reserva stock y descuenta puntos en la misma transacción.
 - `resolver_canje_vip`: sólo entrenador/administrador; aprueba, entrega o
   rechaza, reintegrando stock y puntos de manera idempotente.
+- `crear_notificacion_entrenador_dedup`: exclusiva de service role; usa un
+  bloqueo transaccional por clave para que dos cron concurrentes creen una
+  sola fila y, por tanto, un solo push.
 
 ## Qué mantener, adaptar y retirar
 
@@ -406,7 +412,7 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `65` archivos de pruebas y `538` pruebas aprobadas; ESLint sin advertencias,
+- `68` archivos de pruebas y `551` pruebas aprobadas; ESLint sin advertencias,
   TypeScript sin errores y compilación de producción completa (`67` rutas).
 - Las 15 rutas de la V2 respondieron `200` en el servidor de producción local,
   incluida la búsqueda prefiltrada de la biblioteca y la nueva pantalla de
@@ -425,6 +431,12 @@ Validaciones locales completadas el 19-08-2026:
   sola fila chilena compartida con `14` productos y expiración vigente. Las
   pruebas aíslan además caché, deduplicación simultánea, respaldo recuperable
   y circuito abierto sin depender de una caída real del proveedor.
+- `0110_automatizaciones_idempotentes.sql` se aplicó al Supabase activo. La
+  prueba transaccional creó el primer aviso, deduplicó el segundo y terminó en
+  `ROLLBACK`; una comprobación independiente confirmó cero residuos QA. El RPC
+  fue rechazado con código `42501` al llamarlo con clave pública. Los handlers
+  cubren además secreto ausente/incorrecto, falla parcial, HMAC, reenvíos,
+  cuerpos excesivos y eventos de video fuera de orden sin enviar avisos reales.
 - La sesión activa conserva un borrador local validado y aislado por id durante
   48 horas. Una recarga recupera los últimos pesos, repeticiones, notas, tiempo
   y posición sin pisar series que el servidor ya confirmó; los fallos de red se
@@ -611,8 +623,9 @@ Validaciones locales completadas el 19-08-2026:
 3. `0104_personalizacion_sesion_v2.sql`,
    `0105_biblioteca_nutricion_v2.sql`, `0106_comunidad_social_v2.sql` y
    `0107_recompensas_vip.sql`, junto con el refuerzo
-   `0108_recompensas_vip_solo_alumnos.sql` y la caché externa
-   `0109_cache_open_food_facts.sql`, ya quedaron instaladas y
+   `0108_recompensas_vip_solo_alumnos.sql`, la caché externa
+   `0109_cache_open_food_facts.sql` y el refuerzo de automatizaciones
+   `0110_automatizaciones_idempotentes.sql`, ya quedaron instaladas y
    verificadas en el proyecto activo. Mantener una instancia de preview para las pruebas
    destructivas y los cambios siguientes.
 4. Configurar variables de preview y producción por separado.
@@ -622,7 +635,9 @@ Validaciones locales completadas el 19-08-2026:
    red intermitente, safe areas y notificaciones.
 8. Revisar permisos de cámara/push bajo HTTPS y políticas RLS con intentos de
    acceso cruzado.
-9. Verificar webhooks de video, cron de puntos/reconocimientos y correo.
+9. Ejecutar en preview el delivery real de Vercel Cron, webhook de Cloudflare
+   y correo una vez configurados sus secretos; autenticación, idempotencia y
+   manejo interno de errores ya están cubiertos sin enviar mensajes reales.
 10. Activar la V2 por grupo piloto, conservando Vista clásica y reversión.
 11. Medir errores, abandonos, sesiones finalizadas, uso de Alejandro y consultas
     sin resultado antes de hacerla predeterminada.
@@ -653,6 +668,11 @@ Validaciones locales completadas el 19-08-2026:
   `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_API_TOKEN` y
   `CLOUDFLARE_STREAM_CUSTOMER_CODE` para validar allí el iframe completo; sin
   esas variables se muestra la foto real disponible y no una imagen simulada.
+- El entorno local tampoco contiene `CRON_SECRET` ni
+  `CLOUDFLARE_STREAM_WEBHOOK_SECRET`: los tres endpoints fallan cerrados con
+  `503`, como corresponde, y sus contratos están probados con secretos QA en
+  memoria. Falta confirmar una entrega real desde Vercel y Cloudflare en la
+  URL de preview; no se debe ensayar contra alumnos ni videos activos.
 - Los avisos push de descanso y sesión inconclusa ya abren directamente la
   sesión o el entrenamiento V2. El entorno local no contiene
   `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` ni `VAPID_SUBJECT`; por

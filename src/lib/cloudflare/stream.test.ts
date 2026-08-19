@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { firmaWebhookValida, urlMiniaturaFirmada } from "./stream";
+import { firmaWebhookValida, tiempoFirmaWebhookCloudflare, urlMiniaturaFirmada } from "./stream";
 
 const SECRETO = "secreto-de-prueba";
 const AHORA = 1_700_000_000_000;
@@ -54,6 +54,12 @@ describe("urlMiniaturaFirmada", () => {
     expect(segunda).toBe(primera);
     expect(primera).not.toContain("video-privado-qa");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("extrae sólo un tiempo firmado bien formado", () => {
+    expect(tiempoFirmaWebhookCloudflare("time=1700000000,sig1=abc")).toBe(AHORA);
+    expect(tiempoFirmaWebhookCloudflare("time=no,sig1=abc")).toBeNull();
+    expect(tiempoFirmaWebhookCloudflare(null)).toBeNull();
   });
 });
 

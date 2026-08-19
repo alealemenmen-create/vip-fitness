@@ -80,7 +80,7 @@ export async function detectarHabitosRotos(): Promise<{ ok: boolean; avisos: num
     const comidaBase = contarEnVentana(diasComida, diasBase);
     const comidaReciente = contarEnVentana(diasComida, diasRecientes);
     if (comidaBase >= MINIMO_DIAS_COMIDA_BASE && comidaReciente === 0) {
-      await crearNotificacionEntrenador({
+      const creada = await crearNotificacionEntrenador({
         tipo: "habito_comida",
         alumnoId,
         titulo: "Dejó de registrar comida",
@@ -90,14 +90,14 @@ export async function detectarHabitosRotos(): Promise<{ ok: boolean; avisos: num
         claveDedup: `habito_comida:${alumnoId}`,
         horasDedup: HORAS_DEDUP,
       });
-      avisos++;
+      if (creada) avisos++;
     }
 
     const diasEntreno = diasEntrenoPorAlumno.get(alumnoId) ?? new Set<string>();
     const entrenoBase = contarEnVentana(diasEntreno, diasBase);
     const entrenoReciente = contarEnVentana(diasEntreno, diasRecientes);
     if (entrenoBase >= MINIMO_DIAS_ENTRENO_BASE && entrenoReciente === 0) {
-      await crearNotificacionEntrenador({
+      const creada = await crearNotificacionEntrenador({
         tipo: "habito_entrenamiento",
         alumnoId,
         titulo: "Dejó de entrenar",
@@ -107,7 +107,7 @@ export async function detectarHabitosRotos(): Promise<{ ok: boolean; avisos: num
         claveDedup: `habito_entrenamiento:${alumnoId}`,
         horasDedup: HORAS_DEDUP,
       });
-      avisos++;
+      if (creada) avisos++;
     }
   }
 
