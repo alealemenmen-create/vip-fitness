@@ -28,6 +28,9 @@ import { cargarMasV2Action, type MasDatosV2 } from "./actions";
 
 type Panel = "perfil" | "notificaciones" | "plan" | "soporte" | "terminos" | "social" | null;
 
+const INSTAGRAM_URL = process.env.NEXT_PUBLIC_INSTAGRAM_URL?.trim();
+const FACEBOOK_URL = process.env.NEXT_PUBLIC_FACEBOOK_URL?.trim();
+
 export default function MasV2Page() {
   const [panel, setPanel] = useState<Panel>(null);
   const [datos, setDatos] = useState<MasDatosV2 | null>(null);
@@ -188,7 +191,11 @@ export default function MasV2Page() {
             {panel === "plan" ? <div className={styles.morePlanPanel}><span>PLAN ACTUAL</span><strong>{datos?.planNombre ?? "Método VIP"}</strong><p>{datos?.planDetalle ?? "Entrenamiento, nutrición, progreso y seguimiento personalizado"}</p><b>{datos?.planActivo === false ? "Pausado" : "Activo"}</b></div> : null}
             {panel === "soporte" ? <div className={styles.morePlanPanel}><span>SOPORTE VIP</span><strong>La conversación queda ligada a tu cuenta</strong><p>En la vista directa no fingimos el envío de mensajes. Al usar una cuenta autorizada, este acceso abre el asistente y conserva el contexto para que el equipo pueda responder.</p><b>Sin mensajes perdidos</b></div> : null}
             {panel === "terminos" ? <div><p className={styles.moreSheetCopy}>El portal registra entrenamientos, alimentación y progreso para prestar el servicio contratado. Los puntos y premios requieren actividad verificable; cualquier manipulación puede invalidarlos. Las indicaciones no reemplazan evaluación médica.</p><Link href="/portal-v2/privacidad" className={styles.moreSettingsLink}><span>Leer política de privacidad</span><ChevronRight size={15} /></Link></div> : null}
-            {panel === "social" ? <div className={styles.moreSocialList}><span>Instagram <b>@vipfitness</b></span><span>Facebook <b>VIP Fitness</b></span><span>Comunidad <b>Dentro de la aplicación</b></span></div> : null}
+            {panel === "social" ? <div className={styles.moreSocialList}>
+              {INSTAGRAM_URL ? <a href={INSTAGRAM_URL} target="_blank" rel="noreferrer">Instagram <b>Abrir perfil</b></a> : <span>Instagram <b>Pendiente de configurar</b></span>}
+              {FACEBOOK_URL ? <a href={FACEBOOK_URL} target="_blank" rel="noreferrer">Facebook <b>Abrir página</b></a> : <span>Facebook <b>Pendiente de configurar</b></span>}
+              <Link href="/portal-v2/progreso/comunidad">Comunidad <b>Abrir dentro de VIP Fitness</b></Link>
+            </div> : null}
           </section>
         </div>
       ) : null}

@@ -1519,7 +1519,8 @@
 .morePlanPanel b { position: absolute; top: 14px; right: 14px; padding: 5px 8px; border-radius: 999px; color: #1ed19c; background: rgba(31,210,156,.1); font-size: 7px; }
 .moreSheetCopy { margin-bottom: 8px; }
 .moreSocialList { display: grid; gap: 1px; overflow: hidden; margin-top: 12px; border-radius: 10px; background: rgba(255,255,255,.05); }
-.moreSocialList span { display: flex; min-height: 46px; align-items: center; justify-content: space-between; padding: 0 13px; color: #eceeea; background: #191a1a; font-size: 9px; }
+.moreSocialList > span,
+.moreSocialList > a { display: flex; min-height: 46px; align-items: center; justify-content: space-between; padding: 0 13px; color: #eceeea; background: #191a1a; font-size: 9px; text-decoration: none; }
 .moreSocialList b { color: #858986; font-size: 8px; font-weight: 550; }
 
 .classicLink {

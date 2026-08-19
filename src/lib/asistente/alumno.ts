@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { createClient } from "@/lib/supabase/server";
-import { hoyISO, ultimosNDiasISO } from "@/lib/date";
+import { hoyISO, quincenaDeISO, ultimosNDiasISO } from "@/lib/date";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -107,7 +107,9 @@ export async function obtenerContextoAlumnoVip(
   const ultimoPeso = pesos?.[0] ?? null;
   if (!ultimoPeso || ultimoPeso.fecha < ultimosNDiasISO(7)[6]) recordatorios.push("Tu registro semanal de peso está pendiente.");
   const ultimaFoto = fotos?.[0]?.fecha_foto ?? null;
-  if (!ultimaFoto || ultimaFoto < ultimosNDiasISO(7)[6]) recordatorios.push("Puedes actualizar tu foto semanal de progreso.");
+  if (!ultimaFoto || quincenaDeISO(ultimaFoto) !== quincenaDeISO(hoy)) {
+    recordatorios.push("Puedes actualizar tu foto quincenal de progreso.");
+  }
 
   return {
     recordatorios,
@@ -143,7 +145,13 @@ export function responderConHistorialLocal(
 
   if (/que.*entren|entrene|sesion.*reciente|historial.*entren/.test(texto)) {
     if (contexto.sesionesRecientes.length === 0) return "Todavía no tienes entrenamientos finalizados en los últimos 14 días.";
-    const resumen = contexto.sesionesRecientes.slice(0, 5).map((sesion) => `${sesion.fecha}: ${sesion.dia}`).join("; ");
+    const resumen = contexto.sesionesRecientes
+      .slice(0, 5)
+      .map((sesion) => {
+        const estado = sesion.estado === "completada" ? "completada" : "finalizada parcialmente";
+        return `${sesion.fecha}: ${sesion.dia} (${estado})`;
+      })
+      .join("; ");
     return `Tus entrenamientos más recientes fueron: ${resumen}.`;
   }
 

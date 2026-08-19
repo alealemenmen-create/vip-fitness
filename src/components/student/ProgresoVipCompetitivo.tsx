@@ -121,7 +121,7 @@ export function ProgresoVipCompetitivo({
           <Regla icono={<Dumbbell size={15} />} titulo="Entrenamiento según % completado" puntos="hasta +300" />
           <Regla icono={<UtensilsCrossed size={15} />} titulo="Precisión del objetivo de calorías" puntos={`${PUNTOS_VIP.alimentacionPenalizacionMaxima} a +${PUNTOS_VIP.alimentacionMaximo}`} />
           <Regla icono={<Flame size={15} />} titulo="Primera entrada del día" puntos="+30/día" />
-          <Regla icono={<Target size={15} />} titulo="Peso y foto semanal" puntos="hasta +175" />
+          <Regla icono={<Target size={15} />} titulo="Peso semanal y foto quincenal" puntos="hasta +175" />
           <Regla icono={<Swords size={15} />} titulo="Premios oficiales de Arena VIP" puntos="según evento" />
         </div>
         <p className="radius-control mt-2 bg-surface-2 px-3 py-2 text-[9px] leading-relaxed text-text-tertiary">
