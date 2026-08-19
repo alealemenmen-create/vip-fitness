@@ -312,18 +312,30 @@ Validaciones locales completadas el 19-08-2026:
   48 horas. Una recarga recupera los últimos pesos, repeticiones, notas, tiempo
   y posición sin pisar series que el servidor ya confirmó; los fallos de red se
   muestran y el alumno puede reintentar sin perder la pantalla.
-- Una consulta de sólo lectura al Supabase activo confirmó que las tablas
-  originales de alumnos, sesiones, series, peso, fotos, seguimiento e Impulso
-  no entregan filas a un visitante anónimo. También confirmó que las tablas de
-  `0104` a `0107` aún no están instaladas allí (`PGRST205`), por lo que no se
-  alteró la base usada por los alumnos.
+- Con autorización expresa del propietario, el 19-08-2026 se aplicaron `0104` a
+  `0107` al Supabase activo dentro de una sola transacción. La comprobación
+  previa confirmó todas las dependencias y que ninguna migración estaba
+  instalada; PostgreSQL confirmó el bloque completo sin modificar tablas ni
+  filas preexistentes.
+- La comprobación posterior confirmó las `10` tablas nuevas, RLS activo en las
+  `10`, `10` políticas, las `3` funciones de recompensa como
+  `security definer` y ausencia de permisos directos de escritura para `anon` y
+  `authenticated`. El plan gratuito no ofrece respaldos programados y el panel
+  mostraba el proyecto como `Unhealthy`; ambos puntos deben corregirse antes de
+  cualquier cambio estructural posterior.
+- Las claves Supabase conservadas en `.env.local` devolvieron `401` el mismo día
+  y deben reemplazarse por las claves vigentes antes de probar datos reales
+  desde localhost. No se copiaron secretos desde el panel sin autorización
+  específica.
 
-1. Crear un respaldo verificable de la base y del despliegue actual.
+1. Crear un respaldo lógico verificable antes del próximo cambio de esquema; el
+   plan gratuito actual no incluye respaldos automáticos.
 2. Mantener `portal-v2` separada y desplegar una URL de preview.
-3. En preview, aplicar y validar en orden `0104_personalizacion_sesion_v2.sql`,
+3. `0104_personalizacion_sesion_v2.sql`,
    `0105_biblioteca_nutricion_v2.sql`, `0106_comunidad_social_v2.sql` y
-   `0107_recompensas_vip.sql`. Son
-   aditivas, pero no deben aplicarse a producción sin respaldo y autorización.
+   `0107_recompensas_vip.sql` ya quedaron instaladas y verificadas en el
+   proyecto activo. Mantener una instancia de preview para las pruebas
+   destructivas y los cambios siguientes.
 4. Configurar variables de preview y producción por separado.
 5. Probar con cuentas reales de ensayo: alumno, entrenador y administrador.
 6. Ejecutar `npm run lint`, `npx tsc --noEmit`, `npm test` y `npm run build`.
@@ -338,12 +350,11 @@ Validaciones locales completadas el 19-08-2026:
 
 ## Trabajo que no debe presentarse como terminado todavía
 
-- Activación de `0104` a `0107` en un Supabase de preview y prueba con
-  cuentas reales autorizadas. La ejecución en PostgreSQL efímero y la
-  transacción de canje/reintegro ya están verificadas; quedan Auth, RLS,
-  Storage y acceso cruzado propios de Supabase. El código y los contratos están
-  construidos; si una tabla falta, la interfaz degrada de forma segura y oculta
-  la función.
+- Actualizar las claves locales y probar con cuentas autorizadas de alumno,
+  entrenador y administrador. La instalación, RLS declarativo y funciones ya
+  están verificadas; quedan Auth, Storage, escrituras reales y los intentos de
+  acceso cruzado. Estas pruebas deben usar cuentas de ensayo, nunca alumnos
+  activos.
 - Definir el catálogo comercial real, disponibilidad, responsables de entrega
   y condiciones de cada premio. El sistema de catálogo, stock, canje y
   reintegro está construido; no debe inventar premios que VIP Fitness no haya
