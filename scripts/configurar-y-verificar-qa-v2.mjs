@@ -112,12 +112,14 @@ function exigirDenegado(resultado, contexto) {
   assert(resultado.error, `${contexto}: la operación debía ser rechazada`);
 }
 
-const idsTemporales = { sesiones: [], rutinas: [] };
+const idsTemporales = { sesiones: [], rutinas: [], recompensas: [], canjes: [], puntos: [] };
+let idAlumnoQa = null;
 
 try {
   const usuarios = await listarUsuarios();
   const ids = {};
   for (const cuenta of cuentas) ids[cuenta.clave] = await asegurarCuenta(cuenta, usuarios);
+  idAlumnoQa = ids.ALUMNO;
 
   exigirSinError(await admin.from("perfiles").upsert(
     cuentas.map((cuenta) => ({ id: ids[cuenta.clave], nombre: cuenta.nombre, rol: cuenta.rol })),
@@ -270,11 +272,110 @@ try {
   for (const [tabla, fila] of [
     ["recetas_alumno", { alumno_id: ids.ALUMNO, nombre: "QA escritura directa", porciones: 1 }],
     ["comunidad_publicaciones", { alumno_id: ids.ALUMNO, texto: "QA escritura directa" }],
+    ["recompensas_vip_catalogo", { nombre: "QA escritura directa", tipo: "digital", costo_puntos: 1 }],
     ["recompensas_vip_canjes", { alumno_id: ids.ALUMNO, recompensa_id: crypto.randomUUID(), costo_congelado: 1 }],
     ["sesion_ejercicio_personalizaciones", { sesion_ejercicio_id: crypto.randomUUID(), alumno_id: ids.ALUMNO }],
   ]) {
     exigirDenegado(await alumno.from(tabla).insert(fila), `Escritura directa bloqueada en ${tabla}`);
   }
+
+  // Prueba real y repetible del ciclo de recompensas. La fila nace inactiva y
+  // solo se hace visible durante la llamada RPC; el finally la desactiva y
+  // elimina junto a todos los movimientos QA aunque una asercion falle.
+  const tokenRecompensa = crypto.randomUUID();
+  const costoRecompensa = 37;
+  const recompensaQa = exigirSinError(await admin.from("recompensas_vip_catalogo").insert({
+    nombre: `QA Portal V2 · ${tokenRecompensa.slice(0, 8)}`,
+    descripcion: "Recompensa temporal para comprobar saldo, stock y reintegro.",
+    tipo: "digital",
+    costo_puntos: costoRecompensa,
+    stock: 1,
+    requiere_aprobacion: true,
+    activo: false,
+    vigente_desde: new Date(Date.now() - 60_000).toISOString(),
+    vigente_hasta: new Date(Date.now() + 10 * 60_000).toISOString(),
+  }).select("id").single(), "Recompensa QA");
+  idsTemporales.recompensas.push(recompensaQa.id);
+
+  const movimientosPrevios = exigirSinError(await admin
+    .from("puntos_vip_movimientos")
+    .select("puntos")
+    .eq("alumno_id", ids.ALUMNO), "Saldo previo QA");
+  const saldoPrevio = movimientosPrevios.reduce((total, fila) => total + fila.puntos, 0);
+  const creditoQa = Math.max(100, costoRecompensa - saldoPrevio + 50);
+  const claveCredito = `qa:recompensa:${tokenRecompensa}`;
+  exigirSinError(await admin.from("puntos_vip_movimientos").insert({
+    alumno_id: ids.ALUMNO,
+    clave: claveCredito,
+    categoria: "ajuste",
+    puntos: creditoQa,
+    titulo: "QA temporal · recompensas",
+    detalle: "Se elimina automaticamente al terminar la verificacion.",
+    metadata: { portalQa: true, token: tokenRecompensa },
+  }), "Credito temporal QA");
+  idsTemporales.puntos.push(claveCredito);
+
+  exigirSinError(await admin.from("recompensas_vip_catalogo")
+    .update({ activo: true })
+    .eq("id", recompensaQa.id), "Activacion temporal de recompensa QA");
+
+  const intentoEntrenador = await entrenador.rpc("solicitar_canje_vip", { p_recompensa_id: recompensaQa.id });
+  assert(intentoEntrenador.error?.message.includes("SIN_PERMISO"), "El entrenador no debe poder solicitar recompensas");
+
+  const canjeQa = exigirSinError(await alumno.rpc("solicitar_canje_vip", {
+    p_recompensa_id: recompensaQa.id,
+  }), "Canje transaccional QA");
+  idsTemporales.canjes.push(canjeQa);
+  idsTemporales.puntos.push(`canje:${canjeQa}`, `canje-reintegro:${canjeQa}`);
+
+  // Ya no debe aparecer en ningun catalogo mientras terminan las aserciones.
+  exigirSinError(await admin.from("recompensas_vip_catalogo")
+    .update({ activo: false })
+    .eq("id", recompensaQa.id), "Desactivacion de recompensa QA");
+
+  const [canjeReservado, recompensaReservada, debito] = await Promise.all([
+    admin.from("recompensas_vip_canjes").select("alumno_id,costo_congelado,estado").eq("id", canjeQa).single(),
+    admin.from("recompensas_vip_catalogo").select("stock").eq("id", recompensaQa.id).single(),
+    admin.from("puntos_vip_movimientos").select("puntos").eq("alumno_id", ids.ALUMNO).eq("clave", `canje:${canjeQa}`).single(),
+  ]);
+  assert.deepEqual(exigirSinError(canjeReservado, "Canje reservado"), {
+    alumno_id: ids.ALUMNO,
+    costo_congelado: costoRecompensa,
+    estado: "solicitado",
+  });
+  assert.equal(exigirSinError(recompensaReservada, "Stock reservado").stock, 0, "El canje debe reservar una unidad");
+  assert.equal(exigirSinError(debito, "Debito del canje").puntos, -costoRecompensa, "El canje debe descontar el costo exacto");
+
+  exigirSinError(await entrenador.rpc("resolver_canje_vip", {
+    p_canje_id: canjeQa,
+    p_estado: "rechazado",
+    p_nota: "QA: comprobacion de reintegro",
+  }), "Rechazo y reintegro QA");
+
+  const [canjeRechazado, recompensaReintegrada, movimientosCanje] = await Promise.all([
+    admin.from("recompensas_vip_canjes").select("estado,nota_admin,resuelto_por").eq("id", canjeQa).single(),
+    admin.from("recompensas_vip_catalogo").select("stock").eq("id", recompensaQa.id).single(),
+    admin.from("puntos_vip_movimientos").select("clave,puntos").eq("alumno_id", ids.ALUMNO).in("clave", [`canje:${canjeQa}`, `canje-reintegro:${canjeQa}`]).order("clave"),
+  ]);
+  const rechazo = exigirSinError(canjeRechazado, "Canje rechazado");
+  assert.equal(rechazo.estado, "rechazado");
+  assert.equal(rechazo.nota_admin, "QA: comprobacion de reintegro");
+  assert.equal(rechazo.resuelto_por, ids.ENTRENADOR);
+  assert.equal(exigirSinError(recompensaReintegrada, "Stock reintegrado").stock, 1, "El rechazo debe devolver una unidad");
+  const movimientosFinales = exigirSinError(movimientosCanje, "Movimientos del canje");
+  assert.equal(movimientosFinales.length, 2, "El rechazo debe generar un unico reintegro");
+  assert.equal(movimientosFinales.reduce((total, fila) => total + fila.puntos, 0), 0, "Debito y reintegro deben neutralizarse");
+
+  const segundoRechazo = await entrenador.rpc("resolver_canje_vip", {
+    p_canje_id: canjeQa,
+    p_estado: "rechazado",
+    p_nota: "QA: no debe aplicarse dos veces",
+  });
+  assert(segundoRechazo.error?.message.includes("CANJE_YA_RESUELTO"), "Un canje resuelto no debe reintegrarse otra vez");
+
+  const stockTrasSegundoIntento = exigirSinError(await admin.from("recompensas_vip_catalogo")
+    .select("stock").eq("id", recompensaQa.id).single(), "Stock tras segundo rechazo");
+  assert.equal(stockTrasSegundoIntento.stock, 1, "El segundo rechazo no debe duplicar stock");
 
   console.log(JSON.stringify({
     cuentasQa: 3,
@@ -287,14 +388,65 @@ try {
       entrenadorNoRegistraSesionesAjenas: true,
       administradorOperativo: true,
       escriturasV2SoloServidor: true,
+      recompensasSoloAlumnos: true,
+      canjeTransaccional: true,
+      reintegroIdempotente: true,
     },
     credenciales: ".env.qa.local (local, ignorado por Git)",
   }, null, 2));
 } finally {
+  if (idsTemporales.recompensas.length) {
+    exigirSinError(await admin.from("recompensas_vip_catalogo")
+      .update({ activo: false })
+      .in("id", idsTemporales.recompensas), "Desactivar recompensas QA al limpiar");
+  }
   if (idsTemporales.sesiones.length) {
-    await admin.from("sesiones_entrenamiento").delete().in("id", idsTemporales.sesiones);
+    exigirSinError(await admin.from("sesiones_entrenamiento")
+      .delete()
+      .in("id", idsTemporales.sesiones), "Eliminar sesiones QA temporales");
   }
   if (idsTemporales.rutinas.length) {
-    await admin.from("rutinas").delete().in("id", idsTemporales.rutinas);
+    exigirSinError(await admin.from("rutinas")
+      .delete()
+      .in("id", idsTemporales.rutinas), "Eliminar rutinas QA temporales");
+  }
+  if (idsTemporales.canjes.length) {
+    exigirSinError(await admin.from("recompensas_vip_canjes")
+      .delete()
+      .in("id", idsTemporales.canjes), "Eliminar canjes QA temporales");
+  }
+  if (idsTemporales.puntos.length) {
+    if (idAlumnoQa) {
+      exigirSinError(await admin.from("puntos_vip_movimientos")
+        .delete()
+        .eq("alumno_id", idAlumnoQa)
+        .in("clave", idsTemporales.puntos), "Eliminar puntos QA temporales");
+    }
+  }
+  if (idsTemporales.recompensas.length) {
+    exigirSinError(await admin.from("recompensas_vip_catalogo")
+      .delete()
+      .in("id", idsTemporales.recompensas), "Eliminar recompensas QA temporales");
+
+    const recompensasRestantes = await admin.from("recompensas_vip_catalogo")
+      .select("id", { count: "exact", head: true })
+      .in("id", idsTemporales.recompensas);
+    if (recompensasRestantes.error) throw recompensasRestantes.error;
+    assert.equal(recompensasRestantes.count, 0, "La verificacion no debe dejar recompensas QA");
+  }
+  if (idsTemporales.canjes.length) {
+    const canjesRestantes = await admin.from("recompensas_vip_canjes")
+      .select("id", { count: "exact", head: true })
+      .in("id", idsTemporales.canjes);
+    if (canjesRestantes.error) throw canjesRestantes.error;
+    assert.equal(canjesRestantes.count, 0, "La verificacion no debe dejar canjes QA");
+  }
+  if (idAlumnoQa && idsTemporales.puntos.length) {
+    const puntosRestantes = await admin.from("puntos_vip_movimientos")
+      .select("id", { count: "exact", head: true })
+      .eq("alumno_id", idAlumnoQa)
+      .in("clave", idsTemporales.puntos);
+    if (puntosRestantes.error) throw puntosRestantes.error;
+    assert.equal(puntosRestantes.count, 0, "La verificacion no debe dejar puntos QA temporales");
   }
 }

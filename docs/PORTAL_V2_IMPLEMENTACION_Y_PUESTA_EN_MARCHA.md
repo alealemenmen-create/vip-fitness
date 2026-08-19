@@ -219,7 +219,7 @@ adicionales separadas, jamás modificar silenciosamente la rutina publicada.
 
 La definición exhaustiva y tipada está en `src/lib/supabase/types.ts`; las
 migraciones históricas están en `supabase/migrations/0001_init.sql` a
-`0107_recompensas_vip.sql`. Las tablas que sostienen esta V2 son:
+`0108_recompensas_vip_solo_alumnos.sql`. Las tablas que sostienen esta V2 son:
 
 | Área | Tabla | Campos esenciales |
 | --- | --- | --- |
@@ -377,7 +377,7 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `61` archivos de pruebas y `523` pruebas aprobadas; ESLint sin advertencias,
+- `64` archivos de pruebas y `532` pruebas aprobadas; ESLint sin advertencias,
   TypeScript sin errores y compilación de producción completa (`67` rutas).
 - Las 15 rutas de la V2 respondieron `200` en el servidor de producción local,
   incluida la búsqueda prefiltrada de la biblioteca y la nueva pantalla de
@@ -387,6 +387,9 @@ Validaciones locales completadas el 19-08-2026:
   Se comprobó la transacción de canje (saldo y stock) y el reintegro idempotente
   al rechazar. Esta comprobación valida sintaxis y reglas transaccionales; no
   sustituye la prueba de Auth, RLS y Storage en un Supabase de preview.
+- `0108_recompensas_vip_solo_alumnos.sql` cierra el acceso directo de
+  entrenador o administrador al RPC de solicitud: estar autenticado ya no
+  basta; el solicitante debe tener rol `alumno`.
 - La sesión activa conserva un borrador local validado y aislado por id durante
   48 horas. Una recarga recupera los últimos pesos, repeticiones, notas, tiempo
   y posición sin pisar series que el servidor ya confirmó; los fallos de red se
@@ -424,6 +427,12 @@ Validaciones locales completadas el 19-08-2026:
   capacidad de registrar sesiones en nombre del alumno; administrador
   operativo; y escritura directa bloqueada en personalizaciones, recetas,
   comunidad y canjes V2.
+- `npm run qa:v2:integridad` se ejecutó dos veces consecutivas contra el
+  proyecto activo. En cada pasada creó únicamente datos QA temporales, rechazó
+  el intento de canje del entrenador, reservó `1` unidad y descontó exactamente
+  `37` puntos al alumno QA, reintegró ambos al rechazar y bloqueó una segunda
+  devolución. El bloque `finally` desactiva y elimina recompensa, canje y
+  movimientos temporales incluso si una aserción falla.
 - El recorrido autenticado Programas → Entrenamiento → Sesión → Historial se
   ejecutó de punta a punta. Una serie QA de `10` repeticiones con `10 kg`
   persistió, la sesión cerró como `finalizada_incompleta`, apareció en el
@@ -538,11 +547,14 @@ Validaciones locales completadas el 19-08-2026:
 - `npm run audit:v2-data` ejecuta una auditoría agregada y estrictamente de
   sólo lectura contra las fuentes activas. El 19-08-2026 confirmó, entre otros,
   `125` programas, `4.257` ejercicios prescritos, `521` sesiones históricas,
-  `3.998` ejercicios ejecutados, `11.316` series con sus cargas, `100` pesajes,
-  `6` fotos privadas, `547` comidas y `2.665` movimientos de puntos. La V2
+  `3.998` ejercicios ejecutados, `11.329` series con sus cargas, `100` pesajes,
+  `6` fotos privadas, `547` comidas y `2.666` movimientos de puntos. La V2
   consume esas mismas tablas: no existe una copia vacía que obligue a reiniciar
   el progreso. Los totales son una fotografía de auditoría y cambiarán con el
   uso normal del portal activo.
+- El auditor reintenta tres veces cada lectura remota y conserva el código,
+  detalle y pista de Supabase en el error final. Una saturación transitoria ya
+  no se presenta como un fallo vacío ni se confunde con pérdida de datos.
 - `npm run verify:v2` además de probar las `15` rutas principales extrae los
   destinos V2 declarados en páginas y componentes y comprueba que respondan sin
   caer al login. La última ejecución verificó `15` conexiones estáticas. Los
@@ -555,8 +567,9 @@ Validaciones locales completadas el 19-08-2026:
 2. Mantener `portal-v2` separada y desplegar una URL de preview.
 3. `0104_personalizacion_sesion_v2.sql`,
    `0105_biblioteca_nutricion_v2.sql`, `0106_comunidad_social_v2.sql` y
-   `0107_recompensas_vip.sql` ya quedaron instaladas y verificadas en el
-   proyecto activo. Mantener una instancia de preview para las pruebas
+   `0107_recompensas_vip.sql`, junto con el refuerzo
+   `0108_recompensas_vip_solo_alumnos.sql`, ya quedaron instaladas y
+   verificadas en el proyecto activo. Mantener una instancia de preview para las pruebas
    destructivas y los cambios siguientes.
 4. Configurar variables de preview y producción por separado.
 5. Probar con cuentas reales de ensayo: alumno, entrenador y administrador.

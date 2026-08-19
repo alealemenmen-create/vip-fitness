@@ -10,6 +10,7 @@
     "test": "vitest run",
     "verify:v2": "node scripts/verificar-portal-v2.mjs",
     "verify:v2-storage": "node scripts/verificar-aislamiento-fotos-v2.mjs",
+    "qa:v2:integridad": "node scripts/configurar-y-verificar-qa-v2.mjs",
     "qa:v2:tecnicas": "node scripts/preparar-sesion-tecnicas-qa-v2.mjs",
     "cleanup:v2-qa-nutrition": "node scripts/limpiar-comidas-vacias-qa.mjs",
     "audit:v2-data": "node scripts/auditar-continuidad-datos-v2.mjs"
