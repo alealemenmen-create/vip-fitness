@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bell,
   AlertCircle,
@@ -44,6 +44,7 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
   const [pushActiva, setPushActiva] = useState(false);
   const [procesandoNotificaciones, setProcesandoNotificaciones] = useState(false);
   const [mensajeNotificaciones, setMensajeNotificaciones] = useState<string | null>(null);
+  const dialogoRef = useRef<HTMLElement>(null);
 
   const cargar = async () => {
     setEstadoCarga("cargando");
@@ -76,6 +77,21 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
       if (inicio !== null) window.clearTimeout(inicio);
     };
   }, [esDemoInicial]);
+
+  useEffect(() => {
+    if (!panel) return;
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const alPresionar = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") setPanel(null);
+    };
+    window.addEventListener("keydown", alPresionar);
+    window.requestAnimationFrame(() => dialogoRef.current?.querySelector<HTMLButtonElement>("header button")?.focus());
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      window.removeEventListener("keydown", alPresionar);
+    };
+  }, [panel]);
 
   const cambiarNotificaciones = async () => {
     setMensajeNotificaciones(null);
@@ -148,7 +164,7 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
 
       {datos ? <Link href={datos.tienePerfilAlumno ? "/portal-v2/perfil" : "/admin/mas"} className={styles.moreProfile}>
         <span className={styles.moreAvatar}>{datos?.iniciales ?? "AM"}</span>
-        <div><strong>{datos?.nombre ?? "Ale Mendoza"}</strong><small>{datos ? `${datos.tienePerfilAlumno ? `${datos.rango} · ` : ""}${datos.rol === "admin" ? "Administrador" : datos.rol === "entrenador" ? "Entrenador" : "Alumno"}` : "Método VIP"}</small></div>
+        <div><strong>{datos?.nombre ?? "Ale Mendoza"}</strong><small>{datos.soloLectura ? `${datos.rango} · supervisión en modo lectura` : `${datos.tienePerfilAlumno ? `${datos.rango} · ` : ""}${datos.rol === "admin" ? "Administrador" : datos.rol === "entrenador" ? "Entrenador" : "Alumno"}`}</small></div>
         <span className={styles.moreXp}>{datos.tienePerfilAlumno ? <>{datos.puntos.toLocaleString("es-CL")} XP <Trophy size={12} /></> : <>CONTROL <ShieldCheck size={12} /></>}</span>
       </Link> : <button type="button" className={styles.moreProfile} onClick={() => setPanel("perfil")}>
         <span className={styles.moreAvatar}>AM</span><div><strong>Ale Mendoza</strong><small>Método VIP · vista directa</small></div><span className={styles.moreXp}>900 XP <Trophy size={12} /></span>
@@ -162,14 +178,14 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
 
       <p className={styles.moreGroupLabel}>Mis espacios</p>
       <div className={styles.moreCard}>
-        <Fila href={datos && !datos.tienePerfilAlumno ? "/admin/mas" : "/portal-v2/entrenamiento"} icon={Dumbbell} texto="Mi entrenamiento" detalle={datos && !datos.tienePerfilAlumno ? "Activa primero tu perfil personal" : "Vista personal"} />
+        <Fila href={datos && !datos.tienePerfilAlumno ? "/admin/mas" : "/portal-v2/entrenamiento"} icon={Dumbbell} texto={datos?.soloLectura ? "Entrenamiento supervisado" : "Mi entrenamiento"} detalle={datos && !datos.tienePerfilAlumno ? "Activa primero tu perfil personal" : datos?.soloLectura ? `${datos.nombre} · sin edición` : "Vista personal"} />
         {datos?.rol === "entrenador" || datos?.rol === "admin" ? <Fila href="/admin/alumnos" icon={UsersRound} texto="Portal del entrenador" detalle="Alumnos y seguimiento" /> : null}
         {datos?.rol === "admin" ? <Fila href="/admin" icon={PanelsTopLeft} texto="Administración" detalle="Control total de VIP Fitness" /> : null}
       </div>
 
       <p className={styles.moreGroupLabel}>Cuenta y configuración</p>
       <div className={styles.moreCard}>
-        <Fila href={datos ? (datos.tienePerfilAlumno ? "/portal-v2/perfil" : "/admin/mas") : undefined} icon={UserRound} texto="Gestionar perfil" onClick={!datos ? () => setPanel("perfil") : undefined} />
+        <Fila href={datos ? (datos.tienePerfilAlumno ? "/portal-v2/perfil" : "/admin/mas") : undefined} icon={UserRound} texto={datos?.soloLectura ? "Ver perfil del alumno" : "Gestionar perfil"} detalle={datos?.soloLectura ? "Datos protegidos · sin edición" : undefined} onClick={!datos ? () => setPanel("perfil") : undefined} />
         <Fila icon={Bell} texto="Gestionar notificaciones" onClick={() => setPanel("notificaciones")} />
         <Fila icon={CreditCard} texto="Plan VIP" onClick={() => setPanel("plan")} />
       </div>
@@ -184,7 +200,7 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
 
       <Link href="/alumno/inicio" className={styles.moreClassicButton}>
         <LayoutDashboard size={16} />
-        <span><strong>{datos ? "Abrir portal clásico" : "Portal clásico protegido"}</strong><small>{datos ? "Tu versión actual permanece disponible" : "La V2 directa continúa abierta sin contraseña"}</small></span>
+        <span><strong>{datos ? "Abrir portal clásico" : "Portal clásico protegido"}</strong><small>{datos?.soloLectura ? `Supervisar a ${datos.nombre} sin editar` : datos ? "Tu versión actual permanece disponible" : "La V2 directa continúa abierta sin contraseña"}</small></span>
         <ChevronRight size={16} />
       </Link>
       {datos ? <form action={logout} className={styles.moreLogoutForm}><button type="submit"><LogOut size={16} />Cerrar sesión</button></form> : null}
@@ -192,7 +208,7 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
 
       {panel ? (
         <div className={styles.moreSheetBackdrop} role="presentation" onClick={() => setPanel(null)}>
-          <section className={styles.moreSheet} role="dialog" aria-modal="true" aria-label={tituloPanel(panel)} onClick={(evento) => evento.stopPropagation()}>
+          <section ref={dialogoRef} className={styles.moreSheet} role="dialog" aria-modal="true" aria-label={tituloPanel(panel)} onClick={(evento) => evento.stopPropagation()}>
             <header><h2>{tituloPanel(panel)}</h2><button type="button" onClick={() => setPanel(null)} aria-label="Cerrar"><X size={19} /></button></header>
             {panel === "notificaciones" ? (
               <div className={styles.moreSwitchList}>
@@ -202,9 +218,9 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
               </div>
             ) : null}
             {panel === "perfil" ? <div className={styles.morePlanPanel}><span>PERFIL DE DEMOSTRACIÓN</span><strong>Ale Mendoza</strong><p>Esta identidad permite recorrer la experiencia completa sin exponer alumnos. Los cambios personales, el historial y las notificaciones reales sólo se guardan con una cuenta autorizada del piloto.</p><b>Modo seguro</b></div> : null}
-            {panel === "plan" ? <div className={styles.morePlanPanel}><span>PLAN ACTUAL</span><strong>{datos?.planNombre ?? "Método VIP"}</strong><p>{datos?.planDetalle ?? "Entrenamiento, nutrición, progreso y seguimiento personalizado"}</p><b>{datos?.planActivo === false ? "Pausado" : "Activo"}</b></div> : null}
+            {panel === "plan" ? <div className={styles.morePlanPanel}><span>{datos?.soloLectura ? "PLAN DEL ALUMNO" : "PLAN ACTUAL"}</span><strong>{datos?.planNombre ?? "Método VIP"}</strong><p>{datos?.planDetalle ?? "Entrenamiento, nutrición, progreso y seguimiento personalizado"}</p><b>{datos?.planActivo === false ? "Pausado" : "Activo"}</b><Link href="/portal-v2/soporte" className={styles.morePlanAction}>{datos?.soloLectura ? "Revisar seguimiento" : "Consultar sobre mi plan"}<ChevronRight size={15} /></Link></div> : null}
             {panel === "soporte" ? <div className={styles.morePlanPanel}><span>SOPORTE VIP</span><strong>La conversación queda ligada a tu cuenta</strong><p>En la vista directa no fingimos el envío de mensajes. Al usar una cuenta autorizada, este acceso abre el asistente y conserva el contexto para que el equipo pueda responder.</p><b>Sin mensajes perdidos</b></div> : null}
-            {panel === "terminos" ? <div><p className={styles.moreSheetCopy}>El portal registra entrenamientos, alimentación y progreso para prestar el servicio contratado. Los puntos y premios requieren actividad verificable; cualquier manipulación puede invalidarlos. Las indicaciones no reemplazan evaluación médica.</p><Link href="/portal-v2/privacidad" className={styles.moreSettingsLink}><span>Leer política de privacidad</span><ChevronRight size={15} /></Link></div> : null}
+            {panel === "terminos" ? <div><p className={styles.moreSheetCopy}>El portal registra entrenamientos, alimentación y progreso para prestar el servicio contratado. Los puntos y premios requieren actividad verificable; cualquier manipulación puede invalidarlos. Las indicaciones no reemplazan evaluación médica.</p><Link href="/portal-v2/terminos" className={styles.moreSettingsLink}><span>Leer términos completos</span><ChevronRight size={15} /></Link><Link href="/portal-v2/privacidad" className={styles.moreSettingsLink}><span>Leer política de privacidad</span><ChevronRight size={15} /></Link></div> : null}
             {panel === "social" ? <div className={styles.moreSocialList}>
               {INSTAGRAM_URL ? <a href={INSTAGRAM_URL} target="_blank" rel="noreferrer">Instagram <b>Abrir perfil</b></a> : <span>Instagram <b>Pendiente de configurar</b></span>}
               {FACEBOOK_URL ? <a href={FACEBOOK_URL} target="_blank" rel="noreferrer">Facebook <b>Abrir página</b></a> : <span>Facebook <b>Pendiente de configurar</b></span>}

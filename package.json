@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "quality:v2": "eslint && tsc --noEmit && vitest run && next build",
     "verify:v2": "node scripts/verificar-portal-v2.mjs",
     "audit:v2-interactions": "node scripts/auditar-interacciones-v2.mjs",
     "verify:v2-storage": "node scripts/verificar-aislamiento-fotos-v2.mjs",

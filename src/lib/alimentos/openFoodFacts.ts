@@ -89,6 +89,13 @@ export function etiquetaMedidaEnEspanol(valor: string): string {
     .replace(/\bcups?\b/gi, "taza")
     .replace(/\btbsp\b/gi, "cucharada")
     .replace(/\btsp\b/gi, "cucharadita")
+    .replace(/\b(\d+(?:[.,]\d+)?)\s*(kg|g|ml|l)\b/gi, (_coincidencia, cantidad: string, unidad: string) => {
+      const numeroNormalizado = Number(cantidad.replace(",", "."));
+      const cantidadVisible = Number.isFinite(numeroNormalizado)
+        ? String(numeroNormalizado).replace(".", ",")
+        : cantidad;
+      return `${cantidadVisible} ${unidad.toLowerCase()}`;
+    })
     .replace(/\s+/g, " ");
 
   const doblePorcion = etiqueta.match(/^porción\s*\(\s*1\s+porción\s*\((.+)\)\s*\)$/i);

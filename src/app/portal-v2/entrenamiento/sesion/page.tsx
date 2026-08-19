@@ -20,6 +20,11 @@ import { obtenerSeguimientoHoy } from "@/app/alumno/inicio/data";
 import { evaluarPreparacionDiariaAlejandro, limitarMomentosPorPreparacion } from "@/lib/impulso-vip/preparacion-diaria";
 import { calcularDuracionSesionSegundos } from "@/lib/entrenamiento/duracion-sesion";
 
+// `programarAvisoDescanso` espera en el servidor hasta que vence el descanso.
+// La V2 necesita el mismo margen que la sesión clásica para que un push de
+// 90–180 segundos no sea cortado por el límite por defecto de la plataforma.
+export const maxDuration = 300;
+
 type FichaEjercicioV2 = Pick<Database["public"]["Tables"]["ejercicios"]["Row"],
   | "id" | "nombre" | "grupo_muscular" | "categoria" | "equipo" | "activo" | "calidad_ficha"
   | "patron_movimiento"

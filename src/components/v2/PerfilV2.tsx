@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
+import { useActionState, useEffect, useState, useTransition, type FormEvent } from "react";
 import { usePathname } from "next/navigation";
 import {
   Check,
@@ -26,11 +26,11 @@ import { enviarResenaApp, type EnviarResenaState } from "@/app/alumno/perfil/res
 import type { DatosPersonales } from "@/app/alumno/perfil/data";
 import { createClient } from "@/lib/supabase/client";
 import { SEXOS } from "@/lib/solicitudes/campos";
+import { SEGUNDOS_DESCANSO_PERMITIDOS } from "@/lib/perfil/configuracion";
 import styles from "./PortalV2.module.css";
 
 const ESTADO_FORMULARIO: FormState = { error: null, ok: false };
 const ESTADO_RESENA: EnviarResenaState = { error: null, ok: false };
-const OPCIONES_SEGUNDOS = [45, 60, 90, 120, 150] as const;
 type Seccion = "datos" | "descanso" | "seguridad" | "opinion";
 
 export function PerfilV2({
@@ -43,16 +43,13 @@ export function PerfilV2({
   segundosIniciales: number | null;
 }) {
   const [seccion, setSeccion] = useState<Seccion | null>("datos");
-  const iniciales = useMemo(
-    () =>
-      datos.nombre
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((parte) => parte[0]?.toUpperCase())
-        .join("") || "VIP",
-    [datos.nombre]
-  );
+  const [temporizadorActivo, setTemporizadorActivo] = useState(temporizadorInicial);
+  const iniciales = datos.nombre
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0]?.toUpperCase())
+    .join("") || "VIP";
 
   useEffect(() => {
     const abrirSeccionIndicada = () => {
@@ -96,12 +93,12 @@ export function PerfilV2({
         <SeccionPerfil
           id="descanso"
           titulo="Descanso y temporizador"
-          detalle={temporizadorInicial ? "Automático · activo" : "Automático · desactivado"}
+          detalle={temporizadorActivo ? "Automático · activo" : "Automático · desactivado"}
           icono={<TimerReset size={18} />}
           abierta={seccion === "descanso"}
           onToggle={() => alternar("descanso")}
         >
-          <PreferenciasDescanso activoInicial={temporizadorInicial} segundosIniciales={segundosIniciales} />
+          <PreferenciasDescanso activoInicial={temporizadorInicial} segundosIniciales={segundosIniciales} onActivoGuardado={setTemporizadorActivo} />
         </SeccionPerfil>
 
         <SeccionPerfil
@@ -167,7 +164,7 @@ function FormularioDatos({ datos }: { datos: DatosPersonales }) {
   return (
     <form action={accion} className={styles.profileV2Form}>
       <Campo etiqueta="Nombre" htmlFor="perfil-v2-nombre" anchoCompleto>
-        <input id="perfil-v2-nombre" name="nombre" required defaultValue={datos.nombre} autoComplete="name" />
+        <input id="perfil-v2-nombre" name="nombre" required minLength={2} maxLength={80} defaultValue={datos.nombre} autoComplete="name" />
       </Campo>
       <Campo etiqueta="Fecha de nacimiento" htmlFor="perfil-v2-nacimiento">
         <input id="perfil-v2-nacimiento" name="fecha_nacimiento" type="date" defaultValue={datos.fechaNacimiento ?? ""} />
@@ -185,10 +182,10 @@ function FormularioDatos({ datos }: { datos: DatosPersonales }) {
         <input id="perfil-v2-estatura" name="estatura_cm" type="number" step="0.5" min="80" max="260" inputMode="decimal" placeholder="170" defaultValue={datos.estaturaCm ?? ""} />
       </Campo>
       <Campo etiqueta="Condición médica" htmlFor="perfil-v2-medica" anchoCompleto>
-        <textarea id="perfil-v2-medica" name="condicion_medica" rows={2} placeholder="Ninguna, asma, hipertensión, lesión previa…" defaultValue={datos.condicionMedica ?? ""} />
+        <textarea id="perfil-v2-medica" name="condicion_medica" rows={2} maxLength={2000} placeholder="Ninguna, asma, hipertensión, lesión previa…" defaultValue={datos.condicionMedica ?? ""} />
       </Campo>
       <Campo etiqueta="Alimentación y alergias" htmlFor="perfil-v2-alimentacion" anchoCompleto>
-        <textarea id="perfil-v2-alimentacion" name="restriccion_alimenticia" rows={2} placeholder="Ninguna, vegetariano, alergia a maní…" defaultValue={datos.restriccionAlimenticia ?? ""} />
+        <textarea id="perfil-v2-alimentacion" name="restriccion_alimenticia" rows={2} maxLength={2000} placeholder="Ninguna, vegetariano, alergia a maní…" defaultValue={datos.restriccionAlimenticia ?? ""} />
       </Campo>
       <Mensaje estado={estado} textoOk="Datos actualizados." />
       <button type="submit" className={styles.profileV2PrimaryButton} disabled={guardando}>
@@ -202,7 +199,7 @@ function Campo({ etiqueta, htmlFor, anchoCompleto = false, children }: { etiquet
   return <label htmlFor={htmlFor} className={styles.profileV2Field} data-full={anchoCompleto}><span>{etiqueta}</span>{children}</label>;
 }
 
-function PreferenciasDescanso({ activoInicial, segundosIniciales }: { activoInicial: boolean; segundosIniciales: number | null }) {
+function PreferenciasDescanso({ activoInicial, segundosIniciales, onActivoGuardado }: { activoInicial: boolean; segundosIniciales: number | null; onActivoGuardado: (activo: boolean) => void }) {
   const [activo, setActivo] = useState(activoInicial);
   const [segundos, setSegundos] = useState<number | null>(segundosIniciales);
   const [confirmando, setConfirmando] = useState(false);
@@ -222,6 +219,7 @@ function PreferenciasDescanso({ activoInicial, segundosIniciales }: { activoInic
           setMensaje({ tipo: "error", texto: resultado.error ?? "No pudimos guardar esta preferencia." });
           return;
         }
+        onActivoGuardado(nuevo);
         setMensaje({ tipo: "ok", texto: nuevo ? "Temporizador automático activado." : "Temporizador automático desactivado." });
       } catch {
         setActivo(anterior);
@@ -270,7 +268,7 @@ function PreferenciasDescanso({ activoInicial, segundosIniciales }: { activoInic
           <p>Puede respetar cada ejercicio o aplicar un tiempo fijo a toda la sesión.</p>
           <div>
             <button type="button" data-selected={segundos === null} disabled={guardando} onClick={() => guardarSegundos(null)}>Según Alejandro</button>
-            {OPCIONES_SEGUNDOS.map((opcion) => <button type="button" key={opcion} data-selected={segundos === opcion} disabled={guardando} onClick={() => guardarSegundos(opcion)}>{opcion}s</button>)}
+            {SEGUNDOS_DESCANSO_PERMITIDOS.map((opcion) => <button type="button" key={opcion} data-selected={segundos === opcion} disabled={guardando} onClick={() => guardarSegundos(opcion)}>{opcion}s</button>)}
           </div>
         </div>
       ) : null}

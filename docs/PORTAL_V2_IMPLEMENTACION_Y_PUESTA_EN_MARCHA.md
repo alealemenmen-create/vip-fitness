@@ -368,7 +368,7 @@ Funciones SQL de seguridad:
 
 - `solicitar_canje_vip`: serializa por alumno, confirma saldo, congela costo,
   reserva stock y descuenta puntos en la misma transacción.
-- `resolver_canje_vip`: sólo entrenador/administrador; aprueba, entrega o
+- `resolver_canje_vip`: sólo administrador; aprueba, entrega o
   rechaza, reintegrando stock y puntos de manera idempotente.
 - `crear_notificacion_entrenador_dedup`: exclusiva de service role; usa un
   bloqueo transaccional por clave para que dos cron concurrentes creen una
@@ -427,9 +427,9 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `69` archivos de pruebas y `557` pruebas aprobadas; ESLint sin advertencias,
-  TypeScript sin errores y compilación de producción completa (`67` rutas).
-- Las 15 rutas de la V2 respondieron `200` en el servidor de producción local,
+- `74` archivos de pruebas y `589` pruebas aprobadas; ESLint sin advertencias,
+  TypeScript sin errores y compilación de producción completa (`68` rutas).
+- Las 16 rutas principales de la V2 respondieron `200` en el servidor de producción local,
   incluida la búsqueda prefiltrada de la biblioteca y la nueva pantalla de
   programas. La primera carga de biblioteca puede esperar el catálogo remoto;
   las siguientes quedan atendidas por la caché del servidor.
@@ -452,12 +452,29 @@ Validaciones locales completadas el 19-08-2026:
   fue rechazado con código `42501` al llamarlo con clave pública. Los handlers
   cubren además secreto ausente/incorrecto, falla parcial, HMAC, reenvíos,
   cuerpos excesivos y eventos de video fuera de orden sin enviar avisos reales.
+- `0111_recompensas_vip_solo_admin.sql` se aplicó al Supabase activo. Las
+  políticas permiten al alumno ver sus propios canjes y el catálogo activo,
+  pero reservan al rol `admin` la lectura global, los estados inactivos, la
+  resolución y el inventario. Invocar directamente los RPC ya no permite que
+  un entrenador eluda la separación que mostraba la interfaz.
+- `0112_perfil_v2_consistente.sql` se aplicó al Supabase activo. El RPC de datos
+  personales es invocador seguro, no admite ejecución anónima y actualiza
+  `alumno_perfil` y `perfiles` como una sola operación; la QA confirmó que una
+  carga inválida no deja una de las dos tablas modificada.
+- `0113_seguimiento_revisiones_faltante.sql` recuperó la tabla de revisiones del
+  entrenador que no estaba instalada. Tiene RLS activo, acceso anónimo revocado,
+  lectura/inserción autenticada bajo política y no concede actualización ni
+  borrado desde el cliente.
 - La sesión activa conserva un borrador local validado y aislado por id durante
   48 horas. Una recarga recupera los últimos pesos, repeticiones, notas por
   ejercicio, nota general, tiempo y posición sin pisar series que el servidor
   ya confirmó; los fallos de red se muestran y el alumno puede reintentar sin
   perder la pantalla. La nota general se captura antes del cierre, se persiste
   con la sesión y vuelve a aparecer al revisar el registro.
+- El descanso activo también queda ligado a una hora real de término. Si iOS o
+  Android suspende la pestaña, al volver no reinicia los segundos: recupera el
+  tiempo transcurrido, emite el aviso y avanza a la serie correcta. El push abre
+  la sesión exacta en lugar de abandonar al alumno en el panel general.
 - La finalización real se comprobó sin cerrar la sesión QA: el diálogo muestra
   tiempo, series y una nota opcional conectada al payload; al confirmar, la UI
   sólo pasa al resumen después de una respuesta válida del servidor. Abrir
@@ -499,14 +516,16 @@ Validaciones locales completadas el 19-08-2026:
   sus propios datos y autorizado únicamente para registrar su sesión;
   entrenador con el acceso global decidido en la migración `0005`, pero sin
   capacidad de registrar sesiones en nombre del alumno; administrador
-  operativo; y escritura directa bloqueada en personalizaciones, recetas,
-  comunidad y canjes V2.
+  operativo; entrenador sin lectura ni administración de canjes; y escritura
+  directa bloqueada en personalizaciones, recetas, comunidad y canjes V2.
 - `npm run qa:v2:integridad` se ejecutó dos veces consecutivas contra el
   proyecto activo. En cada pasada creó únicamente datos QA temporales, rechazó
-  el intento de canje del entrenador, reservó `1` unidad y descontó exactamente
-  `37` puntos al alumno QA, reintegró ambos al rechazar y bloqueó una segunda
-  devolución. El bloque `finally` desactiva y elimina recompensa, canje y
-  movimientos temporales incluso si una aserción falla.
+  el intento de canje del entrenador, le negó consultar solicitudes, resolverlas
+  o ajustar inventario, reservó `1` unidad y descontó exactamente `37` puntos al
+  alumno QA. El administrador rechazó el canje, reintegró stock y puntos una
+  sola vez y un segundo intento fue bloqueado. El bloque `finally` desactiva y
+  elimina recompensa, canje y movimientos temporales incluso si una aserción
+  falla.
 - El recorrido autenticado Programas → Entrenamiento → Sesión → Historial se
   ejecutó de punta a punta. Una serie QA de `10` repeticiones con `10 kg`
   persistió, la sesión cerró como `finalizada_incompleta`, apareció en el
@@ -633,16 +652,16 @@ Validaciones locales completadas el 19-08-2026:
   sólo lectura contra las fuentes activas. El 19-08-2026 confirmó, entre otros,
   `125` programas, `4.257` ejercicios prescritos, `521` sesiones históricas,
   `3.998` ejercicios ejecutados, `11.329` series con sus cargas, `100` pesajes,
-  `6` fotos privadas, `547` comidas y `2.666` movimientos de puntos. La V2
+  `6` fotos privadas, `550` comidas y `2.666` movimientos de puntos. La V2
   consume esas mismas tablas: no existe una copia vacía que obligue a reiniciar
   el progreso. Los totales son una fotografía de auditoría y cambiarán con el
   uso normal del portal activo.
 - El auditor reintenta tres veces cada lectura remota y conserva el código,
   detalle y pista de Supabase en el error final. Una saturación transitoria ya
   no se presenta como un fallo vacío ni se confunde con pérdida de datos.
-- `npm run verify:v2` además de probar las `15` rutas principales extrae los
+- `npm run verify:v2` además de probar las `16` rutas principales extrae los
   destinos V2 declarados en páginas y componentes y comprueba que respondan sin
-  caer al login. La última ejecución verificó `16` conexiones, incluidos los
+  caer al login. La última ejecución verificó `17` conexiones, incluidos los
   destinos condicionales por rol. Los
   destinos con estado —por ejemplo `Progreso#checkin` y
   `Perfil#descanso`— también fueron abiertos en navegador: ambos muestran el
@@ -656,12 +675,16 @@ Validaciones locales completadas el 19-08-2026:
    `0107_recompensas_vip.sql`, junto con el refuerzo
    `0108_recompensas_vip_solo_alumnos.sql`, la caché externa
    `0109_cache_open_food_facts.sql` y el refuerzo de automatizaciones
-   `0110_automatizaciones_idempotentes.sql`, ya quedaron instaladas y
-   verificadas en el proyecto activo. Mantener una instancia de preview para las pruebas
-   destructivas y los cambios siguientes.
+   `0110_automatizaciones_idempotentes.sql`, además de la separación
+   administrativa `0111_recompensas_vip_solo_admin.sql`, la escritura atómica
+   de perfil `0112_perfil_v2_consistente.sql` y las revisiones de seguimiento
+   `0113_seguimiento_revisiones_faltante.sql`, ya quedaron instaladas
+   y verificadas en el proyecto activo. Mantener una instancia de preview para
+   las pruebas destructivas y los cambios siguientes.
 4. Configurar variables de preview y producción por separado.
 5. Probar con cuentas reales de ensayo: alumno, entrenador y administrador.
-6. Ejecutar `npm run lint`, `npx tsc --noEmit`, `npm test` y `npm run build`.
+6. Ejecutar `npm run quality:v2`, que detiene la entrega si falla ESLint,
+   TypeScript, cualquier prueba o la compilación de producción.
 7. Probar iPhone/Android: cámara, teclado, sonido, vibración, segundo plano,
    red intermitente, safe areas y notificaciones.
 8. Revisar permisos de cámara/push bajo HTTPS y políticas RLS con intentos de
@@ -672,6 +695,40 @@ Validaciones locales completadas el 19-08-2026:
 10. Activar la V2 por grupo piloto, conservando Vista clásica y reversión.
 11. Medir errores, abandonos, sesiones finalizadas, uso de Alejandro y consultas
     sin resultado antes de hacerla predeterminada.
+
+## Corte para la primera versión de prueba
+
+La primera prueba cerrada puede comenzar cuando se cumplan estas condiciones,
+sin esperar ampliaciones comerciales:
+
+- `npm run quality:v2`, `npm run verify:v2` y la auditoría de interacciones
+  deben terminar sin errores sobre el mismo commit candidato.
+- Debe existir una URL HTTPS de preview separada del portal activo y un respaldo
+  verificable previo al despliegue.
+- Alumno, entrenador y administrador deben completar sus recorridos con cuentas
+  de ensayo; ningún alumno real se usa para acciones destructivas.
+- En al menos un iPhone y un Android deben probarse entrenamiento, descanso,
+  persistencia, nutrición, cámara/teclado, recuperación de red y navegación.
+- Toda integración todavía no configurada debe fallar cerrada, explicar la causa
+  y mantener una salida útil. No se aceptan botones muertos ni datos simulados
+  presentados como reales.
+
+Pueden continuar después de esa primera prueba cerrada, sin bajar la calidad del
+nucleo ya entregado:
+
+- evaluar FatSecret mediante su API licenciada o una base chilena propia como
+  segundo proveedor; Open Food Facts y el catálogo VIP ya cubren el primer corte;
+- conectar cobros cuando se elija un proveedor de pagos;
+- definir premios, stock y responsables comerciales reales antes de publicar el
+  catálogo de recompensas a todo el alumnado;
+- revisión jurídica definitiva, medición formal de Core Web Vitals y pruebas de
+  entrega real de push, cron, correo y Cloudflare Stream en preview;
+- ampliar técnicas, desafíos y contenido editorial a partir de los resultados
+  del piloto, sin reabrir las garantías transaccionales ya verificadas.
+
+Cada elemento diferido debe conservar aquí su estado, evidencia y dependencia.
+“Medio hecho” nunca se presenta como terminado: permanece deshabilitado o fuera
+del menú hasta cumplir su recorrido completo.
 
 ## Trabajo que no debe presentarse como terminado todavía
 

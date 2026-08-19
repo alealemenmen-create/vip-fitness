@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAlumno } from "@/lib/auth";
 import { cambiarCorreoDeUsuario } from "@/lib/cuenta/correo";
 import { SEXOS } from "@/lib/solicitudes/campos";
+import { segundosDescansoPermitidos, validarDatosPersonales } from "@/lib/perfil/configuracion";
 import type { Sexo } from "@/lib/supabase/types";
 
 export type FormState = { error: string | null; ok: boolean };
@@ -34,51 +35,37 @@ export async function guardarDatosPersonales(
 
   const supabase = await createClient();
 
-  const nombre = String(formData.get("nombre") || "").trim();
-  const fechaNacimiento = String(formData.get("fecha_nacimiento") || "");
-  const estaturaCm = String(formData.get("estatura_cm") || "");
-  const condicionMedica = String(formData.get("condicion_medica") || "").trim();
-  const restriccionAlimenticia = String(formData.get("restriccion_alimenticia") || "").trim();
-  const telefono = String(formData.get("telefono") || "").trim();
-  const sexo = String(formData.get("sexo") || "").trim();
+  const validacion = validarDatosPersonales({
+    nombre: String(formData.get("nombre") || ""),
+    fechaNacimiento: String(formData.get("fecha_nacimiento") || ""),
+    estaturaCm: String(formData.get("estatura_cm") || ""),
+    condicionMedica: String(formData.get("condicion_medica") || ""),
+    restriccionAlimenticia: String(formData.get("restriccion_alimenticia") || ""),
+    telefono: String(formData.get("telefono") || ""),
+    sexo: String(formData.get("sexo") || ""),
+  });
+  if (!validacion.ok) return fail(validacion.error);
 
-  if (!nombre) return fail("Ingresa tu nombre.");
-  if (estaturaCm && (Number(estaturaCm) <= 0 || Number(estaturaCm) > 260)) {
-    return fail("Ingresa una estatura válida en centímetros.");
-  }
-  if (telefono && !/^[\d\s+()-]{8,20}$/.test(telefono)) {
-    return fail("Ingresa un teléfono válido.");
-  }
+  const { datos } = validacion;
   // Lista cerrada, igual que en el registro público: el check de la base
   // rechazaría cualquier otro valor con un error mucho menos claro.
-  if (sexo && !SEXOS.some((s) => s.valor === sexo)) return fail("Elige una opción válida.");
+  if (datos.sexo && !SEXOS.some((s) => s.valor === datos.sexo)) return fail("Elige una opción válida.");
 
-  const { error: errorPerfil } = await supabase
-    .from("perfiles")
-    .update({ nombre })
-    .eq("id", alumnoId);
+  const { error } = await supabase.rpc("actualizar_mi_perfil_personal_v2", {
+    p_nombre: datos.nombre,
+    p_fecha_nacimiento: datos.fechaNacimiento,
+    p_estatura_cm: datos.estaturaCm,
+    p_condicion_medica: datos.condicionMedica,
+    p_restriccion_alimenticia: datos.restriccionAlimenticia,
+    p_telefono: datos.telefono,
+    p_sexo: datos.sexo as Sexo | null,
+  });
 
-  if (errorPerfil) {
-    console.error("[perfil] update perfiles falló:", errorPerfil);
-    return fail("No fue posible guardar tu nombre. Intenta nuevamente.");
-  }
-
-  const { error: errorDatos } = await supabase
-    .from("alumno_perfil")
-    .update({
-      fecha_nacimiento: fechaNacimiento || null,
-      estatura_cm: estaturaCm ? Number(estaturaCm) : null,
-      condicion_medica: condicionMedica || null,
-      restriccion_alimenticia: restriccionAlimenticia || null,
-      telefono: telefono || null,
-      sexo: (sexo || null) as Sexo | null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", alumnoId);
-
-  if (errorDatos) {
-    console.error("[perfil] update alumno_perfil falló:", errorDatos);
-    return fail("No fue posible guardar tus datos. Intenta nuevamente.");
+  if (error) {
+    console.error("[perfil] guardado atómico falló:", error);
+    return fail(error.message.includes("actualizar_mi_perfil_personal_v2")
+      ? "La actualización segura del perfil aún no está disponible. Ningún dato fue modificado."
+      : "No fue posible guardar tus datos. Ningún cambio parcial fue aplicado.");
   }
 
   revalidatePath("/alumno/perfil");
@@ -102,17 +89,19 @@ export async function actualizarTemporizadorDescansoAlumno(activo: boolean): Pro
   if (soloLectura) return fail("No puedes cambiar el temporizador en modo solo lectura.");
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("alumno_perfil")
     .update({
       temporizador_descanso: activo,
       temporizador_descanso_desactivado_por_alumno: !activo,
       updated_at: new Date().toISOString(),
     })
-    .eq("user_id", alumnoId);
+    .eq("user_id", alumnoId)
+    .select("user_id")
+    .maybeSingle();
 
-  if (error) {
-    console.error("[perfil] no se pudo guardar temporizador_descanso:", error.message);
+  if (error || !data) {
+    console.error("[perfil] no se pudo guardar temporizador_descanso:", error?.message ?? "fila no encontrada");
     return fail("No pudimos guardar el temporizador. Tu configuración anterior se conserva.");
   }
 
@@ -122,8 +111,6 @@ export async function actualizarTemporizadorDescansoAlumno(activo: boolean): Pro
   revalidatePath("/portal-v2/mas");
   return okState;
 }
-
-const SEGUNDOS_DESCANSO_VALIDOS = new Set([45, 60, 90, 120, 150]);
 
 /**
  * El alumno elige un número fijo de segundos de descanso que reemplaza el
@@ -135,16 +122,18 @@ const SEGUNDOS_DESCANSO_VALIDOS = new Set([45, 60, 90, 120, 150]);
 export async function actualizarSegundosDescansoPreferido(segundos: number | null): Promise<FormState> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura) return fail("No puedes cambiar el descanso en modo solo lectura.");
-  if (segundos !== null && !SEGUNDOS_DESCANSO_VALIDOS.has(segundos)) return fail("El tiempo de descanso no es válido.");
+  if (!segundosDescansoPermitidos(segundos)) return fail("El tiempo de descanso no es válido.");
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("alumno_perfil")
     .update({ segundos_descanso_preferido: segundos, updated_at: new Date().toISOString() })
-    .eq("user_id", alumnoId);
+    .eq("user_id", alumnoId)
+    .select("user_id")
+    .maybeSingle();
 
-  if (error) {
-    console.error("[perfil] no se pudo guardar segundos_descanso_preferido:", error.message);
+  if (error || !data) {
+    console.error("[perfil] no se pudo guardar segundos_descanso_preferido:", error?.message ?? "fila no encontrada");
     return fail("No pudimos guardar ese descanso. La configuración anterior se conserva.");
   }
 

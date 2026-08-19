@@ -19,9 +19,11 @@ import {
   registrarFoto,
   registrarPeso,
 } from "@/lib/ranking/movimientos";
+import { validarRegistroPeso } from "@/lib/seguimiento/validar";
 
 export type FormState = { error: string | null; ok: boolean; puntos?: number; aviso?: string };
 const okState: FormState = { error: null, ok: true };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function fail(mensaje: string): FormState {
   return { error: mensaje, ok: false };
@@ -53,13 +55,10 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
   const alumnoId = quien.alumnoId;
   const supabase = await createClient();
 
-  const pesoKg = Number(formData.get("peso_kg"));
+  const validacion = validarRegistroPeso(formData);
+  if (!validacion.ok) return fail(validacion.error);
+  const { pesoKg, observacion } = validacion.datos;
   const fecha = String(formData.get("fecha") || "");
-  const observacion = String(formData.get("observacion") || "").trim();
-
-  if (!Number.isFinite(pesoKg) || pesoKg <= 0) {
-    return fail("Ingresa un peso válido (mayor a cero).");
-  }
   if (!fecha) return fail("Selecciona una fecha.");
   if (!fechaEnVentanaValida(fecha)) {
     return fail("Solo puedes registrar el peso de hoy o de ayer.");
@@ -79,14 +78,14 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
   const escritura = registroDelDia
     ? supabase.from("pesos_corporales").update({
         peso_kg: pesoKg,
-        observacion: observacion || null,
-      }).eq("id", registroDelDia.id)
+        observacion,
+      }).eq("id", registroDelDia.id).eq("alumno_id", alumnoId)
     : supabase.from("pesos_corporales").insert({
         alumno_id: alumnoId,
         peso_kg: pesoKg,
         fecha,
         registrado_por: alumnoId,
-        observacion: observacion || null,
+        observacion,
       });
 
   const { error } = await escritura;
@@ -111,21 +110,33 @@ export async function agregarPeso(_prevState: FormState, formData: FormData): Pr
   return { ...okState, puntos };
 }
 
-export async function eliminarPeso(pesoId: string): Promise<void> {
+export async function eliminarPeso(pesoId: string): Promise<FormState> {
   const { alumnoId, soloLectura } = await requireAlumno();
-  if (soloLectura) return;
+  if (soloLectura) return fail(ERROR_SOLO_LECTURA);
+  if (!UUID.test(pesoId)) return fail("El registro de peso no es válido.");
   const supabase = await createClient();
-  const { data: peso } = await supabase
+  const { data: peso, error: errorLectura } = await supabase
     .from("pesos_corporales")
     .select("fecha")
     .eq("id", pesoId)
+    .eq("alumno_id", alumnoId)
     .maybeSingle();
-  await supabase.from("pesos_corporales").delete().eq("id", pesoId);
-  if (peso?.fecha) await recalcularPesoSemana(alumnoId, peso.fecha);
+  if (errorLectura) return fail("No pudimos comprobar ese registro. Inténtalo nuevamente.");
+  if (!peso) return fail("No encontramos ese peso en tu cuenta.");
+  const { data: eliminado, error: errorBorrado } = await supabase
+    .from("pesos_corporales")
+    .delete()
+    .eq("id", pesoId)
+    .eq("alumno_id", alumnoId)
+    .select("id")
+    .maybeSingle();
+  if (errorBorrado || !eliminado) return fail("No pudimos eliminar el peso. El registro se conserva.");
+  await recalcularPesoSemana(alumnoId, peso.fecha);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/progreso");
   revalidatePath("/portal-v2/progreso");
   revalidatePath("/alumno/inicio");
+  return okState;
 }
 
 const TAMANO_MAXIMO_FOTO = 12 * 1024 * 1024; // 12 MB
@@ -211,13 +222,16 @@ export async function subirFotoProgreso(
   // sube y registra la nueva. Así, una caída de red o un error de base no deja
   // al alumno sin la única foto válida de su quincena.
   const inicioQuincena = quincenaDeISO(fechaFoto);
-  const { data: existente } = await supabase
+  const { data: existente, error: errorExistente } = await supabase
     .from("fotos_progreso")
-    .select("id, storage_path")
+    .select("id, storage_path, fecha_carga")
     .eq("alumno_id", alumnoId)
     .gte("fecha_foto", inicioQuincena)
     .lte("fecha_foto", finQuincenaISO(inicioQuincena))
+    .order("fecha_carga", { ascending: false })
+    .limit(1)
     .maybeSingle();
+  if (errorExistente) return fail("No fue posible comprobar la foto de esta quincena. Tu galería no fue modificada.");
   const storagePath = `${alumnoId}/${Date.now()}.${extensionFinal}`;
 
   const { error: errorSubida } = await supabase.storage
@@ -229,9 +243,9 @@ export async function subirFotoProgreso(
   const escritura = existente
     ? supabase.from("fotos_progreso").update({ storage_path: storagePath, fecha_foto: fechaFoto }).eq("id", existente.id).eq("alumno_id", alumnoId)
     : supabase.from("fotos_progreso").insert({ alumno_id: alumnoId, storage_path: storagePath, fecha_foto: fechaFoto });
-  const { error: errorRegistro } = await escritura;
+  const { data: registroGuardado, error: errorRegistro } = await escritura.select("id").maybeSingle();
 
-  if (errorRegistro) {
+  if (errorRegistro || !registroGuardado) {
     // Compensación: si la tabla no adoptó el archivo nuevo, se retira para no
     // acumular objetos huérfanos. La foto anterior sigue intacta.
     await supabase.storage.from("fotos-progreso").remove([storagePath]);
@@ -260,13 +274,15 @@ export async function subirFotoProgreso(
 export async function eliminarFotoProgreso(fotoId: string): Promise<FormState> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura) return fail(ERROR_SOLO_LECTURA);
+  if (!UUID.test(fotoId)) return fail("La fotografía seleccionada no es válida.");
   const supabase = await createClient();
-  const { data: foto } = await supabase
+  const { data: foto, error: errorLectura } = await supabase
     .from("fotos_progreso")
     .select("fecha_foto, storage_path")
     .eq("id", fotoId)
     .eq("alumno_id", alumnoId)
     .maybeSingle();
+  if (errorLectura) return fail("No pudimos comprobar esa fotografía. Tu galería no fue modificada.");
   if (!foto) return fail("No encontramos esa fotografía en tu cuenta.");
   // Solo la foto de la quincena EN CURSO se puede borrar: "la puede borrar,
   // puede hacer lo que quiera, pero dentro de la quincena" — una quincena
@@ -274,8 +290,8 @@ export async function eliminarFotoProgreso(fotoId: string): Promise<FormState> {
   // ofrece el botón de borrar fuera de la quincena actual; este chequeo es
   // la versión que no se puede saltar desde el cliente.
   if (!fechaEnQuincenaActualValida(foto.fecha_foto)) return fail("Esta quincena ya está cerrada y no admite cambios.");
-  const { error: errorRegistro } = await supabase.from("fotos_progreso").delete().eq("id", fotoId).eq("alumno_id", alumnoId);
-  if (errorRegistro) return fail("No pudimos actualizar la galería. Tu fotografía se conserva para volver a intentarlo.");
+  const { data: eliminada, error: errorRegistro } = await supabase.from("fotos_progreso").delete().eq("id", fotoId).eq("alumno_id", alumnoId).select("id").maybeSingle();
+  if (errorRegistro || !eliminada) return fail("No pudimos actualizar la galería. Tu fotografía se conserva para volver a intentarlo.");
   // Primero se confirma la baja lógica. Si Storage falla después, el alumno ya
   // no ve ni puede compartir la imagen y sólo queda un objeto privado huérfano
   // para limpieza técnica; nunca una fila visible que apunte a un archivo roto.

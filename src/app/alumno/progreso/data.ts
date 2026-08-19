@@ -18,12 +18,14 @@ export async function obtenerHistorialPeso(
   supabase: SupabaseServerClient,
   alumnoId: string
 ): Promise<RegistroPeso[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("pesos_corporales")
     .select("id, peso_kg, fecha, created_at, observacion, registrado_por, perfiles!pesos_corporales_registrado_por_fkey(nombre)")
     .eq("alumno_id", alumnoId)
     .order("fecha", { ascending: true })
     .order("created_at", { ascending: true });
+
+  if (error) throw new Error("No fue posible leer el historial de peso.", { cause: error });
 
   return (data ?? []).map((p) => ({
     id: p.id,
@@ -48,11 +50,13 @@ export async function obtenerFotosProgreso(
   supabase: SupabaseServerClient,
   alumnoId: string
 ): Promise<FotoProgreso[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("fotos_progreso")
     .select("id, storage_path, fecha_foto, fecha_carga")
     .eq("alumno_id", alumnoId)
     .order("fecha_carga", { ascending: true });
+
+  if (error) throw new Error("No fue posible leer las fotografías de progreso.", { cause: error });
 
   if (!data || data.length === 0) return [];
 

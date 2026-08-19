@@ -137,7 +137,7 @@ export async function programarAvisoSesionSinCerrar(
  * eso sin sumar una cola externa) — en el peor caso llega una notificación
  * de más, ya vencida. Preferible a la alternativa de no avisar nunca.
  */
-export async function programarAvisoDescanso(segundos: number): Promise<void> {
+export async function programarAvisoDescanso(segundos: number, sesionId?: string): Promise<void> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura || !segundos || segundos <= 0) return;
   if (!vapidListo()) return;
@@ -154,8 +154,10 @@ export async function programarAvisoDescanso(segundos: number): Promise<void> {
     const payload = {
       title: "Se acabó el descanso",
       body: "Vuelve a la app para tu siguiente serie.",
-      tag: "fin-descanso",
-      url: "/portal-v2/entrenamiento",
+      tag: sesionId ? `fin-descanso-${sesionId}` : "fin-descanso",
+      url: sesionId
+        ? `/portal-v2/entrenamiento/sesion?id=${encodeURIComponent(sesionId)}`
+        : "/portal-v2/entrenamiento",
     };
     await Promise.all(suscripciones.map((sub) => enviarPush(admin, sub, payload)));
   });

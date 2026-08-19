@@ -22,7 +22,7 @@ export default async function SoporteV2Page() {
   return (
     <section className={styles.v2BridgePage}>
       <header><Link href="/portal-v2/mas" aria-label="Volver a Más"><ArrowLeft size={22} /></Link><div><span>AYUDA</span><h1>Soporte VIP</h1></div></header>
-      <SoporteV2 contexto={contexto} />
+      <SoporteV2 contexto={contexto} soloLectura={contextoSesion.soloLectura} />
     </section>
   );
 }

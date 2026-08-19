@@ -19,6 +19,7 @@ const rutas = [
   "/portal-v2/perfil",
   "/portal-v2/privacidad",
   "/portal-v2/soporte",
+  "/portal-v2/terminos",
 ];
 
 const fallos = [];

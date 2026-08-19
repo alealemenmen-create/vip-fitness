@@ -207,6 +207,69 @@ try {
   ]);
 
   const anonimo = createClient(url, clavePublica, opcionesAuth);
+  const perfilAntes = exigirSinError(await admin.from("perfiles")
+    .select("nombre")
+    .eq("id", ids.ALUMNO)
+    .single(), "Perfil QA previo");
+  const fichaAntes = exigirSinError(await admin.from("alumno_perfil")
+    .select("fecha_nacimiento,estatura_cm,condicion_medica,restriccion_alimenticia,telefono,sexo")
+    .eq("user_id", ids.ALUMNO)
+    .single(), "Ficha QA previa");
+  const payloadPerfilQa = {
+    p_nombre: "QA Portal V2 Alumno Temporal",
+    p_fecha_nacimiento: "1990-01-02",
+    p_estatura_cm: 170.5,
+    p_condicion_medica: "QA temporal sin antecedentes reales",
+    p_restriccion_alimenticia: "QA temporal sin restricciones reales",
+    p_telefono: "+56 9 1234 5678",
+    p_sexo: "otro",
+  };
+
+  const intentoPerfilAnonimo = await anonimo.rpc("actualizar_mi_perfil_personal_v2", payloadPerfilQa);
+  assert(intentoPerfilAnonimo.error, "Anon no debe ejecutar el guardado de perfil");
+
+  try {
+    exigirSinError(await alumno.rpc("actualizar_mi_perfil_personal_v2", payloadPerfilQa), "Guardado atomico de perfil QA");
+    const [perfilTemporal, fichaTemporal] = await Promise.all([
+      admin.from("perfiles").select("nombre").eq("id", ids.ALUMNO).single(),
+      admin.from("alumno_perfil")
+        .select("fecha_nacimiento,estatura_cm,condicion_medica,restriccion_alimenticia,telefono,sexo")
+        .eq("user_id", ids.ALUMNO)
+        .single(),
+    ]);
+    assert.equal(exigirSinError(perfilTemporal, "Nombre temporal QA").nombre, payloadPerfilQa.p_nombre);
+    assert.deepEqual(exigirSinError(fichaTemporal, "Ficha temporal QA"), {
+      fecha_nacimiento: payloadPerfilQa.p_fecha_nacimiento,
+      estatura_cm: payloadPerfilQa.p_estatura_cm,
+      condicion_medica: payloadPerfilQa.p_condicion_medica,
+      restriccion_alimenticia: payloadPerfilQa.p_restriccion_alimenticia,
+      telefono: payloadPerfilQa.p_telefono,
+      sexo: payloadPerfilQa.p_sexo,
+    });
+
+    const invalido = await alumno.rpc("actualizar_mi_perfil_personal_v2", {
+      ...payloadPerfilQa,
+      p_nombre: "X",
+      p_estatura_cm: 999,
+    });
+    assert(invalido.error?.message.includes("NOMBRE_INVALIDO"), "El RPC debe rechazar entradas manipuladas");
+    const perfilTrasInvalido = exigirSinError(await admin.from("perfiles")
+      .select("nombre")
+      .eq("id", ids.ALUMNO)
+      .single(), "Perfil tras intento invalido");
+    assert.equal(perfilTrasInvalido.nombre, payloadPerfilQa.p_nombre, "Un payload invalido no debe modificar parcialmente el perfil");
+  } finally {
+    exigirSinError(await alumno.rpc("actualizar_mi_perfil_personal_v2", {
+      p_nombre: perfilAntes.nombre,
+      p_fecha_nacimiento: fichaAntes.fecha_nacimiento,
+      p_estatura_cm: fichaAntes.estatura_cm,
+      p_condicion_medica: fichaAntes.condicion_medica,
+      p_restriccion_alimenticia: fichaAntes.restriccion_alimenticia,
+      p_telefono: fichaAntes.telefono,
+      p_sexo: fichaAntes.sexo,
+    }), "Restauracion de perfil QA");
+  }
+
   const lecturaAnonima = await anonimo.from("rutinas").select("id,alumno_id");
   assert(!lecturaAnonima.error && lecturaAnonima.data.length === 0, "Anon no debe leer rutinas");
 
@@ -346,11 +409,37 @@ try {
   assert.equal(exigirSinError(recompensaReservada, "Stock reservado").stock, 0, "El canje debe reservar una unidad");
   assert.equal(exigirSinError(debito, "Debito del canje").puntos, -costoRecompensa, "El canje debe descontar el costo exacto");
 
-  exigirSinError(await entrenador.rpc("resolver_canje_vip", {
+  const intentoResolucionEntrenador = await entrenador.rpc("resolver_canje_vip", {
     p_canje_id: canjeQa,
     p_estado: "rechazado",
-    p_nota: "QA: comprobacion de reintegro",
-  }), "Rechazo y reintegro QA");
+    p_nota: "QA: un entrenador no administra canjes",
+  });
+  assert(
+    intentoResolucionEntrenador.error?.message.includes("SIN_PERMISO"),
+    "El entrenador no debe poder resolver canjes",
+  );
+
+  const canjesVisiblesAlEntrenador = exigirSinError(await entrenador
+    .from("recompensas_vip_canjes")
+    .select("id")
+    .eq("id", canjeQa), "Aislamiento de canjes para entrenador");
+  assert.deepEqual(canjesVisiblesAlEntrenador, [], "El entrenador no debe poder consultar canjes ajenos");
+
+  const intentoStockEntrenador = await entrenador.rpc("ajustar_stock_recompensa_vip", {
+    p_recompensa_id: recompensaQa.id,
+    p_delta: 1,
+    p_sin_limite: false,
+  });
+  assert(
+    intentoStockEntrenador.error?.message.includes("SIN_PERMISO"),
+    "El entrenador no debe poder ajustar inventario",
+  );
+
+  exigirSinError(await administrador.rpc("resolver_canje_vip", {
+    p_canje_id: canjeQa,
+    p_estado: "rechazado",
+    p_nota: "QA: comprobacion de reintegro administrativo",
+  }), "Rechazo y reintegro administrativo QA");
 
   const [canjeRechazado, recompensaReintegrada, movimientosCanje] = await Promise.all([
     admin.from("recompensas_vip_canjes").select("estado,nota_admin,resuelto_por").eq("id", canjeQa).single(),
@@ -359,14 +448,14 @@ try {
   ]);
   const rechazo = exigirSinError(canjeRechazado, "Canje rechazado");
   assert.equal(rechazo.estado, "rechazado");
-  assert.equal(rechazo.nota_admin, "QA: comprobacion de reintegro");
-  assert.equal(rechazo.resuelto_por, ids.ENTRENADOR);
+  assert.equal(rechazo.nota_admin, "QA: comprobacion de reintegro administrativo");
+  assert.equal(rechazo.resuelto_por, ids.ADMIN);
   assert.equal(exigirSinError(recompensaReintegrada, "Stock reintegrado").stock, 1, "El rechazo debe devolver una unidad");
   const movimientosFinales = exigirSinError(movimientosCanje, "Movimientos del canje");
   assert.equal(movimientosFinales.length, 2, "El rechazo debe generar un unico reintegro");
   assert.equal(movimientosFinales.reduce((total, fila) => total + fila.puntos, 0), 0, "Debito y reintegro deben neutralizarse");
 
-  const segundoRechazo = await entrenador.rpc("resolver_canje_vip", {
+  const segundoRechazo = await administrador.rpc("resolver_canje_vip", {
     p_canje_id: canjeQa,
     p_estado: "rechazado",
     p_nota: "QA: no debe aplicarse dos veces",
@@ -389,6 +478,8 @@ try {
       administradorOperativo: true,
       escriturasV2SoloServidor: true,
       recompensasSoloAlumnos: true,
+      administracionRecompensasSoloAdmin: true,
+      perfilPersonalAtomico: true,
       canjeTransaccional: true,
       reintegroIdempotente: true,
     },

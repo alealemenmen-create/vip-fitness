@@ -17,6 +17,8 @@ describe("Open Food Facts", () => {
     expect(etiquetaMedidaEnEspanol("porción (1 portion (200 ml))")).toBe("porción (200 ml)");
     expect(etiquetaMedidaEnEspanol("porción (1 pote (125 g))")).toBe("porción (1 pote · 125 g)");
     expect(etiquetaMedidaEnEspanol("1 cup (240 ml)")).toBe("1 taza (240 ml)");
+    expect(etiquetaMedidaEnEspanol("porción (155.0g)")).toBe("porción (155 g)");
+    expect(etiquetaMedidaEnEspanol("porción (1,5l)")).toBe("porción (1,5 l)");
   });
 
   it("normaliza un producto válido por 100 gramos", async () => {

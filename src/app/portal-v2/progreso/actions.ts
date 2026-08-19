@@ -8,6 +8,7 @@ import { obtenerRanking } from "@/lib/ranking/data";
 import { obtenerAvanceCiclo, obtenerRutinaActiva, obtenerSesionEnProgreso } from "@/app/alumno/entrenar/data";
 import { obtenerResumenAlimentacionHoy, obtenerSeguimientoHoy, type SeguimientoHoy } from "@/app/alumno/inicio/data";
 import { hoyISO } from "@/lib/date";
+import { resumirPesosDiarios } from "@/lib/seguimiento/progreso-v2";
 
 export type ProgresoDatosV2 = {
   nombre: string;
@@ -63,7 +64,8 @@ export async function cargarProgresoV2Action(): Promise<CargaProgresoV2> {
     return datos
       ? { estado: "real", datos }
       : { estado: "error", mensaje: "No pudimos reconstruir tu seguimiento con los datos actuales." };
-  } catch {
+  } catch (error) {
+    console.error("No fue posible cargar el progreso V2", error);
     return { estado: "error", mensaje: "No pudimos conectar con tu seguimiento. Tus registros anteriores siguen protegidos." };
   }
 }
@@ -97,9 +99,11 @@ async function construirProgresoV2(contexto: ContextoAlumnoV2): Promise<Progreso
   // representa un check-in diario: conserva las filas antiguas en la base,
   // pero usa sólo la última de cada fecha para no convertir una corrección de
   // minutos en una falsa variación de 30 días.
-  const pesosPorFecha = new Map(pesos.map((peso) => [peso.fecha, peso]));
-  const pesosDiarios = [...pesosPorFecha.values()];
-  const ultimoPeso = pesosDiarios.at(-1) ?? null;
+  const { historialDiario: pesosDiarios, ultimo: ultimoPeso, variacionPeriodo: variacionPeso } = resumirPesosDiarios(
+    pesos,
+    seguimiento.desde,
+    seguimiento.hasta,
+  );
   const filaActual = ranking.find((fila) => fila.alumnoId === contexto.alumnoId) ?? null;
   const seriesRegistradas = seguimiento.dias.reduce(
     (total, dia) => total + dia.sesiones.reduce((subtotal, sesion) => subtotal + sesion.seriesRealizadas, 0),
@@ -112,7 +116,7 @@ async function construirProgresoV2(contexto: ContextoAlumnoV2): Promise<Progreso
     soloLectura: contexto.soloLectura,
     peso: ultimoPeso?.pesoKg ?? seguimiento.evolucion.pesoActual,
     fechaPeso: ultimoPeso?.fecha ?? null,
-    variacionPeso: pesosDiarios.length > 1 ? seguimiento.evolucion.variacionPeso : null,
+    variacionPeso,
     historialPeso: pesosDiarios.map((registro) => ({
       id: registro.id,
       fecha: registro.fecha,
@@ -137,7 +141,7 @@ async function construirProgresoV2(contexto: ContextoAlumnoV2): Promise<Progreso
     },
     programa: rutina ? {
       nombre: rutina.nombre,
-      sesionActual: Math.max(1, avance.ultimoNumeroHecho || avance.proximoNumero),
+      sesionActual: Math.max(1, avance.proximoNumero),
       sesionesRealizadas: seguimiento.resumen.sesionesRealizadas,
       sesionesEsperadas: seguimiento.resumen.sesionesEsperadas,
     } : null,

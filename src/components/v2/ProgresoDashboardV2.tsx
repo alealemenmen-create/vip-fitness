@@ -10,12 +10,12 @@ import styles from "@/components/v2/PortalV2.module.css";
 import { CheckInDiarioV2 } from "@/components/v2/CheckInDiarioV2";
 
 const DEMO_ESTADISTICAS = [
-  { valor: "7", unidad: "", etiqueta: "Sesiones realizadas", detalle: "Últimos 30 días", Icono: Dumbbell },
-  { valor: "1", unidad: "día", etiqueta: "Alimentación registrada", detalle: "Últimos 30 días", Icono: Utensils },
-  { valor: "1,6", unidad: "", etiqueta: "Promedio semanal", detalle: "Últimos 30 días", Icono: Gauge },
-  { valor: "6", unidad: "", etiqueta: "Impulsos cumplidos", detalle: "6 recomendaciones evaluadas", Icono: Zap },
-  { valor: "16", unidad: "", etiqueta: "Series registradas", detalle: "En todos tus entrenamientos", Icono: ListChecks },
-  { valor: "86", unidad: "%", etiqueta: "Adherencia", detalle: "Entrenamiento y alimentación", Icono: Trophy },
+  { valor: "—", unidad: "", etiqueta: "Sesiones realizadas", detalle: "Sin datos personales", Icono: Dumbbell },
+  { valor: "—", unidad: "", etiqueta: "Alimentación registrada", detalle: "Sin datos personales", Icono: Utensils },
+  { valor: "—", unidad: "", etiqueta: "Promedio semanal", detalle: "Sin datos personales", Icono: Gauge },
+  { valor: "—", unidad: "", etiqueta: "Impulsos cumplidos", detalle: "Sin datos personales", Icono: Zap },
+  { valor: "—", unidad: "", etiqueta: "Series registradas", detalle: "Sin datos personales", Icono: ListChecks },
+  { valor: "—", unidad: "", etiqueta: "Adherencia", detalle: "Sin datos personales", Icono: Trophy },
 ] as const;
 
 const DEMO_COMUNIDAD = [
@@ -35,6 +35,12 @@ function esFotoDeQuincenaActual(fecha: string, hoy: string) {
   return (Number(fecha.slice(8, 10)) <= 15) === (Number(hoy.slice(8, 10)) <= 15);
 }
 
+function ayerDe(fecha: string) {
+  const valor = new Date(`${fecha}T12:00:00Z`);
+  valor.setUTCDate(valor.getUTCDate() - 1);
+  return valor.toISOString().slice(0, 10);
+}
+
 export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgresoV2 }) {
   const esDemoInicial = cargaInicial.estado === "demo";
   const datosIniciales = cargaInicial.estado === "real" ? cargaInicial.datos : esDemoInicial ? undefined : null;
@@ -46,6 +52,7 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
   const [errorCarga, setErrorCarga] = useState(cargaInicial.estado === "error" ? cargaInicial.mensaje : "");
   const [peso, setPeso] = useState(pesoInicial);
   const [pesoBorrador, setPesoBorrador] = useState(peso);
+  const [fechaPesoBorrador, setFechaPesoBorrador] = useState(cargaInicial.estado === "real" ? cargaInicial.datos.fechaHoy : "");
   const [modalPeso, setModalPeso] = useState(false);
   const [detallePrograma, setDetallePrograma] = useState(false);
   const [detalleSeguimiento, setDetalleSeguimiento] = useState(false);
@@ -57,7 +64,7 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
     if (!esDemoInicial) return;
     const inicio = window.setTimeout(() => {
       setDatos(null);
-      setPeso("88.0");
+      setPeso("");
       setEstadoCarga("demo");
     }, 0);
     return () => window.clearTimeout(inicio);
@@ -76,7 +83,7 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
       }
       setDatos(null);
       if (respuesta.estado === "demo") {
-        setPeso("88.0");
+        setPeso("");
         setEstadoCarga("demo");
         return;
       }
@@ -113,6 +120,7 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
 
   const abrirPeso = () => {
     setPesoBorrador(peso);
+    setFechaPesoBorrador(datos?.fechaHoy ?? "");
     setModalPeso(true);
   };
 
@@ -139,19 +147,24 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
         if (datos) {
           const formulario = new FormData();
           formulario.set("peso_kg", String(numero));
-          formulario.set("fecha", datos.fechaHoy);
+          formulario.set("fecha", fechaPesoBorrador);
           const resultado = await agregarPeso({ error: null, ok: false }, formulario);
           if (!resultado.ok) {
             setAviso(resultado.error || "No fue posible guardar el peso");
             return;
           }
           const actualizados = await obtenerProgresoV2Action();
-          if (actualizados) setDatos(actualizados);
-          setAviso(resultado.aviso || (resultado.puntos ? `Peso guardado · +${resultado.puntos} XP` : "Peso registrado correctamente"));
+          if (actualizados) {
+            setDatos(actualizados);
+            setPeso(actualizados.peso == null ? "" : actualizados.peso.toFixed(1));
+            setAviso(resultado.aviso || (resultado.puntos ? `Peso guardado · +${resultado.puntos} XP` : "Peso registrado correctamente"));
+          } else {
+            setAviso("El peso quedó guardado, pero no pudimos actualizar la pantalla. Recarga para verlo.");
+          }
         } else {
-          setAviso("Peso registrado en la vista de demostración");
+          setAviso("La demostración no guarda datos personales");
+          return;
         }
-        setPeso(numero.toFixed(1));
         setModalPeso(false);
       } catch {
         setAviso("No hubo conexión con el servidor. Tu registro anterior se conserva.");
@@ -161,7 +174,7 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
 
   const porcentajePrograma = datos?.programa
     ? Math.min(100, Math.round((datos.programa.sesionesRealizadas / Math.max(1, datos.programa.sesionesEsperadas)) * 100))
-    : datos ? 0 : 29;
+    : 0;
 
   if (estadoCarga === "cargando") {
     return (
@@ -189,6 +202,7 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
 
   return (
     <section className={styles.progressPage}>
+      {datos === null ? <p className={styles.progressDemoNotice}>VISTA DE DEMOSTRACIÓN · No contiene ni guarda información personal</p> : null}
       <div className={styles.progressSectionHeading}><h1>Tu día</h1><span>{datos?.nombre ? `Hola, ${datos.nombre.split(" ")[0]}` : "Método VIP"}</span></div>
       <section className={styles.todayDashboard} aria-label="Estado de hoy">
         <Link href={datos?.hoy.sesionEnProgresoId ? `/portal-v2/entrenamiento/sesion?id=${datos.hoy.sesionEnProgresoId}` : "/portal-v2/entrenamiento"}>
@@ -223,7 +237,7 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
           <div><strong>{peso ? `${peso} kg` : "Sin registro"}</strong><small>{datos === undefined ? "Cargando último registro…" : datos === null ? "Vista de demostración" : `Último registro: ${fechaLegible(datos.fechaPeso)}`}</small></div>
         </div>
         <div className={styles.bodyweightFooter}>
-          <p><strong>{datos?.variacionPeso == null ? "0" : `${datos.variacionPeso > 0 ? "+" : ""}${datos.variacionPeso.toLocaleString("es-CL")}`} kg</strong> en 30 días</p>
+          <p><strong>{datos?.variacionPeso == null ? "—" : `${datos.variacionPeso > 0 ? "+" : ""}${datos.variacionPeso.toLocaleString("es-CL")} kg`}</strong>{datos?.variacionPeso == null ? " requiere 2 registros en 30 días" : " en 30 días"}</p>
           <div><button type="button" onClick={() => setDetalleSeguimiento(true)}><Camera size={15} /> Foto</button><button type="button" onClick={abrirPeso} disabled={datos?.soloLectura}>Registrar <Plus size={17} /></button></div>
         </div>
       </section>
@@ -248,10 +262,10 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
         <div>
           <span>Programa activo</span>
           <strong>{datos ? datos.programa?.nombre ?? "Sin programa activo" : "Método VIP"}</strong>
-          <small>{datos ? datos.programa ? `Próxima sesión · día ${datos.programa.sesionActual}` : "Tu entrenador aún no asigna una rutina" : "Semana 1 · Piernas"}</small>
+          <small>{datos ? datos.programa ? `Próxima sesión · día ${datos.programa.sesionActual}` : "Tu entrenador aún no asigna una rutina" : "Sin programa personal en esta vista"}</small>
         </div>
         <i><em style={{ width: `${porcentajePrograma}%` }} /></i>
-        <p><b>{datos ? (datos.programa?.sesionesRealizadas ?? 0) === 1 ? "1 sesión realizada" : `${datos.programa?.sesionesRealizadas ?? 0} sesiones realizadas` : "5 sesiones"}</b><span>{porcentajePrograma} % de adherencia</span></p>
+        <p><b>{datos ? (datos.programa?.sesionesRealizadas ?? 0) === 1 ? "1 sesión realizada" : `${datos.programa?.sesionesRealizadas ?? 0} sesiones realizadas` : "Sin sesiones personales"}</b><span>{datos ? `${porcentajePrograma} % de adherencia` : "Sin cálculo"}</span></p>
       </button>
 
       <div className={styles.progressSectionHeading}>
@@ -285,8 +299,9 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
         <div className={styles.progressModalBackdrop} role="presentation" onClick={() => setModalPeso(false)}>
           <section className={styles.progressModal} role="dialog" aria-modal="true" aria-label="Registrar peso" onClick={(evento) => evento.stopPropagation()}>
             <header><h2>Registrar peso</h2><button type="button" onClick={() => setModalPeso(false)} aria-label="Cerrar"><X size={19} /></button></header>
-            <p>Guarda tu peso de hoy. Para proteger la clasificación solo se acepta hoy o ayer.</p>
-            <label><span>Peso actual</span><input inputMode="decimal" value={pesoBorrador} onChange={(evento) => setPesoBorrador(evento.target.value)} autoFocus /><b>kg</b></label>
+            <p>Guarda o corrige un registro de hoy o ayer. Una corrección reemplaza el valor de ese día.</p>
+            <label><span>Peso corporal</span><input inputMode="decimal" value={pesoBorrador} onChange={(evento) => setPesoBorrador(evento.target.value)} autoFocus /><b>kg</b></label>
+            <label><span>Fecha del registro</span><input type="date" min={datos ? ayerDe(datos.fechaHoy) : undefined} max={datos?.fechaHoy} value={fechaPesoBorrador} onChange={(evento) => setFechaPesoBorrador(evento.target.value)} /></label>
             <button type="button" className={styles.progressSaveButton} onClick={guardarPeso} disabled={guardando}>{guardando ? "Guardando…" : "Guardar registro"}</button>
           </section>
         </div>
@@ -322,14 +337,12 @@ function DetalleSeguimiento({
   iniciarGuardado: React.TransitionStartFunction;
 }) {
   const [fotoAEliminar, setFotoAEliminar] = useState<string | null>(null);
-  const pesos = datos?.historialPeso ?? [
-    { id: "demo-1", fecha: "2026-07-22", pesoKg: 89.2, observacion: null },
-    { id: "demo-2", fecha: "2026-08-05", pesoKg: 88.6, observacion: null },
-    { id: "demo-3", fecha: "2026-08-18", pesoKg: 88, observacion: null },
-  ];
+  const pesos = datos?.historialPeso ?? [];
   const refrescar = async () => {
     const actualizados = await obtenerProgresoV2Action();
+    if (!actualizados) return false;
     onActualizar(actualizados);
+    return true;
   };
   const subir = (evento: React.FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
@@ -347,9 +360,11 @@ function DetalleSeguimiento({
           onAviso(resultado.error || "No fue posible subir la foto");
           return;
         }
-        await refrescar();
+        const refrescado = await refrescar();
         formularioNodo.reset();
-        onAviso(resultado.aviso || (resultado.puntos ? `Foto guardada · +${resultado.puntos} XP` : "Foto guardada"));
+        onAviso(refrescado
+          ? resultado.aviso || (resultado.puntos ? `Foto guardada · +${resultado.puntos} XP` : "Foto guardada")
+          : "La foto quedó guardada, pero no pudimos actualizar la galería. Recarga para verla.");
       } catch {
         onAviso("No hubo conexión con el servidor. La foto no se marcó como guardada; inténtalo nuevamente.");
       }
@@ -367,9 +382,11 @@ function DetalleSeguimiento({
           onAviso(resultado.error ?? "No fue posible eliminar la foto");
           return;
         }
-        await refrescar();
+        const refrescado = await refrescar();
         setFotoAEliminar(null);
-        onAviso("Foto eliminada de la quincena actual");
+        onAviso(refrescado
+          ? "Foto eliminada de la quincena actual"
+          : "La foto se eliminó, pero no pudimos actualizar la galería. Recarga para confirmarlo.");
       } catch {
         onAviso("No hubo conexión con el servidor. La fotografía se conserva.");
       }
@@ -382,13 +399,13 @@ function DetalleSeguimiento({
       <h2>Tu evolución</h2>
       <p>Peso semanal y fotografía quincenal. Los registros privados sólo se comparten cuando tú eliges publicarlos en Comunidad.</p>
 
-      <div className={styles.followupTitle}><h3>Fotografías</h3><span>{datos ? `${datos.fotos.length} guardadas` : "Vista protegida"}</span></div>
+      <div className={styles.followupTitle}><h3>Fotografías</h3><span>{datos ? datos.fotos.length === 1 ? "1 guardada" : `${datos.fotos.length} guardadas` : "Vista protegida"}</span></div>
       {datos?.fotos.length ? <div className={styles.followupPhotos}>{[...datos.fotos].reverse().map((foto) => (
         <article key={foto.id}>
           {foto.url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={foto.url} alt={`Progreso del ${fechaLegible(foto.fecha)}`} />
-          ) : <span><Images size={22} /></span>}
+          ) : <span aria-label="Vista previa no disponible"><Images size={22} /><small>Vista previa no disponible</small></span>}
           <small>{fechaLegible(foto.fecha)}</small>
           {!datos.soloLectura && esFotoDeQuincenaActual(foto.fecha, datos.fechaHoy) ? <button type="button" disabled={guardando} onClick={() => eliminar(foto)}><Trash2 size={13} />{fotoAEliminar === foto.id ? "Confirmar" : "Eliminar"}</button> : null}
         </article>
@@ -400,20 +417,20 @@ function DetalleSeguimiento({
       </form>
 
       <div className={styles.followupTitle}><h3>Historial de peso</h3><span>{pesos.length === 1 ? "1 registro" : `${pesos.length} registros`}</span></div>
-      <div className={styles.followupWeights}>{[...pesos].reverse().map((registro, indice, lista) => {
+      {pesos.length ? <div className={styles.followupWeights}>{[...pesos].reverse().map((registro, indice, lista) => {
         const anterior = lista[indice + 1];
         const cambio = anterior ? Math.round((registro.pesoKg - anterior.pesoKg) * 10) / 10 : null;
         return <article key={registro.id}><span>{fechaLegible(registro.fecha)}</span><strong>{registro.pesoKg.toLocaleString("es-CL")} kg</strong><b>{cambio == null ? "Inicio" : `${cambio > 0 ? "+" : ""}${cambio.toLocaleString("es-CL")} kg`}</b>{registro.observacion ? <p>{registro.observacion}</p> : null}</article>;
-      })}</div>
+      })}</div> : <div className={styles.followupEmpty}><strong>Sin registros de peso</strong><p>Registra tu primer peso desde la tarjeta principal para comenzar una evolución real.</p></div>}
     </section>
   );
 }
 
 function DetallePrograma({ datos, porcentaje, onClose }: { datos: ProgresoDatosV2 | null | undefined; porcentaje: number; onClose: () => void }) {
-  const realizadas = datos?.programa?.sesionesRealizadas ?? 5;
-  const esperadas = datos?.programa?.sesionesEsperadas ?? 7;
-  const impulsos = datos?.estadisticas.impulsosCumplidos ?? 6;
-  const evaluados = datos?.estadisticas.impulsosEvaluados ?? 6;
+  const realizadas = datos?.programa?.sesionesRealizadas ?? 0;
+  const esperadas = datos?.programa?.sesionesEsperadas ?? 0;
+  const impulsos = datos?.estadisticas.impulsosCumplidos ?? 0;
+  const evaluados = datos?.estadisticas.impulsosEvaluados ?? 0;
   const precision = evaluados ? Math.round((impulsos / evaluados) * 100) : 0;
 
   return (
@@ -447,6 +464,7 @@ function DetallePrograma({ datos, porcentaje, onClose }: { datos: ProgresoDatosV
         </div>
         <b>{evaluados > 0 ? `${precision} %` : "—"}</b>
       </article>
+      <Link className={styles.programDetailLink} href="/portal-v2/entrenamiento/programas">Abrir programas de entrenamiento <ChevronRight size={16} /></Link>
     </section>
   );
 }

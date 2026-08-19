@@ -9,6 +9,7 @@ import type { HoraDia, PlanAlimentacion } from "@/app/alumno/comer/tipos";
 import type { ProductoOFF } from "@/lib/alimentos/openFoodFacts";
 import { errorMetasNutricionales } from "@/lib/alimentos/metasNutricionales";
 import { resumirMicronutrientes, sodioGramosAMiligramos, type ResumenMicronutrientes } from "@/lib/alimentos/resumenMicronutrientes";
+import { puedeRegistrarComidaEnFecha } from "@/lib/alimentos/ventanaRegistro";
 import {
   Beef,
   ChevronRight,
@@ -185,6 +186,11 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
       grasa: acumulado.grasa + comida.grasa,
     }), { kcal: 0, prot: 0, carb: 0, grasa: 0 }), [comidas, fechaActiva]);
   const objetivos = objetivosLocales;
+  const fechaPermiteRegistrar = !datos || puedeRegistrarComidaEnFecha({
+    fecha: fechaActiva,
+    fechaHoy: datos.fechaInicial,
+    fechasConRegistro: Object.keys(datos.registros),
+  });
   const micronutrientes = useMemo(
     () => resumirMicronutrientes(comidas.filter((comida) => comida.fecha === fechaActiva)),
     [comidas, fechaActiva],
@@ -207,6 +213,11 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
 
   const copiarComida = async (seleccion?: ComidaVisual) => {
     if (operacionRef.current) return;
+    if (!fechaPermiteRegistrar) {
+      setPanel(null);
+      setAviso("Solo puedes registrar comida de hoy, de ayer o continuar un día que ya tenga registros");
+      return;
+    }
     if (datos?.soloLectura) {
       setAviso("Esta cuenta está abierta en modo solo lectura");
       return;
@@ -244,6 +255,10 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
       setAviso("Esta cuenta está abierta en modo solo lectura");
       return;
     }
+    if (!fechaPermiteRegistrar && (siguiente === "buscar" || siguiente === "escaner" || siguiente === "copiar")) {
+      setAviso("Solo puedes registrar comida de hoy, de ayer o continuar un día que ya tenga registros");
+      return;
+    }
     setHoraSeleccionada(hora);
     setAviso("");
     setPanel(siguiente);
@@ -256,6 +271,10 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
 
   const confirmarAlimentosReales = async (elegidos: AlimentoElegido[]) => {
     if (elegidos.length === 0) return;
+    if (!fechaPermiteRegistrar) {
+      setAviso("La fecha seleccionada ya no admite registros nuevos");
+      return;
+    }
     setPanel(null);
     setAviso("Guardando alimentos…");
     let guardados = 0;
@@ -409,7 +428,7 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
           return (
           <div className={styles.nutritionTimeRow} key={hora} data-hora={hora}>
             <span className={`${styles.timePill} ${esAhora ? styles.timePillActive : ""}`}>{etiqueta}{esAhora ? <small>Ahora</small> : null}</span>
-            <button type="button" className={styles.timeAdd} onClick={() => abrirPanel("buscar", hora)} aria-label={`Agregar comida a las ${etiqueta}`}><Plus size={17} /></button>
+            <button type="button" className={styles.timeAdd} onClick={() => abrirPanel("buscar", hora)} aria-label={`Agregar comida a las ${etiqueta}`} title={!fechaPermiteRegistrar ? "Disponible para hoy, ayer o un día que ya tenga registros" : undefined}><Plus size={17} /></button>
             {comidasDeLaHora.length > 0 ? (
               <div className={styles.loggedMeals}>
                 {comidasDeLaHora.map((comida, comidaIndice) => (

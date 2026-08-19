@@ -2523,6 +2523,18 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      actualizar_mi_perfil_personal_v2: {
+        Args: {
+          p_nombre: string;
+          p_fecha_nacimiento: string | null;
+          p_estatura_cm: number | null;
+          p_condicion_medica: string | null;
+          p_restriccion_alimenticia: string | null;
+          p_telefono: string | null;
+          p_sexo: string | null;
+        };
+        Returns: undefined;
+      };
       crear_notificacion_entrenador_dedup: {
         Args: { p_tipo: string; p_alumno_id: string | null; p_titulo: string; p_cuerpo: string; p_prioridad: string; p_ruta: string | null; p_clave_dedup: string | null; p_desde: string };
         Returns: string | null;

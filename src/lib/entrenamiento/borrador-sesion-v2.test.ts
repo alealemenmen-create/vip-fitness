@@ -47,6 +47,7 @@ describe("borrador local de sesión V2", () => {
     expect(resultado?.segundosSesion).toBe(95);
     expect(resultado?.pasosTecnica).toEqual({});
     expect(resultado?.pausaTecnica).toBeNull();
+    expect(resultado?.descanso).toBeNull();
 
     const enLibrasSinNota = restaurarBorradorSesionV2(crudo({
       unidadPeso: "lb",
@@ -111,5 +112,39 @@ describe("borrador local de sesión V2", () => {
     // local antiguo. La pausa de press-1 perdió los dos segundos transcurridos.
     expect(resultado?.pasosTecnica).toEqual({ "press-1": 1 });
     expect(resultado?.pausaTecnica).toEqual({ clave: "press-1", segundos: 13, pasoSiguiente: 2 });
+  });
+
+  it("restaura un descanso por su hora real de término y rechaza datos ajenos", () => {
+    const input = {
+      sesionId: "sesion-1",
+      registroBase: base,
+      notasBase: { press: "" },
+      ahora,
+    };
+    const descanso = {
+      ejercicioId: "press",
+      serieIndice: 0,
+      finEn: ahora + 45_000,
+      tipo: "automatico",
+      vistaRetorno: "video",
+      enFoco: true,
+    };
+
+    expect(restaurarBorradorSesionV2(crudo({ descanso }), input)?.descanso).toEqual(descanso);
+    expect(restaurarBorradorSesionV2(crudo({
+      descanso: { ...descanso, ejercicioId: "otro" },
+    }), input)?.descanso).toBeNull();
+    expect(restaurarBorradorSesionV2(crudo({
+      registro: {
+        press: [
+          { reps: "8", peso: "18", completada: false },
+          { reps: "12", peso: "25", completada: false },
+        ],
+      },
+      descanso: { ...descanso, serieIndice: 1 },
+    }), input)?.descanso).toBeNull();
+    expect(restaurarBorradorSesionV2(crudo({
+      descanso: { ...descanso, finEn: ahora - 6 * 60_000 },
+    }), input)?.descanso).toBeNull();
   });
 });

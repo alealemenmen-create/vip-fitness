@@ -23,7 +23,7 @@ export async function enviarResenaApp(
   const ruta = String(formData.get("ruta") || "").trim().slice(0, 300);
 
   if (!Number.isInteger(estrellas) || estrellas < 1 || estrellas > 5) {
-    return { error: "Elegí una puntuación de 1 a 5 estrellas.", ok: false };
+    return { error: "Elige una puntuación de 1 a 5 estrellas.", ok: false };
   }
 
   const supabase = await createClient();
@@ -35,7 +35,7 @@ export async function enviarResenaApp(
   });
 
   if (error) {
-    return { error: "No pudimos enviar tu reseña. Revisá tu conexión e intentá de nuevo.", ok: false };
+    return { error: "No pudimos enviar tu reseña. Revisa tu conexión e inténtalo de nuevo.", ok: false };
   }
 
   // Push real solo si la puntuación es baja (3 o menos): ahí sí hay algo

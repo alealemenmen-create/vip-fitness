@@ -14,26 +14,27 @@ const PREGUNTAS = [
   "¿Cómo debería recuperarme después de entrenar?",
 ] as const;
 
-export function SoporteV2({ contexto }: { contexto: ContextoAlumnoVip }) {
+export function SoporteV2({ contexto, soloLectura = false }: { contexto: ContextoAlumnoVip; soloLectura?: boolean }) {
   const [estado, accion, consultando] = useActionState(preguntarAsistenteAlumno, ESTADO_INICIAL);
   const [pregunta, setPregunta] = useState("");
 
   return (
     <div className={styles.supportV2Content}>
+      {soloLectura ? <p className={styles.supportV2ReadOnly} role="status">Supervisión activa: puedes revisar recordatorios y marcas, pero no consultar al asistente en nombre del alumno.</p> : null}
       <section className={styles.supportV2Assistant}>
         <header>
           <span><Bot size={21} /></span>
           <div><small>ASISTENTE PERSONAL</small><h2>Pregunta a Alejandro</h2><p>Lee tu historial real y te orienta sin reemplazar las decisiones de tu entrenador.</p></div>
         </header>
         <form action={accion}>
-          <textarea name="pregunta" value={pregunta} onChange={(evento) => setPregunta(evento.target.value)} rows={3} minLength={5} maxLength={500} required placeholder="Pregunta por tu entrenamiento, alimentación o progreso…" />
-          <button type="submit" disabled={consultando || !pregunta.trim()}><Send size={17} />{consultando ? "Revisando tu historial…" : "Consultar"}</button>
+          <textarea name="pregunta" value={pregunta} onChange={(evento) => setPregunta(evento.target.value)} rows={3} minLength={5} maxLength={500} required disabled={soloLectura} placeholder={soloLectura ? "Disponible sólo para el alumno" : "Pregunta por tu entrenamiento, alimentación o progreso…"} />
+          <button type="submit" disabled={soloLectura || consultando || !pregunta.trim()}><Send size={17} />{consultando ? "Revisando tu historial…" : soloLectura ? "Modo lectura" : "Consultar"}</button>
         </form>
       </section>
 
       {!estado.respuesta && !consultando ? (
         <section className={styles.supportV2Suggestions} aria-label="Preguntas sugeridas">
-          {PREGUNTAS.map((texto) => <button key={texto} type="button" onClick={() => setPregunta(texto)}><Sparkles size={14} /><span>{texto}</span></button>)}
+          {PREGUNTAS.map((texto) => <button key={texto} type="button" disabled={soloLectura} onClick={() => setPregunta(texto)}><Sparkles size={14} /><span>{texto}</span></button>)}
         </section>
       ) : null}
 

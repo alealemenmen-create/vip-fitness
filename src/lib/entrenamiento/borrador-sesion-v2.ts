@@ -6,6 +6,15 @@ export type SerieBorradorSesionV2 = {
 
 export type RegistroBorradorSesionV2 = Record<string, SerieBorradorSesionV2[]>;
 
+export type DescansoBorradorSesionV2 = {
+  ejercicioId: string;
+  serieIndice: number;
+  finEn: number;
+  tipo: "automatico" | "manual";
+  vistaRetorno: "lista" | "video";
+  enFoco: boolean;
+};
+
 export type BorradorSesionV2 = {
   version: 1;
   sesionId: string;
@@ -19,6 +28,7 @@ export type BorradorSesionV2 = {
   unidadPeso: "kg" | "lb";
   pasosTecnica: Record<string, number>;
   pausaTecnica: { clave: string; segundos: number; pasoSiguiente: number } | null;
+  descanso?: DescansoBorradorSesionV2 | null;
 };
 
 type RestaurarBorradorInput = {
@@ -67,6 +77,33 @@ function posicionTecnicaValida(clave: string, registro: RegistroBorradorSesionV2
     return Number.isInteger(indice) && indice >= 0 && indice < series.length && !series[indice].completada;
   }
   return false;
+}
+
+function restaurarDescanso(
+  valor: unknown,
+  registro: RegistroBorradorSesionV2,
+  ahora: number,
+): DescansoBorradorSesionV2 | null {
+  if (!esObjeto(valor)) return null;
+  const ejercicioId = typeof valor.ejercicioId === "string" ? valor.ejercicioId : "";
+  const serieIndice = Number(valor.serieIndice);
+  const finEn = Number(valor.finEn);
+  const serie = Number.isInteger(serieIndice) ? registro[ejercicioId]?.[serieIndice] : undefined;
+  if (!serie?.completada || !Number.isFinite(finEn)) return null;
+  if (valor.tipo !== "automatico" && valor.tipo !== "manual") return null;
+  if (valor.vistaRetorno !== "lista" && valor.vistaRetorno !== "video") return null;
+  // Un descanso real nunca dura más de 15 minutos. Se acepta uno que terminó
+  // hace menos de cinco para que la pantalla pueda resolverlo y avanzar al
+  // volver; uno más antiguo ya no pertenece al flujo activo.
+  if (finEn > ahora + 15 * 60 * 1_000 || ahora - finEn > 5 * 60 * 1_000) return null;
+  return {
+    ejercicioId,
+    serieIndice,
+    finEn,
+    tipo: valor.tipo,
+    vistaRetorno: valor.vistaRetorno,
+    enFoco: valor.enFoco === true,
+  };
 }
 
 /**
@@ -164,6 +201,7 @@ export function restaurarBorradorSesionV2(
       };
     }
   }
+  const descanso = restaurarDescanso(valor.descanso, registro, ahora);
 
   return {
     version: VERSION,
@@ -178,5 +216,6 @@ export function restaurarBorradorSesionV2(
     unidadPeso,
     pasosTecnica,
     pausaTecnica,
+    descanso,
   };
 }

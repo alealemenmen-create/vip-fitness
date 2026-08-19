@@ -49,20 +49,7 @@ export async function obtenerSeguimientoIntegral(
   const hasta = fechas[0];
   const desde = fechas[fechas.length - 1];
 
-  const [
-    { data: perfil },
-    { data: rutinaRaw },
-    { data: plan },
-    { data: sesionesRaw },
-    { data: registroRaw },
-    { data: seguimientos },
-    { data: pesos },
-    { data: fotos },
-    { data: medidas },
-    { data: alertasImpulso },
-    { data: ultimaSesion },
-    { data: revisionesRaw },
-  ] = await Promise.all([
+  const resultadosBase = await Promise.all([
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).maybeSingle(),
     supabase
       .from("rutinas")
@@ -140,11 +127,33 @@ export async function obtenerSeguimientoIntegral(
       .limit(8),
   ]);
 
+  // `seguimiento_revisiones` es una ampliación para el panel del entrenador.
+  // Si todavía no está instalada, el alumno debe conservar acceso a todo su
+  // progreso base. En cambio, un fallo de cualquiera de las once fuentes
+  // esenciales sí invalida el resumen: mostrar ceros sería engañoso.
+  const errorBase = resultadosBase.slice(0, 11).find((resultado) => resultado.error)?.error;
+  if (errorBase) throw new Error("No fue posible reconstruir el seguimiento integral.", { cause: errorBase });
+
+  const [
+    { data: perfil },
+    { data: rutinaRaw },
+    { data: plan },
+    { data: sesionesRaw },
+    { data: registroRaw },
+    { data: seguimientos },
+    { data: pesos },
+    { data: fotos },
+    { data: medidas },
+    { data: alertasImpulso },
+    { data: ultimaSesion },
+    { data: revisionesRaw },
+  ] = resultadosBase;
+
   if (!perfil) return null;
   const rutina = rutinaRaw as unknown as FilaRutinaActiva | null;
   const sesiones = (sesionesRaw ?? []) as unknown as FilaSesion[];
   const sesionIds = sesiones.map((sesion) => sesion.id);
-  const [{ data: ejerciciosRaw }, { data: recomendaciones }] = await Promise.all([
+  const resultadosDetalle = await Promise.all([
     sesionIds.length
       ? supabase
           .from("sesion_ejercicios")
@@ -158,14 +167,18 @@ export async function obtenerSeguimientoIntegral(
       .gte("created_at", `${desde}T00:00:00`)
       .lte("created_at", `${hasta}T23:59:59`),
   ]);
+  const errorDetalle = resultadosDetalle.find((resultado) => resultado.error)?.error;
+  if (errorDetalle) throw new Error("No fue posible leer el detalle del seguimiento.", { cause: errorDetalle });
+  const [{ data: ejerciciosRaw }, { data: recomendaciones }] = resultadosDetalle;
   const ejercicios = (ejerciciosRaw ?? []) as unknown as FilaEjercicio[];
   const ejercicioIds = ejercicios.map((ejercicio) => ejercicio.id);
-  const { data: seriesRaw } = ejercicioIds.length
+  const { data: seriesRaw, error: errorSeries } = ejercicioIds.length
     ? await supabase
         .from("series_realizadas")
         .select("sesion_ejercicio_id, realizada")
         .in("sesion_ejercicio_id", ejercicioIds)
-    : { data: [] };
+    : { data: [], error: null };
+  if (errorSeries) throw new Error("No fue posible leer las series del seguimiento.", { cause: errorSeries });
   const series = (seriesRaw ?? []) as FilaSerie[];
 
   const ejerciciosPorSesion = new Map<string, FilaEjercicio[]>();
@@ -233,7 +246,18 @@ export async function obtenerSeguimientoIntegral(
     });
   }
 
-  const seguimientoPorFecha = new Map((seguimientos ?? []).map((seguimiento) => [seguimiento.fecha, seguimiento]));
+  // Filas antiguas podían existir completamente vacías. No deben acreditar
+  // recuperación ni aparentar que el alumno hizo un check-in real.
+  const seguimientosRespondidos = (seguimientos ?? []).filter((seguimiento) => [
+    seguimiento.entreno_hoy,
+    seguimiento.cumplio_alimentacion,
+    seguimiento.agua_litros,
+    seguimiento.horas_sueno,
+    seguimiento.energia,
+    seguimiento.molestias?.trim() || null,
+    seguimiento.comentario?.trim() || null,
+  ].some((valor) => valor !== null && valor !== undefined));
+  const seguimientoPorFecha = new Map(seguimientosRespondidos.map((seguimiento) => [seguimiento.fecha, seguimiento]));
   const pesoPorFecha = new Map((pesos ?? []).filter((peso) => peso.fecha >= desde).map((peso) => [peso.fecha, peso.peso_kg]));
   const dias: DiaSeguimiento[] = fechas.map((fecha) => {
     const seguimiento = seguimientoPorFecha.get(fecha);
@@ -278,7 +302,7 @@ export async function obtenerSeguimientoIntegral(
   const nutricionPct = plan?.kcal_objetivo
     ? limitarPct(registroNutricionPct * (0.3 + 0.7 * ((calidadNutricion ?? 0) / 100)))
     : null;
-  const recuperacionPct = limitarPct((seguimientos?.length ?? 0) / diasPeriodo * 100);
+  const recuperacionPct = limitarPct(seguimientosRespondidos.length / diasPeriodo * 100);
   const adherenciaGeneral = adherenciaPonderada([
     { valor: entrenamientoPct, peso: 45 },
     { valor: nutricionPct, peso: 40 },

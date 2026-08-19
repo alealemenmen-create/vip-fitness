@@ -19,7 +19,7 @@ export async function obtenerDatosPersonales(
   supabase: SupabaseServerClient,
   alumnoId: string
 ): Promise<DatosPersonales> {
-  const [{ data: perfil }, { data: alumnoPerfil }] = await Promise.all([
+  const [{ data: perfil, error: errorPerfil }, { data: alumnoPerfil, error: errorAlumno }] = await Promise.all([
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     supabase
       .from("alumno_perfil")
@@ -29,6 +29,9 @@ export async function obtenerDatosPersonales(
       .eq("user_id", alumnoId)
       .maybeSingle(),
   ]);
+
+  if (errorPerfil || errorAlumno) throw new Error("No fue posible cargar los datos personales.");
+  if (!perfil || !alumnoPerfil) throw new Error("El perfil personal está incompleto.");
 
   return {
     nombre: perfil?.nombre ?? "",
