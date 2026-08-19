@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState, useTransition, type FormEvent } from "react";
+import { useActionState, useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import { usePathname } from "next/navigation";
 import {
   Check,
@@ -53,6 +53,19 @@ export function PerfilV2({
         .join("") || "VIP",
     [datos.nombre]
   );
+
+  useEffect(() => {
+    const abrirSeccionIndicada = () => {
+      const destino = window.location.hash.slice(1);
+      if (destino === "datos" || destino === "descanso" || destino === "seguridad" || destino === "opinion") {
+        setSeccion(destino);
+        window.requestAnimationFrame(() => document.getElementById(destino)?.scrollIntoView({ block: "start", behavior: "smooth" }));
+      }
+    };
+    abrirSeccionIndicada();
+    window.addEventListener("hashchange", abrirSeccionIndicada);
+    return () => window.removeEventListener("hashchange", abrirSeccionIndicada);
+  }, []);
 
   const alternar = (siguiente: Seccion) => setSeccion((actual) => (actual === siguiente ? null : siguiente));
 
@@ -135,7 +148,7 @@ function SeccionPerfil({
   children: React.ReactNode;
 }) {
   return (
-    <section className={styles.profileV2Section} data-open={abierta}>
+    <section id={id} className={styles.profileV2Section} data-open={abierta}>
       <button type="button" aria-expanded={abierta} aria-controls={`perfil-v2-${id}`} onClick={onToggle}>
         <span className={styles.profileV2SectionIcon}>{icono}</span>
         <span className={styles.profileV2SectionCopy}>

@@ -1708,7 +1708,7 @@
 .profileV2Identity p { overflow: hidden; margin-top: 3px; color: #818682; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .profileV2Identity > svg { color: #1ed29d; }
 .profileV2Accordion { display: grid; gap: 7px; }
-.profileV2Section { overflow: hidden; border: 1px solid rgba(255,255,255,.05); border-radius: 11px; background: linear-gradient(112deg,#111212,#1c1e1d 58%,#151616); box-shadow: inset 0 1px 0 rgba(255,255,255,.03); }
+.profileV2Section { overflow: hidden; scroll-margin-top: 12px; border: 1px solid rgba(255,255,255,.05); border-radius: 11px; background: linear-gradient(112deg,#111212,#1c1e1d 58%,#151616); box-shadow: inset 0 1px 0 rgba(255,255,255,.03); }
 .profileV2Section[data-open="true"] { border-color: rgba(255,255,255,.075); background: linear-gradient(112deg,#101211,#1e211f 60%,#141615); }
 .profileV2Section > button { display: grid; width: 100%; min-height: 62px; grid-template-columns: 36px minmax(0,1fr) 18px; align-items: center; gap: 10px; padding: 0 12px; color: #e9eae6; text-align: left; }
 .profileV2Section > button > svg { color: #696e6a; transition: transform 180ms ease,color 180ms ease; }
