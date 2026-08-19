@@ -9,10 +9,14 @@ import { createClient } from "@/lib/supabase/server";
 export default async function PortalV2Layout({ children }: { children: React.ReactNode }) {
   const sesion = await obtenerSesionActualOpcional();
 
-  // La demostración privada sigue disponible sin sesión. Una cuenta de alumno
-  // autenticada, en cambio, entra sólo cuando Alejandro la habilitó. El equipo
+  // El piloto ya usa cuentas reales. Sin sesión siempre se vuelve al login:
+  // así el enlace corto no puede confundirse con la antigua demostración y
+  // cada alumno entra con su propia rutina, historial y progreso.
+  if (!sesion) redirect("/login");
+
+  // Una cuenta de alumno entra sólo cuando Alejandro la habilitó. El equipo
   // profesional conserva acceso para supervisar y probar el producto.
-  if (sesion?.rol === "alumno") {
+  if (sesion.rol === "alumno") {
     const supabase = await createClient();
     const { data: perfil } = await supabase
       .from("alumno_perfil")
