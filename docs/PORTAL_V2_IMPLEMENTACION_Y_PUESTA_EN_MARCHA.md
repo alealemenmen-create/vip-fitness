@@ -487,6 +487,11 @@ Validaciones locales completadas el 19-08-2026:
   mensual de `74` alumnos y Arena/Recompensas mantuvo un destino explícito, sin
   errores de consola. Si la lectura integral falla, Comunidad presenta reintento
   y regreso a Progreso; ya no convierte una caída de datos en contenido demo.
+- Arena carga clasificación, movimientos, desafíos y recompensas de forma
+  independiente. Una falla parcial conserva lo que sí respondió, explica qué
+  falta y ofrece reintento; una consulta fallida de alumnos ya no se presenta
+  como una clasificación vacía. Semana, Mes, Año y la guía desplegable fueron
+  ejercitados en navegador autenticado sin errores de consola.
 - La sesión activa conserva un borrador local validado y aislado por id durante
   48 horas. Una recarga recupera los últimos pesos, repeticiones, notas por
   ejercicio, nota general, tiempo y posición sin pisar series que el servidor

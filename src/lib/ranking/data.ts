@@ -142,9 +142,11 @@ const calcularRankingCacheado = unstable_cache(
 
 async function obtenerAlumnos(): Promise<Alumno[]> {
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("alumno_perfil")
     .select("user_id, perfiles!alumno_perfil_user_id_fkey(nombre)");
+
+  if (error) throw new Error("No fue posible leer los alumnos de la clasificación VIP.");
 
   return (data ?? [])
     .map((a) => ({

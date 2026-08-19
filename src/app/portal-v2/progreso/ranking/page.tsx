@@ -4,7 +4,7 @@ import { obtenerContextoAlumnoOpcional } from "@/lib/auth";
 import { obtenerMovimientosAlumno, obtenerRanking, type FilaRanking, type MovimientoPuntos } from "@/lib/ranking/data";
 import { rangoDePuntos } from "@/lib/ranking/puntos";
 import { obtenerTorneosPublicos } from "@/lib/torneos/data";
-import { obtenerRecompensasAlumnoVip } from "@/lib/recompensas/data";
+import { obtenerRecompensasAlumnoVip, type RecompensasAlumnoVip } from "@/lib/recompensas/data";
 import { ProgresoVipCompetitivo } from "@/components/student/ProgresoVipCompetitivo";
 import { TarjetaRangoActual } from "@/components/student/TarjetaRangoActual";
 import { GuiaPuntos } from "@/components/student/GuiaPuntos";
@@ -43,24 +43,52 @@ const MOVIMIENTOS_DEMO: MovimientoPuntos[] = [
   { id: "demo-3", categoria: "progreso", puntos: 75, titulo: "Seguimiento corporal", detalle: "Registro dentro de la ventana permitida", fecha: "2026-08-18" },
 ];
 
+type RankingsV2 = { semana: FilaRanking[]; mes: FilaRanking[]; anio: FilaRanking[] };
+type TorneosV2 = Awaited<ReturnType<typeof obtenerTorneosPublicos>>;
+
+async function cargarSeguro<T>(promesa: Promise<T>, mensaje: string): Promise<{ datos: T | null; error: string | null }> {
+  try {
+    return { datos: await promesa, error: null };
+  } catch {
+    return { datos: null, error: mensaje };
+  }
+}
+
 export default async function RankingV2Page() {
   const contexto = await obtenerContextoAlumnoOpcional();
   const alumnoId = contexto?.alumnoId ?? ID_DEMO;
   const nombre = contexto?.nombre ?? "Ale Mendoza";
-  const [rankings, movimientos, torneos, recompensas] = contexto
-    ? await Promise.all([
+  let rankings: RankingsV2;
+  let movimientos: MovimientoPuntos[];
+  let torneos: TorneosV2;
+  let recompensas: RecompensasAlumnoVip;
+  let erroresCarga: string[] = [];
+  let rankingNoDisponible = false;
+
+  if (contexto) {
+    const [cargaRankings, cargaMovimientos, cargaTorneos, cargaRecompensas] = await Promise.all([
+      cargarSeguro(
         Promise.all([obtenerRanking("semana"), obtenerRanking("mes"), obtenerRanking("anio")])
           .then(([semana, mes, anio]) => ({ semana, mes, anio })),
-        obtenerMovimientosAlumno(alumnoId),
-        obtenerTorneosPublicos(alumnoId),
-        obtenerRecompensasAlumnoVip(alumnoId),
-      ])
-    : [
-        { semana: rankingDemo(), mes: rankingDemo(2.25), anio: rankingDemo(7.5) },
-        MOVIMIENTOS_DEMO,
-        [],
-        { disponible: false, saldo: 900, catalogo: [], canjes: [] },
-      ];
+        "No pudimos cargar la clasificación.",
+      ),
+      cargarSeguro(obtenerMovimientosAlumno(alumnoId), "No pudimos cargar tus movimientos de puntos."),
+      cargarSeguro(obtenerTorneosPublicos(alumnoId), "No pudimos cargar los desafíos activos."),
+      cargarSeguro(obtenerRecompensasAlumnoVip(alumnoId), "No pudimos cargar tus recompensas."),
+    ]);
+    rankings = cargaRankings.datos ?? { semana: [], mes: [], anio: [] };
+    rankingNoDisponible = Boolean(cargaRankings.error);
+    movimientos = cargaMovimientos.datos ?? [];
+    torneos = cargaTorneos.datos ?? [];
+    recompensas = cargaRecompensas.datos ?? { disponible: false, error: cargaRecompensas.error, saldo: 0, catalogo: [], canjes: [] };
+    erroresCarga = [cargaRankings.error, cargaMovimientos.error, cargaTorneos.error]
+      .filter((error): error is string => Boolean(error));
+  } else {
+    rankings = { semana: rankingDemo(), mes: rankingDemo(2.25), anio: rankingDemo(7.5) };
+    movimientos = MOVIMIENTOS_DEMO;
+    torneos = [];
+    recompensas = { disponible: false, error: null, saldo: 900, catalogo: [], canjes: [] };
+  }
   const saldo = recompensas.saldo;
 
   return (
@@ -81,6 +109,19 @@ export default async function RankingV2Page() {
           <ShieldCheck size={18} className="mt-0.5 shrink-0 text-vip" />
           <div><strong className="block text-xs text-text">Vista directa protegida</strong><p className="mt-1 text-[10px] leading-relaxed text-text-secondary">Puedes recorrer todo el sistema sin contraseña. Los puntos, retos y premios reales aparecen al entrar con una cuenta del piloto; esta demostración no escribe ni descuenta nada.</p></div>
         </Card>
+      ) : null}
+
+      {erroresCarga.length ? (
+        <div role="alert">
+          <Card className="ranked-casino-card flex items-start gap-3" padding="p-3">
+            <ShieldCheck size={18} className="mt-0.5 shrink-0 text-vip" />
+            <div className="min-w-0 flex-1">
+              <strong className="block text-xs text-text">Parte de Arena necesita reconectarse</strong>
+              <p className="mt-1 text-[10px] leading-relaxed text-text-secondary">{erroresCarga.join(" ")} Las demás secciones siguen disponibles y tus puntos no se modificaron.</p>
+              <a className="mt-2 inline-flex min-h-9 items-center rounded-full border border-white/10 px-4 text-[10px] font-bold text-white" href="/portal-v2/progreso/ranking">Intentar nuevamente</a>
+            </div>
+          </Card>
+        </div>
       ) : null}
 
       <TarjetaRangoActual filas={rankings.semana} alumnoId={alumnoId} />
@@ -108,7 +149,7 @@ export default async function RankingV2Page() {
         )}
       </section>
 
-      <ProgresoVipCompetitivo rankings={rankings} alumnoId={alumnoId} movimientos={movimientos} />
+      <ProgresoVipCompetitivo rankings={rankings} alumnoId={alumnoId} movimientos={movimientos} rankingNoDisponible={rankingNoDisponible} />
     </section>
   );
 }

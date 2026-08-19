@@ -27,10 +27,12 @@ export function ProgresoVipCompetitivo({
   rankings,
   alumnoId,
   movimientos,
+  rankingNoDisponible = false,
 }: {
   rankings: Record<PeriodoRanking, FilaRanking[]>;
   alumnoId: string;
   movimientos: MovimientoPuntos[];
+  rankingNoDisponible?: boolean;
 }) {
   const [periodo, setPeriodo] = useState<PeriodoRanking>("semana");
   const filas = rankings[periodo];
@@ -39,7 +41,7 @@ export function ProgresoVipCompetitivo({
   const rival = propia ? rivalInmediatamenteSuperior(filas, propia.puntos) : null;
 
   if (!propia) {
-    return <Card><p className="text-body text-text-secondary">Aún no estás participando en Progreso VIP.</p></Card>;
+    return <Card><p className="text-body text-text-secondary">{rankingNoDisponible ? "No pudimos confirmar tu posición en este momento. Intenta nuevamente." : "Aún no estás participando en Progreso VIP."}</p></Card>;
   }
 
   const periodoInfo = PERIODOS.find((p) => p.id === periodo)!;

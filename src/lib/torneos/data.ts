@@ -19,7 +19,8 @@ export type CelebracionTorneo = {
 
 async function obtenerNombres(admin: AdminClient, ids: string[]): Promise<Map<string, string>> {
   if (ids.length === 0) return new Map();
-  const { data } = await admin.from("perfiles").select("id, nombre").in("id", ids);
+  const { data, error } = await admin.from("perfiles").select("id, nombre").in("id", ids);
+  if (error) throw new Error("No fue posible leer los participantes de la Arena VIP.");
   return new Map((data ?? []).map((p) => [p.id, p.nombre]));
 }
 
@@ -149,21 +150,25 @@ export async function obtenerTorneosAdmin(): Promise<TorneoAdmin[]> {
  */
 export async function obtenerTorneosPublicos(alumnoId: string): Promise<TorneoPublico[]> {
   const admin = createAdminClient();
-  const { data: torneos } = await admin
+  const { data: torneos, error: errorTorneos } = await admin
     .from("torneos")
     .select("*")
     .eq("cerrado", false)
     .order("fecha_inicio", { ascending: true });
 
+  if (errorTorneos) throw new Error("No fue posible leer los desafíos de la Arena VIP.");
+
   if (!torneos || torneos.length === 0) return [];
 
-  const { data: todosParticipantes } = await admin
+  const { data: todosParticipantes, error: errorParticipantes } = await admin
     .from("torneo_participantes")
     .select("torneo_id, alumno_id, estado, resultado_manual")
     .in(
       "torneo_id",
       torneos.map((t) => t.id)
     );
+
+  if (errorParticipantes) throw new Error("No fue posible leer los participantes de la Arena VIP.");
 
   const [nombres, apuestas] = await Promise.all([
     obtenerNombres(admin, [...new Set((todosParticipantes ?? []).map((p) => p.alumno_id))]),
