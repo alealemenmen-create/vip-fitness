@@ -725,7 +725,7 @@ En vista de video el mismo estado se presenta como una secuencia de pantallas:
 - Si ya existe un descanso automático, el reloj abre ese mismo temporizador; no
   crea una cuenta paralela.
 
-### 18.6 Impulso VIP dentro de la sesión
+### 18.6 Alejandro · Impulso VIP dentro de la sesión
 
 La versión local no exige RIR ni terminología técnica. Después de completar una
 serie, el alumno describe la sensación con una de cuatro respuestas: `Podía hacer
@@ -754,3 +754,8 @@ Esta primera integración es deliberadamente local porque la sesión v2 todavía
 usa ejercicios de demostración. Al conectar los identificadores reales, la misma
 interacción deberá guardar la respuesta en el motor histórico de Impulso VIP del
 portal original.
+
+La decisión en vivo se rige por `docs/ALEJANDRO_IMPULSO_VIP.md`: seguridad antes
+que progresión, repeticiones antes que carga y saltos limitados por equipo y por
+confianza acumulada. El alumno responde con lenguaje natural; “perdí la técnica”
+y “sentí una molestia” funcionan como frenos explícitos.

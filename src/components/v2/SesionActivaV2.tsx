@@ -29,6 +29,14 @@ import {
   Zap,
 } from "lucide-react";
 import { avisarFinDescansoV2, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
+import {
+  esRespuestaPositivaAlejandro,
+  evaluarSiguienteSerieAlejandro,
+  type AccionAlejandro,
+  type ConfianzaAlejandro,
+  type MotivoAlejandro,
+  type RespuestaAlejandro,
+} from "@/lib/impulso-vip/alejandro";
 import styles from "./SesionActivaV2.module.css";
 
 type SerieRegistrada = {
@@ -60,15 +68,18 @@ type DescansoActivo = {
 type PanelSesion = "consejo" | "historial" | "sustituir" | "reordenar" | "notas" | "ajustes" | "informacion" | "impulso" | null;
 type VistaSesion = "lista" | "video" | "descanso";
 type UnidadPeso = "kg" | "lb";
-type RespuestaImpulso = "muy_facil" | "facil" | "mas" | "justo" | "dificil" | "no_pude";
-type TipoCargaImpulso = "mancuernas" | "barra" | "maquina" | "libre";
 
 type AjusteImpulso = {
-  respuesta: RespuestaImpulso | null;
+  respuesta: RespuestaAlejandro | null;
   mensaje: string;
   serieObjetivo: number | null;
   aplicado: boolean;
   origen: "automatico" | "respuesta";
+  accion: AccionAlejandro;
+  confianza: ConfianzaAlejandro;
+  motivos: MotivoAlejandro[];
+  bloqueaProgresion: boolean;
+  incrementoAplicado: number;
 };
 
 const EJERCICIOS: EjercicioSesion[] = [
@@ -108,33 +119,13 @@ function pesoHistorico(kilos: number, unidad: UnidadPeso) {
   return `${valor} ${unidad}`;
 }
 
-function formatearCarga(valor: number) {
-  return String(Math.round(valor * 10) / 10);
-}
-
-function tipoCargaImpulso(ejercicio: EjercicioSesion): TipoCargaImpulso {
-  const referencia = `${ejercicio.nombre} ${ejercicio.equipo}`.toLocaleLowerCase("es");
-  if (referencia.includes("mancuerna")) return "mancuernas";
-  if (referencia.includes("barra")) return "barra";
-  if (referencia.includes("máquina") || referencia.includes("maquina") || referencia.includes("prensa")) return "maquina";
-  return "libre";
-}
-
-function convertirSaltoImpulso(kilos: number, unidad: UnidadPeso) {
-  if (unidad === "kg") return kilos;
-  return Math.max(5, Math.round((kilos * 2.20462) / 5) * 5);
-}
-
-function saltoImpulso(ejercicio: EjercicioSesion, respuesta: "mas" | "facil" | "muy_facil", unidad: UnidadPeso) {
-  const tipo = tipoCargaImpulso(ejercicio);
-  const kilos = tipo === "mancuernas"
-    ? 2.5
-    : tipo === "barra"
-      ? respuesta === "mas" ? 5 : 10
-      : tipo === "maquina"
-        ? respuesta === "muy_facil" ? 15 : respuesta === "facil" ? 10 : 5
-        : 0;
-  return convertirSaltoImpulso(kilos, unidad);
+function etiquetaAccionAlejandro(ajuste: AjusteImpulso) {
+  if (ajuste.origen === "automatico") return "Preparación automática";
+  if (ajuste.accion === "detener_consultar") return "Progresión detenida";
+  if (ajuste.accion === "subir_reps") return "Primero repeticiones";
+  if (ajuste.accion === "subir_carga") return "Carga ajustada";
+  if (ajuste.accion === "reducir") return "Ajuste de seguridad";
+  return "Carga consolidada";
 }
 
 function desplazarPosicionSerie(ejercicioIndice: number, serieIndice: number, direccion: -1 | 1) {
@@ -179,6 +170,7 @@ export function SesionActivaV2() {
   const [sonidoDescansoActivo, setSonidoDescansoActivo] = useState(true);
   const [unidadPeso, setUnidadPeso] = useState<UnidadPeso>("kg");
   const [impulsos, setImpulsos] = useState<Record<string, AjusteImpulso>>({});
+  const [respuestasAlejandro, setRespuestasAlejandro] = useState<Record<string, Record<number, RespuestaAlejandro>>>({});
   const gestoInicioX = useRef<number | null>(null);
   const descansoAvisadoRef = useRef<string | null>(null);
   const paginaSesionRef = useRef<HTMLDivElement | null>(null);
@@ -304,34 +296,63 @@ export function SesionActivaV2() {
         ...actuales,
         [ejercicio.id]: {
           respuesta: null,
-          mensaje: "Ejercicio completado. La próxima progresión quedará limitada a un solo salto de peso.",
+          mensaje: "Ejercicio completado. Alejandro guardará la señal de hoy para decidir la próxima sesión con el historial completo.",
           serieObjetivo: null,
           aplicado: false,
           origen: "automatico",
+          accion: "preparar",
+          confianza: "aprendiendo",
+          motivos: ["base_automatica"],
+          bloqueaProgresion: false,
+          incrementoAplicado: 0,
         },
       }));
       return;
     }
 
     const objetivoActual = series[serieObjetivo];
-    const pesoBase = objetivoActual.peso.trim() || serieBase.peso.trim();
-    const repsBase = objetivoActual.reps.trim() || serieBase.reps.trim();
+    const pesoBaseTexto = objetivoActual.peso.trim() || serieBase.peso.trim();
+    const pesoBaseNumero = pesoBaseTexto === "" ? null : Number(pesoBaseTexto.replace(",", "."));
+    const repsPlan = ejercicio.repeticiones[serieObjetivo];
+    const decision = evaluarSiguienteSerieAlejandro({
+      nombreEjercicio: ejercicio.nombre,
+      equipo: ejercicio.equipo,
+      unidad: unidadPeso,
+      objetivo: "masa",
+      rango: { min: Math.max(1, repsPlan - 2), max: repsPlan },
+      pesoBase: Number.isFinite(pesoBaseNumero) ? pesoBaseNumero : null,
+      repsRealizadas: Number.parseInt(serieBase.reps, 10) || ejercicio.repeticiones[serieIndice],
+      repsObjetivoActual: repsPlan,
+      respuesta: null,
+      tecnicaLimpia: true,
+      serieCompletada: true,
+      rachaPositivaPrevia: 0,
+      sesionesExitosasConsecutivas: 0,
+      caidaRendimiento: false,
+    });
     setRegistro((actual) => ({
       ...actual,
       [ejercicio.id]: actual[ejercicio.id].map((serie, indice) => indice === serieObjetivo
-        ? { ...serie, peso: pesoBase, reps: repsBase }
+        ? {
+          ...serie,
+          peso: decision.pesoObjetivo === null ? pesoBaseTexto : String(decision.pesoObjetivo),
+          reps: String(decision.repsObjetivo),
+        }
         : serie),
     }));
     setImpulsos((actuales) => ({
       ...actuales,
       [ejercicio.id]: {
         respuesta: null,
-        mensaje: pesoBase
-          ? `Próxima serie preparada en ${pesoBase} ${unidadPeso}. Solo subiremos un salto si tú confirmas que sobró margen.`
-          : `Próxima serie preparada en ${repsBase} repeticiones. Solo aumentaremos si tú confirmas que sobró margen.`,
+        mensaje: decision.mensaje,
         serieObjetivo,
         aplicado: true,
         origen: "automatico",
+        accion: decision.accion,
+        confianza: decision.confianza,
+        motivos: decision.motivos,
+        bloqueaProgresion: decision.bloqueaProgresion,
+        incrementoAplicado: decision.incrementoAplicado,
       },
     }));
   };
@@ -503,7 +524,7 @@ export function SesionActivaV2() {
     setUnidadPeso(siguienteUnidad);
   };
 
-  const resolverImpulso = (respuesta: RespuestaImpulso) => {
+  const resolverImpulso = (respuesta: RespuestaAlejandro) => {
     const series = registro[ejercicioActivo.id];
     const serieBaseIndice = series.reduce(
       (ultima, serie, indice) => serie.completada ? indice : ultima,
@@ -512,84 +533,83 @@ export function SesionActivaV2() {
     if (serieBaseIndice < 0) return;
 
     const serieObjetivo = series.findIndex((serie, indice) => indice > serieBaseIndice && !serie.completada);
-    if (serieObjetivo < 0) {
-      setImpulsos((actuales) => ({
-        ...actuales,
-        [ejercicioActivo.id]: {
-          respuesta,
-          mensaje: "Respuesta guardada para ajustar este ejercicio en tu próxima sesión.",
-          serieObjetivo: null,
-          aplicado: false,
-          origen: "respuesta",
-        },
-      }));
-      return;
-    }
-
     const serieBase = series[serieBaseIndice];
-    const pesoBase = Number(serieBase.peso.replace(",", "."));
-    const tienePeso = Number.isFinite(pesoBase) && serieBase.peso.trim() !== "";
+    const pesoNumero = serieBase.peso.trim() === "" ? null : Number(serieBase.peso.replace(",", "."));
     const repsBase = Math.max(1, Number.parseInt(serieBase.reps, 10) || ejercicioActivo.repeticiones[serieBaseIndice]);
-    let pesoObjetivo = serieBase.peso;
-    let repsObjetivo = repsBase;
-    let instruccion = "Mantén la carga y repite con la misma técnica.";
-
-    if (respuesta === "mas" || respuesta === "facil" || respuesta === "muy_facil") {
-      const repsExtra = respuesta === "muy_facil" ? 3 : respuesta === "facil" ? 2 : 1;
-      if (tienePeso) {
-        const salto = saltoImpulso(ejercicioActivo, respuesta, unidadPeso);
-        if (salto === 0) {
-          repsObjetivo = repsBase + repsExtra;
-          instruccion = `Añade ${repsExtra} ${repsExtra === 1 ? "repetición" : "repeticiones"}: busca ${repsObjetivo} con ejecución limpia.`;
-        } else {
-          pesoObjetivo = formatearCarga(pesoBase + salto);
-          instruccion = `${respuesta === "muy_facil" ? "Estímulo claramente bajo" : respuesta === "facil" ? "Carga cómoda" : "Sobró margen"}: sube a ${pesoObjetivo} ${unidadPeso} (+${salto} ${unidadPeso}) según el equipo.`;
-        }
-      } else {
-        repsObjetivo = repsBase + repsExtra;
-        instruccion = `Añade ${repsExtra} ${repsExtra === 1 ? "repetición" : "repeticiones"}: busca ${repsObjetivo} con ejecución limpia.`;
-      }
-    } else if (respuesta === "dificil") {
-      if (tienePeso) {
-        const tipo = tipoCargaImpulso(ejercicioActivo);
-        const kilos = tipo === "mancuernas" ? 2.5 : 5;
-        const salto = convertirSaltoImpulso(kilos, unidadPeso);
-        pesoObjetivo = formatearCarga(Math.max(0, pesoBase - salto));
-        instruccion = `Baja un solo nivel a ${pesoObjetivo} ${unidadPeso} y prioriza el control.`;
-      } else {
-        repsObjetivo = Math.max(1, repsBase - 1);
-        instruccion = `Baja a ${repsObjetivo} repeticiones y conserva la técnica.`;
-      }
-    } else if (respuesta === "no_pude") {
-      repsObjetivo = Math.max(1, repsBase - 2);
-      if (tienePeso) {
-        const tipo = tipoCargaImpulso(ejercicioActivo);
-        const kilos = tipo === "mancuernas" ? 5 : 10;
-        const saltoSeguro = convertirSaltoImpulso(kilos, unidadPeso);
-        pesoObjetivo = formatearCarga(Math.max(0, pesoBase - saltoSeguro));
-        instruccion = `Reduce a ${pesoObjetivo} ${unidadPeso} y completa ${repsObjetivo} repeticiones seguras.`;
-      } else {
-        instruccion = `Haz ${repsObjetivo} repeticiones seguras antes de volver a progresar.`;
-      }
+    const repsPlan = ejercicioActivo.repeticiones[Math.max(0, serieObjetivo)] ?? ejercicioActivo.repeticiones[serieBaseIndice];
+    const respuestasPrevias = respuestasAlejandro[ejercicioActivo.id] ?? {};
+    let rachaPositivaPrevia = 0;
+    for (let indice = serieBaseIndice - 1; indice >= 0; indice -= 1) {
+      const previa = respuestasPrevias[indice];
+      if (previa && esRespuestaPositivaAlejandro(previa)) rachaPositivaPrevia += 1;
+      else break;
     }
+    const serieAnterior = serieBaseIndice > 0 ? series[serieBaseIndice - 1] : null;
+    const repsAnteriores = serieAnterior?.completada ? Number.parseInt(serieAnterior.reps, 10) : Number.NaN;
+    const pesoAnterior = serieAnterior?.completada && serieAnterior.peso.trim() !== ""
+      ? Number(serieAnterior.peso.replace(",", "."))
+      : Number.NaN;
+    const caidaRendimiento = Number.isFinite(repsAnteriores)
+      && repsBase <= Math.floor(repsAnteriores * 0.8)
+      && (
+        Number.isFinite(pesoAnterior)
+          ? pesoNumero !== null && pesoNumero <= pesoAnterior
+          : pesoNumero === null
+      );
+    const decision = evaluarSiguienteSerieAlejandro({
+      nombreEjercicio: ejercicioActivo.nombre,
+      equipo: ejercicioActivo.equipo,
+      unidad: unidadPeso,
+      objetivo: "masa",
+      rango: { min: Math.max(1, repsPlan - 2), max: repsPlan },
+      pesoBase: Number.isFinite(pesoNumero) ? pesoNumero : null,
+      repsRealizadas: repsBase,
+      repsObjetivoActual: repsPlan,
+      respuesta,
+      tecnicaLimpia: respuesta !== "tecnica",
+      serieCompletada: respuesta !== "fallo",
+      rachaPositivaPrevia,
+      sesionesExitosasConsecutivas: 0,
+      caidaRendimiento,
+    });
 
-    setRegistro((actual) => ({
-      ...actual,
-      [ejercicioActivo.id]: actual[ejercicioActivo.id].map((serie, indice) => indice === serieObjetivo
-        ? { ...serie, reps: String(repsObjetivo), peso: pesoObjetivo }
-        : serie),
+    setRespuestasAlejandro((actuales) => ({
+      ...actuales,
+      [ejercicioActivo.id]: {
+        ...(actuales[ejercicioActivo.id] ?? {}),
+        [serieBaseIndice]: respuesta,
+      },
     }));
+    if (serieObjetivo >= 0) {
+      setRegistro((actual) => ({
+        ...actual,
+        [ejercicioActivo.id]: actual[ejercicioActivo.id].map((serie, indice) => indice === serieObjetivo
+          ? {
+            ...serie,
+            reps: String(decision.repsObjetivo),
+            peso: decision.pesoObjetivo === null ? serieBase.peso : String(decision.pesoObjetivo),
+          }
+          : serie),
+      }));
+    }
     setImpulsos((actuales) => ({
       ...actuales,
       [ejercicioActivo.id]: {
         respuesta,
-        mensaje: instruccion,
-        serieObjetivo,
-        aplicado: true,
+        mensaje: serieObjetivo < 0 && decision.accion !== "detener_consultar"
+          ? `${decision.mensaje} Guardaré esta señal para la próxima sesión.`
+          : decision.mensaje,
+        serieObjetivo: serieObjetivo < 0 ? null : serieObjetivo,
+        aplicado: serieObjetivo >= 0,
         origen: "respuesta",
+        accion: decision.accion,
+        confianza: decision.confianza,
+        motivos: decision.motivos,
+        bloqueaProgresion: decision.bloqueaProgresion,
+        incrementoAplicado: decision.incrementoAplicado,
       },
     }));
-    if (!descansoEnFoco) {
+    if (serieObjetivo >= 0 && !descansoEnFoco && decision.accion !== "detener_consultar") {
       setEjercicioActivoId(ejercicioActivo.id);
       setSerieActivaIndice(serieObjetivo);
       setEjercicioExpandidoId(ejercicioActivo.id);
@@ -706,12 +726,12 @@ export function SesionActivaV2() {
             <div className={styles.videoIdentity}><small>SERIE {ejercicioActivo.codigo}</small><h1>{ejercicioActivo.nombre}</h1><p>{ejercicioActivo.equipo}</p></div>
           </div>
           <div className={styles.videoActions}>
-            <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Impulso VIP</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={13} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={13} />Reordenar</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>
+            <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={13} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={13} />Reordenar</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>
           </div>
           {impulsoActivo ? (
-            <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
+            <button type="button" className={styles.impulsoNotice} data-safety={impulsoActivo.bloqueaProgresion || undefined} onClick={() => setPanel("impulso")}>
               <Zap size={15} fill="currentColor" />
-              <span><strong>Impulso VIP</strong><small>{impulsoActivo.mensaje}</small></span>
+              <span><strong>Alejandro</strong><small>{impulsoActivo.mensaje}</small></span>
               <b>{impulsoActivo.serieObjetivo === null ? "Guardado" : `Serie ${impulsoActivo.serieObjetivo + 1}`}</b>
             </button>
           ) : null}
@@ -748,11 +768,11 @@ export function SesionActivaV2() {
                   <button type="button" className={styles.exerciseMedia} onClick={() => setVista("video")} aria-label={`Ver demostración de ${ejercicio.nombre}`}><Image src={ejercicio.foto} alt="" fill sizes="70px" priority={ejercicio.codigo === "A"} /><i><Play size={17} fill="currentColor" /></i></button>
                   <button type="button" className={styles.exerciseHeadingToggle} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)}><h1>{ejercicio.nombre}</h1><p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p></button>
                 </div>
-                <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Impulso VIP</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={14} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={14} />Reordenar series</button></div>
+                <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={14} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={14} />Reordenar series</button></div>
                 {impulsoEjercicio ? (
-                  <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
+                  <button type="button" className={styles.impulsoNotice} data-safety={impulsoEjercicio.bloqueaProgresion || undefined} onClick={() => setPanel("impulso")}>
                     <Zap size={15} fill="currentColor" />
-                    <span><strong>Impulso VIP</strong><small>{impulsoEjercicio.mensaje}</small></span>
+                    <span><strong>Alejandro</strong><small>{impulsoEjercicio.mensaje}</small></span>
                     <b>{impulsoEjercicio.serieObjetivo === null ? "Guardado" : `Serie ${impulsoEjercicio.serieObjetivo + 1}`}</b>
                   </button>
                 ) : null}
@@ -858,12 +878,12 @@ function PanelAuxiliar({
   cambiarUnidadPeso: (unidad: UnidadPeso) => void;
   impulsoActual: AjusteImpulso | null;
   puedeCalibrarImpulso: boolean;
-  resolverImpulso: (respuesta: RespuestaImpulso) => void;
+  resolverImpulso: (respuesta: RespuestaAlejandro) => void;
   guardarNota: (nota: string) => void;
   cerrar: () => void;
 }) {
   const [notaBorrador, setNotaBorrador] = useState(notaInicial);
-  const titulos = { consejo: "Consejo del entrenador", historial: "Historial del ejercicio", sustituir: "Sustituir ejercicio", reordenar: "Reordenar series", notas: "Notas del ejercicio", ajustes: "Ajustes de la sesión", informacion: "Información del ejercicio", impulso: "Impulso VIP" };
+  const titulos = { consejo: "Consejo del entrenador", historial: "Historial del ejercicio", sustituir: "Sustituir ejercicio", reordenar: "Reordenar series", notas: "Notas del ejercicio", ajustes: "Ajustes de la sesión", informacion: "Información del ejercicio", impulso: "Alejandro · Impulso VIP" };
   return (
     <div className={styles.sheetBackdrop} role="presentation" onClick={cerrar}>
       <section className={styles.auxSheet} role="dialog" aria-modal="true" aria-label={titulos[tipo]} onClick={(evento) => evento.stopPropagation()}>
@@ -873,21 +893,28 @@ function PanelAuxiliar({
         {tipo === "historial" ? <div className={styles.historyGrid}><span>Fecha</span><span>Reps</span><span>Peso</span><strong>11 ago.</strong><strong>10 · 10 · 10</strong><strong>{pesoHistorico(42, unidadPeso)}</strong><strong>4 ago.</strong><strong>12 · 10 · 10</strong><strong>{pesoHistorico(40, unidadPeso)}</strong></div> : null}
         {tipo === "impulso" ? (
           <div className={styles.impulsoPanel}>
-            <p className={styles.impulsoIntro}>Cuéntanos cómo sentiste la última serie completada. Ajustaremos la próxima serie sin pedirte cálculos ni escalas técnicas.</p>
-            <div className={styles.impulsoRule}><Zap size={15} fill="currentColor" /><span><strong>Progresión según el equipo</strong><small>Impulso prepara la siguiente serie sin subirla. Cuando confirmas margen, calcula un salto distinto para mancuernas, barra o máquina.</small></span></div>
+            <p className={styles.impulsoIntro}>Alejandro combina lo que acabas de hacer con tu historial. Tú respondes en palabras simples; él decide sin obligarte a conocer escalas técnicas.</p>
+            <div className={styles.impulsoRule}><Zap size={15} fill="currentColor" /><span><strong>Primero calidad, luego repeticiones y después peso</strong><small>El salto cambia según mancuernas, barra o máquina y crece únicamente cuando las señales se repiten.</small></span></div>
             {puedeCalibrarImpulso ? (
-              <div className={styles.impulsoOptions} role="group" aria-label="Sensación de la última serie">
-                <button type="button" aria-pressed={impulsoActual?.respuesta === "muy_facil"} onClick={() => resolverImpulso("muy_facil")}><strong>Estuvo muy fácil</strong><small>Aumento mayor según equipo</small></button>
-                <button type="button" aria-pressed={impulsoActual?.respuesta === "facil"} onClick={() => resolverImpulso("facil")}><strong>Estuvo fácil</strong><small>Aumento medio según equipo</small></button>
-                <button type="button" aria-pressed={impulsoActual?.respuesta === "mas"} onClick={() => resolverImpulso("mas")}><strong>Podía hacer más</strong><small>Subir un nivel</small></button>
-                <button type="button" aria-pressed={impulsoActual?.respuesta === "justo"} onClick={() => resolverImpulso("justo")}><strong>Estuvo justo</strong><small>Mantener el objetivo</small></button>
-                <button type="button" aria-pressed={impulsoActual?.respuesta === "dificil"} onClick={() => resolverImpulso("dificil")}><strong>Muy difícil</strong><small>Reducir un poco</small></button>
-                <button type="button" aria-pressed={impulsoActual?.respuesta === "no_pude"} onClick={() => resolverImpulso("no_pude")}><strong>No la completé</strong><small>Priorizar seguridad</small></button>
-              </div>
+              <>
+                <div className={styles.impulsoOptions} role="group" aria-label="Sensación de la última serie">
+                  <button type="button" aria-pressed={impulsoActual?.respuesta === "muy_facil"} onClick={() => resolverImpulso("muy_facil")}><strong>Estuvo muy fácil</strong><small>Progresar con confianza</small></button>
+                  <button type="button" aria-pressed={impulsoActual?.respuesta === "facil"} onClick={() => resolverImpulso("facil")}><strong>Estuvo fácil</strong><small>Había margen claro</small></button>
+                  <button type="button" aria-pressed={impulsoActual?.respuesta === "mas"} onClick={() => resolverImpulso("mas")}><strong>Podía hacer una más</strong><small>Progreso mínimo</small></button>
+                  <button type="button" aria-pressed={impulsoActual?.respuesta === "justo"} onClick={() => resolverImpulso("justo")}><strong>Estuvo justo</strong><small>Consolidar el estímulo</small></button>
+                  <button type="button" aria-pressed={impulsoActual?.respuesta === "dificil"} onClick={() => resolverImpulso("dificil")}><strong>Demasiado difícil</strong><small>Ajustar para completar</small></button>
+                  <button type="button" aria-pressed={impulsoActual?.respuesta === "fallo"} onClick={() => resolverImpulso("fallo")}><strong>No la completé</strong><small>Recuperar una serie limpia</small></button>
+                </div>
+                <div className={styles.alejandroSafety} role="group" aria-label="Seguridad de la última serie">
+                  <button type="button" aria-pressed={impulsoActual?.respuesta === "tecnica"} onClick={() => resolverImpulso("tecnica")}><strong>Perdí la técnica</strong><small>Bajar un nivel</small></button>
+                  <button type="button" aria-pressed={impulsoActual?.respuesta === "molestia"} onClick={() => resolverImpulso("molestia")}><strong>Sentí una molestia</strong><small>Detener y revisar</small></button>
+                </div>
+              </>
             ) : <p className={styles.impulsoEmpty}>Completa al menos una serie de este ejercicio para activar una recomendación.</p>}
             {impulsoActual ? (
-              <div className={styles.impulsoResult}><Check size={16} strokeWidth={3} /><span><strong>{impulsoActual.origen === "automatico" ? "Preparación automática" : "Ajuste confirmado"}</strong><small>{impulsoActual.mensaje}</small></span><b>{impulsoActual.serieObjetivo === null ? "Próxima sesión" : `Serie ${impulsoActual.serieObjetivo + 1}`}</b></div>
+              <div className={`${styles.impulsoResult} ${impulsoActual.bloqueaProgresion ? styles.impulsoResultSafety : ""}`}><Check size={16} strokeWidth={3} /><span><strong>{etiquetaAccionAlejandro(impulsoActual)}</strong><small>{impulsoActual.mensaje}</small></span><b>{impulsoActual.bloqueaProgresion ? "Revisar" : impulsoActual.serieObjetivo === null ? "Próxima sesión" : `Serie ${impulsoActual.serieObjetivo + 1}`}</b></div>
             ) : null}
+            {impulsoActual ? <div className={styles.alejandroConfidence}><span>{impulsoActual.bloqueaProgresion ? "Criterio aplicado" : "Confianza de Alejandro"}</span><b>{impulsoActual.bloqueaProgresion ? "Seguridad prioritaria" : impulsoActual.confianza === "alta" ? "Patrón confirmado" : impulsoActual.confianza === "media" ? "Confirmando" : "Aprendiendo"}</b></div> : null}
             <button type="button" className={styles.impulsoDone} onClick={cerrar}>Listo</button>
           </div>
         ) : null}
