@@ -710,6 +710,20 @@ Validaciones locales completadas el 19-08-2026:
 
 1. Crear un respaldo lógico verificable antes del próximo cambio de esquema; el
    plan gratuito actual no incluye respaldos automáticos.
+   La `SUPABASE_SERVICE_ROLE_KEY` no sirve como contraseña de PostgreSQL ni
+   autoriza la CLI de administración. Para un respaldo real hay que ejecutar
+   `supabase login`, enlazar `iowuocmxqwuddickiofi` y proporcionar la contraseña
+   de base de datos mediante el almacén seguro de la CLI o
+   `SUPABASE_DB_PASSWORD`; nunca debe escribirse en Git ni en este documento.
+   El corte debe conservar, como archivos separados, esquema, datos y roles:
+   `supabase db dump --linked -f schema.sql`,
+   `supabase db dump --linked --data-only -f data.sql` y
+   `supabase db dump --linked --role-only -f roles.sql`. Después se verifican
+   tamaño, fecha, tablas críticas y una restauración en una base aislada.
+   Los objetos de Storage requieren copia separada: el respaldo de PostgreSQL
+   conserva metadatos, pero no recupera un archivo físico eliminado.
+   Referencias oficiales: [Database Backups](https://supabase.com/docs/guides/platform/backups)
+   y [CLI db dump](https://supabase.com/docs/reference/cli/supabase-db-dump).
 2. Mantener `portal-v2` separada y desplegar una URL de preview.
    La carpeta V2 está enlazada a `vip-fitness-center`, cuyo entorno Preview ya
    contiene las variables de Supabase, correo, cron y Cloudflare. Un despliegue
