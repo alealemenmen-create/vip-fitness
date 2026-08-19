@@ -219,6 +219,14 @@ sesión: no modifica la rutina publicada del entrenador, bloquea sustituciones
 después de comenzar y mantiene unidos los bloques de biserie, triserie,
 superserie, circuito o serie gigante.
 
+`npm run audit:v2-interactions` analiza el TSX real de todas las pantallas y
+componentes V2. Exige `onClick`, `formAction`, un formulario conectado o
+`href`, y falla indicando archivo y línea cuando un control sólo parece
+interactivo. La última ejecución confirmó `176` botones, `77` enlaces y `11`
+formularios. Detectó y corrigió la pestaña “Buscar” de Nutrición: era un botón
+sin acción; ahora es correctamente un indicador activo y “Escanear” conserva
+la interacción.
+
 La biblioteca de ejercicios cubre la exploración y educación que Standrd
 presenta como `Exercise Library`. No se trasladó un `Workout Builder` libre al
 alumno: en VIP Fitness el programa es una prescripción profesional. Si en el

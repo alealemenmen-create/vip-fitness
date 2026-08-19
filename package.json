@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "verify:v2": "node scripts/verificar-portal-v2.mjs",
+    "audit:v2-interactions": "node scripts/auditar-interacciones-v2.mjs",
     "verify:v2-storage": "node scripts/verificar-aislamiento-fotos-v2.mjs",
     "qa:v2:integridad": "node scripts/configurar-y-verificar-qa-v2.mjs",
     "qa:v2:tecnicas": "node scripts/preparar-sesion-tecnicas-qa-v2.mjs",

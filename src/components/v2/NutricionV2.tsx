@@ -671,7 +671,7 @@ function BuscarAlimento({ onClose, onScan, onAdd }: { onClose: () => void; onSca
     <div className={styles.nutritionPanelBackdrop} role="presentation" onClick={onClose}>
       <section className={`${styles.nutritionPanel} ${styles.foodSearchPanel}`} role="dialog" aria-modal="true" aria-label="Buscar alimentos" onClick={(evento) => evento.stopPropagation()}>
         <header><button type="button" onClick={onClose} aria-label="Cerrar búsqueda"><X size={19} /></button></header>
-        <div className={styles.foodSearchTabs} aria-label="Método para agregar alimentos"><button type="button" aria-current="page"><Search size={18} />Buscar</button><button type="button" onClick={onScan}><ScanLine size={18} />Escanear</button></div>
+        <div className={styles.foodSearchTabs} aria-label="Método para agregar alimentos"><span aria-current="page"><Search size={18} />Buscar</span><button type="button" onClick={onScan}><ScanLine size={18} />Escanear</button></div>
         <h2>Buscar alimentos</h2>
         <label className={styles.foodSearchInput}><Search size={18} /><input aria-label="Nombre del alimento" placeholder="Busca por nombre o marca" value={consulta} onChange={(evento) => setConsulta(evento.target.value)} autoFocus /></label>
         <button type="button" className={styles.foodExternalSearch} onClick={buscarChile} disabled={consulta.trim().length < 2 || buscandoExternos}>{buscandoExternos ? "Buscando productos de Chile…" : "Buscar también en productos de Chile"}</button>
