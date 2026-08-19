@@ -41,6 +41,7 @@ export function BottomNav({ sesionEnProgresoId = null }: { sesionEnProgresoId?: 
           <Link
             key={tab.href}
             href={href}
+            prefetch={false}
             className={`item-navegacion-aero radius-card flex flex-1 flex-col items-center gap-1 py-2.5 transition-all duration-200 ease-in-out ${
               active ? "item-navegacion-aero-activo text-vip" : "text-text-tertiary"
             }`}

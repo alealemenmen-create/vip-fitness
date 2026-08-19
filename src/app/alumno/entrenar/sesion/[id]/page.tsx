@@ -114,7 +114,11 @@ export default async function SesionPage({
     // ese aire de más, el botón fijo tapaba el último ejercicio de la lista.
     <div className={`entrenar-minimalista space-y-3 ${bloqueadaPorIniciar ? "pb-32" : "pb-8"}`}>
       {sesion.estado === "en_progreso" && rutinaIniciada && !vistaSoloLectura && (
-        <SincronizarIndicacionesAle sesionId={sesion.id} firmaInicial={firmaIntervenciones} />
+        <SincronizarIndicacionesAle
+          sesionId={sesion.id}
+          sesionEjercicioIds={sesion.ejercicios.map((ejercicio) => ejercicio.sesionEjercicioId)}
+          firmaInicial={firmaIntervenciones}
+        />
       )}
       {sesion.estado === "en_progreso" && !vistaSoloLectura && (
         <RefrescarRecomendaciones sesionId={sesion.id} />

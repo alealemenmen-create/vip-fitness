@@ -370,23 +370,6 @@ export async function marcarIntervencionMostrada(intervencionId: string): Promis
   }).eq("intervencion_id", intervencionId).eq("estado", "pendiente");
 }
 
-/** Firma liviana para recibir una indicación enviada por Ale sin refrescar
- * toda la sesión cada pocos segundos cuando no cambió nada. */
-export async function consultarFirmaIntervenciones(sesionId: string): Promise<string> {
-  const { alumnoId } = await requireAlumno();
-  if (!sesionId) return "";
-  const supabase = createAdminClient();
-  const { data: sesion } = await supabase.from("sesiones_entrenamiento")
-    .select("id").eq("id", sesionId).eq("alumno_id", alumnoId).maybeSingle();
-  if (!sesion) return "";
-  const { data: ejercicios } = await supabase.from("sesion_ejercicios").select("id").eq("sesion_id", sesionId);
-  const ids = (ejercicios ?? []).map((fila) => fila.id);
-  if (ids.length === 0) return "";
-  const { data } = await supabase.from("impulso_vip_intervenciones")
-    .select("id, origen, instruccion, estado").in("sesion_ejercicio_id", ids).order("id");
-  return JSON.stringify(data ?? []);
-}
-
 export type ResolverIntervencionState = {
   error: string | null;
   ok: boolean;

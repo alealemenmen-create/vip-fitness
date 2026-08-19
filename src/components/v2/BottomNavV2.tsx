@@ -28,6 +28,7 @@ export function BottomNavV2() {
             <Link
               key={tab.href}
               href={tab.href}
+              prefetch={false}
               className={`${styles.navItem} ${activo ? styles.navActive : ""}`}
               aria-current={activo ? "page" : undefined}
             >
