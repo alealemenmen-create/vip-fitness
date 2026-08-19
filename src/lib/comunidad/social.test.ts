@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { seleccionarComentariosRecientes } from "./social";
+import { limpiarTextoComunidad, seleccionarComentariosRecientes } from "./social";
 
 describe("seleccionarComentariosRecientes", () => {
   const comentarios = Array.from({ length: 9 }, (_, indice) => ({
@@ -20,5 +20,16 @@ describe("seleccionarComentariosRecientes", () => {
 
   it("permite cerrar por completo la vista previa", () => {
     expect(seleccionarComentariosRecientes(comentarios, "post-1", 0)).toEqual([]);
+  });
+
+  it("normaliza espacios y limita texto recibido desde el cliente", () => {
+    expect(limpiarTextoComunidad("  Avance\n\ncon   control  ", 18)).toBe("Avance con control");
+    expect(limpiarTextoComunidad("abcdef", 4)).toBe("abcd");
+  });
+
+  it("rechaza entradas sociales que no son texto", () => {
+    expect(limpiarTextoComunidad(null, 500)).toBe("");
+    expect(limpiarTextoComunidad({ texto: "inyectado" }, 500)).toBe("");
+    expect(limpiarTextoComunidad("válido", 0)).toBe("");
   });
 });

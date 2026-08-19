@@ -9,3 +9,9 @@ export function seleccionarComentariosRecientes<T extends {
     .slice(0, limite)
     .reverse();
 }
+
+/** Normaliza texto social sin confiar en el tipo recibido desde el cliente. */
+export function limpiarTextoComunidad(texto: unknown, maximo: number): string {
+  if (typeof texto !== "string" || !Number.isInteger(maximo) || maximo <= 0) return "";
+  return texto.trim().replace(/\s+/g, " ").slice(0, maximo);
+}

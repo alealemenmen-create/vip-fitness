@@ -164,6 +164,10 @@ idempotente y contrastarse contra el registro original antes del piloto.
   nunca fabrica aplausos o comentarios. En modo solo lectura no se puede
   responder retos; una cuenta editable recibe confirmación de servidor, y cada
   publicación muestra los seis comentarios más recientes en orden de lectura.
+- Las acciones normalizan y limitan entradas aunque un cliente manipule la
+  llamada. Los límites diarios deben poder consultarse antes de escribir y una
+  eliminación sólo confirma éxito si modificó contenido del alumno: una fila
+  ajena, inexistente o ya eliminada no produce una confirmación falsa.
 - Las fotos corporales permanecen privadas salvo la foto concreta elegida por
   su dueño al publicar. Los reportes se resuelven en `/admin/reportes`.
 
@@ -293,6 +297,11 @@ migraciones históricas están en `supabase/migrations/0001_init.sql` a
 - Open Food Facts: Search-a-licious para texto, Product API para verificación
   por código de barras y buscador histórico sólo como respaldo. Estrategia:
   catálogo VIP local → OFF Chile → OFF global → creación manual.
+- FatSecret queda documentado como proveedor secundario opcional, no como
+  dependencia de lanzamiento. Su edición gratuita cubre datos de Estados
+  Unidos; el mercado chileno requiere solicitar acceso Premier y aceptar sus
+  condiciones comerciales. Si se contrata, se integrará por su API autorizada
+  detrás del mismo adaptador de búsqueda; nunca copiando ni extrayendo su app.
 - Catálogo chileno propio: semillas y respaldo en `supabase/seeds` y
   `supabase/respaldos`; debe enriquecerse continuamente con productos y marcas
   locales, incluida Soprole, conservando aprobación humana.
@@ -418,7 +427,7 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `69` archivos de pruebas y `555` pruebas aprobadas; ESLint sin advertencias,
+- `69` archivos de pruebas y `557` pruebas aprobadas; ESLint sin advertencias,
   TypeScript sin errores y compilación de producción completa (`67` rutas).
 - Las 15 rutas de la V2 respondieron `200` en el servidor de producción local,
   incluida la búsqueda prefiltrada de la biblioteca y la nueva pantalla de

@@ -4,13 +4,10 @@ import { revalidatePath } from "next/cache";
 import { requireAlumno } from "@/lib/auth";
 import { hoyISO } from "@/lib/date";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { limpiarTextoComunidad } from "@/lib/comunidad/social";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RUTA = "/portal-v2/progreso/comunidad";
-
-function limpiar(texto: string, maximo: number) {
-  return texto.trim().replace(/\s+/g, " ").slice(0, maximo);
-}
 
 function faltaMigracion(error: { code?: string; message?: string } | null) {
   return Boolean(error && (error.code === "42P01" || error.code === "PGRST205" || /comunidad_publicaciones|comunidad_reacciones|comunidad_comentarios|comunidad_reportes/i.test(error.message ?? "")));
@@ -22,11 +19,11 @@ async function publicacionVisible(id: string) {
   return Boolean(data);
 }
 
-export async function crearPublicacionComunidadV2(input: { texto: string; fotoId?: string | null }) {
+export async function crearPublicacionComunidadV2(input: { texto: string; fotoId?: string | null } | null) {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura) return { ok: false, error: "No puedes publicar en modo solo lectura." };
-  const texto = limpiar(input.texto, 500);
-  const fotoId = input.fotoId && UUID.test(input.fotoId) ? input.fotoId : null;
+  const texto = limpiarTextoComunidad(input?.texto, 500);
+  const fotoId = typeof input?.fotoId === "string" && UUID.test(input.fotoId) ? input.fotoId : null;
   if (!texto && !fotoId) return { ok: false, error: "Escribe un mensaje o elige una foto." };
   const db = createAdminClient();
   if (fotoId) {
@@ -34,7 +31,8 @@ export async function crearPublicacionComunidadV2(input: { texto: string; fotoId
     if (!foto) return { ok: false, error: "Esa foto no pertenece a tu galería privada." };
   }
   const desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { count } = await db.from("comunidad_publicaciones").select("id", { count: "exact", head: true }).eq("alumno_id", alumnoId).gte("created_at", desde).neq("estado", "eliminada");
+  const { count, error: errorLimite } = await db.from("comunidad_publicaciones").select("id", { count: "exact", head: true }).eq("alumno_id", alumnoId).gte("created_at", desde).neq("estado", "eliminada");
+  if (errorLimite) return { ok: false, error: "No pudimos comprobar tu límite de publicaciones. Inténtalo nuevamente." };
   if ((count ?? 0) >= 5) return { ok: false, error: "Alcanzaste el máximo de 5 publicaciones por día." };
   const { error } = await db.from("comunidad_publicaciones").insert({ alumno_id: alumnoId, foto_progreso_id: fotoId, texto });
   if (error) {
@@ -61,12 +59,13 @@ export async function alternarAplausoComunidadV2(publicacionId: string, activo: 
 export async function comentarComunidadV2(publicacionId: string, contenido: string) {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura) return { ok: false, error: "No puedes comentar en modo solo lectura." };
-  const texto = limpiar(contenido, 280);
+  const texto = limpiarTextoComunidad(contenido, 280);
   if (texto.length < 2) return { ok: false, error: "El comentario es demasiado corto." };
   if (!(await publicacionVisible(publicacionId))) return { ok: false, error: "La publicación ya no está disponible." };
   const db = createAdminClient();
   const desde = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { count } = await db.from("comunidad_comentarios").select("id", { count: "exact", head: true }).eq("alumno_id", alumnoId).gte("created_at", desde).neq("estado", "eliminado");
+  const { count, error: errorLimite } = await db.from("comunidad_comentarios").select("id", { count: "exact", head: true }).eq("alumno_id", alumnoId).gte("created_at", desde).neq("estado", "eliminado");
+  if (errorLimite) return { ok: false, error: "No pudimos comprobar tu límite de comentarios. Inténtalo nuevamente." };
   if ((count ?? 0) >= 30) return { ok: false, error: "Alcanzaste el límite diario de comentarios." };
   const { error } = await db.from("comunidad_comentarios").insert({ publicacion_id: publicacionId, alumno_id: alumnoId, texto });
   if (error) return { ok: false, error: "No pudimos publicar el comentario." };
@@ -76,12 +75,13 @@ export async function comentarComunidadV2(publicacionId: string, contenido: stri
 
 export async function eliminarContenidoComunidadV2(tipo: "publicacion" | "comentario", id: string) {
   const { alumnoId, soloLectura } = await requireAlumno();
-  if (soloLectura || !UUID.test(id)) return { ok: false, error: "No puedes eliminar ese contenido." };
+  if (soloLectura || !UUID.test(id) || (tipo !== "publicacion" && tipo !== "comentario")) return { ok: false, error: "No puedes eliminar ese contenido." };
   const db = createAdminClient();
   const resultado = tipo === "publicacion"
-    ? await db.from("comunidad_publicaciones").update({ estado: "eliminada", updated_at: new Date().toISOString() }).eq("id", id).eq("alumno_id", alumnoId)
-    : await db.from("comunidad_comentarios").update({ estado: "eliminado" }).eq("id", id).eq("alumno_id", alumnoId);
+    ? await db.from("comunidad_publicaciones").update({ estado: "eliminada", updated_at: new Date().toISOString() }).eq("id", id).eq("alumno_id", alumnoId).neq("estado", "eliminada").select("id").maybeSingle()
+    : await db.from("comunidad_comentarios").update({ estado: "eliminado" }).eq("id", id).eq("alumno_id", alumnoId).neq("estado", "eliminado").select("id").maybeSingle();
   if (resultado.error) return { ok: false, error: "No pudimos eliminar el contenido." };
+  if (!resultado.data) return { ok: false, error: "Ese contenido ya no existe o no te pertenece." };
   revalidatePath(RUTA);
   return { ok: true, error: null };
 }
@@ -89,7 +89,7 @@ export async function eliminarContenidoComunidadV2(tipo: "publicacion" | "coment
 export async function reportarPublicacionComunidadV2(publicacionId: string, motivoEntrada: string) {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura) return { ok: false, error: "No puedes reportar en modo solo lectura." };
-  const motivo = limpiar(motivoEntrada, 160);
+  const motivo = limpiarTextoComunidad(motivoEntrada, 160);
   if (motivo.length < 3 || !(await publicacionVisible(publicacionId))) return { ok: false, error: "El reporte no es válido." };
   const { error } = await createAdminClient().from("comunidad_reportes").upsert({ publicacion_id: publicacionId, reportado_por: alumnoId, motivo, estado: "pendiente" }, { onConflict: "publicacion_id,reportado_por" });
   if (error) return { ok: false, error: "No pudimos enviar el reporte." };
@@ -99,10 +99,10 @@ export async function reportarPublicacionComunidadV2(publicacionId: string, moti
 export async function responderRetoComunidadV2(input: {
   torneoId: string;
   decision: "aceptado" | "rechazado";
-}) {
+} | null) {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura) return { ok: false, error: "No puedes responder retos en modo solo lectura." };
-  if (!UUID.test(input.torneoId) || !["aceptado", "rechazado"].includes(input.decision)) {
+  if (!input || !UUID.test(input.torneoId) || !["aceptado", "rechazado"].includes(input.decision)) {
     return { ok: false, error: "La invitación no es válida." };
   }
 
