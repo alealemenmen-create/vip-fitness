@@ -157,16 +157,20 @@ export default async function SesionV2Page({
     uidsMiniatura.map(async (uid) => [uid, await urlMiniaturaFirmada(uid)] as const)
   ));
 
+  const fotoGrupo = (grupo: string | null | undefined) =>
+    (grupo ? FOTOS_GRUPO_MUSCULAR[grupo as keyof typeof FOTOS_GRUPO_MUSCULAR]?.[0] : null)
+      ?? "/v2/piernas.webp";
+
   const fotoFicha = (ficha: FichaEjercicioV2 | undefined, grupo: string | null) =>
     ficha?.foto_completa_url
       ?? ficha?.foto_miniatura_url
       ?? (ficha?.video_cloudflare_uid ? miniaturaFirmadaPorUid.get(ficha.video_cloudflare_uid) : null)
-      ?? (grupo ? FOTOS_GRUPO_MUSCULAR[grupo as keyof typeof FOTOS_GRUPO_MUSCULAR]?.[0] : null)
-      ?? "/v2/piernas.webp";
+      ?? fotoGrupo(grupo);
   const alternativaVisual = (ficha: FichaEjercicioV2): AlternativaEjercicioV2 => ({
     id: ficha.id,
     nombre: ficha.nombre,
     foto: fotoFicha(ficha, ficha.grupo_muscular),
+    fotoRespaldo: ficha.foto_miniatura_url ?? fotoGrupo(ficha.grupo_muscular),
     equipo: ficha.equipo ? ficha.equipo.replaceAll("_", " ") : "Equipo compatible",
     grupo: ficha.grupo_muscular ? ETIQUETAS_GRUPO_MUSCULAR[ficha.grupo_muscular] : "Entrenamiento",
     videoUrl: ficha.video_url ?? undefined,
@@ -192,6 +196,9 @@ export default async function SesionV2Page({
       ?? ejercicio.videoCloudflareMiniaturaUrl
       ?? (ejercicio.grupoMuscular ? FOTOS_GRUPO_MUSCULAR[ejercicio.grupoMuscular]?.[0] : null)
       ?? "/v2/piernas.webp";
+    const fotoRespaldo = fichaSustituta
+      ? fichaSustituta.foto_miniatura_url ?? fotoGrupo(fichaSustituta.grupo_muscular)
+      : ejercicio.fotoMiniaturaUrl ?? ejercicio.videoCloudflareMiniaturaUrl ?? fotoGrupo(ejercicio.grupoMuscular);
     const historicoPorNumero = new Map(ejercicio.series.map((serie) => [serie.numeroSerie, serie]));
     const objetivos = objetivoRepeticiones(ejercicio.repsProgramadas, ejercicio.seriesProgramadas);
     return {
@@ -203,6 +210,7 @@ export default async function SesionV2Page({
       repeticiones: objetivos,
       descanso: ejercicio.descansoPersonalizadoSegundos ?? ejercicio.descansoSegundos ?? 60,
       foto,
+      fotoRespaldo,
       videoUrl: fichaSustituta?.video_url ?? ejercicio.videoUrl ?? undefined,
       videoCloudflareListo: fichaSustituta
         ? Boolean(fichaSustituta.video_cloudflare_uid && fichaSustituta.video_cloudflare_estado === "listo")

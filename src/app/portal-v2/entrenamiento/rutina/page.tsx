@@ -38,6 +38,10 @@ export default async function RutinaV2Page({
     ?? fotoEjercicio?.fotoMiniaturaUrl
     ?? (principal ? FOTOS_GRUPO_MUSCULAR[principal]?.[0] : null)
     ?? "/v2/piernas.webp";
+  const fotoRespaldo = fotoEjercicio?.fotoCompletaUrl
+    ?? fotoEjercicio?.fotoMiniaturaUrl
+    ?? (principal ? FOTOS_GRUPO_MUSCULAR[principal]?.[0] : null)
+    ?? "/v2/piernas.webp";
 
   const presentacion: RutinaDetallePresentacionV2 = {
     nombre: vista.nombre,
@@ -48,6 +52,7 @@ export default async function RutinaV2Page({
     series: vista.ejercicios.reduce((total, ejercicio) => total + ejercicio.seriesProgramadas, 0),
     minutos: dia?.resumen?.minutosEstimados ?? 0,
     foto,
+    fotoRespaldo,
     rutinaId: rutina.id,
     diaId,
     numeroCalendario: Math.max(1, Number(numero) || 1),
@@ -62,6 +67,10 @@ export default async function RutinaV2Page({
         ?? ejercicio.fotoMiniaturaUrl
         ?? ejercicio.fotoCompletaUrl
         ?? foto,
+      fotoRespaldo: ejercicio.fotoMiniaturaUrl
+        ?? ejercicio.fotoCompletaUrl
+        ?? (ejercicio.grupoMuscular ? FOTOS_GRUPO_MUSCULAR[ejercicio.grupoMuscular]?.[0] : null)
+        ?? fotoRespaldo,
       grupo: ejercicio.tecnicaTipo ? ejercicio.tecnicaTipo.replaceAll("_", " ").toUpperCase() : `SERIE ${String.fromCharCode(65 + (indice % 26))}`,
     })),
   };

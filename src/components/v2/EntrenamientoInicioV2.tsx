@@ -21,6 +21,7 @@ import { iniciarRutinaDesdeCalendarioV2 } from "@/app/alumno/entrenar/actions";
 import type { DiaVistaPrevia, NumeroCalendario } from "@/app/alumno/entrenar/data";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { FOTOS_GRUPO_MUSCULAR } from "@/lib/grupos-musculares/fotos";
+import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
 import styles from "./PortalV2.module.css";
 
 type Props = {
@@ -254,10 +255,11 @@ export function EntrenamientoInicioV2({
 
 function EjercicioFila({ ejercicio }: { ejercicio: NonNullable<DiaVistaPrevia>["ejercicios"][number] }) {
   const foto = ejercicio.videoCloudflareMiniaturaUrl ?? ejercicio.fotoMiniaturaUrl ?? ejercicio.fotoCompletaUrl;
+  const respaldo = ejercicio.grupoMuscular ? FOTOS_GRUPO_MUSCULAR[ejercicio.grupoMuscular]?.[0] : null;
   return (
     <article className={styles.exerciseRow}>
       <div className={styles.exerciseThumb}>
-        {foto && <Image src={foto} alt="" fill sizes="42px" />}
+        {foto && <ImagenV2Segura src={foto} fallbackSrc={respaldo} alt="" fill sizes="42px" />}
       </div>
       <div>
         <strong>{ejercicio.nombre}</strong>

@@ -83,8 +83,18 @@ idempotente y contrastarse contra el registro original antes del piloto.
 - Escanear: lector de código de barras; en producción necesita HTTPS y permiso
   de cámara.
 - Registrar, editar cantidad, borrar y copiar alimentos recientes.
+- La hoja de alimentos mantiene cinco destinos V2 conectados: Buscar,
+  Guardados, Creados, Recetas y Escanear. La portada recupera los alimentos
+  usados recientemente por el alumno desde su registro real, respetando el
+  orden temporal, eliminando duplicados y sin fabricar un historial local.
 - Favoritos personales y recetas reutilizables con ingredientes reales,
-  porciones y macros derivados del catálogo (`0105_biblioteca_nutricion_v2`).
+  porciones configurables y macros derivados del catálogo
+  (`0105_biblioteca_nutricion_v2`). Al usar una receta, la cantidad elegida se
+  reparte según sus porciones en lugar de duplicar silenciosamente todos sus
+  ingredientes.
+- Un alimento manual pendiente de aprobación pública sigue siendo utilizable
+  por su creador en favoritos y recetas. El servidor conserva el aislamiento:
+  otro alumno sólo puede usar alimentos aprobados o creados por sí mismo.
 - Objetivos de calorías, proteína, carbohidratos y grasas persistentes.
 - Panel de distribución nutricional sin inventar micronutrientes ausentes.
 
@@ -240,11 +250,19 @@ migraciones históricas están en `supabase/migrations/0001_init.sql` a
 - INTA/Universidad de Chile: referencia nutricional nacional para alimentos
   genéricos; su licencia y formato deben revisarse antes de importar en masa.
 - Cloudflare Stream: video de ejercicios y webhooks.
+- Las imágenes dinámicas de ejercicios utilizan una cadena segura y sin
+  duplicados: recurso principal, miniatura o imagen muscular contextual y, en
+  última instancia, portada V2. Un archivo histórico eliminado de Storage no
+  rompe la sesión, la rutina, la biblioteca ni la vista previa del programa.
 - Web Push/VAPID: avisos de descanso, entrenador e Impulso.
 - Resend: correos transaccionales del portal original.
 - Anthropic: funciones de IA administrativas y de apoyo; Alejandro no depende
   de una respuesta generativa en vivo para decidir una serie.
 - ZXing: lectura de códigos en el navegador.
+- Tailwind CSS y su adaptador PostCSS están fijados en la versión exacta
+  compatible con la compilación actual. Esto evita que una instalación limpia
+  resuelva automáticamente una versión posterior incompatible con el parser
+  CSS de esta versión de Next.js.
 
 Decisión de fuentes (verificada el 19-08-2026):
 

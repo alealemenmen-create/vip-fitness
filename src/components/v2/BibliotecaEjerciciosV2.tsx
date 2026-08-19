@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, Dumbbell, Play, Search, ShieldCheck, X } from "lucide-react";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
@@ -9,6 +8,7 @@ import { ModalVideoCloudflare } from "@/components/student/ModalVideoCloudflare"
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import type { Ejercicio, EquipoEjercicio } from "@/lib/ejercicios/tipos";
 import { obtenerFichaEjercicioV2 } from "@/app/portal-v2/entrenamiento/biblioteca/actions";
+import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
 import styles from "./PortalV2.module.css";
 
 const EQUIPOS: Record<EquipoEjercicio, string> = {
@@ -39,6 +39,10 @@ function fotoDe(ejercicio: EjercicioResumenV2) {
   return ejercicio.fotoMiniaturaUrl
     ?? ejercicio.fotoCompletaUrl
     ?? resolverIlustracion(ejercicio.ilustracionSlug, ejercicio.grupoMuscular).src;
+}
+
+function respaldoDe(ejercicio: EjercicioResumenV2) {
+  return resolverIlustracion(ejercicio.ilustracionSlug, ejercicio.grupoMuscular).src ?? "/v2/piernas.webp";
 }
 
 export function BibliotecaEjerciciosV2({
@@ -142,7 +146,7 @@ export function BibliotecaEjerciciosV2({
             return (
               <button type="button" className={styles.libraryCard} key={ejercicio.id} onClick={() => void abrirFicha(ejercicio)} disabled={seleccionando === ejercicio.id}>
                 <span className={styles.libraryCardMedia}>
-                  {foto ? <Image src={foto} alt="" fill sizes="(max-width: 460px) 46vw, 210px" loading={indice < 2 ? "eager" : "lazy"} /> : <Dumbbell size={28} />}
+                  {foto ? <ImagenV2Segura src={foto} fallbackSrc={respaldoDe(ejercicio)} alt="" fill sizes="(max-width: 460px) 46vw, 210px" loading={indice < 2 ? "eager" : "lazy"} /> : <Dumbbell size={28} />}
                   {ejercicio.videoCloudflareEstado === "listo" ? <span className={styles.libraryVideoMark}><Play size={11} fill="currentColor" /></span> : null}
                 </span>
                 <span className={styles.libraryCardCopy}>
@@ -168,7 +172,7 @@ export function BibliotecaEjerciciosV2({
           <article className={styles.librarySheet} role="dialog" aria-modal="true" aria-labelledby="library-detail-title" onClick={(evento) => evento.stopPropagation()}>
             <button type="button" className={styles.libraryClose} onClick={cerrarFicha} aria-label="Cerrar ficha"><X size={19} /></button>
             <div className={styles.libraryDetailMedia}>
-              {fotoDe(seleccionado) ? <Image src={seleccionado.fotoCompletaUrl ?? fotoDe(seleccionado)!} alt={`Demostración de ${seleccionado.nombre}`} fill sizes="460px" /> : <Dumbbell size={40} />}
+              {fotoDe(seleccionado) ? <ImagenV2Segura src={seleccionado.fotoCompletaUrl ?? fotoDe(seleccionado)!} fallbackSrc={fotoDe(seleccionado)} alt={`Demostración de ${seleccionado.nombre}`} fill sizes="460px" /> : <Dumbbell size={40} />}
               {seleccionado.videoCloudflareEstado === "listo" && puedeVerVideos ? (
                 <button type="button" className={styles.libraryPlay} onClick={() => setVideoAbierto(true)}><Play size={16} fill="currentColor" /> Ver demostración</button>
               ) : null}

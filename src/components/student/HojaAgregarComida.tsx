@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { Search, X, Plus, ChevronLeft, Camera, ImageOff, Bookmark, ChefHat, Save, Trash2 } from "lucide-react";
+import { Search, X, Plus, ChevronLeft, Camera, ImageOff, Bookmark, ChefHat, Save, Trash2, NotebookPen, History } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -193,9 +193,11 @@ function Contenido({
   const [elegidos, setElegidos] = useState<AlimentoElegido[]>([]);
   const [creando, setCreando] = useState(false);
   const [escaneando, setEscaneando] = useState(modoInicial === "escanear");
-  const [vistaBiblioteca, setVistaBiblioteca] = useState<"buscar" | "favoritos" | "recetas">("buscar");
-  const [biblioteca, setBiblioteca] = useState<BibliotecaNutricionV2>({ disponible: false, favoritos: [], recetas: [] });
+  const [vistaBiblioteca, setVistaBiblioteca] = useState<"buscar" | "favoritos" | "creados" | "recetas">("buscar");
+  const [biblioteca, setBiblioteca] = useState<BibliotecaNutricionV2>({ disponible: false, error: null, favoritos: [], creados: [], recientes: [], recetas: [] });
+  const [cargandoBiblioteca, setCargandoBiblioteca] = useState(bibliotecaV2);
   const [nombreReceta, setNombreReceta] = useState("");
+  const [porcionesReceta, setPorcionesReceta] = useState("1");
   const [errorBiblioteca, setErrorBiblioteca] = useState<string | null>(null);
   const [guardandoBiblioteca, iniciarGuardadoBiblioteca] = useTransition();
   /** Código de barras que no estaba en OFF: se precarga en el formulario de
@@ -207,8 +209,13 @@ function Contenido({
     if (!bibliotecaV2) return;
     let vigente = true;
     void obtenerBibliotecaNutricionV2()
-      .then((resultado) => { if (vigente) setBiblioteca(resultado); })
-      .catch(() => { if (vigente) setErrorBiblioteca("No pudimos abrir tus guardados."); });
+      .then((resultado) => {
+        if (!vigente) return;
+        setBiblioteca(resultado);
+        setErrorBiblioteca(resultado.error);
+      })
+      .catch(() => { if (vigente) setErrorBiblioteca("No pudimos abrir tus guardados."); })
+      .finally(() => { if (vigente) setCargandoBiblioteca(false); });
     return () => { vigente = false; };
   }, [bibliotecaV2]);
 
@@ -434,6 +441,7 @@ function Contenido({
       setErrorBiblioteca(null);
       const resultado = await guardarRecetaNutricionV2({
         nombre: nombreReceta,
+        porciones: Number(porcionesReceta),
         ingredientes: ingredientes.map((item) => ({ alimentoId: item.alimento.id, cantidadBase: item.cantidadBase })),
       });
       if (!resultado.ok) {
@@ -441,6 +449,7 @@ function Contenido({
         return;
       }
       setNombreReceta("");
+      setPorcionesReceta("1");
       await refrescarBiblioteca();
       setVistaBiblioteca("recetas");
       setSeleccionado(null);
@@ -649,11 +658,12 @@ function Contenido({
       pie={acciones}
       v2={bibliotecaV2}
     >
-      {bibliotecaV2 && biblioteca.disponible && !seleccionado ? (
-        <div className={`${v2Styles.foodLibraryTabs} grid grid-cols-4 gap-1`} role="tablist" aria-label="Biblioteca nutricional">
+      {bibliotecaV2 && !seleccionado ? (
+        <div className={`${v2Styles.foodLibraryTabs} grid grid-cols-5 gap-1`} role="tablist" aria-label="Biblioteca nutricional" aria-busy={cargandoBiblioteca}>
           <button type="button" role="tab" aria-selected={vistaBiblioteca === "buscar"} onClick={() => setVistaBiblioteca("buscar")} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] ${vistaBiblioteca === "buscar" ? "bg-surface-2 text-text" : "text-text-tertiary"}`}><Search size={16} />Buscar</button>
-          <button type="button" role="tab" aria-selected={vistaBiblioteca === "favoritos"} onClick={() => setVistaBiblioteca("favoritos")} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] ${vistaBiblioteca === "favoritos" ? "bg-surface-2 text-text" : "text-text-tertiary"}`}><Bookmark size={16} />Guardados</button>
-          <button type="button" role="tab" aria-selected={vistaBiblioteca === "recetas"} onClick={() => setVistaBiblioteca("recetas")} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] ${vistaBiblioteca === "recetas" ? "bg-surface-2 text-text" : "text-text-tertiary"}`}><ChefHat size={16} />Recetas</button>
+          <button type="button" role="tab" disabled={!biblioteca.disponible || cargandoBiblioteca} aria-selected={vistaBiblioteca === "favoritos"} onClick={() => setVistaBiblioteca("favoritos")} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] disabled:opacity-45 ${vistaBiblioteca === "favoritos" ? "bg-surface-2 text-text" : "text-text-tertiary"}`}><Bookmark size={16} />Guardados</button>
+          <button type="button" role="tab" disabled={cargandoBiblioteca} aria-selected={vistaBiblioteca === "creados"} onClick={() => setVistaBiblioteca("creados")} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] disabled:opacity-45 ${vistaBiblioteca === "creados" ? "bg-surface-2 text-text" : "text-text-tertiary"}`}><NotebookPen size={16} />Creados</button>
+          <button type="button" role="tab" disabled={!biblioteca.disponible || cargandoBiblioteca} aria-selected={vistaBiblioteca === "recetas"} onClick={() => setVistaBiblioteca("recetas")} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] disabled:opacity-45 ${vistaBiblioteca === "recetas" ? "bg-surface-2 text-text" : "text-text-tertiary"}`}><ChefHat size={16} />Recetas</button>
           <button type="button" onClick={() => setEscaneando(true)} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px] text-text-tertiary"><Camera size={16} />Escanear</button>
         </div>
       ) : null}
@@ -666,6 +676,17 @@ function Contenido({
             </button>
           ))}
           {biblioteca.favoritos.length === 0 ? <p className="p-3 text-center text-secondary text-text-tertiary">Marca alimentos desde el buscador para encontrarlos aquí.</p> : null}
+        </div>
+      ) : null}
+
+      {!seleccionado && vistaBiblioteca === "creados" ? (
+        <div className="space-y-1">
+          {biblioteca.creados.map((alimento) => (
+            <button type="button" key={alimento.id} onClick={() => elegirAlimento(alimento)} className="radius-control flex min-h-[48px] w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-surface-2">
+              <span className="min-w-0 flex-1"><strong className="block truncate text-secondary text-text">{alimento.nombre}</strong><small className="text-caption text-text-tertiary">Creado por ti</small></span><span className="text-caption text-text-tertiary">{Math.round(alimento.kcal)} kcal</span>
+            </button>
+          ))}
+          {!cargandoBiblioteca && biblioteca.creados.length === 0 ? <p className="p-3 text-center text-secondary text-text-tertiary">Los alimentos que crees manualmente aparecerán aquí.</p> : null}
         </div>
       ) : null}
 
@@ -877,6 +898,17 @@ function Contenido({
         <p className="text-caption px-1 py-1 text-text-tertiary" role="alert">{offError}</p>
       )}
 
+      {!seleccionado && vistaBiblioteca === "buscar" && busqueda.trim().length < 2 && biblioteca.recientes.length > 0 ? (
+        <section className="space-y-1" aria-label="Alimentos usados recientemente">
+          <p className="flex items-center gap-1.5 px-1 pb-1 text-caption font-semibold text-text-tertiary"><History size={14} />Usados recientemente</p>
+          {biblioteca.recientes.map((alimento) => (
+            <button type="button" key={alimento.id} onClick={() => elegirAlimento(alimento)} className="radius-control flex min-h-[48px] w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-surface-2">
+              <span className="min-w-0 flex-1"><strong className="block truncate text-secondary text-text">{alimento.nombre}</strong>{alimento.marca ? <small className="text-caption text-text-tertiary">{alimento.marca}</small> : null}</span><span className="text-caption text-text-tertiary">{Math.round(alimento.kcal)} kcal</span>
+            </button>
+          ))}
+        </section>
+      ) : null}
+
       {seleccionado && (
         <div className="radius-control space-y-3 border border-border p-3">
           <div className="flex items-center gap-2">
@@ -1007,8 +1039,9 @@ function Contenido({
       )}
 
       {biblioteca.disponible && aGuardar.length > 0 ? (
-        <div className="radius-control grid grid-cols-[1fr_auto] gap-2 border border-border bg-surface-2 p-2">
+        <div className="radius-control grid grid-cols-[minmax(0,1fr)_68px_auto] gap-2 border border-border bg-surface-2 p-2">
           <label className="min-w-0"><span className="sr-only">Nombre de la receta</span><input value={nombreReceta} onChange={(evento) => setNombreReceta(evento.target.value)} maxLength={60} placeholder="Nombre para guardar como receta" className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-secondary text-text outline-none" /></label>
+          <label><span className="sr-only">Porciones de la receta</span><input type="number" inputMode="numeric" min="1" max="20" value={porcionesReceta} onChange={(evento) => setPorcionesReceta(evento.target.value)} aria-label="Porciones de la receta" className="h-11 w-full rounded-lg border border-border bg-surface px-2 text-center text-secondary text-text outline-none" /></label>
           <button type="button" disabled={guardandoBiblioteca || nombreReceta.trim().length < 2} onClick={guardarComoReceta} className="flex min-h-11 items-center gap-1.5 rounded-lg bg-vip px-3 text-[12px] font-semibold text-black disabled:opacity-40"><Save size={15} />Guardar</button>
         </div>
       ) : null}

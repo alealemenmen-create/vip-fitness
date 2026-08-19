@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAlumno } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AlimentoCatalogo } from "@/app/alumno/comer/tipos";
+import { idsAlimentosRecientes, type RegistroHistorialAlimentos } from "@/lib/alimentos/historialReciente";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CAMPOS_ALIMENTO = "id, nombre, marca, categoria, porcion_base, unidad, kcal, prot, carb, grasa, medida_nombre, medida_gramos, fibra, azucares, sodio";
@@ -17,7 +18,10 @@ type RecetaV2 = {
 
 export type BibliotecaNutricionV2 = {
   disponible: boolean;
+  error: string | null;
   favoritos: AlimentoCatalogo[];
+  creados: AlimentoCatalogo[];
+  recientes: AlimentoCatalogo[];
   recetas: RecetaV2[];
 };
 
@@ -52,32 +56,56 @@ function aCatalogo(fila: {
 export async function obtenerBibliotecaNutricionV2(): Promise<BibliotecaNutricionV2> {
   const { alumnoId } = await requireAlumno();
   const db = createAdminClient();
-  const [{ data: favoritos, error: errorFavoritos }, { data: recetas, error: errorRecetas }] = await Promise.all([
+  const [
+    { data: favoritos, error: errorFavoritos },
+    { data: recetas, error: errorRecetas },
+    { data: creados, error: errorCreados },
+    { data: registrosRecientes, error: errorRecientes },
+  ] = await Promise.all([
     db.from("alimentos_favoritos").select("alimento_id").eq("alumno_id", alumnoId).order("created_at", { ascending: false }).limit(80),
     db.from("recetas_alumno").select("id, nombre, porciones").eq("alumno_id", alumnoId).order("updated_at", { ascending: false }).limit(50),
+    db.from("alimentos").select(CAMPOS_ALIMENTO).eq("creado_por", alumnoId).eq("activo", true).order("created_at", { ascending: false }).limit(80),
+    db.from("registros_diarios")
+      .select("fecha, comidas_registradas(registrado_en, alimentos_consumidos(alimento_id))")
+      .eq("alumno_id", alumnoId)
+      .order("fecha", { ascending: false })
+      .limit(45),
   ]);
-  if (faltaMigracion(errorFavoritos) || faltaMigracion(errorRecetas)) return { disponible: false, favoritos: [], recetas: [] };
-  if (errorFavoritos || errorRecetas) return { disponible: true, favoritos: [], recetas: [] };
+  const disponible = !faltaMigracion(errorFavoritos) && !faltaMigracion(errorRecetas);
+  const errorCarga = errorFavoritos || errorRecetas || errorCreados || errorRecientes
+    ? (disponible ? "No pudimos cargar toda tu biblioteca. Intenta abrirla nuevamente." : "Guardados y recetas todavía no están habilitados en este entorno.")
+    : null;
 
   const idsFavoritos = (favoritos ?? []).map((fila) => fila.alimento_id);
   const idsRecetas = (recetas ?? []).map((receta) => receta.id);
-  const [{ data: ingredientes }, { data: alimentosFavoritos }] = await Promise.all([
+  const idsRecientes = errorRecientes
+    ? []
+    : idsAlimentosRecientes((registrosRecientes ?? []) as unknown as RegistroHistorialAlimentos[]);
+  const [{ data: ingredientes }, { data: alimentosFavoritos }, { data: alimentosRecientes }] = await Promise.all([
     idsRecetas.length
       ? db.from("receta_ingredientes").select("receta_id, alimento_id, cantidad, orden").in("receta_id", idsRecetas).order("orden")
       : Promise.resolve({ data: [] }),
     idsFavoritos.length
-      ? db.from("alimentos").select(CAMPOS_ALIMENTO).in("id", idsFavoritos).eq("activo", true).eq("aprobado", true)
+      ? db.from("alimentos").select(CAMPOS_ALIMENTO).in("id", idsFavoritos).eq("activo", true).or(`aprobado.eq.true,creado_por.eq.${alumnoId}`)
+      : Promise.resolve({ data: [] }),
+    idsRecientes.length
+      ? db.from("alimentos").select(CAMPOS_ALIMENTO).in("id", idsRecientes).eq("activo", true).or(`aprobado.eq.true,creado_por.eq.${alumnoId}`)
       : Promise.resolve({ data: [] }),
   ]);
   const idsIngredientes = [...new Set((ingredientes ?? []).map((fila) => fila.alimento_id))];
   const { data: alimentosIngredientes } = idsIngredientes.length
-    ? await db.from("alimentos").select(CAMPOS_ALIMENTO).in("id", idsIngredientes).eq("activo", true).eq("aprobado", true)
+    ? await db.from("alimentos").select(CAMPOS_ALIMENTO).in("id", idsIngredientes).eq("activo", true).or(`aprobado.eq.true,creado_por.eq.${alumnoId}`)
     : { data: [] };
   const alimentoPorId = new Map((alimentosIngredientes ?? []).map((fila) => [fila.id, aCatalogo(fila)]));
+  const favoritoPorId = new Map((alimentosFavoritos ?? []).map((fila) => [fila.id, aCatalogo(fila)]));
+  const recientePorId = new Map((alimentosRecientes ?? []).map((fila) => [fila.id, aCatalogo(fila)]));
 
   return {
-    disponible: true,
-    favoritos: (alimentosFavoritos ?? []).map(aCatalogo),
+    disponible,
+    error: errorCarga,
+    favoritos: idsFavoritos.flatMap((id) => favoritoPorId.has(id) ? [favoritoPorId.get(id)!] : []),
+    creados: (creados ?? []).map(aCatalogo),
+    recientes: idsRecientes.flatMap((id) => recientePorId.has(id) ? [recientePorId.get(id)!] : []),
     recetas: (recetas ?? []).map((receta) => ({
       id: receta.id,
       nombre: receta.nombre,
@@ -94,7 +122,7 @@ export async function alternarFavoritoNutricionV2(alimentoId: string, activo: bo
   if (soloLectura) return { ok: false, error: "No puedes cambiar favoritos en modo solo lectura." };
   if (!UUID.test(alimentoId)) return { ok: false, error: "El alimento no es válido." };
   const db = createAdminClient();
-  const { data: alimento } = await db.from("alimentos").select("id").eq("id", alimentoId).eq("activo", true).eq("aprobado", true).maybeSingle();
+  const { data: alimento } = await db.from("alimentos").select("id").eq("id", alimentoId).eq("activo", true).or(`aprobado.eq.true,creado_por.eq.${alumnoId}`).maybeSingle();
   if (!alimento) return { ok: false, error: "Ese alimento no está disponible en el catálogo aprobado." };
   const resultado = activo
     ? await db.from("alimentos_favoritos").upsert({ alumno_id: alumnoId, alimento_id: alimentoId }, { onConflict: "alumno_id,alimento_id" })
@@ -123,7 +151,7 @@ export async function guardarRecetaNutricionV2(input: {
     return { ok: false, error: "La receta necesita entre 1 y 30 ingredientes distintos.", recetaId: null };
   }
   const db = createAdminClient();
-  const { data: validos } = await db.from("alimentos").select("id").in("id", ingredientes.map((item) => item.alimentoId)).eq("activo", true).eq("aprobado", true);
+  const { data: validos } = await db.from("alimentos").select("id").in("id", ingredientes.map((item) => item.alimentoId)).eq("activo", true).or(`aprobado.eq.true,creado_por.eq.${alumnoId}`);
   if ((validos ?? []).length !== ingredientes.length) return { ok: false, error: "Uno de los ingredientes ya no está aprobado.", recetaId: null };
 
   const ahora = new Date().toISOString();

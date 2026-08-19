@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -12,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { iniciarRutinaDesdeCalendarioV2 } from "@/app/alumno/entrenar/actions";
+import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
 import styles from "./PortalV2.module.css";
 
 export type RutinaDetallePresentacionV2 = {
@@ -23,6 +23,7 @@ export type RutinaDetallePresentacionV2 = {
   series: number;
   minutos: number;
   foto: string;
+  fotoRespaldo?: string;
   rutinaId: string | null;
   diaId: string | null;
   numeroCalendario: number | null;
@@ -34,6 +35,7 @@ export type RutinaDetallePresentacionV2 = {
     detalle: string;
     tempo: string | null;
     foto: string;
+    fotoRespaldo?: string;
     grupo: string;
   }[];
 };
@@ -118,7 +120,7 @@ export function RutinaDetalleV2({ rutina = RUTINA_DEMO }: { rutina?: RutinaDetal
   return (
     <div className={styles.workoutDetailPage}>
       <section className={styles.workoutDetailHero}>
-        <Image src={rutina.foto} alt={`Entrenamiento ${rutina.nombre}`} fill priority sizes="(max-width: 460px) 100vw, 460px" className={styles.workoutDetailImage} />
+        <ImagenV2Segura src={rutina.foto} fallbackSrc={rutina.fotoRespaldo} alt={`Entrenamiento ${rutina.nombre}`} fill priority sizes="(max-width: 460px) 100vw, 460px" className={styles.workoutDetailImage} />
         <div className={styles.workoutDetailShade} />
         <Link href="/portal-v2/entrenamiento" className={styles.workoutBack}><ArrowLeft size={19} /> Atrás</Link>
         <div className={styles.workoutDetailIdentity}>
@@ -148,7 +150,7 @@ export function RutinaDetalleV2({ rutina = RUTINA_DEMO }: { rutina?: RutinaDetal
             <div key={ejercicio.id}>
               {ejercicio.grupo ? <p className={styles.exerciseGroupLabel}>{ejercicio.grupo}</p> : null}
               <article className={styles.workoutExerciseCard}>
-                <span className={styles.workoutExerciseThumb}><Image src={ejercicio.foto} alt="" fill sizes="58px" /></span>
+                <span className={styles.workoutExerciseThumb}><ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="58px" /></span>
                 <div>
                   <strong><b>{ejercicio.codigo}</b> {ejercicio.nombre}</strong>
                   <span>Reps: {ejercicio.detalle}</span>

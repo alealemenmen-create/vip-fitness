@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -66,6 +65,7 @@ import { reordenarEjerciciosSesionV2, sustituirEjercicioSesionV2 } from "@/app/p
 import { ModalVideo } from "@/components/student/ModalVideo";
 import { ModalVideoCloudflare } from "@/components/student/ModalVideoCloudflare";
 import { VideoCloudflareAutomatico } from "@/components/student/VideoCloudflareAutomatico";
+import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
 import styles from "./SesionActivaV2.module.css";
 
 export type SerieRegistradaV2 = {
@@ -83,6 +83,7 @@ export type EjercicioSesionV2 = {
   repeticiones: number[];
   descanso: number;
   foto: string;
+  fotoRespaldo?: string;
   videoUrl?: string;
   videoCloudflareListo?: boolean;
   equipo: string;
@@ -103,6 +104,7 @@ export type AlternativaEjercicioV2 = {
   id: string;
   nombre: string;
   foto: string;
+  fotoRespaldo?: string;
   equipo: string;
   grupo: string;
   videoUrl?: string;
@@ -1060,7 +1062,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         <div className={styles.summaryList}>
           {EJERCICIOS.map((ejercicio) => (
             <article key={ejercicio.id}>
-              <Image src={ejercicio.foto} alt="" width={48} height={62} />
+              <ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" width={48} height={62} />
               <div><small>SERIE {ejercicio.codigo}</small><strong>{ejercicio.nombre}</strong><p>{registro[ejercicio.id].filter((serie) => serie.completada).length}/{ejercicio.repeticiones.length} series registradas</p></div>
             </article>
           ))}
@@ -1119,7 +1121,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             onPointerDown={(evento) => iniciarGesto(evento.clientX)}
             onPointerUp={(evento) => terminarGesto(evento.clientX)}
           >
-            <Image src={ejercicioActivo.foto} alt={`Demostración de ${ejercicioActivo.nombre}`} fill loading="eager" sizes="(max-width: 460px) 100vw, 460px" />
+            <ImagenV2Segura src={ejercicioActivo.foto} fallbackSrc={ejercicioActivo.fotoRespaldo} alt={`Demostración de ${ejercicioActivo.nombre}`} fill loading="eager" sizes="(max-width: 460px) 100vw, 460px" />
             {ejercicioActivo.videoCloudflareListo ? <VideoCloudflareAutomatico ejercicioId={ejercicioActivo.bibliotecaEjercicioId} activo nombre={ejercicioActivo.nombre} /> : null}
             <div className={styles.videoShade} />
             {(ejercicioActivo.videoCloudflareListo || ejercicioActivo.videoUrl) ? <button type="button" className={styles.videoPlay} onClick={() => setVideoAmpliado(true)} aria-label="Reproducir demostración completa"><Play size={23} fill="currentColor" /></button> : null}
@@ -1164,7 +1166,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
               const primeraPendiente = registro[ejercicio.id].findIndex((serie) => !serie.completada);
               return (
                 <button type="button" className={styles.compactExercise} key={ejercicio.id} aria-expanded="false" onClick={() => { setEjercicioActivoId(ejercicio.id); setSerieActivaIndice(ejercicio.id === ejercicioActivo.id ? serieActivaIndiceSeguro : Math.max(0, primeraPendiente)); setEjercicioExpandidoId(ejercicio.id); setDescansoEnFoco(false); }}>
-                  <span className={styles.compactCode}>{ejercicio.codigo} SERIE</span><span className={styles.compactThumb}><Image src={ejercicio.foto} alt="" fill sizes="68px" loading="eager" /><i><Play size={12} fill="currentColor" /></i></span><span className={styles.compactCopy}><strong>{ejercicio.nombre}</strong><small>Reps: {ejercicio.repeticiones.join(" · ")}</small></span>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}
+                  <span className={styles.compactCode}>{ejercicio.codigo} SERIE</span><span className={styles.compactThumb}><ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="68px" loading="eager" /><i><Play size={12} fill="currentColor" /></i></span><span className={styles.compactCopy}><strong>{ejercicio.nombre}</strong><small>Reps: {ejercicio.repeticiones.join(" · ")}</small></span>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}
                 </button>
               );
             }
@@ -1172,7 +1174,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
               <section className={styles.activeExercise} key={ejercicio.id}>
                 <button type="button" className={styles.seriesLabel} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)} aria-label={`Contraer ${ejercicio.nombre}`}>SERIE {ejercicio.codigo}<i aria-hidden="true">›››</i>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}</button>
                 <div className={styles.exerciseHeading}>
-                  <button type="button" className={styles.exerciseMedia} onClick={abrirVistaVideo} aria-label={`Ver demostración de ${ejercicio.nombre}`}><Image src={ejercicio.foto} alt="" fill sizes="70px" loading={ejercicio.codigo === "A" ? "eager" : "lazy"} /><i><Play size={17} fill="currentColor" /></i></button>
+                  <button type="button" className={styles.exerciseMedia} onClick={abrirVistaVideo} aria-label={`Ver demostración de ${ejercicio.nombre}`}><ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="70px" loading={ejercicio.codigo === "A" ? "eager" : "lazy"} /><i><Play size={17} fill="currentColor" /></i></button>
                   <button type="button" className={styles.exerciseHeadingToggle} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)}><h1>{ejercicio.nombre}</h1><p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p></button>
                 </div>
                 <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicio.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={14} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={14} />Orden</button> : null}</div>
