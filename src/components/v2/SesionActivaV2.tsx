@@ -36,6 +36,7 @@ import {
   restaurarBorradorSesionV2,
   type BorradorSesionV2,
 } from "@/lib/entrenamiento/borrador-sesion-v2";
+import { reconciliarDuracionSesionSegundos } from "@/lib/entrenamiento/duracion-sesion";
 import { claveDescansoSesion, destinoAlAvanzarSerieCompletada } from "@/lib/entrenamiento/descanso-navegacion";
 import {
   planificarBloqueEncadenado,
@@ -397,7 +398,10 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       if (borrador) {
         setRegistro(borrador.registro);
         setNotas(borrador.notas);
-        setSegundosSesion(borrador.segundosSesion);
+        setSegundosSesion(reconciliarDuracionSesionSegundos(
+          sesion.duracionSegundosInicial ?? 0,
+          borrador.segundosSesion,
+        ));
         setEjercicioActivoId(borrador.ejercicioActivoId);
         setSerieActivaIndice(borrador.serieActivaIndice);
         setEjercicioExpandidoId(borrador.ejercicioActivoId);

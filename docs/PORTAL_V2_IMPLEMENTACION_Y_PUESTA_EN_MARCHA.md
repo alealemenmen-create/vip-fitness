@@ -353,6 +353,10 @@ Validaciones locales completadas el 19-08-2026:
   48 horas. Una recarga recupera los últimos pesos, repeticiones, notas, tiempo
   y posición sin pisar series que el servidor ya confirmó; los fallos de red se
   muestran y el alumno puede reintentar sin perder la pantalla.
+- El tiempo total se reconcilia tomando el valor más avanzado entre el inicio
+  persistido por el servidor y el borrador del dispositivo. Se verificó en una
+  sesión autenticada que avanzó de `183:00` a `183:02` y, tras recargar, continuó
+  en `183:06`; un borrador atrasado ya no puede hacer retroceder el cronómetro.
 - Con autorización expresa del propietario, el 19-08-2026 se aplicaron `0104` a
   `0107` al Supabase activo dentro de una sola transacción. La comprobación
   previa confirmó todas las dependencias y que ninguna migración estaba
