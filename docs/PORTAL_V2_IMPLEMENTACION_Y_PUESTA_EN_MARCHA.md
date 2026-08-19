@@ -345,6 +345,17 @@ Validaciones locales completadas el 19-08-2026:
   ejecutó de punta a punta. Una serie QA de `10` repeticiones con `10 kg`
   persistió, la sesión cerró como `finalizada_incompleta`, apareció en el
   historial y no otorgó puntos por trabajo incompleto.
+- El recorrido autenticado de Nutrición también se ejecutó de punta a punta:
+  la búsqueda remota encontró productos reales de Soprole, importó Leche
+  Natural Entera al catálogo, registró y editó su cantidad, recalculó macros,
+  copió y eliminó el duplicado, guardó el alimento como favorito y creó una
+  receta reutilizable. Base de datos e interfaz coincidieron al terminar:
+  `250 g`, `150 kcal`, `8 g` de proteína, `12 g` de carbohidratos y `7,8 g` de
+  grasa. La meta nutricional elegida también persistió en el plan activo.
+- Durante esa prueba se corrigió un desacople visual: el formulario cargaba
+  los números de “Volumen controlado” pero marcaba “Mantenimiento”. Ahora el
+  preset seleccionado se deduce de los cuatro valores almacenados; una meta
+  personalizada no marca falsamente ningún preset.
 
 1. Crear un respaldo lógico verificable antes del próximo cambio de esquema; el
    plan gratuito actual no incluye respaldos automáticos.
@@ -380,8 +391,14 @@ Validaciones locales completadas el 19-08-2026:
   bloquea la meta anterior y evita comparar implementos distintos. Falta
   acumular suficientes sesiones del sustituto antes de proponer aumentos de
   carga automáticos sobre ese movimiento.
-- Validación destructiva de escrituras con una cuenta real: debe hacerse con una
-  cuenta de prueba autorizada en el preview, nunca con alumnos activos.
+- El escáner ofrece salida al buscador si la cámara no responde, pero la lectura
+  real de EAN, permisos y cambio entre cámara trasera/frontal sigue requiriendo
+  un teléfono físico bajo HTTPS; la automatización de escritorio no sustituye
+  esa prueba.
+- Algunas miniaturas privadas de Cloudflare Stream respondieron `401` al
+  optimizador de imágenes de Next.js durante el recorrido QA. Antes del piloto
+  hay que validar firma/visibilidad de esas miniaturas o servirlas mediante el
+  mecanismo autenticado previsto; no debe ocultarse con una imagen simulada.
 - Publicación en el dominio y cambio de vista predeterminada: sólo después del
   piloto y de una orden expresa del propietario.
 - Cobro, renovación o cancelación del plan desde la V2: hoy se muestran datos

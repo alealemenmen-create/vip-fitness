@@ -471,7 +471,14 @@ function AjustarMacros({
   objetivos: TotalesNutricionV2;
   real: boolean;
 }) {
-  const [objetivo, setObjetivo] = useState("Mantenimiento");
+  const [objetivo, setObjetivo] = useState(() =>
+    OBJETIVOS_NUTRICION.find((opcion) =>
+      opcion.kcal === objetivos.kcal &&
+      opcion.prot === objetivos.prot &&
+      opcion.carb === objetivos.carb &&
+      opcion.grasa === objetivos.grasa
+    )?.nombre ?? ""
+  );
   const [valores, setValores] = useState(() => ({ ...objetivos }));
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
