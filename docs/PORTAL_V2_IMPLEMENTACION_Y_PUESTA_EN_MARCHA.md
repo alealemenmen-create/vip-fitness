@@ -394,6 +394,15 @@ Validaciones locales completadas el 19-08-2026:
   ejecutó de punta a punta. Una serie QA de `10` repeticiones con `10 kg`
   persistió, la sesión cerró como `finalizada_incompleta`, apareció en el
   historial y no otorgó puntos por trabajo incompleto.
+- `npm run qa:v2:tecnicas` prepara de forma idempotente una sesión sintética
+  aislada con FST-7, drop set, rest-pause, myo-reps, cluster, fallo técnico,
+  superserie, triserie, serie gigante y circuito. El script exige una identidad
+  marcada como Portal QA y sólo reemplaza datos bajo el nombre reservado.
+- En navegador autenticado se verificó que el drop set recupera su paso `2/3`
+  al recargar; el rest-pause conservó la cuenta atrás (`13 s` antes y `8 s`
+  después de recargar) y avanzó por sí solo al siguiente trabajo. En video, la
+  superserie recorrió estación 1 → estación 2 → descanso único → segunda ronda,
+  sin descanso entre estaciones ni errores de consola.
 - El recorrido autenticado de Nutrición también se ejecutó de punta a punta:
   la búsqueda remota encontró productos reales de Soprole, importó Leche
   Natural Entera al catálogo, registró y editó su cantidad, recalculó macros,
