@@ -7,6 +7,7 @@ import { buscarEnOFFAction, buscarPorCodigoOFFAction } from "@/app/alumno/comer/
 import { guardarMisMacros } from "@/app/alumno/macros/actions";
 import type { HoraDia, PlanAlimentacion } from "@/app/alumno/comer/tipos";
 import type { ProductoOFF } from "@/lib/alimentos/openFoodFacts";
+import { errorMetasNutricionales } from "@/lib/alimentos/metasNutricionales";
 import {
   Beef,
   ChevronRight,
@@ -126,6 +127,7 @@ const OBJETIVOS_NUTRICION = [
 ];
 
 type PanelNutricion = "resumen" | "buscar" | "macros" | "escaner" | "copiar" | null;
+type OperacionNutricion = "copiar" | "cantidad" | "eliminar" | null;
 
 export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
   const fechaDemo = useMemo(() => fechaChileISO(), []);
@@ -138,6 +140,8 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
     ? comidasDesdeRegistros(datos.registros)
     : [{ ...ALIMENTOS[0], fecha: fechaDemo, hora: horaActual }]);
   const [aviso, setAviso] = useState("");
+  const [operacion, setOperacion] = useState<OperacionNutricion>(null);
+  const operacionRef = useRef(false);
   const [comidaSeleccionada, setComidaSeleccionada] = useState<ComidaVisual | null>(null);
   const [cantidadBorrador, setCantidadBorrador] = useState("");
   const [objetivosLocales, setObjetivosLocales] = useState(() => ({
@@ -191,6 +195,7 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
   };
 
   const copiarComida = async (seleccion?: ComidaVisual) => {
+    if (operacionRef.current) return;
     if (datos?.soloLectura) {
       setAviso("Esta cuenta está abierta en modo solo lectura");
       return;
@@ -200,18 +205,25 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
       setAviso("Todavía no hay una comida para copiar en este día");
       return;
     }
-    let consumidoId = origen.consumidoId;
-    if (datos && origen.alimentoId && origen.cantidad && origen.unidad) {
-      const resultado = await agregarAlimentoAHora(fechaActiva, horaActual, origen.alimentoId, origen.cantidad, origen.unidad);
-      if (resultado.error) {
-        setAviso(resultado.error);
-        return;
+    operacionRef.current = true;
+    setOperacion("copiar");
+    try {
+      let consumidoId = origen.consumidoId;
+      if (datos && origen.alimentoId && origen.cantidad && origen.unidad) {
+        const resultado = await agregarAlimentoAHora(fechaActiva, horaActual, origen.alimentoId, origen.cantidad, origen.unidad);
+        if (resultado.error) {
+          setAviso(resultado.error);
+          return;
+        }
+        consumidoId = resultado.consumidoId;
       }
-      consumidoId = resultado.consumidoId;
+      setComidas((actuales) => [...actuales, { ...origen, fecha: fechaActiva, hora: horaActual, consumidoId }]);
+      setPanel(null);
+      setAviso("Comida copiada correctamente");
+    } finally {
+      operacionRef.current = false;
+      setOperacion(null);
     }
-    setComidas((actuales) => [...actuales, { ...origen, fecha: fechaActiva, hora: horaActual, consumidoId }]);
-    setPanel(null);
-    setAviso("Comida copiada correctamente");
   };
 
   const abrirPanel = (siguiente: Exclude<PanelNutricion, null>, hora = horaActual) => {
@@ -232,6 +244,7 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
   const confirmarAlimentosReales = async (elegidos: AlimentoElegido[]) => {
     if (elegidos.length === 0) return;
     setPanel(null);
+    setAviso("Guardando alimentos…");
     let guardados = 0;
     for (const elegido of elegidos) {
       const resultado = await agregarAlimentoAHora(
@@ -272,41 +285,55 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
   };
 
   const guardarCantidad = async () => {
-    if (!comidaSeleccionada) return;
+    if (!comidaSeleccionada || operacionRef.current) return;
     const cantidad = Number(cantidadBorrador.replace(",", "."));
     if (!Number.isFinite(cantidad) || cantidad <= 0) {
       setAviso("Ingresa una cantidad válida");
       return;
     }
-    if (datos && comidaSeleccionada.consumidoId) {
-      const resultado = await actualizarCantidadAlimento(comidaSeleccionada.consumidoId, cantidad, comidaSeleccionada.fecha);
-      if (resultado.error) { setAviso(resultado.error); return; }
+    operacionRef.current = true;
+    setOperacion("cantidad");
+    try {
+      if (datos && comidaSeleccionada.consumidoId) {
+        const resultado = await actualizarCantidadAlimento(comidaSeleccionada.consumidoId, cantidad, comidaSeleccionada.fecha);
+        if (resultado.error) { setAviso(resultado.error); return; }
+      }
+      const anterior = comidaSeleccionada.cantidad ?? 100;
+      const factor = cantidad / Math.max(anterior, 0.0001);
+      setComidas((actuales) => actuales.map((comida) => comida === comidaSeleccionada ? {
+        ...comida,
+        cantidad,
+        marca: `${Math.round(cantidad * 10) / 10} ${comida.unidad ?? "g"}`,
+        kcal: comida.kcal * factor,
+        prot: comida.prot * factor,
+        carb: comida.carb * factor,
+        grasa: comida.grasa * factor,
+        detalle: `${Math.round(comida.kcal * factor)} cal · ${Math.round(comida.prot * factor)} p · ${Math.round(comida.carb * factor)} c · ${Math.round(comida.grasa * factor)} g`,
+      } : comida));
+      setComidaSeleccionada(null);
+      setAviso("Cantidad actualizada");
+    } finally {
+      operacionRef.current = false;
+      setOperacion(null);
     }
-    const anterior = comidaSeleccionada.cantidad ?? 100;
-    const factor = cantidad / Math.max(anterior, 0.0001);
-    setComidas((actuales) => actuales.map((comida) => comida === comidaSeleccionada ? {
-      ...comida,
-      cantidad,
-      marca: `${Math.round(cantidad * 10) / 10} ${comida.unidad ?? "g"}`,
-      kcal: comida.kcal * factor,
-      prot: comida.prot * factor,
-      carb: comida.carb * factor,
-      grasa: comida.grasa * factor,
-      detalle: `${Math.round(comida.kcal * factor)} cal · ${Math.round(comida.prot * factor)} p · ${Math.round(comida.carb * factor)} c · ${Math.round(comida.grasa * factor)} g`,
-    } : comida));
-    setComidaSeleccionada(null);
-    setAviso("Cantidad actualizada");
   };
 
   const quitarComida = async () => {
-    if (!comidaSeleccionada) return;
-    if (datos && comidaSeleccionada.consumidoId) {
-      const resultado = await quitarAlimentoDeComida(comidaSeleccionada.consumidoId, comidaSeleccionada.fecha);
-      if (resultado.error) { setAviso(resultado.error); return; }
+    if (!comidaSeleccionada || operacionRef.current) return;
+    operacionRef.current = true;
+    setOperacion("eliminar");
+    try {
+      if (datos && comidaSeleccionada.consumidoId) {
+        const resultado = await quitarAlimentoDeComida(comidaSeleccionada.consumidoId, comidaSeleccionada.fecha);
+        if (resultado.error) { setAviso(resultado.error); return; }
+      }
+      setComidas((actuales) => actuales.filter((comida) => comida !== comidaSeleccionada));
+      setComidaSeleccionada(null);
+      setAviso("Alimento eliminado del registro");
+    } finally {
+      operacionRef.current = false;
+      setOperacion(null);
     }
-    setComidas((actuales) => actuales.filter((comida) => comida !== comidaSeleccionada));
-    setComidaSeleccionada(null);
-    setAviso("Alimento eliminado del registro");
   };
 
   const fechaTitulo = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "long", timeZone: "America/Santiago" })
@@ -379,17 +406,17 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
       {panel === "resumen" ? <ResumenNutricional totales={totales} objetivos={objetivos} reales={Boolean(datos)} onClose={() => setPanel(null)} onAdjust={() => setPanel("macros")} /> : null}
       {panel === "buscar" && !datos ? <BuscarAlimento onClose={() => setPanel(null)} onScan={() => setPanel("escaner")} onAdd={agregarComida} /> : null}
       {panel === "macros" ? <AjustarMacros objetivos={objetivos} real={Boolean(datos)} onClose={() => setPanel(null)} onApply={(nuevos) => { setObjetivosLocales(nuevos); setPanel(null); setAviso("Objetivos nutricionales actualizados"); }} /> : null}
-      {panel === "copiar" ? <CopiarAlimentos comidas={comidas} onClose={() => setPanel(null)} onCopy={copiarComida} /> : null}
+      {panel === "copiar" ? <CopiarAlimentos comidas={comidas} copiando={operacion === "copiar"} onClose={() => setPanel(null)} onCopy={copiarComida} /> : null}
       {panel === "escaner" && !datos ? <EscanerNutricional onClose={() => setPanel(null)} onAdd={agregarComida} /> : null}
       {datos ? <HojaAgregarComida hora={panel === "buscar" || panel === "escaner" ? horaSeleccionada : null} modoInicial={panel === "escaner" ? "escanear" : "buscar"} bibliotecaV2 onCerrar={() => setPanel(null)} onConfirmar={confirmarAlimentosReales} /> : null}
       {comidaSeleccionada ? (
         <div className={styles.nutritionPanelBackdrop} role="presentation" onClick={() => setComidaSeleccionada(null)}>
-          <section className={`${styles.nutritionPanel} ${styles.foodOptionsPanel}`} role="dialog" aria-modal="true" aria-label={`Editar ${comidaSeleccionada.nombre}`} onClick={(evento) => evento.stopPropagation()}>
+          <section className={`${styles.nutritionPanel} ${styles.foodOptionsPanel}`} role="dialog" aria-modal="true" aria-busy={operacion !== null} aria-label={`Editar ${comidaSeleccionada.nombre}`} onClick={(evento) => evento.stopPropagation()}>
             <header><button type="button" onClick={() => setComidaSeleccionada(null)} aria-label="Cerrar"><X size={19} /></button></header>
             <h2>{comidaSeleccionada.nombre}</h2>
             <label><span>Cantidad ({comidaSeleccionada.unidad ?? "g"})</span><input inputMode="decimal" value={cantidadBorrador} onChange={(evento) => setCantidadBorrador(evento.target.value)} autoFocus /></label>
-            <button type="button" className={styles.macroApplyButton} onClick={guardarCantidad}>Guardar cantidad</button>
-            <button type="button" className={styles.foodDeleteButton} onClick={quitarComida}>Eliminar del registro</button>
+            <button type="button" className={styles.macroApplyButton} disabled={operacion !== null} onClick={guardarCantidad}>{operacion === "cantidad" ? "Guardando…" : "Guardar cantidad"}</button>
+            <button type="button" className={styles.foodDeleteButton} disabled={operacion !== null} onClick={quitarComida}>{operacion === "eliminar" ? "Eliminando…" : "Eliminar del registro"}</button>
           </section>
         </div>
       ) : null}
@@ -406,18 +433,18 @@ function MacroCompacto({ nombre, icon, consumido, objetivo, progreso }: { nombre
   );
 }
 
-function CopiarAlimentos({ comidas, onClose, onCopy }: { comidas: ComidaVisual[]; onClose: () => void; onCopy: (comida: ComidaVisual) => void }) {
+function CopiarAlimentos({ comidas, copiando, onClose, onCopy }: { comidas: ComidaVisual[]; copiando: boolean; onClose: () => void; onCopy: (comida: ComidaVisual) => void }) {
   const recientes = [...comidas].reverse().slice(0, 12);
   return (
     <div className={styles.nutritionPanelBackdrop} role="presentation" onClick={onClose}>
-      <section className={`${styles.nutritionPanel} ${styles.foodSearchPanel}`} role="dialog" aria-modal="true" aria-label="Copiar alimentos" onClick={(evento) => evento.stopPropagation()}>
+      <section className={`${styles.nutritionPanel} ${styles.foodSearchPanel}`} role="dialog" aria-modal="true" aria-busy={copiando} aria-label="Copiar alimentos" onClick={(evento) => evento.stopPropagation()}>
         <header><button type="button" onClick={onClose} aria-label="Cerrar"><X size={19} /></button></header>
         <h2>Copiar alimentos</h2>
         <p className={styles.copyFoodsIntro}>Elige un registro reciente. Se copiará a la hora actual conservando su cantidad real.</p>
         <div className={styles.copyFoodsList}>
           {recientes.length ? recientes.map((comida, indice) => (
-            <button type="button" key={`${comida.fecha}-${comida.hora}-${comida.nombre}-${indice}`} onClick={() => onCopy(comida)}>
-              <span><strong>{comida.nombre}</strong><small>{comida.fecha} · {etiquetaHora(comida.hora)}</small></span><b>{Math.round(comida.kcal)} cal</b><Plus size={17} />
+            <button type="button" disabled={copiando} key={`${comida.fecha}-${comida.hora}-${comida.nombre}-${indice}`} onClick={() => onCopy(comida)}>
+              <span><strong>{comida.nombre}</strong><small>{comida.fecha} · {etiquetaHora(comida.hora)}</small></span><b>{copiando ? "Copiando…" : `${Math.round(comida.kcal)} cal`}</b><Plus size={17} />
             </button>
           )) : <p>No hay alimentos recientes para copiar.</p>}
         </div>
@@ -483,8 +510,13 @@ function AjustarMacros({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const aplicar = async () => {
-    setGuardando(true);
     setError(null);
+    const errorValores = errorMetasNutricionales(valores);
+    if (errorValores) {
+      setError(errorValores);
+      return;
+    }
+    setGuardando(true);
     if (real) {
       const formData = new FormData();
       formData.set("kcal_objetivo", String(Math.round(valores.kcal)));
@@ -514,10 +546,10 @@ function AjustarMacros({
           ))}
         </div>
         <div className={styles.macroFields}>
-          <label><span>Calorías</span><input inputMode="numeric" value={valores.kcal} onChange={(evento) => setValores((actual) => ({ ...actual, kcal: Number(evento.target.value) || 0 }))} /><b>kcal</b></label>
-          <label><span>Proteína</span><input inputMode="numeric" value={valores.prot} onChange={(evento) => setValores((actual) => ({ ...actual, prot: Number(evento.target.value) || 0 }))} /><b>g</b></label>
-          <label><span>Carbohidratos</span><input inputMode="numeric" value={valores.carb} onChange={(evento) => setValores((actual) => ({ ...actual, carb: Number(evento.target.value) || 0 }))} /><b>g</b></label>
-          <label><span>Grasas</span><input inputMode="numeric" value={valores.grasa} onChange={(evento) => setValores((actual) => ({ ...actual, grasa: Number(evento.target.value) || 0 }))} /><b>g</b></label>
+          <label><span>Calorías</span><input type="number" min="1" step="1" inputMode="numeric" value={valores.kcal} onChange={(evento) => setValores((actual) => ({ ...actual, kcal: Number(evento.target.value) || 0 }))} /><b>kcal</b></label>
+          <label><span>Proteína</span><input type="number" min="0" step="1" inputMode="numeric" value={valores.prot} onChange={(evento) => setValores((actual) => ({ ...actual, prot: Number(evento.target.value) || 0 }))} /><b>g</b></label>
+          <label><span>Carbohidratos</span><input type="number" min="0" step="1" inputMode="numeric" value={valores.carb} onChange={(evento) => setValores((actual) => ({ ...actual, carb: Number(evento.target.value) || 0 }))} /><b>g</b></label>
+          <label><span>Grasas</span><input type="number" min="0" step="1" inputMode="numeric" value={valores.grasa} onChange={(evento) => setValores((actual) => ({ ...actual, grasa: Number(evento.target.value) || 0 }))} /><b>g</b></label>
         </div>
         {error ? <p role="alert">{error}</p> : null}
         <button type="button" className={styles.macroApplyButton} disabled={guardando} onClick={aplicar}>{guardando ? "Guardando…" : "Aplicar objetivos"}</button>

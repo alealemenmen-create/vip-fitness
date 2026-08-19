@@ -7,6 +7,7 @@ import { requireAlumno } from "@/lib/auth";
 import { TAG_RANKING } from "@/lib/ranking/data";
 import { buscarAlimentos } from "./data";
 import { etiquetaDeHora, type AlimentoCatalogo } from "./tipos";
+import { debeEliminarComidaVacia } from "@/lib/alimentos/limpiezaComida";
 import {
   buscarEnOFF,
   buscarPorCodigoOFF,
@@ -114,22 +115,35 @@ async function fechaRealDeComida(
   return registro?.alumno_id === alumnoId ? registro.fecha : null;
 }
 
-async function fechaRealDeAlimentoConsumido(
+type ReferenciaAlimentoConsumido = {
+  fecha: string;
+  comidaId: string;
+  omitida: boolean;
+  observacion: string | null;
+};
+
+async function referenciaRealDeAlimentoConsumido(
   supabase: Awaited<ReturnType<typeof createClient>>,
   alimentoConsumidoId: string,
   alumnoId: string
-): Promise<string | null> {
+): Promise<ReferenciaAlimentoConsumido | null> {
   const { data } = await supabase
     .from("alimentos_consumidos")
-    .select("comidas_registradas(registros_diarios(fecha, alumno_id))")
+    .select("comida_id, comidas_registradas(omitida, observacion, registros_diarios(fecha, alumno_id))")
     .eq("id", alimentoConsumidoId)
     .maybeSingle();
   const comida = data?.comidas_registradas as
-    | { registros_diarios: { fecha: string; alumno_id: string } | null }
+    | { omitida: boolean; observacion: string | null; registros_diarios: { fecha: string; alumno_id: string } | null }
     | null
     | undefined;
   const registro = comida?.registros_diarios;
-  return registro?.alumno_id === alumnoId ? registro.fecha : null;
+  if (registro?.alumno_id !== alumnoId || !data?.comida_id) return null;
+  return {
+    fecha: registro.fecha,
+    comidaId: data.comida_id,
+    omitida: comida?.omitida ?? false,
+    observacion: comida?.observacion ?? null,
+  };
 }
 
 /**
@@ -574,14 +588,29 @@ export async function quitarAlimentoDeComida(alimentoConsumidoId: string, fechaS
   const quien = await alumnoDelDiario();
   if (!quien.ok) return { error: quien.error };
   const supabase = await createClient();
-  const fecha = await fechaRealDeAlimentoConsumido(supabase, alimentoConsumidoId, quien.alumnoId);
-  if (!fecha) return { error: "No encontramos ese alimento en tu diario." };
+  const referencia = await referenciaRealDeAlimentoConsumido(supabase, alimentoConsumidoId, quien.alumnoId);
+  if (!referencia) return { error: "No encontramos ese alimento en tu diario." };
   const { error } = await supabase.from("alimentos_consumidos").delete().eq("id", alimentoConsumidoId);
   if (error) return { error: "No fue posible eliminar el alimento." };
+
+  // Si era el último alimento, no dejamos una comida invisible acumulándose
+  // en la base. Observaciones y comidas omitidas sí son información válida y
+  // se conservan aun sin alimentos.
+  const { count: restantes, error: errorConteo } = await supabase
+    .from("alimentos_consumidos")
+    .select("id", { count: "exact", head: true })
+    .eq("comida_id", referencia.comidaId);
+  if (!errorConteo && debeEliminarComidaVacia({
+    alimentosRestantes: restantes ?? 0,
+    omitida: referencia.omitida,
+    observacion: referencia.observacion,
+  })) {
+    await supabase.from("comidas_registradas").delete().eq("id", referencia.comidaId);
+  }
   await registrarCambioAlimentacion(quien.alumnoId, "quitar_alimento");
-  await recalcularAlimentacionDia(quien.alumnoId, fecha);
+  await recalcularAlimentacionDia(quien.alumnoId, referencia.fecha);
   revalidateTag(TAG_RANKING, { expire: 0 });
-  revalidatePath(`/alumno/comer/${fecha}`);
+  revalidatePath(`/alumno/comer/${referencia.fecha}`);
   revalidatePath("/alumno/inicio");
   revalidatePath("/portal-v2/nutricion");
   revalidatePath("/portal-v2/progreso");
@@ -605,8 +634,8 @@ export async function actualizarCantidadAlimento(
     return { error: "Ingresa una cantidad válida." };
   }
   const supabase = await createClient();
-  const fecha = await fechaRealDeAlimentoConsumido(supabase, alimentoConsumidoId, quien.alumnoId);
-  if (!fecha) return { error: "No encontramos ese alimento en tu diario." };
+  const referencia = await referenciaRealDeAlimentoConsumido(supabase, alimentoConsumidoId, quien.alumnoId);
+  if (!referencia) return { error: "No encontramos ese alimento en tu diario." };
   const { error } = await supabase
     .from("alimentos_consumidos")
     .update({ cantidad })
@@ -616,9 +645,9 @@ export async function actualizarCantidadAlimento(
 
   await registrarCambioAlimentacion(quien.alumnoId, "actualizar_cantidad");
 
-  const puntos = await recalcularAlimentacionDia(quien.alumnoId, fecha);
+  const puntos = await recalcularAlimentacionDia(quien.alumnoId, referencia.fecha);
   revalidateTag(TAG_RANKING, { expire: 0 });
-  revalidatePath(`/alumno/comer/${fecha}`);
+  revalidatePath(`/alumno/comer/${referencia.fecha}`);
   revalidatePath("/alumno/inicio");
   revalidatePath("/portal-v2/nutricion");
   revalidatePath("/portal-v2/progreso");

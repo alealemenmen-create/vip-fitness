@@ -13,11 +13,13 @@ function CampoMacro({
   etiqueta,
   sufijo,
   valorInicial,
+  minimo = 0,
 }: {
   nombre: string;
   etiqueta: string;
   sufijo: string;
   valorInicial: number | null;
+  minimo?: number;
 }) {
   return (
     <label className="radius-control block border border-border bg-surface-2 px-3 py-2">
@@ -27,7 +29,7 @@ function CampoMacro({
           name={nombre}
           type="number"
           inputMode="numeric"
-          min="0"
+          min={minimo}
           step="1"
           defaultValue={valorInicial ?? ""}
           placeholder="0"
@@ -81,6 +83,7 @@ export function EditorMisMacros({
             etiqueta="Calorías"
             sufijo="kcal"
             valorInicial={planActual?.kcalObjetivo ?? null}
+            minimo={1}
           />
           <CampoMacro
             nombre="prot_objetivo"

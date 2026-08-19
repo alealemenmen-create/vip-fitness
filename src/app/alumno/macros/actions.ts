@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAlumno } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { errorMetasNutricionales } from "@/lib/alimentos/metasNutricionales";
 
 export type FormState = { error: string | null; ok: boolean };
 const okState: FormState = { error: null, ok: true };
@@ -31,7 +32,7 @@ export async function guardarMisMacros(_prevState: FormState, formData: FormData
     const s = String(texto ?? "").trim();
     if (s === "") return null;
     const n = Number(s);
-    return Number.isFinite(n) ? Math.max(0, Math.round(n)) : null;
+    return Number.isFinite(n) ? Math.round(n) : null;
   };
 
   const kcalObjetivo = entero(formData.get("kcal_objetivo"));
@@ -39,7 +40,13 @@ export async function guardarMisMacros(_prevState: FormState, formData: FormData
   const carbObjetivo = entero(formData.get("carb_objetivo"));
   const grasaObjetivo = entero(formData.get("grasa_objetivo"));
 
-  if (kcalObjetivo === null) return fail("Falta la meta de calorías.");
+  const errorMetas = errorMetasNutricionales({
+    kcal: kcalObjetivo,
+    prot: protObjetivo,
+    carb: carbObjetivo,
+    grasa: grasaObjetivo,
+  });
+  if (errorMetas) return fail(errorMetas);
 
   const supabase = createAdminClient();
 
@@ -69,5 +76,6 @@ export async function guardarMisMacros(_prevState: FormState, formData: FormData
   revalidatePath("/alumno/macros");
   revalidatePath("/alumno/comer");
   revalidatePath("/alumno/inicio");
+  revalidatePath("/portal-v2/nutricion");
   return okState;
 }
