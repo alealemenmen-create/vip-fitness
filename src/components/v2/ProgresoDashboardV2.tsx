@@ -238,7 +238,7 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
         </div>
         <div className={styles.bodyweightFooter}>
           <p><strong>{datos?.variacionPeso == null ? "—" : `${datos.variacionPeso > 0 ? "+" : ""}${datos.variacionPeso.toLocaleString("es-CL")} kg`}</strong>{datos?.variacionPeso == null ? " requiere 2 registros en 30 días" : " en 30 días"}</p>
-          <div><button type="button" onClick={() => setDetalleSeguimiento(true)}><Camera size={15} /> Foto</button><button type="button" onClick={abrirPeso} disabled={datos?.soloLectura}>Registrar <Plus size={17} /></button></div>
+          <div><button type="button" onClick={() => setDetalleSeguimiento(true)}><Camera size={15} /> Foto</button><button type="button" onClick={abrirPeso} disabled={!datos || datos.soloLectura}>Registrar <Plus size={17} /></button></div>
         </div>
       </section>
 

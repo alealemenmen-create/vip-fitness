@@ -34,7 +34,7 @@ function fechaCorta(fecha: string) {
     .format(instante);
 }
 
-export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
+export function ComunidadV2({ datos, errorCarga = null }: { datos: ComunidadDatosV2 | null; errorCarga?: string | null }) {
   const router = useRouter();
   const [vista, setVista] = useState<Vista>("actividad");
   const [periodo, setPeriodo] = useState<Periodo>("mensual");
@@ -54,6 +54,25 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
     : (datos ? datos.mensual : DEMO_FILAS);
   const filasClasificacion = resumirClasificacionComunidad(clasificacionVisible, clasificacionExpandida);
   const actividad = datos ? datos.actividad : DEMO_ACTIVIDAD;
+
+  if (errorCarga) {
+    return (
+      <section className={styles.communityPage}>
+        <header className={styles.communityHeader}>
+          <Link href="/portal-v2/progreso" aria-label="Volver a Progreso"><ArrowLeft size={22} /></Link>
+          <h1>Comunidad</h1>
+          <span aria-hidden />
+        </header>
+        <section className={styles.communityLoadError} role="alert">
+          <ShieldCheck size={24} />
+          <strong>Comunidad no está disponible por el momento</strong>
+          <p>{errorCarga}</p>
+          <button type="button" onClick={() => router.refresh()}>Intentar nuevamente</button>
+          <Link href="/portal-v2/progreso">Volver a Progreso</Link>
+        </section>
+      </section>
+    );
+  }
 
   const abrirDesglose = (persona: FilaComunidadV2) => {
     if (!datos) {

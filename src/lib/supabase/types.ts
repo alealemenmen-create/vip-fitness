@@ -1076,6 +1076,13 @@ export interface Database {
           fibra: number | null;
           azucares: number | null;
           sodio: number | null;
+          // 0114_catalogo_nutricional_vip_local.sql
+          tipo_producto: "alimento_natural" | "suplemento_generico" | "suplemento_marca" | "producto_envasado" | null;
+          pais_origen: string | null;
+          fuente_datos: string | null;
+          fuente_url: string | null;
+          fuente_clave: string | null;
+          verificacion_fuente: "sin_especificar" | "referencia_compuesta" | "url_producto" | "openfoodfacts" | "personalizado";
         };
         Insert: {
           nombre: string;
@@ -1098,6 +1105,12 @@ export interface Database {
           fibra?: number | null;
           azucares?: number | null;
           sodio?: number | null;
+          tipo_producto?: "alimento_natural" | "suplemento_generico" | "suplemento_marca" | "producto_envasado" | null;
+          pais_origen?: string | null;
+          fuente_datos?: string | null;
+          fuente_url?: string | null;
+          fuente_clave?: string | null;
+          verificacion_fuente?: "sin_especificar" | "referencia_compuesta" | "url_producto" | "openfoodfacts" | "personalizado";
         };
         Update: Partial<Database["public"]["Tables"]["alimentos"]["Insert"]>;
         Relationships: [];

@@ -75,6 +75,16 @@ idempotente y contrastarse contra el registro original antes del piloto.
 - Buscar: catálogo propio primero; Search-a-licious de Open Food Facts para
   texto en Chile y luego global; el buscador histórico queda como respaldo y
   siempre existe creación manual cuando no hay resultado.
+- La base entregada en `C:\dev\vipfitness_nutricion` quedó incorporada mediante
+  `0114_catalogo_nutricional_vip_local.sql`: sus `260` alimentos están
+  disponibles en el buscador y el catálogo compartido pasó de `316` a `483`
+  filas. Se añadieron sólo `167` nombres ausentes y se conservaron intactas las
+  `93` coincidencias históricas; la importación nunca reemplaza macros ya
+  utilizados por los alumnos.
+- Cada fila importada conserva país, tipo de producto, fuente y nivel de
+  verificación. Nueve productos tienen una URL específica; los otros `251`
+  proceden de una referencia compuesta y quedan identificados como tales, no
+  como verdad clínica ni como ficha oficial de una marca.
 - Los productos externos se vuelven a consultar por código en el servidor:
   nombre y macros enviados por el navegador nunca se confían, se rechazan
   rangos imposibles y la caché compartida sólo puede escribirla la service
@@ -254,8 +264,8 @@ adicionales separadas, jamás modificar silenciosamente la rutina publicada.
 ## Tablas y campos necesarios
 
 La definición exhaustiva y tipada está en `src/lib/supabase/types.ts`; las
-migraciones históricas están en `supabase/migrations/0001_init.sql` a
-`0110_automatizaciones_idempotentes.sql`. Las tablas que sostienen esta V2 son:
+migraciones históricas y de la V2 están en `supabase/migrations/0001_init.sql` a
+`0114_catalogo_nutricional_vip_local.sql`. Las tablas que sostienen esta V2 son:
 
 | Área | Tabla | Campos esenciales |
 | --- | --- | --- |
@@ -273,7 +283,7 @@ migraciones históricas están en `supabase/migrations/0001_init.sql` a
 | Comida | `comidas_registradas` | registro, tipo/hora, observación, omitida y fecha de registro |
 | Consumo | `alimentos_consumidos` | `comida_id`, `alimento_id`, `cantidad`, `unidad` |
 | Biblioteca nutricional | `alimentos_favoritos`, `recetas_alumno`, `receta_ingredientes` | propiedad, alimento, cantidad, porciones, orden y fechas |
-| Catálogo | `alimentos` | nombre, marca, porción, macros, micronutrientes, medida casera, código, origen OFF, imagen y aprobación |
+| Catálogo | `alimentos` | nombre, marca, porción, macros, micronutrientes, medida casera, código, origen OFF, país, fuente, clave y nivel de verificación, imagen y aprobación |
 | Caché nutricional externa | `open_food_facts_cache` | consulta normalizada, país, productos validados, expiración y actualización; acceso exclusivo de service role |
 | Peso | `pesos_corporales` | alumno, fecha, `peso_kg`, observación y creación |
 | Fotos | `fotos_progreso` | alumno, ruta, fecha, categoría, comentario y creación |
@@ -302,9 +312,11 @@ migraciones históricas están en `supabase/migrations/0001_init.sql` a
   Unidos; el mercado chileno requiere solicitar acceso Premier y aceptar sus
   condiciones comerciales. Si se contrata, se integrará por su API autorizada
   detrás del mismo adaptador de búsqueda; nunca copiando ni extrayendo su app.
-- Catálogo chileno propio: semillas y respaldo en `supabase/seeds` y
-  `supabase/respaldos`; debe enriquecerse continuamente con productos y marcas
-  locales, incluida Soprole, conservando aprobación humana.
+- Catálogo VIP propio: `260` alimentos de la base local ya están integrados con
+  procedencia explícita y sin sobrescribir filas históricas. Debe enriquecerse
+  continuamente con productos y marcas chilenas —incluida Soprole—, manteniendo
+  revisión humana; Open Food Facts sigue siendo el complemento para productos
+  envasados que aún no existen localmente.
 - INTA/Universidad de Chile: referencia nutricional nacional para alimentos
   genéricos; su licencia y formato deben revisarse antes de importar en masa.
 - Cloudflare Stream: video de ejercicios y webhooks.
@@ -427,7 +439,7 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `74` archivos de pruebas y `589` pruebas aprobadas; ESLint sin advertencias,
+- `75` archivos de pruebas y `593` pruebas aprobadas; ESLint sin advertencias,
   TypeScript sin errores y compilación de producción completa (`68` rutas).
 - Las 16 rutas principales de la V2 respondieron `200` en el servidor de producción local,
   incluida la búsqueda prefiltrada de la biblioteca y la nueva pantalla de
@@ -465,6 +477,16 @@ Validaciones locales completadas el 19-08-2026:
   entrenador que no estaba instalada. Tiene RLS activo, acceso anónimo revocado,
   lectura/inserción autenticada bajo política y no concede actualización ni
   borrado desde el cliente.
+- `0114_catalogo_nutricional_vip_local.sql` se aplicó al Supabase activo. La
+  auditoría posterior confirmó `483` alimentos compartidos, presencia de los
+  `260` nombres de la base entregada y cero faltantes. Las `15` coincidencias con
+  diferencias superiores al 20 % en algún macronutriente conservaron el dato
+  histórico para revisión humana en vez de ser alteradas automáticamente.
+- Comunidad y clasificación se recorrieron autenticadas sobre la compilación
+  candidata: Actividad mostró eventos reales, Clasificación mostró el ranking
+  mensual de `74` alumnos y Arena/Recompensas mantuvo un destino explícito, sin
+  errores de consola. Si la lectura integral falla, Comunidad presenta reintento
+  y regreso a Progreso; ya no convierte una caída de datos en contenido demo.
 - La sesión activa conserva un borrador local validado y aislado por id durante
   48 horas. Una recarga recupera los últimos pesos, repeticiones, notas por
   ejercicio, nota general, tiempo y posición sin pisar series que el servidor
@@ -570,6 +592,12 @@ Validaciones locales completadas el 19-08-2026:
   tipografía y superficies de V2. La prueba visual con Soprole confirmó
   resultados reales y corrigió además etiquetas de porción que Open Food Facts
   entregaba en inglés (`portion`) para presentarlas en español.
+- La búsqueda autenticada posterior a `0114` comprobó desde la interfaz la
+  convivencia de ambas fuentes: `Mango` apareció desde el catálogo local junto
+  con resultados externos, y `Whey` devolvió aislado, concentrado, hidrolizado y
+  productos de marcas locales con porciones de `30`, `33` y `36 g`. El catálogo
+  propio responde primero y Open Food Facts continúa como respaldo, sin errores
+  ni duplicación de la consulta.
 - Durante esa prueba se corrigió un desacople visual: el formulario cargaba
   los números de “Volumen controlado” pero marcaba “Mantenimiento”. Ahora el
   preset seleccionado se deduce de los cuatro valores almacenados; una meta
@@ -677,8 +705,9 @@ Validaciones locales completadas el 19-08-2026:
    `0109_cache_open_food_facts.sql` y el refuerzo de automatizaciones
    `0110_automatizaciones_idempotentes.sql`, además de la separación
    administrativa `0111_recompensas_vip_solo_admin.sql`, la escritura atómica
-   de perfil `0112_perfil_v2_consistente.sql` y las revisiones de seguimiento
-   `0113_seguimiento_revisiones_faltante.sql`, ya quedaron instaladas
+   de perfil `0112_perfil_v2_consistente.sql`, las revisiones de seguimiento
+   `0113_seguimiento_revisiones_faltante.sql` y el catálogo nutricional local
+   `0114_catalogo_nutricional_vip_local.sql`, ya quedaron instaladas
    y verificadas en el proyecto activo. Mantener una instancia de preview para
    las pruebas destructivas y los cambios siguientes.
 4. Configurar variables de preview y producción por separado.
@@ -716,8 +745,8 @@ sin esperar ampliaciones comerciales:
 Pueden continuar después de esa primera prueba cerrada, sin bajar la calidad del
 nucleo ya entregado:
 
-- evaluar FatSecret mediante su API licenciada o una base chilena propia como
-  segundo proveedor; Open Food Facts y el catálogo VIP ya cubren el primer corte;
+- evaluar FatSecret únicamente mediante su API licenciada como proveedor
+  adicional; el catálogo VIP local y Open Food Facts ya cubren el primer corte;
 - conectar cobros cuando se elija un proveedor de pagos;
 - definir premios, stock y responsables comerciales reales antes de publicar el
   catálogo de recompensas a todo el alumnado;

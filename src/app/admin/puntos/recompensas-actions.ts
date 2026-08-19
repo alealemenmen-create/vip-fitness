@@ -49,10 +49,7 @@ export async function resolverCanjeVip(id: string, estado: "aprobado" | "entrega
   if (!esUuidVip(id) || !esEstadoAdministrableCanjeVip(estado)) return { ok: false, error: "El canje o su nuevo estado no son válidos." };
   const supabase = await createClient();
   const { error } = await supabase.rpc("resolver_canje_vip", { p_canje_id: id, p_estado: estado, p_nota: textoSeguroVip(nota, 500) || null });
-  if (error) {
-    revalidarRecompensas();
-    return { ok: false, error: mensajeAdministracionRecompensasVip(error.message) };
-  }
+  if (error) return { ok: false, error: mensajeAdministracionRecompensasVip(error.message) };
   revalidarRecompensas();
   return { ok: true, error: null };
 }

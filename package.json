@@ -15,7 +15,9 @@
     "qa:v2:integridad": "node scripts/configurar-y-verificar-qa-v2.mjs",
     "qa:v2:tecnicas": "node scripts/preparar-sesion-tecnicas-qa-v2.mjs",
     "cleanup:v2-qa-nutrition": "node scripts/limpiar-comidas-vacias-qa.mjs",
-    "audit:v2-data": "node scripts/auditar-continuidad-datos-v2.mjs"
+    "audit:v2-data": "node scripts/auditar-continuidad-datos-v2.mjs",
+    "audit:v2-food-local": "node scripts/auditar-base-nutricional-local.mjs",
+    "generate:v2-food-migration": "node scripts/generar-migracion-catalogo-nutricional.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

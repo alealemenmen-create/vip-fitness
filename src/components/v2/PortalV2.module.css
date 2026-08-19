@@ -1431,6 +1431,12 @@
 .communityPerson > small { display: block; margin-top: 2px; color: #858885; font-size: 7px; font-weight: 630; }
 
 .communityPage { padding-top: 12px; }
+.communityLoadError { display: grid; justify-items: center; gap: 11px; margin: 48px 16px 0; padding: 28px 20px; border: 1px solid rgba(255,255,255,.08); border-radius: 18px; color: #f6f7f3; background: linear-gradient(135deg, #111212 0%, #191a1a 100%); text-align: center; }
+.communityLoadError > svg { color: #9bea36; }
+.communityLoadError strong { font-size: 15px; line-height: 1.25; }
+.communityLoadError p { max-width: 320px; color: #a9ada8; font-size: 11px; line-height: 1.55; }
+.communityLoadError button, .communityLoadError a { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; padding: 0 18px; border: 1px solid rgba(255,255,255,.1); border-radius: 999px; color: #f5f6f2; background: var(--v2-polished-button); font-size: 11px; font-weight: 750; }
+.communityLoadError a { min-height: 32px; border: 0; color: #989d97; background: transparent; }
 .communityHeader { display: grid; min-height: 42px; grid-template-columns: 34px minmax(0, 1fr) 34px; align-items: center; }
 .communityHeader > a,
 .communityHeader > button { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; color: #eceeea; }
