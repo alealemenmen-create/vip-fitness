@@ -693,6 +693,11 @@ Validaciones locales completadas el 19-08-2026:
   vibración locales continúan operativos sin esas claves.
 - Publicación en el dominio y cambio de vista predeterminada: sólo después del
   piloto y de una orden expresa del propietario.
+- La compilación y los tiempos de respuesta locales de las 15 rutas están
+  verificados, pero la traza formal de Core Web Vitals (LCP, CLS, INP y cadena
+  de red) debe ejecutarse sobre la URL HTTPS de preview. El entorno actual no
+  tiene conectado Chrome DevTools MCP, por lo que no se publican cifras
+  estimadas como si fueran mediciones reales.
 - Cobro, renovación o cancelación del plan desde la V2: hoy se muestran datos
   reales del plan, pero no existe en el portal original un proveedor de pagos
   conectado que permita ejecutar esas operaciones sin inventarlas.
