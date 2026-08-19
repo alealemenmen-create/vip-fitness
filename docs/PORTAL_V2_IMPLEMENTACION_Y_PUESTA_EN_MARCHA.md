@@ -154,7 +154,11 @@ idempotente y contrastarse contra el registro original antes del piloto.
 ### Más, cuenta y roles
 
 - `/portal-v2/mas`: perfil, rango, puntos, notificaciones, plan, privacidad,
-  soporte, redes y retorno a la Vista clásica.
+  soporte, redes y retorno a la Vista clásica. La identidad, el rango, los
+  puntos, el plan y las preferencias se resuelven en el servidor antes de
+  entregar la pantalla autenticada; ya no aparece una vista vacía que haga una
+  segunda consulta al montar el navegador. La carga transitoria de navegación
+  conserva el mismo lenguaje visual V2.
 - La vista directa y las cuentas de solo lectura no pueden registrar ni retirar
   suscripciones push. El temporizador y el descanso preferido sólo quedan
   reflejados tras confirmación del servidor; ante error o corte de red, la
@@ -523,9 +527,9 @@ Validaciones locales completadas el 19-08-2026:
   un máximo de un momento. La rutina base nunca se altera ni se diagnostica.
 - `npm run audit:v2-data` ejecuta una auditoría agregada y estrictamente de
   sólo lectura contra las fuentes activas. El 19-08-2026 confirmó, entre otros,
-  `124` programas, `4.239` ejercicios prescritos, `514` sesiones históricas,
-  `3.937` ejercicios ejecutados, `11.149` series con sus cargas, `99` pesajes,
-  `6` fotos privadas, `535` comidas y `2.625` movimientos de puntos. La V2
+  `125` programas, `4.257` ejercicios prescritos, `521` sesiones históricas,
+  `3.998` ejercicios ejecutados, `11.316` series con sus cargas, `100` pesajes,
+  `6` fotos privadas, `547` comidas y `2.665` movimientos de puntos. La V2
   consume esas mismas tablas: no existe una copia vacía que obligue a reiniciar
   el progreso. Los totales son una fotografía de auditoría y cambiarán con el
   uso normal del portal activo.

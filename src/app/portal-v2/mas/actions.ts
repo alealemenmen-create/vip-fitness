@@ -26,11 +26,13 @@ export type CargaMasV2 =
   | { estado: "real"; datos: MasDatosV2 }
   | { estado: "error"; mensaje: string };
 
+type ContextoAlumnoV2 = NonNullable<Awaited<ReturnType<typeof obtenerContextoAlumnoOpcional>>>;
+
 export async function cargarMasV2Action(): Promise<CargaMasV2> {
   const contexto = await obtenerContextoAlumnoOpcional();
   if (!contexto) return { estado: "demo" };
   try {
-    const datos = await obtenerMasV2Action();
+    const datos = await construirMasV2(contexto);
     return datos
       ? { estado: "real", datos }
       : { estado: "error", mensaje: "No pudimos reconstruir la configuración de esta cuenta." };
@@ -39,9 +41,7 @@ export async function cargarMasV2Action(): Promise<CargaMasV2> {
   }
 }
 
-export async function obtenerMasV2Action(): Promise<MasDatosV2 | null> {
-  const contexto = await obtenerContextoAlumnoOpcional();
-  if (!contexto) return null;
+async function construirMasV2(contexto: ContextoAlumnoV2): Promise<MasDatosV2> {
   const supabase = await createClient();
   const [ranking, { data: perfil, error: errorPerfil }] = await Promise.all([
     obtenerRanking("mes"),
