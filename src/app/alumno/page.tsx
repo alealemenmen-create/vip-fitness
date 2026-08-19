@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function AlumnoIndexPage() {
-  redirect("/portal-v2/entrenamiento");
+  redirect("/alumno/inicio");
 }

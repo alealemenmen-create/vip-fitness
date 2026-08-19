@@ -141,7 +141,10 @@ export default async function AlumnoLayout({ children }: { children: React.React
             corner={
               <div className="utilidades-acciones-rutina flex items-center gap-2">
                 <CampanaNoticias sinVer={noticiasSinVer} />
-                <MenuAlumno nombre={nombreAlumnoPublicado(contexto.nombre)} />
+                <MenuAlumno
+                  nombre={nombreAlumnoPublicado(contexto.nombre)}
+                  portalV2Habilitado={perfilTema?.portal_v2_habilitado === true}
+                />
               </div>
             }
           />

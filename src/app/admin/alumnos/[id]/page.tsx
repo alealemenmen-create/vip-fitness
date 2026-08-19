@@ -39,13 +39,14 @@ import { obtenerPanelIndicacionesAle } from "@/lib/impulso-vip/manual-data";
 import { IndicacionesAlePanel } from "@/components/admin/IndicacionesAlePanel";
 import { FichaAlumnoTabs } from "@/components/admin/FichaAlumnoTabs";
 import { PencilRuler } from "lucide-react";
+import { AccesoPortalV2Alumno } from "@/components/admin/AccesoPortalV2Alumno";
 
 export default async function AlumnoDetallePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireRol(["entrenador", "admin"]);
+  const sesion = await requireRol(["entrenador", "admin"]);
   const { id: alumnoId } = await params;
   const supabase = await createClient();
 
@@ -69,7 +70,7 @@ export default async function AlumnoDetallePage({
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     supabase
       .from("alumno_perfil")
-      .select("objetivo, proximo_control_fecha, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana, plan_entrenamiento_pausado, temporizador_descanso, acceso_bloqueado, acceso_bloqueado_motivo")
+      .select("objetivo, proximo_control_fecha, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana, plan_entrenamiento_pausado, temporizador_descanso, acceso_bloqueado, acceso_bloqueado_motivo, portal_v2_habilitado")
       .eq("user_id", alumnoId)
       .maybeSingle(),
     supabase
@@ -139,6 +140,12 @@ export default async function AlumnoDetallePage({
         secciones={{
           resumen: (
             <>
+              {sesion.rol === "admin" ? (
+                <AccesoPortalV2Alumno
+                  alumnoId={alumnoId}
+                  habilitado={alumnoPerfil?.portal_v2_habilitado === true}
+                />
+              ) : null}
               {indicador && (
                 <Card padding="p-3">
                   <p className="text-[10px] mb-1 text-text-tertiary">ESTADO DEL ALUMNO</p>

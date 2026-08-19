@@ -368,6 +368,46 @@ export async function salirDeVistaAlumno(): Promise<void> {
   redirect(alumnoId ? `/admin/alumnos/${alumnoId}` : "/admin/alumnos");
 }
 
+/** Habilita la experiencia V2 alumno por alumno durante el piloto cerrado.
+ * Sólo el administrador puede ampliar el grupo; un entrenador puede seguir
+ * supervisando V2, pero no autorizar cuentas por su cuenta. */
+export async function actualizarAccesoPortalV2(
+  _prevState: FormState,
+  formData: FormData
+): Promise<FormState> {
+  await requireAdmin();
+  const alumnoId = String(formData.get("alumno_id") || "");
+  const habilitado = formData.get("habilitado") === "true";
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(alumnoId)) {
+    return fail("El alumno indicado no es válido.");
+  }
+
+  const admin = createAdminClient();
+  const { data: perfil } = await admin
+    .from("perfiles")
+    .select("id, rol")
+    .eq("id", alumnoId)
+    .maybeSingle();
+  if (!perfil || perfil.rol !== "alumno") return fail("No se encontró una cuenta de alumno válida.");
+
+  const { data: actualizado, error } = await admin
+    .from("alumno_perfil")
+    .update({ portal_v2_habilitado: habilitado, updated_at: new Date().toISOString() })
+    .eq("user_id", alumnoId)
+    .select("user_id")
+    .maybeSingle();
+
+  if (error || !actualizado) {
+    return fail("No fue posible cambiar el acceso a Portal V2. Intenta nuevamente.");
+  }
+
+  revalidatePath(`/admin/alumnos/${alumnoId}`);
+  revalidatePath("/alumno", "layout");
+  revalidatePath("/portal-v2", "layout");
+  return okState;
+}
+
 export async function guardarNota(_prevState: FormState, formData: FormData): Promise<FormState> {
   const sesion = await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();

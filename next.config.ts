@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
   // or less"). El build compilaba bien y recién fallaba al publicar, así que
   // producción quedó 8 horas servida por un despliegue viejo sin que se
   // notara. 12 caracteres siguen siendo únicos de sobra (git abrevia en 7).
-  deploymentId: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? process.env.NEXT_DEPLOYMENT_ID,
+  deploymentId: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || process.env.NEXT_DEPLOYMENT_ID,
   // Temporal (medición de rendimiento): permite compilar a una carpeta aparte
   // para no chocar con el servidor de desarrollo que tiene tomado .next.
   ...(process.env.VIP_DIST_DIR ? { distDir: process.env.VIP_DIST_DIR } : {}),

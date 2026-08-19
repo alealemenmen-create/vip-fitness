@@ -126,6 +126,8 @@ export interface Database {
           // app (ej. no pagó), distinto de plan_entrenamiento_pausado.
           acceso_bloqueado: boolean;
           acceso_bloqueado_motivo: string | null;
+          // 0116_portal_v2_piloto.sql — habilitación individual durante el piloto.
+          portal_v2_habilitado: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -152,6 +154,7 @@ export interface Database {
           segundos_descanso_preferido?: number | null;
           acceso_bloqueado?: boolean;
           acceso_bloqueado_motivo?: string | null;
+          portal_v2_habilitado?: boolean;
         };
         Update: {
           entrenador_id?: string | null;
@@ -170,6 +173,7 @@ export interface Database {
           dias_entrenamiento_semana?: number | null;
           acceso_bloqueado?: boolean;
           acceso_bloqueado_motivo?: string | null;
+          portal_v2_habilitado?: boolean;
           plan_entrenamiento_pausado?: boolean;
           temporizador_descanso?: boolean;
           temporizador_descanso_desactivado_por_alumno?: boolean;

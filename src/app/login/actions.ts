@@ -34,7 +34,15 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
     };
   }
 
-  redirect(perfil.rol === "alumno" ? "/portal-v2/entrenamiento" : "/admin/alumnos");
+  if (perfil.rol !== "alumno") redirect("/admin/alumnos");
+
+  const { data: accesoV2 } = await supabase
+    .from("alumno_perfil")
+    .select("portal_v2_habilitado")
+    .eq("user_id", data.user.id)
+    .maybeSingle();
+
+  redirect(accesoV2?.portal_v2_habilitado ? "/portal-v2/entrenamiento" : "/alumno/inicio");
 }
 
 export type RecuperarState = { mensaje: string | null; error: string | null };

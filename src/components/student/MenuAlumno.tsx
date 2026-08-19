@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Settings, X, UserCog, FileText, Sun, Moon, LogOut, Sparkles, Type, Bot, History, ShieldCheck, PieChart, ClipboardList } from "lucide-react";
+import { Settings, X, UserCog, FileText, Sun, Moon, LogOut, Sparkles, Type, Bot, History, ShieldCheck, PieChart, ClipboardList, PanelsTopLeft } from "lucide-react";
 import { logout } from "@/app/actions";
 import { guardarTemaBoton } from "@/app/alumno/perfil/actions";
 
@@ -47,7 +47,7 @@ const ESCALAS: { valor: Escala; texto: string; muestra: number }[] = [
  * (`CampanaNoticias`), que las muestra en todas las pantallas y con su
  * contador a la vista, en vez de escondidas detrás de dos toques.
  */
-export function MenuAlumno({ nombre }: { nombre: string }) {
+export function MenuAlumno({ nombre, portalV2Habilitado = false }: { nombre: string; portalV2Habilitado?: boolean }) {
   const [abierto, setAbierto] = useState(false);
   const [claro, setClaro] = useState(false);
   const [temaBoton, setTemaBoton] = useState<TemaBoton>("vip");
@@ -175,6 +175,14 @@ export function MenuAlumno({ nombre }: { nombre: string }) {
               </div>
 
               <nav className="flex flex-col gap-1">
+                {portalV2Habilitado && (
+                  <ItemMenu
+                    href="/portal-v2/entrenamiento"
+                    icon={<PanelsTopLeft size={20} />}
+                    texto="Probar Portal VIP V2"
+                    onNavegar={() => setAbierto(false)}
+                  />
+                )}
                 <ItemMenu
                   href="/alumno/perfil"
                   icon={<UserCog size={20} />}

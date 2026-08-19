@@ -49,7 +49,7 @@ function AccesosEntrenar({ sesionEnProgresoId }: { sesionEnProgresoId: string | 
 export default async function EntrenarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pagina?: string; puntos?: string; plan?: string }>;
+  searchParams: Promise<{ pagina?: string; puntos?: string; plan?: string; portal_v2?: string }>;
 }) {
   const { alumnoId: userId, soloLectura } = await requireAlumno();
   const supabase = await createClient();
@@ -110,7 +110,7 @@ export default async function EntrenarPage({
     );
   }
 
-  const { pagina: paginaParam, puntos: puntosParam, plan: avisoPlan } = await searchParams;
+  const { pagina: paginaParam, puntos: puntosParam, plan: avisoPlan, portal_v2: avisoPortalV2 } = await searchParams;
   const puntosGanados = Math.max(0, Number(puntosParam) || 0);
 
   /**
@@ -173,6 +173,12 @@ export default async function EntrenarPage({
     // mensual" y "Iniciar rutina" al llegar al final.
     <div className="entrenar-minimalista space-y-2 pb-16">
       <PuntosVipGanados key={puntosParam ?? "0"} puntos={puntosGanados} detalle="Entrenamiento guardado en tu progreso" />
+      {avisoPortalV2 === "no_habilitado" ? (
+        <Card padding="p-3" className="border border-white/10 bg-surface">
+          <p className="text-caption font-semibold text-text">Portal VIP V2 todavía no está habilitado para tu cuenta.</p>
+          <p className="text-micro mt-1 text-text-secondary">Tu Vista clásica sigue funcionando con todos tus datos. Tu entrenador te avisará cuando puedas entrar al piloto.</p>
+        </Card>
+      ) : null}
       {(avisoPlan === "pausado" || avisoPlan === "agotado") && (
         <Card padding="p-3" className="border border-warning/40 bg-warning/10">
           <p className="text-caption font-semibold text-warning">

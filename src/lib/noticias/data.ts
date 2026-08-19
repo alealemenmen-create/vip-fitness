@@ -19,7 +19,7 @@ export const obtenerPerfilNoticias = cache(async (alumnoId: string) => {
   const supabase = await createClient();
   return supabase
     .from("alumno_perfil")
-    .select("noticias_vistas_en, tema_boton")
+    .select("noticias_vistas_en, tema_boton, portal_v2_habilitado")
     .eq("user_id", alumnoId)
     .maybeSingle();
 });
