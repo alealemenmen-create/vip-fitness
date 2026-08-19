@@ -5,6 +5,17 @@ import { obtenerDiaVistaPrevia, obtenerDiasRutina, obtenerRutinaActiva } from "@
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { FOTOS_GRUPO_MUSCULAR } from "@/lib/grupos-musculares/fotos";
 import { firmarMiniaturasCloudflareV2 } from "@/lib/cloudflare/miniaturas-v2";
+import Link from "next/link";
+import styles from "@/components/v2/PortalV2.module.css";
+
+function RutinaNoDisponible({ titulo, detalle }: { titulo: string; detalle: string }) {
+  return (
+    <div className={styles.trainingPage}>
+      <section className={styles.impulso}><div><strong>{titulo}</strong><p>{detalle}</p></div></section>
+      <Link className={styles.primaryButton} href="/portal-v2/entrenamiento">Volver a mi entrenamiento</Link>
+    </div>
+  );
+}
 
 export default async function RutinaV2Page({
   searchParams,
@@ -13,11 +24,12 @@ export default async function RutinaV2Page({
 }) {
   const contexto = await obtenerContextoAlumnoOpcional();
   const { dia: diaId, numero } = await searchParams;
-  if (!contexto || !diaId) return <RutinaDetalleV2 />;
+  if (!contexto) return <RutinaDetalleV2 />;
+  if (!diaId) return <RutinaNoDisponible titulo="Elige un día de tu programa" detalle="La vista del entrenamiento se abre desde la semana de tu programa para mostrar exactamente los ejercicios asignados." />;
 
   const supabase = await createClient();
   const rutina = await obtenerRutinaActiva(contexto.alumnoId);
-  if (!rutina) return <RutinaDetalleV2 />;
+  if (!rutina) return <RutinaNoDisponible titulo="Todavía no tienes un programa activo" detalle="Cuando tu entrenador publique el siguiente programa, sus días y ejercicios aparecerán aquí sin reemplazar tu historial." />;
   const [vistaSinFirma, dias] = await Promise.all([
     obtenerDiaVistaPrevia(supabase, contexto.alumnoId, diaId),
     obtenerDiasRutina(rutina.id),
@@ -25,7 +37,7 @@ export default async function RutinaV2Page({
   const vista = vistaSinFirma
     ? { ...vistaSinFirma, ejercicios: await firmarMiniaturasCloudflareV2(vistaSinFirma.ejercicios) }
     : null;
-  if (!vista || vista.tipo !== "entrenamiento") return <RutinaDetalleV2 />;
+  if (!vista || vista.tipo !== "entrenamiento") return <RutinaNoDisponible titulo="Este día no está disponible" detalle="El enlace no pertenece a tu programa activo o corresponde a un día de descanso." />;
 
   const dia = dias.find((item) => item.id === diaId);
   const grupos = dia?.resumen?.gruposMusculares ?? [];

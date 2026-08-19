@@ -59,6 +59,7 @@ export function BibliotecaEjerciciosV2({
   const [seleccionado, setSeleccionado] = useState<Ejercicio | null>(null);
   const [seleccionando, setSeleccionando] = useState<string | null>(null);
   const [videoAbierto, setVideoAbierto] = useState(false);
+  const [errorFicha, setErrorFicha] = useState<string | null>(null);
 
   const grupos = useMemo(() => [...new Set(ejercicios.map((ejercicio) => ejercicio.grupoMuscular))]
     .sort((a, b) => ETIQUETAS_GRUPO_MUSCULAR[a].localeCompare(ETIQUETAS_GRUPO_MUSCULAR[b], "es")), [ejercicios]);
@@ -83,9 +84,13 @@ export function BibliotecaEjerciciosV2({
 
   const abrirFicha = async (resumen: EjercicioResumenV2) => {
     setSeleccionando(resumen.id);
+    setErrorFicha(null);
     try {
       const ficha = await obtenerFichaEjercicioV2(resumen.id);
       if (ficha) setSeleccionado(ficha);
+      else setErrorFicha("Esta ficha ya no está disponible. Actualiza el catálogo e intenta nuevamente.");
+    } catch {
+      setErrorFicha("No pudimos abrir la ficha. Revisa tu conexión e intenta nuevamente.");
     } finally {
       setSeleccionando(null);
     }
@@ -138,6 +143,7 @@ export function BibliotecaEjerciciosV2({
         <strong>{filtrados.length} {filtrados.length === 1 ? "ejercicio" : "ejercicios"}</strong>
         <span>Catálogo VIP Fitness</span>
       </div>
+      {errorFicha ? <button type="button" className={styles.libraryError} role="alert" onClick={() => setErrorFicha(null)}>{errorFicha}<X size={14} /></button> : null}
 
       {filtrados.length ? (
         <section className={styles.libraryGrid} aria-label="Resultados de ejercicios">

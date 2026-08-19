@@ -119,6 +119,7 @@ export type SesionActivaModeloV2 = {
   soloLectura: boolean;
   duracionSegundosInicial?: number;
   temporizadorAutomaticoInicial?: boolean;
+  comentarioInicial?: string;
   ejercicios: EjercicioSesionV2[];
   momentosAlejandro: MomentoSesionAlejandro[];
   preparacionAlejandro?: PreparacionDiariaAlejandro;
@@ -296,6 +297,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [notas, setNotas] = useState<Record<string, string>>(() => Object.fromEntries(
     EJERCICIOS.map((ejercicio) => [ejercicio.id, ejercicio.notaInicial ?? ""]),
   ));
+  const [comentarioSesion, setComentarioSesion] = useState(sesion?.comentarioInicial ?? "");
   const [confirmarSalida, setConfirmarSalida] = useState(false);
   const [registrada, setRegistrada] = useState(false);
   const [temporizadorAutomatico, setTemporizadorAutomatico] = useState(sesion?.temporizadorAutomaticoInicial ?? true);
@@ -403,11 +405,13 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         sesionId: sesion.id,
         registroBase,
         notasBase,
+        comentarioBase: sesion.comentarioInicial ?? "",
       });
 
       if (borrador) {
         setRegistro(borrador.registro);
         setNotas(borrador.notas);
+        setComentarioSesion(borrador.comentarioSesion);
         setSegundosSesion(reconciliarDuracionSesionSegundos(
           sesion.duracionSegundosInicial ?? 0,
           borrador.segundosSesion,
@@ -437,6 +441,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         actualizadoEn: Date.now(),
         registro,
         notas,
+        comentarioSesion,
         segundosSesion,
         ejercicioActivoId,
         serieActivaIndice,
@@ -450,6 +455,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   }, [
     borradorCargado,
     ejercicioActivoId,
+    comentarioSesion,
     notas,
     pasosTecnica,
     pausaTecnica,
@@ -599,7 +605,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           nota: notas[ejercicio.id] ?? "",
           series: serializarSeries(registro[ejercicio.id]),
         }));
-    return { sesionId: sesion.id, ejercicios };
+    return { sesionId: sesion.id, ejercicios, comentario: comentarioSesion };
   };
 
   const persistirEjercicio = (
@@ -1041,6 +1047,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         if (!resultado.error) {
           window.localStorage.removeItem(claveBorradorSesionV2(sesion.id));
           setConfirmarSalida(false);
+          setRegistrada(true);
         }
       } catch {
         setErrorGuardado("No pudimos cerrar la sesión. Tu progreso sigue protegido en este dispositivo; vuelve a intentarlo con conexión.");
@@ -1067,7 +1074,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             </article>
           ))}
         </div>
-        <label className={styles.notesField}><span>Notas de la sesión</span><textarea placeholder="Escribe cómo te sentiste o qué quieres recordar…" /></label>
+        <label className={styles.notesField}><span>Notas de la sesión</span><textarea value={comentarioSesion} readOnly placeholder="No registraste una nota para esta sesión." /></label>
         {mensajeCompartir ? <p role="status">{mensajeCompartir}</p> : null}
         <div className={styles.summaryActions}><button type="button" onClick={compartirResumen}>Compartir</button><Link href="/portal-v2/entrenamiento">Listo</Link></div>
       </section>
@@ -1084,7 +1091,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         <div className={styles.progressTrack} aria-label={`${Math.round(progreso)}% completado`}><i style={{ width: `${progreso}%` }} /></div>
       </header>
 
-      {sesion?.soloLectura ? <div className={styles.historicalNotice} role="status"><History size={15} /><span><strong>Sesión registrada</strong><small>Resultados guardados · solo lectura</small></span></div> : null}
+      {sesion?.soloLectura ? <div className={styles.historicalNotice} role="status"><History size={15} /><span><strong>Sesión registrada</strong><small>{comentarioSesion || "Resultados guardados · solo lectura"}</small></span></div> : null}
 
       {errorGuardado || avisoBorrador ? (
         <button
@@ -1313,6 +1320,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             <button type="button" className={styles.closeButton} onClick={() => setConfirmarSalida(false)} aria-label="Cerrar"><X size={18} /></button>
             <h2>¿Finalizar y registrar?</h2><p>Registra el entrenamiento para cerrar la sesión y calcular tu progreso. Si continúas después, los datos ya guardados permanecen en borrador.</p>
             <div className={styles.finishMetrics}><span><strong>{formatearTiempo(segundosSesion)}</strong>Tiempo total</span><span><strong>{seriesCompletadas}</strong>Series registradas</span></div>
+            <label className={styles.notesField}><span>Nota de la sesión <small>opcional</small></span><textarea value={comentarioSesion} onChange={(evento) => setComentarioSesion(evento.target.value)} maxLength={1000} placeholder="¿Cómo te sentiste? ¿Qué quieres recordar para la próxima?" /></label>
             {errorGuardado ? <p role="alert">{errorGuardado}</p> : null}
             <div className={styles.finishActions}><Link href="/portal-v2/entrenamiento">Continuar después</Link><button type="button" disabled={guardando || sesion?.soloLectura} onClick={registrarEntrenamiento}>{guardando ? "Guardando…" : "Registrar entrenamiento"}</button></div>
           </section>

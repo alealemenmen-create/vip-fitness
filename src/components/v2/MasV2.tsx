@@ -48,19 +48,25 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
   const cargar = async () => {
     setEstadoCarga("cargando");
     setErrorCarga("");
-    const respuesta = await cargarMasV2Action();
-    if (respuesta.estado === "real") {
-      setDatos(respuesta.datos);
-      setEstadoCarga("real");
-      return;
+    try {
+      const respuesta = await cargarMasV2Action();
+      if (respuesta.estado === "real") {
+        setDatos(respuesta.datos);
+        setEstadoCarga("real");
+        return;
+      }
+      setDatos(null);
+      if (respuesta.estado === "demo") {
+        setEstadoCarga("demo");
+        return;
+      }
+      setErrorCarga(respuesta.mensaje);
+      setEstadoCarga("error");
+    } catch {
+      setDatos(null);
+      setErrorCarga("No hubo conexión con tu configuración. Ninguna preferencia fue modificada.");
+      setEstadoCarga("error");
     }
-    setDatos(null);
-    if (respuesta.estado === "demo") {
-      setEstadoCarga("demo");
-      return;
-    }
-    setErrorCarga(respuesta.mensaje);
-    setEstadoCarga("error");
   };
 
   useEffect(() => {
@@ -182,7 +188,7 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
         <ChevronRight size={16} />
       </Link>
       {datos ? <form action={logout} className={styles.moreLogoutForm}><button type="submit"><LogOut size={16} />Cerrar sesión</button></form> : null}
-      <p className={styles.moreVersion}>VIP FITNESS V2 · VISTA DE DESARROLLO</p>
+      <p className={styles.moreVersion}>VIP FITNESS V2 · MÉTODO VIP</p>
 
       {panel ? (
         <div className={styles.moreSheetBackdrop} role="presentation" onClick={() => setPanel(null)}>

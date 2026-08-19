@@ -856,6 +856,9 @@ export async function guardarSesionV2(registro: RegistroSesionV2): Promise<Guard
 }
 
 export async function guardarYFinalizarSesionV2(registro: RegistroSesionV2): Promise<GuardarSeriesState> {
+  if ((registro.comentario?.length ?? 0) > 1_000) {
+    return { error: "La nota de la sesión no puede superar 1.000 caracteres." };
+  }
   const guardado = await guardarSesionV2(registro);
   if (guardado.error) return guardado;
   const formData = new FormData();

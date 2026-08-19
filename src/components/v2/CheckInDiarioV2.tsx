@@ -56,14 +56,18 @@ export function CheckInDiarioV2({ seguimiento, soloLectura, onGuardado, onAviso 
     formData.set("energia", energia === null ? "" : String(energia));
 
     iniciarGuardado(async () => {
-      const resultado = await guardarSeguimiento({ error: null, guardado: false }, formData);
-      if (!resultado.guardado) {
-        onAviso(resultado.error ?? "No pudimos guardar el check-in");
-        return;
+      try {
+        const resultado = await guardarSeguimiento({ error: null, guardado: false }, formData);
+        if (!resultado.guardado) {
+          onAviso(resultado.error ?? "No pudimos guardar el check-in");
+          return;
+        }
+        await onGuardado();
+        onAviso("Check-in diario guardado. Alejandro y tu entrenador ya pueden usarlo.");
+        setAbierto(false);
+      } catch {
+        onAviso("No hubo conexión con el servidor. El check-in no se marcó como guardado; inténtalo nuevamente.");
       }
-      await onGuardado();
-      onAviso("Check-in diario guardado. Alejandro y tu entrenador ya pueden usarlo.");
-      setAbierto(false);
     });
   };
 

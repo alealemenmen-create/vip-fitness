@@ -220,6 +220,8 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
       setComidas((actuales) => [...actuales, { ...origen, fecha: fechaActiva, hora: horaActual, consumidoId }]);
       setPanel(null);
       setAviso("Comida copiada correctamente");
+    } catch {
+      setAviso("No pudimos copiar la comida. Revisa tu conexión e intenta nuevamente.");
     } finally {
       operacionRef.current = false;
       setOperacion(null);
@@ -246,37 +248,43 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
     setPanel(null);
     setAviso("Guardando alimentos…");
     let guardados = 0;
-    for (const elegido of elegidos) {
-      const resultado = await agregarAlimentoAHora(
-        fechaActiva,
-        horaSeleccionada,
-        elegido.alimento.id,
-        elegido.cantidadBase,
-        elegido.alimento.unidad,
-      );
-      if (resultado.error) {
-        setAviso(guardados > 0 ? `${resultado.error} Se guardaron ${guardados} alimentos.` : resultado.error);
-        return;
+    try {
+      for (const elegido of elegidos) {
+        const resultado = await agregarAlimentoAHora(
+          fechaActiva,
+          horaSeleccionada,
+          elegido.alimento.id,
+          elegido.cantidadBase,
+          elegido.alimento.unidad,
+        );
+        if (resultado.error) {
+          setAviso(guardados > 0 ? `${resultado.error} Se guardaron ${guardados} alimentos.` : resultado.error);
+          return;
+        }
+        const factor = elegido.alimento.porcionBase > 0 ? elegido.cantidadBase / elegido.alimento.porcionBase : 0;
+        setComidas((actuales) => [...actuales, {
+          nombre: elegido.alimento.nombre,
+          marca: `${Math.round(elegido.cantidadBase * 10) / 10} ${elegido.alimento.unidad}`,
+          detalle: `${Math.round(elegido.alimento.kcal * factor)} cal · ${Math.round(elegido.alimento.prot * factor)} p · ${Math.round(elegido.alimento.carb * factor)} c · ${Math.round(elegido.alimento.grasa * factor)} g`,
+          kcal: elegido.alimento.kcal * factor,
+          prot: elegido.alimento.prot * factor,
+          carb: elegido.alimento.carb * factor,
+          grasa: elegido.alimento.grasa * factor,
+          alimentoId: elegido.alimento.id,
+          consumidoId: resultado.consumidoId,
+          cantidad: elegido.cantidadBase,
+          unidad: elegido.alimento.unidad,
+          fecha: fechaActiva,
+          hora: horaSeleccionada,
+        }]);
+        guardados += 1;
       }
-      const factor = elegido.alimento.porcionBase > 0 ? elegido.cantidadBase / elegido.alimento.porcionBase : 0;
-      setComidas((actuales) => [...actuales, {
-        nombre: elegido.alimento.nombre,
-        marca: `${Math.round(elegido.cantidadBase * 10) / 10} ${elegido.alimento.unidad}`,
-        detalle: `${Math.round(elegido.alimento.kcal * factor)} cal · ${Math.round(elegido.alimento.prot * factor)} p · ${Math.round(elegido.alimento.carb * factor)} c · ${Math.round(elegido.alimento.grasa * factor)} g`,
-        kcal: elegido.alimento.kcal * factor,
-        prot: elegido.alimento.prot * factor,
-        carb: elegido.alimento.carb * factor,
-        grasa: elegido.alimento.grasa * factor,
-        alimentoId: elegido.alimento.id,
-        consumidoId: resultado.consumidoId,
-        cantidad: elegido.cantidadBase,
-        unidad: elegido.alimento.unidad,
-        fecha: fechaActiva,
-        hora: horaSeleccionada,
-      }]);
-      guardados += 1;
+      setAviso(`${guardados} ${guardados === 1 ? "alimento agregado" : "alimentos agregados"}`);
+    } catch {
+      setAviso(guardados > 0
+        ? `Se guardaron ${guardados} alimentos antes de perder la conexión. Reintenta los restantes.`
+        : "No pudimos guardar los alimentos. Revisa tu conexión e intenta nuevamente.");
     }
-    setAviso(`${guardados} ${guardados === 1 ? "alimento agregado" : "alimentos agregados"}`);
   };
 
   const abrirOpcionesComida = (comida: ComidaVisual) => {
@@ -312,6 +320,8 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
       } : comida));
       setComidaSeleccionada(null);
       setAviso("Cantidad actualizada");
+    } catch {
+      setAviso("No pudimos actualizar la cantidad. El registro anterior se conserva.");
     } finally {
       operacionRef.current = false;
       setOperacion(null);
@@ -330,6 +340,8 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
       setComidas((actuales) => actuales.filter((comida) => comida !== comidaSeleccionada));
       setComidaSeleccionada(null);
       setAviso("Alimento eliminado del registro");
+    } catch {
+      setAviso("No pudimos eliminar el alimento. El registro se conserva.");
     } finally {
       operacionRef.current = false;
       setOperacion(null);
@@ -517,20 +529,25 @@ function AjustarMacros({
       return;
     }
     setGuardando(true);
-    if (real) {
-      const formData = new FormData();
-      formData.set("kcal_objetivo", String(Math.round(valores.kcal)));
-      formData.set("prot_objetivo", String(Math.round(valores.prot)));
-      formData.set("carb_objetivo", String(Math.round(valores.carb)));
-      formData.set("grasa_objetivo", String(Math.round(valores.grasa)));
-      const resultado = await guardarMisMacros({ error: null, ok: false }, formData);
-      if (!resultado.ok) {
-        setError(resultado.error);
-        setGuardando(false);
-        return;
+    try {
+      if (real) {
+        const formData = new FormData();
+        formData.set("kcal_objetivo", String(Math.round(valores.kcal)));
+        formData.set("prot_objetivo", String(Math.round(valores.prot)));
+        formData.set("carb_objetivo", String(Math.round(valores.carb)));
+        formData.set("grasa_objetivo", String(Math.round(valores.grasa)));
+        const resultado = await guardarMisMacros({ error: null, ok: false }, formData);
+        if (!resultado.ok) {
+          setError(resultado.error);
+          return;
+        }
       }
+      onApply(valores);
+    } catch {
+      setError("No pudimos guardar tus objetivos. Los valores anteriores se conservan.");
+    } finally {
+      setGuardando(false);
     }
-    onApply(valores);
   };
   return (
     <div className={styles.nutritionPanelBackdrop} role="presentation" onClick={onClose}>

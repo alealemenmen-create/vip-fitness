@@ -292,12 +292,17 @@ function SeguridadCuenta() {
     if (nueva.length < 8) return setEstadoPassword({ tipo: "error", texto: "Usa al menos 8 caracteres." });
     if (nueva !== confirmar) return setEstadoPassword({ tipo: "error", texto: "Las contraseñas no coinciden." });
     setCambiandoPassword(true);
-    const { error } = await createClient().auth.updateUser({ password: nueva });
-    setCambiandoPassword(false);
-    if (error) return setEstadoPassword({ tipo: "error", texto: "No pudimos cambiar la contraseña. Intenta nuevamente." });
-    setNueva("");
-    setConfirmar("");
-    setEstadoPassword({ tipo: "ok", texto: "Contraseña actualizada." });
+    try {
+      const { error } = await createClient().auth.updateUser({ password: nueva });
+      if (error) return setEstadoPassword({ tipo: "error", texto: "No pudimos cambiar la contraseña. Intenta nuevamente." });
+      setNueva("");
+      setConfirmar("");
+      setEstadoPassword({ tipo: "ok", texto: "Contraseña actualizada." });
+    } catch {
+      setEstadoPassword({ tipo: "error", texto: "No hubo conexión con el servidor. Tu contraseña anterior se conserva." });
+    } finally {
+      setCambiandoPassword(false);
+    }
   }
 
   return (

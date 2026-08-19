@@ -627,6 +627,8 @@
 .libraryEmpty strong { color: #e7e8e5; font-size: 14px; }
 .libraryEmpty p { font-size: 10px; }
 .libraryEmpty button { margin-top: 5px; padding: 8px 13px; border-radius: 999px; color: #090a0a; background: #eee; font-size: 10px; font-weight: 700; }
+.libraryError { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; padding: 10px 12px; border: 1px solid rgba(240, 149, 122, .22); border-radius: 12px; color: #f1c0b0; background: rgba(91, 39, 29, .28); font-size: 11px; line-height: 1.35; text-align: left; }
+.libraryError svg { flex: 0 0 auto; }
 .libraryModalBackdrop { position: fixed; inset: 0; z-index: 42; display: flex; align-items: flex-end; justify-content: center; padding-top: max(18px, env(safe-area-inset-top)); background: rgba(0,0,0,.76); backdrop-filter: blur(9px); }
 .librarySheet { position: relative; width: min(100%, 460px); max-height: calc(100dvh - 18px); overflow-y: auto; border: 1px solid rgba(255,255,255,.09); border-bottom: 0; border-radius: 24px 24px 0 0; color: #eef0ed; background: #0d0e0e; animation: v2SheetIn 220ms ease-out; }
 .libraryClose { position: absolute; top: 12px; right: 12px; z-index: 3; display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid rgba(255,255,255,.13); border-radius: 50%; color: #fff; background: rgba(12,13,13,.76); backdrop-filter: blur(8px); }

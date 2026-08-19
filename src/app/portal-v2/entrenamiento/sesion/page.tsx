@@ -73,7 +73,17 @@ export default async function SesionV2Page({
 }) {
   const { id } = await searchParams;
   const contexto = await obtenerContextoAlumnoOpcional();
-  if (!contexto || !id) return <SesionActivaV2 />;
+  if (!contexto) return <SesionActivaV2 />;
+  if (!id) {
+    return (
+      <div className={styles.trainingPage}>
+        <section className={styles.impulso}>
+          <div><strong>Elige el entrenamiento que vas a realizar</strong><p>Esta cuenta utiliza datos reales. Abre tu día desde Entrenamiento para iniciar o continuar su sesión correspondiente.</p></div>
+        </section>
+        <Link className={styles.primaryButton} href="/portal-v2/entrenamiento">Ver mi entrenamiento</Link>
+      </div>
+    );
+  }
 
   const supabase = await createClient();
   const sesion = await obtenerSesionCompleta(supabase, contexto.alumnoId, id);
@@ -273,6 +283,7 @@ export default async function SesionV2Page({
       sesion.horaFin ?? new Date().toISOString(),
     ),
     temporizadorAutomaticoInicial: sesion.ejercicios[0]?.temporizadorDescanso ?? true,
+    comentarioInicial: sesion.comentario ?? "",
     ejercicios,
     personalizacionDisponible,
     alternativas,

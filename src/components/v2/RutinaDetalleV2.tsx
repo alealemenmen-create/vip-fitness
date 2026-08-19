@@ -135,7 +135,7 @@ export function RutinaDetalleV2({ rutina = RUTINA_DEMO }: { rutina?: RutinaDetal
           <Bookmark size={18} fill={guardada ? "currentColor" : "none"} /><span>{guardada ? "Guardada" : "Guardar"}</span>
         </button>
         <Link href="/portal-v2/entrenamiento"><CalendarDays size={18} /><span>Calendario</span></Link>
-        <Link href="/portal-v2/progreso"><History size={18} /><span>Historial</span></Link>
+        <Link href="/portal-v2/entrenamiento/historial"><History size={18} /><span>Historial</span></Link>
       </div>
 
       <section className={styles.workoutOverview}>

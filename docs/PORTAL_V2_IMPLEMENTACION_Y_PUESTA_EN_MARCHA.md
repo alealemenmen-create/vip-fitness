@@ -438,9 +438,21 @@ Validaciones locales completadas el 19-08-2026:
   cubren además secreto ausente/incorrecto, falla parcial, HMAC, reenvíos,
   cuerpos excesivos y eventos de video fuera de orden sin enviar avisos reales.
 - La sesión activa conserva un borrador local validado y aislado por id durante
-  48 horas. Una recarga recupera los últimos pesos, repeticiones, notas, tiempo
-  y posición sin pisar series que el servidor ya confirmó; los fallos de red se
-  muestran y el alumno puede reintentar sin perder la pantalla.
+  48 horas. Una recarga recupera los últimos pesos, repeticiones, notas por
+  ejercicio, nota general, tiempo y posición sin pisar series que el servidor
+  ya confirmó; los fallos de red se muestran y el alumno puede reintentar sin
+  perder la pantalla. La nota general se captura antes del cierre, se persiste
+  con la sesión y vuelve a aparecer al revisar el registro.
+- La finalización real se comprobó sin cerrar la sesión QA: el diálogo muestra
+  tiempo, series y una nota opcional conectada al payload; al confirmar, la UI
+  sólo pasa al resumen después de una respuesta válida del servidor. Abrir
+  `/entrenamiento/sesion` o `/entrenamiento/rutina` sin sus identificadores con
+  una cuenta autenticada ya no muestra datos de ejemplo: ofrece una salida
+  clara hacia el programa real.
+- Las escrituras visibles de nutrición, check-in, peso, fotografías,
+  preferencias y fichas de ejercicios manejan también fallos de transporte.
+  Ninguna queda indefinidamente cargando ni afirma que guardó si la petición no
+  llegó; conserva el dato anterior y ofrece un mensaje recuperable.
 - El tiempo total se reconcilia tomando el valor más avanzado entre el inicio
   persistido por el servidor y el borrador del dispositivo. Se verificó en una
   sesión autenticada que avanzó de `183:00` a `183:02` y, tras recargar, continuó

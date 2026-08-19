@@ -12,6 +12,7 @@ export type BorradorSesionV2 = {
   actualizadoEn: number;
   registro: RegistroBorradorSesionV2;
   notas: Record<string, string>;
+  comentarioSesion: string;
   segundosSesion: number;
   ejercicioActivoId: string;
   serieActivaIndice: number;
@@ -24,6 +25,7 @@ type RestaurarBorradorInput = {
   sesionId: string;
   registroBase: RegistroBorradorSesionV2;
   notasBase: Record<string, string>;
+  comentarioBase?: string;
   ahora?: number;
 };
 
@@ -129,6 +131,9 @@ export function restaurarBorradorSesionV2(
         : input.notasBase[ejercicioId] || "",
     ];
   }));
+  const comentarioSesion = typeof valor.comentarioSesion === "string" && valor.comentarioSesion.length <= 1_000
+    ? valor.comentarioSesion
+    : input.comentarioBase ?? "";
   const segundos = Number(valor.segundosSesion);
   const pasosCrudos = esObjeto(valor.pasosTecnica) ? valor.pasosTecnica : {};
   const pasosTecnica = Object.fromEntries(Object.entries(pasosCrudos).flatMap(([clave, paso]) => {
@@ -166,6 +171,7 @@ export function restaurarBorradorSesionV2(
     actualizadoEn,
     registro,
     notas,
+    comentarioSesion,
     segundosSesion: Number.isFinite(segundos) ? Math.min(Math.max(0, Math.floor(segundos)), 24 * 60 * 60) : 0,
     ejercicioActivoId,
     serieActivaIndice,

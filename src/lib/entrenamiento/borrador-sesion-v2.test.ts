@@ -21,6 +21,7 @@ function crudo(cambios: Record<string, unknown> = {}) {
       ],
     },
     notas: { press: "Última serie exigente" },
+    comentarioSesion: "Buena energía al cerrar",
     segundosSesion: 95,
     ejercicioActivoId: "press",
     serieActivaIndice: 1,
@@ -35,12 +36,14 @@ describe("borrador local de sesión V2", () => {
       sesionId: "sesion-1",
       registroBase: base,
       notasBase: { press: "" },
+      comentarioBase: "",
       ahora,
     });
 
     expect(resultado?.registro.press[0]).toEqual(base.press[0]);
     expect(resultado?.registro.press[1]).toEqual({ reps: "12", peso: "25", completada: true });
     expect(resultado?.notas.press).toBe("Última serie exigente");
+    expect(resultado?.comentarioSesion).toBe("Buena energía al cerrar");
     expect(resultado?.segundosSesion).toBe(95);
     expect(resultado?.pasosTecnica).toEqual({});
     expect(resultado?.pausaTecnica).toBeNull();
@@ -52,10 +55,20 @@ describe("borrador local de sesión V2", () => {
       sesionId: "sesion-1",
       registroBase: base,
       notasBase: { press: "Nota anterior" },
+      comentarioBase: "Comentario anterior",
       ahora,
     });
     expect(enLibrasSinNota?.registro.press[0].peso).toBe("44.1");
     expect(enLibrasSinNota?.notas.press).toBe("");
+
+    const borradorAnterior = restaurarBorradorSesionV2(crudo({ comentarioSesion: undefined }), {
+      sesionId: "sesion-1",
+      registroBase: base,
+      notasBase: { press: "" },
+      comentarioBase: "Comentario guardado por el servidor",
+      ahora,
+    });
+    expect(borradorAnterior?.comentarioSesion).toBe("Comentario guardado por el servidor");
   });
 
   it("rechaza otra sesión, un borrador vencido y una geometría incompatible", () => {

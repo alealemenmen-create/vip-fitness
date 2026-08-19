@@ -66,22 +66,29 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
   const cargar = async () => {
     setEstadoCarga("cargando");
     setErrorCarga("");
-    const respuesta = await cargarProgresoV2Action();
-    if (respuesta.estado === "real") {
-      setDatos(respuesta.datos);
-      setPeso(respuesta.datos.peso == null ? "" : respuesta.datos.peso.toFixed(1));
-      setEstadoCarga("real");
-      return;
+    try {
+      const respuesta = await cargarProgresoV2Action();
+      if (respuesta.estado === "real") {
+        setDatos(respuesta.datos);
+        setPeso(respuesta.datos.peso == null ? "" : respuesta.datos.peso.toFixed(1));
+        setEstadoCarga("real");
+        return;
+      }
+      setDatos(null);
+      if (respuesta.estado === "demo") {
+        setPeso("88.0");
+        setEstadoCarga("demo");
+        return;
+      }
+      setPeso("");
+      setErrorCarga(respuesta.mensaje);
+      setEstadoCarga("error");
+    } catch {
+      setDatos(null);
+      setPeso("");
+      setErrorCarga("No hubo conexión con tu seguimiento. Tus registros anteriores siguen protegidos.");
+      setEstadoCarga("error");
     }
-    setDatos(null);
-    if (respuesta.estado === "demo") {
-      setPeso("88.0");
-      setEstadoCarga("demo");
-      return;
-    }
-    setPeso("");
-    setErrorCarga(respuesta.mensaje);
-    setEstadoCarga("error");
   };
 
   useEffect(() => {
@@ -128,23 +135,27 @@ export function ProgresoDashboardV2({ cargaInicial }: { cargaInicial: CargaProgr
     }
 
     iniciarGuardado(async () => {
-      if (datos) {
-        const formulario = new FormData();
-        formulario.set("peso_kg", String(numero));
-        formulario.set("fecha", datos.fechaHoy);
-        const resultado = await agregarPeso({ error: null, ok: false }, formulario);
-        if (!resultado.ok) {
-          setAviso(resultado.error || "No fue posible guardar el peso");
-          return;
+      try {
+        if (datos) {
+          const formulario = new FormData();
+          formulario.set("peso_kg", String(numero));
+          formulario.set("fecha", datos.fechaHoy);
+          const resultado = await agregarPeso({ error: null, ok: false }, formulario);
+          if (!resultado.ok) {
+            setAviso(resultado.error || "No fue posible guardar el peso");
+            return;
+          }
+          const actualizados = await obtenerProgresoV2Action();
+          if (actualizados) setDatos(actualizados);
+          setAviso(resultado.aviso || (resultado.puntos ? `Peso guardado · +${resultado.puntos} XP` : "Peso registrado correctamente"));
+        } else {
+          setAviso("Peso registrado en la vista de demostración");
         }
-        const actualizados = await obtenerProgresoV2Action();
-        if (actualizados) setDatos(actualizados);
-        setAviso(resultado.aviso || (resultado.puntos ? `Peso guardado · +${resultado.puntos} XP` : "Peso registrado correctamente"));
-      } else {
-        setAviso("Peso registrado en la vista de demostración");
+        setPeso(numero.toFixed(1));
+        setModalPeso(false);
+      } catch {
+        setAviso("No hubo conexión con el servidor. Tu registro anterior se conserva.");
       }
-      setPeso(numero.toFixed(1));
-      setModalPeso(false);
     });
   };
 
@@ -330,14 +341,18 @@ function DetalleSeguimiento({
     const formulario = new FormData(formularioNodo);
     formulario.set("fecha_foto", datos.fechaHoy);
     iniciarGuardado(async () => {
-      const resultado = await subirFotoProgreso({ error: null, ok: false }, formulario);
-      if (!resultado.ok) {
-        onAviso(resultado.error || "No fue posible subir la foto");
-        return;
+      try {
+        const resultado = await subirFotoProgreso({ error: null, ok: false }, formulario);
+        if (!resultado.ok) {
+          onAviso(resultado.error || "No fue posible subir la foto");
+          return;
+        }
+        await refrescar();
+        formularioNodo.reset();
+        onAviso(resultado.aviso || (resultado.puntos ? `Foto guardada · +${resultado.puntos} XP` : "Foto guardada"));
+      } catch {
+        onAviso("No hubo conexión con el servidor. La foto no se marcó como guardada; inténtalo nuevamente.");
       }
-      await refrescar();
-      formularioNodo.reset();
-      onAviso(resultado.aviso || (resultado.puntos ? `Foto guardada · +${resultado.puntos} XP` : "Foto guardada"));
     });
   };
   const eliminar = (foto: NonNullable<ProgresoDatosV2["fotos"]>[number]) => {
@@ -346,14 +361,18 @@ function DetalleSeguimiento({
       return;
     }
     iniciarGuardado(async () => {
-      const resultado = await eliminarFotoProgreso(foto.id);
-      if (!resultado.ok) {
-        onAviso(resultado.error ?? "No fue posible eliminar la foto");
-        return;
+      try {
+        const resultado = await eliminarFotoProgreso(foto.id);
+        if (!resultado.ok) {
+          onAviso(resultado.error ?? "No fue posible eliminar la foto");
+          return;
+        }
+        await refrescar();
+        setFotoAEliminar(null);
+        onAviso("Foto eliminada de la quincena actual");
+      } catch {
+        onAviso("No hubo conexión con el servidor. La fotografía se conserva.");
       }
-      await refrescar();
-      setFotoAEliminar(null);
-      onAviso("Foto eliminada de la quincena actual");
     });
   };
 
