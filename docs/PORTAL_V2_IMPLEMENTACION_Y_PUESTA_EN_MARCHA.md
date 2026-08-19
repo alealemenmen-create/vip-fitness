@@ -691,9 +691,9 @@ Validaciones locales completadas el 19-08-2026:
   un máximo de un momento. La rutina base nunca se altera ni se diagnostica.
 - `npm run audit:v2-data` ejecuta una auditoría agregada y estrictamente de
   sólo lectura contra las fuentes activas. El 19-08-2026 confirmó, entre otros,
-  `125` programas, `4.257` ejercicios prescritos, `521` sesiones históricas,
-  `3.998` ejercicios ejecutados, `11.329` series con sus cargas, `100` pesajes,
-  `6` fotos privadas, `550` comidas y `2.666` movimientos de puntos. La V2
+  `125` programas, `4.257` ejercicios prescritos, `523` sesiones históricas,
+  `4.011` ejercicios ejecutados, `11.341` series con sus cargas, `101` pesajes,
+  `6` fotos privadas, `550` comidas y `2.673` movimientos de puntos. La V2
   consume esas mismas tablas: no existe una copia vacía que obligue a reiniciar
   el progreso. Los totales son una fotografía de auditoría y cambiarán con el
   uso normal del portal activo.
@@ -811,7 +811,7 @@ del menú hasta cumplir su recorrido completo.
   vibración locales continúan operativos sin esas claves.
 - Publicación en el dominio y cambio de vista predeterminada: sólo después del
   piloto y de una orden expresa del propietario.
-- La compilación y los tiempos de respuesta locales de las 15 rutas están
+- La compilación y los tiempos de respuesta locales de las 16 rutas están
   verificados, pero la traza formal de Core Web Vitals (LCP, CLS, INP y cadena
   de red) debe ejecutarse sobre la URL HTTPS de preview. El entorno actual no
   tiene conectado Chrome DevTools MCP, por lo que no se publican cifras
