@@ -134,8 +134,11 @@ idempotente y contrastarse contra el registro original antes del piloto.
   con retorno a la V2; el cierre de sesión real sólo aparece cuando existe una
   identidad autenticada.
 - `/portal-v2/perfil`: edición autenticada de datos personales, temporizador,
-  contraseña, correo y reseña reutilizando las acciones probadas del portal;
-  la vista directa protege la información sin redirigir al login.
+  contraseña, correo y reseña reutilizando las acciones probadas del portal.
+  La interfaz ya no incrusta las tarjetas clásicas: organiza esas funciones en
+  secciones V2 plegables, con tipografía, superficies, campos, interruptores,
+  botones, estados y jerarquía propios de la nueva experiencia. La vista
+  directa protege la información sin redirigir al login.
 - `/portal-v2/soporte`: asistente contextual, recordatorios y marcas recientes
   dentro del shell V2; la demostración no fabrica conversaciones privadas.
 - El plan muestra nombre, sesiones, frecuencia y estado reales de la cuenta.

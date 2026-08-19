@@ -2,14 +2,8 @@ import Link from "next/link";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { obtenerContextoAlumnoOpcional } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { DatosPersonalesForm } from "@/components/student/DatosPersonalesForm";
-import { CambiarMiPassword } from "@/components/admin/CambiarMiPassword";
-import { CambiarCorreoForm } from "@/components/admin/CambiarCorreoForm";
-import { TemporizadorDescansoToggle } from "@/components/student/TemporizadorDescansoToggle";
-import { ResenaApp } from "@/components/student/ResenaApp";
-import { Card } from "@/components/ui/Card";
+import { PerfilV2 } from "@/components/v2/PerfilV2";
 import { obtenerDatosPersonales } from "@/app/alumno/perfil/data";
-import { cambiarMiCorreo } from "@/app/alumno/perfil/actions";
 import styles from "@/components/v2/PortalV2.module.css";
 
 export default async function PerfilV2Page() {
@@ -32,14 +26,12 @@ export default async function PerfilV2Page() {
   return (
     <section className={styles.v2BridgePage}>
       <header><Link href="/portal-v2/mas" aria-label="Volver a Más"><ArrowLeft size={22} /></Link><div><span>CUENTA</span><h1>Mi perfil</h1></div></header>
-      {contexto.soloLectura ? <Card><p className="text-body text-text-secondary">Estás viendo este perfil en modo solo lectura.</p></Card> : (
-        <div className={styles.v2BridgeContent}>
-          <DatosPersonalesForm datos={datos} />
-          <div id="descanso"><TemporizadorDescansoToggle activoInicial={alumnoPerfil?.temporizador_descanso ?? true} segundosPreferidoInicial={alumnoPerfil?.segundos_descanso_preferido ?? null} /></div>
-          <CambiarMiPassword />
-          <Card><p className="text-caption mb-3 text-text-tertiary">MI CORREO</p><CambiarCorreoForm accion={cambiarMiCorreo} /></Card>
-          <ResenaApp />
-        </div>
+      {contexto.soloLectura ? <article className={styles.v2BridgeDemo}><ShieldCheck size={23} /><strong>Perfil en modo lectura</strong><p>Esta vista conserva el diseño V2 y protege los datos personales. Entra con la cuenta del alumno para editar sus preferencias.</p><Link href="/portal-v2/mas">Volver a configuración</Link></article> : (
+        <PerfilV2
+          datos={datos}
+          temporizadorInicial={alumnoPerfil?.temporizador_descanso ?? true}
+          segundosIniciales={alumnoPerfil?.segundos_descanso_preferido ?? null}
+        />
       )}
     </section>
   );
