@@ -37,6 +37,7 @@ export type MomentoSesionAlejandro = {
   titulo: "MOMENTO ALEJANDRO";
   instruccion: string;
   apoyo: string;
+  mostradoInicial?: boolean;
 };
 
 export type EstimacionRirAlejandro = {

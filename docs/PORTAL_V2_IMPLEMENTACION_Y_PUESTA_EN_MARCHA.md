@@ -403,6 +403,12 @@ Validaciones locales completadas el 19-08-2026:
   después de recargar) y avanzó por sí solo al siguiente trabajo. En video, la
   superserie recorrió estación 1 → estación 2 → descanso único → segunda ronda,
   sin descanso entre estaciones ni errores de consola.
+- El ciclo automático de Alejandro quedó conectado a la memoria original: el
+  aviso aparece sin pulsar “Alejandro”, `VOY` registra que fue leído y completar
+  la serie resuelve el reto desde sus datos guardados. La prueba QA terminó como
+  `lograda` con verificación `datos`, y después de recargar no volvió a aparecer.
+  “Tengo una molestia” resolvió otro ciclo como `omitida_molestia`, desactivó
+  los retos automáticos y no convirtió una declaración en evidencia numérica.
 - El recorrido autenticado de Nutrición también se ejecutó de punta a punta:
   la búsqueda remota encontró productos reales de Soprole, importó Leche
   Natural Entera al catálogo, registró y editó su cantidad, recalculó macros,

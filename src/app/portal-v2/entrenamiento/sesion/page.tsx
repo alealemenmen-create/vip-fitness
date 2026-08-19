@@ -241,7 +241,7 @@ export default async function SesionV2Page({
   const preparacionAlejandro = evaluarPreparacionDiariaAlejandro(await obtenerSeguimientoHoy(supabase, contexto.alumnoId));
   const momentosAlejandro = sesion.ejercicios.flatMap((ejercicio) =>
     ejercicio.intervencionesImpulso
-      .filter((momento) => momento.estado !== "cancelada")
+      .filter((momento) => momento.estado !== "cancelada" && momento.estado !== "resuelta")
       .map((momento) => ({
         id: momento.id,
         ejercicioId: ejercicio.sesionEjercicioId,
@@ -250,6 +250,7 @@ export default async function SesionV2Page({
         titulo: "MOMENTO ALEJANDRO" as const,
         instruccion: momento.instruccion,
         apoyo: momento.motivo,
+        mostradoInicial: momento.estado === "mostrada",
       })),
   );
 

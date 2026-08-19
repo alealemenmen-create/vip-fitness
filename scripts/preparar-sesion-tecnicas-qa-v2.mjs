@@ -138,8 +138,23 @@ const sesion = await exigir(await db.from("sesiones_entrenamiento").insert({
   rutina_iniciada_en: new Date().toISOString(),
 }).select("id").single(), "Crear sesión técnica QA");
 
-await exigir(await db.from("sesion_ejercicios").insert(ejercicios
+const ejerciciosSesion = await exigir(await db.from("sesion_ejercicios").insert(ejercicios
   .sort((a, b) => a.orden - b.orden)
-  .map((ejercicio) => ({ sesion_id: sesion.id, dia_ejercicio_id: ejercicio.id }))), "Crear ejercicios de sesión QA");
+  .map((ejercicio) => ({ sesion_id: sesion.id, dia_ejercicio_id: ejercicio.id })))
+  .select("id,dia_ejercicio_id"), "Crear ejercicios de sesión QA");
+
+const primerEjercicioSesion = ejerciciosSesion.find((item) => item.dia_ejercicio_id === ejercicios[0].id);
+assert(primerEjercicioSesion, "No se pudo identificar el primer ejercicio de la sesión QA");
+await exigir(await db.from("impulso_vip_intervenciones").insert({
+  sesion_ejercicio_id: primerEjercicioSesion.id,
+  alumno_id: alumnoId,
+  serie_objetivo: 1,
+  tipo: "repeticion_objetivo",
+  origen: "metodo_ale",
+  instruccion: "PRIMER RETO QA: COMPLETA 10 REPETICIONES LIMPIAS.",
+  motivo: "Validación automática aislada del ciclo mostrar → guardar → verificar.",
+  prescripcion: { repsObjetivo: 10 },
+  decision_data: { portalQa: true },
+}), "Crear intervención Alejandro QA");
 
 process.stdout.write(sesion.id);

@@ -564,3 +564,19 @@ export async function resolverIntervencionEnVivo(
 
   return { error: null, ok: true, verificada };
 }
+
+/**
+ * Adaptador de la sesión V2: no obliga al alumno a responder una encuesta.
+ * La serie ya guardada aporta la evidencia; cuando una técnica exige datos
+ * adicionales que la V2 todavía no captura, queda honestamente como declarada
+ * y nunca se usa como éxito verificado para subir la intensidad futura.
+ */
+export async function resolverIntervencionAutomaticaV2(
+  intervencionId: string,
+  resultado: "lograda" | "omitida_molestia" = "lograda",
+): Promise<ResolverIntervencionState> {
+  const formData = new FormData();
+  formData.set("intervencion_id", intervencionId);
+  formData.set("resultado", resultado);
+  return resolverIntervencionEnVivo({ error: null, ok: false, verificada: false }, formData);
+}

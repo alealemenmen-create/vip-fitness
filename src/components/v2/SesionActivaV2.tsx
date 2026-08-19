@@ -53,6 +53,10 @@ import {
 } from "@/lib/impulso-vip/alejandro-sesion";
 import type { PreparacionDiariaAlejandro } from "@/lib/impulso-vip/preparacion-diaria";
 import {
+  marcarIntervencionMostrada,
+  resolverIntervencionAutomaticaV2,
+} from "@/app/alumno/entrenar/impulso-actions";
+import {
   actualizarTemporizadorDescansoAlumno,
   guardarSesionV2,
   guardarYFinalizarSesionV2,
@@ -296,8 +300,11 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [sonidoDescansoActivo, setSonidoDescansoActivo] = useState(true);
   const [unidadPeso, setUnidadPeso] = useState<UnidadPeso>("kg");
   const [impulsoAutomaticoActivo, setImpulsoAutomaticoActivo] = useState(true);
-  const [momentosVistos, setMomentosVistos] = useState<Record<string, boolean>>({});
+  const [momentosVistos, setMomentosVistos] = useState<Record<string, boolean>>(() => Object.fromEntries(
+    MOMENTOS_ALEJANDRO.filter((momento) => momento.mostradoInicial).map((momento) => [momento.id, true]),
+  ));
   const [momentosLogrados, setMomentosLogrados] = useState<Record<string, boolean>>({});
+  const [momentosRegistrados, setMomentosRegistrados] = useState<Record<string, boolean>>({});
   const [momentoVisible, setMomentoVisible] = useState<MomentoSesionAlejandro | null>(null);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
   const [avisoBorrador, setAvisoBorrador] = useState<string | null>(null);
@@ -593,13 +600,28 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     return { sesionId: sesion.id, ejercicios };
   };
 
-  const persistirEjercicio = (ejercicio: EjercicioSesionV2, series: SerieRegistradaV2[]) => {
+  const persistirEjercicio = (
+    ejercicio: EjercicioSesionV2,
+    series: SerieRegistradaV2[],
+    momentoCompletado?: MomentoSesionAlejandro,
+  ) => {
     const payload = construirRegistroServidor(ejercicio, series);
     if (!payload) return;
     iniciarGuardado(async () => {
       try {
         const resultado = await guardarSesionV2(payload);
         setErrorGuardado(resultado.error);
+        if (!resultado.error && momentoCompletado) {
+          const resolucion = await resolverIntervencionAutomaticaV2(momentoCompletado.id);
+          if (resolucion.ok) {
+            setMomentosRegistrados((actuales) => ({ ...actuales, [momentoCompletado.id]: true }));
+            if (resolucion.verificada) {
+              setMomentosLogrados((actuales) => ({ ...actuales, [momentoCompletado.id]: true }));
+            }
+          } else if (resolucion.error) {
+            setErrorGuardado(`La serie quedó guardada, pero Alejandro no pudo confirmar el reto: ${resolucion.error}`);
+          }
+        }
       } catch {
         setErrorGuardado("No pudimos sincronizar esta serie. Quedó protegida en este dispositivo para reintentarla.");
       }
@@ -730,8 +752,11 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     const seriesActualizadas = registro[ejercicio.id].map((serie, indice) =>
       indice === serieIndice ? { ...serie, completada: !serie.completada } : serie
     );
+    const momentoCompletado = MOMENTOS_ALEJANDRO.find((momento) =>
+      momento.ejercicioId === ejercicio.id && momento.serieIndice === serieIndice
+    );
     setRegistro((actual) => ({ ...actual, [ejercicio.id]: seriesActualizadas }));
-    persistirEjercicio(ejercicio, seriesActualizadas);
+    persistirEjercicio(ejercicio, seriesActualizadas, estabaCompletada ? undefined : momentoCompletado);
     setEjercicioActivoId(ejercicio.id);
     setSerieActivaIndice(serieIndice);
     setEjercicioExpandidoId(ejercicio.id);
@@ -743,12 +768,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       if (descanso?.ejercicioId === ejercicio.id && descanso.serieIndice === serieIndice) setDescansoEnFoco(false);
       setDescanso((actual) => actual?.ejercicioId === ejercicio.id && actual.serieIndice === serieIndice ? null : actual);
       return;
-    }
-    const momentoCompletado = MOMENTOS_ALEJANDRO.find((momento) =>
-      momento.ejercicioId === ejercicio.id && momento.serieIndice === serieIndice
-    );
-    if (impulsoAutomaticoActivo && momentoCompletado) {
-      setMomentosLogrados((actuales) => ({ ...actuales, [momentoCompletado.id]: true }));
     }
     if (esUltimaSerieRutina) {
       descansoAvisadoRef.current = null;
@@ -1116,7 +1135,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
               <Zap size={15} fill="currentColor" />
               <span><strong>Alejandro</strong><small>{impulsoActivo.instruccion}</small></span>
-              <b>{momentosLogrados[impulsoActivo.id] ? "Logrado" : `Serie ${impulsoActivo.serieIndice + 1}`}</b>
+              <b>{momentosLogrados[impulsoActivo.id] ? "Verificado" : momentosRegistrados[impulsoActivo.id] ? "Registrado" : `Serie ${impulsoActivo.serieIndice + 1}`}</b>
             </button>
           ) : null}
           {segmentosTecnicaActiva.length ? <TecnicaActivaCard ejercicio={ejercicioActivo} segmentos={segmentosTecnicaActiva} paso={pasoTecnicaActivo} pausa={pausaTecnica?.clave === claveTecnicaActiva ? pausaTecnica.segundos : null} /> : null}
@@ -1161,7 +1180,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                   <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
                     <Zap size={15} fill="currentColor" />
                     <span><strong>Alejandro</strong><small>{impulsoEjercicio.instruccion}</small></span>
-                    <b>{momentosLogrados[impulsoEjercicio.id] ? "Logrado" : `Serie ${impulsoEjercicio.serieIndice + 1}`}</b>
+                    <b>{momentosLogrados[impulsoEjercicio.id] ? "Verificado" : momentosRegistrados[impulsoEjercicio.id] ? "Registrado" : `Serie ${impulsoEjercicio.serieIndice + 1}`}</b>
                   </button>
                 ) : null}
                 {ejercicio.id === ejercicioActivo.id && segmentosTecnicaActiva.length ? <TecnicaActivaCard ejercicio={ejercicio} segmentos={segmentosTecnicaActiva} paso={pasoTecnicaActivo} pausa={pausaTecnica?.clave === claveTecnicaActiva ? pausaTecnica.segundos : null} /> : null}
@@ -1259,11 +1278,28 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             <h2>{momentoVisible.instruccion}</h2>
             <span>{momentoVisible.apoyo}</span>
             <button type="button" onClick={() => {
-              setMomentosVistos((actuales) => ({ ...actuales, [momentoVisible.id]: true }));
+              const id = momentoVisible.id;
+              if (sesion?.real && !sesion.soloLectura) {
+                iniciarGuardado(async () => {
+                  try {
+                    await marcarIntervencionMostrada(id);
+                  } catch {
+                    setErrorGuardado("El reto sigue activo, pero no pudimos confirmar su lectura. Se reintentará al volver a esta serie.");
+                  }
+                });
+              }
+              setMomentosVistos((actuales) => ({ ...actuales, [id]: true }));
               setMomentoVisible(null);
             }}>VOY</button>
             <button type="button" className={styles.impulsoSafetyExit} onClick={() => {
-              setImpulsoAutomaticoActivo(false);
+              const id = momentoVisible.id;
+              iniciarGuardado(async () => {
+                const resolucion = await resolverIntervencionAutomaticaV2(id, "omitida_molestia");
+                if (resolucion.ok) setMomentosRegistrados((actuales) => ({ ...actuales, [id]: true }));
+                else if (resolucion.error) setErrorGuardado(resolucion.error);
+              });
+              setMomentosVistos((actuales) => ({ ...actuales, [id]: true }));
+              cambiarImpulsoAutomatico(false);
               setMomentoVisible(null);
             }}>Tengo una molestia</button>
           </section>
