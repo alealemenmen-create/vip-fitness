@@ -15,10 +15,13 @@ alumno es **Alejandro**.
 1. **Motor histórico existente:** analiza las últimas sesiones válidas, dolor,
    estancamiento, caídas de rendimiento y progresión doble. Su recomendación se
    congela y queda auditable.
-2. **Alejandro en vivo:** prescribe automáticamente la siguiente serie. Adapta
-   repeticiones o carga apenas se registra el resultado y utiliza las respuestas
-   del alumno solo para corregir contexto que los números no pueden conocer.
-3. **Supervisión profesional:** una molestia bloquea la progresión y deriva a
+2. **Progresión silenciosa:** prepara la siguiente sesión con la carga o las
+   repeticiones que correspondan. No obliga al alumno a cambiar discos después
+   de cada serie y no consume atención durante el entrenamiento.
+3. **Momento Alejandro:** irrumpe automáticamente solo en una última serie
+   estratégica. Es escaso, sorpresivo, breve y queda bloqueando la pantalla
+   hasta que el alumno haya visto la instrucción.
+4. **Supervisión profesional:** una molestia bloquea la progresión y deriva a
    revisión. Las decisiones del entrenador prevalecen sobre la automatización.
 
 ## Jerarquía de decisión
@@ -36,21 +39,25 @@ El orden no puede invertirse:
 Esto sigue la jerarquía del Método VIP: seguridad, compatibilidad, adherencia,
 distribución, progresión, estímulo y técnicas.
 
-## Modo entrenador activo
+## Frecuencia y selección
 
 El modo automático está encendido por defecto y se puede desactivar desde el
 panel de Alejandro o los ajustes de la sesión.
 
-- Dentro del rango: exige como mínimo una repetición adicional.
-- En el techo del rango: sube el siguiente escalón válido y regresa al mínimo.
-- Por encima del techo: interpreta el sobrecumplimiento y puede acelerar solo
-  cuando también existe confianza acumulada.
-- Debajo del mínimo: se opone a seguir aumentando y corrige el estímulo.
-- Sin datos suficientes: usa el escalón mínimo; no inventa aumentos grandes.
+- Inicial o con pocos datos confiables: 1 momento.
+- Intermedio constante: 2 momentos.
+- Avanzado con historial y retos verificados: 2–3 momentos.
+- Experto, constante y autorizado para intensidad alta: hasta 4 momentos.
+- Dolor o restricción activa: 0 momentos intensos.
 
-El alumno no acepta ni rechaza una progresión normal. Registra honestamente lo
-que logró. Las correcciones manuales existen para dificultad no visible,
-técnica, molestia o indisponibilidad del equipo.
+El motor estudia nivel, sesiones válidas, constancia reciente, historial de
+carga y repeticiones, resultados de retos, restricciones y autorización. Evita
+ejercicios con otra técnica programada, distribuye los momentos dentro de la
+sesión y concentra técnicas exigentes en ejercicios seguros y revisados.
+
+El alumno no pulsa un botón para pedir el Impulso. La prescripción ya está
+activa cuando aparece; `VOY` solo confirma que leyó la instrucción. Siempre se
+mantiene una salida visible para reportar molestia.
 
 ## Progresión por equipo
 
@@ -76,13 +83,16 @@ pérdida de grasa quedan limitados al escalón base aunque exista confianza alta
 La confianza autoriza el tamaño máximo del ajuste; nunca anula las reglas de
 seguridad ni obliga a aumentar.
 
-## Lenguaje del alumno
+## RIR y lenguaje del alumno
 
-No se exige conocer RIR o RPE ni responder una encuesta para recibir la
-progresión. De manera opcional se puede corregir a Alejandro con: muy fácil,
-fácil, podía hacer una más, justo, demasiado difícil, no la completé, perdí la
-técnica y sentí una molestia. Internamente se conserva compatibilidad con la
-dificultad ya guardada por el Impulso VIP original.
+No se exige responder una encuesta en cada serie. El RIR solo se infiere cuando
+existen suficientes muestras comparables y consistentes; peso y repeticiones
+por sí solos no permiten conocerlo con precisión. Cuando falte confianza se
+hace una única pregunta rápida, cerca del esfuerzo que se necesita calibrar.
+
+La instrucción visible usa una frase imperativa, generalmente de 5–10 palabras,
+tipografía grande y alto contraste. Ejemplos: `SUPERA TU MARCA POR 1` y
+`BAJA 20%. SUMA 6–8 REPETICIONES`.
 
 ## Fundamento de diseño
 
@@ -105,11 +115,11 @@ dificultad ya guardada por el Impulso VIP original.
 
 ## Implementación V2
 
-El motor puro vive en `src/lib/impulso-vip/alejandro.ts`. Devuelve versión,
-acción, confianza, carga, repeticiones, bloqueo, mensaje y motivos auditables.
-La sesión V2 lo consume sin duplicar las reglas.
+La progresión por equipo permanece en `src/lib/impulso-vip/alejandro.ts`. La
+orquestación escasa de la sesión vive en
+`src/lib/impulso-vip/alejandro-sesion.ts`: resuelve cupo, selecciona ejercicios,
+redacta la instrucción y decide si el RIR puede inferirse o debe preguntarse.
 
-En la demostración actual, las señales se conservan durante la sesión. Al
-conectar la pantalla V2 a las asignaciones reales, debe enviarse al motor el
-objetivo del alumno y la racha histórica que ya calcula el Impulso VIP original,
-y persistir respuesta, versión y motivos en las tablas existentes.
+La demostración V2 usa dos momentos estratégicos y conserva su estado durante
+la sesión. Al conectarla a las asignaciones reales se reutilizarán las tablas de
+recomendaciones, intervenciones y memoria adaptativa del Impulso VIP original.

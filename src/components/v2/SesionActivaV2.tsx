@@ -30,14 +30,9 @@ import {
 } from "lucide-react";
 import { avisarFinDescansoV2, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
 import {
-  esRespuestaPositivaAlejandro,
-  evaluarProgresionAutomaticaAlejandro,
-  evaluarSiguienteSerieAlejandro,
-  type AccionAlejandro,
-  type ConfianzaAlejandro,
-  type MotivoAlejandro,
-  type RespuestaAlejandro,
-} from "@/lib/impulso-vip/alejandro";
+  seleccionarMomentosAlejandro,
+  type MomentoSesionAlejandro,
+} from "@/lib/impulso-vip/alejandro-sesion";
 import styles from "./SesionActivaV2.module.css";
 
 type SerieRegistrada = {
@@ -70,25 +65,35 @@ type PanelSesion = "consejo" | "historial" | "sustituir" | "reordenar" | "notas"
 type VistaSesion = "lista" | "video" | "descanso";
 type UnidadPeso = "kg" | "lb";
 
-type AjusteImpulso = {
-  respuesta: RespuestaAlejandro | null;
-  mensaje: string;
-  serieObjetivo: number | null;
-  aplicado: boolean;
-  origen: "automatico" | "respuesta";
-  accion: AccionAlejandro;
-  confianza: ConfianzaAlejandro;
-  motivos: MotivoAlejandro[];
-  bloqueaProgresion: boolean;
-  incrementoAplicado: number;
-};
-
 const EJERCICIOS: EjercicioSesion[] = [
   { id: "sentadilla-smith", codigo: "A", nombre: "Sentadilla Smith", repeticiones: [10, 10, 10, 10], descanso: 60, foto: "/v2/piernas.webp", equipo: "Máquina Smith", grupo: "Cuádriceps · glúteos" },
   { id: "peso-muerto-rumano", codigo: "B1", nombre: "Peso muerto rumano", repeticiones: [8, 8, 8], descanso: 90, foto: "/v2/espalda.webp", equipo: "Barra", grupo: "Femoral · glúteos", tecnica: "Superserie" },
   { id: "prensa-inclinada", codigo: "B2", nombre: "Prensa inclinada", repeticiones: [12, 12, 12], descanso: 120, foto: "/v2/piernas.webp", equipo: "Prensa 45°", grupo: "Cuádriceps", tecnica: "Superserie" },
   { id: "extension-cuadriceps", codigo: "C", nombre: "Extensión de cuádriceps", repeticiones: [15, 15, 15], descanso: 75, foto: "/v2/hombros.webp", equipo: "Máquina de extensión", grupo: "Cuádriceps" },
 ];
+
+const MOMENTOS_ALEJANDRO = seleccionarMomentosAlejandro({
+  activo: true,
+  nivel: "intermedio",
+  sesionesValidas: 18,
+  constancia30Dias: 0.84,
+  registroConfiable: true,
+  exitosRecientes: 3,
+  desafiosRecientes: 4,
+  dolorORestriccion: false,
+  intensidadAltaAutorizada: false,
+}, EJERCICIOS.map((ejercicio, posicion) => ({
+  ejercicioId: ejercicio.id,
+  nombre: ejercicio.nombre,
+  totalSeries: ejercicio.repeticiones.length,
+  posicion,
+  compuesto: posicion < 2,
+  tecnicaProgramada: Boolean(ejercicio.tecnica),
+  perfilRevisado: true,
+  tecnicasPermitidas: posicion === EJERCICIOS.length - 1
+    ? ["cierre_controlado", "drop_set"]
+    : ["cierre_controlado", "repeticion_extra"],
+})));
 
 function crearRegistroInicial() {
   return Object.fromEntries(EJERCICIOS.map((ejercicio) => [
@@ -118,16 +123,6 @@ function convertirPeso(valor: string, desde: UnidadPeso, hasta: UnidadPeso) {
 function pesoHistorico(kilos: number, unidad: UnidadPeso) {
   const valor = unidad === "kg" ? kilos : Math.round(kilos * 2.20462 * 10) / 10;
   return `${valor} ${unidad}`;
-}
-
-function etiquetaAccionAlejandro(ajuste: AjusteImpulso) {
-  if (ajuste.origen === "automatico" && ajuste.accion === "preparar") return "Preparación automática";
-  if (ajuste.origen === "automatico") return "Prescripción automática";
-  if (ajuste.accion === "detener_consultar") return "Progresión detenida";
-  if (ajuste.accion === "subir_reps") return "Primero repeticiones";
-  if (ajuste.accion === "subir_carga") return "Carga ajustada";
-  if (ajuste.accion === "reducir") return "Ajuste de seguridad";
-  return "Carga consolidada";
 }
 
 function desplazarPosicionSerie(ejercicioIndice: number, serieIndice: number, direccion: -1 | 1) {
@@ -172,8 +167,9 @@ export function SesionActivaV2() {
   const [sonidoDescansoActivo, setSonidoDescansoActivo] = useState(true);
   const [unidadPeso, setUnidadPeso] = useState<UnidadPeso>("kg");
   const [impulsoAutomaticoActivo, setImpulsoAutomaticoActivo] = useState(true);
-  const [impulsos, setImpulsos] = useState<Record<string, AjusteImpulso>>({});
-  const [respuestasAlejandro, setRespuestasAlejandro] = useState<Record<string, Record<number, RespuestaAlejandro>>>({});
+  const [momentosVistos, setMomentosVistos] = useState<Record<string, boolean>>({});
+  const [momentosLogrados, setMomentosLogrados] = useState<Record<string, boolean>>({});
+  const [momentoVisible, setMomentoVisible] = useState<MomentoSesionAlejandro | null>(null);
   const gestoInicioX = useRef<number | null>(null);
   const descansoAvisadoRef = useRef<string | null>(null);
   const paginaSesionRef = useRef<HTMLDivElement | null>(null);
@@ -209,16 +205,13 @@ export function SesionActivaV2() {
     : desplazarPosicionSerie(ejercicioDescansoIndice, descanso.serieIndice, 1);
   const ejercicioDespuesDescanso = EJERCICIOS[posicionDespuesDescanso.ejercicioIndice];
   const progreso = totalSeries === 0 ? 0 : (seriesCompletadas / totalSeries) * 100;
-  const impulsoActivo = impulsos[ejercicioActivo.id] ?? null;
-  const ultimaSerieCompletadaIndice = registro[ejercicioActivo.id].reduce(
-    (ultima, serie, indice) => serie.completada ? indice : ultima,
-    -1,
-  );
-  const puedeCalibrarImpulso = ultimaSerieCompletadaIndice >= 0;
+  const impulsoActivo = MOMENTOS_ALEJANDRO.find((momento) =>
+    momento.ejercicioId === ejercicioActivo.id && momentosVistos[momento.id]
+  ) ?? null;
 
   const cambiarImpulsoAutomatico = (activo: boolean) => {
     setImpulsoAutomaticoActivo(activo);
-    if (!activo) setImpulsos({});
+    if (!activo) setMomentoVisible(null);
   };
 
   useEffect(() => {
@@ -287,90 +280,30 @@ export function SesionActivaV2() {
     return () => window.clearTimeout(transicion);
   }, [descanso, descansoEnFoco, sonidoDescansoActivo, vista]);
 
+  useEffect(() => {
+    if (!impulsoAutomaticoActivo || descansoEnFoco || confirmarSalida || registrada) return;
+    const momento = MOMENTOS_ALEJANDRO.find((item) =>
+      item.ejercicioId === ejercicioActivo.id
+      && item.serieIndice === serieActivaIndiceSeguro
+      && !momentosVistos[item.id]
+      && !registro[ejercicioActivo.id][serieActivaIndiceSeguro].completada
+    );
+    if (momento) setMomentoVisible(momento);
+  }, [
+    confirmarSalida,
+    descansoEnFoco,
+    ejercicioActivo.id,
+    impulsoAutomaticoActivo,
+    momentosVistos,
+    registrada,
+    registro,
+    serieActivaIndiceSeguro,
+  ]);
+
   const actualizarSerie = (ejercicioId: string, indice: number, campo: "reps" | "peso", valor: string) => {
     setRegistro((actual) => ({
       ...actual,
       [ejercicioId]: actual[ejercicioId].map((serie, serieIndice) => serieIndice === indice ? { ...serie, [campo]: valor } : serie),
-    }));
-  };
-
-  const prepararImpulsoAutomatico = (ejercicio: EjercicioSesion, serieIndice: number) => {
-    if (!impulsoAutomaticoActivo) return;
-    const series = registro[ejercicio.id];
-    const serieBase = series[serieIndice];
-    const serieObjetivo = series.findIndex((serie, indice) => indice > serieIndice && !serie.completada);
-    const objetivoActual = serieObjetivo < 0 ? serieBase : series[serieObjetivo];
-    const pesoBaseTexto = serieBase.peso.trim() || objetivoActual.peso.trim();
-    const pesoBaseNumero = pesoBaseTexto === "" ? null : Number(pesoBaseTexto.replace(",", "."));
-    const repsPlan = ejercicio.repeticiones[serieObjetivo < 0 ? serieIndice : serieObjetivo];
-    const repsRealizadas = Number.parseInt(serieBase.reps, 10) || ejercicio.repeticiones[serieIndice];
-    const respuestasPrevias = respuestasAlejandro[ejercicio.id] ?? {};
-    let rachaPositivaPrevia = 0;
-    for (let indice = serieIndice - 1; indice >= 0; indice -= 1) {
-      const previa = respuestasPrevias[indice];
-      if (previa && esRespuestaPositivaAlejandro(previa)) rachaPositivaPrevia += 1;
-      else break;
-    }
-    const serieAnterior = serieIndice > 0 ? series[serieIndice - 1] : null;
-    const repsAnteriores = serieAnterior?.completada ? Number.parseInt(serieAnterior.reps, 10) : Number.NaN;
-    const pesoAnterior = serieAnterior?.completada && serieAnterior.peso.trim() !== ""
-      ? Number(serieAnterior.peso.replace(",", "."))
-      : Number.NaN;
-    const caidaRendimiento = Number.isFinite(repsAnteriores)
-      && repsRealizadas <= Math.floor(repsAnteriores * 0.8)
-      && (
-        Number.isFinite(pesoAnterior)
-          ? Number.isFinite(pesoBaseNumero) && (pesoBaseNumero as number) <= pesoAnterior
-          : !Number.isFinite(pesoBaseNumero)
-      );
-    const decision = evaluarProgresionAutomaticaAlejandro({
-      nombreEjercicio: ejercicio.nombre,
-      equipo: ejercicio.equipo,
-      unidad: unidadPeso,
-      objetivo: "masa",
-      rango: { min: Math.max(1, repsPlan - 2), max: repsPlan },
-      pesoBase: Number.isFinite(pesoBaseNumero) ? pesoBaseNumero : null,
-      repsRealizadas,
-      repsObjetivoActual: repsPlan,
-      tecnicaLimpia: true,
-      serieCompletada: true,
-      rachaPositivaPrevia,
-      sesionesExitosasConsecutivas: 0,
-      caidaRendimiento,
-    });
-    setRespuestasAlejandro((actuales) => ({
-      ...actuales,
-      [ejercicio.id]: {
-        ...(actuales[ejercicio.id] ?? {}),
-        [serieIndice]: decision.respuestaInferida,
-      },
-    }));
-    if (serieObjetivo >= 0) {
-      setRegistro((actual) => ({
-        ...actual,
-        [ejercicio.id]: actual[ejercicio.id].map((serie, indice) => indice === serieObjetivo
-          ? {
-            ...serie,
-            peso: decision.pesoObjetivo === null ? pesoBaseTexto : String(decision.pesoObjetivo),
-            reps: String(decision.repsObjetivo),
-          }
-          : serie),
-      }));
-    }
-    setImpulsos((actuales) => ({
-      ...actuales,
-      [ejercicio.id]: {
-        respuesta: null,
-        mensaje: serieObjetivo < 0 ? `${decision.mensaje} La próxima sesión partirá de esta exigencia.` : decision.mensaje,
-        serieObjetivo: serieObjetivo < 0 ? null : serieObjetivo,
-        aplicado: serieObjetivo >= 0,
-        origen: "automatico",
-        accion: decision.accion,
-        confianza: decision.confianza,
-        motivos: decision.motivos,
-        bloqueaProgresion: decision.bloqueaProgresion,
-        incrementoAplicado: decision.incrementoAplicado,
-      },
     }));
   };
 
@@ -392,7 +325,12 @@ export function SesionActivaV2() {
       setDescanso((actual) => actual?.ejercicioId === ejercicio.id && actual.serieIndice === serieIndice ? null : actual);
       return;
     }
-    prepararImpulsoAutomatico(ejercicio, serieIndice);
+    const momentoCompletado = MOMENTOS_ALEJANDRO.find((momento) =>
+      momento.ejercicioId === ejercicio.id && momento.serieIndice === serieIndice
+    );
+    if (impulsoAutomaticoActivo && momentoCompletado) {
+      setMomentosLogrados((actuales) => ({ ...actuales, [momentoCompletado.id]: true }));
+    }
     if (esUltimaSerieRutina) {
       descansoAvisadoRef.current = null;
       cortarAviso();
@@ -541,98 +479,6 @@ export function SesionActivaV2() {
     setUnidadPeso(siguienteUnidad);
   };
 
-  const resolverImpulso = (respuesta: RespuestaAlejandro) => {
-    const series = registro[ejercicioActivo.id];
-    const serieBaseIndice = series.reduce(
-      (ultima, serie, indice) => serie.completada ? indice : ultima,
-      -1,
-    );
-    if (serieBaseIndice < 0) return;
-
-    const serieObjetivo = series.findIndex((serie, indice) => indice > serieBaseIndice && !serie.completada);
-    const serieBase = series[serieBaseIndice];
-    const pesoNumero = serieBase.peso.trim() === "" ? null : Number(serieBase.peso.replace(",", "."));
-    const repsBase = Math.max(1, Number.parseInt(serieBase.reps, 10) || ejercicioActivo.repeticiones[serieBaseIndice]);
-    const repsPlan = ejercicioActivo.repeticiones[Math.max(0, serieObjetivo)] ?? ejercicioActivo.repeticiones[serieBaseIndice];
-    const respuestasPrevias = respuestasAlejandro[ejercicioActivo.id] ?? {};
-    let rachaPositivaPrevia = 0;
-    for (let indice = serieBaseIndice - 1; indice >= 0; indice -= 1) {
-      const previa = respuestasPrevias[indice];
-      if (previa && esRespuestaPositivaAlejandro(previa)) rachaPositivaPrevia += 1;
-      else break;
-    }
-    const serieAnterior = serieBaseIndice > 0 ? series[serieBaseIndice - 1] : null;
-    const repsAnteriores = serieAnterior?.completada ? Number.parseInt(serieAnterior.reps, 10) : Number.NaN;
-    const pesoAnterior = serieAnterior?.completada && serieAnterior.peso.trim() !== ""
-      ? Number(serieAnterior.peso.replace(",", "."))
-      : Number.NaN;
-    const caidaRendimiento = Number.isFinite(repsAnteriores)
-      && repsBase <= Math.floor(repsAnteriores * 0.8)
-      && (
-        Number.isFinite(pesoAnterior)
-          ? pesoNumero !== null && pesoNumero <= pesoAnterior
-          : pesoNumero === null
-      );
-    const decision = evaluarSiguienteSerieAlejandro({
-      nombreEjercicio: ejercicioActivo.nombre,
-      equipo: ejercicioActivo.equipo,
-      unidad: unidadPeso,
-      objetivo: "masa",
-      rango: { min: Math.max(1, repsPlan - 2), max: repsPlan },
-      pesoBase: Number.isFinite(pesoNumero) ? pesoNumero : null,
-      repsRealizadas: repsBase,
-      repsObjetivoActual: repsPlan,
-      respuesta,
-      tecnicaLimpia: respuesta !== "tecnica",
-      serieCompletada: respuesta !== "fallo",
-      rachaPositivaPrevia,
-      sesionesExitosasConsecutivas: 0,
-      caidaRendimiento,
-    });
-
-    setRespuestasAlejandro((actuales) => ({
-      ...actuales,
-      [ejercicioActivo.id]: {
-        ...(actuales[ejercicioActivo.id] ?? {}),
-        [serieBaseIndice]: respuesta,
-      },
-    }));
-    if (serieObjetivo >= 0) {
-      setRegistro((actual) => ({
-        ...actual,
-        [ejercicioActivo.id]: actual[ejercicioActivo.id].map((serie, indice) => indice === serieObjetivo
-          ? {
-            ...serie,
-            reps: String(decision.repsObjetivo),
-            peso: decision.pesoObjetivo === null ? serieBase.peso : String(decision.pesoObjetivo),
-          }
-          : serie),
-      }));
-    }
-    setImpulsos((actuales) => ({
-      ...actuales,
-      [ejercicioActivo.id]: {
-        respuesta,
-        mensaje: serieObjetivo < 0 && decision.accion !== "detener_consultar"
-          ? `${decision.mensaje} Guardaré esta señal para la próxima sesión.`
-          : decision.mensaje,
-        serieObjetivo: serieObjetivo < 0 ? null : serieObjetivo,
-        aplicado: serieObjetivo >= 0,
-        origen: "respuesta",
-        accion: decision.accion,
-        confianza: decision.confianza,
-        motivos: decision.motivos,
-        bloqueaProgresion: decision.bloqueaProgresion,
-        incrementoAplicado: decision.incrementoAplicado,
-      },
-    }));
-    if (serieObjetivo >= 0 && !descansoEnFoco && decision.accion !== "detener_consultar") {
-      setEjercicioActivoId(ejercicioActivo.id);
-      setSerieActivaIndice(serieObjetivo);
-      setEjercicioExpandidoId(ejercicioActivo.id);
-    }
-  };
-
   const moverSerie = (direccion: -1 | 1) => {
     const siguiente = desplazarPosicionSerie(ejercicioActivoIndice, serieActivaIndiceSeguro, direccion);
     const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
@@ -746,13 +592,13 @@ export function SesionActivaV2() {
             <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={13} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={13} />Reordenar</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>
           </div>
           {impulsoActivo ? (
-            <button type="button" className={styles.impulsoNotice} data-safety={impulsoActivo.bloqueaProgresion || undefined} onClick={() => setPanel("impulso")}>
+            <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
               <Zap size={15} fill="currentColor" />
-              <span><strong>Alejandro</strong><small>{impulsoActivo.mensaje}</small></span>
-              <b>{impulsoActivo.serieObjetivo === null ? "Guardado" : `Serie ${impulsoActivo.serieObjetivo + 1}`}</b>
+              <span><strong>Alejandro</strong><small>{impulsoActivo.instruccion}</small></span>
+              <b>{momentosLogrados[impulsoActivo.id] ? "Logrado" : `Serie ${impulsoActivo.serieIndice + 1}`}</b>
             </button>
           ) : null}
-          <div className={`${styles.videoSetStrip} ${impulsoActivo?.serieObjetivo === serieActivaIndiceSeguro && impulsoActivo.aplicado ? styles.videoSetStripImpulse : ""}`}>
+          <div className={`${styles.videoSetStrip} ${impulsoActivo?.serieIndice === serieActivaIndiceSeguro ? styles.videoSetStripImpulse : ""}`}>
             <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} TRB</em></span><span><b>Reps</b><strong>{serieActiva.reps}</strong></span><span><b>Peso ({unidadPeso})</b><strong>{serieActiva.peso || `— ${unidadPeso}`}</strong></span>
             <button
               type="button"
@@ -769,7 +615,9 @@ export function SesionActivaV2() {
         <main className={styles.workoutList}>
           {EJERCICIOS.map((ejercicio) => {
             const activa = ejercicio.id === ejercicioExpandidoId;
-            const impulsoEjercicio = impulsos[ejercicio.id] ?? null;
+            const impulsoEjercicio = MOMENTOS_ALEJANDRO.find((momento) =>
+              momento.ejercicioId === ejercicio.id && momentosVistos[momento.id]
+            ) ?? null;
             if (!activa) {
               const primeraPendiente = registro[ejercicio.id].findIndex((serie) => !serie.completada);
               return (
@@ -787,10 +635,10 @@ export function SesionActivaV2() {
                 </div>
                 <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("sustituir")}><Repeat2 size={14} />Sustituir</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button><button type="button" onClick={() => setPanel("reordenar")}><ArrowDownUp size={14} />Reordenar series</button></div>
                 {impulsoEjercicio ? (
-                  <button type="button" className={styles.impulsoNotice} data-safety={impulsoEjercicio.bloqueaProgresion || undefined} onClick={() => setPanel("impulso")}>
+                  <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
                     <Zap size={15} fill="currentColor" />
-                    <span><strong>Alejandro</strong><small>{impulsoEjercicio.mensaje}</small></span>
-                    <b>{impulsoEjercicio.serieObjetivo === null ? "Guardado" : `Serie ${impulsoEjercicio.serieObjetivo + 1}`}</b>
+                    <span><strong>Alejandro</strong><small>{impulsoEjercicio.instruccion}</small></span>
+                    <b>{momentosLogrados[impulsoEjercicio.id] ? "Logrado" : `Serie ${impulsoEjercicio.serieIndice + 1}`}</b>
                   </button>
                 ) : null}
                 <div className={styles.setTable}>
@@ -798,7 +646,7 @@ export function SesionActivaV2() {
                   {registro[ejercicio.id].map((serie, serieIndice) => {
                     const descansoDeEstaSerie = descanso?.ejercicioId === ejercicio.id && descanso.serieIndice === serieIndice;
                     const esSerieActiva = !descansoEnFoco && ejercicio.id === ejercicioActivo.id && serieIndice === serieActivaIndiceSeguro;
-                    const esObjetivoImpulso = impulsoEjercicio?.aplicado === true && impulsoEjercicio.serieObjetivo === serieIndice;
+                    const esObjetivoImpulso = impulsoEjercicio?.serieIndice === serieIndice;
                     const esUltimaSerieRutina = ejercicio.id === EJERCICIOS[EJERCICIOS.length - 1].id
                       && serieIndice === ejercicio.repeticiones.length - 1;
                     const activarEstaSerie = () => {
@@ -850,11 +698,29 @@ export function SesionActivaV2() {
           cambiarImpulsoAutomatico={cambiarImpulsoAutomatico}
           cambiarUnidadPeso={cambiarUnidadPeso}
           impulsoActual={impulsoActivo}
-          puedeCalibrarImpulso={puedeCalibrarImpulso}
-          resolverImpulso={resolverImpulso}
+          cupoImpulso={MOMENTOS_ALEJANDRO.length}
+          impulsosLogrados={Object.keys(momentosLogrados).length}
           guardarNota={(nota) => setNotas((actuales) => ({ ...actuales, [ejercicioActivo.id]: nota }))}
           cerrar={() => setPanel(null)}
         />
+      ) : null}
+      {momentoVisible ? (
+        <div className={styles.impulsoMomentBackdrop} role="presentation">
+          <section className={styles.impulsoMoment} role="alertdialog" aria-modal="true" aria-labelledby="momento-alejandro-titulo">
+            <Zap size={28} fill="currentColor" aria-hidden="true" />
+            <p id="momento-alejandro-titulo">{momentoVisible.titulo}</p>
+            <h2>{momentoVisible.instruccion}</h2>
+            <span>{momentoVisible.apoyo}</span>
+            <button type="button" onClick={() => {
+              setMomentosVistos((actuales) => ({ ...actuales, [momentoVisible.id]: true }));
+              setMomentoVisible(null);
+            }}>VOY</button>
+            <button type="button" className={styles.impulsoSafetyExit} onClick={() => {
+              setImpulsoAutomaticoActivo(false);
+              setMomentoVisible(null);
+            }}>Tengo una molestia</button>
+          </section>
+        </div>
       ) : null}
       {confirmarSalida ? (
         <div className={styles.sheetBackdrop} role="presentation" onClick={() => setConfirmarSalida(false)}>
@@ -883,8 +749,8 @@ function PanelAuxiliar({
   cambiarImpulsoAutomatico,
   cambiarUnidadPeso,
   impulsoActual,
-  puedeCalibrarImpulso,
-  resolverImpulso,
+  cupoImpulso,
+  impulsosLogrados,
   guardarNota,
   cerrar,
 }: {
@@ -899,9 +765,9 @@ function PanelAuxiliar({
   cambiarSonidoDescanso: (activo: boolean) => void;
   cambiarImpulsoAutomatico: (activo: boolean) => void;
   cambiarUnidadPeso: (unidad: UnidadPeso) => void;
-  impulsoActual: AjusteImpulso | null;
-  puedeCalibrarImpulso: boolean;
-  resolverImpulso: (respuesta: RespuestaAlejandro) => void;
+  impulsoActual: MomentoSesionAlejandro | null;
+  cupoImpulso: number;
+  impulsosLogrados: number;
   guardarNota: (nota: string) => void;
   cerrar: () => void;
 }) {
@@ -917,32 +783,15 @@ function PanelAuxiliar({
         {tipo === "impulso" ? (
           <div className={styles.impulsoPanel}>
             <div className={styles.alejandroAutomatico} data-active={impulsoAutomaticoActivo}>
-              <span><strong>{impulsoAutomaticoActivo ? "Entrenador automático activo" : "Entrenador automático desactivado"}</strong><small>{impulsoAutomaticoActivo ? "Alejandro prescribe sin esperar que presiones una respuesta." : "Las series conservan la programación original."}</small></span>
+              <span><strong>{impulsoAutomaticoActivo ? "Impulso automático activo" : "Impulso automático desactivado"}</strong><small>{impulsoAutomaticoActivo ? "Aparecerá solo cuando realmente haga falta." : "La rutina conserva su programación base."}</small></span>
               <button type="button" role="switch" aria-label="Alejandro automático" aria-checked={impulsoAutomaticoActivo} className={styles.settingSwitch} onClick={() => cambiarImpulsoAutomatico(!impulsoAutomaticoActivo)}><i /></button>
             </div>
-            <p className={styles.impulsoIntro}>Al registrar cada serie, Alejandro compara el resultado con la exigencia actual y modifica automáticamente la siguiente. Tu trabajo es entrenar y registrar con honestidad.</p>
-            <div className={styles.impulsoRule}><Zap size={15} fill="currentColor" /><span><strong>Primero calidad, luego repeticiones y después peso</strong><small>Si cumples, Alejandro exige más. Si no alcanzas el mínimo, se opone a seguir subiendo y corrige el estímulo.</small></span></div>
-            {impulsoAutomaticoActivo && puedeCalibrarImpulso ? (
-              <>
-                <p className={styles.alejandroCorrectionLabel}>Corrige a Alejandro solo si los números no cuentan toda la historia:</p>
-                <div className={styles.impulsoOptions} role="group" aria-label="Sensación de la última serie">
-                  <button type="button" aria-pressed={impulsoActual?.respuesta === "muy_facil"} onClick={() => resolverImpulso("muy_facil")}><strong>Estuvo muy fácil</strong><small>Progresar con confianza</small></button>
-                  <button type="button" aria-pressed={impulsoActual?.respuesta === "facil"} onClick={() => resolverImpulso("facil")}><strong>Estuvo fácil</strong><small>Había margen claro</small></button>
-                  <button type="button" aria-pressed={impulsoActual?.respuesta === "mas"} onClick={() => resolverImpulso("mas")}><strong>Podía hacer una más</strong><small>Progreso mínimo</small></button>
-                  <button type="button" aria-pressed={impulsoActual?.respuesta === "justo"} onClick={() => resolverImpulso("justo")}><strong>Estuvo justo</strong><small>Consolidar el estímulo</small></button>
-                  <button type="button" aria-pressed={impulsoActual?.respuesta === "dificil"} onClick={() => resolverImpulso("dificil")}><strong>Demasiado difícil</strong><small>Ajustar para completar</small></button>
-                  <button type="button" aria-pressed={impulsoActual?.respuesta === "fallo"} onClick={() => resolverImpulso("fallo")}><strong>No la completé</strong><small>Recuperar una serie limpia</small></button>
-                </div>
-                <div className={styles.alejandroSafety} role="group" aria-label="Seguridad de la última serie">
-                  <button type="button" aria-pressed={impulsoActual?.respuesta === "tecnica"} onClick={() => resolverImpulso("tecnica")}><strong>Perdí la técnica</strong><small>Bajar un nivel</small></button>
-                  <button type="button" aria-pressed={impulsoActual?.respuesta === "molestia"} onClick={() => resolverImpulso("molestia")}><strong>Sentí una molestia</strong><small>Detener y revisar</small></button>
-                </div>
-              </>
-            ) : <p className={styles.impulsoEmpty}>{impulsoAutomaticoActivo ? "Completa una serie: Alejandro actuará inmediatamente sin pedir confirmación." : "Activa Alejandro para recibir progresiones y correcciones automáticas."}</p>}
+            <p className={styles.impulsoIntro}>Alejandro estudia historial, repeticiones, carga, constancia y esfuerzo. La progresión normal ocurre en silencio; los retos aparecen solos y son escasos.</p>
+            <div className={styles.impulsoRule}><Zap size={17} fill="currentColor" /><span><strong>{cupoImpulso} momentos estratégicos en esta sesión</strong><small>Últimas series elegidas. Nunca cambia todos tus pesos ni interrumpe cada ejercicio.</small></span></div>
             {impulsoActual ? (
-              <div className={`${styles.impulsoResult} ${impulsoActual.bloqueaProgresion ? styles.impulsoResultSafety : ""}`}><Check size={16} strokeWidth={3} /><span><strong>{etiquetaAccionAlejandro(impulsoActual)}</strong><small>{impulsoActual.mensaje}</small></span><b>{impulsoActual.bloqueaProgresion ? "Revisar" : impulsoActual.serieObjetivo === null ? "Próxima sesión" : `Serie ${impulsoActual.serieObjetivo + 1}`}</b></div>
+              <div className={styles.impulsoResult}><Check size={18} strokeWidth={3} /><span><strong>Momento revelado</strong><small>{impulsoActual.instruccion}</small></span><b>Serie {impulsoActual.serieIndice + 1}</b></div>
             ) : null}
-            {impulsoActual ? <div className={styles.alejandroConfidence}><span>{impulsoActual.bloqueaProgresion ? "Criterio aplicado" : "Confianza de Alejandro"}</span><b>{impulsoActual.bloqueaProgresion ? "Seguridad prioritaria" : impulsoActual.confianza === "alta" ? "Patrón confirmado" : impulsoActual.confianza === "media" ? "Confirmando" : "Aprendiendo"}</b></div> : null}
+            <div className={styles.alejandroConfidence}><span>Estado de hoy</span><b>{impulsosLogrados}/{cupoImpulso} retos logrados</b></div>
             <button type="button" className={styles.impulsoDone} onClick={cerrar}>Listo</button>
           </div>
         ) : null}
@@ -952,7 +801,7 @@ function PanelAuxiliar({
         {tipo === "ajustes" ? (
           <div className={styles.settingRows}>
             <div className={styles.settingRow}>
-              <span><strong>Alejandro automático</strong><small>Exige progresión al registrar cada serie</small></span>
+              <span><strong>Alejandro automático</strong><small>Activa retos escasos en momentos estratégicos</small></span>
               <button type="button" role="switch" aria-label="Alejandro automático" aria-checked={impulsoAutomaticoActivo} className={styles.settingSwitch} onClick={() => cambiarImpulsoAutomatico(!impulsoAutomaticoActivo)}><i /></button>
             </div>
             <div className={styles.settingRow}>

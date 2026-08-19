@@ -53,9 +53,9 @@
 .impulsoNotice > svg { display: grid; width: 30px; height: 30px; padding: 8px; border-radius: 50%; color: #c7ed45; background: #242c14; }
 .impulsoNotice span { min-width: 0; }
 .impulsoNotice span strong, .impulsoNotice span small { display: block; }
-.impulsoNotice span strong { color: #d9fb62; font-size: 9px; letter-spacing: .015em; }
-.impulsoNotice span small { overflow: hidden; margin-top: 3px; color: #a9ad9f; font-size: 7px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
-.impulsoNotice > b { padding: 5px 7px; border-radius: 999px; color: #c9e85b; background: rgba(167, 216, 55, .09); font-size: 7px; white-space: nowrap; }
+.impulsoNotice span strong { color: #d9fb62; font-size: 12px; letter-spacing: .015em; }
+.impulsoNotice span small { overflow: hidden; margin-top: 3px; color: #d3d6cd; font-size: 11px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.impulsoNotice > b { padding: 5px 7px; border-radius: 999px; color: #c9e85b; background: rgba(167, 216, 55, .09); font-size: 10px; white-space: nowrap; }
 .impulsoNotice[data-safety="true"] { border-color: rgba(255, 125, 108, .28); color: #fff0ed; background: linear-gradient(100deg, #130e0d 0%, #201412 62%, #2a1713 100%); }
 .impulsoNotice[data-safety="true"] > svg { color: #ff9e8d; background: #391b17; }
 .impulsoNotice[data-safety="true"] span strong, .impulsoNotice[data-safety="true"] > b { color: #ffad9e; }
@@ -203,15 +203,15 @@
 .alejandroAutomatico[data-active="true"] { border-color: rgba(167, 216, 55, .28); background: linear-gradient(105deg, #11140d 0%, #202713 100%); }
 .alejandroAutomatico > span { min-width: 0; }
 .alejandroAutomatico strong, .alejandroAutomatico small { display: block; }
-.alejandroAutomatico strong { color: #f1f2ef; font-size: 9px; }
+.alejandroAutomatico strong { color: #f1f2ef; font-size: 14px; }
 .alejandroAutomatico[data-active="true"] strong { color: #dcfa72; }
-.alejandroAutomatico small { margin-top: 4px; color: #8d918b; font-size: 7px; line-height: 1.35; }
-.impulsoIntro { max-width: 390px; color: #b7bab4; font-size: 10px; line-height: 1.55; }
+.alejandroAutomatico small { margin-top: 4px; color: #b7bbb4; font-size: 12px; line-height: 1.35; }
+.impulsoIntro { max-width: 390px; color: #d2d5cf; font-size: 15px; line-height: 1.5; }
 .impulsoRule { display: grid; min-height: 58px; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 9px; margin-top: 12px; padding: 9px 10px; border: 1px solid rgba(167, 216, 55, .18); border-radius: 9px; color: #d8f65e; background: linear-gradient(105deg, #10130d 0%, #1c2212 100%); }
 .impulsoRule > svg { width: 29px; height: 29px; padding: 7px; border-radius: 50%; background: #293515; }
 .impulsoRule strong, .impulsoRule small { display: block; }
-.impulsoRule strong { font-size: 9px; }
-.impulsoRule small { margin-top: 4px; color: #aab19d; font-size: 7px; line-height: 1.4; }
+.impulsoRule strong { font-size: 14px; }
+.impulsoRule small { margin-top: 4px; color: #c6cdb8; font-size: 12px; line-height: 1.4; }
 .impulsoOptions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 13px; }
 .alejandroCorrectionLabel { margin-top: 13px; color: #8f938b; font-size: 7px; line-height: 1.4; }
 .alejandroCorrectionLabel + .impulsoOptions { margin-top: 7px; }
@@ -232,15 +232,24 @@
 .impulsoResult { display: grid; min-height: 58px; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px; margin-top: 10px; padding: 9px 10px; border-radius: 9px; color: #172000; background: #b5dd42; }
 .impulsoResult > svg { display: grid; width: 27px; height: 27px; padding: 6px; border-radius: 50%; color: #eaffaa; background: #28340b; }
 .impulsoResult strong, .impulsoResult small { display: block; }
-.impulsoResult strong { font-size: 9px; }
-.impulsoResult small { margin-top: 3px; color: #384516; font-size: 7px; line-height: 1.3; }
-.impulsoResult > b { font-size: 7px; white-space: nowrap; }
+.impulsoResult strong { font-size: 13px; }
+.impulsoResult small { margin-top: 3px; color: #28330e; font-size: 11px; line-height: 1.3; }
+.impulsoResult > b { font-size: 10px; white-space: nowrap; }
 .impulsoResultSafety { color: #fff0ed; background: linear-gradient(105deg, #7d3127 0%, #a54838 100%); }
 .impulsoResultSafety > svg { color: #fff4f1; background: #5a211b; }
 .impulsoResultSafety small { color: #ffe0da; }
-.alejandroConfidence { display: flex; min-height: 34px; align-items: center; justify-content: space-between; gap: 12px; margin-top: 7px; padding: 7px 10px; border: 1px solid #303330; border-radius: 8px; color: #858a80; background: #111310; font-size: 7px; }
-.alejandroConfidence b { color: #d7f75e; font-size: 7px; }
-.impulsoDone { width: 100%; min-height: 44px; margin-top: 10px; border-radius: 8px; color: #080909; background: #f6f6f3; font-size: 10px; font-weight: 740; }
+.alejandroConfidence { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 12px; margin-top: 7px; padding: 9px 10px; border: 1px solid #303330; border-radius: 8px; color: #b5bab1; background: #111310; font-size: 12px; }
+.alejandroConfidence b { color: #d7f75e; font-size: 12px; }
+.impulsoDone { width: 100%; min-height: 48px; margin-top: 10px; border-radius: 8px; color: #080909; background: #f6f6f3; font-size: 14px; font-weight: 740; }
+
+.impulsoMomentBackdrop { position: fixed; z-index: 90; inset: 0; display: grid; place-items: center; padding: 22px; background: rgba(0, 0, 0, .9); backdrop-filter: blur(18px); animation: fadeIn 180ms ease both; }
+.impulsoMoment { display: flex; width: min(410px, 100%); min-height: 420px; flex-direction: column; align-items: center; justify-content: center; padding: 34px 24px; border: 1px solid rgba(202, 239, 78, .28); border-radius: 24px; color: #fff; background: radial-gradient(circle at 50% 15%, rgba(184, 224, 61, .16), transparent 42%), linear-gradient(145deg, #171a12 0%, #080908 58%, #11140c 100%); box-shadow: inset 0 1px 0 rgba(237, 255, 177, .14), 0 34px 90px rgba(0, 0, 0, .72); text-align: center; }
+.impulsoMoment > svg { width: 58px; height: 58px; padding: 15px; border-radius: 50%; color: #d5fa55; background: #293713; box-shadow: 0 0 34px rgba(190, 235, 64, .18); }
+.impulsoMoment > p { margin-top: 22px; color: #d5fa55; font-size: 14px; font-weight: 850; letter-spacing: .12em; }
+.impulsoMoment h2 { max-width: 340px; margin-top: 13px; color: #fff; font-size: clamp(26px, 7vw, 34px); font-weight: 900; line-height: 1.08; letter-spacing: -.035em; text-wrap: balance; }
+.impulsoMoment > span { margin-top: 14px; color: #d3d6cf; font-size: 17px; font-weight: 620; line-height: 1.4; }
+.impulsoMoment > button { width: 100%; min-height: 58px; margin-top: 28px; border-radius: 14px; color: #0a0c06; background: #d2f450; font-size: 18px; font-weight: 900; letter-spacing: .08em; }
+.impulsoMoment > .impulsoSafetyExit { min-height: 42px; margin-top: 10px; color: #c4c6c1; background: transparent; font-size: 14px; font-weight: 650; letter-spacing: 0; }
 .exerciseNotes { display: grid; gap: 8px; margin-top: 17px; }
 .exerciseNotes > span { color: #a9aca8; font-size: 9px; }
 .exerciseNotes textarea { min-height: 104px; padding: 12px; border: 1px solid #303230; border-radius: 9px; color: #fff; background: #0e0f0f; font: inherit; font-size: 11px; resize: vertical; outline: none; }
