@@ -437,7 +437,7 @@ export async function recalcularAlimentacionDia(alumnoId: string, fecha: string)
   return puntosCalculados;
 }
 
-/** Premia una sola vez el primer ingreso real del alumno durante el dia. */
+/** Premia una sola vez el primer ingreso real del alumno durante el día. */
 export async function registrarIngresoDiario(alumnoId: string, fecha = hoyISO()): Promise<number> {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -448,7 +448,7 @@ export async function registrarIngresoDiario(alumnoId: string, fecha = hoyISO())
         clave: `ingreso:${fecha}`,
         categoria: "constancia",
         puntos: PUNTOS_VIP.ingresoDiario,
-        titulo: "Primera entrada del dia",
+        titulo: "Primera entrada del día",
         detalle: "Ingreso diario confirmado",
         fecha,
         metadata: {},

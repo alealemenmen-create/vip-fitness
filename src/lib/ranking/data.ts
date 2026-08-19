@@ -175,7 +175,10 @@ export async function obtenerMovimientosAlumno(alumnoId: string, limite = 12): P
     .limit(limite);
 
   if (error) throw new Error("No fue posible leer el historial de Puntos VIP.");
-  return (data ?? []) as MovimientoPuntos[];
+  return ((data ?? []) as MovimientoPuntos[]).map((movimiento) => ({
+    ...movimiento,
+    titulo: tituloMovimientoLegible(movimiento.titulo),
+  }));
 }
 
 export type MovimientoResumen = {
@@ -185,6 +188,12 @@ export type MovimientoResumen = {
   titulo: string;
   fecha: string;
 };
+
+function tituloMovimientoLegible(titulo: string) {
+  // Conserva el historial auditable sin reescribir filas antiguas, pero
+  // corrige la etiqueta que la primera migración guardó sin tilde.
+  return titulo === "Primera entrada del dia" ? "Primera entrada del día" : titulo;
+}
 
 /** Igual que `obtenerMovimientosAlumno`, pero para CUALQUIER alumno (no solo
  * el de la sesión) y acotado a un rango de fechas — pensado para el
@@ -208,5 +217,8 @@ export async function obtenerMovimientosAlumnoEnRango(
     .order("fecha", { ascending: false });
 
   if (error) throw new Error("No fue posible leer el detalle de Puntos VIP.");
-  return (data ?? []) as MovimientoResumen[];
+  return ((data ?? []) as MovimientoResumen[]).map((movimiento) => ({
+    ...movimiento,
+    titulo: tituloMovimientoLegible(movimiento.titulo),
+  }));
 }

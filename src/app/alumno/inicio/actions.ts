@@ -4,7 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAlumno } from "@/lib/auth";
-import { TAG_RANKING, obtenerMovimientosAlumnoEnRango, type MovimientoResumen } from "@/lib/ranking/data";
+import { TAG_RANKING, obtenerMovimientosAlumnoEnRango, obtenerRanking, type MovimientoResumen } from "@/lib/ranking/data";
 import { hoyISO, semanaActualISO } from "@/lib/date";
 import { validarSeguimientoDiario } from "@/lib/seguimiento/validar";
 
@@ -88,6 +88,8 @@ export async function responderInvitacionTorneo(formData: FormData): Promise<voi
 
 export type DesglosePuntos = { movimientos: MovimientoResumen[]; rango: "dia" | "semana" };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /** Para el Ranking VIP de Inicio: al tocar a un alumno (no necesariamente el
  * de la sesión), trae en qué ganó/perdió puntos hoy — si hoy no tiene
  * movimientos, cae a la semana en curso. Solo requiere una sesión de alumno
@@ -95,7 +97,18 @@ export type DesglosePuntos = { movimientos: MovimientoResumen[]; rango: "dia" | 
  * plan — categoría y puntos son públicos entre compañeros, el detalle de
  * alimentación no (por eso `obtenerMovimientosAlumnoEnRango` no lo trae). */
 export async function obtenerDesglosePuntosAlumno(alumnoId: string): Promise<DesglosePuntos> {
-  await requireAlumno();
+  const solicitante = await requireAlumno();
+  if (!UUID.test(alumnoId)) return { movimientos: [], rango: "dia" };
+
+  // La acción usa el cliente administrador para poder mostrar el desglose
+  // público entre compañeros. Antes aceptaba cualquier UUID válido, incluso
+  // el de una cuenta que no fuera alumno. Limitamos la consulta al propio
+  // alumno o a alguien que realmente forme parte de la clasificación VIP.
+  if (alumnoId !== solicitante.alumnoId) {
+    const esAlumnoVisible = (await obtenerRanking("mes")).some((fila) => fila.alumnoId === alumnoId);
+    if (!esAlumnoVisible) return { movimientos: [], rango: "dia" };
+  }
+
   const hoy = hoyISO();
   const deHoy = await obtenerMovimientosAlumnoEnRango(alumnoId, hoy, hoy);
   if (deHoy.length > 0) return { movimientos: deHoy, rango: "dia" };

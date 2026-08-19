@@ -410,7 +410,14 @@ function DetallePrograma({ datos, porcentaje, onClose }: { datos: ProgresoDatosV
         <span><strong>{realizadas}</strong><small>Sesiones realizadas</small></span>
         <span><strong>{datos?.estadisticas.seriesRegistradas ?? 16}</strong><small>Series registradas</small></span>
       </div>
-      <article className={styles.impulsoProgressCard}><Zap size={19} fill="currentColor" /><div><strong>Impulso Alejandro</strong><span>{impulsos} de {evaluados} recomendaciones cumplidas</span></div><b>{precision} %</b></article>
+      <article className={styles.impulsoProgressCard}>
+        <Zap size={19} fill="currentColor" />
+        <div>
+          <strong>Impulso Alejandro</strong>
+          <span>{evaluados > 0 ? `${impulsos} de ${evaluados} recomendaciones cumplidas` : "Aún sin recomendaciones evaluadas"}</span>
+        </div>
+        <b>{evaluados > 0 ? `${precision} %` : "—"}</b>
+      </article>
     </section>
   );
 }

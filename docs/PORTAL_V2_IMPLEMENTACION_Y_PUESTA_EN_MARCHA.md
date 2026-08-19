@@ -339,7 +339,7 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `56` archivos de pruebas y `504` pruebas aprobadas; ESLint sin advertencias,
+- `61` archivos de pruebas y `520` pruebas aprobadas; ESLint sin advertencias,
   TypeScript sin errores y compilación de producción completa (`67` rutas).
 - Las 15 rutas de la V2 respondieron `200` en el servidor de producción local,
   incluida la búsqueda prefiltrada de la biblioteca y la nueva pantalla de
@@ -393,6 +393,13 @@ Validaciones locales completadas el 19-08-2026:
   receta reutilizable. Base de datos e interfaz coincidieron al terminar:
   `250 g`, `150 kcal`, `8 g` de proteína, `12 g` de carbohidratos y `7,8 g` de
   grasa. La meta nutricional elegida también persistió en el plan activo.
+- La hoja autenticada de “Buscar comida” dejó de reutilizar la presentación
+  clásica. Conserva el motor real —catálogo propio, búsqueda por nombre y
+  marca, productos de Chile, favoritos, recetas, escáner y carga múltiple—,
+  pero todo su marco, estados y acciones usan ahora la geometría, contraste,
+  tipografía y superficies de V2. La prueba visual con Soprole confirmó
+  resultados reales y corrigió además etiquetas de porción que Open Food Facts
+  entregaba en inglés (`portion`) para presentarlas en español.
 - Durante esa prueba se corrigió un desacople visual: el formulario cargaba
   los números de “Volumen controlado” pero marcaba “Mantenimiento”. Ahora el
   preset seleccionado se deduce de los cuatro valores almacenados; una meta
@@ -409,6 +416,21 @@ Validaciones locales completadas el 19-08-2026:
   realizadas” ya no llama completada a una sesión incompleta, “Ver
   clasificación” abre el ranking y la regla nutricional publicada coincide
   con el motor (`-100` a `+250`, no `-150` en una tarjeta y `-100` en otra).
+- La revisión final de Comunidad comprobó actividad verificada, clasificación
+  mensual y acumulada, podio, posición propia, desglose público de puntos,
+  Arena semanal/mensual/anual, rangos y saldo real. El desglose sólo admite al
+  propio alumno o identidades que forman parte del ranking; nunca devuelve el
+  detalle privado de alimentación. También se verificó el selector explícito
+  de fotografía social sin publicar la foto sintética en la comunidad activa.
+- Perfil, Más y Soporte se recorrieron completos: datos personales, descanso,
+  contraseña, correo, opinión, plan, términos, redes, notificaciones,
+  temporizador, sonido, vibración, kg/lb y asistente Alejandro. Los ajustes de
+  sesión se alternaron y restauraron con la cuenta QA; la unidad cambió la
+  tabla entre kg y lb y el temporizador manual volvió a la misma serie sin
+  registrar trabajo. Alejandro respondió usando el historial QA real.
+- Cuando todavía no existen recomendaciones evaluadas, el progreso de Impulso
+  Alejandro ya no presenta un falso `0 %`: muestra un estado neutral hasta que
+  exista una medición válida.
 - El almacenamiento privado de fotografías de progreso se probó de punta a
   punta con una imagen sintética y la cuenta QA: carga, lectura mediante URL
   firmada y reemplazo dentro de la misma quincena conservaron una sola foto.
@@ -523,6 +545,12 @@ Validaciones locales completadas el 19-08-2026:
   conectado que permita ejecutar esas operaciones sin inventarlas.
 - Revisión jurídica del borrador de privacidad y términos antes de publicarlos
   como documentos contractuales definitivos.
+- Las acciones sociales tienen validaciones de propiedad, límites diarios,
+  moderación y RLS; el compositor y el consentimiento de foto se probaron en
+  navegador. No se creó una publicación visible durante la auditoría porque el
+  entorno usa la comunidad activa. La escritura, reacción, comentario, reporte
+  y eliminación deben repetirse en la futura instancia de preview para probar
+  el ciclo destructivo sin exponer contenido QA a alumnos reales.
 
 Estos puntos son ampliaciones reales de producto, no detalles visuales. Fingirlos
 con botones sería peor que declararlos pendientes y construirlos con seguridad.
