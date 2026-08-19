@@ -332,3 +332,10 @@
   outline: 2px solid #f7f8f5;
   outline-offset: 3px;
 }
+.alejandroReadiness { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; padding: 11px; border: 1px solid #2b2e2d; border-radius: 12px; background: linear-gradient(105deg,#101111,#222424); }
+.alejandroReadiness > svg { display: grid; width: 34px; height: 34px; padding: 8px; border-radius: 10px; color: #25d9a6; background: #202322; }
+.alejandroReadiness span, .alejandroReadiness strong, .alejandroReadiness small { display: block; }
+.alejandroReadiness strong { color: #f0f3ef; font-size: 11px; }
+.alejandroReadiness small { margin-top: 3px; color: #929792; font-size: 8px; line-height: 1.4; }
+.alejandroReadiness[data-state="proteccion"] { border-color: rgba(255,183,77,.35); }
+.alejandroReadiness[data-state="proteccion"] > svg { color: #ffbd62; }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
+  Activity,
   Check,
   ArrowDown,
   ArrowUp,
@@ -48,6 +49,7 @@ import {
   seleccionarMomentosAlejandro,
   type MomentoSesionAlejandro,
 } from "@/lib/impulso-vip/alejandro-sesion";
+import type { PreparacionDiariaAlejandro } from "@/lib/impulso-vip/preparacion-diaria";
 import {
   actualizarTemporizadorDescansoAlumno,
   guardarSesionV2,
@@ -110,6 +112,7 @@ export type SesionActivaModeloV2 = {
   temporizadorAutomaticoInicial?: boolean;
   ejercicios: EjercicioSesionV2[];
   momentosAlejandro: MomentoSesionAlejandro[];
+  preparacionAlejandro?: PreparacionDiariaAlejandro;
   personalizacionDisponible?: boolean;
   alternativas?: Record<string, AlternativaEjercicioV2[]>;
 };
@@ -1199,6 +1202,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           cambiarImpulsoAutomatico={cambiarImpulsoAutomatico}
           cambiarUnidadPeso={cambiarUnidadPeso}
           impulsoActual={impulsoActivo}
+          preparacionAlejandro={sesion?.preparacionAlejandro}
           cupoImpulso={MOMENTOS_ALEJANDRO.length}
           impulsosLogrados={Object.keys(momentosLogrados).length}
           alternativas={alternativas[ejercicioActivo.id] ?? []}
@@ -1271,6 +1275,7 @@ function PanelAuxiliar({
   cambiarImpulsoAutomatico,
   cambiarUnidadPeso,
   impulsoActual,
+  preparacionAlejandro,
   cupoImpulso,
   impulsosLogrados,
   alternativas,
@@ -1294,6 +1299,7 @@ function PanelAuxiliar({
   cambiarImpulsoAutomatico: (activo: boolean) => void;
   cambiarUnidadPeso: (unidad: UnidadPeso) => void;
   impulsoActual: MomentoSesionAlejandro | null;
+  preparacionAlejandro?: PreparacionDiariaAlejandro;
   cupoImpulso: number;
   impulsosLogrados: number;
   alternativas: AlternativaEjercicioV2[];
@@ -1321,7 +1327,8 @@ function PanelAuxiliar({
               <button type="button" role="switch" aria-label="Alejandro automático" aria-checked={impulsoAutomaticoActivo} className={styles.settingSwitch} onClick={() => cambiarImpulsoAutomatico(!impulsoAutomaticoActivo)}><i /></button>
             </div>
             <p className={styles.impulsoIntro}>Alejandro estudia historial, repeticiones, carga, constancia y esfuerzo. La progresión normal ocurre en silencio; los retos aparecen solos y son escasos.</p>
-            <div className={styles.impulsoRule}><Zap size={17} fill="currentColor" /><span><strong>{cupoImpulso} momentos estratégicos en esta sesión</strong><small>Últimas series elegidas. Nunca cambia todos tus pesos ni interrumpe cada ejercicio.</small></span></div>
+            {preparacionAlejandro ? <div className={styles.alejandroReadiness} data-state={preparacionAlejandro.estado}><Activity size={17} /><span><strong>{preparacionAlejandro.titulo}</strong><small>{preparacionAlejandro.detalle}</small></span></div> : null}
+            <div className={styles.impulsoRule}><Zap size={17} fill="currentColor" /><span><strong>{cupoImpulso === 0 ? "Rutina base, sin retos extra hoy" : `${cupoImpulso} ${cupoImpulso === 1 ? "momento estratégico" : "momentos estratégicos"} en esta sesión`}</strong><small>{cupoImpulso === 0 ? "Alejandro sigue observando tu ejecución sin añadir intensidad." : "Últimas series elegidas. Nunca cambia todos tus pesos ni interrumpe cada ejercicio."}</small></span></div>
             {impulsoActual ? (
               <div className={styles.impulsoResult}><Check size={18} strokeWidth={3} /><span><strong>Momento revelado</strong><small>{impulsoActual.instruccion}</small></span><b>Serie {impulsoActual.serieIndice + 1}</b></div>
             ) : null}

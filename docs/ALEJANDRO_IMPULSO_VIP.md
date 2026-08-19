@@ -55,6 +55,17 @@ carga y repeticiones, resultados de retos, restricciones y autorización. Evita
 ejercicios con otra técnica programada, distribuye los momentos dentro de la
 sesión y concentra técnicas exigentes en ejercicios seguros y revisados.
 
+Antes de revelar esos momentos, la V2 aplica una compuerta de preparación
+diaria basada en el check-in del propio alumno:
+
+- molestia declarada, energía 1–2 o sueño menor a 5 horas: 0 retos extra;
+- energía 3 o sueño menor a 6,5 horas: máximo 1 reto;
+- preparación estable: conserva el cupo planificado;
+- sin check-in: máximo 1 reto, sin inventar una recuperación favorable.
+
+Esta compuerta sólo limita técnicas adicionales. No modifica la rutina base,
+no diagnostica y no sustituye la revisión profesional.
+
 El alumno no pulsa un botón para pedir el Impulso. La prescripción ya está
 activa cuando aparece; `VOY` solo confirma que leyó la instrucción. Siempre se
 mantiene una salida visible para reportar molestia.
@@ -119,6 +130,9 @@ La progresión por equipo permanece en `src/lib/impulso-vip/alejandro.ts`. La
 orquestación escasa de la sesión vive en
 `src/lib/impulso-vip/alejandro-sesion.ts`: resuelve cupo, selecciona ejercicios,
 redacta la instrucción y decide si el RIR puede inferirse o debe preguntarse.
+La compuerta de recuperación está aislada y probada en
+`src/lib/impulso-vip/preparacion-diaria.ts`; consume el registro diario real de
+`seguimientos_diarios` antes de exponer los momentos en la sesión V2.
 
 La demostración V2 usa dos momentos estratégicos y conserva su estado durante
 la sesión. En una sesión autenticada, la misma interfaz consume recomendaciones,

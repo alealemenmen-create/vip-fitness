@@ -16,6 +16,8 @@ import type { Database } from "@/lib/supabase/types";
 import styles from "@/components/v2/PortalV2.module.css";
 import { firmarMiniaturasCloudflareV2 } from "@/lib/cloudflare/miniaturas-v2";
 import { urlMiniaturaFirmada } from "@/lib/cloudflare/stream";
+import { obtenerSeguimientoHoy } from "@/app/alumno/inicio/data";
+import { evaluarPreparacionDiariaAlejandro, limitarMomentosPorPreparacion } from "@/lib/impulso-vip/preparacion-diaria";
 
 type FichaEjercicioV2 = Pick<Database["public"]["Tables"]["ejercicios"]["Row"],
   | "id" | "nombre" | "grupo_muscular" | "categoria" | "equipo" | "activo" | "calidad_ficha"
@@ -235,6 +237,21 @@ export default async function SesionV2Page({
     };
   });
 
+  const preparacionAlejandro = evaluarPreparacionDiariaAlejandro(await obtenerSeguimientoHoy(supabase, contexto.alumnoId));
+  const momentosAlejandro = sesion.ejercicios.flatMap((ejercicio) =>
+    ejercicio.intervencionesImpulso
+      .filter((momento) => momento.estado !== "cancelada")
+      .map((momento) => ({
+        id: momento.id,
+        ejercicioId: ejercicio.sesionEjercicioId,
+        serieIndice: Math.max(0, momento.serieObjetivo - 1),
+        tipo: tipoMomento(momento.tipo),
+        titulo: "MOMENTO ALEJANDRO" as const,
+        instruccion: momento.instruccion,
+        apoyo: momento.motivo,
+      })),
+  );
+
   const modelo: SesionActivaModeloV2 = {
     id: sesion.id,
     titulo: sesion.diaNombre,
@@ -245,19 +262,8 @@ export default async function SesionV2Page({
     ejercicios,
     personalizacionDisponible,
     alternativas,
-    momentosAlejandro: sesion.ejercicios.flatMap((ejercicio) =>
-      ejercicio.intervencionesImpulso
-        .filter((momento) => momento.estado !== "cancelada")
-        .map((momento) => ({
-          id: momento.id,
-          ejercicioId: ejercicio.sesionEjercicioId,
-          serieIndice: Math.max(0, momento.serieObjetivo - 1),
-          tipo: tipoMomento(momento.tipo),
-          titulo: "MOMENTO ALEJANDRO" as const,
-          instruccion: momento.instruccion,
-          apoyo: momento.motivo,
-        })),
-    ),
+    momentosAlejandro: limitarMomentosPorPreparacion(momentosAlejandro, preparacionAlejandro),
+    preparacionAlejandro,
   };
 
   return <SesionActivaV2 key={modelo.id} sesion={modelo} />;

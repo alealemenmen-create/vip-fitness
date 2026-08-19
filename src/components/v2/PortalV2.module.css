@@ -923,13 +923,44 @@
 .infoGrid small { color: #818581; font-size: 8px; text-transform: uppercase; }
 .infoGrid strong { margin-top: 8px; color: #f7f7f5; font-size: 10px; line-height: 1.4; }
 .todayDashboard { display: grid; gap: 8px; margin: 0 14px 18px; }
-.todayDashboard > a { display: grid; grid-template-columns: 39px 1fr auto; align-items: center; gap: 11px; min-height: 76px; padding: 12px; border: 1px solid #292a2a; border-radius: 14px; background: linear-gradient(105deg, #111 0%, #181919 58%, #232424 100%); color: #f7f7f5; }
-.todayDashboard > a > span { display: grid; width: 39px; height: 39px; place-items: center; border-radius: 11px; background: #242626; color: #fff; }
-.todayDashboard div { min-width: 0; }
-.todayDashboard small, .todayDashboard strong, .todayDashboard p { display: block; }
-.todayDashboard small { color: #858985; font-size: 7px; font-weight: 800; letter-spacing: .08em; }
-.todayDashboard strong { margin-top: 3px; font-size: 11px; }
-.todayDashboard p { margin-top: 3px; overflow: hidden; color: #919591; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.todayDashboard > :is(a, button) { display: grid; width: 100%; grid-template-columns: 39px 1fr auto; align-items: center; gap: 11px; min-height: 76px; padding: 12px; border: 1px solid #292a2a; border-radius: 14px; background: linear-gradient(105deg, #111 0%, #181919 58%, #232424 100%); color: #f7f7f5; text-align: left; }
+.todayDashboard > :is(a, button) > span { display: grid; width: 39px; height: 39px; place-items: center; border-radius: 11px; background: #242626; color: #fff; }
+.todayDashboard > button:disabled { opacity: .58; }
+.todayDashboard > :is(a, button) > div { min-width: 0; }
+.todayDashboard > :is(a, button) > div > :is(small, strong, p) { display: block; }
+.todayDashboard > :is(a, button) > div > small { color: #858985; font-size: 7px; font-weight: 800; letter-spacing: .08em; }
+.todayDashboard > :is(a, button) > div > strong { margin-top: 3px; font-size: 11px; }
+.todayDashboard > :is(a, button) > div > p { margin-top: 3px; overflow: hidden; color: #919591; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+
+.dailyBackdrop { position: fixed; inset: 0; z-index: 92; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.78); backdrop-filter: blur(5px); }
+.dailySheet { width: min(460px,100%); max-height: 94dvh; overflow-y: auto; padding: 18px 16px calc(24px + env(safe-area-inset-bottom,0px)); border: 1px solid #292b2b; border-radius: 24px 24px 0 0; background: linear-gradient(150deg,#171818 0%,#0b0c0c 56%,#080909 100%); color: #f8faf7; animation: sheetUp 190ms ease-out both; scrollbar-width: none; }
+.dailySheet::-webkit-scrollbar { display: none; }
+.dailySheet > header { display: grid; grid-template-columns: 1fr 40px; gap: 12px; align-items: start; }
+.dailySheet > header small { color: #22daa5; font-size: 8px; font-weight: 850; letter-spacing: .13em; }
+.dailySheet > header h2 { margin-top: 5px; font-size: 28px; font-weight: 800; letter-spacing: -.045em; }
+.dailySheet > header p { max-width: 350px; margin-top: 5px; color: #959a96; font-size: 10px; line-height: 1.5; }
+.dailySheet > header > button { display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid #2b2d2d; border-radius: 50%; color: #e8eae7; background: #1d1f1f; }
+.dailySheet form { display: grid; gap: 14px; margin-top: 20px; }
+.dailyReadiness { display: grid; grid-template-columns: 22px 1fr 22px 1fr; gap: 10px; align-items: center; padding: 13px; border: 1px solid #292b2b; border-radius: 14px; background: linear-gradient(100deg,#101111,#202222); }
+.dailyReadiness > svg { color: #24d9a6; }
+.dailyReadiness label span { display: block; color: #979b97; font-size: 8px; }
+.dailyReadiness input { width: 100%; margin-top: 4px; color: #fff; background: transparent; font-size: 18px; font-weight: 750; outline: none; }
+.dailyEnergy, .dailyBinary { border: 0; }
+.dailyEnergy legend, .dailyBinary legend, .dailyText > span { color: #d6d9d5; font-size: 10px; font-weight: 700; }
+.dailyEnergy legend { display: flex; align-items: center; gap: 6px; }
+.dailyEnergy legend svg { color: #22daa5; }
+.dailyEnergy > div { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; margin-top: 9px; }
+.dailyEnergy button, .dailyBinary button { height: 42px; border: 1px solid #303232; border-radius: 11px; color: #aeb2ae; background: linear-gradient(105deg,#151616,#242626); font-size: 13px; font-weight: 780; }
+.dailyEnergy button[aria-pressed="true"], .dailyBinary button[aria-pressed="true"] { border-color: #22d8a5; color: #07120f; background: #22d8a5; box-shadow: 0 0 0 1px rgba(34,216,165,.15); }
+.dailyEnergy > p { display: flex; justify-content: space-between; margin-top: 5px; color: #6f7470; font-size: 7px; }
+.dailyAnswers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dailyBinary > div { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 7px; }
+.dailyText { display: grid; gap: 7px; }
+.dailyText > span small { margin-left: 4px; color: #6f746f; font-size: 8px; font-weight: 500; }
+.dailyText input, .dailyText textarea { width: 100%; resize: none; border: 1px solid #2b2e2d; border-radius: 12px; padding: 12px; color: #f2f4f1; background: #151717; font-size: 11px; line-height: 1.45; outline: none; }
+.dailyText input:focus, .dailyText textarea:focus { border-color: #23ca9a; }
+.dailySave { min-height: 49px; margin-top: 3px; border-radius: 13px; color: #06120e; background: linear-gradient(100deg,#18c992,#39e7b5); font-size: 11px; font-weight: 850; }
+.dailySave:disabled { opacity: .55; }
 
 .workoutSectionTitle { display: flex; align-items: center; justify-content: space-between; }
 .workoutSectionTitle h2 { font-size: 15px; font-weight: 700; letter-spacing: -.02em; }

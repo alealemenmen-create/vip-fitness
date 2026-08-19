@@ -7,6 +7,7 @@ import { AlertCircle, ArrowLeft, Camera, ChevronRight, Dumbbell, Gauge, Images, 
 import { agregarPeso, eliminarFotoProgreso, subirFotoProgreso } from "@/app/alumno/progreso/actions";
 import { cargarProgresoV2Action, obtenerProgresoV2Action, type ProgresoDatosV2 } from "@/app/portal-v2/progreso/actions";
 import styles from "@/components/v2/PortalV2.module.css";
+import { CheckInDiarioV2 } from "@/components/v2/CheckInDiarioV2";
 
 const DEMO_ESTADISTICAS = [
   { valor: "7", unidad: "", etiqueta: "Sesiones realizadas", detalle: "Últimos 30 días", Icono: Dumbbell },
@@ -179,6 +180,15 @@ export default function ProgresoV2Page() {
           <div><small>NUTRICIÓN</small><strong>{datos ? `${datos.hoy.calorias} kcal · ${datos.hoy.proteina} g proteína` : "Registro del día"}</strong><p>{datos ? datos.hoy.comidasRegistradas === 1 ? "1 comida registrada hoy" : `${datos.hoy.comidasRegistradas} comidas registradas hoy` : "Busca, escanea y registra tus alimentos"}</p></div>
           <ChevronRight size={17} />
         </Link>
+        <CheckInDiarioV2
+          seguimiento={datos?.hoy.seguimiento ?? null}
+          soloLectura={datos?.soloLectura ?? datos === null}
+          onGuardado={async () => {
+            const actualizados = await obtenerProgresoV2Action();
+            if (actualizados) setDatos(actualizados);
+          }}
+          onAviso={setAviso}
+        />
       </section>
 
       <div className={styles.progressSectionHeading}>

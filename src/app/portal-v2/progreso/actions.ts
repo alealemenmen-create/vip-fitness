@@ -6,7 +6,7 @@ import { obtenerFotosProgreso, obtenerHistorialPeso } from "@/app/alumno/progres
 import { obtenerSeguimientoIntegral } from "@/lib/seguimiento/data";
 import { obtenerRanking } from "@/lib/ranking/data";
 import { obtenerAvanceCiclo, obtenerRutinaActiva, obtenerSesionEnProgreso } from "@/app/alumno/entrenar/data";
-import { obtenerResumenAlimentacionHoy } from "@/app/alumno/inicio/data";
+import { obtenerResumenAlimentacionHoy, obtenerSeguimientoHoy, type SeguimientoHoy } from "@/app/alumno/inicio/data";
 import { hoyISO } from "@/lib/date";
 
 export type ProgresoDatosV2 = {
@@ -41,6 +41,7 @@ export type ProgresoDatosV2 = {
     comidasRegistradas: number;
     calorias: number;
     proteina: number;
+    seguimiento: SeguimientoHoy;
   };
 };
 
@@ -70,7 +71,7 @@ export async function obtenerProgresoV2Action(): Promise<ProgresoDatosV2 | null>
   if (!contexto) return null;
   const supabase = await createClient();
   const rutina = await obtenerRutinaActiva(contexto.alumnoId);
-  const [pesos, fotos, seguimiento, ranking, avance, sesionEnProgresoId, alimentacionHoy] = await Promise.all([
+  const [pesos, fotos, seguimiento, ranking, avance, sesionEnProgresoId, alimentacionHoy, seguimientoHoy] = await Promise.all([
     obtenerHistorialPeso(supabase, contexto.alumnoId),
     obtenerFotosProgreso(supabase, contexto.alumnoId),
     obtenerSeguimientoIntegral(supabase, contexto.alumnoId, 30),
@@ -80,6 +81,7 @@ export async function obtenerProgresoV2Action(): Promise<ProgresoDatosV2 | null>
       : Promise.resolve({ proximoNumero: 1, ultimoNumeroHecho: 0 }),
     contexto.soloLectura ? Promise.resolve(null) : obtenerSesionEnProgreso(supabase, contexto.alumnoId),
     obtenerResumenAlimentacionHoy(supabase, contexto.alumnoId),
+    obtenerSeguimientoHoy(supabase, contexto.alumnoId),
   ]);
   if (!seguimiento) return null;
 
@@ -150,6 +152,7 @@ export async function obtenerProgresoV2Action(): Promise<ProgresoDatosV2 | null>
       comidasRegistradas: alimentacionHoy.comidasRegistradas,
       calorias: alimentacionHoy.kcal,
       proteina: alimentacionHoy.prot,
+      seguimiento: seguimientoHoy,
     },
   };
 }

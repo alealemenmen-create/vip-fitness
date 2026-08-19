@@ -386,6 +386,19 @@ Validaciones locales completadas el 19-08-2026:
   al intentar una URL reservada pero vuelve a Alumnos, sin ver altas, equipo ni
   administración. El administrador mantiene el mapa completo y su encabezado
   se identifica expresamente como `Panel de administración`.
+- El seguimiento diario ya vive dentro de `Progreso → Tu día` en la V2. Permite
+  registrar y editar sueño, energía, agua, cumplimiento, molestias y comentario
+  sin regresar al portal clásico. La prueba QA confirmó el recorrido completo:
+  la tarjeta se actualizó en la misma pantalla y el entrenador recibió el dato
+  en `Alumno → Actividad → Seguimiento diario` con los mismos valores.
+- Se corrigió un defecto heredado: una respuesta binaria vacía se interpretaba
+  como `No`. Ahora permanece `null`, y el servidor rechaza horas, litros o
+  energía fuera de rangos posibles antes de escribirlos.
+- Alejandro consume esas señales en la sesión V2 como límite automático de
+  intensidad: una molestia, energía `1–2` o menos de cinco horas de sueño pausa
+  los retos extra; una señal intermedia limita el cupo a uno; una preparación
+  estable conserva los momentos planificados. Sin check-in aplica por seguridad
+  un máximo de un momento. La rutina base nunca se altera ni se diagnostica.
 
 1. Crear un respaldo lógico verificable antes del próximo cambio de esquema; el
    plan gratuito actual no incluye respaldos automáticos.

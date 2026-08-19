@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAlumno } from "@/lib/auth";
 import { TAG_RANKING, obtenerMovimientosAlumnoEnRango, type MovimientoResumen } from "@/lib/ranking/data";
 import { hoyISO, semanaActualISO } from "@/lib/date";
+import { validarSeguimientoDiario } from "@/lib/seguimiento/validar";
 
 export type GuardarSeguimientoState = { error: string | null; guardado: boolean; puntos?: number };
 
@@ -27,25 +28,14 @@ export async function guardarSeguimiento(
   }
   const supabase = await createClient();
 
-  const entrenoHoy = formData.get("entreno_hoy");
-  const cumplioAlimentacion = formData.get("cumplio_alimentacion");
-  const aguaLitros = formData.get("agua_litros");
-  const horasSueno = formData.get("horas_sueno");
-  const energia = formData.get("energia");
-  const molestias = String(formData.get("molestias") || "").trim();
-  const comentario = String(formData.get("comentario") || "").trim();
+  const validacion = validarSeguimientoDiario(formData);
+  if (!validacion.ok) return { error: validacion.error, guardado: false };
 
   const { error } = await supabase.from("seguimientos_diarios").upsert(
     {
       alumno_id: alumnoId,
       fecha: hoyISO(),
-      entreno_hoy: entrenoHoy === null ? null : entrenoHoy === "true",
-      cumplio_alimentacion: cumplioAlimentacion === null ? null : cumplioAlimentacion === "true",
-      agua_litros: aguaLitros ? Number(aguaLitros) : null,
-      horas_sueno: horasSueno ? Number(horasSueno) : null,
-      energia: energia ? Number(energia) : null,
-      molestias: molestias || null,
-      comentario: comentario || null,
+      ...validacion.datos,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "alumno_id,fecha" }
@@ -60,6 +50,8 @@ export async function guardarSeguimiento(
 
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath("/alumno/inicio");
+  revalidatePath("/portal-v2/progreso");
+  revalidatePath("/portal-v2/entrenamiento");
   return { error: null, guardado: true };
 }
 
