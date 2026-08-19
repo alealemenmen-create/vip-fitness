@@ -15,8 +15,6 @@ describe("gruposDestinosParaRol", () => {
       "/admin/alumnos",
       "/admin/armar-rutina",
       "/admin/generador",
-      "/admin/ejercicios",
-      "/admin/alimentos",
       "/admin/pendientes",
       "/admin/asistente",
     ]));
@@ -26,6 +24,8 @@ describe("gruposDestinosParaRol", () => {
       "/admin/puntos",
       "/admin/auditoria",
       "/admin/solicitudes",
+      "/admin/ejercicios",
+      "/admin/alimentos",
     ]));
     expect(grupos.some((grupo) => grupo.label === "Administración")).toBe(false);
   });

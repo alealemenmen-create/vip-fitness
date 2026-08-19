@@ -102,6 +102,9 @@ export function AdminTabs({
   const pathname = usePathname();
   const [novedadesSinVer, setNovedadesSinVer] = useState(0);
   const etiquetaPanel = rol === "admin" ? "Panel de administración" : "Panel del entrenador";
+  const tabsVisibles = rol === "admin"
+    ? MOBILE_TABS
+    : MOBILE_TABS.filter((tab) => tab.href !== "/admin/ejercicios");
 
   // Diferido un tick: `localStorage` no existe en el servidor y el primer
   // render tiene que salir igual en servidor y cliente para no desajustar la
@@ -163,7 +166,7 @@ export function AdminTabs({
     // de abajo se veía negra mientras la de arriba mostraba el verde y el azul.
     // El borde y el desenfoque los pone la placa; acá sobraban.
     <nav className="navegacion-aero flex items-stretch gap-1 px-2 pb-[max(4px,env(safe-area-inset-bottom))] pt-2" aria-label={`Navegación · ${etiquetaPanel}`}>
-      {MOBILE_TABS.map((tab) => {
+      {tabsVisibles.map((tab) => {
         const Icon = tab.icon;
         const active = estaActivo(pathname, tab.href, tab.section);
         const esperando = pendientesDe(tab.section, alimentosPendientes, solicitudesPendientes, novedadesSinVer, gastosPendientes);

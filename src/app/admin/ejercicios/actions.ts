@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { TAG_BIBLIOTECA_EJERCICIOS } from "@/lib/ejercicios/data";
 import { TAG_TECNICAS_ENTRENAMIENTO } from "@/lib/generador-rutinas/data";
 import { idDeYoutube } from "@/lib/ejercicios/video";
@@ -95,7 +95,7 @@ async function descargarImagenDeUrl(valor: string): Promise<{ bytes: Buffer } | 
  * el generador sigue armando rutinas con el catálogo viejo hasta una hora
  * después. Este botón cierra ese hueco. */
 export async function refrescarCatalogo(): Promise<{ ok: boolean }> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   revalidateTag(TAG_BIBLIOTECA_EJERCICIOS, { expire: 0 });
   revalidateTag(TAG_TECNICAS_ENTRENAMIENTO, { expire: 0 });
   revalidatePath("/admin/generador");
@@ -132,7 +132,7 @@ export async function subirFotoEjercicio(
   _prevState: SubirFotoState,
   formData: FormData
 ): Promise<SubirFotoState> {
-  const entrenador = await requireRol(["entrenador", "admin"]);
+  const entrenador = await requireAdmin();
   const supabase = await createClient();
 
   const ejercicioId = String(formData.get("ejercicio_id") || "");
@@ -383,7 +383,7 @@ async function cerrarReportesFotoDeEjercicio(
 /** Cierra manualmente un aviso falso o uno que no pudo vincularse a una fila
  * de la biblioteca. Reemplazar una foto lo resuelve automáticamente. */
 export async function resolverReporteFoto(formData: FormData): Promise<void> {
-  const entrenador = await requireRol(["entrenador", "admin"]);
+  const entrenador = await requireAdmin();
   const reporteIds = formData.getAll("reporte_id").map(String).filter(Boolean).slice(0, 200);
   if (reporteIds.length === 0) return;
   const supabase = await createClient();
@@ -417,7 +417,7 @@ export async function crearEjercicioNuevo(
   _prevState: CrearEjercicioState,
   formData: FormData
 ): Promise<CrearEjercicioState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const nombresTexto = String(formData.get("nombre") || "").trim();
@@ -568,7 +568,7 @@ export async function agregarAliasEjercicio(
   _prevState: AgregarAliasState,
   formData: FormData,
 ): Promise<AgregarAliasState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const ejercicioId = String(formData.get("ejercicio_id") || "");
   const alias = String(formData.get("alias") || "").trim();
   if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
@@ -601,7 +601,7 @@ export async function actualizarDetallesEjercicio(
   _prevState: ActualizarDetallesState,
   formData: FormData,
 ): Promise<ActualizarDetallesState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const ejercicioId = String(formData.get("ejercicio_id") || "");
   const nivel = String(formData.get("nivel") || "intermedio") as NivelEjercicio;
   if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
@@ -642,7 +642,7 @@ export async function actualizarClasificacionEjercicio(
   _prevState: ActualizarClasificacionState,
   formData: FormData
 ): Promise<ActualizarClasificacionState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const ejercicioId = String(formData.get("ejercicio_id") || "");
   const grupoMuscular = String(formData.get("grupo_muscular") || "") as GrupoMuscular;
   const categoria = String(formData.get("categoria") || "") as CategoriaEjercicio;
@@ -693,7 +693,7 @@ export async function actualizarNombreEjercicio(
   _prevState: ActualizarNombreState,
   formData: FormData
 ): Promise<ActualizarNombreState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const ejercicioId = String(formData.get("ejercicio_id") || "");
@@ -730,7 +730,7 @@ export async function actualizarPatronMovimiento(
   _prevState: ActualizarPatronMovimientoState,
   formData: FormData
 ): Promise<ActualizarPatronMovimientoState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const ejercicioId = String(formData.get("ejercicio_id") || "");
@@ -770,7 +770,7 @@ export async function desactivarEjercicio(
   _prevState: DesactivarEjercicioState,
   formData: FormData
 ): Promise<DesactivarEjercicioState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const ejercicioId = String(formData.get("ejercicio_id") || "");
@@ -808,7 +808,7 @@ export async function guardarVideoEjercicio(
   _prevState: GuardarVideoState,
   formData: FormData
 ): Promise<GuardarVideoState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const ejercicioId = String(formData.get("ejercicio_id") || "");
@@ -861,7 +861,7 @@ export async function quitarVideoEjercicio(
   _prevState: QuitarVideoState,
   formData: FormData
 ): Promise<QuitarVideoState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const ejercicioId = String(formData.get("ejercicio_id") || "");
@@ -887,7 +887,7 @@ export async function iniciarSubidaVideoCloudflare(
   tamanoBytes: number,
   tipoMime: string
 ): Promise<IniciarSubidaCloudflareResultado> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   if (!ejercicioId) return { ok: false, error: "Falta el ejercicio." };
   if (!Number.isFinite(tamanoBytes) || tamanoBytes <= 0 || tamanoBytes > TAMANO_MAXIMO_VIDEO_CLOUDFLARE) {
     return { ok: false, error: "El video debe pesar menos de 100 MB." };
@@ -934,7 +934,7 @@ export async function iniciarSubidaVideoCloudflare(
 }
 
 export async function confirmarSubidaVideoCloudflare(ejercicioId: string): Promise<void> {
-  const entrenador = await requireRol(["entrenador", "admin"]);
+  const entrenador = await requireAdmin();
   if (!ejercicioId) return;
   const supabase = await createClient();
   await supabase
@@ -953,7 +953,7 @@ export async function confirmarSubidaVideoCloudflare(ejercicioId: string): Promi
 export async function sincronizarVideoCloudflare(
   ejercicioId: string
 ): Promise<"procesando" | "listo" | "error" | null> {
-  const entrenador = await requireRol(["entrenador", "admin"]);
+  const entrenador = await requireAdmin();
   if (!ejercicioId) return null;
   const supabase = await createClient();
   const { data } = await supabase
@@ -1027,7 +1027,7 @@ export async function quitarVideoCloudflare(
   _prevState: QuitarVideoCloudflareState,
   formData: FormData
 ): Promise<QuitarVideoCloudflareState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const ejercicioId = String(formData.get("ejercicio_id") || "");
   if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
   const supabase = await createClient();
@@ -1067,7 +1067,7 @@ export async function combinarEjerciciosDuplicados(
   _prevState: CombinarDuplicadosState,
   formData: FormData,
 ): Promise<CombinarDuplicadosState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const idA = String(formData.get("original_id") || "");
   const idB = String(formData.get("duplicado_id") || "");
   if (!idA || !idB || idA === idB) return { error: "Elige dos ejercicios distintos.", ok: false };
@@ -1166,7 +1166,7 @@ export async function deshacerFusionEjercicios(
   _prevState: DeshacerFusionState,
   formData: FormData,
 ): Promise<DeshacerFusionState> {
-  const sesion = await requireRol(["entrenador", "admin"]);
+  const sesion = await requireAdmin();
   const fusionId = String(formData.get("fusion_id") || "");
   if (!fusionId) return { error: "Falta el identificador de la fusión.", ok: false };
 
@@ -1215,7 +1215,7 @@ export async function restaurarFotoAnteriorEjercicio(
   _prevState: RestaurarFotoAnteriorState,
   formData: FormData,
 ): Promise<RestaurarFotoAnteriorState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const ejercicioId = String(formData.get("ejercicio_id") || "");
   if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
 
@@ -1285,7 +1285,7 @@ export async function quitarFotoEjercicio(
   _prevState: QuitarFotoState,
   formData: FormData,
 ): Promise<QuitarFotoState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const ejercicioId = String(formData.get("ejercicio_id") || "");
   if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
 
@@ -1344,7 +1344,7 @@ export async function resolverAliasEnDisputa(
   _prevState: ResolverAliasState,
   formData: FormData,
 ): Promise<ResolverAliasState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const ejercicioId = String(formData.get("ejercicio_id") || "");
   const alias = String(formData.get("alias") || "").trim();
   if (!ejercicioId || !alias) return { error: "Falta el ejercicio o el alias.", ok: false };
@@ -1388,7 +1388,7 @@ export async function actualizarPerfilImpulsoEjercicio(
   _prevState: ActualizarPerfilImpulsoState,
   formData: FormData,
 ): Promise<ActualizarPerfilImpulsoState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const ejercicioId = String(formData.get("ejercicio_id") || "");
   const intensidad = String(formData.get("impulso_intensidad_maxima") || "ninguna") as IntensidadImpulsoEjercicio;
   const solicitadas = formData.getAll("impulso_tecnicas_permitidas").map(String);
@@ -1419,7 +1419,7 @@ export async function vincularNombreRutinaSinEjercicio(
   _prevState: VincularNombreRutinaState,
   formData: FormData,
 ): Promise<VincularNombreRutinaState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const nombreRutina = String(formData.get("nombre_rutina") || "").trim();
   const ejercicioId = String(formData.get("ejercicio_id") || "").trim();
   if (!nombreRutina || !ejercicioId) return { error: "Elige el ejercicio base.", ok: false };
@@ -1470,7 +1470,7 @@ export async function vincularNombreRutinaSinEjercicio(
  * toparse con el error a mitad de la sesión de un alumno.
  */
 export async function obtenerUsosRutina(ejercicioId: string): Promise<UsoRutina[]> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   if (!ejercicioId) return [];
 
   const supabase = await createClient();
@@ -1503,7 +1503,7 @@ export async function reasignarEntradaRutina(
   _prevState: ReasignarState,
   formData: FormData
 ): Promise<ReasignarState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const ejercicioIdActual = String(formData.get("ejercicio_id_actual") || "");

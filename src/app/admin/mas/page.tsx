@@ -48,11 +48,11 @@ export default async function MasPage() {
       .from("solicitudes_borrado_sesion")
       .select("id", { count: "exact", head: true })
       .eq("estado", "pendiente") : Promise.resolve({ count: 0 }),
-    supabase
+    esAdmin ? supabase
       .from("alimentos")
       .select("id", { count: "exact", head: true })
       .eq("aprobado", false)
-      .eq("activo", true),
+      .eq("activo", true) : Promise.resolve({ count: 0 }),
     supabase.from("alumno_perfil").select("user_id").eq("user_id", sesion.userId).maybeSingle(),
   ]);
 

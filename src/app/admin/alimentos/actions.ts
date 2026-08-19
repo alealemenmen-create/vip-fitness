@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { detectarMedidaAlimento, type ResultadoDeteccion } from "@/lib/ai/detectarMedidaAlimento";
 
 export type FormState = { error: string | null; ok: boolean };
@@ -13,7 +13,7 @@ function fail(mensaje: string): FormState {
 }
 
 export async function guardarAlimento(_prevState: FormState, formData: FormData): Promise<FormState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const alimentoId = String(formData.get("alimento_id") || "");
@@ -49,12 +49,12 @@ export async function sugerirMedidaAlimento(
   nombre: string,
   categoria: string
 ): Promise<ResultadoDeteccion> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   return detectarMedidaAlimento(nombre, categoria || null);
 }
 
 export async function alternarActivoAlimento(alimentoId: string, activo: boolean): Promise<void> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   await supabase.from("alimentos").update({ activo }).eq("id", alimentoId);
   revalidatePath("/admin/alimentos");
@@ -64,7 +64,7 @@ export async function alternarActivoAlimento(alimentoId: string, activo: boolean
  * Deja de ser "Personalizado" solo si el entrenador le pone otra categoría
  * después, desde el formulario de siempre. */
 export async function aprobarAlimento(alimentoId: string): Promise<void> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   await supabase.from("alimentos").update({ aprobado: true }).eq("id", alimentoId);
   revalidatePath("/admin/alimentos");
@@ -79,7 +79,7 @@ export async function aprobarAlimento(alimentoId: string): Promise<void> {
  * pero el historial del alumno sigue sumando sus calorías.
  */
 export async function rechazarAlimento(alimentoId: string): Promise<void> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   await supabase.from("alimentos").update({ activo: false }).eq("id", alimentoId);
   revalidatePath("/admin/alimentos");

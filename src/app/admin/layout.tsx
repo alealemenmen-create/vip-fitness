@@ -42,11 +42,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     notificacionesSinLeer,
   ] = await Promise.all([
     miAlumnoPerfilPromise,
-    supabase
+    esAdmin ? supabase
       .from("alimentos")
       .select("id", { count: "exact", head: true })
       .eq("aprobado", false)
-      .eq("activo", true),
+      .eq("activo", true) : Promise.resolve({ count: 0 }),
     esAdmin ? supabase
       .from("solicitudes_registro")
       .select("id", { count: "exact", head: true })

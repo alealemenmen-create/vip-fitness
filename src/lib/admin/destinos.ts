@@ -124,6 +124,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Fotos, videos y control de calidad",
         icon: Dumbbell,
         seccion: "ejercicios",
+        soloAdmin: true,
       },
       {
         href: "/admin/alimentos",
@@ -131,6 +132,7 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Catálogo y pendientes de aprobar",
         icon: Salad,
         seccion: "alimentos",
+        soloAdmin: true,
       },
     ],
   },

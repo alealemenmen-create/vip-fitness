@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { AlimentosManager, type AlimentoAdmin } from "@/components/admin/AlimentosManager";
 import { AlimentosPendientes, type AlimentoPendiente } from "@/components/admin/AlimentosPendientes";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -41,7 +41,7 @@ export default async function AdminAlimentosPage({
 }: {
   searchParams: Promise<{ categoria?: string }>;
 }) {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   // Los que esperan el visto bueno (migración 0030). Si todavía no se corrió,

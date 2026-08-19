@@ -1,4 +1,4 @@
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
   obtenerBibliotecaSinCache,
@@ -19,7 +19,7 @@ export default async function EjerciciosAdminPage({
 }: {
   searchParams: Promise<{ demoSolicitudFoto?: string }>;
 }) {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   // Sin caché a propósito — ver `obtenerBibliotecaSinCache`: esta es la
   // pantalla donde el entrenador acaba de subir una foto y tiene que verla.

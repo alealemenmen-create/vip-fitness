@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 
 /**
  * Server Actions de las sesiones de ingesta (instructivo de galería
@@ -38,7 +38,7 @@ export type ItemIngestaServidor = {
 export async function crearIngesta(
   origen: "carga" | "camara" | "modo_gimnasio" | "pendiente" | "alta" = "carga"
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  const entrenador = await requireRol(["entrenador", "admin"]);
+  const entrenador = await requireAdmin();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("ejercicio_ingestas")
@@ -73,7 +73,7 @@ export async function registrarItemIngesta(input: {
   confianza: ConfianzaItemIngesta;
   ejercicioId: string | null;
 }): Promise<{ ok: boolean }> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase.from("ejercicio_ingesta_items").upsert(
     {
@@ -106,7 +106,7 @@ export async function actualizarEstadoItemIngesta(
   claveIdempotente: string,
   cambios: { estado: EstadoItemIngesta; errorDetalle?: string | null }
 ): Promise<void> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   const { data: actual } = await supabase
     .from("ejercicio_ingesta_items")
@@ -137,7 +137,7 @@ export async function actualizarEstadoItemIngesta(
  * `obtenerItemsServidorDeIngesta` y saltear los que ya figuran aplicados.
  */
 export async function marcarItemAplicado(claveIdempotente: string, ejercicioId: string): Promise<void> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   await supabase
     .from("ejercicio_ingesta_items")
@@ -147,7 +147,7 @@ export async function marcarItemAplicado(claveIdempotente: string, ejercicioId: 
 }
 
 export async function obtenerItemsServidorDeIngesta(ingestaId: string): Promise<ItemIngestaServidor[]> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("ejercicio_ingesta_items")
@@ -181,7 +181,7 @@ export async function actualizarResumenIngesta(
   ingestaId: string,
   resumen: { totalArchivos: number; archivosListos: number; archivosError: number; estado: EstadoIngesta }
 ): Promise<void> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   const completada = resumen.estado === "completada" || resumen.estado === "cancelada";
   await supabase
@@ -215,7 +215,7 @@ export type ItemIngestaHuerfano = {
  * sigue en curso en otro dispositivo.
  */
 export async function obtenerItemsIngestaHuerfanos(): Promise<ItemIngestaHuerfano[]> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   const antes = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase

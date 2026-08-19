@@ -131,9 +131,11 @@ recibir aprobación expresa.
 - Administrador: control total mediante el panel existente.
 - Las opciones administrativas se muestran por rol verificado en servidor.
 - La separación de roles se aplica también a las acciones: un entrenador sólo
-  conserva alumnos, asistencia, rutinas, bibliotecas, pendientes y asistente.
-  Altas, equipo, puntos, auditoría, reportes, borrados, Arena, noticias, gastos
-  y configuración requieren administrador; escribir la URL no evita el control.
+  conserva alumnos, asistencia, armado de rutinas, documentos, pendientes,
+  notificaciones y asistente. Las bibliotecas maestras —fotos, videos, fichas y
+  aprobación de alimentos— pertenecen al rol diseñador/administrador, junto a
+  altas, equipo, puntos, auditoría, reportes, borrados, Arena, noticias, gastos
+  y configuración; escribir la URL no evita el control.
 
 ## Navegación y conexiones
 

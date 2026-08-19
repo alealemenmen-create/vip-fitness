@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireRol } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { TAG_BIBLIOTECA_EJERCICIOS } from "@/lib/ejercicios/data";
 import {
   bufferAImagenBlob,
@@ -77,7 +77,7 @@ function aItemMultimedia(fila: {
 export async function obtenerMultimediaDeEjercicio(
   ejercicioId: string
 ): Promise<{ fotosGaleria: ItemMultimedia[]; videosArchivados: ItemMultimedia[] }> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("ejercicio_multimedia")
@@ -144,7 +144,7 @@ export async function agregarFotoGaleria(
   _prevState: AgregarFotoGaleriaState,
   formData: FormData
 ): Promise<AgregarFotoGaleriaState> {
-  const entrenador = await requireRol(["entrenador", "admin"]);
+  const entrenador = await requireAdmin();
   const supabase = await createClient();
 
   const ejercicioId = String(formData.get("ejercicio_id") || "");
@@ -205,7 +205,7 @@ export type ElegirPrincipalState = { error: string | null; ok: boolean };
  * intercambio, no un reemplazo.
  */
 export async function elegirFotoPrincipal(multimediaId: string): Promise<ElegirPrincipalState> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
 
   const { data: elegida } = await supabase
@@ -259,7 +259,7 @@ export async function elegirFotoPrincipal(multimediaId: string): Promise<ElegirP
 }
 
 export async function quitarFotoGaleria(multimediaId: string): Promise<void> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   await supabase.from("ejercicio_multimedia").delete().eq("id", multimediaId).eq("es_principal", false);
   avisarCambios();
@@ -301,7 +301,7 @@ export type RestaurarVideoState = { error: string | null; ok: boolean };
  * intercambio, igual que `elegirFotoPrincipal`.
  */
 export async function restaurarVideoArchivado(multimediaId: string): Promise<RestaurarVideoState> {
-  const entrenador = await requireRol(["entrenador", "admin"]);
+  const entrenador = await requireAdmin();
   const supabase = await createClient();
 
   const { data: archivado } = await supabase
@@ -373,7 +373,7 @@ export type CambioMultimediaReciente = {
  * ejercicio (Fase 3).
  */
 export async function obtenerCambiosRecientesMultimedia(): Promise<CambioMultimediaReciente[]> {
-  await requireRol(["entrenador", "admin"]);
+  await requireAdmin();
   const supabase = await createClient();
   const desde = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
