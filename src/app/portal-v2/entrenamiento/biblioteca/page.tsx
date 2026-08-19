@@ -4,7 +4,12 @@ import { obtenerBiblioteca } from "@/lib/ejercicios/data";
 
 export const dynamic = "force-dynamic";
 
-export default async function BibliotecaEjerciciosV2Page() {
+export default async function BibliotecaEjerciciosV2Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ buscar?: string }>;
+}) {
+  const { buscar } = await searchParams;
   const [ejercicios, contexto] = await Promise.all([
     obtenerBiblioteca(),
     obtenerContextoAlumnoOpcional(),
@@ -20,5 +25,5 @@ export default async function BibliotecaEjerciciosV2Page() {
     fotoCompletaUrl: ejercicio.fotoCompletaUrl,
     videoCloudflareEstado: ejercicio.videoCloudflareEstado,
   }));
-  return <BibliotecaEjerciciosV2 ejercicios={resumenes} puedeVerVideos={Boolean(contexto)} />;
+  return <BibliotecaEjerciciosV2 ejercicios={resumenes} puedeVerVideos={Boolean(contexto)} busquedaInicial={buscar ?? ""} />;
 }

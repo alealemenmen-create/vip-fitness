@@ -1132,6 +1132,102 @@ export type RutinaHistorial = {
   puntos: number;
 };
 
+export type ProgramaAlumno = {
+  id: string;
+  nombre: string;
+  activa: boolean;
+  archivada: boolean;
+  version: number;
+  creadoEn: string;
+  diasEntrenamiento: number;
+  ejercicios: number;
+  series: number;
+  sesionesCerradas: number;
+  ultimaSesion: string | null;
+};
+
+/**
+ * Todos los programas publicados para el alumno, incluidos los que todavía
+ * no tienen sesiones y los archivados. Es deliberadamente de solo lectura:
+ * el alumno puede revisar su recorrido, pero no alterar la prescripción del
+ * entrenador desde el portal.
+ */
+export async function obtenerProgramasAlumno(
+  supabase: SupabaseServerClient,
+  alumnoId: string
+): Promise<ProgramaAlumno[]> {
+  const { data: rutinas } = await supabase
+    .from("rutinas")
+    .select("id, nombre, activa, archivada, version, created_at")
+    .eq("alumno_id", alumnoId)
+    .order("activa", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (!rutinas?.length) return [];
+
+  const rutinaIds = rutinas.map((rutina) => rutina.id);
+  const [{ data: dias }, { data: sesiones }] = await Promise.all([
+    supabase
+      .from("rutina_dias")
+      .select("id, rutina_id, tipo")
+      .in("rutina_id", rutinaIds),
+    supabase
+      .from("sesiones_entrenamiento")
+      .select("rutina_id, fecha, estado")
+      .eq("alumno_id", alumnoId)
+      .in("rutina_id", rutinaIds)
+      .neq("estado", "en_progreso"),
+  ]);
+
+  const diaIds = (dias ?? []).map((dia) => dia.id);
+  const { data: ejercicios } = diaIds.length
+    ? await supabase
+      .from("rutina_dia_ejercicios")
+      .select("dia_id, series_programadas")
+      .in("dia_id", diaIds)
+    : { data: [] };
+
+  const diaARutina = new Map((dias ?? []).map((dia) => [dia.id, dia.rutina_id]));
+  const resumen = new Map<string, Omit<ProgramaAlumno, "id" | "nombre" | "activa" | "archivada" | "version" | "creadoEn">>();
+  for (const rutina of rutinas) {
+    resumen.set(rutina.id, {
+      diasEntrenamiento: 0,
+      ejercicios: 0,
+      series: 0,
+      sesionesCerradas: 0,
+      ultimaSesion: null,
+    });
+  }
+
+  for (const dia of dias ?? []) {
+    if (dia.tipo === "entrenamiento") resumen.get(dia.rutina_id)!.diasEntrenamiento += 1;
+  }
+  for (const ejercicio of ejercicios ?? []) {
+    const rutinaId = diaARutina.get(ejercicio.dia_id);
+    if (!rutinaId) continue;
+    const actual = resumen.get(rutinaId)!;
+    actual.ejercicios += 1;
+    actual.series += ejercicio.series_programadas;
+  }
+  for (const sesion of sesiones ?? []) {
+    if (!sesion.rutina_id) continue;
+    const actual = resumen.get(sesion.rutina_id);
+    if (!actual) continue;
+    actual.sesionesCerradas += 1;
+    if (!actual.ultimaSesion || sesion.fecha > actual.ultimaSesion) actual.ultimaSesion = sesion.fecha;
+  }
+
+  return rutinas.map((rutina) => ({
+    id: rutina.id,
+    nombre: rutina.nombre,
+    activa: rutina.activa,
+    archivada: rutina.archivada,
+    version: rutina.version,
+    creadoEn: rutina.created_at,
+    ...resumen.get(rutina.id)!,
+  }));
+}
+
 /** Una fila por rutina que el alumno haya entrenado alguna vez (no solo la
  * activa): cuántas sesiones cerradas tiene, el rango de fechas, y los
  * Puntos VIP que sumó bajo esa rutina — para el resumen de "reporte de

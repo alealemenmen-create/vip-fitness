@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ArrowLeft, CalendarDays, Camera, Check, ChevronRight, Flag, Gift, Heart, Medal, MessageCircle, Send, ShieldCheck, Sparkles, Trash2, Trophy, X } from "lucide-react";
 import type { ComunidadDatosV2, FilaComunidadV2 } from "@/app/portal-v2/progreso/comunidad/data";
-import { obtenerDesglosePuntosAlumno, responderInvitacionTorneo, type DesglosePuntos } from "@/app/alumno/inicio/actions";
-import { alternarAplausoComunidadV2, comentarComunidadV2, crearPublicacionComunidadV2, eliminarContenidoComunidadV2, reportarPublicacionComunidadV2 } from "@/app/portal-v2/progreso/comunidad/actions";
+import { obtenerDesglosePuntosAlumno, type DesglosePuntos } from "@/app/alumno/inicio/actions";
+import { alternarAplausoComunidadV2, comentarComunidadV2, crearPublicacionComunidadV2, eliminarContenidoComunidadV2, reportarPublicacionComunidadV2, responderRetoComunidadV2 } from "@/app/portal-v2/progreso/comunidad/actions";
 import styles from "./PortalV2.module.css";
 
 type Vista = "actividad" | "clasificacion";
@@ -46,6 +46,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
   const [comentarioAbierto, setComentarioAbierto] = useState<string | null>(null);
   const [textoComentario, setTextoComentario] = useState("");
   const [errorSocial, setErrorSocial] = useState<string | null>(null);
+  const [avisoSocial, setAvisoSocial] = useState<string | null>(null);
   const clasificacionVisible = periodo === "general"
     ? (datos ? datos.general : DEMO_FILAS)
     : (datos ? datos.mensual : DEMO_FILAS);
@@ -69,18 +70,32 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
       return;
     }
     iniciarDetalle(async () => {
-      const desglose = await obtenerDesglosePuntosAlumno(persona.alumnoId);
-      setDetallePuntos({ nombre: persona.nombre, datos: desglose });
+      try {
+        const desglose = await obtenerDesglosePuntosAlumno(persona.alumnoId);
+        setDetallePuntos({ nombre: persona.nombre, datos: desglose });
+      } catch {
+        setErrorSocial("No pudimos abrir el desglose de puntos. Inténtalo nuevamente.");
+      }
     });
   };
 
-  const ejecutarSocial = (tarea: () => Promise<{ ok: boolean; error: string | null }>, alCompletar?: () => void) => {
+  const ejecutarSocial = (
+    tarea: () => Promise<{ ok: boolean; error: string | null }>,
+    alCompletar?: () => void,
+    mensaje?: string,
+  ) => {
     setErrorSocial(null);
+    setAvisoSocial(null);
     iniciarSocial(async () => {
-      const resultado = await tarea();
-      if (!resultado.ok) return setErrorSocial(resultado.error ?? "No pudimos completar la acción.");
-      alCompletar?.();
-      router.refresh();
+      try {
+        const resultado = await tarea();
+        if (!resultado.ok) return setErrorSocial(resultado.error ?? "No pudimos completar la acción.");
+        alCompletar?.();
+        if (mensaje) setAvisoSocial(mensaje);
+        router.refresh();
+      } catch {
+        setErrorSocial("La acción no llegó al servidor. Revisa tu conexión e intenta nuevamente.");
+      }
     });
   };
 
@@ -122,19 +137,21 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
             </Link>
           )}
 
+          {datos?.socialError ? <p className={styles.communitySocialError} role="alert">{datos.socialError} <button type="button" onClick={() => router.refresh()}>Reintentar</button></p> : null}
           {errorSocial ? <p className={styles.communitySocialError} role="alert">{errorSocial}</p> : null}
+          {avisoSocial ? <button type="button" className={styles.communitySocialNotice} onClick={() => setAvisoSocial(null)}><Check size={14} />{avisoSocial}<X size={13} /></button> : null}
 
           {datos?.publicaciones.map((publicacion) => (
             <article className={styles.communityPost} key={publicacion.id}>
               <header>
                 <span>{publicacion.iniciales}</span>
                 <div><strong>{publicacion.nombre}</strong><small>{fechaCorta(publicacion.fecha)}</small></div>
-                {publicacion.esPropia ? <button type="button" aria-label="Eliminar publicación" disabled={procesandoSocial} onClick={() => ejecutarSocial(() => eliminarContenidoComunidadV2("publicacion", publicacion.id))}><Trash2 size={15} /></button> : <button type="button" aria-label="Reportar publicación" disabled={procesandoSocial} onClick={() => ejecutarSocial(() => reportarPublicacionComunidadV2(publicacion.id, "Contenido inapropiado o fuera de las reglas"))}><Flag size={15} /></button>}
+                {publicacion.esPropia ? <button type="button" aria-label="Eliminar publicación" disabled={procesandoSocial} onClick={() => ejecutarSocial(() => eliminarContenidoComunidadV2("publicacion", publicacion.id), undefined, "Publicación eliminada.")}><Trash2 size={15} /></button> : <button type="button" aria-label="Reportar publicación" disabled={procesandoSocial || datos.soloLectura} onClick={() => ejecutarSocial(() => reportarPublicacionComunidadV2(publicacion.id, "Contenido inapropiado o fuera de las reglas"), undefined, "Reporte enviado para revisión.")}><Flag size={15} /></button>}
               </header>
               {publicacion.fotoUrl ? <div className={styles.communityPostPhoto}><Image src={publicacion.fotoUrl} alt={`Avance compartido por ${publicacion.nombre}`} fill sizes="(max-width: 640px) 100vw, 520px" /></div> : null}
               {publicacion.texto ? <p>{publicacion.texto}</p> : null}
               {publicacion.comentarios.length ? <div className={styles.communityComments}>{publicacion.comentarios.map((comentario) => <div key={comentario.id}><i>{comentario.iniciales}</i><p><strong>{comentario.nombre}</strong>{comentario.texto}</p>{comentario.esPropio ? <button type="button" aria-label="Eliminar comentario" onClick={() => ejecutarSocial(() => eliminarContenidoComunidadV2("comentario", comentario.id))}><X size={12} /></button> : null}</div>)}</div> : null}
-              {comentarioAbierto === publicacion.id ? <form className={styles.communityCommentForm} onSubmit={(evento) => { evento.preventDefault(); ejecutarSocial(() => comentarComunidadV2(publicacion.id, textoComentario), () => { setTextoComentario(""); setComentarioAbierto(null); }); }}><input value={textoComentario} onChange={(evento) => setTextoComentario(evento.target.value)} maxLength={280} placeholder="Escribe algo útil y respetuoso" autoFocus /><button type="submit" disabled={procesandoSocial || textoComentario.trim().length < 2} aria-label="Enviar comentario"><Send size={15} /></button></form> : null}
+              {comentarioAbierto === publicacion.id ? <form className={styles.communityCommentForm} onSubmit={(evento) => { evento.preventDefault(); ejecutarSocial(() => comentarComunidadV2(publicacion.id, textoComentario), () => { setTextoComentario(""); setComentarioAbierto(null); }, "Comentario publicado."); }}><input value={textoComentario} onChange={(evento) => setTextoComentario(evento.target.value)} maxLength={280} placeholder="Escribe algo útil y respetuoso" autoFocus /><button type="submit" disabled={procesandoSocial || textoComentario.trim().length < 2} aria-label="Enviar comentario"><Send size={15} /></button></form> : null}
               <footer>
                 <button type="button" className={publicacion.aplaudida ? styles.communityLiked : ""} disabled={procesandoSocial || datos.soloLectura} onClick={() => ejecutarSocial(() => alternarAplausoComunidadV2(publicacion.id, !publicacion.aplaudida))}><Heart size={16} fill={publicacion.aplaudida ? "currentColor" : "none"} /> {publicacion.aplausos || "Aplaudir"}</button>
                 <button type="button" disabled={datos.soloLectura} onClick={() => { setComentarioAbierto(comentarioAbierto === publicacion.id ? null : publicacion.id); setTextoComentario(""); }}><MessageCircle size={16} /> {publicacion.comentarios.length || "Comentar"}</button>
@@ -154,10 +171,10 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
                     <b>{reto.puntos.toLocaleString("es-CL")} XP</b>
                   </Link>
                   {reto.regla ? <p>{reto.regla}</p> : null}
-                  {reto.miEstado === "pendiente" ? <div className={styles.communityChallengeActions}>
-                    <form action={responderInvitacionTorneo}><input type="hidden" name="torneo_id" value={reto.id} /><input type="hidden" name="decision" value="aceptado" /><button type="submit"><Check size={14} />Aceptar</button></form>
-                    <form action={responderInvitacionTorneo}><input type="hidden" name="torneo_id" value={reto.id} /><input type="hidden" name="decision" value="rechazado" /><button type="submit"><X size={14} />Rechazar</button></form>
-                  </div> : reto.miEstado === "aceptado" ? <small className={styles.communityChallengeAccepted}><Check size={13} /> Estás compitiendo</small> : null}
+                  {reto.miEstado === "pendiente" && !datos.soloLectura ? <div className={styles.communityChallengeActions}>
+                    <button type="button" disabled={procesandoSocial} onClick={() => ejecutarSocial(() => responderRetoComunidadV2({ torneoId: reto.id, decision: "aceptado" }), undefined, "Reto aceptado. Ya estás compitiendo.")}><Check size={14} />Aceptar</button>
+                    <button type="button" disabled={procesandoSocial} onClick={() => ejecutarSocial(() => responderRetoComunidadV2({ torneoId: reto.id, decision: "rechazado" }), undefined, "Invitación rechazada.")}><X size={14} />Rechazar</button>
+                  </div> : reto.miEstado === "pendiente" ? <small className={styles.communityChallengeAccepted}><ShieldCheck size={13} /> Modo solo lectura</small> : reto.miEstado === "aceptado" ? <small className={styles.communityChallengeAccepted}><Check size={13} /> Estás compitiendo</small> : null}
                 </article>
               ))}
             </section>
@@ -220,7 +237,7 @@ export function ComunidadV2({ datos }: { datos: ComunidadDatosV2 | null }) {
             <p className={styles.copyFoodsIntro}>Solo la foto que elijas aquí se mostrará en Comunidad. Tu galería continúa privada.</p>
             <textarea className={styles.communityComposeText} value={textoPublicacion} onChange={(evento) => setTextoPublicacion(evento.target.value)} maxLength={500} placeholder="Cuenta qué lograste, qué aprendiste o qué viene ahora." />
             {datos.fotosPublicables.length ? <div className={styles.communityPhotoPicker} aria-label="Fotos privadas disponibles">{datos.fotosPublicables.map((foto) => <button type="button" aria-pressed={fotoElegida === foto.id} key={foto.id} onClick={() => setFotoElegida(fotoElegida === foto.id ? null : foto.id)}>{foto.url ? <Image src={foto.url} alt={`Foto del ${fechaCorta(foto.fecha)}`} fill sizes="96px" /> : <Camera size={19} />}<span>{fechaCorta(foto.fecha)}</span></button>)}</div> : <Link className={styles.communityNoPhotos} href="/portal-v2/progreso#checkin">Aún no tienes fotos. Registrar una en Progreso <ChevronRight size={14} /></Link>}
-            <button className={styles.communityPublishButton} type="button" disabled={procesandoSocial || (!textoPublicacion.trim() && !fotoElegida)} onClick={() => ejecutarSocial(() => crearPublicacionComunidadV2({ texto: textoPublicacion, fotoId: fotoElegida }), () => { setTextoPublicacion(""); setFotoElegida(null); setComponiendo(false); })}>{procesandoSocial ? "Publicando…" : "Publicar en Comunidad"}</button>
+            <button className={styles.communityPublishButton} type="button" disabled={procesandoSocial || (!textoPublicacion.trim() && !fotoElegida)} onClick={() => ejecutarSocial(() => crearPublicacionComunidadV2({ texto: textoPublicacion, fotoId: fotoElegida }), () => { setTextoPublicacion(""); setFotoElegida(null); setComponiendo(false); }, "Publicación compartida con la comunidad.")}>{procesandoSocial ? "Publicando…" : "Publicar en Comunidad"}</button>
           </section>
         </div>
       ) : null}

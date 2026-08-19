@@ -20,17 +20,48 @@ export function TemporizadorDescansoToggle({
   const [activo, setActivo] = useState(activoInicial);
   const [segundos, setSegundos] = useState<number | null>(segundosPreferidoInicial);
   const [confirmando, setConfirmando] = useState(false);
+  const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
   const [pending, iniciar] = useTransition();
 
   const guardar = (nuevoValor: boolean) => {
+    const anterior = activo;
     setActivo(nuevoValor);
     setConfirmando(false);
-    iniciar(() => actualizarTemporizadorDescansoAlumno(nuevoValor));
+    setMensaje(null);
+    iniciar(async () => {
+      try {
+        const resultado = await actualizarTemporizadorDescansoAlumno(nuevoValor);
+        if (!resultado.ok) {
+          setActivo(anterior);
+          setMensaje({ tipo: "error", texto: resultado.error ?? "No pudimos guardar el temporizador." });
+          return;
+        }
+        setMensaje({ tipo: "ok", texto: nuevoValor ? "Temporizador activado." : "Temporizador desactivado." });
+      } catch {
+        setActivo(anterior);
+        setMensaje({ tipo: "error", texto: "La configuración no llegó al servidor. Revisa tu conexión." });
+      }
+    });
   };
 
   const elegirSegundos = (valor: number | null) => {
+    const anterior = segundos;
     setSegundos(valor);
-    iniciar(() => actualizarSegundosDescansoPreferido(valor));
+    setMensaje(null);
+    iniciar(async () => {
+      try {
+        const resultado = await actualizarSegundosDescansoPreferido(valor);
+        if (!resultado.ok) {
+          setSegundos(anterior);
+          setMensaje({ tipo: "error", texto: resultado.error ?? "No pudimos guardar el descanso." });
+          return;
+        }
+        setMensaje({ tipo: "ok", texto: valor === null ? "Volviste al descanso programado por tu entrenador." : `Descanso preferido: ${valor} segundos.` });
+      } catch {
+        setSegundos(anterior);
+        setMensaje({ tipo: "error", texto: "La configuración no llegó al servidor. Revisa tu conexión." });
+      }
+    });
   };
 
   return (
@@ -129,6 +160,7 @@ export function TemporizadorDescansoToggle({
           </div>
         </div>
       )}
+      {mensaje ? <div role={mensaje.tipo === "error" ? "alert" : "status"} className={`mt-3 flex items-center gap-2 rounded-xl border p-2 text-micro ${mensaje.tipo === "error" ? "border-error/30 bg-error/10 text-error" : "border-success/25 bg-success/10 text-success"}`}><span className="flex-1">{mensaje.texto}</span><button type="button" onClick={() => setMensaje(null)} className="font-bold underline">Cerrar</button></div> : null}
     </Card>
   );
 }

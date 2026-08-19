@@ -6,15 +6,27 @@ import { Check, Gift, PackageCheck, X } from "lucide-react";
 import { ajustarStockRecompensaVip, cambiarEstadoRecompensaVip, guardarRecompensaVip, resolverCanjeVip } from "@/app/admin/puntos/recompensas-actions";
 import type { CanjeVip, RecompensaVip } from "@/lib/recompensas/data";
 
-export function RecompensasAdminPanel({ disponible, catalogo, canjes }: { disponible: boolean; catalogo: RecompensaVip[]; canjes: CanjeVip[] }) {
+export function RecompensasAdminPanel({ disponible, catalogo, canjes, error = null }: { disponible: boolean; catalogo: RecompensaVip[]; canjes: CanjeVip[]; error?: string | null }) {
   const router = useRouter();
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [procesando, iniciar] = useTransition();
-  const ejecutar = (tarea: () => Promise<{ ok: boolean; error: string | null }>) => iniciar(async () => { const resultado = await tarea(); setMensaje(resultado.ok ? "Cambio guardado." : resultado.error); if (resultado.ok) router.refresh(); });
-  if (!disponible) return <section className="rounded-2xl border border-warning/30 bg-warning/5 p-5"><Gift size={21} className="text-warning" /><h2 className="mt-2 text-sm font-bold text-text">Falta activar recompensas</h2><p className="mt-1 text-xs text-text-secondary">Ejecuta la migración 0107_recompensas_vip.sql en preview.</p></section>;
+  const ejecutar = (tarea: () => Promise<{ ok: boolean; error: string | null }>, alGuardar?: () => void) => iniciar(async () => {
+    setMensaje(null);
+    try {
+      const resultado = await tarea();
+      setMensaje(resultado.ok ? "Cambio guardado." : resultado.error);
+      if (resultado.ok) {
+        alGuardar?.();
+        router.refresh();
+      }
+    } catch {
+      setMensaje("La acción no llegó al servidor. No se modificaron puntos, stock ni solicitudes.");
+    }
+  });
+  if (!disponible) return <section className="rounded-2xl border border-warning/30 bg-warning/5 p-5"><Gift size={21} className="text-warning" /><h2 className="mt-2 text-sm font-bold text-text">{error ? "No pudimos cargar recompensas" : "Falta activar recompensas"}</h2><p className="mt-1 text-xs text-text-secondary">{error ?? "Ejecuta la migración 0107_recompensas_vip.sql en preview."}</p></section>;
   return <section className="space-y-4 rounded-2xl border border-border bg-surface p-4">
     <div><h2 className="text-sm font-bold text-text">Catálogo y canjes</h2><p className="text-xs text-text-secondary">El stock se reserva y los puntos se descuentan en una sola transacción.</p></div>
-    <form className="grid gap-2 md:grid-cols-5" onSubmit={(evento) => { evento.preventDefault(); const data = new FormData(evento.currentTarget); ejecutar(() => guardarRecompensaVip({ nombre: String(data.get("nombre") || ""), descripcion: String(data.get("descripcion") || ""), tipo: String(data.get("tipo") || "servicio") as "digital" | "servicio" | "fisica", costo: Number(data.get("costo")), stock: String(data.get("stock") || "").trim() ? Number(data.get("stock")) : null })); evento.currentTarget.reset(); }}>
+    <form className="grid gap-2 md:grid-cols-5" onSubmit={(evento) => { evento.preventDefault(); const formulario = evento.currentTarget; const data = new FormData(formulario); ejecutar(() => guardarRecompensaVip({ nombre: String(data.get("nombre") || ""), descripcion: String(data.get("descripcion") || ""), tipo: String(data.get("tipo") || "servicio") as "digital" | "servicio" | "fisica", costo: Number(data.get("costo")), stock: String(data.get("stock") || "").trim() ? Number(data.get("stock")) : null }), () => formulario.reset()); }}>
       <input required name="nombre" placeholder="Nombre" className="rounded-xl border border-border bg-bg px-3 py-2 text-xs text-text" />
       <input name="descripcion" placeholder="Descripción" className="rounded-xl border border-border bg-bg px-3 py-2 text-xs text-text" />
       <select name="tipo" className="rounded-xl border border-border bg-bg px-3 py-2 text-xs text-text"><option value="servicio">Servicio</option><option value="digital">Digital</option><option value="fisica">Física</option></select>

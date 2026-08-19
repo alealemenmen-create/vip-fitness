@@ -95,9 +95,9 @@ export async function guardarDatosPersonales(
  * "Entrenamiento finalizado" (hasta 300 puntos) por una penalización fija de
  * -50 — el aviso antes de confirmar vive en el componente del cliente, no acá.
  */
-export async function actualizarTemporizadorDescansoAlumno(activo: boolean): Promise<void> {
+export async function actualizarTemporizadorDescansoAlumno(activo: boolean): Promise<FormState> {
   const { alumnoId, soloLectura } = await requireAlumno();
-  if (soloLectura) return;
+  if (soloLectura) return fail("No puedes cambiar el temporizador en modo solo lectura.");
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -111,11 +111,14 @@ export async function actualizarTemporizadorDescansoAlumno(activo: boolean): Pro
 
   if (error) {
     console.error("[perfil] no se pudo guardar temporizador_descanso:", error.message);
-    return;
+    return fail("No pudimos guardar el temporizador. Tu configuración anterior se conserva.");
   }
 
   revalidatePath("/alumno/perfil");
   revalidatePath("/alumno/entrenar");
+  revalidatePath("/portal-v2/perfil");
+  revalidatePath("/portal-v2/mas");
+  return okState;
 }
 
 const SEGUNDOS_DESCANSO_VALIDOS = new Set([45, 60, 90, 120, 150]);
@@ -127,10 +130,10 @@ const SEGUNDOS_DESCANSO_VALIDOS = new Set([45, 60, 90, 120, 150]);
  * ejercicio — el comportamiento de siempre). Lo consume
  * `obtenerSesionCompleta` en `alumno/entrenar/data.ts`.
  */
-export async function actualizarSegundosDescansoPreferido(segundos: number | null): Promise<void> {
+export async function actualizarSegundosDescansoPreferido(segundos: number | null): Promise<FormState> {
   const { alumnoId, soloLectura } = await requireAlumno();
-  if (soloLectura) return;
-  if (segundos !== null && !SEGUNDOS_DESCANSO_VALIDOS.has(segundos)) return;
+  if (soloLectura) return fail("No puedes cambiar el descanso en modo solo lectura.");
+  if (segundos !== null && !SEGUNDOS_DESCANSO_VALIDOS.has(segundos)) return fail("El tiempo de descanso no es válido.");
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -140,11 +143,14 @@ export async function actualizarSegundosDescansoPreferido(segundos: number | nul
 
   if (error) {
     console.error("[perfil] no se pudo guardar segundos_descanso_preferido:", error.message);
-    return;
+    return fail("No pudimos guardar ese descanso. La configuración anterior se conserva.");
   }
 
   revalidatePath("/alumno/perfil");
   revalidatePath("/alumno/entrenar");
+  revalidatePath("/portal-v2/perfil");
+  revalidatePath("/portal-v2/mas");
+  return okState;
 }
 
 /**

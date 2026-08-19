@@ -7,6 +7,7 @@ import { obtenerRanking } from "@/lib/ranking/data";
 import { obtenerTorneosPublicos } from "@/lib/torneos/data";
 import { obtenerSeguimientoIntegral } from "@/lib/seguimiento/data";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { seleccionarComentariosRecientes } from "@/lib/comunidad/social";
 
 export type FilaComunidadV2 = {
   alumnoId: string;
@@ -57,6 +58,7 @@ export type ComunidadDatosV2 = {
   mensual: FilaComunidadV2[];
   actividad: ActividadComunidadV2[];
   socialDisponible: boolean;
+  socialError: string | null;
   publicaciones: PublicacionComunidadV2[];
   fotosPublicables: FotoPublicableComunidadV2[];
   retos: { id: string; nombre: string; descripcion: string | null; fechaInicio: string; fechaFin: string; regla: string | null; modalidad: string; puntos: number; participantes: number; miEstado: string | null }[];
@@ -70,24 +72,33 @@ function faltaMigracion(error: { code?: string; message?: string } | null) {
   return Boolean(error && (error.code === "42P01" || error.code === "PGRST205" || /comunidad_publicaciones/i.test(error.message ?? "")));
 }
 
-async function obtenerSocialComunidadV2(alumnoId: string): Promise<Pick<ComunidadDatosV2, "socialDisponible" | "publicaciones" | "fotosPublicables">> {
+async function obtenerSocialComunidadV2(alumnoId: string): Promise<Pick<ComunidadDatosV2, "socialDisponible" | "socialError" | "publicaciones" | "fotosPublicables">> {
   const db = createAdminClient();
   const [{ data: publicaciones, error }, { data: fotosPropias }] = await Promise.all([
     db.from("comunidad_publicaciones").select("id, alumno_id, foto_progreso_id, texto, created_at").eq("estado", "publicada").order("created_at", { ascending: false }).limit(30),
     db.from("fotos_progreso").select("id, alumno_id, storage_path, fecha_foto").eq("alumno_id", alumnoId).order("fecha_foto", { ascending: false }).limit(24),
   ]);
-  if (faltaMigracion(error)) return { socialDisponible: false, publicaciones: [], fotosPublicables: [] };
-  if (error) return { socialDisponible: true, publicaciones: [], fotosPublicables: [] };
+  if (faltaMigracion(error)) return { socialDisponible: false, socialError: null, publicaciones: [], fotosPublicables: [] };
+  if (error) return { socialDisponible: true, socialError: "No pudimos cargar la actividad social.", publicaciones: [], fotosPublicables: [] };
 
   const posts = publicaciones ?? [];
   const postIds = posts.map((post) => post.id);
   const alumnoIds = [...new Set([alumnoId, ...posts.map((post) => post.alumno_id)])];
   const fotoIds = [...new Set(posts.map((post) => post.foto_progreso_id).filter((id): id is string => Boolean(id)))];
-  const [{ data: reacciones }, { data: comentarios }, { data: fotosPublicadas }] = await Promise.all([
-    postIds.length ? db.from("comunidad_reacciones").select("publicacion_id, alumno_id").in("publicacion_id", postIds) : Promise.resolve({ data: [] }),
-    postIds.length ? db.from("comunidad_comentarios").select("id, publicacion_id, alumno_id, texto, created_at").in("publicacion_id", postIds).eq("estado", "publicado").order("created_at", { ascending: true }).limit(240) : Promise.resolve({ data: [] }),
-    fotoIds.length ? db.from("fotos_progreso").select("id, alumno_id, storage_path, fecha_foto").in("id", fotoIds) : Promise.resolve({ data: [] }),
+  const [resultadoReacciones, resultadoComentarios, resultadoFotos] = await Promise.all([
+    postIds.length ? db.from("comunidad_reacciones").select("publicacion_id, alumno_id").in("publicacion_id", postIds) : Promise.resolve({ data: [], error: null }),
+    postIds.length ? db.from("comunidad_comentarios").select("id, publicacion_id, alumno_id, texto, created_at").in("publicacion_id", postIds).eq("estado", "publicado").order("created_at", { ascending: false }).limit(240) : Promise.resolve({ data: [], error: null }),
+    fotoIds.length ? db.from("fotos_progreso").select("id, alumno_id, storage_path, fecha_foto").in("id", fotoIds) : Promise.resolve({ data: [], error: null }),
   ]);
+  const { data: reacciones, error: errorReacciones } = resultadoReacciones;
+  const { data: comentarios, error: errorComentarios } = resultadoComentarios;
+  const { data: fotosPublicadas, error: errorFotos } = resultadoFotos;
+  if (faltaMigracion(errorReacciones ?? errorComentarios ?? errorFotos ?? null)) {
+    return { socialDisponible: false, socialError: null, publicaciones: [], fotosPublicables: [] };
+  }
+  if (errorReacciones || errorComentarios || errorFotos) {
+    return { socialDisponible: true, socialError: "No pudimos reconstruir reacciones, comentarios o fotografías.", publicaciones: [], fotosPublicables: [] };
+  }
   for (const comentario of comentarios ?? []) alumnoIds.push(comentario.alumno_id);
   const idsUnicos = [...new Set(alumnoIds)];
   const { data: perfiles } = idsUnicos.length ? await db.from("perfiles").select("id, nombre").in("id", idsUnicos) : { data: [] };
@@ -103,10 +114,11 @@ async function obtenerSocialComunidadV2(alumnoId: string): Promise<Pick<Comunida
 
   return {
     socialDisponible: true,
+    socialError: null,
     fotosPublicables: (fotosPropias ?? []).map((foto) => ({ id: foto.id, fecha: foto.fecha_foto, url: urlPorFoto.get(foto.id) ?? null })),
     publicaciones: posts.map((post) => {
       const nombre = nombrePorId.get(post.alumno_id) ?? "Alumno VIP";
-      const comentariosPost = (comentarios ?? []).filter((comentario) => comentario.publicacion_id === post.id).slice(-6);
+      const comentariosPost = seleccionarComentariosRecientes(comentarios ?? [], post.id);
       return {
         id: post.id,
         nombre: post.alumno_id === alumnoId ? "Tú" : nombre,

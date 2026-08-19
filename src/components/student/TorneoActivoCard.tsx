@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Swords, Check, X, Clock } from "lucide-react";
 import { NOMBRE_METRICA, NOMBRE_MODALIDAD, type TorneoPublico } from "@/lib/torneos/types";
 import { descripcionRepartoPremio } from "@/lib/torneos/puntos";
-import { responderInvitacionTorneo } from "@/app/alumno/inicio/actions";
+import { responderRetoComunidadV2 } from "@/app/portal-v2/progreso/comunidad/actions";
 import { ApostarTorneo } from "./ApostarTorneo";
 import { nombreAlumnoPublicado } from "@/lib/nombre";
 
@@ -17,11 +19,13 @@ export function TorneoActivoCard({
   nombrePropio,
   miAlumnoId,
   miSaldo,
+  soloLectura = false,
 }: {
   torneos: TorneoPublico[];
   nombrePropio: string;
   miAlumnoId: string;
   miSaldo: number;
+  soloLectura?: boolean;
 }) {
   if (torneos.length === 0) return null;
 
@@ -34,6 +38,7 @@ export function TorneoActivoCard({
           nombrePropio={nombrePropio}
           miAlumnoId={miAlumnoId}
           miSaldo={miSaldo}
+          soloLectura={soloLectura}
         />
       ))}
     </div>
@@ -70,12 +75,17 @@ function TorneoCard({
   nombrePropio,
   miAlumnoId,
   miSaldo,
+  soloLectura,
 }: {
   torneo: TorneoPublico;
   nombrePropio: string;
   miAlumnoId: string;
   miSaldo: number;
+  soloLectura: boolean;
 }) {
+  const router = useRouter();
+  const [mensajeRespuesta, setMensajeRespuesta] = useState<string | null>(null);
+  const [procesandoRespuesta, iniciarRespuesta] = useTransition();
   const rivales = t.participantes
     .filter((p) => p.nombre !== nombrePropio)
     .map((p) => nombreAlumnoPublicado(p.nombre));
@@ -103,6 +113,19 @@ function TorneoCard({
         : indice + 1,
     };
   });
+  const responder = (decision: "aceptado" | "rechazado") => {
+    setMensajeRespuesta(null);
+    iniciarRespuesta(async () => {
+      try {
+        const resultado = await responderRetoComunidadV2({ torneoId: t.id, decision });
+        if (!resultado.ok) return setMensajeRespuesta(resultado.error);
+        setMensajeRespuesta(decision === "aceptado" ? "Reto aceptado. Ya estás compitiendo." : "Invitación rechazada.");
+        router.refresh();
+      } catch {
+        setMensajeRespuesta("La respuesta no llegó al servidor. La invitación conserva su estado anterior.");
+      }
+    });
+  };
 
   return (
     <div className="ranked-casino-card ranked-torneo-card radius-card px-4 py-3.5">
@@ -168,30 +191,32 @@ function TorneoCard({
         {faltaEmpezar ? `Empieza en ${faltaEmpezar}` : faltaTerminar ? `Quedan ${faltaTerminar}` : "En curso"}
       </p>
 
-      {t.miEstado === "pendiente" && faltaEmpezar && (
+      {t.miEstado === "pendiente" && faltaEmpezar && !soloLectura && (
         <div className="mt-3 flex gap-2">
-          <form action={responderInvitacionTorneo} className="flex-1">
-            <input type="hidden" name="torneo_id" value={t.id} />
-            <input type="hidden" name="decision" value="aceptado" />
-            <button
-              type="submit"
-              className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-vip text-caption font-bold text-black"
+          <button
+              type="button"
+              disabled={procesandoRespuesta}
+              onClick={() => responder("aceptado")}
+              className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-vip text-caption font-bold text-black"
             >
               <Check size={16} /> Aceptar
             </button>
-          </form>
-          <form action={responderInvitacionTorneo} className="flex-1">
-            <input type="hidden" name="torneo_id" value={t.id} />
-            <input type="hidden" name="decision" value="rechazado" />
-            <button
-              type="submit"
-              className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-border text-caption font-bold text-text-secondary"
+          <button
+              type="button"
+              disabled={procesandoRespuesta}
+              onClick={() => responder("rechazado")}
+              className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border text-caption font-bold text-text-secondary"
             >
               <X size={16} /> Rechazar
             </button>
-          </form>
         </div>
       )}
+
+      {t.miEstado === "pendiente" && faltaEmpezar && soloLectura ? (
+        <p className="text-caption mt-2 text-text-tertiary">Esta cuenta está en modo solo lectura; la invitación no se modificará.</p>
+      ) : null}
+
+      {mensajeRespuesta ? <button type="button" className="mt-2 w-full rounded-xl border border-vip/20 bg-vip/10 p-2 text-left text-caption text-text" onClick={() => setMensajeRespuesta(null)}>{mensajeRespuesta}</button> : null}
 
       {t.miEstado === "pendiente" && !faltaEmpezar && (
         <p className="text-caption mt-2 text-text-tertiary">La invitación venció al comenzar la competencia.</p>

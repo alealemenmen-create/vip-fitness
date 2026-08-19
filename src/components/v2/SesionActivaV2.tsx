@@ -30,6 +30,7 @@ import {
   Zap,
 } from "lucide-react";
 import { avisarFinDescansoV2, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
+import { claveDescansoSesion, destinoAlAvanzarSerieCompletada } from "@/lib/entrenamiento/descanso-navegacion";
 import {
   planificarBloqueEncadenado,
   planificarSegmentosTecnica,
@@ -297,6 +298,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [errorPersonalizacion, setErrorPersonalizacion] = useState<string | null>(null);
   const gestoInicioX = useRef<number | null>(null);
   const descansoAvisadoRef = useRef<string | null>(null);
+  const descansosResueltosRef = useRef<Set<string>>(new Set());
   const paginaSesionRef = useRef<HTMLDivElement | null>(null);
 
   const totalSeries = useMemo(() => EJERCICIOS.reduce((total, ejercicio) => total + ejercicio.repeticiones.length, 0), [EJERCICIOS]);
@@ -420,13 +422,14 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
 
   useEffect(() => {
     if (descanso === null) return;
-    const clave = `${descanso.ejercicioId}-${descanso.serieIndice}`;
+    const clave = claveDescansoSesion(descanso.ejercicioId, descanso.serieIndice);
     if (descanso.segundos > 0) {
       if (descansoAvisadoRef.current === clave) descansoAvisadoRef.current = null;
       return;
     }
     if (descansoAvisadoRef.current === clave) return;
     descansoAvisadoRef.current = clave;
+    if (descanso.tipo === "automatico") descansosResueltosRef.current.add(clave);
     avisarFinDescansoV2(sonidoDescansoActivo);
     if (!descansoEnFoco && vista !== "descanso") return;
     const transicion = window.setTimeout(() => {
@@ -638,6 +641,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     setEjercicioExpandidoId(ejercicio.id);
 
     if (estabaCompletada) {
+      descansosResueltosRef.current.delete(claveDescansoSesion(ejercicio.id, serieIndice));
       setPasosTecnica((actual) => ({ ...actual, [claveTecnica]: 0 }));
       setPausaTecnica((actual) => actual?.clave === claveTecnica ? null : actual);
       if (descanso?.ejercicioId === ejercicio.id && descanso.serieIndice === serieIndice) setDescansoEnFoco(false);
@@ -686,6 +690,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
 
     prepararAviso();
     descansoAvisadoRef.current = null;
+    descansosResueltosRef.current.delete(claveDescansoSesion(ejercicio.id, serieIndice));
     setDescanso({
       ejercicioId: ejercicio.id,
       serieIndice,
@@ -703,7 +708,9 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
 
   const saltarDescanso = () => {
     if (descanso !== null) {
-      descansoAvisadoRef.current = `${descanso.ejercicioId}-${descanso.serieIndice}`;
+      const clave = claveDescansoSesion(descanso.ejercicioId, descanso.serieIndice);
+      descansoAvisadoRef.current = clave;
+      if (descanso.tipo === "automatico") descansosResueltosRef.current.add(clave);
       if (descansoEnFoco && descanso.tipo === "automatico") {
         const ejercicioIndice = EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
         const siguiente = desplazarPosicionSerie(ORDEN_EJECUCION, ejercicioIndice, descanso.serieIndice, 1);
@@ -723,6 +730,9 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const volverDesdeDescanso = () => {
     const vistaRetorno = descanso?.vistaRetorno ?? "video";
     if (descanso !== null) {
+      if (descanso.tipo === "automatico") {
+        descansosResueltosRef.current.add(claveDescansoSesion(descanso.ejercicioId, descanso.serieIndice));
+      }
       const ejercicioIndice = EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
       const ejercicio = EJERCICIOS[ejercicioIndice];
       setEjercicioActivoId(ejercicio.id);
@@ -749,7 +759,13 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       setConfirmarSalida(true);
       return;
     }
-    if (!temporizadorAutomatico || !requiereDescansoDespues(EJERCICIOS, ORDEN_EJECUCION, ejercicioActivoIndice, serieActivaIndiceSeguro)) {
+    const claveDescanso = claveDescansoSesion(ejercicioActivo.id, serieActivaIndiceSeguro);
+    const destino = destinoAlAvanzarSerieCompletada({
+      temporizadorAutomatico,
+      requiereDescanso: requiereDescansoDespues(EJERCICIOS, ORDEN_EJECUCION, ejercicioActivoIndice, serieActivaIndiceSeguro),
+      descansoYaResuelto: descansosResueltosRef.current.has(claveDescanso),
+    });
+    if (destino === "siguiente") {
       const siguiente = desplazarPosicionSerie(ORDEN_EJECUCION, ejercicioActivoIndice, serieActivaIndiceSeguro, 1);
       const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
       setEjercicioActivoId(siguienteEjercicio.id);

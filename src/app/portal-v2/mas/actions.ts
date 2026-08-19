@@ -21,14 +21,33 @@ export type MasDatosV2 = {
   soloLectura: boolean;
 };
 
+export type CargaMasV2 =
+  | { estado: "demo" }
+  | { estado: "real"; datos: MasDatosV2 }
+  | { estado: "error"; mensaje: string };
+
+export async function cargarMasV2Action(): Promise<CargaMasV2> {
+  const contexto = await obtenerContextoAlumnoOpcional();
+  if (!contexto) return { estado: "demo" };
+  try {
+    const datos = await obtenerMasV2Action();
+    return datos
+      ? { estado: "real", datos }
+      : { estado: "error", mensaje: "No pudimos reconstruir la configuración de esta cuenta." };
+  } catch {
+    return { estado: "error", mensaje: "No pudimos conectar con tu configuración. Ningún ajuste fue modificado." };
+  }
+}
+
 export async function obtenerMasV2Action(): Promise<MasDatosV2 | null> {
   const contexto = await obtenerContextoAlumnoOpcional();
   if (!contexto) return null;
   const supabase = await createClient();
-  const [ranking, { data: perfil }] = await Promise.all([
+  const [ranking, { data: perfil, error: errorPerfil }] = await Promise.all([
     obtenerRanking("mes"),
     supabase.from("alumno_perfil").select("temporizador_descanso, segundos_descanso_preferido, plan_entrenamiento, sesiones_mensuales, dias_entrenamiento_semana, plan_entrenamiento_pausado").eq("user_id", contexto.alumnoId).maybeSingle(),
   ]);
+  if (errorPerfil) throw new Error("No fue posible leer la configuración del alumno.");
   const fila = ranking.find((item) => item.alumnoId === contexto.alumnoId);
   const puntos = fila?.puntosAcumulados ?? 0;
   const plan = resolverPlanEntrenamiento(perfil?.plan_entrenamiento, perfil?.sesiones_mensuales, perfil?.dias_entrenamiento_semana);

@@ -121,5 +121,10 @@ orquestación escasa de la sesión vive en
 redacta la instrucción y decide si el RIR puede inferirse o debe preguntarse.
 
 La demostración V2 usa dos momentos estratégicos y conserva su estado durante
-la sesión. Al conectarla a las asignaciones reales se reutilizarán las tablas de
-recomendaciones, intervenciones y memoria adaptativa del Impulso VIP original.
+la sesión. En una sesión autenticada, la misma interfaz consume recomendaciones,
+intervenciones y memoria adaptativa reales del Impulso VIP original; las
+respuestas y resultados se guardan con identificadores de sesión y serie.
+
+Queda por validar en preview la política RLS de las migraciones nuevas y reunir
+suficientes sesiones longitudinales por ejercicio sustituido antes de habilitar
+progresiones automáticas sobre ese sustituto.

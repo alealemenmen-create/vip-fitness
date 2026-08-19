@@ -102,7 +102,10 @@ del Método VIP, no como una garantía científica de superioridad.
 - Motor puro: `src/lib/entrenamiento/motor-tecnicas-sesion.ts`.
 - Pruebas: cadenas de 2–4 estaciones, drop set, rest-pause, myo-reps, cluster,
   fallo técnico y FST-7.
-- Sesión V2: la superserie demostrativa ya avanza por rondas y descansa solo al
-  cerrarlas.
-- Pendiente: interfaz visual de subpasos individuales, persistencia estructurada
-  y conexión de V2 con las asignaciones reales del alumno.
+- Sesión V2: los bloques encadenados reales se mantienen unidos al reordenar,
+  avanzan por rondas y descansan al cerrar cada ronda.
+- Las técnicas individuales generan subpasos visibles por serie cuando su
+  asignación las activa; series, técnica aplicada y trazabilidad se guardan en
+  las tablas originales.
+- Pendiente: piloto con rutinas reales de cada familia técnica, verificación RLS
+  en preview y ajustes de texto/tiempos según observación directa del entrenador.

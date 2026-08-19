@@ -14,7 +14,7 @@ const ETIQUETA_ESTADO: Record<CanjeVip["estado"], string> = {
   cancelado: "Cancelado · puntos devueltos",
 };
 
-export function CatalogoRecompensasVip({ saldo, catalogo, canjes }: { saldo: number; catalogo: RecompensaVip[]; canjes: CanjeVip[] }) {
+export function CatalogoRecompensasVip({ saldo, catalogo, canjes, soloLectura = false }: { saldo: number; catalogo: RecompensaVip[]; canjes: CanjeVip[]; soloLectura?: boolean }) {
   const router = useRouter();
   const [confirmando, setConfirmando] = useState<RecompensaVip | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -24,11 +24,15 @@ export function CatalogoRecompensasVip({ saldo, catalogo, canjes }: { saldo: num
     if (!confirmando) return;
     setMensaje(null);
     iniciar(async () => {
-      const resultado = await solicitarCanjeVip(confirmando.id);
-      if (!resultado.ok) return setMensaje(resultado.error);
-      setMensaje("Canje solicitado. El stock quedó reservado y tus puntos fueron descontados una sola vez.");
-      setConfirmando(null);
-      router.refresh();
+      try {
+        const resultado = await solicitarCanjeVip(confirmando.id);
+        if (!resultado.ok) return setMensaje(resultado.error);
+        setMensaje("Canje solicitado. El stock quedó reservado y tus puntos fueron descontados una sola vez.");
+        setConfirmando(null);
+        router.refresh();
+      } catch {
+        setMensaje("La solicitud no llegó al servidor. Tus puntos y el stock no cambiaron; revisa tu conexión.");
+      }
     });
   };
 
@@ -44,7 +48,7 @@ export function CatalogoRecompensasVip({ saldo, catalogo, canjes }: { saldo: num
         return <article key={item.id} className="ranked-casino-card radius-card flex min-h-32 flex-col p-4">
           <div className="flex items-start justify-between gap-3"><div><span className="text-[9px] font-bold uppercase tracking-[.14em] text-vip">{item.tipo}</span><h3 className="mt-1 text-sm font-bold text-text">{item.nombre}</h3></div><Gift size={20} className="shrink-0 text-vip" /></div>
           <p className="mt-2 flex-1 text-xs leading-relaxed text-text-secondary">{item.descripcion || "Recompensa exclusiva del Método VIP."}</p>
-          <div className="mt-3 flex items-center justify-between gap-2"><div><strong className="text-sm text-text">{item.costoPuntos.toLocaleString("es-CL")} XP</strong><small className="block text-[9px] text-text-tertiary">{item.stock === null ? "Disponibilidad continua" : `${item.stock} disponibles`}</small></div><button type="button" disabled={procesando || sinStock || sinSaldo} onClick={() => setConfirmando(item)} className="rounded-xl bg-vip px-3 py-2 text-xs font-bold text-black disabled:cursor-not-allowed disabled:opacity-35">{sinStock ? "Agotado" : sinSaldo ? <span className="flex items-center gap-1"><LockKeyhole size={12} /> Faltan puntos</span> : "Canjear"}</button></div>
+          <div className="mt-3 flex items-center justify-between gap-2"><div><strong className="text-sm text-text">{item.costoPuntos.toLocaleString("es-CL")} XP</strong><small className="block text-[9px] text-text-tertiary">{item.stock === null ? "Disponibilidad continua" : `${item.stock} disponibles`}</small></div><button type="button" disabled={procesando || sinStock || sinSaldo || soloLectura} onClick={() => setConfirmando(item)} className="rounded-xl bg-vip px-3 py-2 text-xs font-bold text-black disabled:cursor-not-allowed disabled:opacity-35">{soloLectura ? <span className="flex items-center gap-1"><LockKeyhole size={12} /> Solo lectura</span> : sinStock ? "Agotado" : sinSaldo ? <span className="flex items-center gap-1"><LockKeyhole size={12} /> Faltan puntos</span> : "Canjear"}</button></div>
         </article>;
       })}</div> : <div className="ranked-casino-card radius-card p-4 text-xs text-text-secondary">El catálogo está entre temporadas. Tus puntos se conservan íntegros.</div>}
       {mensaje ? <p role="status" className="rounded-xl border border-vip/25 bg-vip/10 p-3 text-xs text-text">{mensaje}</p> : null}

@@ -44,11 +44,13 @@ function fotoDe(ejercicio: EjercicioResumenV2) {
 export function BibliotecaEjerciciosV2({
   ejercicios,
   puedeVerVideos,
+  busquedaInicial,
 }: {
   ejercicios: EjercicioResumenV2[];
   puedeVerVideos: boolean;
+  busquedaInicial: string;
 }) {
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useState(busquedaInicial.slice(0, 80));
   const [grupo, setGrupo] = useState<string>("todos");
   const [seleccionado, setSeleccionado] = useState<Ejercicio | null>(null);
   const [seleccionando, setSeleccionando] = useState<string | null>(null);

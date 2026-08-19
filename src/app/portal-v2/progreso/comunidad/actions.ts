@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAlumno } from "@/lib/auth";
+import { hoyISO } from "@/lib/date";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -92,5 +93,44 @@ export async function reportarPublicacionComunidadV2(publicacionId: string, moti
   if (motivo.length < 3 || !(await publicacionVisible(publicacionId))) return { ok: false, error: "El reporte no es válido." };
   const { error } = await createAdminClient().from("comunidad_reportes").upsert({ publicacion_id: publicacionId, reportado_por: alumnoId, motivo, estado: "pendiente" }, { onConflict: "publicacion_id,reportado_por" });
   if (error) return { ok: false, error: "No pudimos enviar el reporte." };
+  return { ok: true, error: null };
+}
+
+export async function responderRetoComunidadV2(input: {
+  torneoId: string;
+  decision: "aceptado" | "rechazado";
+}) {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return { ok: false, error: "No puedes responder retos en modo solo lectura." };
+  if (!UUID.test(input.torneoId) || !["aceptado", "rechazado"].includes(input.decision)) {
+    return { ok: false, error: "La invitación no es válida." };
+  }
+
+  const db = createAdminClient();
+  const { data: torneo, error: errorTorneo } = await db
+    .from("torneos")
+    .select("cerrado, fecha_inicio")
+    .eq("id", input.torneoId)
+    .maybeSingle();
+  if (errorTorneo) return { ok: false, error: "No pudimos comprobar el reto." };
+  if (!torneo || torneo.cerrado || hoyISO() >= torneo.fecha_inicio) {
+    return { ok: false, error: "Este reto ya comenzó o dejó de aceptar respuestas." };
+  }
+
+  const { data: participante, error } = await db
+    .from("torneo_participantes")
+    .update({ estado: input.decision })
+    .eq("torneo_id", input.torneoId)
+    .eq("alumno_id", alumnoId)
+    .eq("estado", "pendiente")
+    .select("torneo_id")
+    .maybeSingle();
+  if (error) return { ok: false, error: "No pudimos guardar tu respuesta." };
+  if (!participante) return { ok: false, error: "La invitación ya había sido respondida." };
+
+  revalidatePath(RUTA);
+  revalidatePath("/portal-v2/progreso/ranking");
+  revalidatePath("/alumno/inicio");
+  revalidatePath("/alumno/ranked");
   return { ok: true, error: null };
 }

@@ -86,12 +86,12 @@ export default async function RankingV2Page() {
       <GuiaPuntos />
 
       {recompensas.disponible ? (
-        <CatalogoRecompensasVip saldo={recompensas.saldo} catalogo={recompensas.catalogo} canjes={recompensas.canjes} />
+        <CatalogoRecompensasVip saldo={recompensas.saldo} catalogo={recompensas.catalogo} canjes={recompensas.canjes} soloLectura={contexto?.soloLectura ?? true} />
       ) : (
         <Card className="ranked-casino-card" padding="p-4">
           <p className="ranked-casino-kicker"><Crown size={12} /> Recompensas VIP</p>
           <h2 className="mt-1 text-sm font-bold text-text">Tu saldo: {saldo.toLocaleString("es-CL")} XP</h2>
-          <p className="mt-2 text-xs leading-relaxed text-text-secondary">El catálogo aparece aquí cuando el administrador publica premios con costo, vigencia y stock reales. No mostramos recompensas inventadas ni permitimos canjes de demostración.</p>
+          <p className="mt-2 text-xs leading-relaxed text-text-secondary">{recompensas.error ?? "El catálogo aparece aquí cuando el administrador publica premios con costo, vigencia y stock reales. No mostramos recompensas inventadas ni permitimos canjes de demostración."}</p>
         </Card>
       )}
 
@@ -101,7 +101,7 @@ export default async function RankingV2Page() {
           <div><p className="ranked-casino-kicker"><Trophy size={12} /> Desafíos verificados</p><h2 className="text-body font-bold text-text">Arena VIP</h2></div>
         </div>
         {torneos.length ? (
-          <TorneoActivoCard torneos={torneos} nombrePropio={nombre} miAlumnoId={alumnoId} miSaldo={saldo} />
+          <TorneoActivoCard torneos={torneos} nombrePropio={nombre} miAlumnoId={alumnoId} miSaldo={saldo} soloLectura={contexto?.soloLectura ?? true} />
         ) : (
           <Card className="ranked-casino-card flex items-center gap-3" padding="p-4"><Swords size={24} className="text-vip" /><div><strong className="text-sm text-text">La arena está entre rondas</strong><p className="mt-1 text-[10px] text-text-secondary">El siguiente duelo, circuito o reto del entrenador aparecerá aquí con reglas públicas y medición verificable.</p></div></Card>
         )}

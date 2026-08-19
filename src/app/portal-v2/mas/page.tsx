@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   Bell,
+  AlertCircle,
   ChevronRight,
   CreditCard,
   Dumbbell,
@@ -13,6 +14,7 @@ import {
   LayoutDashboard,
   LogOut,
   PanelsTopLeft,
+  RotateCcw,
   ShieldCheck,
   Trophy,
   UserRound,
@@ -22,13 +24,15 @@ import {
 import { logout } from "@/app/actions";
 import styles from "@/components/v2/PortalV2.module.css";
 import { asegurarSuscripcionPush, desactivarSuscripcionPush, suscripcionPushActiva } from "@/lib/entrenamiento/push";
-import { obtenerMasV2Action, type MasDatosV2 } from "./actions";
+import { cargarMasV2Action, type MasDatosV2 } from "./actions";
 
 type Panel = "perfil" | "notificaciones" | "plan" | "soporte" | "terminos" | "social" | null;
 
 export default function MasV2Page() {
   const [panel, setPanel] = useState<Panel>(null);
   const [datos, setDatos] = useState<MasDatosV2 | null>(null);
+  const [estadoCarga, setEstadoCarga] = useState<"cargando" | "demo" | "real" | "error">("cargando");
+  const [errorCarga, setErrorCarga] = useState("");
   const [permisoNotificaciones, setPermisoNotificaciones] = useState<NotificationPermission | "no-disponible">(
     () => typeof Notification === "undefined" ? "no-disponible" : Notification.permission,
   );
@@ -36,23 +40,46 @@ export default function MasV2Page() {
   const [procesandoNotificaciones, setProcesandoNotificaciones] = useState(false);
   const [mensajeNotificaciones, setMensajeNotificaciones] = useState<string | null>(null);
 
+  const cargar = async () => {
+    setEstadoCarga("cargando");
+    setErrorCarga("");
+    const respuesta = await cargarMasV2Action();
+    if (respuesta.estado === "real") {
+      setDatos(respuesta.datos);
+      setEstadoCarga("real");
+      return;
+    }
+    setDatos(null);
+    if (respuesta.estado === "demo") {
+      setEstadoCarga("demo");
+      return;
+    }
+    setErrorCarga(respuesta.mensaje);
+    setEstadoCarga("error");
+  };
+
   useEffect(() => {
-    obtenerMasV2Action().then(setDatos).catch(() => setDatos(null));
+    const inicio = window.setTimeout(() => void cargar(), 0);
     suscripcionPushActiva().then(setPushActiva).catch(() => setPushActiva(false));
+    return () => window.clearTimeout(inicio);
   }, []);
 
   const cambiarNotificaciones = async () => {
     setMensajeNotificaciones(null);
+    if (!datos) {
+      setMensajeNotificaciones("La vista directa no modifica dispositivos. Con una cuenta del piloto podrás activar aquí los avisos reales.");
+      return;
+    }
+    if (datos?.soloLectura) {
+      setMensajeNotificaciones("Esta cuenta está en modo solo lectura. No modificaremos las notificaciones del dispositivo.");
+      return;
+    }
     setProcesandoNotificaciones(true);
     try {
       if (pushActiva) {
         await desactivarSuscripcionPush();
         setPushActiva(false);
         setMensajeNotificaciones("Avisos desactivados en este dispositivo.");
-        return;
-      }
-      if (!datos) {
-        setMensajeNotificaciones("La vista directa no registra dispositivos. Con una cuenta del piloto podrás activar aquí los avisos reales.");
         return;
       }
       if (typeof Notification === "undefined") {
@@ -73,6 +100,30 @@ export default function MasV2Page() {
       setProcesandoNotificaciones(false);
     }
   };
+
+  if (estadoCarga === "cargando") {
+    return (
+      <section className={styles.progressLoading} aria-busy="true" aria-label="Cargando configuración">
+        <header><i /><div><span /><b /></div></header>
+        <div className={styles.progressLoadingHero}><i /><span /><span /></div>
+        <div className={styles.progressLoadingGrid}>{Array.from({ length: 4 }, (_, indice) => <i key={indice} />)}</div>
+        <p>Cargando tu cuenta y preferencias…</p>
+      </section>
+    );
+  }
+
+  if (estadoCarga === "error") {
+    return (
+      <section className={styles.v2Error} role="alert">
+        <span><AlertCircle size={25} /></span>
+        <small>CONFIGURACIÓN PROTEGIDA</small>
+        <h1>No mostraremos una cuenta ficticia</h1>
+        <p>{errorCarga} Puedes reintentar sin cambiar tus preferencias.</p>
+        <button type="button" onClick={() => void cargar()}><RotateCcw size={16} /> Reintentar</button>
+        <Link href="/portal-v2/entrenamiento">Volver a entrenamiento</Link>
+      </section>
+    );
+  }
 
   return (
     <section className={styles.morePage}>

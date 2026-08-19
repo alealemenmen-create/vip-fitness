@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { ArrowLeft, Camera, ChevronRight, Dumbbell, Gauge, Images, ListChecks, Medal, Plus, Trash2, Trophy, Upload, Utensils, X, Zap } from "lucide-react";
+import { AlertCircle, ArrowLeft, Camera, ChevronRight, Dumbbell, Gauge, Images, ListChecks, Medal, Plus, RotateCcw, Trash2, Trophy, Upload, Utensils, X, Zap } from "lucide-react";
 import { agregarPeso, eliminarFotoProgreso, subirFotoProgreso } from "@/app/alumno/progreso/actions";
-import { obtenerProgresoV2Action, type ProgresoDatosV2 } from "@/app/portal-v2/progreso/actions";
+import { cargarProgresoV2Action, obtenerProgresoV2Action, type ProgresoDatosV2 } from "@/app/portal-v2/progreso/actions";
 import styles from "@/components/v2/PortalV2.module.css";
 
 const DEMO_ESTADISTICAS = [
@@ -36,7 +36,9 @@ function esFotoDeQuincenaActual(fecha: string, hoy: string) {
 
 export default function ProgresoV2Page() {
   const [datos, setDatos] = useState<ProgresoDatosV2 | null | undefined>(undefined);
-  const [peso, setPeso] = useState("88.0");
+  const [estadoCarga, setEstadoCarga] = useState<"cargando" | "demo" | "real" | "error">("cargando");
+  const [errorCarga, setErrorCarga] = useState("");
+  const [peso, setPeso] = useState("");
   const [pesoBorrador, setPesoBorrador] = useState(peso);
   const [modalPeso, setModalPeso] = useState(false);
   const [detallePrograma, setDetallePrograma] = useState(false);
@@ -45,16 +47,30 @@ export default function ProgresoV2Page() {
   const [guardando, iniciarGuardado] = useTransition();
   const [guardandoFoto, iniciarGuardadoFoto] = useTransition();
 
+  const cargar = async () => {
+    setEstadoCarga("cargando");
+    setErrorCarga("");
+    const respuesta = await cargarProgresoV2Action();
+    if (respuesta.estado === "real") {
+      setDatos(respuesta.datos);
+      setPeso(respuesta.datos.peso == null ? "" : respuesta.datos.peso.toFixed(1));
+      setEstadoCarga("real");
+      return;
+    }
+    setDatos(null);
+    if (respuesta.estado === "demo") {
+      setPeso("88.0");
+      setEstadoCarga("demo");
+      return;
+    }
+    setPeso("");
+    setErrorCarga(respuesta.mensaje);
+    setEstadoCarga("error");
+  };
+
   useEffect(() => {
-    let activo = true;
-    obtenerProgresoV2Action()
-      .then((respuesta) => {
-        if (!activo) return;
-        setDatos(respuesta);
-        if (respuesta) setPeso(respuesta.peso == null ? "" : respuesta.peso.toFixed(1));
-      })
-      .catch(() => { if (activo) setDatos(null); });
-    return () => { activo = false; };
+    const inicio = window.setTimeout(() => void cargar(), 0);
+    return () => window.clearTimeout(inicio);
   }, []);
 
   useEffect(() => {
@@ -123,6 +139,30 @@ export default function ProgresoV2Page() {
   const porcentajePrograma = datos?.programa
     ? Math.min(100, Math.round((datos.programa.sesionesRealizadas / Math.max(1, datos.programa.sesionesEsperadas)) * 100))
     : datos ? 0 : 29;
+
+  if (estadoCarga === "cargando") {
+    return (
+      <section className={styles.progressLoading} aria-busy="true" aria-label="Cargando progreso">
+        <header><i /><div><span /><b /></div></header>
+        <div className={styles.progressLoadingHero}><i /><span /><span /></div>
+        <div className={styles.progressLoadingGrid}>{Array.from({ length: 6 }, (_, indice) => <i key={indice} />)}</div>
+        <p>Reconstruyendo tu progreso verificado…</p>
+      </section>
+    );
+  }
+
+  if (estadoCarga === "error") {
+    return (
+      <section className={styles.v2Error} role="alert">
+        <span><AlertCircle size={25} /></span>
+        <small>PROGRESO PROTEGIDO</small>
+        <h1>No mostraremos datos inventados</h1>
+        <p>{errorCarga} Puedes reintentar sin perder ningún registro.</p>
+        <button type="button" onClick={() => void cargar()}><RotateCcw size={16} /> Reintentar</button>
+        <Link href="/portal-v2/entrenamiento">Volver a entrenamiento</Link>
+      </section>
+    );
+  }
 
   return (
     <section className={styles.progressPage} aria-busy={datos === undefined}>

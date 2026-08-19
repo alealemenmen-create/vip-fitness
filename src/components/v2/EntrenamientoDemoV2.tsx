@@ -44,9 +44,9 @@ const DIAS: DiaDemo[] = [
 ];
 
 const ADICIONALES = [
-  { nombre: "Calentamiento dinámico", nivel: "Principiante", detalle: "10 min · 5 series" },
-  { nombre: "Recuperación post-entreno", nivel: "Principiante", detalle: "5 min · 1 serie" },
-  { nombre: "Movilidad preventiva de hombros", nivel: "Principiante", detalle: "10 min · 3 series" },
+  { nombre: "Calentamiento dinámico", nivel: "Preparación", detalle: "Explora ejercicios guiados", buscar: "peso corporal" },
+  { nombre: "Recuperación post-entreno", nivel: "Recuperación", detalle: "Técnica de baja carga", buscar: "banda" },
+  { nombre: "Movilidad preventiva de hombros", nivel: "Movilidad", detalle: "Ejercicios para hombros", buscar: "hombros" },
 ];
 
 export function EntrenamientoDemoV2() {
@@ -205,7 +205,7 @@ export function EntrenamientoDemoV2() {
       </section>
 
       <div className={styles.sectionHeader}>
-        <div><h2>Entrenamientos adicionales</h2><p>Explora por categoría</p></div>
+        <div><h2>Preparación adicional</h2><p>Explora técnica por categoría</p></div>
         <Link href="/portal-v2/entrenamiento/biblioteca">Ver biblioteca <ChevronRight size={14} /></Link>
       </div>
       <div className={styles.chipRow} aria-label="Categorías">
@@ -213,7 +213,7 @@ export function EntrenamientoDemoV2() {
       </div>
       <section className={styles.additionalList} aria-label="Entrenamientos recomendados">
         {ADICIONALES.map((entrenamiento) => (
-          <Link href="/portal-v2/entrenamiento/rutina" className={styles.additionalCard} key={entrenamiento.nombre}>
+          <Link href={`/portal-v2/entrenamiento/biblioteca?buscar=${encodeURIComponent(entrenamiento.buscar)}`} className={styles.additionalCard} key={entrenamiento.nombre}>
             <strong>{entrenamiento.nombre}</strong>
             <span className={styles.additionalMeta}><b>{entrenamiento.nivel}</b><span>·</span>{entrenamiento.detalle}</span>
           </Link>
@@ -239,7 +239,7 @@ export function EntrenamientoDemoV2() {
               <span className={styles.menuCloseBadge}><X size={13} strokeWidth={2.6} /></span>
             </button>
             <div className={styles.menuActions}>
-              <Link href="/portal-v2/entrenamiento/rutina" className={styles.menuItem}><span>Programa y ejercicios</span><i><Archive size={21} /></i></Link>
+          <Link href="/portal-v2/entrenamiento/programas" className={styles.menuItem}><span>Programas y recorrido</span><i><Archive size={21} /></i></Link>
               <Link href="/portal-v2/entrenamiento/biblioteca" className={styles.menuItem}><span>Biblioteca de ejercicios</span><i><LibraryBig size={21} /></i></Link>
               <Link href="/portal-v2/progreso" className={styles.menuItem}><span>Registro y rendimiento</span><i><History size={21} /></i></Link>
               <a href="#semana-entrenamiento" className={styles.menuItem} onClick={() => setMenuAbierto(false)}><span>Calendario</span><i><CalendarDays size={21} /></i></a>

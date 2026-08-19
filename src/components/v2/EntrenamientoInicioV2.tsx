@@ -199,6 +199,10 @@ export function EntrenamientoInicioV2({
           <Dumbbell size={20} />
           <span><strong>Biblioteca de ejercicios</strong><span>Técnica, videos y consejos</span></span>
         </Link>
+        <Link href="/portal-v2/entrenamiento/programas" className={styles.utilityCard}>
+          <CalendarDays size={20} />
+          <span><strong>Mis programas</strong><span>Programa actual y recorrido</span></span>
+        </Link>
         <Link href="/portal-v2/entrenamiento/historial" className={styles.utilityCard}>
           <History size={20} />
           <span><strong>Registro de entrenamientos</strong><span>Revisa tus sesiones anteriores</span></span>
@@ -236,7 +240,7 @@ export function EntrenamientoInicioV2({
             <button type="button" className={styles.menuItem} onClick={() => setMenuAbierto(false)}>
               <span>Cerrar opciones</span><X size={16} />
             </button>
-            <Link href="/portal-v2/entrenamiento/historial" className={styles.menuItem}><span>Todos mis programas</span><Dumbbell size={16} /></Link>
+            <Link href="/portal-v2/entrenamiento/programas" className={styles.menuItem}><span>Todos mis programas</span><Dumbbell size={16} /></Link>
             <Link href="/portal-v2/entrenamiento/biblioteca" className={styles.menuItem}><span>Biblioteca de ejercicios</span><LibraryBig size={16} /></Link>
             <Link href="/portal-v2/entrenamiento/historial" className={styles.menuItem}><span>Registro de entrenamientos</span><History size={16} /></Link>
             <a href="#semana" className={styles.menuItem} onClick={() => setMenuAbierto(false)}><span>Calendario</span><CalendarDays size={16} /></a>

@@ -2,7 +2,8 @@
 
 Actualizado: 2026-08-18
 
-Estado: motor local de sesión implementado; integración con datos reales pendiente
+Estado: sesión V2 integrada con datos, guardado e historial reales; pendiente
+de piloto táctil en dispositivos y despliegue de las migraciones V2 en preview
 
 Alcance: portada de entrenamiento, vista previa, sesión activa, descansos, video,
 acciones auxiliares, cierre y resumen
@@ -535,6 +536,9 @@ contraste. No se considerará terminado sólo porque contenga los mismos element
 - campos de repeticiones y peso bloqueados según la serie activa;
 - checks, progreso y navegación real serie por serie;
 - descanso en línea e inmersivo con ajustes, salto, sonido y vibración;
+- cada descanso automático se consume una sola vez: al volver a una serie ya
+  completada y avanzar de nuevo, continúa a la siguiente serie sin repetirlo;
+  desmarcar la serie reinicia deliberadamente ese estado;
 - vistas de lista y video compartiendo la misma posición;
 - ajustes funcionales de temporizador, sonido y unidad de peso;
 - reloj inferior como temporizador manual independiente de la rutina;
@@ -545,20 +549,16 @@ contraste. No se considerará terminado sólo porque contenga los mismos element
 
 ### Falta o está incompleto
 
-1. La sesión usa datos demostrativos fijos y no el motor real compartido.
-2. Las imágenes demostrativas todavía no están vinculadas a los videos privados
-   reales de cada ejercicio.
-3. Sustitución y reordenamiento abren sus paneles, pero todavía no modifican el
-   entrenamiento.
-4. Historial usa datos demostrativos y no consultas reales del alumno.
-5. El cierre muestra un resumen local, pero no registra todavía la sesión en la
-   base de datos ni comparte contenido.
-6. Los valores sobreviven a cambios de ejercicio y vista, pero no a una recarga o
-   cierre forzado de la aplicación.
-7. Impulso VIP ya adapta la siguiente serie dentro de la sesión, pero aún debe
-   conectarse con el motor histórico y la persistencia del portal original.
-8. Falta la validación final del teclado y viewport en distintos teléfonos.
-9. No existe ActivityKit para la pantalla bloqueada de iPhone.
+1. Falta la validación táctil final de teclado, viewport, sonido, vibración,
+   segundo plano y red intermitente en iPhone y Android físicos.
+2. Las personalizaciones de sesión requieren instalar `0104` en un Supabase de
+   preview y probar RLS con dos cuentas; si falta, la interfaz las oculta.
+3. El resumen se puede compartir mediante las capacidades del navegador, pero
+   no publica automáticamente en Comunidad sin consentimiento explícito.
+4. No existe ActivityKit para la pantalla bloqueada de iPhone; Web Push y la
+   notificación local siguen siendo la cobertura web/PWA.
+5. La escritura final y las recuperaciones de error necesitan prueba destructiva
+   con una cuenta autorizada de ensayo, nunca con alumnos activos.
 
 ## 15. Orden de implementación acordado por dependencia
 
@@ -745,10 +745,10 @@ La versión local no exige RIR, terminología técnica ni una encuesta obligator
 - Si el ejercicio ya no tiene series pendientes, la decisión se conserva como
   base para la próxima sesión.
 
-Esta primera integración es deliberadamente local porque la sesión v2 todavía
-usa ejercicios de demostración. Al conectar los identificadores reales, la misma
-interacción deberá guardar la respuesta en el motor histórico de Impulso VIP del
-portal original.
+La vista directa sin sesión conserva ejercicios demostrativos. Con una sesión
+autenticada, la V2 carga identificadores reales, recomendaciones e intervenciones
+persistidas del motor histórico de Impulso VIP; el guardado de series, notas y
+cierre reutiliza las acciones y tablas del portal original.
 
 La decisión en vivo se rige por `docs/ALEJANDRO_IMPULSO_VIP.md`: seguridad antes
 que progresión, repeticiones antes que carga y saltos limitados por equipo y por

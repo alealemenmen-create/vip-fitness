@@ -44,6 +44,27 @@ export type ProgresoDatosV2 = {
   };
 };
 
+export type CargaProgresoV2 =
+  | { estado: "demo" }
+  | { estado: "real"; datos: ProgresoDatosV2 }
+  | { estado: "error"; mensaje: string };
+
+/** Distingue una visita anónima intencional de un fallo con cuenta real.
+ * Nunca permite que un error de datos termine mostrando métricas demo como si
+ * pertenecieran al alumno autenticado. */
+export async function cargarProgresoV2Action(): Promise<CargaProgresoV2> {
+  const contexto = await obtenerContextoAlumnoOpcional();
+  if (!contexto) return { estado: "demo" };
+  try {
+    const datos = await obtenerProgresoV2Action();
+    return datos
+      ? { estado: "real", datos }
+      : { estado: "error", mensaje: "No pudimos reconstruir tu seguimiento con los datos actuales." };
+  } catch {
+    return { estado: "error", mensaje: "No pudimos conectar con tu seguimiento. Tus registros anteriores siguen protegidos." };
+  }
+}
+
 export async function obtenerProgresoV2Action(): Promise<ProgresoDatosV2 | null> {
   const contexto = await obtenerContextoAlumnoOpcional();
   if (!contexto) return null;

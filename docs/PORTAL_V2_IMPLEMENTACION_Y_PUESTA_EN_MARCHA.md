@@ -30,6 +30,11 @@ recibir aprobación expresa.
 - `/portal-v2/entrenamiento/historial`: programas entrenados, sesiones reales,
   duración, cumplimiento, ejercicios completados y reapertura de cada registro,
   sin abandonar la navegación V2.
+- `/portal-v2/entrenamiento/programas`: programa activo y versiones
+  anteriores, incluidos programas sin sesiones y archivados; resume días,
+  ejercicios, series y actividad sin permitir que el alumno altere la
+  prescripción. El activo vuelve al entrenamiento y los anteriores abren su
+  historial filtrado.
 - `/portal-v2/entrenamiento/biblioteca`: catálogo real del gimnasio con 130
   fichas activas en el entorno actual, búsqueda tolerante a tildes y alias,
   filtros musculares, equipo, nivel, técnica, consejos, errores frecuentes,
@@ -86,8 +91,16 @@ recibir aprobación expresa.
   aprobación, entrega y reintegro automático al rechazar.
 - El canje se ejecuta en PostgreSQL como una sola transacción: valida saldo,
   reserva stock y registra el descuento sin permitir dobles envíos simultáneos.
+- Arena y Tienda bloquean preventivamente respuestas y canjes en modo solo
+  lectura. Cada operación confirma el resultado del servidor; una pérdida de
+  red conserva invitación, saldo, stock y formulario administrativo anteriores,
+  y un error de lectura no se presenta falsamente como catálogo vacío.
 - Publicaciones voluntarias, selección explícita de una foto privada, aplausos,
   comentarios, eliminación propia, reportes y límites diarios contra spam.
+- La carga social distingue una migración aún no instalada de un error real y
+  nunca fabrica aplausos o comentarios. En modo solo lectura no se puede
+  responder retos; una cuenta editable recibe confirmación de servidor, y cada
+  publicación muestra los seis comentarios más recientes en orden de lectura.
 - Las fotos corporales permanecen privadas salvo la foto concreta elegida por
   su dueño al publicar. Los reportes se resuelven en `/admin/reportes`.
 
@@ -95,6 +108,10 @@ recibir aprobación expresa.
 
 - `/portal-v2/mas`: perfil, rango, puntos, notificaciones, plan, privacidad,
   soporte, redes y retorno a la Vista clásica.
+- La vista directa y las cuentas de solo lectura no pueden registrar ni retirar
+  suscripciones push. El temporizador y el descanso preferido sólo quedan
+  reflejados tras confirmación del servidor; ante error o corte de red, la
+  interfaz revierte al valor anterior y conserva la preferencia existente.
 - `/portal-v2/privacidad`: documento completo reutilizado del portal original,
   con retorno a la V2; el cierre de sesión real sólo aparece cuando existe una
   identidad autenticada.
@@ -265,7 +282,13 @@ Funciones SQL de seguridad:
 - Datos simulados cuando existe un usuario real autenticado.
 - Puntos creados desde el navegador o recompensas por simples clics.
 - Cualquier sustitución/reordenamiento que altere la rutina maestra o rompa un
-  bloque técnico.
+bloque técnico.
+
+La V2 incluye estados globales de carga, error recuperable y conexión. Al
+perder red avisa sin expulsar al alumno del flujo; al recuperarla confirma el
+estado. No afirma que una escritura se guardó sin haber recibido confirmación
+del servidor. Inter se sirve desde el propio portal para conservar la geometría
+visual y permitir compilaciones sin depender de Google Fonts.
 
 ## Comprobación antes de publicar
 
@@ -275,8 +298,12 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `51` archivos de pruebas y `489` pruebas aprobadas; ESLint sin advertencias,
-  TypeScript sin errores y compilación de producción completa (`66` rutas).
+- `53` archivos de pruebas y `496` pruebas aprobadas; ESLint sin advertencias,
+  TypeScript sin errores y compilación de producción completa (`67` rutas).
+- Las 15 rutas de la V2 respondieron `200` en el servidor de producción local,
+  incluida la búsqueda prefiltrada de la biblioteca y la nueva pantalla de
+  programas. La primera carga de biblioteca puede esperar el catálogo remoto;
+  las siguientes quedan atendidas por la caché del servidor.
 - Las migraciones `0104` a `0107` se ejecutaron juntas en PostgreSQL efímero.
   Se comprobó la transacción de canje (saldo y stock) y el reintegro idempotente
   al rechazar. Esta comprobación valida sintaxis y reglas transaccionales; no
