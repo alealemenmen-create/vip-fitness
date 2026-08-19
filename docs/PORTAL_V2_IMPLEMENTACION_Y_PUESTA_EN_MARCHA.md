@@ -323,10 +323,13 @@ Validaciones locales completadas el 19-08-2026:
   `authenticated`. El plan gratuito no ofrece respaldos programados y el panel
   mostraba el proyecto como `Unhealthy`; ambos puntos deben corregirse antes de
   cualquier cambio estructural posterior.
-- Las claves Supabase conservadas en `.env.local` devolvieron `401` el mismo día
-  y deben reemplazarse por las claves vigentes antes de probar datos reales
-  desde localhost. No se copiaron secretos desde el panel sin autorización
-  específica.
+- Con autorización expresa del propietario, el 19-08-2026 se contrastaron las
+  claves locales con las vigentes y se validaron mediante el cliente oficial de
+  Supabase. Tanto el cliente público como el cliente exclusivo de servidor
+  respondieron `200` contra las tablas V2; no fue necesario copiar ni rotar
+  secretos. El `401` observado previamente procedía de una prueba HTTP
+  incorrecta que trataba una clave nueva como token `Bearer`, no de credenciales
+  vencidas.
 
 1. Crear un respaldo lógico verificable antes del próximo cambio de esquema; el
    plan gratuito actual no incluye respaldos automáticos.
@@ -350,11 +353,10 @@ Validaciones locales completadas el 19-08-2026:
 
 ## Trabajo que no debe presentarse como terminado todavía
 
-- Actualizar las claves locales y probar con cuentas autorizadas de alumno,
-  entrenador y administrador. La instalación, RLS declarativo y funciones ya
-  están verificadas; quedan Auth, Storage, escrituras reales y los intentos de
-  acceso cruzado. Estas pruebas deben usar cuentas de ensayo, nunca alumnos
-  activos.
+- Probar Auth, Storage, escrituras reales e intentos de acceso cruzado con
+  cuentas autorizadas de ensayo de alumno, entrenador y administrador. Las
+  claves, la instalación, RLS declarativo y las funciones ya están verificadas;
+  estas pruebas nunca deben utilizar alumnos activos.
 - Definir el catálogo comercial real, disponibilidad, responsables de entrega
   y condiciones de cada premio. El sistema de catálogo, stock, canje y
   reintegro está construido; no debe inventar premios que VIP Fitness no haya
