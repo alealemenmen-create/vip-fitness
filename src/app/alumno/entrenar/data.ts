@@ -278,6 +278,27 @@ export async function obtenerDiaVistaPrevia(
   };
   const filasEjercicios = (ejercicios ?? []) as unknown as FilaEjercicioPrevia[];
 
+  // Rutinas antiguas pueden conservar `ejercicio_id = null` porque fueron
+  // publicadas antes de que existiera la biblioteca, o antes de que se
+  // registrara el alias usado por el entrenador. La sesión activa ya
+  // reintenta ese emparejamiento con la biblioteca actual; la vista previa
+  // debe resolverlo igual para no enseñar una tarjeta genérica y luego una
+  // foto distinta al comenzar. La biblioteca está cacheada y sólo se consulta
+  // cuando realmente falta multimedia.
+  const bibliotecaActual = filasEjercicios.some((fila) => {
+    const cruda = fila.ejercicios as unknown as {
+      ilustracion_slug: string | null;
+      foto_miniatura_url: string | null;
+      foto_completa_url: string | null;
+    } | {
+      ilustracion_slug: string | null;
+      foto_miniatura_url: string | null;
+      foto_completa_url: string | null;
+    }[] | null;
+    const ficha = Array.isArray(cruda) ? cruda[0] ?? null : cruda;
+    return !ficha?.ilustracion_slug && !ficha?.foto_miniatura_url && !ficha?.foto_completa_url;
+  }) ? await obtenerBiblioteca() : [];
+
   return {
     id: dia.id,
     nombre: dia.nombre,
@@ -303,6 +324,11 @@ export async function obtenerDiaVistaPrevia(
         video_cloudflare_miniatura_url: string | null;
       }[] | null;
       const biblioteca = Array.isArray(bibliotecaCruda) ? bibliotecaCruda[0] ?? null : bibliotecaCruda;
+      const respaldo = !biblioteca?.ilustracion_slug
+        && !biblioteca?.foto_miniatura_url
+        && !biblioteca?.foto_completa_url
+          ? emparejarEjercicio(e.nombre, bibliotecaActual)?.ejercicio ?? null
+          : null;
       return {
         id: e.id,
         orden: e.orden,
@@ -313,14 +339,14 @@ export async function obtenerDiaVistaPrevia(
         tecnicaTipo: e.tecnica_tipo,
         observacion: e.observacion,
         grupoMuscular: e.grupo_muscular as GrupoMuscular | null,
-        ejercicioId: e.ejercicio_id,
-        ilustracionSlug: biblioteca?.ilustracion_slug ?? null,
-        fotoMiniaturaUrl: biblioteca?.foto_miniatura_url ?? null,
-        fotoCompletaUrl: biblioteca?.foto_completa_url ?? null,
-        videoUrl: biblioteca?.video_url ?? null,
-        videoCloudflareUid: biblioteca?.video_cloudflare_uid ?? null,
-        videoCloudflareEstado: biblioteca?.video_cloudflare_estado ?? null,
-        videoCloudflareMiniaturaUrl: biblioteca?.video_cloudflare_miniatura_url ?? null,
+        ejercicioId: e.ejercicio_id ?? respaldo?.id ?? null,
+        ilustracionSlug: biblioteca?.ilustracion_slug ?? respaldo?.ilustracionSlug ?? null,
+        fotoMiniaturaUrl: biblioteca?.foto_miniatura_url ?? respaldo?.fotoMiniaturaUrl ?? null,
+        fotoCompletaUrl: biblioteca?.foto_completa_url ?? respaldo?.fotoCompletaUrl ?? null,
+        videoUrl: biblioteca?.video_url ?? respaldo?.videoUrl ?? null,
+        videoCloudflareUid: biblioteca?.video_cloudflare_uid ?? respaldo?.videoCloudflareUid ?? null,
+        videoCloudflareEstado: biblioteca?.video_cloudflare_estado ?? respaldo?.videoCloudflareEstado ?? null,
+        videoCloudflareMiniaturaUrl: biblioteca?.video_cloudflare_miniatura_url ?? respaldo?.videoCloudflareMiniaturaUrl ?? null,
       };
     }),
   };
