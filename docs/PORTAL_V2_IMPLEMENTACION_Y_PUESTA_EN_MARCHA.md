@@ -566,6 +566,14 @@ Validaciones locales completadas el 19-08-2026:
   después de recargar) y avanzó por sí solo al siguiente trabajo. En video, la
   superserie recorrió estación 1 → estación 2 → descanso único → segunda ronda,
   sin descanso entre estaciones ni errores de consola.
+- La compilación candidata se reauditó con la rutina sintética completa: tocar
+  un ejercicio lo contrae y lo vuelve a desplegar; las flechas cambian de serie
+  dentro del mismo ejercicio; sólo los campos de la serie activa dejan de ser
+  `readOnly`. En vista de video, finalizar la serie `2` abrió el descanso grande
+  y al vencer avanzó automáticamente a la serie `3`, no al siguiente ejercicio.
+  Los ajustes de Alejandro, temporizador, sonido y kg/lb persistieron al cerrar
+  y volver a abrir el panel; sonido y vibración físicos siguen formando parte
+  de la prueba obligatoria en iPhone/Android.
 - El ciclo automático de Alejandro quedó conectado a la memoria original: el
   aviso aparece sin pulsar “Alejandro”, `VOY` registra que fue leído y completar
   la serie resuelve el reto desde sus datos guardados. La prueba QA terminó como
