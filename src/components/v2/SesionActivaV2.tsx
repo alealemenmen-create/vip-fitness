@@ -30,6 +30,11 @@ import {
   Zap,
 } from "lucide-react";
 import { avisarFinDescansoV2, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
+import {
+  claveBorradorSesionV2,
+  restaurarBorradorSesionV2,
+  type BorradorSesionV2,
+} from "@/lib/entrenamiento/borrador-sesion-v2";
 import { claveDescansoSesion, destinoAlAvanzarSerieCompletada } from "@/lib/entrenamiento/descanso-navegacion";
 import {
   planificarBloqueEncadenado,
@@ -289,6 +294,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [momentosLogrados, setMomentosLogrados] = useState<Record<string, boolean>>({});
   const [momentoVisible, setMomentoVisible] = useState<MomentoSesionAlejandro | null>(null);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
+  const [avisoBorrador, setAvisoBorrador] = useState<string | null>(null);
+  const [borradorCargado, setBorradorCargado] = useState(false);
   const [pasosTecnica, setPasosTecnica] = useState<Record<string, number>>({});
   const [pausaTecnica, setPausaTecnica] = useState<PausaTecnica | null>(null);
   const [videoAmpliado, setVideoAmpliado] = useState(false);
@@ -363,6 +370,72 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     });
     return () => window.cancelAnimationFrame(cuadro);
   }, []);
+
+  useEffect(() => {
+    const cuadro = window.requestAnimationFrame(() => {
+      if (!sesion?.real || sesion.soloLectura) {
+        setBorradorCargado(true);
+        return;
+      }
+
+      const registroBase = crearRegistroInicial(sesion.ejercicios);
+      const notasBase = Object.fromEntries(sesion.ejercicios.map((ejercicio) => [
+        ejercicio.id,
+        ejercicio.notaInicial ?? "",
+      ]));
+      const clave = claveBorradorSesionV2(sesion.id);
+      const borrador = restaurarBorradorSesionV2(window.localStorage.getItem(clave), {
+        sesionId: sesion.id,
+        registroBase,
+        notasBase,
+      });
+
+      if (borrador) {
+        setRegistro(borrador.registro);
+        setNotas(borrador.notas);
+        setSegundosSesion(borrador.segundosSesion);
+        setEjercicioActivoId(borrador.ejercicioActivoId);
+        setSerieActivaIndice(borrador.serieActivaIndice);
+        setEjercicioExpandidoId(borrador.ejercicioActivoId);
+        setUnidadPeso(borrador.unidadPeso);
+        setAvisoBorrador("Recuperamos el progreso que estaba pendiente en este dispositivo.");
+      } else if (window.localStorage.getItem(clave)) {
+        window.localStorage.removeItem(clave);
+      }
+      setBorradorCargado(true);
+    });
+    return () => window.cancelAnimationFrame(cuadro);
+  }, [sesion]);
+
+  useEffect(() => {
+    if (!borradorCargado || !sesion?.real || sesion.soloLectura || registrada) return;
+    const clave = claveBorradorSesionV2(sesion.id);
+    const temporizador = window.setTimeout(() => {
+      const borrador: BorradorSesionV2 = {
+        version: 1,
+        sesionId: sesion.id,
+        actualizadoEn: Date.now(),
+        registro,
+        notas,
+        segundosSesion,
+        ejercicioActivoId,
+        serieActivaIndice,
+        unidadPeso,
+      };
+      window.localStorage.setItem(clave, JSON.stringify(borrador));
+    }, 180);
+    return () => window.clearTimeout(temporizador);
+  }, [
+    borradorCargado,
+    ejercicioActivoId,
+    notas,
+    registrada,
+    registro,
+    segundosSesion,
+    serieActivaIndice,
+    sesion,
+    unidadPeso,
+  ]);
 
   useEffect(() => {
     if (pausada || registrada) return;
@@ -508,8 +581,12 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     const payload = construirRegistroServidor(ejercicio, series);
     if (!payload) return;
     iniciarGuardado(async () => {
-      const resultado = await guardarSesionV2(payload);
-      setErrorGuardado(resultado.error);
+      try {
+        const resultado = await guardarSesionV2(payload);
+        setErrorGuardado(resultado.error);
+      } catch {
+        setErrorGuardado("No pudimos sincronizar esta serie. Quedó protegida en este dispositivo para reintentarla.");
+      }
     });
   };
 
@@ -525,8 +602,12 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       }],
     };
     iniciarGuardado(async () => {
-      const resultado = await guardarSesionV2(payload);
-      setErrorGuardado(resultado.error);
+      try {
+        const resultado = await guardarSesionV2(payload);
+        setErrorGuardado(resultado.error);
+      } catch {
+        setErrorGuardado("No pudimos sincronizar la nota. Quedó protegida en este dispositivo.");
+      }
     });
   };
 
@@ -915,9 +996,16 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     const payload = construirRegistroServidor();
     if (!payload) return;
     iniciarGuardado(async () => {
-      const resultado = await guardarYFinalizarSesionV2(payload);
-      setErrorGuardado(resultado.error);
-      if (!resultado.error) setConfirmarSalida(false);
+      try {
+        const resultado = await guardarYFinalizarSesionV2(payload);
+        setErrorGuardado(resultado.error);
+        if (!resultado.error) {
+          window.localStorage.removeItem(claveBorradorSesionV2(sesion.id));
+          setConfirmarSalida(false);
+        }
+      } catch {
+        setErrorGuardado("No pudimos cerrar la sesión. Tu progreso sigue protegido en este dispositivo; vuelve a intentarlo con conexión.");
+      }
     });
   };
 
@@ -954,6 +1042,17 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         <button type="button" className={styles.endButton} onClick={() => setConfirmarSalida(true)}>Terminar</button>
         <div className={styles.progressTrack} aria-label={`${Math.round(progreso)}% completado`}><i style={{ width: `${progreso}%` }} /></div>
       </header>
+
+      {errorGuardado || avisoBorrador ? (
+        <button
+          type="button"
+          className={`${styles.sessionNotice} ${errorGuardado ? styles.sessionNoticeError : ""}`}
+          role={errorGuardado ? "alert" : "status"}
+          onClick={() => { setErrorGuardado(null); setAvisoBorrador(null); }}
+        >
+          <span>{errorGuardado ?? avisoBorrador}</span><X size={15} />
+        </button>
+      ) : null}
 
       {vista === "descanso" ? (
         <section

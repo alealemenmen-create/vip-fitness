@@ -534,6 +534,9 @@ contraste. No se considerará terminado sólo porque contenga los mismos element
 - encabezado con tiempo, contador y acción de cierre;
 - ejercicio activo expandible y cola de ejercicios compactos;
 - campos de repeticiones y peso bloqueados según la serie activa;
+- borrador local por sesión: protege pesos, repeticiones, notas, tiempo y foco
+  ante una caída de red o recarga; sólo recupera la misma sesión durante 48
+  horas y nunca pisa una serie que el servidor ya confirmó;
 - checks, progreso y navegación real serie por serie;
 - descanso en línea e inmersivo con ajustes, salto, sonido y vibración;
 - cada descanso automático se consume una sola vez: al volver a una serie ya
@@ -550,7 +553,8 @@ contraste. No se considerará terminado sólo porque contenga los mismos element
 ### Falta o está incompleto
 
 1. Falta la validación táctil final de teclado, viewport, sonido, vibración,
-   segundo plano y red intermitente en iPhone y Android físicos.
+   segundo plano y recuperación del borrador ante red intermitente en iPhone y
+   Android físicos.
 2. Las personalizaciones de sesión requieren instalar `0104` en un Supabase de
    preview y probar RLS con dos cuentas; si falta, la interfaz las oculta.
 3. El resumen se puede compartir mediante las capacidades del navegador, pero

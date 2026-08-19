@@ -298,7 +298,7 @@ Validaciones locales completadas el 19-08-2026:
   el codemod oficial, revisando y descartando transformaciones de páginas que
   no aplicaban porque `cacheComponents` no está activado.
 - Auditoría de dependencias de producción: cero vulnerabilidades conocidas.
-- `53` archivos de pruebas y `496` pruebas aprobadas; ESLint sin advertencias,
+- `54` archivos de pruebas y `499` pruebas aprobadas; ESLint sin advertencias,
   TypeScript sin errores y compilación de producción completa (`67` rutas).
 - Las 15 rutas de la V2 respondieron `200` en el servidor de producción local,
   incluida la búsqueda prefiltrada de la biblioteca y la nueva pantalla de
@@ -308,6 +308,10 @@ Validaciones locales completadas el 19-08-2026:
   Se comprobó la transacción de canje (saldo y stock) y el reintegro idempotente
   al rechazar. Esta comprobación valida sintaxis y reglas transaccionales; no
   sustituye la prueba de Auth, RLS y Storage en un Supabase de preview.
+- La sesión activa conserva un borrador local validado y aislado por id durante
+  48 horas. Una recarga recupera los últimos pesos, repeticiones, notas, tiempo
+  y posición sin pisar series que el servidor ya confirmó; los fallos de red se
+  muestran y el alumno puede reintentar sin perder la pantalla.
 - Una consulta de sólo lectura al Supabase activo confirmó que las tablas
   originales de alumnos, sesiones, series, peso, fotos, seguimiento e Impulso
   no entregan filas a un visitante anónimo. También confirmó que las tablas de
