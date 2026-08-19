@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   detectarTipoEquipoAlejandro,
+  evaluarProgresionAutomaticaAlejandro,
   evaluarSiguienteSerieAlejandro,
   type EvaluarAlejandroInput,
 } from "./alejandro";
@@ -32,6 +33,48 @@ describe("detectarTipoEquipoAlejandro", () => {
     expect(detectarTipoEquipoAlejandro("Peso muerto", "Barra olímpica")).toBe("barra");
     expect(detectarTipoEquipoAlejandro("Prensa inclinada", "Prensa 45°")).toBe("maquina");
     expect(detectarTipoEquipoAlejandro("Flexiones", "Peso corporal")).toBe("peso_corporal");
+  });
+});
+
+describe("evaluarProgresionAutomaticaAlejandro — entrenador activo", () => {
+  it("exige una repetición más sin esperar una respuesta", () => {
+    const decision = evaluarProgresionAutomaticaAlejandro(input({
+      repsRealizadas: 9,
+      respuesta: null,
+    }));
+    expect(decision.respuestaInferida).toBe("mas");
+    expect(decision.accion).toBe("subir_reps");
+    expect(decision.repsObjetivo).toBe(10);
+    expect(decision.motivos[0]).toBe("progresion_automatica");
+  });
+
+  it("sube automáticamente el escalón base al completar el techo", () => {
+    const decision = evaluarProgresionAutomaticaAlejandro(input({ respuesta: null }));
+    expect(decision.respuestaInferida).toBe("mas");
+    expect(decision.accion).toBe("subir_carga");
+    expect(decision.incrementoAplicado).toBe(5);
+    expect(decision.repsObjetivo).toBe(8);
+  });
+
+  it("acelera solo cuando hay sobrecumplimiento y confianza", () => {
+    const decision = evaluarProgresionAutomaticaAlejandro(input({
+      repsRealizadas: 15,
+      rachaPositivaPrevia: 2,
+      respuesta: null,
+    }));
+    expect(decision.respuestaInferida).toBe("muy_facil");
+    expect(decision.confianza).toBe("alta");
+    expect(decision.incrementoAplicado).toBe(15);
+  });
+
+  it("corrige automáticamente si la serie queda debajo del mínimo", () => {
+    const decision = evaluarProgresionAutomaticaAlejandro(input({
+      repsRealizadas: 6,
+      respuesta: null,
+    }));
+    expect(decision.respuestaInferida).toBe("dificil");
+    expect(decision.accion).toBe("reducir");
+    expect(decision.pesoObjetivo).toBe(35);
   });
 });
 

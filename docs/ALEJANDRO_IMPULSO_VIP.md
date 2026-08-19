@@ -4,8 +4,8 @@
 
 Alejandro es el entrenador inteligente del Método VIP dentro de la sesión. No
 es un botón que siempre sube peso ni un reemplazo del entrenador. Convierte la
-serie que acaba de registrar el alumno, su respuesta en lenguaje natural y su
-historial en una decisión breve, explicable y reversible.
+serie que acaba de registrar el alumno y su historial en una decisión breve,
+explicable y reversible, sin esperar que el alumno solicite la progresión.
 
 La experiencia conserva el nombre **Impulso VIP**, pero la voz visible para el
 alumno es **Alejandro**.
@@ -15,8 +15,9 @@ alumno es **Alejandro**.
 1. **Motor histórico existente:** analiza las últimas sesiones válidas, dolor,
    estancamiento, caídas de rendimiento y progresión doble. Su recomendación se
    congela y queda auditable.
-2. **Alejandro en vivo:** prepara la siguiente serie sin aumentarla y adapta
-   repeticiones o carga cuando recibe una señal del alumno.
+2. **Alejandro en vivo:** prescribe automáticamente la siguiente serie. Adapta
+   repeticiones o carga apenas se registra el resultado y utiliza las respuestas
+   del alumno solo para corregir contexto que los números no pueden conocer.
 3. **Supervisión profesional:** una molestia bloquea la progresión y deriva a
    revisión. Las decisiones del entrenador prevalecen sobre la automatización.
 
@@ -34,6 +35,22 @@ El orden no puede invertirse:
 
 Esto sigue la jerarquía del Método VIP: seguridad, compatibilidad, adherencia,
 distribución, progresión, estímulo y técnicas.
+
+## Modo entrenador activo
+
+El modo automático está encendido por defecto y se puede desactivar desde el
+panel de Alejandro o los ajustes de la sesión.
+
+- Dentro del rango: exige como mínimo una repetición adicional.
+- En el techo del rango: sube el siguiente escalón válido y regresa al mínimo.
+- Por encima del techo: interpreta el sobrecumplimiento y puede acelerar solo
+  cuando también existe confianza acumulada.
+- Debajo del mínimo: se opone a seguir aumentando y corrige el estímulo.
+- Sin datos suficientes: usa el escalón mínimo; no inventa aumentos grandes.
+
+El alumno no acepta ni rechaza una progresión normal. Registra honestamente lo
+que logró. Las correcciones manuales existen para dificultad no visible,
+técnica, molestia o indisponibilidad del equipo.
 
 ## Progresión por equipo
 
@@ -61,10 +78,11 @@ seguridad ni obliga a aumentar.
 
 ## Lenguaje del alumno
 
-No se exige conocer RIR o RPE. Las respuestas son: muy fácil, fácil, podía hacer
-una más, justo, demasiado difícil, no la completé, perdí la técnica y sentí una
-molestia. Internamente se conserva compatibilidad con la dificultad ya guardada
-por el Impulso VIP original.
+No se exige conocer RIR o RPE ni responder una encuesta para recibir la
+progresión. De manera opcional se puede corregir a Alejandro con: muy fácil,
+fácil, podía hacer una más, justo, demasiado difícil, no la completé, perdí la
+técnica y sentí una molestia. Internamente se conserva compatibilidad con la
+dificultad ya guardada por el Impulso VIP original.
 
 ## Fundamento de diseño
 

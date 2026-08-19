@@ -727,28 +727,23 @@ En vista de video el mismo estado se presenta como una secuencia de pantallas:
 
 ### 18.6 Alejandro · Impulso VIP dentro de la sesión
 
-La versión local no exige RIR ni terminología técnica. Después de completar una
-serie, el alumno describe la sensación con una de cuatro respuestas: `Podía hacer
-más`, `Estuvo justo`, `Muy difícil` o `No la completé`.
+La versión local no exige RIR, terminología técnica ni una encuesta obligatoria.
 
-- Al completar una serie, Impulso prepara silenciosamente la siguiente copiando
-  la base de carga y repeticiones; no abre paneles ni interrumpe el descanso.
-- Una preparación automática nunca aumenta la carga por sí sola.
-- `Podía hacer más`: aplica un aumento moderado según el equipo: mancuernas
-  `+2,5 kg`, barra `+5 kg`, máquina `+5 kg`; si no hay peso, añade una repetición.
-- `Estuvo fácil`: mantiene el tope de `+2,5 kg` en mancuernas y permite `+10 kg`
-  en barra o máquina; sin carga, añade dos repeticiones.
-- `Estuvo muy fácil`: autoriza un salto mayor, todavía acotado por el equipo:
-  mancuernas `+2,5 kg`, barra `+10 kg`, máquina `+15 kg`; si no hay peso, añade
-  tres repeticiones.
-- `Estuvo justo`: conserva carga y repeticiones.
-- `Muy difícil`: baja un nivel pequeño en mancuernas y un nivel de `5 kg` en
-  barra o máquina, o reduce una repetición cuando no existe carga.
-- `No la completé`: aplica una reducción segura de dos niveles y dos repeticiones.
-- El ajuste se escribe en la siguiente serie pendiente, se destaca visualmente y
-  puede revisarse desde la tarjeta de Impulso VIP.
-- Si el ejercicio ya no tiene series pendientes, la respuesta se conserva como
-  recomendación para la próxima sesión.
+- Al completar una serie, Alejandro interpreta automáticamente repeticiones,
+  carga, rango, equipo, rendimiento reciente y confianza acumulada.
+- Dentro del rango exige al menos una repetición adicional.
+- Al completar el máximo sube el escalón base disponible y vuelve al mínimo del
+  rango: mancuernas `+2,5 kg`, barra o máquina `+5 kg`.
+- Los saltos mayores se reservan para sobrecumplimiento objetivo y señales
+  repetidas: barra hasta `+10 kg` y máquina hasta `+15 kg`.
+- Debajo del mínimo se opone a seguir aumentando y reduce o mantiene el
+  estímulo para recuperar una serie válida.
+- El ajuste se escribe en la siguiente serie pendiente, se destaca visualmente
+  y no abre paneles ni interrumpe el descanso.
+- Las respuestas manuales son correcciones opcionales: dificultad no visible,
+  fallo, pérdida de técnica o molestia.
+- Si el ejercicio ya no tiene series pendientes, la decisión se conserva como
+  base para la próxima sesión.
 
 Esta primera integración es deliberadamente local porque la sesión v2 todavía
 usa ejercicios de demostración. Al conectar los identificadores reales, la misma
@@ -759,3 +754,9 @@ La decisión en vivo se rige por `docs/ALEJANDRO_IMPULSO_VIP.md`: seguridad ante
 que progresión, repeticiones antes que carga y saltos limitados por equipo y por
 confianza acumulada. El alumno responde con lenguaje natural; “perdí la técnica”
 y “sentí una molestia” funcionan como frenos explícitos.
+
+Alejandro está activo por defecto. Al registrar una serie prescribe la siguiente
+sin esperar una encuesta: dentro del rango exige una repetición adicional y al
+completar el techo aplica el siguiente escalón de carga válido. Las respuestas
+manuales corrigen la interpretación, pero no activan el motor. Puede apagarse
+desde el panel de Alejandro o los ajustes de la sesión.

@@ -199,6 +199,13 @@
 .infoGrid small { color: #858885; font-size: 7px; }
 .infoGrid strong { margin-top: 7px; font-size: 9px; line-height: 1.35; }
 .impulsoPanel { margin-top: 16px; }
+.alejandroAutomatico { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 12px; padding: 9px 11px; border: 1px solid #343735; border-radius: 10px; background: linear-gradient(105deg, #151616 0%, #202221 100%); }
+.alejandroAutomatico[data-active="true"] { border-color: rgba(167, 216, 55, .28); background: linear-gradient(105deg, #11140d 0%, #202713 100%); }
+.alejandroAutomatico > span { min-width: 0; }
+.alejandroAutomatico strong, .alejandroAutomatico small { display: block; }
+.alejandroAutomatico strong { color: #f1f2ef; font-size: 9px; }
+.alejandroAutomatico[data-active="true"] strong { color: #dcfa72; }
+.alejandroAutomatico small { margin-top: 4px; color: #8d918b; font-size: 7px; line-height: 1.35; }
 .impulsoIntro { max-width: 390px; color: #b7bab4; font-size: 10px; line-height: 1.55; }
 .impulsoRule { display: grid; min-height: 58px; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 9px; margin-top: 12px; padding: 9px 10px; border: 1px solid rgba(167, 216, 55, .18); border-radius: 9px; color: #d8f65e; background: linear-gradient(105deg, #10130d 0%, #1c2212 100%); }
 .impulsoRule > svg { width: 29px; height: 29px; padding: 7px; border-radius: 50%; background: #293515; }
@@ -206,6 +213,8 @@
 .impulsoRule strong { font-size: 9px; }
 .impulsoRule small { margin-top: 4px; color: #aab19d; font-size: 7px; line-height: 1.4; }
 .impulsoOptions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 13px; }
+.alejandroCorrectionLabel { margin-top: 13px; color: #8f938b; font-size: 7px; line-height: 1.4; }
+.alejandroCorrectionLabel + .impulsoOptions { margin-top: 7px; }
 .impulsoOptions button { min-height: 58px; padding: 10px; border: 1px solid #303330; border-radius: 9px; color: #e9ebe5; background: linear-gradient(105deg, #222420 0%, #191b18 58%, #111310 100%); text-align: left; transition: border-color 160ms ease, background 160ms ease; }
 .impulsoOptions strong, .impulsoOptions small { display: block; }
 .impulsoOptions strong { font-size: 9px; }

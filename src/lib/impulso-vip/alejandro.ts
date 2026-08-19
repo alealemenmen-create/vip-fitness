@@ -24,6 +24,7 @@ export type AccionAlejandro =
 
 export type MotivoAlejandro =
   | "base_automatica"
+  | "progresion_automatica"
   | "dolor_reportado"
   | "tecnica_inestable"
   | "serie_no_completada"
@@ -74,6 +75,10 @@ export interface DecisionAlejandro {
   motivos: MotivoAlejandro[];
 }
 
+export interface DecisionAutomaticaAlejandro extends DecisionAlejandro {
+  respuestaInferida: RespuestaAlejandro;
+}
+
 const RESPUESTAS_POSITIVAS = new Set<RespuestaAlejandro>(["mas", "facil", "muy_facil"]);
 
 export function respuestaADificultad(respuesta: RespuestaAlejandro | null): Dificultad | null {
@@ -103,6 +108,18 @@ export function detectarTipoEquipoAlejandro(nombreEjercicio: string, equipo: str
   if (/barra|barbell/.test(referencia)) return "barra";
   if (/máquina|maquina|prensa|polea|smith|cable/.test(referencia)) return "maquina";
   return "otro";
+}
+
+export function inferirRespuestaAutomaticaAlejandro(input: {
+  rango: RangoAlejandro;
+  repsRealizadas: number;
+  serieCompletada: boolean;
+}): RespuestaAlejandro {
+  if (!input.serieCompletada) return "fallo";
+  if (input.repsRealizadas < input.rango.min) return "dificil";
+  if (input.repsRealizadas >= input.rango.max + 3) return "muy_facil";
+  if (input.repsRealizadas >= input.rango.max + 1) return "facil";
+  return "mas";
 }
 
 function convertirSalto(kilos: number, unidad: "kg" | "lb") {
@@ -331,6 +348,28 @@ export function evaluarSiguienteSerieAlejandro(input: EvaluarAlejandroInput): De
       : `La respuesta se repite con datos consistentes. Sube a ${pesoBase + salto} ${input.unidad} y vuelve a ${input.rango.min} repeticiones limpias.`,
     motivos,
   });
+}
+
+/**
+ * Modo entrenador activo. Interpreta el resultado registrado y prescribe la
+ * siguiente serie sin esperar una encuesta. Las respuestas manuales quedan
+ * como corrección de contexto, no como requisito para que exista progresión.
+ */
+export function evaluarProgresionAutomaticaAlejandro(
+  input: Omit<EvaluarAlejandroInput, "respuesta">
+): DecisionAutomaticaAlejandro {
+  const respuestaInferida = inferirRespuestaAutomaticaAlejandro({
+    rango: input.rango,
+    repsRealizadas: input.repsRealizadas,
+    serieCompletada: input.serieCompletada,
+  });
+  const decision = evaluarSiguienteSerieAlejandro({ ...input, respuesta: respuestaInferida });
+  return {
+    ...decision,
+    respuestaInferida,
+    motivos: ["progresion_automatica", ...decision.motivos],
+    mensaje: `Alejandro actuó automáticamente: ${decision.mensaje}`,
+  };
 }
 
 export function esRespuestaPositivaAlejandro(
