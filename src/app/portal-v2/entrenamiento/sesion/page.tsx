@@ -18,6 +18,7 @@ import { firmarMiniaturasCloudflareV2 } from "@/lib/cloudflare/miniaturas-v2";
 import { urlMiniaturaFirmada } from "@/lib/cloudflare/stream";
 import { obtenerSeguimientoHoy } from "@/app/alumno/inicio/data";
 import { evaluarPreparacionDiariaAlejandro, limitarMomentosPorPreparacion } from "@/lib/impulso-vip/preparacion-diaria";
+import { calcularDuracionSesionSegundos } from "@/lib/entrenamiento/duracion-sesion";
 
 type FichaEjercicioV2 = Pick<Database["public"]["Tables"]["ejercicios"]["Row"],
   | "id" | "nombre" | "grupo_muscular" | "categoria" | "equipo" | "activo" | "calidad_ficha"
@@ -258,6 +259,10 @@ export default async function SesionV2Page({
     fecha: new Intl.DateTimeFormat("es-CL", { dateStyle: "long", timeZone: "America/Santiago" }).format(new Date(`${sesion.fecha}T12:00:00`)),
     real: true,
     soloLectura: contexto.soloLectura || sesion.estado !== "en_progreso",
+    duracionSegundosInicial: calcularDuracionSesionSegundos(
+      sesion.rutinaIniciadaEn ?? sesion.horaInicio,
+      sesion.horaFin ?? new Date().toISOString(),
+    ),
     temporizadorAutomaticoInicial: sesion.ejercicios[0]?.temporizadorDescanso ?? true,
     ejercicios,
     personalizacionDisponible,

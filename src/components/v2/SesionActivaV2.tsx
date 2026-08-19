@@ -109,6 +109,7 @@ export type SesionActivaModeloV2 = {
   fecha: string;
   real: boolean;
   soloLectura: boolean;
+  duracionSegundosInicial?: number;
   temporizadorAutomaticoInicial?: boolean;
   ejercicios: EjercicioSesionV2[];
   momentosAlejandro: MomentoSesionAlejandro[];
@@ -273,7 +274,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     () => sesion ? sesion.momentosAlejandro : crearMomentosDemo(EJERCICIOS),
     [EJERCICIOS, sesion],
   );
-  const [segundosSesion, setSegundosSesion] = useState(0);
+  const [segundosSesion, setSegundosSesion] = useState(() => sesion?.duracionSegundosInicial ?? 0);
   const [pausada, setPausada] = useState(false);
   const [registro, setRegistro] = useState(() => crearRegistroInicial(EJERCICIOS));
   const [ejercicioActivoId, setEjercicioActivoId] = useState(EJERCICIOS[0].id);
@@ -441,10 +442,10 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   ]);
 
   useEffect(() => {
-    if (pausada || registrada) return;
+    if (pausada || registrada || sesion?.soloLectura) return;
     const intervalo = window.setInterval(() => setSegundosSesion((valor) => valor + 1), 1000);
     return () => window.clearInterval(intervalo);
-  }, [pausada, registrada]);
+  }, [pausada, registrada, sesion?.soloLectura]);
 
   useEffect(() => {
     if (pausada || descanso === null || descanso.segundos <= 0) return;
@@ -527,7 +528,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   }, [descanso, descansoEnFoco, EJERCICIOS, ORDEN_EJECUCION, sonidoDescansoActivo, vista]);
 
   useEffect(() => {
-    if (!impulsoAutomaticoActivo || descansoEnFoco || confirmarSalida || registrada) return;
+    if (!impulsoAutomaticoActivo || descansoEnFoco || confirmarSalida || registrada || sesion?.soloLectura) return;
     const momento = MOMENTOS_ALEJANDRO.find((item) =>
       item.ejercicioId === ejercicioActivo.id
       && item.serieIndice === serieActivaIndiceSeguro
@@ -546,6 +547,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     momentosVistos,
     registrada,
     registro,
+    sesion?.soloLectura,
     serieActivaIndiceSeguro,
   ]);
 
@@ -1041,10 +1043,14 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   return (
     <div ref={paginaSesionRef} className={styles.sessionPage}>
       <header className={styles.topbar}>
-        <div className={styles.sessionStatus}><span>{formatearTiempo(segundosSesion)}</span><i aria-hidden="true" /><strong>Serie {serieActivaNumero}/{totalSeries}</strong></div>
-        <button type="button" className={styles.endButton} onClick={() => setConfirmarSalida(true)}>Terminar</button>
+        <div className={styles.sessionStatus}><span>{formatearTiempo(segundosSesion)}</span><i aria-hidden="true" /><strong>{sesion?.soloLectura ? "Registro" : "Serie"} {serieActivaNumero}/{totalSeries}</strong></div>
+        {sesion?.soloLectura
+          ? <Link className={styles.endButton} href="/portal-v2/entrenamiento/historial">Historial</Link>
+          : <button type="button" className={styles.endButton} onClick={() => setConfirmarSalida(true)}>Terminar</button>}
         <div className={styles.progressTrack} aria-label={`${Math.round(progreso)}% completado`}><i style={{ width: `${progreso}%` }} /></div>
       </header>
+
+      {sesion?.soloLectura ? <div className={styles.historicalNotice} role="status"><History size={15} /><span><strong>Sesión registrada</strong><small>Resultados guardados · solo lectura</small></span></div> : null}
 
       {errorGuardado || avisoBorrador ? (
         <button
@@ -1086,7 +1092,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             <div className={styles.videoShade} />
             {(ejercicioActivo.videoCloudflareListo || ejercicioActivo.videoUrl) ? <button type="button" className={styles.videoPlay} onClick={() => setVideoAmpliado(true)} aria-label="Reproducir demostración completa"><Play size={23} fill="currentColor" /></button> : null}
             {controlesVideoVisibles && puedeIrAtras ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={() => moverSerie(-1)} aria-label="Ver serie anterior"><ChevronsLeft size={27} strokeWidth={2.4} /></button> : null}
-            {controlesVideoVisibles ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={avanzarDesdeVideo} aria-label={puedeIrAdelante ? "Finalizar serie e ir al descanso" : "Finalizar entrenamiento"}><ChevronsRight size={27} strokeWidth={2.4} /></button> : null}
+            {controlesVideoVisibles && (!sesion?.soloLectura || puedeIrAdelante) ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={sesion?.soloLectura ? () => moverSerie(1) : avanzarDesdeVideo} aria-label={sesion?.soloLectura ? "Ver serie siguiente" : puedeIrAdelante ? "Finalizar serie e ir al descanso" : "Finalizar entrenamiento"}><ChevronsRight size={27} strokeWidth={2.4} /></button> : null}
             <span className={styles.videoSpeed}>1× velocidad</span>
             <div className={styles.videoIdentity}><small>SERIE {ejercicioActivo.codigo}</small><h1>{ejercicioActivo.nombre}</h1><p>{ejercicioActivo.equipo}</p></div>
           </div>
@@ -1105,6 +1111,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} · trabajo</em></span><span><b>Reps</b><strong>{serieActiva.reps}</strong></span><span><b>Peso ({unidadPeso})</b><strong>{serieActiva.peso || `— ${unidadPeso}`}</strong></span>
             <button
               type="button"
+              disabled={sesion?.soloLectura}
               onClick={() => alternarSerie(ejercicioActivo, serieActivaIndiceSeguro)}
               aria-label={`${serieActiva.completada ? "Desmarcar" : "Registrar"} serie ${serieActivaIndiceSeguro + 1}`}
               aria-pressed={serieActiva.completada}
@@ -1180,18 +1187,29 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         </main>
       )}
 
-      <nav className={styles.sessionControls} aria-label="Controles de la sesión">
-        <button type="button" aria-label="Ajustes" onClick={() => setPanel("ajustes")}><Settings size={20} /></button>
-        <button type="button" aria-label={vista === "descanso" ? "Volver a la serie actual" : "Serie anterior"} onClick={retrocederPaso} disabled={vista !== "descanso" && !puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
-        <button type="button" aria-label={pausada ? "Reanudar sesión" : "Pausar sesión"} onClick={() => setPausada((valor) => !valor)}>{pausada ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>
-        <button type="button" aria-label={vista === "descanso" ? descanso?.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie" : vista === "video" ? "Finalizar serie e ir al descanso" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
-        <button type="button" aria-label={descanso === null ? "Iniciar temporizador manual" : "Abrir temporizador activo"} onClick={abrirTemporizador}><Clock3 size={19} /></button>
-      </nav>
+      {sesion?.soloLectura ? (
+        <nav className={styles.sessionControls} aria-label="Controles del registro">
+          <Link href="/portal-v2/entrenamiento/historial" aria-label="Volver al historial"><History size={20} /></Link>
+          <button type="button" aria-label="Serie anterior" onClick={() => moverSerie(-1)} disabled={!puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
+          <button type="button" aria-label={vista === "lista" ? "Vista de video" : "Vista de lista"} onClick={() => setVista(vista === "lista" ? "video" : "lista")}><ListVideo size={20} /></button>
+          <button type="button" aria-label="Serie siguiente" onClick={() => moverSerie(1)} disabled={!puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
+          <button type="button" aria-label="Información" onClick={() => setPanel("informacion")}><Info size={20} /></button>
+        </nav>
+      ) : (
+        <nav className={styles.sessionControls} aria-label="Controles de la sesión">
+          <button type="button" aria-label="Ajustes" onClick={() => setPanel("ajustes")}><Settings size={20} /></button>
+          <button type="button" aria-label={vista === "descanso" ? "Volver a la serie actual" : "Serie anterior"} onClick={retrocederPaso} disabled={vista !== "descanso" && !puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
+          <button type="button" aria-label={pausada ? "Reanudar sesión" : "Pausar sesión"} onClick={() => setPausada((valor) => !valor)}>{pausada ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>
+          <button type="button" aria-label={vista === "descanso" ? descanso?.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie" : vista === "video" ? "Finalizar serie e ir al descanso" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
+          <button type="button" aria-label={descanso === null ? "Iniciar temporizador manual" : "Abrir temporizador activo"} onClick={abrirTemporizador}><Clock3 size={19} /></button>
+        </nav>
+      )}
 
       {panel !== null ? (
         <PanelAuxiliar
           tipo={panel}
           ejercicio={ejercicioActivo}
+          soloLectura={Boolean(sesion?.soloLectura)}
           notaInicial={notas[ejercicioActivo.id] ?? ""}
           temporizadorAutomatico={temporizadorAutomatico}
           sonidoDescansoActivo={sonidoDescansoActivo}
@@ -1235,7 +1253,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           </section>
         </div>
       ) : null}
-      {confirmarSalida ? (
+      {confirmarSalida && !sesion?.soloLectura ? (
         <div className={styles.sheetBackdrop} role="presentation" onClick={() => setConfirmarSalida(false)}>
           <section className={styles.finishSheet} role="dialog" aria-modal="true" aria-label="Finalizar entrenamiento" onClick={(evento) => evento.stopPropagation()}>
             <button type="button" className={styles.closeButton} onClick={() => setConfirmarSalida(false)} aria-label="Cerrar"><X size={18} /></button>
@@ -1265,6 +1283,7 @@ function TecnicaActivaCard({ ejercicio, segmentos, paso, pausa }: { ejercicio: E
 function PanelAuxiliar({
   tipo,
   ejercicio,
+  soloLectura,
   notaInicial,
   temporizadorAutomatico,
   sonidoDescansoActivo,
@@ -1289,6 +1308,7 @@ function PanelAuxiliar({
 }: {
   tipo: Exclude<PanelSesion, null>;
   ejercicio: EjercicioSesionV2;
+  soloLectura: boolean;
   notaInicial: string;
   temporizadorAutomatico: boolean;
   sonidoDescansoActivo: boolean;
@@ -1323,8 +1343,8 @@ function PanelAuxiliar({
         {tipo === "impulso" ? (
           <div className={styles.impulsoPanel}>
             <div className={styles.alejandroAutomatico} data-active={impulsoAutomaticoActivo}>
-              <span><strong>{impulsoAutomaticoActivo ? "Impulso automático activo" : "Impulso automático desactivado"}</strong><small>{impulsoAutomaticoActivo ? "Aparecerá solo cuando realmente haga falta." : "La rutina conserva su programación base."}</small></span>
-              <button type="button" role="switch" aria-label="Alejandro automático" aria-checked={impulsoAutomaticoActivo} className={styles.settingSwitch} onClick={() => cambiarImpulsoAutomatico(!impulsoAutomaticoActivo)}><i /></button>
+              <span><strong>{soloLectura ? "Registro de Alejandro" : impulsoAutomaticoActivo ? "Impulso automático activo" : "Impulso automático desactivado"}</strong><small>{soloLectura ? "Revisa cómo fue planificada esta sesión." : impulsoAutomaticoActivo ? "Aparecerá solo cuando realmente haga falta." : "La rutina conserva su programación base."}</small></span>
+              {!soloLectura ? <button type="button" role="switch" aria-label="Alejandro automático" aria-checked={impulsoAutomaticoActivo} className={styles.settingSwitch} onClick={() => cambiarImpulsoAutomatico(!impulsoAutomaticoActivo)}><i /></button> : null}
             </div>
             <p className={styles.impulsoIntro}>Alejandro estudia historial, repeticiones, carga, constancia y esfuerzo. La progresión normal ocurre en silencio; los retos aparecen solos y son escasos.</p>
             {preparacionAlejandro ? <div className={styles.alejandroReadiness} data-state={preparacionAlejandro.estado}><Activity size={17} /><span><strong>{preparacionAlejandro.titulo}</strong><small>{preparacionAlejandro.detalle}</small></span></div> : null}
@@ -1336,7 +1356,7 @@ function PanelAuxiliar({
             <button type="button" className={styles.impulsoDone} onClick={cerrar}>Listo</button>
           </div>
         ) : null}
-        {tipo === "notas" ? <label className={styles.exerciseNotes}><span>Nota personal</span><textarea value={notaBorrador} onChange={(evento) => setNotaBorrador(evento.target.value)} placeholder="Escribe una observación para este ejercicio…" /><button type="button" onClick={() => { guardarNota(notaBorrador); cerrar(); }}>Guardar nota</button></label> : null}
+        {tipo === "notas" ? <label className={styles.exerciseNotes}><span>{soloLectura ? "Nota registrada" : "Nota personal"}</span><textarea value={notaBorrador} readOnly={soloLectura} onChange={(evento) => setNotaBorrador(evento.target.value)} placeholder={soloLectura ? "No se registró una nota en esta sesión." : "Escribe una observación para este ejercicio…"} />{soloLectura ? <button type="button" onClick={cerrar}>Cerrar</button> : <button type="button" onClick={() => { guardarNota(notaBorrador); cerrar(); }}>Guardar nota</button>}</label> : null}
         {tipo === "ajustes" ? (
           <div className={styles.settingRows}>
             <div className={styles.settingRow}>
