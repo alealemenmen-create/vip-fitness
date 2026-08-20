@@ -24,6 +24,7 @@ revisar, aceptar o rechazar cada bloque por separado.
   13. `290b630` — `feat: agregar "Deshacer" tras reordenar ejercicios arrastrando`
   14. `b85ddfe` — `style: mostrar los avisos de sesion flotando, no empujando la pantalla`
   15. `9ec3449` — `fix: quitar el aviso "Recuperamos el progreso", recuperar sigue silencioso`
+  16. `b8d97c9` — `fix: exigir el mismo angulo/cabeza muscular al sustituir un ejercicio`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -466,6 +467,103 @@ la sesión de la cuenta QA (que ya tenía progreso previo guardado en
 restauró igual que siempre (temporizador y registro siguieron donde
 estaban) sin que apareciera ningún aviso.
 
+## 11. `b8d97c9` — "Cambiar ejercicio" exige el mismo ángulo/cabeza muscular
+
+Alejandro reportó (con ejemplo real de su cuenta) que el botón "Cambiar"
+ofrecía alternativas sin sentido: "Abductores en máquina" (glúteo medio)
+ofrecía "Aductores en máquina" (aductor, el músculo opuesto). Su pedido
+textual: "cambiar no es simplemente cambiar... si hay un ejercicio que es
+para la cabeza media del tríceps o la cabeza lateral del tríceps, no
+podemos meter un ejercicio que sea para la cabeza larga".
+
+**Causa raíz confirmada leyendo el código:** `sustitucionEsCompatible()`
+(`src/lib/entrenamiento/personalizacion-sesion.ts`) solo exigía coincidir
+en `grupo_muscular`, una columna de apenas 7 valores (pecho/espalda/
+piernas/hombros/brazos/core/cardio) — "piernas" mezcla glúteo, cuádriceps,
+isquiotibiales, aductor, abductor y gemelo en la misma bolsa; "brazos"
+mezcla bíceps y tríceps. No era un botón roto — el botón funciona, pero la
+lista que arma no distinguía ángulo ni cabeza muscular.
+
+**No hizo falta agregar ninguna columna.** Antes de tocar el esquema
+encontré que ya existe `patron_movimiento` (migración 0051,
+`GRUPOS_PATRON` en `src/components/admin/GaleriaEjercicios.tsx`), con
+exactamente la taxonomía que pedía Alejandro: `pierna_abduccion` /
+`pierna_aduccion`, `biceps_supinado` / `biceps_neutro` /
+`biceps_hombro_flexionado`, `triceps_polea_abajo` / `triceps_sobre_cabeza`
+/ `triceps_compuesto`, `pierna_flexion_rodilla` / `pierna_extension_rodilla`,
+`hombro_anterior` / `hombro_lateral` / `hombro_posterior`, etc. (28
+valores en total). El problema real era que esa columna estaba "vacía
+para casi toda la biblioteca todavía" (comentario ya existente en
+`patrones.ts`) y `sustitucionEsCompatible()` la consultaba de forma
+**opcional** (`!origen.patronMovimiento || !sustituto.patronMovimiento ||
+origen.patronMovimiento === sustituto.patronMovimiento`), así que con la
+columna vacía esa condición nunca filtraba nada.
+
+**El cambio de código es de una sola línea:** quité el escape
+`|| !sustituto.patronMovimiento`. Si el origen ya tiene el patrón
+cargado, el sustituto debe compartir exactamente ese valor — ya no basta
+compartir `grupo_muscular`. Mismo criterio replicado en el prefiltro del
+servidor (`page.tsx`, la consulta que arma `alternativas` antes de
+enviarla al cliente). Agregué un test nuevo en
+`personalizacion-sesion.test.ts` cubriendo el caso abductor/aductor y el
+caso "origen sin clasificar todavía" (sigue la comparación laxa de
+siempre, no rompe nada mientras se completa la biblioteca).
+
+**Backfill de datos — no es una migración, no toca el esquema:**
+Alejandro autorizó primero agregar una columna nueva (yo mismo lo
+propuse mal al principio, sin haber revisado que `patron_movimiento` ya
+existía) y después, al corregir el rumbo, autorizó explícitamente el
+`UPDATE` real que sí hizo falta. Completé `patron_movimiento` en 116 de
+los 130 ejercicios activos (quedaban 12 ya clasificados de antes) usando
+`patronMovimiento()` de `src/lib/rutinas/patrones.ts` tal cual está —
+la misma función determinística por nombre que el generador de rutinas
+ya usa como respaldo mientras la columna esté vacía, no un criterio mío
+inventado para esta tarea. El script que generó el `UPDATE` (clasificó
+los 130, comparó contra lo ya cargado, armó el SQL) no quedó en el
+repo — corrió una sola vez desde el scratchpad de la sesión.
+
+Dos ejercicios quedan **sin clasificar a propósito**, revisados a mano
+porque la función automática los clasificaba mal o no los cubría:
+- **"Curl de muñeca"**: la función lo etiquetaba `biceps_supinado` por el
+  regex `/curl|biceps/`, pero es un ejercicio de antebrazo — la
+  taxonomía de 28 valores no tiene esa categoría. Preferí dejarlo sin
+  clasificar a etiquetarlo mal (así seguiría con la comparación laxa de
+  antes, en vez de aparecer como "alternativa de bíceps" o excluir curls
+  reales de bíceps por error).
+- **"Remo al mentón"** (upright row): no encaja limpio en ninguna de las
+  4 opciones de hombro (press vertical/lateral/posterior/anterior) — la
+  función ya lo dejaba en "otro" antes de mi cambio, no lo toqué.
+- **"Femoral unilateral"**: corregido a mano a `pierna_flexion_rodilla`
+  (mismo patrón que "Curl femoral") — la función no lo detectaba porque
+  su regex busca la palabra "curl" en el nombre y este no la tiene.
+
+**Verificado en vivo con la cuenta QA, después del backfill:**
+- "Abductores en máquina" ya **no muestra el botón "Cambiar"** — es el
+  único ejercicio de abducción en toda la biblioteca activa, así que no
+  hay alternativa real y ahora no finge que la hay (antes ofrecía
+  "Aductores en máquina", exactamente el bug reportado).
+- "Aperturas con mancuernas" muestra **exactamente 5** alternativas,
+  todas aislamiento de pecho genuinas (inclinado, en polea, cruces en
+  los dos sentidos, pec deck) — ningún press ni ejercicio de otro grupo
+  mezclado.
+- Gate completo (tsc/eslint/vitest — 599 tests, incluye el nuevo — /build)
+  limpio.
+
+**Lo que no toqué, para que quede claro el alcance real:**
+- La ficha de creación de ejercicios en `/admin/ejercicios`
+  (`ModalEjercicioNuevo`) **ya tenía** este campo desde antes (select
+  "Tipo de movimiento") — no hizo falta agregarlo. Sigue siendo
+  **opcional**: un ejercicio nuevo se puede crear sin clasificar. No
+  existe hoy un filtro/indicador en el admin que muestre "ejercicios sin
+  `patron_movimiento`" para encontrar esos huecos después — si aparece
+  un ejercicio nuevo sin clasificar, hoy hay que acordarse de abrirlo a
+  mano y completar "Tipo de movimiento" (o usar `EditorPatronMovimiento`
+  desde la ficha ya creada). Si Alejandro quiere que esto sea obligatorio
+  al crear, o quiere un filtro de "pendientes de clasificar", es un
+  agregado chico aparte — no lo hice sin preguntar primero.
+- No cambié el algoritmo `patronMovimiento()` en sí (la heurística por
+  nombre) — solo lo usé para poblar la columna existente.
+
 ## Comandos y resultados
 
 ```
@@ -476,7 +574,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 14 commits (o de sus cambios
+Corridos después de cada uno de los 16 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -601,7 +699,7 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 14 commits por separado (son independientes entre sí, en
+cada uno de los 16 commits por separado (son independientes entre sí, en
 este orden: `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
 `d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
 `5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
@@ -610,7 +708,9 @@ quitar la selección de texto, `dc5e80f` el arrastre para reordenar,
 `0527347` el mismo arrastre pero directo en la lista, sin pantalla
 aparte, `d75beea` el arreglo de por qué no arrancaba en un teléfono
 real, `290b630` el "Deshacer" tras reordenar, `b85ddfe` los avisos
-flotando en vez de empujar la pantalla). El primero es el más
+flotando en vez de empujar la pantalla, `9ec3449` sacar el aviso de
+recuperar progreso, `b8d97c9` exigir el mismo ángulo muscular al
+sustituir un ejercicio). El primero es el más
 importante y el de menor riesgo (reutiliza
 código ya probado, no toca UI). El tercero es el más grande y el que más
 vale mirar con cuidado, sobre todo la sección "Alcance recortado a
@@ -638,3 +738,18 @@ ordenar" de pantalla aparte que traía `dc5e80f` — son cambios
 independientes y en capas. `290b630` (el "Deshacer", bloque 10.2) es
 independiente de los tres anteriores — se puede aceptar o rechazar solo,
 no depende de que el asa termine de convencer a Alejandro.
+
+**`b8d97c9` (bloque 11) es el único de este corte que ya tocó datos
+reales en producción, no solo código** — el cambio de código en sí es de
+una línea (ver bloque 11), pero antes de eso corrí un `UPDATE` que
+completó `patron_movimiento` en 116 de los 130 ejercicios activos de la
+biblioteca, autorizado explícitamente por Alejandro en el chat antes de
+ejecutarlo. No es reversible con un `git revert` — si se quiere deshacer,
+hay que volver a dejar esas 116 filas en `null` a mano. Vale la pena que
+alguien revise la tabla completa (`select nombre, patron_movimiento from
+ejercicios where activo`) contra su propio criterio de entrenador, sobre
+todo los grupos "piernas" y "brazos" donde más ejercicios se agruparon
+bajo el mismo patrón (p. ej. todas las variantes de sentadilla quedaron
+en `pierna_dominante_rodilla`) — si algo se ve mal clasificado, se
+corrige desde `/admin/ejercicios` → abrir el ejercicio → "Tipo de
+movimiento", no hace falta tocar código.
