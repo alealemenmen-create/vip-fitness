@@ -937,6 +937,13 @@ export async function obtenerSesionCompleta(
   // siquiera en el caso con foto faltante es una consulta cara.
   let bibliotecaActual: Awaited<ReturnType<typeof obtenerBiblioteca>> | null = null;
 
+  const ultimoRegistroPorDiaEjercicio = await obtenerUltimosRegistros(
+    supabase,
+    alumnoId,
+    lista.map((se) => se.dia_ejercicio_id),
+    sesionId
+  );
+
   const ejercicios: EjercicioSesion[] = [];
   for (const se of lista) {
     const prog = se.rutina_dia_ejercicios;
@@ -1023,7 +1030,7 @@ export async function obtenerSesionCompleta(
       completado: se.completado,
       notaEjercicio: se.nota,
       series: (seriesPorEjercicio.get(se.id) ?? []).sort((a, b) => a.numeroSerie - b.numeroSerie),
-      ultimoRegistro: await obtenerUltimoRegistro(supabase, alumnoId, se.dia_ejercicio_id, sesionId),
+      ultimoRegistro: ultimoRegistroPorDiaEjercicio.get(se.dia_ejercicio_id) ?? null,
       dificultadPercibida: dificultadPorEjercicio.get(se.id) ?? null,
       recomendacionImpulso: mapearRecomendacionImpulso(recomendacionPorEjercicio.get(se.id)),
       intervencionesImpulso: (intervencionPorEjercicio.get(se.id) ?? []).map(mapearIntervencionImpulso),
@@ -1384,43 +1391,80 @@ function mapearIntervencionImpulso(fila: FilaIntervencionSesion): IntervencionIm
   };
 }
 
-async function obtenerUltimoRegistro(
+/** Versión en lote de lo que antes era `obtenerUltimoRegistro` por
+ * ejercicio: esa hacía 2 consultas secuenciales *por cada ejercicio de la
+ * rutina* dentro de un `for` con `await` (N ejercicios = hasta 2×N viajes a
+ * Supabase, uno atrás del otro). Acá se resuelve todo el día en 2 consultas
+ * totales, sin importar cuántos ejercicios tenga.
+ *
+ * Misma semántica exacta que antes, por cada `dia_ejercicio_id`: la sesión
+ * previa (de este alumno, sin contar la sesión actual) más reciente que
+ * incluyó ese ejercicio, y la última serie registrada en ese ejercicio
+ * dentro de esa sesión. Si no hay sesión previa, o esa sesión no tiene
+ * series registradas para este ejercicio, sigue devolviendo `null` para
+ * ese `dia_ejercicio_id` — ningún alumno ve "última vez" inventada. */
+async function obtenerUltimosRegistros(
   supabase: SupabaseServerClient,
   alumnoId: string,
-  diaEjercicioId: string,
+  diaEjercicioIds: string[],
   sesionActualId: string
-): Promise<UltimoRegistro> {
+): Promise<Map<string, UltimoRegistro>> {
+  const resultado = new Map<string, UltimoRegistro>();
+  if (diaEjercicioIds.length === 0) return resultado;
+
   const { data: sesionesPrevias } = await supabase
     .from("sesiones_entrenamiento")
     .select("id, fecha, sesion_ejercicios!inner(id, dia_ejercicio_id)")
     .eq("alumno_id", alumnoId)
-    .eq("sesion_ejercicios.dia_ejercicio_id", diaEjercicioId)
+    .in("sesion_ejercicios.dia_ejercicio_id", diaEjercicioIds)
     .neq("id", sesionActualId)
-    .order("fecha", { ascending: false })
-    .limit(1);
+    .order("fecha", { ascending: false });
 
-  const sesionPrevia = sesionesPrevias?.[0];
-  if (!sesionPrevia) return null;
+  // Ordenado por fecha descendente: la primera vez que aparece cada
+  // dia_ejercicio_id acá es, por construcción, la sesión previa más
+  // reciente que lo incluyó — mismo criterio que el `.limit(1)` de antes,
+  // aplicado ejercicio por ejercicio en vez de una consulta por ejercicio.
+  const previoPorDiaEjercicio = new Map<string, { sesionEjercicioId: string; fecha: string }>();
+  for (const sesionPrevia of sesionesPrevias ?? []) {
+    const items = sesionPrevia.sesion_ejercicios as unknown as { id: string; dia_ejercicio_id: string }[];
+    for (const item of items) {
+      if (!previoPorDiaEjercicio.has(item.dia_ejercicio_id)) {
+        previoPorDiaEjercicio.set(item.dia_ejercicio_id, { sesionEjercicioId: item.id, fecha: sesionPrevia.fecha });
+      }
+    }
+  }
 
-  const sesionEjercicioPrevio = (
-    sesionPrevia.sesion_ejercicios as unknown as { id: string; dia_ejercicio_id: string }[]
-  )[0];
-  if (!sesionEjercicioPrevio) return null;
+  const sesionEjercicioIdsPrevios = [...previoPorDiaEjercicio.values()].map((v) => v.sesionEjercicioId);
+  const { data: seriesPrevias } = sesionEjercicioIdsPrevios.length
+    ? await supabase
+        .from("series_realizadas")
+        .select("sesion_ejercicio_id, peso_kg, es_peso_corporal, reps_realizadas, numero_serie")
+        .in("sesion_ejercicio_id", sesionEjercicioIdsPrevios)
+        .order("numero_serie", { ascending: false })
+    : { data: [] };
 
-  const { data: ultimaSerie } = await supabase
-    .from("series_realizadas")
-    .select("peso_kg, es_peso_corporal, reps_realizadas")
-    .eq("sesion_ejercicio_id", sesionEjercicioPrevio.id)
-    .order("numero_serie", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Mismo truco de orden: la primera serie que aparece por sesion_ejercicio_id
+  // ya viene ordenada por numero_serie descendente, así que es la última.
+  const ultimaSeriePorSesionEjercicio = new Map<
+    string,
+    { peso_kg: number | null; es_peso_corporal: boolean; reps_realizadas: number | null }
+  >();
+  for (const serie of seriesPrevias ?? []) {
+    if (!ultimaSeriePorSesionEjercicio.has(serie.sesion_ejercicio_id)) {
+      ultimaSeriePorSesionEjercicio.set(serie.sesion_ejercicio_id, serie);
+    }
+  }
 
-  if (!ultimaSerie) return null;
+  for (const [diaEjercicioId, previo] of previoPorDiaEjercicio) {
+    const ultimaSerie = ultimaSeriePorSesionEjercicio.get(previo.sesionEjercicioId);
+    if (!ultimaSerie) continue;
+    resultado.set(diaEjercicioId, {
+      pesoKg: ultimaSerie.peso_kg,
+      esPesoCorporal: ultimaSerie.es_peso_corporal,
+      reps: ultimaSerie.reps_realizadas,
+      fecha: previo.fecha,
+    });
+  }
 
-  return {
-    pesoKg: ultimaSerie.peso_kg,
-    esPesoCorporal: ultimaSerie.es_peso_corporal,
-    reps: ultimaSerie.reps_realizadas,
-    fecha: sesionPrevia.fecha,
-  };
+  return resultado;
 }
