@@ -76,7 +76,7 @@ import { ModalVideo } from "@/components/student/ModalVideo";
 import { ModalVideoCloudflare } from "@/components/student/ModalVideoCloudflare";
 import { VideoCloudflareAutomatico } from "@/components/student/VideoCloudflareAutomatico";
 import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
-import { agruparEnBloques, BloqueArrastrableEnLinea, DndContextOrden, OrdenSesionV2 } from "@/components/v2/OrdenSesionV2";
+import { agruparEnBloques, AsaArrastre, BloqueArrastrableEnLinea, DndContextOrden, OrdenSesionV2 } from "@/components/v2/OrdenSesionV2";
 import {
   CLAVE_ESCALA_VISUAL_V2,
   ESCALAS_VISUALES_V2,
@@ -1289,7 +1289,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         </section>
       ) : (
         <main className={styles.workoutList}>
-          <DndContextOrden ejercicios={EJERCICIOS} deshabilitado={!personalizacionDisponible || sesion?.soloLectura} onReordenar={aplicarNuevoOrden}>
+          <DndContextOrden id="orden-sesion-lista" ejercicios={EJERCICIOS} deshabilitado={!personalizacionDisponible || sesion?.soloLectura} onReordenar={aplicarNuevoOrden}>
             {agruparEnBloques(EJERCICIOS).map((bloque) => {
               // El bloque con el ejercicio expandido (inputs de reps/peso en
               // vivo) no se arrastra directo -- hay que contraerlo primero.
@@ -1321,6 +1321,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                             <strong>{ejercicio.nombre}</strong><small>Reps: {ejercicio.repeticiones.join(" · ")}</small>
                           </button>
                           {ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}
+                          <AsaArrastre />
                         </article>
                       );
                     }

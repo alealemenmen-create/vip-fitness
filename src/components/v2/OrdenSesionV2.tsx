@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -91,13 +91,31 @@ function FilaBloque({ bloque, deshabilitado }: { bloque: EjercicioSesionV2[]; de
   );
 }
 
+type AsaContextValue = {
+  attributes: ReturnType<typeof useSortable>["attributes"];
+  listeners: ReturnType<typeof useSortable>["listeners"];
+};
+const AsaContext = createContext<AsaContextValue | null>(null);
+
 /** Envoltorio genérico para arrastrar "en el lugar" -- se usa directo
  * sobre la tarjeta compacta de un ejercicio en la lista principal, sin
  * cambiar en nada su apariencia normal (nada de chrome extra). Cuando el
  * bloque completo está deshabilitado (contiene el ejercicio expandido,
  * con inputs en vivo, o la sesión no admite reordenar) se renderiza
  * `children` tal cual, sin envolver -- así no interfiere jamás con la
- * edición de reps/peso. */
+ * edición de reps/peso.
+ *
+ * `attributes`/`listeners` NO van en este envoltorio: dnd-kit no llama
+ * `preventDefault()` en el touchmove hasta que se cumple el retraso de
+ * activación, así que si el punto de partida del toque no tiene
+ * `touch-action: none` desde el principio, el navegador ya empezó su
+ * propio scroll nativo antes de que el retraso termine y el gesto nunca
+ * arranca (así se ve en el teléfono, aunque un puntero sintético en
+ * pruebas automatizadas no lo note). Ponerle `touch-action: none` a toda
+ * la tarjeta arreglaría el arrastre pero volvería la lista principal
+ * imposible de scrollear con el dedo. Por eso el punto de agarre real es
+ * `AsaArrastre`, expuesto por contexto -- mismo patrón de "drag handle"
+ * documentado por dnd-kit. */
 export function BloqueArrastrableEnLinea({
   id,
   deshabilitado,
@@ -110,24 +128,34 @@ export function BloqueArrastrableEnLinea({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled: deshabilitado });
   if (deshabilitado) return <>{children}</>;
   return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={isDragging ? styles.ordenFilaOculta : undefined}
-      {...attributes}
-      {...listeners}
-    >
-      {children}
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={isDragging ? styles.ordenFilaOculta : undefined}>
+      <AsaContext.Provider value={{ attributes, listeners }}>{children}</AsaContext.Provider>
     </div>
   );
 }
 
+/** Asa de arrastre real de una tarjeta en la lista principal -- el único
+ * punto donde hay que presionar para levantar el bloque. No renderiza
+ * nada si la tarjeta no está dentro de un `BloqueArrastrableEnLinea`
+ * habilitado (bloque con el ejercicio expandido, solo lectura, etc). */
+export function AsaArrastre() {
+  const contexto = useContext(AsaContext);
+  if (!contexto) return null;
+  return (
+    <button type="button" className={styles.asaTarjeta} aria-label="Mantén presionado y arrastra para reordenar" {...contexto.attributes} {...contexto.listeners}>
+      <GripVertical size={18} />
+    </button>
+  );
+}
+
 export function DndContextOrden({
+  id,
   ejercicios,
   deshabilitado,
   onReordenar,
   children,
 }: {
+  id: string;
   ejercicios: EjercicioSesionV2[];
   deshabilitado?: boolean;
   onReordenar: (siguientes: EjercicioSesionV2[]) => void;
@@ -157,6 +185,7 @@ export function DndContextOrden({
 
   return (
     <DndContext
+      id={id}
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={deshabilitado ? undefined : handleDragStart}
@@ -191,7 +220,7 @@ export function OrdenSesionV2({
 }) {
   const bloques = agruparEnBloques(ejercicios);
   return (
-    <DndContextOrden ejercicios={ejercicios} deshabilitado={deshabilitado} onReordenar={onReordenar}>
+    <DndContextOrden id="orden-sesion-panel" ejercicios={ejercicios} deshabilitado={deshabilitado} onReordenar={onReordenar}>
       <div className={styles.ordenLista}>
         {bloques.map((bloque) => <FilaBloque key={bloque[0].id} bloque={bloque} deshabilitado={deshabilitado} />)}
       </div>
