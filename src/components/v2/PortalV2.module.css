@@ -181,6 +181,17 @@
   font-weight: 650;
   letter-spacing: .01em;
 }
+.splashHint strong { color: #f4c744; font-weight: 800; }
+
+.splashBarra {
+  position: relative;
+  width: 150px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .1);
+}
+.splashBarra i { display: block; height: 100%; background: linear-gradient(90deg, #f4c744, #ffdd7a); transition: width 150ms linear; }
 
 .navWrap {
   position: fixed;
