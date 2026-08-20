@@ -2,6 +2,10 @@
 
 Copia desde “INICIO DEL MENSAJE” hasta “FIN DEL MENSAJE” en Claude Code.
 
+Actualizado el **19 de agosto de 2026**. Este mensaje ya incorpora la separación
+entre V1 y V2, el fallo crítico de Impulso VIP y las condiciones de entrega para
+que Codex pueda auditar el resultado sin poner en riesgo a los alumnos activos.
+
 ---
 
 ## INICIO DEL MENSAJE
@@ -20,6 +24,12 @@ en Portal V2, no portes componentes desde V2 por inercia y no mezcles sus ramas.
 - Si esa rama o carpeta ya existe, inspecciónala y continúa sin sobrescribir.
 - No leas, copies, muestres ni alteres secretos de `.env*`.
 - No hagas commit de archivos ajenos ni publiques a GitHub/Vercel.
+- Portal V2 vive separado en `C:\dev\vip-fitness-v2`, rama `portal-v2`. Su
+  corte verificado al redactar este encargo es `18a2777`. No edites esa carpeta,
+  no mezcles commits y no intentes resolver allí las tareas de este mensaje.
+- El temporizador de V2 ya distingue descanso en lista y descanso inmersivo de
+  video. Ese antecedente sirve sólo como advertencia arquitectónica: no copies
+  componentes ni estados de V2 hacia V1 sin demostrar compatibilidad.
 
 ### Objetivo general
 
@@ -47,6 +57,10 @@ real, tener regreso claro y respetar permisos.
    nombres confusos y tareas frecuentes que hoy exigen demasiados pasos.
 4. No elimines nada sólo porque parezca poco usado. Si propones retirar algo,
    demuestra su reemplazo y déjalo documentado, no lo borres.
+5. Antes de implementar, crea en el worktree aislado un archivo de control con
+   una matriz `función → ruta → acción de servidor → tabla → rol → estado de
+   prueba`. Actualízala a medida que verificas; no marques como operativo un
+   botón sólo porque renderiza.
 
 ### Fase 2 — Nueva organización profesional
 
@@ -132,6 +146,11 @@ Requisitos de la corrección:
 - Confirma que todos los botones nuevos tienen destino o acción y regreso.
 - No declares éxito basándote sólo en que compila.
 - No despliegues, no apliques SQL y no hagas pruebas destructivas.
+- No uses datos demostrativos para ocultar fallos de lectura. Si una consulta
+  real falla, muestra el error y documéntalo; si no hay datos, muestra un estado
+  vacío honesto.
+- Conserva un registro explícito de cada problema encontrado, su causa raíz,
+  archivos afectados, decisión tomada, prueba que lo cubre y riesgo residual.
 
 ### Entrega obligatoria para revisión del martes
 
@@ -151,9 +170,12 @@ Ese handoff debe incluir:
 - SQL propuesto pero **no aplicado**, si fuera imprescindible;
 - riesgos, limitaciones y pendientes honestos;
 - instrucciones exactas para que Codex audite e integre o rechace el trabajo.
+- una sección `NO TERMINADO` con cualquier botón sin conexión, flujo no probado,
+  dependencia externa, dato supuesto o decisión que necesite al propietario;
+- una sección `NO TOCAR EN V2` que confirme que `C:\dev\vip-fitness-v2` y la
+  rama `portal-v2` permanecieron sin cambios durante todo el encargo.
 
 Si algo no está probado, escríbelo como pendiente. No toques Portal V2 y no
 presentes una maqueta visual como una función terminada.
 
 ## FIN DEL MENSAJE
-
