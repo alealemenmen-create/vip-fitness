@@ -27,7 +27,7 @@ export const maxDuration = 300;
 
 type FichaEjercicioV2 = Pick<Database["public"]["Tables"]["ejercicios"]["Row"],
   | "id" | "nombre" | "grupo_muscular" | "categoria" | "equipo" | "activo" | "calidad_ficha"
-  | "patron_movimiento"
+  | "patron_movimiento" | "grupos_secundarios" | "nivel" | "descripcion_corta" | "tecnica" | "errores_comunes" | "consejos"
   | "foto_completa_url" | "foto_miniatura_url" | "video_url" | "video_cloudflare_uid"
   | "video_cloudflare_estado" | "video_cloudflare_miniatura_url"
 >;
@@ -134,7 +134,7 @@ export default async function SesionV2Page({
     const sustituto = personalizacionPorId.get(ejercicio.sesionEjercicioId)?.ejercicio_sustituto_id;
     return [ejercicio.ejercicioId, sustituto].filter((id): id is string => Boolean(id));
   }));
-  const camposFicha = "id, nombre, grupo_muscular, categoria, patron_movimiento, equipo, activo, calidad_ficha, foto_completa_url, foto_miniatura_url, video_url, video_cloudflare_uid, video_cloudflare_estado, video_cloudflare_miniatura_url";
+  const camposFicha = "id, nombre, grupo_muscular, grupos_secundarios, categoria, patron_movimiento, equipo, nivel, descripcion_corta, tecnica, errores_comunes, consejos, activo, calidad_ficha, foto_completa_url, foto_miniatura_url, video_url, video_cloudflare_uid, video_cloudflare_estado, video_cloudflare_miniatura_url";
   const { data: fichasBase } = idsBiblioteca.size
     ? await supabase.from("ejercicios").select(camposFicha).in("id", [...idsBiblioteca])
     : { data: [] };
@@ -206,6 +206,8 @@ export default async function SesionV2Page({
 
     const sustitutoId = personalizacionPorId.get(ejercicio.sesionEjercicioId)?.ejercicio_sustituto_id;
     const fichaSustituta = sustitutoId ? fichaPorId.get(sustitutoId) : undefined;
+    const fichaOriginal = ejercicio.ejercicioId ? fichaPorId.get(ejercicio.ejercicioId) : undefined;
+    const fichaVisual = fichaSustituta ?? fichaOriginal;
     const foto = fichaSustituta ? fotoFicha(fichaSustituta, fichaSustituta.grupo_muscular) : ejercicio.fotoCompletaUrl
       ?? ejercicio.fotoMiniaturaUrl
       ?? ejercicio.videoCloudflareMiniaturaUrl
@@ -234,6 +236,14 @@ export default async function SesionV2Page({
       grupo: fichaSustituta?.grupo_muscular
         ? ETIQUETAS_GRUPO_MUSCULAR[fichaSustituta.grupo_muscular]
         : ejercicio.grupoMuscular ? ETIQUETAS_GRUPO_MUSCULAR[ejercicio.grupoMuscular] : "Entrenamiento",
+      grupoClave: fichaVisual?.grupo_muscular ?? ejercicio.grupoMuscular ?? undefined,
+      gruposSecundarios: fichaVisual?.grupos_secundarios ?? [],
+      categoria: fichaVisual?.categoria?.replaceAll("_", " ") ?? undefined,
+      patronMovimiento: fichaVisual?.patron_movimiento?.replaceAll("_", " ") ?? undefined,
+      nivel: fichaVisual?.nivel ?? undefined,
+      descripcion: fichaVisual?.descripcion_corta ?? undefined,
+      instrucciones: [fichaVisual?.tecnica, ...(fichaVisual?.consejos ?? [])].filter((texto): texto is string => Boolean(texto?.trim())),
+      erroresComunes: fichaVisual?.errores_comunes ?? [],
       tecnica: familia || ejercicio.tecnicaTipo || undefined,
       bloqueId,
       tecnicaSlug: encadenada ? slug as TecnicaEncadenadaSlug : undefined,

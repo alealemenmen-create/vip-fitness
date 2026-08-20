@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Activity,
+  ArrowLeft,
   Check,
   ArrowDown,
   ArrowUp,
@@ -13,7 +14,9 @@ import {
   ChevronsLeft,
   ChevronsRight,
   CircleCheck,
+  Dumbbell,
   FastForward,
+  Gauge,
   History,
   Info,
   Lightbulb,
@@ -25,6 +28,7 @@ import {
   Settings,
   Shuffle,
   StickyNote,
+  Target,
   X,
   Zap,
 } from "lucide-react";
@@ -101,6 +105,14 @@ export type EjercicioSesionV2 = {
   videoCloudflareListo?: boolean;
   equipo: string;
   grupo: string;
+  grupoClave?: string;
+  gruposSecundarios?: string[];
+  categoria?: string;
+  patronMovimiento?: string;
+  nivel?: string;
+  descripcion?: string;
+  instrucciones?: string[];
+  erroresComunes?: string[];
   tecnica?: string;
   bloqueId?: string;
   tecnicaSlug?: TecnicaEncadenadaSlug;
@@ -331,6 +343,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [pasosTecnica, setPasosTecnica] = useState<Record<string, number>>({});
   const [pausaTecnica, setPausaTecnica] = useState<PausaTecnica | null>(null);
   const [videoAmpliado, setVideoAmpliado] = useState(false);
+  const [fichaEjercicioId, setFichaEjercicioId] = useState<string | null>(null);
   const [mensajeCompartir, setMensajeCompartir] = useState<string | null>(null);
   const [guardando, iniciarGuardado] = useTransition();
   const [personalizando, iniciarPersonalizacion] = useTransition();
@@ -354,6 +367,9 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   ), [registro]);
   const ejercicioActivoIndice = EJERCICIOS.findIndex((ejercicio) => ejercicio.id === ejercicioActivoId);
   const ejercicioActivo = EJERCICIOS[ejercicioActivoIndice] ?? EJERCICIOS[0];
+  const fichaEjercicio = fichaEjercicioId === null
+    ? null
+    : EJERCICIOS.find((ejercicio) => ejercicio.id === fichaEjercicioId) ?? null;
   const serieActivaIndiceSeguro = limitar(serieActivaIndice, 0, ejercicioActivo.repeticiones.length - 1);
   const serieActiva = registro[ejercicioActivo.id][serieActivaIndiceSeguro];
   const indicePasoActivo = ORDEN_EJECUCION.findIndex((paso) =>
@@ -1000,6 +1016,18 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     setVista("video");
   };
 
+  const abrirFichaEjercicio = (ejercicio: EjercicioSesionV2) => {
+    const primeraPendiente = registro[ejercicio.id].findIndex((serie) => !serie.completada);
+    setEjercicioActivoId(ejercicio.id);
+    setSerieActivaIndice(primeraPendiente < 0 ? 0 : primeraPendiente);
+    setFichaEjercicioId(ejercicio.id);
+    setVideoAmpliado(false);
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "auto" });
+      paginaSesionRef.current?.parentElement?.scrollTo({ top: 0, behavior: "auto" });
+    });
+  };
+
   const cambiarUnidadPeso = (siguienteUnidad: UnidadPeso) => {
     if (siguienteUnidad === unidadPeso) return;
     setRegistro((actual) => Object.fromEntries(
@@ -1161,7 +1189,16 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         </button>
       ) : null}
 
-      {vista === "descanso" ? (
+      {fichaEjercicio ? (
+        <FichaEjercicioActiva
+          ejercicio={fichaEjercicio}
+          onCerrar={() => {
+            setFichaEjercicioId(null);
+            setVideoAmpliado(false);
+          }}
+          onAmpliarVideo={() => setVideoAmpliado(true)}
+        />
+      ) : vista === "descanso" ? (
         <section
           className={styles.restImmersive}
           aria-live="polite"
@@ -1228,17 +1265,30 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             ) ?? null;
             if (!activa) {
               const primeraPendiente = registro[ejercicio.id].findIndex((serie) => !serie.completada);
+              const expandirEjercicio = () => {
+                setEjercicioActivoId(ejercicio.id);
+                setSerieActivaIndice(ejercicio.id === ejercicioActivo.id ? serieActivaIndiceSeguro : Math.max(0, primeraPendiente));
+                setEjercicioExpandidoId(ejercicio.id);
+                setDescansoEnFoco(false);
+              };
               return (
-                <button type="button" className={styles.compactExercise} key={ejercicio.id} aria-expanded="false" onClick={() => { setEjercicioActivoId(ejercicio.id); setSerieActivaIndice(ejercicio.id === ejercicioActivo.id ? serieActivaIndiceSeguro : Math.max(0, primeraPendiente)); setEjercicioExpandidoId(ejercicio.id); setDescansoEnFoco(false); }}>
-                  <span className={styles.compactCode}>{ejercicio.codigo} SERIE</span><span className={styles.compactThumb}><ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="68px" loading="eager" /><i><Play size={12} fill="currentColor" /></i></span><span className={styles.compactCopy}><strong>{ejercicio.nombre}</strong><small>Reps: {ejercicio.repeticiones.join(" · ")}</small></span>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}
-                </button>
+                <article className={styles.compactExercise} key={ejercicio.id}>
+                  <span className={styles.compactCode}>{ejercicio.codigo} SERIE</span>
+                  <button type="button" className={styles.compactThumb} onClick={() => abrirFichaEjercicio(ejercicio)} aria-label={`Abrir ficha técnica de ${ejercicio.nombre}`}>
+                    <ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="68px" loading="eager" /><i><Play size={12} fill="currentColor" /></i>
+                  </button>
+                  <button type="button" className={styles.compactCopy} aria-expanded="false" onClick={expandirEjercicio}>
+                    <strong>{ejercicio.nombre}</strong><small>Reps: {ejercicio.repeticiones.join(" · ")}</small>
+                  </button>
+                  {ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}
+                </article>
               );
             }
             return (
               <section className={styles.activeExercise} key={ejercicio.id}>
                 <button type="button" className={styles.seriesLabel} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)} aria-label={`Contraer ${ejercicio.nombre}`}>SERIE {ejercicio.codigo}<i aria-hidden="true">›››</i>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}</button>
                 <div className={styles.exerciseHeading}>
-                  <button type="button" className={styles.exerciseMedia} onClick={abrirVistaVideo} aria-label={`Ver demostración de ${ejercicio.nombre}`}><ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="70px" loading={ejercicio.codigo === "A" ? "eager" : "lazy"} /><i><Play size={17} fill="currentColor" /></i></button>
+                  <button type="button" className={styles.exerciseMedia} onClick={() => abrirFichaEjercicio(ejercicio)} aria-label={`Abrir ficha técnica de ${ejercicio.nombre}`}><ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="70px" loading={ejercicio.codigo === "A" ? "eager" : "lazy"} /><i><Play size={17} fill="currentColor" /></i></button>
                   <button type="button" className={styles.exerciseHeadingToggle} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)}><h1>{ejercicio.nombre}</h1><p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p></button>
                 </div>
                 <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicio.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={14} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={14} />Orden</button> : null}</div>
@@ -1288,7 +1338,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         </main>
       )}
 
-      {sesion?.soloLectura ? (
+      {!fichaEjercicio && (sesion?.soloLectura ? (
         <nav className={styles.sessionControls} aria-label="Controles del registro">
           <Link href="/portal-v2/entrenamiento/historial" aria-label="Volver al historial"><History size={20} /></Link>
           <button type="button" aria-label="Serie anterior" onClick={() => moverSerie(-1)} disabled={!puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
@@ -1303,7 +1353,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           <button type="button" aria-label={pausada ? "Reanudar sesión" : "Pausar sesión"} onClick={alternarPausaSesion}>{pausada ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>
           <button type="button" aria-label={vista === "descanso" ? descanso?.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie" : vista === "video" ? "Finalizar serie e ir al descanso" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
         </nav>
-      )}
+      ))}
 
       {panel !== null ? (
         <PanelAuxiliar
@@ -1398,6 +1448,102 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+const MUSCULOS_FICHA: Array<{ claves: string[]; etiqueta: string; imagen: string }> = [
+  { claves: ["pecho", "pectoral"], etiqueta: "Pecho", imagen: "/grupos-musculares/pecho.webp" },
+  { claves: ["hombro", "deltoide"], etiqueta: "Hombros", imagen: "/grupos-musculares/hombros.webp" },
+  { claves: ["espalda", "dorsal", "trapecio"], etiqueta: "Espalda", imagen: "/grupos-musculares/espalda.webp" },
+  { claves: ["biceps", "triceps", "brazo", "antebrazo"], etiqueta: "Brazos", imagen: "/grupos-musculares/brazos.webp" },
+  { claves: ["core", "abdomen", "abdominal"], etiqueta: "Core", imagen: "/grupos-musculares/core.webp" },
+  { claves: ["femoral", "isqui", "glute", "posterior"], etiqueta: "Cadena posterior", imagen: "/grupos-musculares/piernas-espalda.webp" },
+  { claves: ["pierna", "cuadriceps", "pantorrilla", "gemelo", "aductor"], etiqueta: "Piernas", imagen: "/grupos-musculares/piernas-frente.webp" },
+];
+
+function normalizarClaveMusculo(valor: string) {
+  return valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replaceAll("_", " ");
+}
+
+function resolverMusculoFicha(valor: string) {
+  const clave = normalizarClaveMusculo(valor);
+  return MUSCULOS_FICHA.find((musculo) => musculo.claves.some((fragmento) => clave.includes(fragmento)))
+    ?? { etiqueta: valor.replaceAll("_", " "), imagen: "/grupos-musculares/core.webp" };
+}
+
+function FichaEjercicioActiva({
+  ejercicio,
+  onCerrar,
+  onAmpliarVideo,
+}: {
+  ejercicio: EjercicioSesionV2;
+  onCerrar: () => void;
+  onAmpliarVideo: () => void;
+}) {
+  const objetivos = [ejercicio.grupoClave ?? ejercicio.grupo, ...(ejercicio.gruposSecundarios ?? [])]
+    .filter((valor, indice, lista): valor is string => Boolean(valor) && lista.indexOf(valor) === indice)
+    .map((valor, indice) => ({ ...resolverMusculoFicha(valor), rol: indice === 0 ? "Principal" : "Secundario" }));
+  const preparacion = [
+    { icono: <Target size={20} />, etiqueta: "Movimiento", valor: ejercicio.patronMovimiento ?? ejercicio.categoria ?? "Trabajo dirigido" },
+    { icono: <Activity size={20} />, etiqueta: "Objetivo", valor: ejercicio.grupo },
+    { icono: <Dumbbell size={20} />, etiqueta: "Equipo", valor: ejercicio.equipo },
+    { icono: <Gauge size={20} />, etiqueta: "Nivel", valor: ejercicio.nivel ?? "Según programación" },
+  ];
+  const instrucciones = (ejercicio.instrucciones ?? []).filter(Boolean);
+  const tieneVideo = Boolean(ejercicio.videoCloudflareListo || ejercicio.videoUrl);
+
+  return (
+    <main className={styles.exerciseDetail} aria-label={`Ficha técnica de ${ejercicio.nombre}`}>
+      <button type="button" className={styles.exerciseDetailBack} onClick={onCerrar} aria-label="Volver al entrenamiento">
+        <ArrowLeft size={20} /><span>Volver</span>
+      </button>
+      <section className={styles.exerciseDetailHero}>
+        <ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt={`Ejecución de ${ejercicio.nombre}`} fill sizes="(max-width: 460px) 100vw, 460px" loading="eager" />
+        {ejercicio.videoCloudflareListo && ejercicio.bibliotecaEjercicioId ? <VideoCloudflareAutomatico ejercicioId={ejercicio.bibliotecaEjercicioId} activo nombre={ejercicio.nombre} /> : null}
+        <div className={styles.exerciseDetailShade} />
+        {tieneVideo ? <button type="button" className={styles.exerciseDetailPlay} onClick={onAmpliarVideo} aria-label={`Ampliar video de ${ejercicio.nombre}`}><Play size={22} fill="currentColor" /></button> : null}
+        <div className={styles.exerciseDetailIdentity}>
+          <small>FICHA TÉCNICA · SERIE {ejercicio.codigo}</small>
+          <h1>{ejercicio.nombre}</h1>
+          {ejercicio.descripcion ? <p>{ejercicio.descripcion}</p> : null}
+        </div>
+      </section>
+
+      <section className={styles.exerciseDetailSection}>
+        <h2>Preparación</h2>
+        <div className={styles.exerciseSetupGrid}>
+          {preparacion.map((item) => <article key={item.etiqueta}>{item.icono}<strong>{item.etiqueta}</strong><span>{item.valor}</span></article>)}
+        </div>
+      </section>
+
+      <section className={styles.exerciseDetailSection}>
+        <h2>Músculos involucrados</h2>
+        <div className={styles.exerciseMuscleGrid}>
+          {objetivos.map((objetivo, indice) => (
+            <article key={`${objetivo.etiqueta}-${indice}`}>
+              <div><ImagenV2Segura src={objetivo.imagen} alt="" fill sizes="86px" /></div>
+              <strong>{objetivo.etiqueta}</strong><span>{objetivo.rol}</span>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.exerciseDetailSection}>
+        <h2>Instrucciones</h2>
+        {instrucciones.length ? (
+          <ol className={styles.exerciseInstructions}>{instrucciones.map((instruccion, indice) => <li key={`${indice}-${instruccion}`}>{instruccion}</li>)}</ol>
+        ) : (
+          <p className={styles.exerciseDetailEmpty}>Tu entrenador todavía no agregó instrucciones específicas para este ejercicio.</p>
+        )}
+      </section>
+
+      {(ejercicio.erroresComunes?.length ?? 0) > 0 ? (
+        <section className={styles.exerciseDetailSection}>
+          <h2>Evita estos errores</h2>
+          <ul className={styles.exerciseErrors}>{ejercicio.erroresComunes?.map((error) => <li key={error}>{error}</li>)}</ul>
+        </section>
+      ) : null}
+    </main>
   );
 }
 
