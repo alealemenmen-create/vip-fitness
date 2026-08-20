@@ -21,6 +21,7 @@ revisar, aceptar o rechazar cada bloque por separado.
   10. `dc5e80f` — `feat: reordenar ejercicios arrastrando, en vez de flechas`
   11. `0527347` — `refactor: arrastrar ejercicios directo en la lista, sin pantalla aparte`
   12. `d75beea` — `fix: hacer que el arrastre en la lista funcione de verdad en el telefono`
+  13. `290b630` — `feat: agregar "Deshacer" tras reordenar ejercicios arrastrando`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -384,6 +385,35 @@ punta con las herramientas de este entorno — lo nuevo acá es que la razón
 real de por qué el gesto no arrancaba en un teléfono de verdad quedó
 identificada y corregida, no sólo el arranque del gesto en sí.
 
+### 10.2 `290b630` — "Deshacer" como red de seguridad
+
+Alejandro probó `d75beea` en su teléfono y confirmó: el asa funciona. Pero
+avisó un riesgo real, no hipotético — cita textual: "una señora mayor
+posiblemente va a tocar allí y va a mover los ejercicios fácilmente, sin
+querer". Le respondí que reducir el toque accidental a cero no es
+realista con el patrón de asa dedicada (ya es la única protección posible
+sin volver a un modo de pantalla aparte, que él ya había pedido evitar) —
+así que en vez de perseguir "que nunca se dispare por accidente", hice
+que el error sea barato de corregir si pasa.
+
+`aplicarNuevoOrden` ahora guarda el orden anterior antes de aplicar el
+nuevo (por arrastre, tanto en la lista principal como en el panel "Orden
+de la sesión" — comparten la misma función) y muestra un aviso fijo
+arriba, "Orden actualizado", con un botón "Deshacer" que dura 6
+segundos. `deshacerOrden` restaura el orden anterior llamando de nuevo a
+`aplicarNuevoOrden` (mismo camino de guardado que ya existía, sin
+duplicar lógica), marcado para no volver a armar su propio "Deshacer" y
+evitar un bucle.
+
+**Verificado:** el gate completo (tsc/eslint/vitest/build) pasa limpio y
+la pantalla sigue cargando sin errores nuevos en el log del servidor. El
+disparo real del aviso — que aparezca justo después de un arrastre-y-
+soltar de verdad en el teléfono — sigue sin poder probarse desde este
+entorno, por la misma limitación de siempre (no se puede simular un
+soltar real). Pido que lo confirmes vos: arrastrá un ejercicio a otra
+posición y fijate que aparezca "Orden actualizado" con el botón
+"Deshacer", y que tocarlo lo regrese a como estaba.
+
 ## Comandos y resultados
 
 ```
@@ -394,7 +424,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 12 commits (o de sus cambios
+Corridos después de cada uno de los 13 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -510,14 +540,16 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
   después explícitamente.
 - Confirmar en un teléfono real el ciclo completo de arrastrar-y-soltar
   del bloque 10 (ver arriba). `d75beea` corrigió por qué el gesto ni
-  siquiera arrancaba en un teléfono real (`touch-action`); lo que falta
-  confirmar ahora es sólo el soltar-y-reordenar en sí, con el asa nueva.
+  siquiera arrancaba en un teléfono real (`touch-action`); Alejandro ya
+  confirmó que el asa arranca bien. Lo que falta confirmar ahora es que
+  soltar en otra posición reordene de verdad y que aparezca el aviso
+  "Orden actualizado" con "Deshacer" (`290b630`, bloque 10.2).
 - Push a `origin/portal-v2` — esperando autorización.
 
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 12 commits por separado (son independientes entre sí, en
+cada uno de los 13 commits por separado (son independientes entre sí, en
 este orden: `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
 `d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
 `5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
@@ -525,7 +557,8 @@ renombrado a Impulso VIP, `d14309c` la pregunta de seguimiento, `fe56072`
 quitar la selección de texto, `dc5e80f` el arrastre para reordenar,
 `0527347` el mismo arrastre pero directo en la lista, sin pantalla
 aparte, `d75beea` el arreglo de por qué no arrancaba en un teléfono
-real). El primero es el más importante y el de menor riesgo (reutiliza
+real, `290b630` el "Deshacer" tras reordenar). El primero es el más
+importante y el de menor riesgo (reutiliza
 código ya probado, no toca UI). El tercero es el más grande y el que más
 vale mirar con cuidado, sobre todo la sección "Alcance recortado a
 propósito" — quiero que quede claro qué es real y qué quedó afuera antes de
@@ -549,4 +582,6 @@ de soltar-y-reordenar de punta a punta** con las herramientas de este
 entorno — eso sigue pendiente de un teléfono real. Si se rechaza
 `0527347`+`d75beea`, el código queda funcionando igual con el "modo
 ordenar" de pantalla aparte que traía `dc5e80f` — son cambios
-independientes y en capas.
+independientes y en capas. `290b630` (el "Deshacer", bloque 10.2) es
+independiente de los tres anteriores — se puede aceptar o rechazar solo,
+no depende de que el asa termine de convencer a Alejandro.
