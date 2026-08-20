@@ -359,6 +359,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [guardando, iniciarGuardado] = useTransition();
   const [personalizando, iniciarPersonalizacion] = useTransition();
   const [errorPersonalizacion, setErrorPersonalizacion] = useState<string | null>(null);
+  const [ordenAnterior, setOrdenAnterior] = useState<EjercicioSesionV2[] | null>(null);
+  const deshacerOrdenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gestoInicioX = useRef<number | null>(null);
   const descansoAvisadoRef = useRef<string | null>(null);
   const descansosResueltosRef = useRef<Set<string>>(new Set());
@@ -409,6 +411,12 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     window.localStorage.setItem("vip-v2-impulso-automatico", String(activo));
     if (!activo) setMomentoVisible(null);
   };
+
+  useEffect(() => {
+    return () => {
+      if (deshacerOrdenTimeoutRef.current) clearTimeout(deshacerOrdenTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const cuadro = window.requestAnimationFrame(() => {
@@ -796,10 +804,16 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     });
   };
 
-  const aplicarNuevoOrden = (siguientes: EjercicioSesionV2[]) => {
+  const aplicarNuevoOrden = (siguientes: EjercicioSesionV2[], opciones?: { conDeshacer?: boolean }) => {
+    const anterior = ejerciciosSesion;
     const aplicarLocal = () => {
       setEjerciciosSesion(siguientes);
       setErrorPersonalizacion(null);
+      if (opciones?.conDeshacer !== false) {
+        setOrdenAnterior(anterior);
+        if (deshacerOrdenTimeoutRef.current) clearTimeout(deshacerOrdenTimeoutRef.current);
+        deshacerOrdenTimeoutRef.current = setTimeout(() => setOrdenAnterior(null), 6000);
+      }
     };
     if (!sesion?.real) {
       aplicarLocal();
@@ -816,6 +830,13 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       }
       aplicarLocal();
     });
+  };
+
+  const deshacerOrden = () => {
+    if (!ordenAnterior) return;
+    if (deshacerOrdenTimeoutRef.current) clearTimeout(deshacerOrdenTimeoutRef.current);
+    setOrdenAnterior(null);
+    aplicarNuevoOrden(ordenAnterior, { conDeshacer: false });
   };
 
   const alternarSerie = (ejercicio: EjercicioSesionV2, serieIndice: number) => {
@@ -1208,6 +1229,25 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         >
           <span>{errorGuardado ?? avisoBorrador}</span><X size={15} />
         </button>
+      ) : null}
+
+      {ordenAnterior ? (
+        <div className={styles.ordenToast} role="status">
+          <span>Orden actualizado</span>
+          <div className={styles.ordenToastActions}>
+            <button type="button" onClick={deshacerOrden}>Deshacer</button>
+            <button
+              type="button"
+              aria-label="Cerrar aviso"
+              onClick={() => {
+                if (deshacerOrdenTimeoutRef.current) clearTimeout(deshacerOrdenTimeoutRef.current);
+                setOrdenAnterior(null);
+              }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
       ) : null}
 
       {fichaEjercicio ? (
