@@ -13,6 +13,10 @@ revisar, aceptar o rechazar cada bloque por separado.
   2. `96d59e0` — `style: quitar continuar despues del cierre de sesion v2`
   3. `d91847c` — `feat: agregar pantalla de programa v2`
   4. `4a1724f` — `style: rediseñar vista de video a pantalla completa sin scroll`
+  5. `5eb19fe` — `fix: hacer editables reps y peso en vista de video`
+  6. `01b9b4a` — `style: fijar el boton "Vista de video" en la lista`
+  7. `b8a8b26` — `style: renombrar Momento Alejandro a Impulso VIP en el texto de V2`
+  8. `d14309c` — `feat: preguntar como le fue al alumno tras una serie de Impulso VIP`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -176,6 +180,68 @@ que en ese caso extremo preferiría recortar contenido antes que scrollear
 (coherente con el pedido de "sin scroll"), pero no encontré ese escenario
 para probarlo en vivo.
 
+## 5. Reps y peso editables en Vista de video
+
+**Archivo:** `src/components/v2/SesionActivaV2.tsx` (+ CSS).
+
+Al mover la franja Serie/Reps/Peso al fondo de la pantalla (bloque 4) se
+mostraban como texto fijo (`<strong>{serieActiva.reps}</strong>`) — nunca
+fueron `<input>`, a pesar de que el pedido original ya decía "recuerda que
+son editables". Ahora son inputs reales (mismo patrón que la vista de
+lista, sin la lógica de "activar fila" porque en video solo hay una serie
+visible a la vez). Verificado en vivo: escribir 12/45, marcar la serie, y
+confirmar que el mismo valor aparece en la vista de lista.
+
+## 6. Botón "Vista de video" fijo en la lista
+
+Vivía al final de la lista de ejercicios (había que scrollear hasta el
+fondo). Ahora es un botón `position: fixed`, flotando arriba de la barra
+inferior, visible sin importar el scroll — solo en la vista de lista
+interactiva (no solo lectura, que ya tiene su propio toggle en la barra).
+
+## 7. "Momento Alejandro" ahora es "Impulso VIP"
+
+Renombrado de texto visible únicamente (títulos, chips, aria-labels, copy
+del panel) — no los nombres internos de tipos/funciones
+(`MomentoSesionAlejandro`, `seleccionarMomentosAlejandro`, etc.), que no
+son visibles para el alumno y hubiera sido un refactor mucho más grande sin
+beneficio real. A pedido explícito de Alejandro, el título del panel del
+feature lleva su firma: "Impulso VIP · Ale' Mendoza" — un solo lugar
+deliberado, no repetido en cada texto.
+
+## 8. Pregunta de seguimiento tras una serie de Impulso VIP
+
+**Archivos:** `src/app/alumno/entrenar/impulso-actions.ts`,
+`src/components/v2/SesionActivaV2.tsx` (+ CSS).
+
+**Lo que encontramos:** un comentario en el código documentaba a propósito
+que el "adaptador V2" de Impulso VIP no obliga al alumno a responder una
+encuesta — solo confía en los datos objetivos (reps/peso) ya guardados.
+Alejandro pidió explícitamente que si pregunte, confirmando (pregunta
+estructurada) que quiere las mismas 5 opciones que ya existen en V1
+(`SelectorDificultad`: Estuvo fácil / Podía hacer más / Estuvo justo /
+Estuvo muy difícil / No pude completarlo), pero atadas a la serie puntual
+del reto, no al ejercicio completo como en V1.
+
+**Cómo quedó:** `persistirEjercicio` ya no resuelve la intervención al
+guardar la serie — si esa serie tenía un momento de Impulso VIP, muestra un
+modal nuevo preguntando, y recién con la respuesta del alumno
+(`responderResultadoImpulso`) se llama a
+`resolverIntervencionAutomaticaV2`, que ahora acepta un `dificultad`
+opcional. Ese valor viaja en `resultado_data` (columna JSONB, sin
+migración) junto a `repsExtra`/`pesoDescargaKg` que V1 ya guardaba ahí. No
+reemplaza la verificación objetiva por datos: "No pude completarlo" es el
+único caso que se mapea a `resultado: "no_lograda"`; el resto sigue siendo
+`"lograda"` y la verificación por datos decide igual que antes si el
+objetivo numérico realmente se cumplió.
+
+**Verificado en vivo, extremo a extremo, con la cuenta QA:** sembré una
+intervención de prueba real (con `estado: "mostrada"`, borrada al
+terminar), completé la serie, apareció el modal "Impulso VIP / ¿Cómo te
+fue en esa serie?", elegí "Estuvo justo", y confirmé por consulta directa
+a Supabase que `resultado_data.dificultad` quedó en `"justo"` con
+`verificacion: "datos"` (el chequeo objetivo por reps/peso corrió igual).
+
 ## Comandos y resultados
 
 ```
@@ -186,7 +252,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 4 commits (o de sus cambios
+Corridos después de cada uno de los 8 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -209,6 +275,16 @@ real de nadie más en juego):**
 - Vista de video: header transparente, botón de Ajustes movido arriba y
   funcional, franja de datos al fondo, sin scroll, descanso inmersivo y
   regreso a video intactos.
+- Reps/peso editables en video: escribir valores y verlos reflejados en la
+  vista de lista tras marcar la serie.
+- Botón "Vista de video" fijo (`position:fixed` confirmado por computed
+  style), visible sin scroll.
+- Renombrado a "Impulso VIP" (incluida la firma "Ale' Mendoza") visible en
+  el chip, la tarjeta y el panel.
+- Pregunta "¿Cómo te fue en esa serie?" tras completar una serie con
+  Impulso VIP: las 5 opciones aparecen, y la respuesta queda guardada en
+  `resultado_data.dificultad` junto con la verificación objetiva por datos
+  (probado con una intervención sembrada y borrada al terminar).
 
 **Con la cuenta real de Alejandro (Alejandro Mendoza), solo antes de que él
 mismo pidiera detener las pruebas ahí:**
@@ -224,8 +300,8 @@ mismo pidiera detener las pruebas ahí:**
 **No comprobado todavía (pendiente):**
 - Sonido y vibración reales del aviso de fin de descanso (el navegador de
   pruebas no reproduce audio/vibración de forma verificable).
-- Vista de video con Impulso Alejandro + tarjeta de técnica + nombre largo
-  a la vez (ver sección 4, "No verificado todavía").
+- Vista de video con Impulso VIP + tarjeta de técnica + nombre largo a la
+  vez (ver sección 4, "No verificado todavía").
 - Técnicas avanzadas (biserie, triserie, FST-7, drop set, rest-pause,
   etc.) — hay una rutina QA armada específicamente para esto
   (`preparar-sesion-tecnicas-qa-v2.mjs`) que no llegué a recorrer.
@@ -259,12 +335,22 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
   permanente, así que no lo revertí.
 - Nada de lo de hoy toca Supabase con SQL, ni afecta producción, ni se
   desplegó a Vercel.
+- `resultado_data` de `impulso_vip_intervenciones` gana una clave nueva
+  (`dificultad`) dentro del JSONB existente — no es una migración, pero sí
+  un cambio de forma de datos que cualquier lectura futura de esa columna
+  debería tolerar (ya venía con `repsExtra`/`pesoDescargaKg`, así que
+  agregar una clave más no rompe lecturas existentes).
+- Para probar la pregunta de seguimiento de Impulso VIP en vivo tuve que
+  sembrar una fila real en `impulso_vip_intervenciones` para la cuenta QA
+  (borrada al terminar, ver bloque 8) — no encontré una forma natural de
+  disparar un momento nuevo sin eso, porque el cupo por sesión es escaso a
+  propósito y la cuenta QA ya había consumido el suyo en pruebas previas.
 
 ## NO TERMINADO
 
 - Resto de la Prioridad 0 (técnicas avanzadas, ficha técnica en video,
   sonido/vibración reales) — ver arriba. Vista de video en sí ya se
-  rediseñó y se probó (bloque 4).
+  rediseñó y se probó (bloques 4-6).
 - Prioridad 1 en adelante del handoff de continuidad: sin tocar.
 - Campos de nivel/fase/duración/equipamiento y reordenar días — deferidos
   a propósito, documentado arriba, esperando decisión de Alejandro.
@@ -275,14 +361,19 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 4 commits por separado (son independientes entre sí, en
+cada uno de los 8 commits por separado (son independientes entre sí, en
 este orden: `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
-`d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video). El
-primero es el más importante y el de menor riesgo (reutiliza código ya
-probado, no toca UI). El tercero es el más grande y el que más vale mirar
-con cuidado, sobre todo la sección "Alcance recortado a propósito" — quiero
-que quede claro qué es real y qué quedó afuera antes de que alguien asuma
-que la pantalla ya está completa. El cuarto (`4a1724f`) toca bastante CSS
-de posicionamiento (`position:fixed` a pantalla completa) — vale la pena
+`d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
+`5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
+renombrado a Impulso VIP, `d14309c` la pregunta de seguimiento). El primero
+es el más importante y el de menor riesgo (reutiliza código ya probado, no
+toca UI). El tercero es el más grande y el que más vale mirar con cuidado,
+sobre todo la sección "Alcance recortado a propósito" — quiero que quede
+claro qué es real y qué quedó afuera antes de que alguien asuma que la
+pantalla ya está completa. El cuarto (`4a1724f`) toca bastante CSS de
+posicionamiento (`position:fixed` a pantalla completa) — vale la pena
 probarlo en un teléfono real, no solo en el emulador de viewport, sobre
-todo con notch/safe-area distintos al que probé yo.
+todo con notch/safe-area distintos al que probé yo. El octavo (`d14309c`)
+cambia cómo se resuelve una intervención de Impulso VIP (antes automático,
+ahora espera la respuesta del alumno) — revisar que `resultado_data.dificultad`
+no se use en ningún lado que esperara solo `repsExtra`/`pesoDescargaKg`.
