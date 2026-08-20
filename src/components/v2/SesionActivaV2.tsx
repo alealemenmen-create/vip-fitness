@@ -479,6 +479,14 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   }, [sesion]);
 
   useEffect(() => {
+    // Solo informa que el borrador local se aplicó — no requiere que el
+    // alumno lo cierre a mano, así que se retira solo.
+    if (!avisoBorrador) return;
+    const temporizador = window.setTimeout(() => setAvisoBorrador(null), 3_000);
+    return () => window.clearTimeout(temporizador);
+  }, [avisoBorrador]);
+
+  useEffect(() => {
     if (!borradorCargado || !sesion?.real || sesion.soloLectura || registrada) return;
     const clave = claveBorradorSesionV2(sesion.id);
     const temporizador = window.setTimeout(() => {
@@ -1169,8 +1177,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   }
 
   return (
-    <div ref={paginaSesionRef} className={styles.sessionPage} data-visual-scale={escalaVisual}>
-      <header className={styles.topbar}>
+    <div ref={paginaSesionRef} className={styles.sessionPage} data-visual-scale={escalaVisual} data-vista={vista}>
+      <header className={styles.topbar} data-transparente={vista === "video" ? "true" : undefined}>
         <div className={styles.sessionStatus}><span>{formatearTiempo(segundosSesion)}</span><i aria-hidden="true" /><strong>{sesion?.soloLectura ? "Registro" : "Serie"} {serieActivaNumero}/{totalSeries}</strong></div>
         {sesion?.soloLectura
           ? <Link className={styles.endButton} href="/portal-v2/entrenamiento/historial">Historial</Link>
@@ -1231,32 +1239,40 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             {controlesVideoVisibles && puedeIrAtras ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={() => moverSerie(-1)} aria-label="Ver serie anterior"><ChevronsLeft size={27} strokeWidth={2.4} /></button> : null}
             {controlesVideoVisibles && (!sesion?.soloLectura || puedeIrAdelante) ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={sesion?.soloLectura ? () => moverSerie(1) : avanzarDesdeVideo} aria-label={sesion?.soloLectura ? "Ver serie siguiente" : puedeIrAdelante ? "Finalizar serie e ir al descanso" : "Finalizar entrenamiento"}><ChevronsRight size={27} strokeWidth={2.4} /></button> : null}
             <span className={styles.videoSpeed}>1× velocidad</span>
-            <div className={styles.videoIdentity}><small>SERIE {ejercicioActivo.codigo}</small><h1>{ejercicioActivo.nombre}</h1><p>{ejercicioActivo.equipo}</p></div>
           </div>
-          <div className={styles.videoActions}>
-            <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicioActivo.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={13} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={13} />Orden</button> : null}
+          <div className={styles.videoOverlay}>
+            <div className={styles.videoToolRow}>
+              {!sesion?.soloLectura ? <button type="button" className={styles.videoToolButton} aria-label="Ajustes" onClick={() => setPanel("ajustes")}><Settings size={17} /></button> : <span />}
+              <button type="button" className={styles.switchView} onClick={() => setVista("lista")}><ListVideo size={14} /> Vista de lista</button>
+            </div>
+            <div className={styles.videoOverlaySpacer} />
+            <div className={styles.videoBottomGroup}>
+              <div className={styles.videoIdentity}><small>SERIE {ejercicioActivo.codigo}</small><h1>{ejercicioActivo.nombre}</h1><p>{ejercicioActivo.equipo}</p></div>
+              <div className={styles.videoActions}>
+                <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicioActivo.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={13} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={13} />Orden</button> : null}
+              </div>
+              {impulsoActivo ? (
+                <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
+                  <Zap size={15} fill="currentColor" />
+                  <span><strong>Alejandro</strong><small>{impulsoActivo.instruccion}</small></span>
+                  <b>{momentosLogrados[impulsoActivo.id] ? "Verificado" : momentosRegistrados[impulsoActivo.id] ? "Registrado" : `Serie ${impulsoActivo.serieIndice + 1}`}</b>
+                </button>
+              ) : null}
+              {segmentosTecnicaActiva.length ? <TecnicaActivaCard ejercicio={ejercicioActivo} segmentos={segmentosTecnicaActiva} paso={pasoTecnicaActivo} pausa={pausaTecnica?.clave === claveTecnicaActiva ? pausaTecnica.segundos : null} /> : null}
+              <div className={`${styles.videoSetStrip} ${impulsoActivo?.serieIndice === serieActivaIndiceSeguro ? styles.videoSetStripImpulse : ""}`}>
+                <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} · trabajo</em></span><span><b>Reps</b><strong>{serieActiva.reps}</strong></span><span><b>Peso ({unidadPeso})</b><strong>{serieActiva.peso || `— ${unidadPeso}`}</strong></span>
+                <button
+                  type="button"
+                  disabled={sesion?.soloLectura}
+                  onClick={() => alternarSerie(ejercicioActivo, serieActivaIndiceSeguro)}
+                  aria-label={`${serieActiva.completada ? "Desmarcar" : "Registrar"} serie ${serieActivaIndiceSeguro + 1}`}
+                  aria-pressed={serieActiva.completada}
+                >
+                  {serieActiva.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}
+                </button>
+              </div>
+            </div>
           </div>
-          {impulsoActivo ? (
-            <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
-              <Zap size={15} fill="currentColor" />
-              <span><strong>Alejandro</strong><small>{impulsoActivo.instruccion}</small></span>
-              <b>{momentosLogrados[impulsoActivo.id] ? "Verificado" : momentosRegistrados[impulsoActivo.id] ? "Registrado" : `Serie ${impulsoActivo.serieIndice + 1}`}</b>
-            </button>
-          ) : null}
-          {segmentosTecnicaActiva.length ? <TecnicaActivaCard ejercicio={ejercicioActivo} segmentos={segmentosTecnicaActiva} paso={pasoTecnicaActivo} pausa={pausaTecnica?.clave === claveTecnicaActiva ? pausaTecnica.segundos : null} /> : null}
-          <div className={`${styles.videoSetStrip} ${impulsoActivo?.serieIndice === serieActivaIndiceSeguro ? styles.videoSetStripImpulse : ""}`}>
-            <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} · trabajo</em></span><span><b>Reps</b><strong>{serieActiva.reps}</strong></span><span><b>Peso ({unidadPeso})</b><strong>{serieActiva.peso || `— ${unidadPeso}`}</strong></span>
-            <button
-              type="button"
-              disabled={sesion?.soloLectura}
-              onClick={() => alternarSerie(ejercicioActivo, serieActivaIndiceSeguro)}
-              aria-label={`${serieActiva.completada ? "Desmarcar" : "Registrar"} serie ${serieActivaIndiceSeguro + 1}`}
-              aria-pressed={serieActiva.completada}
-            >
-              {serieActiva.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}
-            </button>
-          </div>
-          <button type="button" className={styles.switchView} onClick={() => setVista("lista")}><ListVideo size={14} /> Vista de lista</button>
         </section>
       ) : (
         <main className={styles.workoutList}>
@@ -1340,7 +1356,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         </main>
       )}
 
-      {!fichaEjercicio && (sesion?.soloLectura ? (
+      {!fichaEjercicio && vista !== "video" && (sesion?.soloLectura ? (
         <nav className={styles.sessionControls} aria-label="Controles del registro">
           <Link href="/portal-v2/entrenamiento/historial" aria-label="Volver al historial"><History size={20} /></Link>
           <button type="button" aria-label="Serie anterior" onClick={() => moverSerie(-1)} disabled={!puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
@@ -1353,7 +1369,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           <button type="button" aria-label="Ajustes" onClick={() => setPanel("ajustes")}><Settings size={20} /></button>
           <button type="button" aria-label={vista === "descanso" ? "Volver a la serie actual" : "Serie anterior"} onClick={retrocederPaso} disabled={vista !== "descanso" && !puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
           <button type="button" aria-label={pausada ? "Reanudar sesión" : "Pausar sesión"} onClick={alternarPausaSesion}>{pausada ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>
-          <button type="button" aria-label={vista === "descanso" ? descanso?.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie" : vista === "video" ? "Finalizar serie e ir al descanso" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
+          <button type="button" aria-label={vista === "descanso" ? descanso?.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
         </nav>
       ))}
 

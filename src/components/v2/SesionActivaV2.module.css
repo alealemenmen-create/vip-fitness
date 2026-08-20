@@ -41,6 +41,13 @@
   --exercise-gap: 16px;
   --series-label-size: 13px;
 }
+.sessionPage[data-vista="video"] {
+  /* Vista de video se muestra en un panel fijo a pantalla completa (ver
+     .videoMode): este padding quedaría como espacio en blanco que nadie ve
+     pero que igual generaría scroll vacío. */
+  padding-top: 0;
+  padding-bottom: 0;
+}
 .sessionPage[data-visual-scale="maxima"] {
   --active-photo-width: 96px;
   --active-photo-height: 122px;
@@ -70,7 +77,17 @@
   box-shadow: 0 1px 0 rgba(255, 255, 255, .035);
   -webkit-backdrop-filter: blur(22px);
   backdrop-filter: blur(22px);
+  transition: background 180ms ease, box-shadow 180ms ease;
 }
+.topbar[data-transparente="true"] {
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.topbar[data-transparente="true"] .sessionStatus span,
+.topbar[data-transparente="true"] .sessionStatus strong { text-shadow: 0 2px 8px rgba(0, 0, 0, .75); }
+.topbar[data-transparente="true"] .progressTrack { background: rgba(255, 255, 255, .22); }
 
 .sessionStatus { display: flex; align-items: center; gap: 11px; }
 .sessionStatus span, .sessionStatus strong { color: #fff; font-size: 14px; font-weight: 780; letter-spacing: -.015em; }
@@ -84,7 +101,7 @@
 .historicalNotice span { display: grid; gap: 2px; }
 .historicalNotice strong { font-size: 11px; }
 .historicalNotice small { color: #9da09d; font-size: 9px; }
-.sessionNotice { position: relative; z-index: 25; display: grid; width: calc(100% - 12px); min-height: 48px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; margin: 8px 6px 0; padding: 9px 11px; border: 1px solid rgba(167, 216, 55, .2); border-radius: 10px; color: #eef5d7; background: linear-gradient(100deg, #0f110e, #181c12 65%, #232916); box-shadow: inset 0 1px 0 rgba(226, 255, 135, .06); font-size: 11px; font-weight: 650; line-height: 1.35; text-align: left; }
+.sessionNotice { position: relative; z-index: 65; display: grid; width: calc(100% - 12px); min-height: 48px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; margin: 8px 6px 0; padding: 9px 11px; border: 1px solid rgba(167, 216, 55, .2); border-radius: 10px; color: #eef5d7; background: linear-gradient(100deg, #0f110e, #181c12 65%, #232916); box-shadow: inset 0 1px 0 rgba(226, 255, 135, .06); font-size: 11px; font-weight: 650; line-height: 1.35; text-align: left; }
 .sessionNotice svg { color: #bfdc4f; }
 .sessionNoticeError { border-color: rgba(255, 126, 108, .28); color: #fff0ed; background: linear-gradient(100deg, #140e0d, #211412 65%, #2c1713); }
 .sessionNoticeError svg { color: #ff9f8d; }
@@ -227,32 +244,42 @@
 .skipRest { position: absolute; right: 18px; bottom: 25px; display: flex; min-height: 40px; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid var(--blue); border-radius: 8px; color: #f3f4f1; background: #171819; font-size: 9px; }
 .switchView { position: absolute; bottom: 25px; left: 18px; display: flex; min-height: 40px; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid #303332; border-radius: 999px; color: #d9dbd7; background: #171818; font-size: 9px; }
 
-.videoMode { position: relative; display: grid; height: calc(100dvh - 64px); grid-template-rows: minmax(250px, 1fr) auto auto auto; overflow: hidden; margin: 0 -14px; padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); background: #050606; }
-.videoStage { position: relative; min-height: 0; overflow: hidden; background: #101111; touch-action: pan-y; }
+.videoMode { position: fixed; inset: 0; z-index: 40; overflow: hidden; background: #050606; }
+.videoStage { position: absolute; inset: 0; overflow: hidden; background: #101111; touch-action: pan-y; }
 .videoStage > img { object-fit: cover; filter: saturate(.72) contrast(1.05) brightness(.75); }
-.videoShade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .04), rgba(0, 0, 0, .1) 58%, #070808 100%); }
-.videoPlay { position: absolute; top: 50%; left: 50%; display: grid; width: 58px; height: 58px; transform: translate(-50%, -50%); place-items: center; border: 1px solid rgba(255, 255, 255, .32); border-radius: 50%; color: #fff; background: rgba(0, 0, 0, .38); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-.immersiveArrow { position: absolute; top: 50%; z-index: 5; display: grid; width: 42px; height: 58px; transform: translateY(-50%); place-items: center; border: 0; border-radius: 0; color: #a7d837; background: transparent; box-shadow: none; animation: controlsIn 180ms ease-out both; }
+.videoShade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .05) 0%, rgba(0, 0, 0, .08) 42%, rgba(4, 5, 5, .58) 66%, #050606 100%); }
+.videoPlay { position: absolute; top: 42%; left: 50%; display: grid; width: 58px; height: 58px; transform: translate(-50%, -50%); place-items: center; border: 1px solid rgba(255, 255, 255, .32); border-radius: 50%; color: #fff; background: rgba(0, 0, 0, .38); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.immersiveArrow { position: absolute; top: 42%; z-index: 5; display: grid; width: 42px; height: 58px; transform: translateY(-50%); place-items: center; border: 0; border-radius: 0; color: #a7d837; background: transparent; box-shadow: none; animation: controlsIn 180ms ease-out both; }
 .immersiveArrow svg { filter: drop-shadow(0 0 6px rgba(167, 216, 55, .28)); }
 .immersiveArrowLeft { left: 12px; }
 .immersiveArrowRight { right: 12px; }
 .immersiveArrowLeft svg { animation: indicateLeft 1.4s ease-in-out infinite; }
 .immersiveArrowRight svg { animation: indicateRight 1.4s ease-in-out infinite; }
-.videoSpeed { position: absolute; top: 12px; right: 13px; color: #dedfdd; font-size: 8px; }
-.videoIdentity { position: absolute; right: 15px; bottom: 18px; left: 15px; }
+.videoSpeed { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 76px); right: 13px; color: #dedfdd; font-size: 8px; text-shadow: 0 1px 4px rgba(0, 0, 0, .6); }
+
+/* Todo lo que se ve sobre la imagen (herramienta, nombre, chips, franja de
+   datos) vive acá: un overlay del mismo alto que .videoMode, para que nunca
+   haga falta scroll -- el spacer del medio absorbe el espacio libre y ancla
+   el grupo de abajo al fondo real de la pantalla. */
+.videoOverlay { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; pointer-events: none; }
+.videoToolRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: calc(env(safe-area-inset-top, 0px) + 74px) 14px 0; pointer-events: auto; }
+.videoToolButton { display: grid; width: 38px; height: 38px; flex-shrink: 0; place-items: center; border: 1px solid rgba(255, 255, 255, .16); border-radius: 50%; color: #fff; background: rgba(10, 11, 11, .55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.videoToolRow .switchView { position: static; }
+.videoOverlaySpacer { flex: 1; min-height: 10px; }
+.videoBottomGroup { display: flex; flex-direction: column; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); pointer-events: auto; }
+.videoIdentity { padding: 0 15px; }
 .videoIdentity small { color: #b8dc38; font-size: 7px; font-weight: 800; }
 .videoIdentity h1 { margin-top: 5px; font-size: 23px; letter-spacing: -.04em; }
 .videoIdentity p { margin-top: 5px; color: #a2a5a1; font-size: 9px; }
 .videoActions { display: flex; gap: 5px; overflow-x: auto; padding: 10px 14px; scrollbar-width: none; }
 .videoActions button { display: flex; min-height: 34px; flex: none; align-items: center; gap: 4px; padding: 0 10px; border-radius: 999px; color: #f0f2ee; background: #1e1f1f; font-size: 9px; }
-.videoSetStrip { display: grid; grid-template-columns: 1fr 1fr 1.2fr 42px; align-items: end; gap: 7px; padding: 0 14px; }
+.videoSetStrip { display: grid; grid-template-columns: 1fr 1fr 1.2fr 42px; align-items: end; gap: 7px; padding: 4px 14px 0; }
 .videoSetStrip span { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
 .videoSetStrip b { color: #b6b9b6; font-size: 8px; font-weight: 600; }
 .videoSetStrip strong, .videoSetStrip em { min-height: 32px; padding: 8px 5px; border-radius: 6px; color: #f1f2ef; background: #101111; font-size: 10px; font-style: normal; font-weight: 620; text-align: center; }
 .videoSetStrip button { display: grid; width: 36px; height: 36px; place-items: center; border: 1.5px solid rgba(255,255,255,.9); border-radius: 50%; color: #fff; background: transparent; }
 .videoSetStrip button[aria-pressed="true"] { border-color: var(--blue); color: #fff; background: var(--blue); box-shadow: 0 0 0 1px rgba(10,132,255,.24); }
 .videoSetStripImpulse { margin-inline: 7px; padding: 7px; border: 1px solid rgba(167, 216, 55, .13); border-radius: 9px; background: rgba(167, 216, 55, .035); }
-.videoMode .switchView { position: static; justify-self: end; margin: 9px 14px 8px; }
 
 .sheetBackdrop { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, .76); }
 .finishSheet, .auxSheet { position: relative; width: min(460px, 100%); padding: 22px 16px calc(18px + env(safe-area-inset-bottom, 0px)); border: 1px solid #303231; border-bottom: 0; border-radius: 22px 22px 0 0; color: #eff0ed; background: #171818; box-shadow: 0 -28px 55px rgba(0, 0, 0, .65); animation: sheetUp 220ms cubic-bezier(.22, .82, .3, 1) both; }
