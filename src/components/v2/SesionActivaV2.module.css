@@ -164,7 +164,7 @@
 .inlineRest::before { content: ""; position: absolute; top: 7px; bottom: 7px; left: 0; width: 2px; border-radius: 0 2px 2px 0; background: #444745; }
 .inlineRestActive::before { background: var(--blue); box-shadow: 0 0 10px rgba(10, 132, 255, .28); }
 .inlineRest button { min-height: 38px; border-radius: 7px; color: #f4f5f2; background: #252627; font-size: 11px; }
-.inlineRest .inlineRestTime { color: #fff; background: transparent; font-weight: 720; }
+.inlineRest .inlineRestTime { display: grid; min-height: 38px; place-items: center; border-radius: 7px; color: #fff; background: transparent; font-size: 11px; font-weight: 720; }
 
 .compactExercise { position: relative; display: grid; width: 100%; min-height: var(--compact-row-height); grid-template-columns: var(--compact-photo-width) minmax(0, 1fr) auto; align-items: center; gap: var(--exercise-gap); color: #fff; text-align: left; }
 .compactCode { position: absolute; top: 10px; left: 0; color: #d1d4d0; font-size: var(--series-label-size); font-weight: 820; letter-spacing: .065em; }
@@ -216,7 +216,8 @@
 .videoSetStrip span { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
 .videoSetStrip b { color: #b6b9b6; font-size: 8px; font-weight: 600; }
 .videoSetStrip strong, .videoSetStrip em { min-height: 32px; padding: 8px 5px; border-radius: 6px; color: #f1f2ef; background: #101111; font-size: 10px; font-style: normal; font-weight: 620; text-align: center; }
-.videoSetStrip button { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 50%; color: #fff; background: var(--blue); }
+.videoSetStrip button { display: grid; width: 36px; height: 36px; place-items: center; border: 1.5px solid rgba(255,255,255,.9); border-radius: 50%; color: #fff; background: transparent; }
+.videoSetStrip button[aria-pressed="true"] { border-color: var(--blue); color: #fff; background: var(--blue); box-shadow: 0 0 0 1px rgba(10,132,255,.24); }
 .videoSetStripImpulse { margin-inline: 7px; padding: 7px; border: 1px solid rgba(167, 216, 55, .13); border-radius: 9px; background: rgba(167, 216, 55, .035); }
 .videoMode .switchView { position: static; justify-self: end; margin: 9px 14px 8px; }
 
