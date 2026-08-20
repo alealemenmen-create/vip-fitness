@@ -243,15 +243,16 @@
 .compactExercise > em { margin-top: 19px; color: #c49a42; font-size: 8px; font-style: normal; }
 .asaTarjeta {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 50%;
+  right: 2px;
   display: grid;
-  width: 34px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
+  transform: translateY(-50%);
   place-items: center;
-  color: #45473f;
+  color: rgba(255, 255, 255, .16);
   background: transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   touch-action: none;
   -webkit-touch-callout: none;
   cursor: grab;
