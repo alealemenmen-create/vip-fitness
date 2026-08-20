@@ -29,6 +29,7 @@ revisar, aceptar o rechazar cada bloque por separado.
   18. `d73cb40` — `perf: eliminar N+1 en el "ultimo registro" de la sesion de entrenamiento`
   19. `6a35278` — `feat: pantalla animada de marca mientras arranca una rutina`
   20. `916a00e` — `fix: aplicar la pantalla animada tambien al boton de Inicio`
+  21. `b6196f5` — `feat: contador de progreso simulado en la pantalla de arranque`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -756,6 +757,26 @@ que es el mismo patrón ya verificado, sin cambios de comportamiento en
 la lógica de bloqueo (verificado leyendo el diff con cuidado). Pido que
 lo confirmes vos.
 
+### 14.2 `b6196f5` — contador de progreso simulado
+
+Alejandro confirmó que el arranque real tarda 5-6 segundos y pidió que
+la pantalla de marca muestre algo que avance — "de uno a cien" — para
+generar la percepción de que está progresando, aclarando que entiende
+que no puede ser instantáneo pero que hace falta *algo visual*.
+
+`useProgresoSimulado()` no mide nada real (una Server Action no manda
+eventos parciales de progreso al cliente) — simula: arranca rápido y se
+frena a medida que se acerca a un tope de 92%, mismo truco que usan casi
+todas las barras de carga reales. Nunca llega a 100 sola — el overlay
+desaparece cuando la navegación de verdad termina (se desmonta), así
+que quedarse cerca del tope en vez de "completarse" antes de tiempo es
+lo que se ve honesto. Se muestra como barra dorada + número, debajo del
+nombre de la marca.
+
+**Verificado:** gate completo (tsc/eslint/vitest/build) limpio;
+inspeccioné visualmente las clases CSS reales del build a un valor
+intermedio (47%) para confirmar que la barra y el número se ven bien.
+
 ## Comandos y resultados
 
 ```
@@ -766,7 +787,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 20 commits (o de sus cambios
+Corridos después de cada uno de los 21 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -891,7 +912,7 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 20 commits por separado (son independientes entre sí, en
+cada uno de los 21 commits por separado (son independientes entre sí, en
 este orden: `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
 `d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
 `5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
@@ -905,7 +926,8 @@ recuperar progreso, `b8d97c9` exigir el mismo ángulo muscular al
 sustituir un ejercicio, `7fc111a` "Iniciar entrenamiento" para el
 próximo día, `d73cb40` quitar el N+1 del último registro, `6a35278` la
 pantalla animada al arrancar una rutina, `916a00e` la misma pantalla en
-el tercer botón que faltaba). El primero es el más
+el tercer botón que faltaba, `b6196f5` el contador de progreso
+simulado). El primero es el más
 importante y el de menor riesgo (reutiliza
 código ya probado, no toca UI). El tercero es el más grande y el que más
 vale mirar con cuidado, sobre todo la sección "Alcance recortado a
