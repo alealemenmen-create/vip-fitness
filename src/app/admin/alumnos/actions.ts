@@ -450,6 +450,158 @@ export async function actualizarAccesoPortalV2(
   return okState;
 }
 
+/**
+ * Reinicia el plan de un alumno: el día 1 vuelve a aparecer en su pantalla
+ * principal, pero NUNCA se borra nada. Mismo patrón que ya usa
+ * `publicarUnaRutina` (admin/archivos/actions.ts) para publicar una rutina
+ * nueva -- se copian días y ejercicios a una rutina nueva y se desactiva la
+ * anterior (`activa: false`), nunca se hace `delete`. `numero_calendario` es
+ * único por `rutina_id`, así que una rutina nueva ya arranca sola en el día 1
+ * sin tocar sesiones existentes.
+ *
+ * El 12 de agosto hubo un botón "Reiniciar Rutina" que sí prometía borrar
+ * sesiones ("esto no se puede deshacer") -- nunca llegó a montarse en
+ * ninguna pantalla y se eliminó junto con esa función antes de que alguien
+ * lo sufriera (commit b739849). La regla desde entonces: nunca se borra
+ * historial ni una recompensa acreditada. Esta función respeta esa regla.
+ *
+ * Queda una nota en `notas_entrenador` (visible en la ficha del alumno, con
+ * el mismo aviso de "nueva" que usan las notas generadas por IA) como
+ * constancia real de que el plan se reinició y cuántas sesiones completó el
+ * alumno en el ciclo anterior. El cupo mensual (`obtenerBalanceSesionesMes`)
+ * cuenta por mes calendario, no por rutina, así que sigue funcionando igual
+ * sin cambios.
+ */
+export async function reiniciarPlanAlumno(_prevState: FormState, formData: FormData): Promise<FormState> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+  const alumnoId = String(formData.get("alumno_id") || "");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(alumnoId)) {
+    return fail("El alumno indicado no es válido.");
+  }
+
+  const admin = createAdminClient();
+
+  const { data: rutinaActual } = await admin
+    .from("rutinas")
+    .select("id, nombre, version")
+    .eq("alumno_id", alumnoId)
+    .eq("activa", true)
+    .maybeSingle();
+  if (!rutinaActual) return fail("Este alumno no tiene una rutina activa para reiniciar.");
+
+  const { data: dias } = await admin
+    .from("rutina_dias")
+    .select("id, numero_dia, nombre, orden, tipo, descripcion")
+    .eq("rutina_id", rutinaActual.id)
+    .order("orden");
+  if (!dias || dias.length === 0) return fail("No se encontraron días en la rutina activa.");
+
+  const { data: ejercicios } = await admin
+    .from("rutina_dia_ejercicios")
+    .select(
+      "dia_id, orden, nombre, series_programadas, reps_programadas, descanso_segundos, tecnica_tipo, tecnica_instruccion, observacion, grupo_muscular, ejercicio_id, tecnica_series"
+    )
+    .in("dia_id", dias.map((d) => d.id));
+
+  // Constancia real para la nota: cuántas sesiones completó de verdad en el
+  // ciclo que se está por archivar. No se toca ni una fila de esta consulta.
+  const { data: sesionesPrevias } = await admin
+    .from("sesiones_entrenamiento")
+    .select("estado")
+    .eq("alumno_id", alumnoId)
+    .eq("rutina_id", rutinaActual.id);
+  const completadas = (sesionesPrevias ?? []).filter(
+    (s) => s.estado === "completada" || s.estado === "finalizada_incompleta"
+  ).length;
+
+  const { data: nuevaRutina, error: errorRutina } = await admin
+    .from("rutinas")
+    .insert({
+      alumno_id: alumnoId,
+      nombre: rutinaActual.nombre,
+      activa: true,
+      version: (rutinaActual.version ?? 1) + 1,
+      created_by: sesion.userId,
+    })
+    .select("id")
+    .single();
+  if (errorRutina || !nuevaRutina) return fail("No se pudo crear la nueva rutina.");
+
+  const { data: diasCreados, error: errorDias } = await admin
+    .from("rutina_dias")
+    .insert(
+      dias.map((d) => ({
+        rutina_id: nuevaRutina.id,
+        numero_dia: d.numero_dia,
+        nombre: d.nombre,
+        orden: d.orden,
+        tipo: d.tipo,
+        descripcion: d.descripcion,
+      }))
+    )
+    .select("id, orden");
+  if (errorDias || !diasCreados || diasCreados.length !== dias.length) {
+    await admin.from("rutinas").delete().eq("id", nuevaRutina.id);
+    return fail("No se pudieron copiar los días de la rutina.");
+  }
+
+  const idViejoAIdNuevo = new Map<string, string>(
+    dias.flatMap((d) => {
+      const nuevo = diasCreados.find((candidato) => candidato.orden === d.orden);
+      return nuevo ? [[d.id, nuevo.id] as const] : [];
+    })
+  );
+
+  if (ejercicios && ejercicios.length > 0) {
+    // Cada ejercicio tiene que caer en su día nuevo correspondiente -- si
+    // alguno no resuelve (no debería pasar: ya se validó que se creó un día
+    // nuevo por cada uno de los viejos), se corta en vez de insertarlo bajo
+    // un `dia_id` de la rutina anterior.
+    const filas = ejercicios.map((e) => ({ ...e, dia_id: idViejoAIdNuevo.get(e.dia_id) }));
+    if (filas.some((f) => !f.dia_id)) {
+      await admin.from("rutinas").delete().eq("id", nuevaRutina.id);
+      return fail("No se pudieron copiar los ejercicios de la rutina.");
+    }
+
+    const { error: errorEjercicios } = await admin.from("rutina_dia_ejercicios").insert(
+      filas.map((e) => ({
+        dia_id: e.dia_id as string,
+        orden: e.orden,
+        nombre: e.nombre,
+        series_programadas: e.series_programadas,
+        reps_programadas: e.reps_programadas,
+        descanso_segundos: e.descanso_segundos,
+        tecnica_tipo: e.tecnica_tipo,
+        tecnica_instruccion: e.tecnica_instruccion,
+        observacion: e.observacion,
+        grupo_muscular: e.grupo_muscular,
+        ejercicio_id: e.ejercicio_id,
+        tecnica_series: e.tecnica_series,
+      }))
+    );
+    if (errorEjercicios) {
+      await admin.from("rutinas").delete().eq("id", nuevaRutina.id);
+      return fail("No se pudieron copiar los ejercicios de la rutina.");
+    }
+  }
+
+  await admin.from("rutinas").update({ activa: false }).eq("id", rutinaActual.id);
+
+  await admin.from("notas_entrenador").insert({
+    alumno_id: alumnoId,
+    entrenador_id: sesion.userId,
+    texto: `Plan reiniciado por ${sesion.nombre}. La rutina anterior ("${rutinaActual.nombre}") queda archivada, sin borrar nada, con ${completadas} sesión(es) completada(s) en su historial. El alumno vuelve a ver el día 1 de su pantalla principal.`,
+    fecha_inicio: new Date().toISOString().slice(0, 10),
+    importante: true,
+    marcar_nueva: true,
+  });
+
+  revalidatePath(`/admin/alumnos/${alumnoId}`);
+  revalidatePath("/alumno", "layout");
+  revalidatePath("/portal-v2", "layout");
+  return okState;
+}
+
 export async function guardarNota(_prevState: FormState, formData: FormData): Promise<FormState> {
   const sesion = await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();

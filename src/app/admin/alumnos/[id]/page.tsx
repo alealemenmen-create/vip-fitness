@@ -17,6 +17,7 @@ import { HistorialEntrenamiento } from "@/components/admin/HistorialEntrenamient
 import { HistorialPuntosAlumno } from "@/components/admin/HistorialPuntosAlumno";
 import { CopiarRutinaAlumno } from "@/components/admin/CopiarRutinaAlumno";
 import { AplicarRutinaAOtrosAlumnos } from "@/components/admin/AplicarRutinaAOtrosAlumnos";
+import { ReiniciarPlanAlumno } from "@/components/admin/ReiniciarPlanAlumno";
 import { FichaAlumnoAdmin } from "@/components/admin/FichaAlumnoAdmin";
 import { leerFicha } from "@/lib/perfil-alumno/datos";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -214,6 +215,7 @@ export default async function AlumnoDetallePage({
                 <>
                   <AplicarRutinaAOtrosAlumnos rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />
                   <CopiarRutinaAlumno rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />
+                  <ReiniciarPlanAlumno alumnoId={alumnoId} />
                 </>
               )}
             </>
