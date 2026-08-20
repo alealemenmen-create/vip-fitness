@@ -1,21 +1,24 @@
 .sessionPage {
   --blue: #0a84ff;
   min-height: 100%;
+  padding-top: 64px;
   padding-bottom: 92px;
   color: #fff;
   background: #050606;
 }
 
 .topbar {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 30;
+  right: max(0px, calc((100vw - 460px) / 2));
+  left: max(0px, calc((100vw - 460px) / 2));
+  z-index: 60;
   display: flex;
-  min-height: 64px;
+  height: calc(64px + env(safe-area-inset-top, 0px));
   align-items: center;
   justify-content: space-between;
-  margin: 0 -14px;
-  padding: max(8px, env(safe-area-inset-top, 0px)) 16px 8px;
+  margin: 0;
+  padding: env(safe-area-inset-top, 0px) 16px 0;
   background: rgba(19, 20, 20, .97);
   box-shadow: 0 1px 0 rgba(255, 255, 255, .035);
   -webkit-backdrop-filter: blur(22px);
