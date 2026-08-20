@@ -1260,7 +1260,9 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
               ) : null}
               {segmentosTecnicaActiva.length ? <TecnicaActivaCard ejercicio={ejercicioActivo} segmentos={segmentosTecnicaActiva} paso={pasoTecnicaActivo} pausa={pausaTecnica?.clave === claveTecnicaActiva ? pausaTecnica.segundos : null} /> : null}
               <div className={`${styles.videoSetStrip} ${impulsoActivo?.serieIndice === serieActivaIndiceSeguro ? styles.videoSetStripImpulse : ""}`}>
-                <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} · trabajo</em></span><span><b>Reps</b><strong>{serieActiva.reps}</strong></span><span><b>Peso ({unidadPeso})</b><strong>{serieActiva.peso || `— ${unidadPeso}`}</strong></span>
+                <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} · trabajo</em></span>
+                <span><b>Reps</b><input aria-label={`Repeticiones, serie ${serieActivaIndiceSeguro + 1}`} inputMode="numeric" value={serieActiva.reps} readOnly={sesion?.soloLectura} onChange={(evento) => actualizarSerie(ejercicioActivo.id, serieActivaIndiceSeguro, "reps", evento.target.value)} /></span>
+                <span><b>Peso ({unidadPeso})</b><input aria-label={`Peso en ${unidadPeso}, serie ${serieActivaIndiceSeguro + 1}`} inputMode="decimal" value={serieActiva.peso} readOnly={sesion?.soloLectura} placeholder={`— ${unidadPeso}`} onChange={(evento) => actualizarSerie(ejercicioActivo.id, serieActivaIndiceSeguro, "peso", evento.target.value)} /></span>
                 <button
                   type="button"
                   disabled={sesion?.soloLectura}
