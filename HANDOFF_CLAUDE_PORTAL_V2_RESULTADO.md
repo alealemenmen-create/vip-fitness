@@ -807,11 +807,11 @@ real tocado), y confirmé por SQL directo que `acceso_bloqueado` cambió
 correctamente en las dos direcciones, con `updated_at` reflejando cada
 cambio. Gate completo (tsc/eslint/vitest/build) también limpio.
 
-**Sigue pendiente del bloque 15** (no lo hice todavía, esperando que
-Alejandro confirme si quiere seguir con esto): auditoría de acceso para
-"ver como alumno" (hallazgo #2, también de seguridad), y proteger
-circuitos/series gigantes sin numerar contra reordenarse mal (hallazgo
-funcional de la auditoría de técnicas, 15.1).
+Alejandro confirmó ("SI") seguir con los otros dos hallazgos "más
+importantes" de la auditoría del bloque 15: la auditoría de acceso
+para "ver como alumno" (hallazgo #2) y proteger circuitos/series
+gigantes sin numerar contra reordenarse mal (hallazgo funcional de
+15.1). Los dos quedaron resueltos — ver bloques 17 y 18.
 
 ## Comandos y resultados
 
@@ -823,7 +823,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 22 commits (o de sus cambios
+Corridos después de cada uno de los 24 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -1040,16 +1040,97 @@ por qué el patrón #1/#3 se nota tanto por contraste.
 
 1. **Alta, seguridad** — verificar guardado real en `actualizarPerfilAlumno`
    (bloqueo de alumno) y los demás `.update()` sin verificar de
-   `admin/alumnos/actions.ts` / `alumno/perfil/actions.ts`.
+   `admin/alumnos/actions.ts` / `alumno/perfil/actions.ts`. **Hecho,
+   bloque 16.**
 2. **Alta, seguridad** — auditoría de acceso para "ver como alumno".
+   **Hecho, bloque 18.**
 3. **Alta, funcional** — proteger circuitos/series gigantes sin numerar
-   contra reordenarse mal.
+   contra reordenarse mal. **Hecho, bloque 17.**
 4. **Media** — calculador real de TDEE/BMR en Nutrición.
 5. **Media** — tests para la lógica de ranking más sensible a trampas.
 6. El resto (copiar día completo, puntos VIP por comida en V2, estado
    vacío de Actividad, FST-7 código muerto, prioridad de regex de
    "fallo", camino directo a V2 en "ver como alumno") son mejoras
    menores, no urgentes.
+
+## 17. `e7bc109` — proteger circuitos/series gigantes sin numerar al reordenar
+
+Segundo de los dos hallazgos que Alejandro confirmó seguir ("SI") tras
+la auditoría del bloque 15 — el hallazgo funcional de 15.1.
+
+Causa raíz: la agrupación en bloques (para que biseries/triseries/
+series gigantes/circuitos se muevan juntos al reordenar) vivía
+**duplicada** en dos lugares que podían desincronizarse: la función
+`construirBloquesTecnica` local de `sesion/page.tsx` (usada para
+mostrar la sesión agrupada) y la lógica de bloques dentro de
+`reordenarEjerciciosSesionV2` (`sesion/actions.ts`, usada para validar
+que el reorden respete los bloques). Esta segunda caía a "bloque de
+tamaño 1" para circuitos/series gigantes sin el sufijo `(n/total)` en
+el nombre, porque `tamanoGrupoTecnica` devuelve `null` a propósito
+para esas dos familias (no hay un tamaño por defecto seguro — a
+diferencia de biserie/triserie que sí lo tienen). Resultado: un
+circuito sin numerar se podía reordenar ejercicio por ejercicio,
+rompiendo el bloque que la propia ejecución sí agrupa sin tope.
+
+Arreglo: moví `construirBloquesTecnica` a
+`src/lib/entrenamiento/tecnica-grupo.ts` (única fuente de verdad,
+documentada en el código) y la usan tanto `sesion/page.tsx` (display)
+como `sesion/actions.ts` (validación de reorden) — ya no pueden
+desincronizarse porque es literalmente la misma función.
+
+Agregué 3 tests nuevos en `tecnica-grupo.test.ts` que cubren
+exactamente el bug: un circuito de 4 ejercicios sin numerar agrupa en
+un solo bloque (antes caía en 4 sueltos), una serie gigante sin
+numerar no se mezcla con el ejercicio suelto siguiente, y dos biseries
+numeradas consecutivas se siguen separando en dos bloques de 2 (guarda
+de regresión). Gate completo limpio (602 tests, antes 599).
+
+**No verificado con un gesto de arrastre real de punta a punta** —
+misma limitación de herramientas ya documentada en el bloque 10 para
+simular un `drop` con un `over` distinto de forma confiable. La
+confianza viene de los tests unitarios más la garantía estructural de
+que display y validación ahora comparten el mismo código — no de una
+prueba manual en el navegador. Recomiendo confirmarlo con una rutina
+QA que tenga un circuito sin numerar (la que arma
+`preparar-sesion-tecnicas-qa-v2.mjs`) en un teléfono real.
+
+## 18. `a9bde94` — registro de auditoría para "ver como alumno"
+
+Primero de los dos hallazgos confirmados ("SI") — el hallazgo #2 de
+15.4, y el que necesitó autorización explícita aparte por crear una
+tabla nueva (Alejandro: "Sí, creála").
+
+`entrarComoAlumno` deja una cookie httpOnly de 8h para que un
+entrenador/admin navegue el portal como si fuera el alumno (fotos de
+progreso, notas privadas, datos personales) — el modo respeta permisos
+correctamente (no se puede registrar series/comidas a nombre del
+alumno), pero no quedaba ningún rastro de quién entró, a quién, ni
+cuándo.
+
+Migración `0117_accesos_vista_alumno.sql` (aplicada en vivo con
+autorización): tabla `accesos_vista_alumno` con RLS — solo el admin
+puede leerla (`select`), entrenador/admin solo pueden insertar su
+propia fila y solo pueden actualizar (cerrar) la suya. `entrarComoAlumno`
+inserta una fila al entrar y guarda su `id` en una segunda cookie
+httpOnly (`vista_alumno_acceso_id`, mismas opciones que la cookie
+existente). `salirDeVistaAlumno` usa ese id para cerrar la fila
+(`finalizado_en`) antes de borrar las dos cookies — sin ambigüedad de
+cuál fila cerrar aunque hubiera más de un acceso abierto. Card nueva
+"Últimos accesos como alumno" en el detalle del alumno del admin
+(`admin/alumnos/[id]/page.tsx`), visible solo para admin, muestra
+entrenador + fecha de entrada + fecha de salida (o "sesión sin
+cerrar").
+
+**Verificado en vivo de punta a punta contra la base real**, solo con
+las cuentas QA (`qa.portal.v2.admin@vipfitness.test` entrando a ver a
+`qa.portal.v2.alumno@vipfitness.test`, ningún alumno real tocado):
+entré como alumno → confirmé por SQL directo que se creó la fila con
+`finalizado_en: null` → salí ("Volver al panel") → confirmé por SQL
+que esa misma fila ahora tenía `finalizado_en` con un timestamp real →
+volví al detalle del alumno y confirmé que la card nueva muestra
+exactamente "QA Portal V2 · Administrador · entró 20 ago, 11:52 a. m.
+· salió 20 ago, 11:53 a. m.". Gate completo (tsc/eslint/vitest/build)
+corrido antes de esta prueba en vivo, sin cambios de código después.
 
 ## NO TERMINADO
 
@@ -1102,11 +1183,18 @@ por qué el patrón #1/#3 se nota tanto por contraste.
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 22 commits por separado (son independientes entre sí; el
-más nuevo, `f198eb7`, arregla varios `.update()` del panel del
-entrenador que no verificaban si el guardado realmente afectó una fila
-— ver bloque 16, especial atención a `actualizarPerfilAlumno` que
-incluye el bloqueo de acceso de un alumno. En orden:
+cada uno de los 24 commits por separado (son independientes entre sí; el
+más nuevo, `a9bde94`, agrega auditoría a "ver como alumno" (bloque 18)
+sobre una tabla nueva con RLS — vale la pena revisar las 3 políticas
+(`select`/`insert`/`update`) de `0117_accesos_vista_alumno.sql`. El
+anterior, `e7bc109`, arregla el reorden de circuitos/series gigantes sin
+numerar (bloque 17) unificando dos algoritmos de agrupación que estaban
+duplicados — no quedó probado con un gesto de arrastre real, solo con
+tests unitarios (ver bloque 17). Antes de esos dos, `f198eb7`, arregla
+varios `.update()` del panel del entrenador que no verificaban si el
+guardado realmente afectó una fila — ver bloque 16, especial atención a
+`actualizarPerfilAlumno` que incluye el bloqueo de acceso de un alumno.
+En orden:
 `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
 `d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
 `5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
@@ -1121,7 +1209,9 @@ sustituir un ejercicio, `7fc111a` "Iniciar entrenamiento" para el
 próximo día, `d73cb40` quitar el N+1 del último registro, `6a35278` la
 pantalla animada al arrancar una rutina, `916a00e` la misma pantalla en
 el tercer botón que faltaba, `b6196f5` el contador de progreso
-simulado). El primero es el más
+simulado, `e7bc109` proteger circuitos/series gigantes sin numerar al
+reordenar, `a9bde94` el registro de auditoría para "ver como alumno").
+El primero es el más
 importante y el de menor riesgo (reutiliza
 código ya probado, no toca UI). El tercero es el más grande y el que más
 vale mirar con cuidado, sobre todo la sección "Alcance recortado a
