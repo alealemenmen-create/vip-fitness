@@ -27,12 +27,15 @@ describe("navegación de descansos de la sesión V2", () => {
     })).toBe("siguiente");
   });
 
-  it("avanza directamente cuando el temporizador está apagado o el bloque no descansa", () => {
+  it("mantiene el descanso como referencia cuando el temporizador está apagado", () => {
     expect(destinoAlAvanzarSerieCompletada({
       temporizadorAutomatico: false,
       requiereDescanso: true,
       descansoYaResuelto: false,
-    })).toBe("siguiente");
+    })).toBe("descanso");
+  });
+
+  it("avanza directamente cuando el bloque no requiere descanso", () => {
     expect(destinoAlAvanzarSerieCompletada({
       temporizadorAutomatico: true,
       requiereDescanso: false,

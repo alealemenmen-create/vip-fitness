@@ -7,7 +7,9 @@ export function destinoAlAvanzarSerieCompletada(input: {
   requiereDescanso: boolean;
   descansoYaResuelto: boolean;
 }): "descanso" | "siguiente" {
-  if (!input.temporizadorAutomatico || !input.requiereDescanso || input.descansoYaResuelto) {
+  // Apagar el temporizador detiene el conteo, pero no elimina el descanso de
+  // la secuencia serie -> descanso -> serie.
+  if (!input.requiereDescanso || input.descansoYaResuelto) {
     return "siguiente";
   }
   return "descanso";

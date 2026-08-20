@@ -146,7 +146,7 @@ type DescansoActivo = {
   serieIndice: number;
   segundos: number;
   finEn: number;
-  tipo: "automatico" | "manual";
+  tipo: "automatico" | "manual" | "referencia";
   vistaRetorno: Exclude<VistaSesion, "descanso">;
 };
 
@@ -478,7 +478,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         unidadPeso,
         pasosTecnica,
         pausaTecnica,
-        descanso: descanso ? {
+        descanso: descanso && descanso.tipo !== "referencia" ? {
           ejercicioId: descanso.ejercicioId,
           serieIndice: descanso.serieIndice,
           finEn: descanso.finEn,
@@ -513,7 +513,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     return () => window.clearInterval(intervalo);
   }, [pausada, registrada, sesion?.soloLectura]);
 
-  const finDescansoActivo = descanso?.finEn ?? null;
+  const finDescansoActivo = descanso?.tipo === "referencia" ? null : descanso?.finEn ?? null;
   useEffect(() => {
     if (pausada || finDescansoActivo === null) return;
     const actualizar = () => {
@@ -572,6 +572,9 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
 
   useEffect(() => {
     if (descanso === null) return;
+    // Con el temporizador automatico desactivado el descanso sigue siendo un
+    // campo real del entrenamiento, pero no debe descontar ni emitir avisos.
+    if (descanso.tipo === "referencia") return;
     const clave = claveDescansoSesion(descanso.ejercicioId, descanso.serieIndice);
     if (descanso.segundos > 0) {
       if (descansoAvisadoRef.current === clave) descansoAvisadoRef.current = null;
@@ -846,19 +849,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       return;
     }
 
-    if (!temporizadorAutomatico) {
-      const siguiente = desplazarPosicionSerie(ORDEN_EJECUCION, ejercicioIndice, serieIndice, 1);
-      const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
-      cortarAviso();
-      setDescanso(null);
-      setDescansoEnFoco(false);
-      setEjercicioActivoId(siguienteEjercicio.id);
-      setSerieActivaIndice(siguiente.serieIndice);
-      setEjercicioExpandidoId(siguienteEjercicio.id);
-      return;
-    }
-
-    prepararAviso();
+    if (temporizadorAutomatico) prepararAviso();
+    else cortarAviso();
     descansoAvisadoRef.current = null;
     descansosResueltosRef.current.delete(claveDescansoSesion(ejercicio.id, serieIndice));
     const finEn = Date.now() + ejercicio.descanso * 1_000;
@@ -867,18 +859,22 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       serieIndice,
       segundos: ejercicio.descanso,
       finEn,
-      tipo: "automatico",
+      tipo: temporizadorAutomatico ? "automatico" : "referencia",
       vistaRetorno: vista === "video" ? "video" : "lista",
     });
-    if (sesion?.real) void programarAvisoDescanso(ejercicio.descanso, sesion.id).catch(() => {});
+    if (temporizadorAutomatico && sesion?.real) void programarAvisoDescanso(ejercicio.descanso, sesion.id).catch(() => {});
     setDescansoEnFoco(true);
     if (vista === "video") setVista("descanso");
   };
 
   const ajustarDescanso = (cantidad: number) => {
-    setDescanso((actual) => actual === null ? null : {
-      ...actual,
-      ...ajustarFinDescanso({ finEn: actual.finEn, cambioSegundos: cantidad }),
+    setDescanso((actual) => {
+      if (actual === null) return null;
+      if (actual.tipo === "referencia") {
+        const segundos = Math.max(0, actual.segundos + cantidad);
+        return { ...actual, segundos, finEn: Date.now() + segundos * 1_000 };
+      }
+      return { ...actual, ...ajustarFinDescanso({ finEn: actual.finEn, cambioSegundos: cantidad }) };
     });
   };
 
@@ -886,8 +882,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     if (descanso !== null) {
       const clave = claveDescansoSesion(descanso.ejercicioId, descanso.serieIndice);
       descansoAvisadoRef.current = clave;
-      if (descanso.tipo === "automatico") descansosResueltosRef.current.add(clave);
-      if (descansoEnFoco && descanso.tipo === "automatico") {
+      if (descanso.tipo !== "manual") descansosResueltosRef.current.add(clave);
+      if (descansoEnFoco && descanso.tipo !== "manual") {
         const ejercicioIndice = EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
         const siguiente = desplazarPosicionSerie(ORDEN_EJECUCION, ejercicioIndice, descanso.serieIndice, 1);
         const siguienteEjercicio = EJERCICIOS[siguiente.ejercicioIndice];
@@ -906,7 +902,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const volverDesdeDescanso = () => {
     const vistaRetorno = descanso?.vistaRetorno ?? "video";
     if (descanso !== null) {
-      if (descanso.tipo === "automatico") {
+      if (descanso.tipo !== "manual") {
         descansosResueltosRef.current.add(claveDescansoSesion(descanso.ejercicioId, descanso.serieIndice));
       }
       const ejercicioIndice = EJERCICIOS.findIndex((ejercicio) => ejercicio.id === descanso.ejercicioId);
@@ -954,7 +950,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       return;
     }
 
-    prepararAviso();
+    if (temporizadorAutomatico) prepararAviso();
+    else cortarAviso();
     descansoAvisadoRef.current = null;
     const finEn = Date.now() + ejercicioActivo.descanso * 1_000;
     setDescanso({
@@ -962,10 +959,10 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       serieIndice: serieActivaIndiceSeguro,
       segundos: ejercicioActivo.descanso,
       finEn,
-      tipo: "automatico",
+      tipo: temporizadorAutomatico ? "automatico" : "referencia",
       vistaRetorno: "video",
     });
-    if (sesion?.real) void programarAvisoDescanso(ejercicioActivo.descanso, sesion.id).catch(() => {});
+    if (temporizadorAutomatico && sesion?.real) void programarAvisoDescanso(ejercicioActivo.descanso, sesion.id).catch(() => {});
     setDescansoEnFoco(true);
     setVista("descanso");
   };
@@ -978,11 +975,19 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         setErrorGuardado(resultado.error);
       });
     }
-    if (activo || descanso === null) return;
+    if (descanso === null) return;
+    if (activo && descanso.tipo === "referencia") {
+      prepararAviso();
+      const finEn = Date.now() + descanso.segundos * 1_000;
+      setDescanso({ ...descanso, tipo: "automatico", finEn });
+      if (sesion?.real) void programarAvisoDescanso(descanso.segundos, sesion.id).catch(() => {});
+      return;
+    }
+    if (activo) return;
     cortarAviso();
-    setDescanso(null);
-    setDescansoEnFoco(false);
-    if (vista === "descanso") setVista(descanso.vistaRetorno);
+    if (descanso.tipo === "automatico") {
+      setDescanso({ ...descanso, tipo: "referencia", finEn: Date.now() + descanso.segundos * 1_000 });
+    }
   };
 
   const abrirTemporizador = () => {
@@ -1186,7 +1191,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           {descanso !== null ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={volverDesdeDescanso} aria-label="Volver a la serie actual"><ChevronsLeft size={27} strokeWidth={2.4} /></button> : null}
           {descanso !== null && (descanso.tipo === "manual" || puedeIrAdelante) ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={saltarDescanso} aria-label={descanso.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie"}><ChevronsRight size={27} strokeWidth={2.4} /></button> : null}
           <div className={styles.restCenter}>
-            <span>Descanso</span><strong>{descanso?.segundos ?? 0}</strong><small>segundos</small>
+            <span>{descanso?.tipo === "referencia" ? "Descanso recomendado" : "Descanso"}</span><strong>{descanso?.segundos ?? 0}</strong><small>{descanso?.tipo === "referencia" ? "segundos · sin conteo" : "segundos"}</small>
             <div className={styles.restAdjustments}><button type="button" onClick={() => ajustarDescanso(-15)} aria-label="Restar 15 segundos"><Minus size={13} />15 s</button><button type="button" onClick={() => ajustarDescanso(15)} aria-label="Sumar 15 segundos"><Plus size={13} />15 s</button></div>
           </div>
           <div className={styles.upNext}><span>{descanso?.tipo === "manual" ? "CONTINÚAS" : "SIGUE"}</span><strong>{ejercicioDespuesDescanso.nombre}</strong><small>Serie {posicionDespuesDescanso.serieIndice + 1} · {ejercicioDespuesDescanso.repeticiones[posicionDespuesDescanso.serieIndice]} repeticiones</small></div>
@@ -1291,7 +1296,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                           <span className={styles.restValue}>{esUltimaSerieRutina ? "Final" : requiereDescansoDespues(EJERCICIOS, ORDEN_EJECUCION, EJERCICIOS.findIndex((item) => item.id === ejercicio.id), serieIndice) ? `${ejercicio.descanso} s` : "Avanza"}</span>
                           <button type="button" className={styles.checkButton} disabled={sesion?.soloLectura} onClick={(evento) => { evento.stopPropagation(); if (esSerieActiva) alternarSerie(ejercicio, serieIndice); else activarEstaSerie(); }} aria-label={esSerieActiva ? `${serie.completada ? "Desmarcar" : "Registrar"} serie ${serieIndice + 1}` : `Activar serie ${serieIndice + 1}`} aria-pressed={serie.completada}>{serie.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}</button>
                         </div>
-                        {descansoDeEstaSerie ? <div className={`${styles.inlineRest} ${descansoEnFoco ? styles.inlineRestActive : ""}`} aria-current={descansoEnFoco ? "step" : undefined} aria-live="polite"><button type="button" onClick={() => ajustarDescanso(-15)}>−15 s</button><button type="button" className={styles.inlineRestTime} onClick={() => { setDescansoEnFoco(true); setVista("descanso"); }}>Descanso {descanso.segundos} s</button><button type="button" onClick={() => ajustarDescanso(15)}>+15 s</button></div> : null}
+                        {descansoDeEstaSerie ? <div className={`${styles.inlineRest} ${descansoEnFoco ? styles.inlineRestActive : ""}`} aria-current={descansoEnFoco ? "step" : undefined} aria-live="polite"><button type="button" onClick={() => ajustarDescanso(-15)}>−15 s</button><button type="button" className={styles.inlineRestTime} onClick={() => { setDescansoEnFoco(true); setVista("descanso"); }}>{descanso.tipo === "referencia" ? "Descanso recomendado" : "Descanso"} {descanso.segundos} s</button><button type="button" onClick={() => ajustarDescanso(15)}>+15 s</button></div> : null}
                       </div>
                     );
                   })}
