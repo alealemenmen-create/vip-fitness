@@ -63,6 +63,7 @@ import {
 } from "@/app/alumno/entrenar/impulso-actions";
 import {
   actualizarTemporizadorDescansoAlumno,
+  cancelarSesionEnCurso,
   guardarSesionV2,
   guardarYFinalizarSesionV2,
   type RegistroSesionV2,
@@ -1398,7 +1399,17 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             <div className={styles.finishMetrics}><span><strong>{formatearTiempo(segundosSesion)}</strong>Tiempo total</span><span><strong>{seriesCompletadas}</strong>Series registradas</span></div>
             <label className={styles.notesField}><span>Nota de la sesión <small>opcional</small></span><textarea value={comentarioSesion} onChange={(evento) => setComentarioSesion(evento.target.value)} maxLength={1000} placeholder="¿Cómo te sentiste? ¿Qué quieres recordar para la próxima?" /></label>
             {errorGuardado ? <p role="alert">{errorGuardado}</p> : null}
-            <div className={styles.finishActions}><Link href="/portal-v2/entrenamiento">Continuar después</Link><button type="button" disabled={guardando || sesion?.soloLectura} onClick={registrarEntrenamiento}>{guardando ? "Guardando…" : "Registrar entrenamiento"}</button></div>
+            <div className={styles.finishActions}>
+              <Link href="/portal-v2/entrenamiento">Continuar después</Link>
+              <button type="button" disabled={guardando || sesion?.soloLectura} onClick={registrarEntrenamiento}>{guardando ? "Guardando…" : "Registrar entrenamiento"}</button>
+              <form action={cancelarSesionEnCurso} onSubmit={() => {
+                if (sesion?.real) window.localStorage.removeItem(claveBorradorSesionV2(sesion.id));
+              }}>
+                <input type="hidden" name="sesion_id" value={sesion?.id ?? ""} />
+                <input type="hidden" name="origen_v2" value="true" />
+                <button type="submit" disabled={guardando || !sesion?.real}>Salir y descartar</button>
+              </form>
+            </div>
           </section>
         </div>
       ) : null}

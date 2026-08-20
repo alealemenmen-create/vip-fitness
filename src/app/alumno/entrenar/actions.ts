@@ -1241,8 +1241,10 @@ export async function solicitarBorradoSesion(formData: FormData): Promise<void> 
  */
 export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
   const sesionId = String(formData.get("sesion_id") || "");
+  const origenV2 = formData.get("origen_v2") === "true";
+  const rutaEntrenamiento = origenV2 ? "/portal-v2/entrenamiento" : "/alumno/entrenar";
   const { alumnoId, soloLectura } = await requireAlumno();
-  if (!sesionId || soloLectura) redirect("/alumno/entrenar");
+  if (!sesionId || soloLectura) redirect(rutaEntrenamiento);
 
   const supabase = createAdminClient();
   const { data: sesion } = await supabase
@@ -1251,7 +1253,7 @@ export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
     .eq("id", sesionId)
     .eq("alumno_id", alumnoId)
     .maybeSingle();
-  if (!sesion || sesion.estado !== "en_progreso") redirect("/alumno/entrenar");
+  if (!sesion || sesion.estado !== "en_progreso") redirect(rutaEntrenamiento);
 
   const { count } = await supabase
     .from("sesion_ejercicios")
@@ -1275,7 +1277,9 @@ export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
   revalidatePath("/alumno/entrenar");
   revalidatePath("/alumno/entrenar/historial");
   revalidatePath("/alumno/inicio");
-  redirect("/alumno/entrenar");
+  revalidatePath("/portal-v2/entrenamiento");
+  revalidatePath("/portal-v2/entrenamiento/historial");
+  redirect(rutaEntrenamiento);
 }
 
 /**

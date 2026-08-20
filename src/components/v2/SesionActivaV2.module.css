@@ -232,6 +232,8 @@
 .finishActions a, .finishActions button { display: flex; min-height: 46px; align-items: center; justify-content: center; border-radius: 8px; font-size: 9px; font-weight: 720; text-align: center; }
 .finishActions a { color: #d0d2ce; background: #272828; }
 .finishActions button { color: #080909; background: #f5f5f2; }
+.finishActions form { grid-column: 1 / -1; }
+.finishActions form button { width: 100%; border: 1px solid rgba(255, 126, 108, .2); color: #ffad9f; background: rgba(91, 31, 24, .3); }
 
 .auxSheet { padding-top: 10px; }
 .sheetHandle { width: 38px; height: 4px; margin: 0 auto 13px; border-radius: 999px; background: #484b49; }
