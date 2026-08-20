@@ -23,6 +23,7 @@ revisar, aceptar o rechazar cada bloque por separado.
   12. `d75beea` — `fix: hacer que el arrastre en la lista funcione de verdad en el telefono`
   13. `290b630` — `feat: agregar "Deshacer" tras reordenar ejercicios arrastrando`
   14. `b85ddfe` — `style: mostrar los avisos de sesion flotando, no empujando la pantalla`
+  15. `9ec3449` — `fix: quitar el aviso "Recuperamos el progreso", recuperar sigue silencioso`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -441,6 +442,29 @@ anterior) — pidió dejar esa como está.
 aviso en el DOM (sin tocar el estado real de la app, sólo para verlo
 renderizado) y confirmé que flota sobre "SERIE A" sin mover la lista de
 lugar — capturado en pantalla y removido después.
+
+### 10.4 `9ec3449` — sacar el aviso "Recuperamos el progreso"
+
+Alejandro, después de ver el arreglo de posición (10.3), decidió que
+directamente no quiere ese mensaje — cita: "no quiero ese mensaje, pero
+está bien que se recupere... no es necesario que siempre avise". Saqué
+sólo el estado `avisoBorrador` y su efecto de auto-cierre a los 3 s; la
+restauración real del borrador (registro de series, notas, descanso,
+unidad de peso, vista, todo lo que ya guardaba `localStorage`) sigue
+funcionando exactamente igual — nada de eso dependía del aviso, sólo
+dejó de contárselo al alumno. El banner de error de guardado
+(`errorGuardado`), que compartía el mismo componente visual
+(`.sessionNotice`), queda intacto y sin cambios.
+
+En el mismo mensaje confirmó la duración de "Orden actualizado" en
+"nueve, diez segundos" — ya estaba en 9 s desde `b85ddfe`, no hizo falta
+tocarlo de nuevo.
+
+**Verificado:** gate completo (tsc/eslint/vitest/build) limpio; recargué
+la sesión de la cuenta QA (que ya tenía progreso previo guardado en
+`localStorage` de pruebas anteriores) y confirmé que el progreso se
+restauró igual que siempre (temporizador y registro siguieron donde
+estaban) sin que apareciera ningún aviso.
 
 ## Comandos y resultados
 
