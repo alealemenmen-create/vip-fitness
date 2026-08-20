@@ -349,7 +349,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [momentoVisible, setMomentoVisible] = useState<MomentoSesionAlejandro | null>(null);
   const [momentoParaResultado, setMomentoParaResultado] = useState<MomentoSesionAlejandro | null>(null);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
-  const [avisoBorrador, setAvisoBorrador] = useState<string | null>(null);
   const [borradorCargado, setBorradorCargado] = useState(false);
   const [pasosTecnica, setPasosTecnica] = useState<Record<string, number>>({});
   const [pausaTecnica, setPausaTecnica] = useState<PausaTecnica | null>(null);
@@ -487,7 +486,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           const vistaRestaurada = resolverVistaAlRestaurarDescanso(borrador.descanso);
           if (vistaRestaurada) setVista(vistaRestaurada);
         }
-        setAvisoBorrador("Recuperamos el progreso que estaba pendiente en este dispositivo.");
       } else if (window.localStorage.getItem(clave)) {
         window.localStorage.removeItem(clave);
       }
@@ -495,14 +493,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     });
     return () => window.cancelAnimationFrame(cuadro);
   }, [sesion]);
-
-  useEffect(() => {
-    // Solo informa que el borrador local se aplicó — no requiere que el
-    // alumno lo cierre a mano, así que se retira solo.
-    if (!avisoBorrador) return;
-    const temporizador = window.setTimeout(() => setAvisoBorrador(null), 3_000);
-    return () => window.clearTimeout(temporizador);
-  }, [avisoBorrador]);
 
   useEffect(() => {
     if (!borradorCargado || !sesion?.real || sesion.soloLectura || registrada) return;
@@ -1220,14 +1210,14 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
 
       {sesion?.soloLectura ? <div className={styles.historicalNotice} role="status"><History size={15} /><span><strong>Sesión registrada</strong><small>{comentarioSesion || "Resultados guardados · solo lectura"}</small></span></div> : null}
 
-      {errorGuardado || avisoBorrador ? (
+      {errorGuardado ? (
         <button
           type="button"
-          className={`${styles.sessionNotice} ${errorGuardado ? styles.sessionNoticeError : ""}`}
-          role={errorGuardado ? "alert" : "status"}
-          onClick={() => { setErrorGuardado(null); setAvisoBorrador(null); }}
+          className={`${styles.sessionNotice} ${styles.sessionNoticeError}`}
+          role="alert"
+          onClick={() => setErrorGuardado(null)}
         >
-          <span>{errorGuardado ?? avisoBorrador}</span><X size={15} />
+          <span>{errorGuardado}</span><X size={15} />
         </button>
       ) : null}
 
