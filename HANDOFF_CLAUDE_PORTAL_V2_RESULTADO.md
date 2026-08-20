@@ -25,6 +25,7 @@ revisar, aceptar o rechazar cada bloque por separado.
   14. `b85ddfe` — `style: mostrar los avisos de sesion flotando, no empujando la pantalla`
   15. `9ec3449` — `fix: quitar el aviso "Recuperamos el progreso", recuperar sigue silencioso`
   16. `b8d97c9` — `fix: exigir el mismo angulo/cabeza muscular al sustituir un ejercicio`
+  17. `7fc111a` — `fix: "Iniciar entrenamiento" en vez de "Explorar" para el proximo dia`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -564,6 +565,71 @@ porque la función automática los clasificaba mal o no los cubría:
 - No cambié el algoritmo `patronMovimiento()` en sí (la heurística por
   nombre) — solo lo usé para poblar la columna existente.
 
+### 11.1 Fichas nuevas por implemento — dato real en producción, sin commit de código
+
+Alejandro señaló que "Remo al mentón" y "Curl de muñeca" (los dos casos
+que quedaron sin `patron_movimiento`, ver arriba) en realidad tienen
+variantes por implemento (barra/polea/mancuerna) que son "el mismo"
+movimiento — y pidió explícitamente crear fichas nuevas por implemento en
+vez de forzar una clasificación única. Confirmé el alcance con una
+pregunta antes de tocar la biblioteca; eligió "Creá fichas nuevas por
+implemento" dejando las dos fichas originales intactas (ambas ya eran
+`equipo: "barra"`, así que sólo hacían falta las otras dos variantes de
+cada una).
+
+Creé 4 ejercicios nuevos directo en la base (no es un cambio de código,
+por eso no tiene commit — replica exactamente el mismo insert que hace
+`crearEjercicioNuevo` en `/admin/ejercicios/actions.ts`, mismo generador
+de slug, mismo criterio de `calidad_ficha: "completa"` por tener grupo +
+categoría + equipo cargados):
+- **Remo al mentón en polea baja** (hombros · tracción · polea)
+- **Remo al mentón con mancuerna** (hombros · tracción · mancuerna)
+- **Curl de muñeca con mancuerna** (brazos · aislamiento · mancuerna)
+- **Curl de muñeca en polea** (brazos · aislamiento · polea)
+
+Los cuatro quedan **sin foto** (igual que cualquier alta rápida desde el
+admin — "se puede subir después") y **sin `patron_movimiento`** (mismo
+motivo que las fichas originales: la taxonomía de 28 valores no tiene
+una categoría de "tracción vertical de hombro/trapecio" ni de
+"antebrazo" — ver bloque 11). Como resultado, hoy se sustituyen entre sí
+por la comparación laxa de siempre (mismo grupo + categoría), pero
+todavía no de forma estricta por patrón. Si en algún momento se agrega
+esa categoría a `PatronMovimiento` (en `src/lib/rutinas/patrones.ts`,
+compartido con el generador de rutinas — no lo toqué, es una decisión
+más grande que amerita hablarla aparte), estas fichas ya están listas
+para clasificarse ahí.
+
+Pendiente para Alejandro, no urgente: subirles foto desde
+`/admin/ejercicios` cuando tenga tiempo.
+
+## 12. `7fc111a` — "Iniciar entrenamiento" en vez de "Explorar" para el próximo día
+
+Alejandro reportó: después de descartar una sesión, entra a la pantalla
+del día desde "Programa" y el botón dice "Explorar entrenamiento" en vez
+de "Iniciar entrenamiento", sin arrancar la rutina.
+
+**Causa:** `RutinaDetalleV2` sólo ofrece el botón real "Iniciar" cuando
+la URL trae `numero` (el cupo de calendario ya resuelto) — sin eso, cae
+a propósito en modo solo-vista-previa, para no arrancar una sesión
+contra un número inventado que podría chocar con otra ya usada (decisión
+anterior correcta, documentada en un comentario ya existente en
+`rutina/page.tsx`). El link de cada tarjeta de día en `ProgramaDetalleV2`
+nunca mandaba `numero`, a diferencia del botón fijo "Iniciar día N" de
+esa misma pantalla, que sí lo tiene resuelto (`diaSiguienteNumero`).
+
+**Arreglo mínimo (7 líneas):** si la tarjeta clickeada es justo el día
+siguiente pendiente (`dia.id === programa.diaSiguienteId`), el link
+ahora manda ese mismo `numero` ya resuelto. Para cualquier otro día de
+la semana (mirar más adelante en el programa), el link se queda igual
+como vista previa — no reintroduce el riesgo de colisión que el
+comentario original prevenía.
+
+**Verificado en vivo con la cuenta QA:** el link de la tarjeta de día
+ahora trae `&numero=4`; la pantalla de detalle muestra un botón real
+"Iniciar entrenamiento" (`<button type="submit">` dentro de un
+`<form action={iniciarRutinaDesdeCalendarioV2}>`, el mismo server action
+que ya usa el botón fijo de Programa), no el link de solo explorar.
+
 ## Comandos y resultados
 
 ```
@@ -574,7 +640,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 16 commits (o de sus cambios
+Corridos después de cada uno de los 17 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -699,7 +765,7 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 16 commits por separado (son independientes entre sí, en
+cada uno de los 17 commits por separado (son independientes entre sí, en
 este orden: `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
 `d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
 `5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
@@ -710,7 +776,8 @@ aparte, `d75beea` el arreglo de por qué no arrancaba en un teléfono
 real, `290b630` el "Deshacer" tras reordenar, `b85ddfe` los avisos
 flotando en vez de empujar la pantalla, `9ec3449` sacar el aviso de
 recuperar progreso, `b8d97c9` exigir el mismo ángulo muscular al
-sustituir un ejercicio). El primero es el más
+sustituir un ejercicio, `7fc111a` "Iniciar entrenamiento" para el
+próximo día). El primero es el más
 importante y el de menor riesgo (reutiliza
 código ya probado, no toca UI). El tercero es el más grande y el que más
 vale mirar con cuidado, sobre todo la sección "Alcance recortado a
@@ -739,17 +806,22 @@ independientes y en capas. `290b630` (el "Deshacer", bloque 10.2) es
 independiente de los tres anteriores — se puede aceptar o rechazar solo,
 no depende de que el asa termine de convencer a Alejandro.
 
-**`b8d97c9` (bloque 11) es el único de este corte que ya tocó datos
-reales en producción, no solo código** — el cambio de código en sí es de
-una línea (ver bloque 11), pero antes de eso corrí un `UPDATE` que
-completó `patron_movimiento` en 116 de los 130 ejercicios activos de la
-biblioteca, autorizado explícitamente por Alejandro en el chat antes de
-ejecutarlo. No es reversible con un `git revert` — si se quiere deshacer,
-hay que volver a dejar esas 116 filas en `null` a mano. Vale la pena que
-alguien revise la tabla completa (`select nombre, patron_movimiento from
-ejercicios where activo`) contra su propio criterio de entrenador, sobre
-todo los grupos "piernas" y "brazos" donde más ejercicios se agruparon
-bajo el mismo patrón (p. ej. todas las variantes de sentadilla quedaron
-en `pierna_dominante_rodilla`) — si algo se ve mal clasificado, se
-corrige desde `/admin/ejercicios` → abrir el ejercicio → "Tipo de
-movimiento", no hace falta tocar código.
+**`b8d97c9` (bloque 11) es el único commit de código de este corte que
+depende de datos reales ya tocados en producción** — el cambio de código
+en sí es de una línea (ver bloque 11), pero antes de eso corrí un
+`UPDATE` que completó `patron_movimiento` en 116 de los 130 ejercicios
+activos de la biblioteca, autorizado explícitamente por Alejandro en el
+chat antes de ejecutarlo. No es reversible con un `git revert` — si se
+quiere deshacer, hay que volver a dejar esas 116 filas en `null` a mano.
+Vale la pena que alguien revise la tabla completa (`select nombre,
+patron_movimiento from ejercicios where activo`) contra su propio
+criterio de entrenador, sobre todo los grupos "piernas" y "brazos" donde
+más ejercicios se agruparon bajo el mismo patrón (p. ej. todas las
+variantes de sentadilla quedaron en `pierna_dominante_rodilla`) — si algo
+se ve mal clasificado, se corrige desde `/admin/ejercicios` → abrir el
+ejercicio → "Tipo de movimiento", no hace falta tocar código. Además,
+también autorizado en el chat y también sin commit de código (ver bloque
+11.1), creé 4 ejercicios nuevos en la biblioteca (variantes por implemento
+de "Remo al mentón" y "Curl de muñeca") — estos sí se pueden "deshacer"
+simplemente desactivándolos desde el admin si algo no queda bien, ya que
+son filas nuevas, no una edición de datos existentes.
