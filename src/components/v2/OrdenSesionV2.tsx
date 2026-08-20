@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -38,11 +38,29 @@ export function agruparEnBloques(ejercicios: EjercicioSesionV2[]): EjercicioSesi
   return bloques;
 }
 
-function tituloBloque(bloque: EjercicioSesionV2[]) {
+/** Mismos sensores en el panel "Orden de la sesión" y en el arrastre
+ * directo sobre la lista principal -- un mantenido corto (400 ms, no los
+ * 3 s pedidos textualmente: se siente lento) activa el arrastre táctil;
+ * el mouse activa con una distancia mínima; el teclado sigue moviendo el
+ * bloque enfocado con las flechas (dnd-kit KeyboardSensor), como
+ * alternativa accesible a un gesto que por naturaleza es solo táctil. */
+export function useSensoresOrden() {
+  return useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 400, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+}
+
+export function tituloBloque(bloque: EjercicioSesionV2[]) {
   return bloque.length > 1 ? bloque.map((item) => item.codigo).join("/") : bloque[0].codigo;
 }
 
-function FilaContenido({ bloque }: { bloque: EjercicioSesionV2[] }) {
+/** Vista compacta de un bloque (miniatura + nombre + técnica) -- se usa
+ * tanto para cada fila del panel como para el "levante" flotante
+ * (DragOverlay) cuando se arrastra directo sobre la lista principal, para
+ * que el gesto se sienta igual en los dos lugares. */
+export function VistaPreviaBloque({ bloque }: { bloque: EjercicioSesionV2[] }) {
   const principal = bloque[0];
   return (
     <>
@@ -68,33 +86,56 @@ function FilaBloque({ bloque, deshabilitado }: { bloque: EjercicioSesionV2[]; de
       {...attributes}
       {...(deshabilitado ? {} : listeners)}
     >
-      <FilaContenido bloque={bloque} />
+      <VistaPreviaBloque bloque={bloque} />
     </div>
   );
 }
 
-/** Reordenar arrastrando en vez de con flechas, respetando bloques
- * (biserie/triserie/serie gigante se mueven como unidad). Un mantenido
- * corto (no 3 s: se siente lento) levanta el bloque en un overlay
- * flotante semi-transparente; soltarlo reordena. Flechas de teclado
- * siguen moviendo el bloque enfocado (dnd-kit KeyboardSensor), para no
- * perder accesibilidad con un gesto que es, por naturaleza, solo táctil. */
-export function OrdenSesionV2({
+/** Envoltorio genérico para arrastrar "en el lugar" -- se usa directo
+ * sobre la tarjeta compacta de un ejercicio en la lista principal, sin
+ * cambiar en nada su apariencia normal (nada de chrome extra). Cuando el
+ * bloque completo está deshabilitado (contiene el ejercicio expandido,
+ * con inputs en vivo, o la sesión no admite reordenar) se renderiza
+ * `children` tal cual, sin envolver -- así no interfiere jamás con la
+ * edición de reps/peso. */
+export function BloqueArrastrableEnLinea({
+  id,
+  deshabilitado,
+  children,
+}: {
+  id: string;
+  deshabilitado?: boolean;
+  children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled: deshabilitado });
+  if (deshabilitado) return <>{children}</>;
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={isDragging ? styles.ordenFilaOculta : undefined}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function DndContextOrden({
   ejercicios,
   deshabilitado,
   onReordenar,
+  children,
 }: {
   ejercicios: EjercicioSesionV2[];
   deshabilitado?: boolean;
   onReordenar: (siguientes: EjercicioSesionV2[]) => void;
+  children: ReactNode;
 }) {
   const bloques = agruparEnBloques(ejercicios);
   const [bloqueActivo, setBloqueActivo] = useState<EjercicioSesionV2[] | null>(null);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 400, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const sensors = useSensoresOrden();
 
   const handleDragStart = (evento: DragStartEvent) => {
     const bloque = bloques.find((item) => item[0].id === evento.active.id);
@@ -118,22 +159,42 @@ export function OrdenSesionV2({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
+      onDragStart={deshabilitado ? undefined : handleDragStart}
+      onDragEnd={deshabilitado ? undefined : handleDragEnd}
       onDragCancel={() => setBloqueActivo(null)}
     >
       <SortableContext items={bloques.map((bloque) => bloque[0].id)} strategy={verticalListSortingStrategy}>
-        <div className={styles.ordenLista}>
-          {bloques.map((bloque) => <FilaBloque key={bloque[0].id} bloque={bloque} deshabilitado={deshabilitado} />)}
-        </div>
+        {children}
       </SortableContext>
       <DragOverlay>
         {bloqueActivo ? (
           <div className={`${styles.ordenFila} ${styles.ordenFilaLevantada}`}>
-            <FilaContenido bloque={bloqueActivo} />
+            <VistaPreviaBloque bloque={bloqueActivo} />
           </div>
         ) : null}
       </DragOverlay>
     </DndContext>
+  );
+}
+
+/** Reordenar arrastrando en vez de con flechas, respetando bloques
+ * (biserie/triserie/serie gigante se mueven como unidad). Usado en el
+ * panel "Orden de la sesión". */
+export function OrdenSesionV2({
+  ejercicios,
+  deshabilitado,
+  onReordenar,
+}: {
+  ejercicios: EjercicioSesionV2[];
+  deshabilitado?: boolean;
+  onReordenar: (siguientes: EjercicioSesionV2[]) => void;
+}) {
+  const bloques = agruparEnBloques(ejercicios);
+  return (
+    <DndContextOrden ejercicios={ejercicios} deshabilitado={deshabilitado} onReordenar={onReordenar}>
+      <div className={styles.ordenLista}>
+        {bloques.map((bloque) => <FilaBloque key={bloque[0].id} bloque={bloque} deshabilitado={deshabilitado} />)}
+      </div>
+    </DndContextOrden>
   );
 }

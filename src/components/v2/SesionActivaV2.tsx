@@ -76,7 +76,7 @@ import { ModalVideo } from "@/components/student/ModalVideo";
 import { ModalVideoCloudflare } from "@/components/student/ModalVideoCloudflare";
 import { VideoCloudflareAutomatico } from "@/components/student/VideoCloudflareAutomatico";
 import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
-import { OrdenSesionV2 } from "@/components/v2/OrdenSesionV2";
+import { agruparEnBloques, BloqueArrastrableEnLinea, DndContextOrden, OrdenSesionV2 } from "@/components/v2/OrdenSesionV2";
 import {
   CLAVE_ESCALA_VISUAL_V2,
   ESCALAS_VISUALES_V2,
@@ -348,8 +348,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [momentosRegistrados, setMomentosRegistrados] = useState<Record<string, boolean>>({});
   const [momentoVisible, setMomentoVisible] = useState<MomentoSesionAlejandro | null>(null);
   const [momentoParaResultado, setMomentoParaResultado] = useState<MomentoSesionAlejandro | null>(null);
-  const [modoOrdenar, setModoOrdenar] = useState(false);
-  const presionLargaRef = useRef<number | null>(null);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
   const [avisoBorrador, setAvisoBorrador] = useState<string | null>(null);
   const [borradorCargado, setBorradorCargado] = useState(false);
@@ -1051,28 +1049,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     });
   };
 
-  // Mantener presionado un ejercicio de la lista entra al modo ordenar
-  // (pedido de Alejandro: "pulsándolos... se levante... y ubicarlos donde
-  // yo quiera", directo en la lista principal, no solo en el panel).
-  // 400 ms: un mantenido de 3 s se siente lento para algo que se hace
-  // seguido durante el entrenamiento.
-  const iniciarPresionLarga = () => {
-    if (!personalizacionDisponible || sesion?.soloLectura) return;
-    cancelarPresionLarga();
-    presionLargaRef.current = window.setTimeout(() => {
-      setModoOrdenar(true);
-      if (typeof navigator !== "undefined" && navigator.vibrate) {
-        try { navigator.vibrate(12); } catch { /* sin gesto directo previo, algunos navegadores lo bloquean */ }
-      }
-    }, 400);
-  };
-  const cancelarPresionLarga = () => {
-    if (presionLargaRef.current !== null) {
-      window.clearTimeout(presionLargaRef.current);
-      presionLargaRef.current = null;
-    }
-  };
-
   const cambiarUnidadPeso = (siguienteUnidad: UnidadPeso) => {
     if (siguienteUnidad === unidadPeso) return;
     setRegistro((actual) => Object.fromEntries(
@@ -1313,104 +1289,95 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         </section>
       ) : (
         <main className={styles.workoutList}>
-          {modoOrdenar ? (
-            <>
-              <div className={styles.ordenHeaderLista}>
-                <p>Mantén presionado y arrastra. Los bloques (biserie, triserie, serie gigante) se mueven juntos.</p>
-                <button type="button" onClick={() => setModoOrdenar(false)}>Listo</button>
-              </div>
-              <OrdenSesionV2 ejercicios={EJERCICIOS} deshabilitado={personalizando} onReordenar={aplicarNuevoOrden} />
-            </>
-          ) : EJERCICIOS.map((ejercicio) => {
-            const activa = ejercicio.id === ejercicioExpandidoId;
-            const impulsoEjercicio = MOMENTOS_ALEJANDRO.find((momento) =>
-              momento.ejercicioId === ejercicio.id && momentosVistos[momento.id]
-            ) ?? null;
-            if (!activa) {
-              const primeraPendiente = registro[ejercicio.id].findIndex((serie) => !serie.completada);
-              const expandirEjercicio = () => {
-                setEjercicioActivoId(ejercicio.id);
-                setSerieActivaIndice(ejercicio.id === ejercicioActivo.id ? serieActivaIndiceSeguro : Math.max(0, primeraPendiente));
-                setEjercicioExpandidoId(ejercicio.id);
-                setDescansoEnFoco(false);
-              };
+          <DndContextOrden ejercicios={EJERCICIOS} deshabilitado={!personalizacionDisponible || sesion?.soloLectura} onReordenar={aplicarNuevoOrden}>
+            {agruparEnBloques(EJERCICIOS).map((bloque) => {
+              // El bloque con el ejercicio expandido (inputs de reps/peso en
+              // vivo) no se arrastra directo -- hay que contraerlo primero.
+              // El resto se arrastra tal cual se ve, sin pantalla aparte
+              // (pedido de Alejandro: "sin que me mande a la segunda foto").
+              const bloqueDeshabilitado = !personalizacionDisponible || sesion?.soloLectura || bloque.some((item) => item.id === ejercicioExpandidoId);
               return (
-                <article
-                  className={styles.compactExercise}
-                  key={ejercicio.id}
-                  onPointerDown={iniciarPresionLarga}
-                  onPointerUp={cancelarPresionLarga}
-                  onPointerLeave={cancelarPresionLarga}
-                  onPointerCancel={cancelarPresionLarga}
-                >
-                  <span className={styles.compactCode}>{ejercicio.codigo} SERIE</span>
-                  <button type="button" className={styles.compactThumb} onClick={() => abrirFichaEjercicio(ejercicio)} aria-label={`Abrir ficha técnica de ${ejercicio.nombre}`}>
-                    <ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="68px" loading="eager" /><i><Play size={12} fill="currentColor" /></i>
-                  </button>
-                  <button type="button" className={styles.compactCopy} aria-expanded="false" onClick={expandirEjercicio}>
-                    <strong>{ejercicio.nombre}</strong><small>Reps: {ejercicio.repeticiones.join(" · ")}</small>
-                  </button>
-                  {ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}
-                </article>
-              );
-            }
-            return (
-              <section
-                className={styles.activeExercise}
-                key={ejercicio.id}
-                onPointerDown={iniciarPresionLarga}
-                onPointerUp={cancelarPresionLarga}
-                onPointerLeave={cancelarPresionLarga}
-                onPointerCancel={cancelarPresionLarga}
-              >
-                <button type="button" className={styles.seriesLabel} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)} aria-label={`Contraer ${ejercicio.nombre}`}>SERIE {ejercicio.codigo}<i aria-hidden="true">›››</i>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}</button>
-                <div className={styles.exerciseHeading}>
-                  <button type="button" className={styles.exerciseMedia} onClick={() => abrirFichaEjercicio(ejercicio)} aria-label={`Abrir ficha técnica de ${ejercicio.nombre}`}><ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="70px" loading={ejercicio.codigo === "A" ? "eager" : "lazy"} /><i><Play size={17} fill="currentColor" /></i></button>
-                  <button type="button" className={styles.exerciseHeadingToggle} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)}><h1>{ejercicio.nombre}</h1><p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p></button>
-                </div>
-                <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Impulso VIP</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicio.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={14} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={14} />Orden</button> : null}</div>
-                {impulsoEjercicio ? (
-                  <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
-                    <Zap size={15} fill="currentColor" />
-                    <span><strong>Impulso VIP</strong><small>{impulsoEjercicio.instruccion}</small></span>
-                    <b>{momentosLogrados[impulsoEjercicio.id] ? "Verificado" : momentosRegistrados[impulsoEjercicio.id] ? "Registrado" : `Serie ${impulsoEjercicio.serieIndice + 1}`}</b>
-                  </button>
-                ) : null}
-                {ejercicio.id === ejercicioActivo.id && segmentosTecnicaActiva.length ? <TecnicaActivaCard ejercicio={ejercicio} segmentos={segmentosTecnicaActiva} paso={pasoTecnicaActivo} pausa={pausaTecnica?.clave === claveTecnicaActiva ? pausaTecnica.segundos : null} /> : null}
-                <div className={styles.setTable}>
-                  <div className={styles.setHead}><span>Serie</span><span>Reps</span><span>Peso ({unidadPeso})</span><span>Descanso</span><span>Listo</span></div>
-                  {registro[ejercicio.id].map((serie, serieIndice) => {
-                    const descansoDeEstaSerie = descanso?.ejercicioId === ejercicio.id && descanso.serieIndice === serieIndice;
-                    const esSerieActiva = !descansoEnFoco && ejercicio.id === ejercicioActivo.id && serieIndice === serieActivaIndiceSeguro;
-                    const esObjetivoImpulso = impulsoEjercicio?.serieIndice === serieIndice;
-                    const esUltimaSerieRutina = esUltimaPosicionSerie(
-                      ORDEN_EJECUCION,
-                      EJERCICIOS.findIndex((item) => item.id === ejercicio.id),
-                      serieIndice,
-                    );
-                    const activarEstaSerie = () => {
-                      setEjercicioActivoId(ejercicio.id);
-                      setSerieActivaIndice(serieIndice);
-                      setEjercicioExpandidoId(ejercicio.id);
-                      setDescansoEnFoco(false);
-                    };
+                <BloqueArrastrableEnLinea key={bloque[0].id} id={bloque[0].id} deshabilitado={bloqueDeshabilitado}>
+                  {bloque.map((ejercicio) => {
+                    const activa = ejercicio.id === ejercicioExpandidoId;
+                    const impulsoEjercicio = MOMENTOS_ALEJANDRO.find((momento) =>
+                      momento.ejercicioId === ejercicio.id && momentosVistos[momento.id]
+                    ) ?? null;
+                    if (!activa) {
+                      const primeraPendiente = registro[ejercicio.id].findIndex((serie) => !serie.completada);
+                      const expandirEjercicio = () => {
+                        setEjercicioActivoId(ejercicio.id);
+                        setSerieActivaIndice(ejercicio.id === ejercicioActivo.id ? serieActivaIndiceSeguro : Math.max(0, primeraPendiente));
+                        setEjercicioExpandidoId(ejercicio.id);
+                        setDescansoEnFoco(false);
+                      };
+                      return (
+                        <article className={styles.compactExercise} key={ejercicio.id}>
+                          <span className={styles.compactCode}>{ejercicio.codigo} SERIE</span>
+                          <button type="button" className={styles.compactThumb} onClick={() => abrirFichaEjercicio(ejercicio)} aria-label={`Abrir ficha técnica de ${ejercicio.nombre}`}>
+                            <ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="68px" loading="eager" /><i><Play size={12} fill="currentColor" /></i>
+                          </button>
+                          <button type="button" className={styles.compactCopy} aria-expanded="false" onClick={expandirEjercicio}>
+                            <strong>{ejercicio.nombre}</strong><small>Reps: {ejercicio.repeticiones.join(" · ")}</small>
+                          </button>
+                          {ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}
+                        </article>
+                      );
+                    }
                     return (
-                      <div className={styles.setGroup} key={`${ejercicio.id}-${serieIndice}`}>
-                        <div className={`${styles.setRow} ${serie.completada ? styles.setRowDone : ""} ${descansoDeEstaSerie ? styles.setRowActive : ""} ${esSerieActiva ? styles.setRowSelected : styles.setRowLocked} ${esObjetivoImpulso ? styles.setRowImpulse : ""}`} aria-current={esSerieActiva ? "step" : undefined} onClick={activarEstaSerie}>
-                          <span className={styles.setNumber}><b>{serieIndice + 1}</b><em aria-label="Serie de trabajo">TRAB.</em></span>
-                          <input aria-label={`Repeticiones, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva || sesion?.soloLectura} inputMode="numeric" value={serie.reps} readOnly={!esSerieActiva || sesion?.soloLectura} tabIndex={esSerieActiva && !sesion?.soloLectura ? 0 : -1} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "reps", evento.target.value)} />
-                          <input aria-label={`Peso en ${unidadPeso}, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva || sesion?.soloLectura} inputMode="decimal" value={serie.peso} readOnly={!esSerieActiva || sesion?.soloLectura} tabIndex={esSerieActiva && !sesion?.soloLectura ? 0 : -1} placeholder={`— ${unidadPeso}`} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "peso", evento.target.value)} />
-                          <span className={styles.restValue}>{esUltimaSerieRutina ? "Final" : requiereDescansoDespues(EJERCICIOS, ORDEN_EJECUCION, EJERCICIOS.findIndex((item) => item.id === ejercicio.id), serieIndice) ? `${ejercicio.descanso} s` : "Avanza"}</span>
-                          <button type="button" className={styles.checkButton} disabled={sesion?.soloLectura} onClick={(evento) => { evento.stopPropagation(); if (esSerieActiva) alternarSerie(ejercicio, serieIndice); else activarEstaSerie(); }} aria-label={esSerieActiva ? `${serie.completada ? "Desmarcar" : "Registrar"} serie ${serieIndice + 1}` : `Activar serie ${serieIndice + 1}`} aria-pressed={serie.completada}>{serie.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}</button>
+                      <section className={styles.activeExercise} key={ejercicio.id}>
+                        <button type="button" className={styles.seriesLabel} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)} aria-label={`Contraer ${ejercicio.nombre}`}>SERIE {ejercicio.codigo}<i aria-hidden="true">›››</i>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}</button>
+                        <div className={styles.exerciseHeading}>
+                          <button type="button" className={styles.exerciseMedia} onClick={() => abrirFichaEjercicio(ejercicio)} aria-label={`Abrir ficha técnica de ${ejercicio.nombre}`}><ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="70px" loading={ejercicio.codigo === "A" ? "eager" : "lazy"} /><i><Play size={17} fill="currentColor" /></i></button>
+                          <button type="button" className={styles.exerciseHeadingToggle} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)}><h1>{ejercicio.nombre}</h1><p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p></button>
                         </div>
-                        {descansoDeEstaSerie ? <div className={`${styles.inlineRest} ${descansoEnFoco ? styles.inlineRestActive : ""}`} aria-current={descansoEnFoco ? "step" : undefined} aria-live="polite"><button type="button" onClick={() => ajustarDescanso(-15)}>−15 s</button><span className={styles.inlineRestTime}>{descanso.tipo === "referencia" ? "Descanso recomendado" : "Descanso"} {descanso.segundos} s</span><button type="button" onClick={() => ajustarDescanso(15)}>+15 s</button></div> : null}
-                      </div>
+                        <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Impulso VIP</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicio.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={14} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={14} />Orden</button> : null}</div>
+                        {impulsoEjercicio ? (
+                          <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
+                            <Zap size={15} fill="currentColor" />
+                            <span><strong>Impulso VIP</strong><small>{impulsoEjercicio.instruccion}</small></span>
+                            <b>{momentosLogrados[impulsoEjercicio.id] ? "Verificado" : momentosRegistrados[impulsoEjercicio.id] ? "Registrado" : `Serie ${impulsoEjercicio.serieIndice + 1}`}</b>
+                          </button>
+                        ) : null}
+                        {ejercicio.id === ejercicioActivo.id && segmentosTecnicaActiva.length ? <TecnicaActivaCard ejercicio={ejercicio} segmentos={segmentosTecnicaActiva} paso={pasoTecnicaActivo} pausa={pausaTecnica?.clave === claveTecnicaActiva ? pausaTecnica.segundos : null} /> : null}
+                        <div className={styles.setTable}>
+                          <div className={styles.setHead}><span>Serie</span><span>Reps</span><span>Peso ({unidadPeso})</span><span>Descanso</span><span>Listo</span></div>
+                          {registro[ejercicio.id].map((serie, serieIndice) => {
+                            const descansoDeEstaSerie = descanso?.ejercicioId === ejercicio.id && descanso.serieIndice === serieIndice;
+                            const esSerieActiva = !descansoEnFoco && ejercicio.id === ejercicioActivo.id && serieIndice === serieActivaIndiceSeguro;
+                            const esObjetivoImpulso = impulsoEjercicio?.serieIndice === serieIndice;
+                            const esUltimaSerieRutina = esUltimaPosicionSerie(
+                              ORDEN_EJECUCION,
+                              EJERCICIOS.findIndex((item) => item.id === ejercicio.id),
+                              serieIndice,
+                            );
+                            const activarEstaSerie = () => {
+                              setEjercicioActivoId(ejercicio.id);
+                              setSerieActivaIndice(serieIndice);
+                              setEjercicioExpandidoId(ejercicio.id);
+                              setDescansoEnFoco(false);
+                            };
+                            return (
+                              <div className={styles.setGroup} key={`${ejercicio.id}-${serieIndice}`}>
+                                <div className={`${styles.setRow} ${serie.completada ? styles.setRowDone : ""} ${descansoDeEstaSerie ? styles.setRowActive : ""} ${esSerieActiva ? styles.setRowSelected : styles.setRowLocked} ${esObjetivoImpulso ? styles.setRowImpulse : ""}`} aria-current={esSerieActiva ? "step" : undefined} onClick={activarEstaSerie}>
+                                  <span className={styles.setNumber}><b>{serieIndice + 1}</b><em aria-label="Serie de trabajo">TRAB.</em></span>
+                                  <input aria-label={`Repeticiones, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva || sesion?.soloLectura} inputMode="numeric" value={serie.reps} readOnly={!esSerieActiva || sesion?.soloLectura} tabIndex={esSerieActiva && !sesion?.soloLectura ? 0 : -1} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "reps", evento.target.value)} />
+                                  <input aria-label={`Peso en ${unidadPeso}, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva || sesion?.soloLectura} inputMode="decimal" value={serie.peso} readOnly={!esSerieActiva || sesion?.soloLectura} tabIndex={esSerieActiva && !sesion?.soloLectura ? 0 : -1} placeholder={`— ${unidadPeso}`} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "peso", evento.target.value)} />
+                                  <span className={styles.restValue}>{esUltimaSerieRutina ? "Final" : requiereDescansoDespues(EJERCICIOS, ORDEN_EJECUCION, EJERCICIOS.findIndex((item) => item.id === ejercicio.id), serieIndice) ? `${ejercicio.descanso} s` : "Avanza"}</span>
+                                  <button type="button" className={styles.checkButton} disabled={sesion?.soloLectura} onClick={(evento) => { evento.stopPropagation(); if (esSerieActiva) alternarSerie(ejercicio, serieIndice); else activarEstaSerie(); }} aria-label={esSerieActiva ? `${serie.completada ? "Desmarcar" : "Registrar"} serie ${serieIndice + 1}` : `Activar serie ${serieIndice + 1}`} aria-pressed={serie.completada}>{serie.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}</button>
+                                </div>
+                                {descansoDeEstaSerie ? <div className={`${styles.inlineRest} ${descansoEnFoco ? styles.inlineRestActive : ""}`} aria-current={descansoEnFoco ? "step" : undefined} aria-live="polite"><button type="button" onClick={() => ajustarDescanso(-15)}>−15 s</button><span className={styles.inlineRestTime}>{descanso.tipo === "referencia" ? "Descanso recomendado" : "Descanso"} {descanso.segundos} s</span><button type="button" onClick={() => ajustarDescanso(15)}>+15 s</button></div> : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
                     );
                   })}
-                </div>
-              </section>
-            );
-          })}
+                </BloqueArrastrableEnLinea>
+              );
+            })}
+          </DndContextOrden>
         </main>
       )}
 
