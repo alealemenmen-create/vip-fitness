@@ -18,6 +18,8 @@
  * alumno VEA qué ejercicios van encadenados) y SesionEjercicios (para
  * agrupar la rutina en bloques, ver `agruparPorTecnica`).
  */
+import { esTecnicaEncadenada, normalizarTecnicaSesion } from "./motor-tecnicas-sesion";
+
 export type GrupoTecnica = { color: string; etiqueta: string };
 
 export function resolverGrupoTecnica(tecnicaTipo: string | null | undefined): GrupoTecnica | null {
@@ -81,4 +83,52 @@ export function tamanoGrupoTecnica(tecnicaTipo: string | null | undefined): numb
   if (explicito) return explicito;
   const familia = resolverGrupoTecnica(tecnicaTipo)?.etiqueta;
   return familia ? (TAMANO_POR_DEFECTO[familia] ?? null) : null;
+}
+
+/**
+ * Agrupa una lista ordenada de ejercicios de sesión en bloques de técnica
+ * encadenada, devolviendo un id de bloque por `sesionEjercicioId`. Ejercicios
+ * consecutivos de la misma familia encadenada se funden en un solo bloque
+ * hasta que: se completa el tamaño explícito/por defecto (`tamanoGrupoTecnica`),
+ * cambia la familia, o el siguiente ejercicio ya no es una técnica encadenada.
+ *
+ * Sin tamaño conocido (Circuito/Giant Set sin numerar, ver comentario de
+ * `TAMANO_POR_DEFECTO`), el bloque sigue creciendo mientras la familia no
+ * cambie — "sin tope", a propósito.
+ *
+ * Única fuente de verdad para esta agrupación: la usa tanto la vista de la
+ * sesión (`sesion/page.tsx`, para pintar el bloque y su color) como la
+ * validación del reorden (`sesion/actions.ts`, `reordenarEjerciciosSesionV2`,
+ * para exigir que el bloque se mueva completo). Antes cada archivo tenía su
+ * propia versión, y la de `actions.ts` no sabía agrupar sin numerar — caía a
+ * bloques de tamaño 1, así que un circuito sin `(n/total)` se podía
+ * reordenar ejercicio por ejercicio aunque en la ejecución real sí se
+ * agrupaba entero. Un solo algoritmo evita que las dos vuelvan a divergir.
+ */
+export function construirBloquesTecnica(
+  ejercicios: { sesionEjercicioId: string; tecnicaTipo: string | null }[]
+): Map<string, string> {
+  const bloques = new Map<string, string>();
+  let grupoActual: { familia: string; id: string; restantes: number | null } | null = null;
+  let contador = 0;
+  for (const ejercicio of ejercicios) {
+    const slug = normalizarTecnicaSesion(ejercicio.tecnicaTipo);
+    const encadenada = slug !== null && esTecnicaEncadenada(slug);
+    const familia = resolverGrupoTecnica(ejercicio.tecnicaTipo)?.etiqueta ?? "";
+    if (!encadenada) {
+      grupoActual = null;
+      continue;
+    }
+    if (!grupoActual || grupoActual.familia !== familia || grupoActual.restantes === 0) {
+      contador += 1;
+      grupoActual = {
+        familia,
+        id: `${slug}-${contador}`,
+        restantes: tamanoGrupoTecnica(ejercicio.tecnicaTipo),
+      };
+    }
+    bloques.set(ejercicio.sesionEjercicioId, grupoActual.id);
+    if (grupoActual.restantes !== null) grupoActual.restantes -= 1;
+  }
+  return bloques;
 }

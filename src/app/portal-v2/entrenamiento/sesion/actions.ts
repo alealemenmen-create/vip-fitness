@@ -3,8 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAlumno } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { esTecnicaEncadenada, normalizarTecnicaSesion } from "@/lib/entrenamiento/motor-tecnicas-sesion";
-import { tamanoGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import { construirBloquesTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import { bloquesPermanecenUnidos, cargasSonComparables, sustitucionEsCompatible, validarConjuntoOrdenado } from "@/lib/entrenamiento/personalizacion-sesion";
 
 type ResultadoPersonalizacion = { ok: boolean; error: string | null };
@@ -161,17 +160,27 @@ export async function reordenarEjerciciosSesionV2(input: {
     .order("orden", { ascending: true });
   if (errorPrescritos || !prescritos) return { ok: false, error: "No pudimos validar las técnicas agrupadas." };
   const sesionIdPorPrescrito = new Map(filas.map((fila) => [fila.dia_ejercicio_id, fila.id]));
+  // Mismo algoritmo de agrupación que pinta la pantalla de sesión
+  // (construirBloquesTecnica, compartido en tecnica-grupo.ts) -- antes esta
+  // validación tenía su propia versión que no sabía agrupar sin el sufijo
+  // "(n/total)" y caía a bloques de tamaño 1, así que un circuito o serie
+  // gigante sin numerar se podía reordenar ejercicio por ejercicio aunque en
+  // la ejecución real sí se agrupaba entero.
+  const itemsParaAgrupar = prescritos
+    .map((fila) => ({ sesionEjercicioId: sesionIdPorPrescrito.get(fila.id), tecnicaTipo: fila.tecnica_tipo }))
+    .filter((item): item is { sesionEjercicioId: string; tecnicaTipo: string | null } => Boolean(item.sesionEjercicioId));
+  const bloqueIdPorSesionEjercicio = construirBloquesTecnica(itemsParaAgrupar);
   const bloques: string[][] = [];
-  for (let indice = 0; indice < prescritos.length;) {
-    const actual = prescritos[indice];
-    const slug = normalizarTecnicaSesion(actual.tecnica_tipo);
-    const encadenada = slug !== null && esTecnicaEncadenada(slug);
-    const cantidad = encadenada ? tamanoGrupoTecnica(actual.tecnica_tipo) : 1;
-    const bloque = prescritos.slice(indice, indice + Math.max(1, cantidad ?? 1))
-      .map((fila) => sesionIdPorPrescrito.get(fila.id))
-      .filter((id): id is string => Boolean(id));
-    bloques.push(bloque);
-    indice += Math.max(1, bloque.length);
+  const indicePorBloqueId = new Map<string, number>();
+  for (const item of itemsParaAgrupar) {
+    const bloqueId = bloqueIdPorSesionEjercicio.get(item.sesionEjercicioId);
+    const indiceExistente = bloqueId !== undefined ? indicePorBloqueId.get(bloqueId) : undefined;
+    if (indiceExistente !== undefined) {
+      bloques[indiceExistente].push(item.sesionEjercicioId);
+      continue;
+    }
+    if (bloqueId !== undefined) indicePorBloqueId.set(bloqueId, bloques.length);
+    bloques.push([item.sesionEjercicioId]);
   }
   if (!bloquesPermanecenUnidos(orden, bloques)) {
     return { ok: false, error: "Las biseries, trisets y circuitos deben moverse como un bloque completo." };

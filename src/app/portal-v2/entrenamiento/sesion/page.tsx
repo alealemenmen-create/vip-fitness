@@ -11,7 +11,7 @@ import {
   type TecnicaEncadenadaSlug,
   type TecnicaIndividualSlug,
 } from "@/lib/entrenamiento/motor-tecnicas-sesion";
-import { resolverGrupoTecnica, tamanoGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import { construirBloquesTecnica, resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
 import type { Database } from "@/lib/supabase/types";
 import styles from "@/components/v2/PortalV2.module.css";
 import { firmarMiniaturasCloudflareV2 } from "@/lib/cloudflare/miniaturas-v2";
@@ -43,32 +43,6 @@ function tipoMomento(tipo: string): "cierre_controlado" | "repeticion_extra" | "
   if (tipo === "rest_pause") return "rest_pause";
   if (tipo === "repeticion_objetivo") return "repeticion_extra";
   return "cierre_controlado";
-}
-
-function construirBloquesTecnica(ejercicios: { sesionEjercicioId: string; tecnicaTipo: string | null }[]) {
-  const bloques = new Map<string, string>();
-  let grupoActual: { familia: string; id: string; restantes: number | null } | null = null;
-  let contador = 0;
-  for (const ejercicio of ejercicios) {
-    const slug = normalizarTecnicaSesion(ejercicio.tecnicaTipo);
-    const encadenada = slug !== null && esTecnicaEncadenada(slug);
-    const familia = resolverGrupoTecnica(ejercicio.tecnicaTipo)?.etiqueta ?? "";
-    if (!encadenada) {
-      grupoActual = null;
-      continue;
-    }
-    if (!grupoActual || grupoActual.familia !== familia || grupoActual.restantes === 0) {
-      contador += 1;
-      grupoActual = {
-        familia,
-        id: `${slug}-${contador}`,
-        restantes: tamanoGrupoTecnica(ejercicio.tecnicaTipo),
-      };
-    }
-    bloques.set(ejercicio.sesionEjercicioId, grupoActual.id);
-    if (grupoActual.restantes !== null) grupoActual.restantes -= 1;
-  }
-  return bloques;
 }
 
 export default async function SesionV2Page({

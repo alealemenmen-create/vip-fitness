@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { posicionTecnica, resolverGrupoTecnica, tamanoGrupoTecnica } from "./tecnica-grupo";
+import { construirBloquesTecnica, posicionTecnica, resolverGrupoTecnica, tamanoGrupoTecnica } from "./tecnica-grupo";
 
 describe("resolverGrupoTecnica", () => {
   it("reconoce cada familia sin importar mayúsculas ni el sufijo (n/total)", () => {
@@ -62,5 +62,49 @@ describe("tamanoGrupoTecnica — el bug reportado: biserias sin numerar se fund�
 
   it("sin tecnicaTipo, sin tamaño", () => {
     expect(tamanoGrupoTecnica(null)).toBeNull();
+  });
+});
+
+describe("construirBloquesTecnica — bug real: un circuito sin numerar se reordenaba ejercicio por ejercicio", () => {
+  it("agrupa un circuito de 4 ejercicios SIN sufijo (n/total) en un solo bloque, no en 4 sueltos", () => {
+    const ejercicios = [
+      { sesionEjercicioId: "a", tecnicaTipo: "Circuito metabólico" },
+      { sesionEjercicioId: "b", tecnicaTipo: "Circuito metabólico" },
+      { sesionEjercicioId: "c", tecnicaTipo: "Circuito metabólico" },
+      { sesionEjercicioId: "d", tecnicaTipo: "Circuito metabólico" },
+    ];
+    const bloques = construirBloquesTecnica(ejercicios);
+    const idsDeBloque = new Set(ejercicios.map((e) => bloques.get(e.sesionEjercicioId)));
+    // Las 4 filas comparten el mismo id de bloque -- exactamente lo que
+    // `bloquesPermanecenUnidos` necesita para exigir que se muevan juntas.
+    expect(idsDeBloque.size).toBe(1);
+    expect(bloques.get("a")).toBeDefined();
+  });
+
+  it("una serie gigante sin numerar seguida de un ejercicio suelto no se mezcla con él", () => {
+    const ejercicios = [
+      { sesionEjercicioId: "a", tecnicaTipo: "Giant Set" },
+      { sesionEjercicioId: "b", tecnicaTipo: "Giant Set" },
+      { sesionEjercicioId: "c", tecnicaTipo: "Giant Set" },
+      { sesionEjercicioId: "suelto", tecnicaTipo: null },
+    ];
+    const bloques = construirBloquesTecnica(ejercicios);
+    expect(bloques.get("a")).toBe(bloques.get("b"));
+    expect(bloques.get("b")).toBe(bloques.get("c"));
+    // El ejercicio suelto (sin técnica encadenada) no entra a ningún bloque.
+    expect(bloques.has("suelto")).toBe(false);
+  });
+
+  it("dos biseries numeradas seguidas siguen separándose en dos bloques de 2, no uno de 4", () => {
+    const ejercicios = [
+      { sesionEjercicioId: "a1", tecnicaTipo: "Biserie (1/2)" },
+      { sesionEjercicioId: "a2", tecnicaTipo: "Biserie (2/2)" },
+      { sesionEjercicioId: "b1", tecnicaTipo: "Biserie (1/2)" },
+      { sesionEjercicioId: "b2", tecnicaTipo: "Biserie (2/2)" },
+    ];
+    const bloques = construirBloquesTecnica(ejercicios);
+    expect(bloques.get("a1")).toBe(bloques.get("a2"));
+    expect(bloques.get("b1")).toBe(bloques.get("b2"));
+    expect(bloques.get("a1")).not.toBe(bloques.get("b1"));
   });
 });
