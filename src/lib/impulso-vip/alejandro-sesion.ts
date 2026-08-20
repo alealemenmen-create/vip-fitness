@@ -34,7 +34,7 @@ export type MomentoSesionAlejandro = {
   ejercicioId: string;
   serieIndice: number;
   tipo: TipoMomentoAlejandro;
-  titulo: "MOMENTO ALEJANDRO";
+  titulo: "MOMENTO IMPULSO VIP";
   instruccion: string;
   apoyo: string;
   mostradoInicial?: boolean;
@@ -130,7 +130,7 @@ export function seleccionarMomentosAlejandro(
         ejercicioId: candidato.ejercicioId,
         serieIndice: candidato.totalSeries - 1,
         tipo,
-        titulo: "MOMENTO ALEJANDRO",
+        titulo: "MOMENTO IMPULSO VIP",
         ...texto,
       };
     });

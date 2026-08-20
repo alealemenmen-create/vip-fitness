@@ -17,7 +17,7 @@ export function evaluarPreparacionDiariaAlejandro(seguimiento: SeguimientoHoy): 
     return {
       estado: "sin_checkin",
       titulo: "Sin check-in de hoy",
-      detalle: "Alejandro conserva la programación, pero no intensifica con señales de recuperación incompletas.",
+      detalle: "Impulso VIP conserva la programación, pero no intensifica con señales de recuperación incompletas.",
       maximoMomentos: 1,
     };
   }
@@ -46,7 +46,7 @@ export function evaluarPreparacionDiariaAlejandro(seguimiento: SeguimientoHoy): 
     return {
       estado: "precaucion",
       titulo: "Exigencia controlada",
-      detalle: "Alejandro limita la sesión a un solo momento estratégico.",
+      detalle: "Impulso VIP limita la sesión a un solo momento estratégico.",
       maximoMomentos: 1,
     };
   }

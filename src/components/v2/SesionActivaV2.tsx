@@ -702,7 +702,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
               setMomentosLogrados((actuales) => ({ ...actuales, [momentoCompletado.id]: true }));
             }
           } else if (resolucion.error) {
-            setErrorGuardado(`La serie quedó guardada, pero Alejandro no pudo confirmar el reto: ${resolucion.error}`);
+            setErrorGuardado(`La serie quedó guardada, pero Impulso VIP no pudo confirmar el reto: ${resolucion.error}`);
           }
         }
       } catch {
@@ -1249,12 +1249,12 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             <div className={styles.videoBottomGroup}>
               <div className={styles.videoIdentity}><small>SERIE {ejercicioActivo.codigo}</small><h1>{ejercicioActivo.nombre}</h1><p>{ejercicioActivo.equipo}</p></div>
               <div className={styles.videoActions}>
-                <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicioActivo.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={13} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={13} />Orden</button> : null}
+                <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Impulso VIP</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicioActivo.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={13} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={13} />Orden</button> : null}
               </div>
               {impulsoActivo ? (
                 <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
                   <Zap size={15} fill="currentColor" />
-                  <span><strong>Alejandro</strong><small>{impulsoActivo.instruccion}</small></span>
+                  <span><strong>Impulso VIP</strong><small>{impulsoActivo.instruccion}</small></span>
                   <b>{momentosLogrados[impulsoActivo.id] ? "Verificado" : momentosRegistrados[impulsoActivo.id] ? "Registrado" : `Serie ${impulsoActivo.serieIndice + 1}`}</b>
                 </button>
               ) : null}
@@ -1311,11 +1311,11 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                   <button type="button" className={styles.exerciseMedia} onClick={() => abrirFichaEjercicio(ejercicio)} aria-label={`Abrir ficha técnica de ${ejercicio.nombre}`}><ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="70px" loading={ejercicio.codigo === "A" ? "eager" : "lazy"} /><i><Play size={17} fill="currentColor" /></i></button>
                   <button type="button" className={styles.exerciseHeadingToggle} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)}><h1>{ejercicio.nombre}</h1><p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p></button>
                 </div>
-                <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Alejandro</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicio.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={14} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={14} />Orden</button> : null}</div>
+                <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Impulso VIP</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicio.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={14} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={14} />Orden</button> : null}</div>
                 {impulsoEjercicio ? (
                   <button type="button" className={styles.impulsoNotice} onClick={() => setPanel("impulso")}>
                     <Zap size={15} fill="currentColor" />
-                    <span><strong>Alejandro</strong><small>{impulsoEjercicio.instruccion}</small></span>
+                    <span><strong>Impulso VIP</strong><small>{impulsoEjercicio.instruccion}</small></span>
                     <b>{momentosLogrados[impulsoEjercicio.id] ? "Verificado" : momentosRegistrados[impulsoEjercicio.id] ? "Registrado" : `Serie ${impulsoEjercicio.serieIndice + 1}`}</b>
                   </button>
                 ) : null}
@@ -1637,7 +1637,7 @@ function PanelAuxiliar({
   cerrar: () => void;
 }) {
   const [notaBorrador, setNotaBorrador] = useState(notaInicial);
-  const titulos = { consejo: "Consejo del entrenador", historial: "Último registro", notas: "Notas del ejercicio", ajustes: "Ajustes de la sesión", informacion: "Información del ejercicio", impulso: "Alejandro · Impulso VIP", sustituir: "Cambiar ejercicio", reordenar: "Orden de la sesión" };
+  const titulos = { consejo: "Consejo del entrenador", historial: "Último registro", notas: "Notas del ejercicio", ajustes: "Ajustes de la sesión", informacion: "Información del ejercicio", impulso: "Impulso VIP · Ale' Mendoza", sustituir: "Cambiar ejercicio", reordenar: "Orden de la sesión" };
   return (
     <div className={styles.sheetBackdrop} role="presentation" onClick={cerrar}>
       <section className={styles.auxSheet} role="dialog" aria-modal="true" aria-label={titulos[tipo]} onClick={(evento) => evento.stopPropagation()}>
@@ -1648,12 +1648,12 @@ function PanelAuxiliar({
         {tipo === "impulso" ? (
           <div className={styles.impulsoPanel}>
             <div className={styles.alejandroAutomatico} data-active={impulsoAutomaticoActivo}>
-              <span><strong>{soloLectura ? "Registro de Alejandro" : impulsoAutomaticoActivo ? "Impulso automático activo" : "Impulso automático desactivado"}</strong><small>{soloLectura ? "Revisa cómo fue planificada esta sesión." : impulsoAutomaticoActivo ? "Aparecerá solo cuando realmente haga falta." : "La rutina conserva su programación base."}</small></span>
-              {!soloLectura ? <button type="button" role="switch" aria-label="Alejandro automático" aria-checked={impulsoAutomaticoActivo} className={styles.settingSwitch} onClick={() => cambiarImpulsoAutomatico(!impulsoAutomaticoActivo)}><i /></button> : null}
+              <span><strong>{soloLectura ? "Registro de Impulso VIP" : impulsoAutomaticoActivo ? "Impulso automático activo" : "Impulso automático desactivado"}</strong><small>{soloLectura ? "Revisa cómo fue planificada esta sesión." : impulsoAutomaticoActivo ? "Aparecerá solo cuando realmente haga falta." : "La rutina conserva su programación base."}</small></span>
+              {!soloLectura ? <button type="button" role="switch" aria-label="Impulso VIP automático" aria-checked={impulsoAutomaticoActivo} className={styles.settingSwitch} onClick={() => cambiarImpulsoAutomatico(!impulsoAutomaticoActivo)}><i /></button> : null}
             </div>
-            <p className={styles.impulsoIntro}>Alejandro estudia historial, repeticiones, carga, constancia y esfuerzo. La progresión normal ocurre en silencio; los retos aparecen solos y son escasos.</p>
+            <p className={styles.impulsoIntro}>Impulso VIP estudia historial, repeticiones, carga, constancia y esfuerzo. La progresión normal ocurre en silencio; los retos aparecen solos y son escasos.</p>
             {preparacionAlejandro ? <div className={styles.alejandroReadiness} data-state={preparacionAlejandro.estado}><Activity size={17} /><span><strong>{preparacionAlejandro.titulo}</strong><small>{preparacionAlejandro.detalle}</small></span></div> : null}
-            <div className={styles.impulsoRule}><Zap size={17} fill="currentColor" /><span><strong>{cupoImpulso === 0 ? "Rutina base, sin retos extra hoy" : `${cupoImpulso} ${cupoImpulso === 1 ? "momento estratégico" : "momentos estratégicos"} en esta sesión`}</strong><small>{cupoImpulso === 0 ? "Alejandro sigue observando tu ejecución sin añadir intensidad." : "Últimas series elegidas. Nunca cambia todos tus pesos ni interrumpe cada ejercicio."}</small></span></div>
+            <div className={styles.impulsoRule}><Zap size={17} fill="currentColor" /><span><strong>{cupoImpulso === 0 ? "Rutina base, sin retos extra hoy" : `${cupoImpulso} ${cupoImpulso === 1 ? "momento estratégico" : "momentos estratégicos"} en esta sesión`}</strong><small>{cupoImpulso === 0 ? "Impulso VIP sigue observando tu ejecución sin añadir intensidad." : "Últimas series elegidas. Nunca cambia todos tus pesos ni interrumpe cada ejercicio."}</small></span></div>
             {impulsoActual ? (
               <div className={styles.impulsoResult}><Check size={18} strokeWidth={3} /><span><strong>Momento revelado</strong><small>{impulsoActual.instruccion}</small></span><b>Serie {impulsoActual.serieIndice + 1}</b></div>
             ) : null}
@@ -1665,8 +1665,8 @@ function PanelAuxiliar({
         {tipo === "ajustes" ? (
           <div className={styles.settingRows}>
             <div className={styles.settingRow}>
-              <span><strong>Alejandro automático</strong><small>Activa retos escasos en momentos estratégicos</small></span>
-              <button type="button" role="switch" aria-label="Alejandro automático" aria-checked={impulsoAutomaticoActivo} className={styles.settingSwitch} onClick={() => cambiarImpulsoAutomatico(!impulsoAutomaticoActivo)}><i /></button>
+              <span><strong>Impulso VIP automático</strong><small>Activa retos escasos en momentos estratégicos</small></span>
+              <button type="button" role="switch" aria-label="Impulso VIP automático" aria-checked={impulsoAutomaticoActivo} className={styles.settingSwitch} onClick={() => cambiarImpulsoAutomatico(!impulsoAutomaticoActivo)}><i /></button>
             </div>
             <div className={styles.settingRow}>
               <span><strong>Temporizador automático</strong><small>Inicia el descanso al completar cada serie</small></span>

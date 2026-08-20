@@ -280,7 +280,7 @@ export default async function SesionV2Page({
         ejercicioId: ejercicio.sesionEjercicioId,
         serieIndice: Math.max(0, momento.serieObjetivo - 1),
         tipo: tipoMomento(momento.tipo),
-        titulo: "MOMENTO ALEJANDRO" as const,
+        titulo: "MOMENTO IMPULSO VIP" as const,
         instruccion: momento.instruccion,
         apoyo: momento.motivo,
         mostradoInicial: momento.estado === "mostrada",
