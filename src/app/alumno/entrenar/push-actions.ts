@@ -132,23 +132,15 @@ export async function programarAvisoSesionSinCerrar(
  * responder, sin bloquear al alumno) y el push lo entrega el sistema
  * operativo — eso sí sobrevive a la pantalla bloqueada.
  *
+ * Usada por la sesión clásica (V1). La sesión V2 usa
+ * `programarAvisoAusenciaDescansoV2` en su lugar -- ver el comentario de esa
+ * función para por qué son dos funciones distintas y no una compartida.
+ *
  * Limitación conocida y aceptada: si el alumno cancela el descanso antes de
  * tiempo, este aviso programado no se puede cancelar (no hay un canal para
  * eso sin sumar una cola externa) — en el peor caso llega una notificación
  * de más, ya vencida. Preferible a la alternativa de no avisar nunca.
  */
-// Alejandro pidió tope de 2 avisos por descanso, ni uno más (cada push
-// enviado consume cuota): el de siempre al terminar, y un único recordatorio
-// 180s después si para entonces todavía no volvió. `TECHO_ESPERA_TOTAL_SEGUNDOS`
-// deja margen dentro de `maxDuration = 300` (ver `sesion/[id]/page.tsx`) --
-// ambas esperas viven en la misma invocación de `after()`, así que si el
-// descanso configurado ya es largo, se acorta la segunda espera para no
-// pasarse; si no queda margen real, se omite el recordatorio en vez de
-// arriesgar que la plataforma corte la ejecución antes de que salga el
-// primero.
-const RECORDATORIO_ADICIONAL_SEGUNDOS = 180;
-const TECHO_ESPERA_TOTAL_SEGUNDOS = 280;
-
 export async function programarAvisoDescanso(segundos: number, sesionId?: string): Promise<void> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura || !segundos || segundos <= 0) return;
@@ -172,15 +164,54 @@ export async function programarAvisoDescanso(segundos: number, sesionId?: string
         : "/portal-v2/entrenamiento",
     };
     await Promise.all(suscripciones.map((sub) => enviarPush(admin, sub, payload)));
+  });
+}
 
-    const segundaEspera = Math.min(RECORDATORIO_ADICIONAL_SEGUNDOS, TECHO_ESPERA_TOTAL_SEGUNDOS - segundos);
-    if (segundaEspera < 30) return;
-    await esperar(segundaEspera * 1000);
-    await Promise.all(suscripciones.map((sub) => enviarPush(admin, sub, {
-      ...payload,
+/**
+ * Programa un único aviso de "sigues de descanso" para dentro de 4 minutos
+ * -- solo para la sesión V2.
+ *
+ * A diferencia de `programarAvisoDescanso` (V1), que se llama al arrancar el
+ * descanso y espera la duración configurada, esta se llama SOLO cuando la
+ * pestaña/PWA pasa a segundo plano de verdad con un descanso pendiente
+ * (`visibilitychange` en el cliente, ver `SesionActivaV2.tsx`). La versión
+ * anterior de este aviso en V2 reusaba `programarAvisoDescanso` tal cual, y
+ * eso mandaba el push aunque el alumno siguiera activo en la app -- reporte
+ * real: Diego Cerna lo recibió en plena serie 4, con la pantalla abierta.
+ * "4 minutos" acá mide ausencia real de la app, no la duración del
+ * descanso. Alejandro pidió expresamente un solo aviso, no dos: cada push
+ * enviado cuesta cuota.
+ *
+ * Limitación conocida y aceptada: si el alumno vuelve a la app antes de los
+ * 4 minutos, este aviso programado no se puede cancelar (no hay un canal
+ * para eso sin sumar una cola externa) -- en el peor caso llega una
+ * notificación de más, ya vencida. Mucho menos frecuente que antes, porque
+ * ahora solo se programa cuando de verdad salió, no siempre.
+ */
+const ESPERA_AUSENCIA_SEGUNDOS = 4 * 60;
+
+export async function programarAvisoAusenciaDescansoV2(sesionId?: string): Promise<void> {
+  const { alumnoId, soloLectura } = await requireAlumno();
+  if (soloLectura) return;
+  if (!vapidListo()) return;
+
+  const admin = createAdminClient();
+  const { data: suscripciones } = await admin
+    .from("push_suscripciones")
+    .select("endpoint, p256dh, auth")
+    .eq("alumno_id", alumnoId);
+  if (!suscripciones || suscripciones.length === 0) return;
+
+  after(async () => {
+    await esperar(ESPERA_AUSENCIA_SEGUNDOS * 1000);
+    const payload = {
       title: "Sigues de descanso",
-      body: "Ya pasaron unos minutos. Vuelve a la app para tu siguiente serie.",
-      tag: sesionId ? `fin-descanso-recordatorio-${sesionId}` : "fin-descanso-recordatorio",
-    })));
+      body: "Ya pasaron unos minutos fuera de la app. Vuelve para tu siguiente serie.",
+      tag: sesionId ? `fin-descanso-${sesionId}` : "fin-descanso",
+      url: sesionId
+        ? `/portal-v2/entrenamiento/sesion?id=${encodeURIComponent(sesionId)}`
+        : "/portal-v2/entrenamiento",
+    };
+    await Promise.all(suscripciones.map((sub) => enviarPush(admin, sub, payload)));
   });
 }

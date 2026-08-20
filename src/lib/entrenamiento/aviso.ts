@@ -76,24 +76,37 @@ function tono(
   salida = 0.05,
 ) {
   if (!contexto) return;
-  const osc = contexto.createOscillator();
-  const gain = contexto.createGain();
-  osc.type = "sine";
-  osc.frequency.value = hz;
+  // Sin este try/catch, un AudioContext suspendido por el navegador (pasa
+  // en Android Chrome tras un rato en segundo plano; el reporte real fue un
+  // Motorola G55) tira una excepción síncrona acá adentro que corta lo que
+  // sigue en quien llama -- y quien llama es el aviso de fin de descanso,
+  // seguido del avance automático a la siguiente serie. El cronómetro
+  // llegaba a cero y la app se quedaba pegada ahí, sin sonar (esperable) NI
+  // avanzar (el bug real). En iPhone no se veía porque Safari no suspende
+  // el AudioContext de la misma manera.
+  try {
+    const osc = contexto.createOscillator();
+    const gain = contexto.createGain();
+    osc.type = "sine";
+    osc.frequency.value = hz;
 
-  const t = contexto.currentTime + desde;
-  gain.gain.setValueAtTime(0, t);
-  gain.gain.linearRampToValueAtTime(volumen, t + ataque);
-  gain.gain.setValueAtTime(volumen, t + duracion - salida);
-  gain.gain.linearRampToValueAtTime(0, t + duracion);
+    const t = contexto.currentTime + desde;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(volumen, t + ataque);
+    gain.gain.setValueAtTime(volumen, t + duracion - salida);
+    gain.gain.linearRampToValueAtTime(0, t + duracion);
 
-  osc.connect(gain).connect(contexto.destination);
-  osc.start(t);
-  osc.stop(t + duracion);
-  sonando.push({ osc, gain });
-  osc.onended = () => {
-    sonando = sonando.filter((s) => s.osc !== osc);
-  };
+    osc.connect(gain).connect(contexto.destination);
+    osc.start(t);
+    osc.stop(t + duracion);
+    sonando.push({ osc, gain });
+    osc.onended = () => {
+      sonando = sonando.filter((s) => s.osc !== osc);
+    };
+  } catch {
+    // Sin este tono se sigue avisando por vibración, y lo más importante:
+    // quien llamó a avisarFinDescanso puede seguir con el avance de serie.
+  }
 }
 
 /** La notificación activa, para poder cerrarla apenas el alumno vuelve

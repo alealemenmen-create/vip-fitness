@@ -31,7 +31,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { programarAvisoDescanso } from "@/app/alumno/entrenar/push-actions";
+import { programarAvisoAusenciaDescansoV2 } from "@/app/alumno/entrenar/push-actions";
 import { avisarFinDescansoV2, cortarAviso, prepararAviso } from "@/lib/entrenamiento/aviso";
 import {
   claveBorradorSesionV2,
@@ -368,6 +368,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const deshacerOrdenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gestoInicioX = useRef<number | null>(null);
   const descansoAvisadoRef = useRef<string | null>(null);
+  const avisoAusenciaProgramadoRef = useRef<string | null>(null);
   const descansosResueltosRef = useRef<Set<string>>(new Set());
   const paginaSesionRef = useRef<HTMLDivElement | null>(null);
   const resumenRef = useRef<HTMLElement | null>(null);
@@ -513,6 +514,26 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     });
     return () => window.cancelAnimationFrame(cuadro);
   }, [sesion]);
+
+  // El push de "sigues de descanso" se dispara cuando la app pasa a segundo
+  // plano DE VERDAD con un descanso pendiente -- no cuando se cumple el
+  // tiempo configurado, que mandaba el aviso aunque el alumno siguiera
+  // activo mirando la pantalla (reporte real: llegó en plena serie 4).
+  // `visibilitychange` es el único evento que sobrevive a cambiar de app o
+  // bloquear la pantalla. Una vez por descanso alcanza -- Alejandro pidió
+  // un solo aviso, no una cadena.
+  useEffect(() => {
+    if (!descanso || !temporizadorAutomatico || !sesion?.real) return;
+    const clave = claveDescansoSesion(descanso.ejercicioId, descanso.serieIndice);
+    const alCambiarVisibilidad = () => {
+      if (document.visibilityState !== "hidden") return;
+      if (avisoAusenciaProgramadoRef.current === clave) return;
+      avisoAusenciaProgramadoRef.current = clave;
+      void programarAvisoAusenciaDescansoV2(sesion.id).catch(() => {});
+    };
+    document.addEventListener("visibilitychange", alCambiarVisibilidad);
+    return () => document.removeEventListener("visibilitychange", alCambiarVisibilidad);
+  }, [descanso, temporizadorAutomatico, sesion?.real, sesion?.id]);
 
   useEffect(() => {
     if (!borradorCargado || !sesion?.real || sesion.soloLectura || registrada) return;
@@ -929,7 +950,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       tipo: temporizadorAutomatico ? "automatico" : "referencia",
       vistaRetorno: vista === "video" ? "video" : "lista",
     });
-    if (temporizadorAutomatico && sesion?.real) void programarAvisoDescanso(ejercicio.descanso, sesion.id).catch(() => {});
     setDescansoEnFoco(true);
     if (vista === "video") setVista("descanso");
   };
@@ -1029,7 +1049,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       tipo: temporizadorAutomatico ? "automatico" : "referencia",
       vistaRetorno: "video",
     });
-    if (temporizadorAutomatico && sesion?.real) void programarAvisoDescanso(ejercicioActivo.descanso, sesion.id).catch(() => {});
     setDescansoEnFoco(true);
     setVista("descanso");
   };
@@ -1047,7 +1066,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       prepararAviso();
       const finEn = Date.now() + descanso.segundos * 1_000;
       setDescanso({ ...descanso, tipo: "automatico", finEn });
-      if (sesion?.real) void programarAvisoDescanso(descanso.segundos, sesion.id).catch(() => {});
       return;
     }
     if (activo) return;
