@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, ChevronRight, Moon, Play } from "lucide-react";
+import { ArrowLeft, ChevronRight, Moon } from "lucide-react";
 import { iniciarRutinaDesdeCalendarioV2 } from "@/app/alumno/entrenar/actions";
+import { BotonIniciarEntrenamientoV2 } from "@/components/v2/BotonIniciarEntrenamientoV2";
 import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
 import styles from "./PortalV2.module.css";
 
@@ -119,9 +120,7 @@ export function ProgramaDetalleV2({ programa = PROGRAMA_DEMO }: { programa?: Pro
           <input type="hidden" name="dia_id" value={programa.diaSiguienteId ?? ""} />
           <input type="hidden" name="rutina_id" value={programa.rutinaId ?? ""} />
           <input type="hidden" name="numero_calendario" value={programa.diaSiguienteNumero ?? ""} />
-          <button type="submit" className={styles.workoutFixedStart}>
-            <Play size={16} fill="currentColor" /> Iniciar día {programa.diaSiguienteNumero}
-          </button>
+          <BotonIniciarEntrenamientoV2 texto={`Iniciar día ${programa.diaSiguienteNumero}`} />
         </form>
       ) : null}
     </div>

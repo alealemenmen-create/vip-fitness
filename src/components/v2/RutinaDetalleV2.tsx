@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { iniciarRutinaDesdeCalendarioV2 } from "@/app/alumno/entrenar/actions";
+import { BotonIniciarEntrenamientoV2 } from "@/components/v2/BotonIniciarEntrenamientoV2";
 import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
 import {
   CLAVE_ESCALA_VISUAL_V2,
@@ -181,7 +182,7 @@ export function RutinaDetalleV2({ rutina = RUTINA_DEMO }: { rutina?: RutinaDetal
           <input type="hidden" name="dia_id" value={rutina.diaId ?? ""} />
           <input type="hidden" name="rutina_id" value={rutina.rutinaId ?? ""} />
           <input type="hidden" name="numero_calendario" value={rutina.numeroCalendario ?? ""} />
-          <button type="submit" className={styles.workoutFixedStart}><Play size={16} fill="currentColor" /> Iniciar entrenamiento</button>
+          <BotonIniciarEntrenamientoV2 texto="Iniciar entrenamiento" />
         </form>
       ) : (
         <Link href="/portal-v2/entrenamiento" className={styles.workoutFixedStart}>
