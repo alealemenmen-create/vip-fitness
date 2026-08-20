@@ -94,7 +94,13 @@ export function ProgramaDetalleV2({ programa = PROGRAMA_DEMO }: { programa?: Pro
               <div><strong>{dia.nombre || "Descanso"}</strong><small>Día {dia.posicion}</small></div>
             </div>
           ) : (
-            <Link href={`/portal-v2/entrenamiento/rutina?dia=${dia.id}`} className={styles.programaDayCard} key={dia.id}>
+            <Link
+              href={dia.id === programa.diaSiguienteId && programa.diaSiguienteNumero
+                ? `/portal-v2/entrenamiento/rutina?dia=${dia.id}&numero=${programa.diaSiguienteNumero}`
+                : `/portal-v2/entrenamiento/rutina?dia=${dia.id}`}
+              className={styles.programaDayCard}
+              key={dia.id}
+            >
               <span className={styles.programaDayThumb}>
                 {dia.foto ? <ImagenV2Segura src={dia.foto} alt="" fill sizes="66px" /> : null}
               </span>
