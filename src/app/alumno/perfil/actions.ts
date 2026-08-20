@@ -156,12 +156,14 @@ export async function guardarTemaBoton(tema: string): Promise<void> {
   if (tema !== "espejo" && tema !== "vip" && tema !== "masculino" && tema !== "femenino") return;
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: actualizado, error } = await supabase
     .from("alumno_perfil")
     .update({ tema_boton: tema, updated_at: new Date().toISOString() })
-    .eq("user_id", alumnoId);
+    .eq("user_id", alumnoId)
+    .select("user_id")
+    .maybeSingle();
 
-  if (error) {
-    console.error("[perfil] no se pudo guardar tema_boton:", error.message);
+  if (error || !actualizado) {
+    console.error("[perfil] no se pudo guardar tema_boton:", error?.message ?? "0 filas afectadas");
   }
 }

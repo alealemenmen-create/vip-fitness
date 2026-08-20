@@ -257,8 +257,13 @@ export async function actualizarNombrePerfil(
   if (!nombre) return fail("Ingresa un nombre.");
 
   const supabase = await createClient();
-  const { error } = await supabase.from("perfiles").update({ nombre }).eq("id", perfilId);
-  if (error) return fail("No fue posible guardar el nombre. Intenta nuevamente.");
+  const { data: actualizado, error } = await supabase
+    .from("perfiles")
+    .update({ nombre })
+    .eq("id", perfilId)
+    .select("id")
+    .maybeSingle();
+  if (error || !actualizado) return fail("No fue posible guardar el nombre. Intenta nuevamente.");
 
   revalidatePath("/admin/alumnos");
   revalidatePath(`/admin/alumnos/${perfilId}`);
@@ -434,15 +439,22 @@ export async function guardarNota(_prevState: FormState, formData: FormData): Pr
     marcar_nueva: marcarNueva,
   };
 
-  const { error } = notaId
-    ? await supabase.from("notas_entrenador").update(camposEditables).eq("id", notaId)
-    : await supabase.from("notas_entrenador").insert({
-        ...camposEditables,
-        alumno_id: alumnoId,
-        entrenador_id: sesion.userId,
-      });
-
-  if (error) return fail("No fue posible guardar la nota. Revisa tu conexión e intenta nuevamente.");
+  if (notaId) {
+    const { data: actualizada, error } = await supabase
+      .from("notas_entrenador")
+      .update(camposEditables)
+      .eq("id", notaId)
+      .select("id")
+      .maybeSingle();
+    if (error || !actualizada) return fail("No fue posible guardar la nota. Revisa tu conexión e intenta nuevamente.");
+  } else {
+    const { error } = await supabase.from("notas_entrenador").insert({
+      ...camposEditables,
+      alumno_id: alumnoId,
+      entrenador_id: sesion.userId,
+    });
+    if (error) return fail("No fue posible guardar la nota. Revisa tu conexión e intenta nuevamente.");
+  }
 
   revalidatePath(`/admin/alumnos/${alumnoId}`);
   return okState;
@@ -483,7 +495,7 @@ export async function actualizarPerfilAlumno(
     return fail("Los días semanales deben estar entre 1 y 7.");
   }
 
-  const { error } = await supabase
+  const { data: actualizado, error } = await supabase
     .from("alumno_perfil")
     .update({
       objetivo: objetivo || null,
@@ -508,9 +520,17 @@ export async function actualizarPerfilAlumno(
       acceso_bloqueado_motivo: String(formData.get("acceso_bloqueado_motivo") || "").trim() || null,
       updated_at: new Date().toISOString(),
     })
-    .eq("user_id", alumnoId);
+    .eq("user_id", alumnoId)
+    .select("user_id")
+    .maybeSingle();
 
-  if (error) {
+  // Este guardado incluye acceso_bloqueado -- el corte de acceso de un
+  // alumno problemático. Confirmar solo `!error` no alcanza: si RLS u otra
+  // condición bloquea el update sin devolver error, Supabase responde 0
+  // filas afectadas y el admin vería "guardado" sin que el bloqueo se haya
+  // aplicado de verdad. Mismo criterio que ya usa actualizarAccesoPortalV2
+  // más arriba en este archivo.
+  if (error || !actualizado) {
     return fail("No fue posible guardar los cambios. Revisa tu conexión e intenta nuevamente.");
   }
 
@@ -546,7 +566,7 @@ export async function actualizarPlanRapido(
     ? PLANES_ENTRENAMIENTO[planEntrenamiento]
     : null;
 
-  const { error } = await supabase
+  const { data: actualizado, error } = await supabase
     .from("alumno_perfil")
     .update({
       plan_entrenamiento: plan?.codigo ?? null,
@@ -554,9 +574,11 @@ export async function actualizarPlanRapido(
       dias_entrenamiento_semana: plan?.diasSemana ?? null,
       updated_at: new Date().toISOString(),
     })
-    .eq("user_id", alumnoId);
+    .eq("user_id", alumnoId)
+    .select("user_id")
+    .maybeSingle();
 
-  if (error) return fail("No fue posible guardar el plan. Revisa tu conexión e intenta nuevamente.");
+  if (error || !actualizado) return fail("No fue posible guardar el plan. Revisa tu conexión e intenta nuevamente.");
 
   revalidatePath("/admin/alumnos");
   revalidatePath(`/admin/alumnos/${alumnoId}`);
