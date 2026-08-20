@@ -27,6 +27,7 @@ revisar, aceptar o rechazar cada bloque por separado.
   16. `b8d97c9` — `fix: exigir el mismo angulo/cabeza muscular al sustituir un ejercicio`
   17. `7fc111a` — `fix: "Iniciar entrenamiento" en vez de "Explorar" para el proximo dia`
   18. `d73cb40` — `perf: eliminar N+1 en el "ultimo registro" de la sesion de entrenamiento`
+  19. `6a35278` — `feat: pantalla animada de marca mientras arranca una rutina`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -676,6 +677,50 @@ bajo, pero no lo hice todavía porque no se habló específicamente de esto
 con Alejandro — se lo puedo proponer como siguiente paso si quiere seguir
 por esta línea.
 
+## 14. `6a35278` — pantalla animada de marca mientras arranca una rutina
+
+Siguiendo con el tema de velocidad, Alejandro reportó que el botón
+"Iniciar entrenamiento"/"Iniciar día N" se siente "pegado" al tocarlo.
+Ofreció dos caminos (acelerar el botón, o una pantalla animada —
+"la V de VIP Fitness... acorde a la motivación del fitness y el
+culturismo" — que disimule la espera) y dejó la elección a mi criterio.
+
+**Causa:** arrancar una rutina hace una cadena de operaciones en el
+servidor (`iniciarRutinaDesdeCalendarioV2`: crear/entrar a la sesión,
+chequear el plan mensual, disparar Impulso VIP, revalidar) antes de
+poder mostrar la pantalla siguiente. Un `<button type="submit">` común
+no da ninguna señal visual mientras tanto.
+
+**Elegí las dos cosas, pero con cautela en la más riesgosa:**
+- Hice la pantalla animada (`BotonIniciarEntrenamientoV2.tsx`, nuevo):
+  usa `useFormStatus` (patrón estándar de React) para detectar el
+  instante en que el `<form>` padre empieza a enviarse — ahí mismo, sin
+  esperar al servidor, aparece una pantalla de marca a pantalla
+  completa. **Reutiliza el mismo lenguaje visual que ya existe en
+  `VipSplash`** (el arranque de la app: fondo negro, resplandor que
+  respira, "VIP FITNESS" en itálica) en vez de inventar uno nuevo, más
+  una línea "Preparando tu entrenamiento...". Cero riesgo nuevo — es
+  puro cliente, no toca el flujo de datos ni agrega ninguna consulta.
+- **No toqué el lado de acelerar el servidor de verdad.** Encontré que
+  `obtenerEstadoPlanMensual()` se llama dos veces seguidas en la cadena
+  (una dentro de `crearOEntrarSesion`, otra en el llamador,
+  `src/app/alumno/entrenar/actions.ts`) cuando se crea una sesión
+  nueva — se podría unificar en una sola consulta, pero esa función
+  tiene comentarios existentes sobre condiciones de carrera entre
+  pestañas y el índice único de la migración 0071. Más riesgo del que
+  amerita para esta prioridad, sobre todo con "sin dañar nada" como
+  condición explícita. Queda anotado por si se quiere retomar con más
+  tiempo/pruebas.
+
+**Verificado:** gate completo (tsc/eslint/vitest/build) limpio; en vivo
+con la cuenta QA confirmé que el botón sigue arrancando la sesión
+correctamente. El overlay en sí lo verifiqué inyectando las mismas
+clases CSS reales del build compilado (viéndose igual que el splash de
+arranque de la app) — el viaje real es tan rápido en `localhost` que la
+ventana de "pending" es imperceptible ahí mismo; en producción, con
+latencia real de red hacia Vercel/Supabase, debería notarse bastante
+más. Pido que lo confirmes vos en tu teléfono.
+
 ## Comandos y resultados
 
 ```
@@ -686,7 +731,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 18 commits (o de sus cambios
+Corridos después de cada uno de los 19 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -811,7 +856,7 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 18 commits por separado (son independientes entre sí, en
+cada uno de los 19 commits por separado (son independientes entre sí, en
 este orden: `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
 `d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
 `5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
@@ -823,7 +868,8 @@ real, `290b630` el "Deshacer" tras reordenar, `b85ddfe` los avisos
 flotando en vez de empujar la pantalla, `9ec3449` sacar el aviso de
 recuperar progreso, `b8d97c9` exigir el mismo ángulo muscular al
 sustituir un ejercicio, `7fc111a` "Iniciar entrenamiento" para el
-próximo día, `d73cb40` quitar el N+1 del último registro). El primero es el más
+próximo día, `d73cb40` quitar el N+1 del último registro, `6a35278` la
+pantalla animada al arrancar una rutina). El primero es el más
 importante y el de menor riesgo (reutiliza
 código ya probado, no toca UI). El tercero es el más grande y el que más
 vale mirar con cuidado, sobre todo la sección "Alcance recortado a
