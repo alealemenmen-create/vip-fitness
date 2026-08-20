@@ -370,6 +370,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const descansoAvisadoRef = useRef<string | null>(null);
   const descansosResueltosRef = useRef<Set<string>>(new Set());
   const paginaSesionRef = useRef<HTMLDivElement | null>(null);
+  const resumenRef = useRef<HTMLElement | null>(null);
 
   const totalSeries = useMemo(() => EJERCICIOS.reduce((total, ejercicio) => total + ejercicio.repeticiones.length, 0), [EJERCICIOS]);
   const seriesCompletadas = useMemo(() => Object.values(registro).reduce(
@@ -1099,9 +1100,32 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     window.localStorage.setItem("vip-v2-sonido-descanso", String(activo));
   };
 
+  /**
+   * El menú nativo de compartir (WhatsApp, Mensajes, etc.) sólo acepta un
+   * archivo real, no un link a una pantalla que exige sesión iniciada -- por
+   * eso se captura la tarjeta de resumen como imagen (mismo patrón que
+   * `PasoPago.enviarPorWhatsApp`: `canShare({ files })` + `share({ files })`,
+   * con el texto de siempre como respaldo si el navegador no soporta
+   * compartir archivos (típico en computador).
+   */
   const compartirResumen = async () => {
     const texto = `${sesion?.titulo ?? "Entrenamiento VIP"}: ${seriesCompletadas} series y ${repeticionesCompletadas} repeticiones en ${formatearTiempo(segundosSesion)}.`;
     try {
+      if (resumenRef.current) {
+        const { toBlob } = await import("html-to-image");
+        const blob = await toBlob(resumenRef.current, {
+          pixelRatio: 2,
+          backgroundColor: "#080909",
+          // Los botones de acción no aportan nada a la imagen que se comparte.
+          filter: (nodo) => !(nodo instanceof HTMLElement && nodo.classList?.contains(styles.summaryActions)),
+        });
+        const archivo = blob ? new File([blob], "entrenamiento-vip.png", { type: "image/png" }) : null;
+        if (archivo && navigator.canShare?.({ files: [archivo] })) {
+          await navigator.share({ files: [archivo], text: texto });
+          setMensajeCompartir("Compartido");
+          return;
+        }
+      }
       const comparteNativo = typeof navigator.share === "function";
       if (comparteNativo) await navigator.share({ title: "Método VIP", text: texto });
       else await navigator.clipboard.writeText(texto);
@@ -1205,7 +1229,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
 
   if (registrada) {
     return (
-      <section className={styles.summaryPage}>
+      <section className={styles.summaryPage} ref={resumenRef}>
         <span className={styles.summaryEyebrow}>ENTRENAMIENTO REGISTRADO</span>
         <h1>{sesion?.titulo ?? "Día de piernas"}</h1>
         <p>{sesion?.fecha ?? "18 de agosto de 2026"} · {formatearTiempo(segundosSesion)}</p>
