@@ -28,6 +28,7 @@ revisar, aceptar o rechazar cada bloque por separado.
   17. `7fc111a` — `fix: "Iniciar entrenamiento" en vez de "Explorar" para el proximo dia`
   18. `d73cb40` — `perf: eliminar N+1 en el "ultimo registro" de la sesion de entrenamiento`
   19. `6a35278` — `feat: pantalla animada de marca mientras arranca una rutina`
+  20. `916a00e` — `fix: aplicar la pantalla animada tambien al boton de Inicio`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -721,6 +722,40 @@ ventana de "pending" es imperceptible ahí mismo; en producción, con
 latencia real de red hacia Vercel/Supabase, debería notarse bastante
 más. Pido que lo confirmes vos en tu teléfono.
 
+### 14.1 `916a00e` — faltaba el tercer botón
+
+Alejandro probó `6a35278` y reportó el mismo problema ("obtiene un delay
+eterno... lo desactivado") en un **tercer** botón "Iniciar día N" que no
+había tocado: el de la pantalla de Inicio, al lado de "Ver rutina"
+(`EntrenamientoInicioV2.tsx`) — distinto de los otros dos
+(`RutinaDetalleV2`/`ProgramaDetalleV2`) que ya usaban
+`BotonIniciarEntrenamientoV2`. Había 3 copias del mismo patrón en total
+y sólo actualicé 2 en el bloque 14.
+
+Generalicé el componente para aceptar `className` (este botón usa
+`primaryButton`, no `workoutFixedStart`) y `deshabilitado` (el bloqueo
+real de negocio de este botón en particular — plan pausado, cupo
+agotado, solo lectura — que ya existía como `disabled={bloqueado}`
+directo en el `<button>`). Es un refactor puro sobre esa lógica: en el
+primer render `pending` es `false`, así que el resultado
+(`deshabilitado || pending`) es idéntico a como estaba antes
+(`bloqueado`) — lo único nuevo es la pantalla de marca mientras se envía.
+
+**Ojo para quien pruebe esto:** si el botón de Inicio sigue viéndose
+gris/desactivado después de este commit, no es este bug — es
+`bloqueado` siendo `true` de verdad (plan pausado, cupo agotado ese
+mes, o cuenta en solo lectura), una condición de negocio que no toqué y
+que no tiene que ver con la sensación de "delay eterno". Si eso pasa,
+avisame cuál de las tres es y reviso esa cuenta puntual.
+
+**Verificado:** gate completo (tsc/eslint/vitest/build) limpio. No pude
+probarlo en vivo con el mismo detalle que los otros dos porque la
+cuenta QA tenía una sesión en progreso en el momento (ese botón cae en
+la rama "Continuar sesión", no en la de "Iniciar día N") — confié en
+que es el mismo patrón ya verificado, sin cambios de comportamiento en
+la lógica de bloqueo (verificado leyendo el diff con cuidado). Pido que
+lo confirmes vos.
+
 ## Comandos y resultados
 
 ```
@@ -731,7 +766,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 19 commits (o de sus cambios
+Corridos después de cada uno de los 20 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -856,7 +891,7 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 19 commits por separado (son independientes entre sí, en
+cada uno de los 20 commits por separado (son independientes entre sí, en
 este orden: `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
 `d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
 `5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
@@ -869,7 +904,8 @@ flotando en vez de empujar la pantalla, `9ec3449` sacar el aviso de
 recuperar progreso, `b8d97c9` exigir el mismo ángulo muscular al
 sustituir un ejercicio, `7fc111a` "Iniciar entrenamiento" para el
 próximo día, `d73cb40` quitar el N+1 del último registro, `6a35278` la
-pantalla animada al arrancar una rutina). El primero es el más
+pantalla animada al arrancar una rutina, `916a00e` la misma pantalla en
+el tercer botón que faltaba). El primero es el más
 importante y el de menor riesgo (reutiliza
 código ya probado, no toca UI). El tercero es el más grande y el que más
 vale mirar con cuidado, sobre todo la sección "Alcance recortado a
