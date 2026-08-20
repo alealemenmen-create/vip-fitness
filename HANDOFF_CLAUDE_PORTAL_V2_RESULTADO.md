@@ -889,6 +889,132 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
   más abajo. Pido probarlo en un teléfono real antes de darlo por
   completamente confirmado.
 
+## 15. Auditoría del resto del handoff de continuidad — solo lectura, sin código
+
+Alejandro pidió, sin más tiempo para implementar en esta sesión, una
+auditoría de todo lo que quedaba pendiente en
+`docs/HANDOFF_CLAUDE_PORTAL_V2_CONTINUIDAD.md` (Prioridad 1 resto, 2, 3,
+4) — "revisa todo lo que puedas y dame detalle... yo te aviso si lo
+resuelvo o no". Lancé 4 agentes de exploración en paralelo, cada uno
+sobre un área, **ninguno tocó código**. Resumen; el detalle completo de
+cada uno queda en la transcripción de esta sesión si hace falta.
+
+### 15.1 Técnicas avanzadas (resto de Prioridad 1)
+
+Motor: `src/lib/entrenamiento/motor-tecnicas-sesion.ts` +
+`tecnica-grupo.ts` + `tecnica-series.ts` + `personalizacion-sesion.ts`.
+Biserie/triserie/superserie/serie gigante de 4/circuito/fallo/drop
+set/rest-pause/myo-reps/cluster están implementadas y con tests (137
+tests en total entre esos archivos, todos pasan).
+
+**Bug real encontrado (prioridad alta):** un circuito o serie gigante
+SIN el sufijo `(n/total)` en el nombre (`tamanoGrupoTecnica` devuelve
+`null` a propósito para esos casos, `tecnica-grupo.ts`) cae a un
+"bloque de tamaño 1" en `sesion/actions.ts:169`, así que
+`bloquesPermanecenUnidos` no lo protege — **se puede reordenar
+ejercicio por ejercicio un circuito que en la ejecución real sí se
+agrupa sin tope**. Rompe el invariante "el bloque se mueve completo".
+Riesgo real con datos actuales: rutinas cargadas sin numerar son la
+mayoría según el agente.
+
+Otros hallazgos menores: un texto libre como "Biserie al fallo" se
+clasifica como `"fallo-tecnico"` en vez de `"biserie"` (prioridad de
+regex en `normalizarTecnicaSesion`, motor-tecnicas-sesion.ts:43-58) y
+pierde el agrupamiento; `configuracionFst7()` es código muerto (solo su
+propio test la llama); drop set/rest-pause/myo-reps/cluster se
+persisten como una sola fila por ejercicio (no por segmento), lo que
+contradice un invariante escrito en `TECNICAS_AVANZADAS_V2.md` — puede
+ser el documento el que está desactualizado, no el código, a
+confirmar con Alejandro.
+
+### 15.2 Nutrición operativa (Prioridad 2)
+
+**Mucho más avanzada de lo que sugiere el handoff** — se trabajó en una
+sesión anterior (commit `cc4d4b4`, 2026-08-19) después de que se
+escribiera esa lista, así que es más una re-verificación que trabajo
+desde cero. Ya implementado y funcionando: buscador (catálogo propio +
+Open Food Facts bajo demanda), escáner de código de barras con cámara
+real, porciones/medidas caseras, horarios de Chile correctos, metas
+nutricionales persistentes, diario de hoy/ayer/±3 días, caché de Open
+Food Facts con circuit breaker, y la base curada chilena de 260
+productos (migración 0114 — el agente no pudo confirmarlo contra la
+base viva porque el MCP de Supabase no estaba autorizado en ese
+momento de la sesión, solo tiene evidencia documental de que se aplicó).
+
+**Hueco real más claro:** el botón "Calcular" en Nutrición en realidad
+es "ajustar" — ofrece 3 perfiles fijos (Definición/Mantenimiento/
+Volumen) o edición manual, pero **no existe ningún cálculo real de
+TDEE/BMR** (a partir de peso/altura/edad/sexo/actividad) en todo el
+repo, ni en V1 ni en V2. "Copiar comida" solo copia un alimento suelto,
+no el día completo. Los puntos VIP por registrar comida (que sí existen
+en V1) no están conectados en V2 todavía.
+
+### 15.3 Progreso, ranking y comunidad (Prioridad 3)
+
+**Sólido.** Progreso histórico (peso, fotos) lee y escribe con las
+mismas funciones y tablas que V1 — sin riesgo de reiniciar datos.
+Ranking usa claves únicas por evento para que sea imposible cobrar dos
+veces la misma sesión, con topes explícitos (máximo de puntos por
+Impulso VIP por sesión, penalización máxima de descanso, piso en cero).
+Los datos de ejemplo (`DEMO_FILAS`, etc.) **solo** se activan para
+visitantes no autenticados — confirmado que nunca se mezclan con datos
+reales de un alumno con sesión iniciada.
+
+Huecos menores: la pestaña "Actividad" de Comunidad no muestra un
+mensaje explícito de "todavía no hay nada" cuando un alumno real no
+tiene publicaciones (no es un dato falso, solo queda vacía sin avisar);
+y la lógica de ranking más sensible contra trampas
+(`src/lib/ranking/movimientos.ts`, `data.ts`) no tiene tests
+automatizados — solo las funciones puras de reglas/orden están
+cubiertas.
+
+### 15.4 Más, perfil, configuración y panel del entrenador (Prioridad 4)
+
+**Acá aparecieron los hallazgos más importantes de las 4 auditorías —
+de seguridad/integridad, no solo de funcionalidad faltante:**
+
+1. **Bloquear a un alumno puede fallar en silencio.**
+   `actualizarPerfilAlumno` (`admin/alumnos/actions.ts:486-515`) — la
+   función que un admin usa para bloquear el acceso de un alumno
+   problemático — hace el `.update()` sin verificar si la fila
+   realmente se modificó. Si algo lo bloqueara silenciosamente (RLS,
+   una condición de carrera), el admin vería "guardado" sin que el
+   bloqueo se haya aplicado de verdad.
+2. **"Ver como alumno" no deja ningún registro de acceso.** El modo sí
+   respeta permisos correctamente (un entrenador/admin en este modo no
+   puede registrar series/comidas a nombre del alumno — confirmado en
+   el código y reforzado en la interfaz), pero no hay ninguna tabla de
+   auditoría que registre "el entrenador X vio los datos del alumno Y
+   el día Z" — y este modo expone fotos de progreso y notas privadas.
+3. El mismo patrón de "guardar sin verificar" del punto 1 aparece
+   también en: guardar el tema de color del alumno
+   (`alumno/perfil/actions.ts:153-167`, ni siquiera avisa el error a
+   la pantalla), el nombre del perfil, las notas del entrenador, y el
+   plan de sesiones mensuales — todos en `admin/alumnos/actions.ts`.
+4. El botón "Ver portal" del admin lleva siempre a la V1
+   (`/alumno/inicio`), no hay un camino directo a V2 en modo
+   supervisado — hay que navegar la URL a mano.
+
+Lo que sí está bien: habilitar Portal V2 por alumno individual ya tiene
+una pantalla real en el admin (no es solo SQL), con la verificación de
+guardado hecha correctamente ahí — es la excepción, no la regla, de
+por qué el patrón #1/#3 se nota tanto por contraste.
+
+### Prioridad sugerida si Alejandro quiere atacar algo de esto
+
+1. **Alta, seguridad** — verificar guardado real en `actualizarPerfilAlumno`
+   (bloqueo de alumno) y los demás `.update()` sin verificar de
+   `admin/alumnos/actions.ts` / `alumno/perfil/actions.ts`.
+2. **Alta, seguridad** — auditoría de acceso para "ver como alumno".
+3. **Alta, funcional** — proteger circuitos/series gigantes sin numerar
+   contra reordenarse mal.
+4. **Media** — calculador real de TDEE/BMR en Nutrición.
+5. **Media** — tests para la lógica de ranking más sensible a trampas.
+6. El resto (copiar día completo, puntos VIP por comida en V2, estado
+   vacío de Actividad, FST-7 código muerto, prioridad de regex de
+   "fallo", camino directo a V2 en "ver como alumno") son mejoras
+   menores, no urgentes.
+
 ## NO TERMINADO
 
 - Resto de la Prioridad 0 (técnicas avanzadas, ficha técnica en video,
