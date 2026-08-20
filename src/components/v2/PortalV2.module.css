@@ -1971,12 +1971,6 @@
 .profileV2Switch i { position: absolute; top: 3px; left: 3px; width: 17px; height: 17px; border-radius: 50%; background: #8c918d; transition: transform 160ms ease,background 160ms ease; }
 .profileV2Switch[data-active="true"] { background: #146b50; }
 .profileV2Switch[data-active="true"] i { transform: translateX(17px); background: #f4f5f1; }
-.profileV2TimerChoice { margin-top: 12px; padding-top: 13px; border-top: 1px solid rgba(255,255,255,.05); }
-.profileV2TimerChoice > strong { color: #f7f8f4; font-size: 13px; }
-.profileV2TimerChoice > p { margin-top: 4px; color: #9ba09c; font-size: 10px; line-height: 1.5; }
-.profileV2TimerChoice > div { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin-top: 10px; }
-.profileV2TimerChoice button { min-height: 40px; padding: 0 7px; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; color: #c2c6c2; background: linear-gradient(108deg,#0d0e0e,#1b1d1c); font-size: 10px; font-weight: 720; }
-.profileV2TimerChoice button[data-selected="true"] { border-color: rgba(31,210,157,.3); color: #31d6a5; background: linear-gradient(108deg,#0c1512,#193129); box-shadow: inset 0 1px 0 rgba(31,210,157,.08); }
 .profileV2Warning { display: grid; grid-template-columns: 23px minmax(0,1fr); gap: 8px; margin-top: 9px; padding: 11px; border: 1px solid rgba(245,180,57,.2); border-radius: 9px; color: #e4ae49; background: rgba(245,180,57,.055); }
 .profileV2Warning > div strong { display: block; color: #f2c66f; font-size: 12px; }
 .profileV2Warning p { margin-top: 4px; color: #bba170; font-size: 10px; line-height: 1.5; }

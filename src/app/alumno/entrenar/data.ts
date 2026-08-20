@@ -691,7 +691,8 @@ export type SesionCompleta = {
 export async function obtenerSesionCompleta(
   supabase: SupabaseServerClient,
   alumnoId: string,
-  sesionId: string
+  sesionId: string,
+  opciones?: { usarDescansoPreferido?: boolean },
 ): Promise<SesionCompleta> {
   const COLUMNAS_SESION =
     "id, fecha, numero_calendario, estado, hora_inicio, hora_fin, comentario, dia_id, rutina_dias(nombre, tipo, descripcion), rutinas(nombre)";
@@ -858,7 +859,9 @@ export async function obtenerSesionCompleta(
   // CADA ejercicio (incluidas técnicas encadenadas con 0s explícito) — así
   // lo pidió Alejandro después de que se le advirtiera el riesgo con
   // superseries. `null` = sin preferencia, manda lo que programó el entrenador.
-  const segundosDescansoPreferido = preferencias?.segundos_descanso_preferido ?? null;
+  const segundosDescansoPreferido = opciones?.usarDescansoPreferido === false
+    ? null
+    : preferencias?.segundos_descanso_preferido ?? null;
 
   const { data: todasLasSeries } = sesionEjercicioIds.length
     ? await supabase

@@ -22,7 +22,7 @@ export default async function PerfilV2Page() {
       const supabase = await createClient();
       const [datos, { data: alumnoPerfil, error: errorPreferencias }] = await Promise.all([
         obtenerDatosPersonales(supabase, contexto.alumnoId),
-        supabase.from("alumno_perfil").select("temporizador_descanso, segundos_descanso_preferido").eq("user_id", contexto.alumnoId).maybeSingle(),
+        supabase.from("alumno_perfil").select("temporizador_descanso").eq("user_id", contexto.alumnoId).maybeSingle(),
       ]);
       if (errorPreferencias || !alumnoPerfil) return null;
       return { datos, alumnoPerfil };
@@ -47,7 +47,6 @@ export default async function PerfilV2Page() {
         <PerfilV2
           datos={carga.datos}
           temporizadorInicial={carga.alumnoPerfil.temporizador_descanso}
-          segundosIniciales={carga.alumnoPerfil.segundos_descanso_preferido}
         />
       )}
     </section>

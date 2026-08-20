@@ -91,7 +91,7 @@ export default async function SesionV2Page({
   }
 
   const supabase = await createClient();
-  const sesion = await obtenerSesionCompleta(supabase, contexto.alumnoId, id);
+  const sesion = await obtenerSesionCompleta(supabase, contexto.alumnoId, id, { usarDescansoPreferido: false });
   if (!sesion) {
     return (
       <div className={styles.trainingPage}>

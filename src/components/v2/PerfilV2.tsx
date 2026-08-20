@@ -16,7 +16,6 @@ import {
   UserRound,
 } from "lucide-react";
 import {
-  actualizarSegundosDescansoPreferido,
   actualizarTemporizadorDescansoAlumno,
   cambiarMiCorreo,
   guardarDatosPersonales,
@@ -26,7 +25,6 @@ import { enviarResenaApp, type EnviarResenaState } from "@/app/alumno/perfil/res
 import type { DatosPersonales } from "@/app/alumno/perfil/data";
 import { createClient } from "@/lib/supabase/client";
 import { SEXOS } from "@/lib/solicitudes/campos";
-import { SEGUNDOS_DESCANSO_PERMITIDOS } from "@/lib/perfil/configuracion";
 import styles from "./PortalV2.module.css";
 
 const ESTADO_FORMULARIO: FormState = { error: null, ok: false };
@@ -36,11 +34,9 @@ type Seccion = "datos" | "descanso" | "seguridad" | "opinion";
 export function PerfilV2({
   datos,
   temporizadorInicial,
-  segundosIniciales,
 }: {
   datos: DatosPersonales;
   temporizadorInicial: boolean;
-  segundosIniciales: number | null;
 }) {
   const [seccion, setSeccion] = useState<Seccion | null>("datos");
   const [temporizadorActivo, setTemporizadorActivo] = useState(temporizadorInicial);
@@ -98,7 +94,7 @@ export function PerfilV2({
           abierta={seccion === "descanso"}
           onToggle={() => alternar("descanso")}
         >
-          <PreferenciasDescanso activoInicial={temporizadorInicial} segundosIniciales={segundosIniciales} onActivoGuardado={setTemporizadorActivo} />
+          <PreferenciasDescanso activoInicial={temporizadorInicial} onActivoGuardado={setTemporizadorActivo} />
         </SeccionPerfil>
 
         <SeccionPerfil
@@ -199,9 +195,8 @@ function Campo({ etiqueta, htmlFor, anchoCompleto = false, children }: { etiquet
   return <label htmlFor={htmlFor} className={styles.profileV2Field} data-full={anchoCompleto}><span>{etiqueta}</span>{children}</label>;
 }
 
-function PreferenciasDescanso({ activoInicial, segundosIniciales, onActivoGuardado }: { activoInicial: boolean; segundosIniciales: number | null; onActivoGuardado: (activo: boolean) => void }) {
+function PreferenciasDescanso({ activoInicial, onActivoGuardado }: { activoInicial: boolean; onActivoGuardado: (activo: boolean) => void }) {
   const [activo, setActivo] = useState(activoInicial);
-  const [segundos, setSegundos] = useState<number | null>(segundosIniciales);
   const [confirmando, setConfirmando] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
   const [guardando, iniciar] = useTransition();
@@ -228,26 +223,6 @@ function PreferenciasDescanso({ activoInicial, segundosIniciales, onActivoGuarda
     });
   };
 
-  const guardarSegundos = (nuevo: number | null) => {
-    const anterior = segundos;
-    setSegundos(nuevo);
-    setMensaje(null);
-    iniciar(async () => {
-      try {
-        const resultado = await actualizarSegundosDescansoPreferido(nuevo);
-        if (!resultado.ok) {
-          setSegundos(anterior);
-          setMensaje({ tipo: "error", texto: resultado.error ?? "No pudimos guardar el descanso." });
-          return;
-        }
-        setMensaje({ tipo: "ok", texto: nuevo === null ? "Usarás el descanso indicado por Alejandro." : `Descanso preferido: ${nuevo} segundos.` });
-      } catch {
-        setSegundos(anterior);
-        setMensaje({ tipo: "error", texto: "No hubo conexión con el servidor. Tu descanso anterior se conserva." });
-      }
-    });
-  };
-
   return (
     <div className={styles.profileV2Timer}>
       <div className={styles.profileV2SwitchRow}>
@@ -260,16 +235,6 @@ function PreferenciasDescanso({ activoInicial, segundosIniciales, onActivoGuarda
           <div><strong>Vas a reducir tu puntuación</strong><p>Sin temporizador, una sesión finalizada pierde el bono de descanso controlado.</p></div>
           <button type="button" onClick={() => guardarActivo(false)}>Desactivar de todos modos</button>
           <button type="button" onClick={() => setConfirmando(false)}>Mantener activo</button>
-        </div>
-      ) : null}
-      {activo ? (
-        <div className={styles.profileV2TimerChoice}>
-          <strong>Duración preferida</strong>
-          <p>Puede respetar cada ejercicio o aplicar un tiempo fijo a toda la sesión.</p>
-          <div>
-            <button type="button" data-selected={segundos === null} disabled={guardando} onClick={() => guardarSegundos(null)}>Según Alejandro</button>
-            {SEGUNDOS_DESCANSO_PERMITIDOS.map((opcion) => <button type="button" key={opcion} data-selected={segundos === opcion} disabled={guardando} onClick={() => guardarSegundos(opcion)}>{opcion}s</button>)}
-          </div>
         </div>
       ) : null}
       {mensaje ? <p role={mensaje.tipo === "error" ? "alert" : "status"} className={styles.profileV2InlineMessage} data-error={mensaje.tipo === "error"}>{mensaje.texto}</p> : null}

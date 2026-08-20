@@ -13,7 +13,6 @@ import {
   ChevronsLeft,
   ChevronsRight,
   CircleCheck,
-  Clock3,
   FastForward,
   History,
   Info,
@@ -990,25 +989,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     }
   };
 
-  const abrirTemporizador = () => {
-    prepararAviso();
-    descansoAvisadoRef.current = null;
-    if (descanso === null) {
-      const finEn = Date.now() + ejercicioActivo.descanso * 1_000;
-      setDescanso({
-        ejercicioId: ejercicioActivo.id,
-        serieIndice: serieActivaIndiceSeguro,
-        segundos: ejercicioActivo.descanso,
-        finEn,
-        tipo: "manual",
-        vistaRetorno: vista === "video" ? "video" : "lista",
-      });
-      if (sesion?.real) void programarAvisoDescanso(ejercicioActivo.descanso, sesion.id).catch(() => {});
-    }
-    setDescansoEnFoco(true);
-    setVista("descanso");
-  };
-
   const abrirVistaVideo = () => {
     // El descanso no desaparece al cambiar el modo visual: es un paso real de
     // la sesión, igual que una serie. Solo cambiamos la vista a la que volverá.
@@ -1322,7 +1302,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           <button type="button" aria-label={vista === "descanso" ? "Volver a la serie actual" : "Serie anterior"} onClick={retrocederPaso} disabled={vista !== "descanso" && !puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
           <button type="button" aria-label={pausada ? "Reanudar sesión" : "Pausar sesión"} onClick={alternarPausaSesion}>{pausada ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>
           <button type="button" aria-label={vista === "descanso" ? descanso?.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie" : vista === "video" ? "Finalizar serie e ir al descanso" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
-          <button type="button" aria-label={descanso === null ? "Iniciar temporizador manual" : "Abrir temporizador activo"} onClick={abrirTemporizador}><Clock3 size={19} /></button>
         </nav>
       )}
 
