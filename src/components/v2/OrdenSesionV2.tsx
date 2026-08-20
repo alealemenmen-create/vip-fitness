@@ -39,10 +39,10 @@ export function agruparEnBloques(ejercicios: EjercicioSesionV2[]): EjercicioSesi
 }
 
 /** Mismos sensores en el panel "Orden de la sesión" y en el arrastre
- * directo sobre la lista principal -- un mantenido de 1.5 s activa el
- * arrastre táctil (pedido explícito de Alejandro después de probar los
- * 400 ms: el asa quedaba del lado que más toca la mano derecha y el gesto
- * se disparaba sin querer). Antes se combinaba `TouchSensor` con
+ * directo sobre la lista principal -- un mantenido de 1 s activa el
+ * arrastre táctil (pedido explícito de Alejandro: primero 400 ms se
+ * sentía demasiado sensible, después 1.5 s se sintió demasiado lento).
+ * Antes se combinaba `TouchSensor` con
  * `PointerSensor` para el mouse, pero `PointerSensor` también reacciona al
  * dedo (los navegadores emiten `pointerdown` en touch) y con solo 6px de
  * movimiento -- sin esperar nada -- así que le ganaba la carrera al
@@ -55,7 +55,7 @@ export function agruparEnBloques(ejercicios: EjercicioSesionV2[]): EjercicioSesi
 export function useSensoresOrden() {
   return useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 1500, tolerance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 1000, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 }
