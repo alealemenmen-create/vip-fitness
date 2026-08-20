@@ -92,13 +92,47 @@ despliegue, fuerza recarga completa si el celular quedó con JS viejo —
 sin chocar con la validación de Vercel. Verificado con `npm run build`
 local: compila limpio, igual que antes.
 
-## Estado en este momento (2026-08-20)
+## Despliegue confirmado en vivo
+
+Después del arreglo, el push a `main` disparó un despliegue nuevo en
+Vercel que salió **Ready** (verde) — el primero en salir bien en horas.
+Se confirmó con `vercel inspect --logs` que el despliegue en Producción
+corresponde exactamente a `main`, commit `a119645`. Se entró a
+`https://vipfitness.cl` desde el navegador de Claude y el sitio
+responde con esa versión (no se inició sesión — entrar contraseñas no
+es algo que Claude deba hacer).
+
+## Susto de acceso — revisado y descartado
+
+Alejandro se preocupó al ver que se había "unido" todo: temió que al
+entrar los alumnos, todos fueran a parar directo al portal nuevo sin
+que él lo autorizara. Se revisó el código real (no una suposición) y
+la protección está en 3 capas independientes, ninguna tocada por este
+trabajo:
+
+1. **Migración 0116**: la columna `alumno_perfil.portal_v2_habilitado`
+   es `boolean not null default false` — por diseño, publicar la v2
+   nunca cambia la experiencia de nadie que no fue invitado.
+2. **Login** ([`src/app/login/actions.ts:45`](src/app/login/actions.ts:45)):
+   si esa columna no está en `true`, el alumno entra a `/alumno/inicio`
+   (el portal de siempre), no a la v2.
+3. **Layout de portal-v2** ([`src/app/portal-v2/layout.tsx:27`](src/app/portal-v2/layout.tsx:27)):
+   aunque alguien escriba a mano una URL de `/portal-v2/...`, si no
+   tiene el permiso lo rebota a `/alumno/entrenar`.
+
+Conclusión: **nadie ve el portal nuevo salvo el alumno puntual que
+Alejandro habilite con su botón**, exactamente como se pidió.
+
+## Estado final (2026-08-20)
 
 - GitHub `main`: actualizado, con toda la v2, los 2 fixes de Impulso
   VIP, y el arreglo del `deploymentId`. ✅
 - Base de datos: todas las migraciones que necesita v2 ya aplicadas. ✅
 - Build de producción: probado en limpio, compila sin errores. ✅
-- `vipfitness.cl` en vivo: pendiente de un despliegue nuevo con este
-  arreglo — debería salir bien ahora que se corrigió la causa real. ⏳
-- El interruptor de "activar v2 por alumno" (`alumno_perfil.portal_v2_habilitado`)
-  funciona y ya está probado — nunca fue el problema.
+- `vipfitness.cl` en vivo: **desplegado y confirmado**, sirviendo
+  `main` commit `a119645`. ✅
+- Acceso controlado por alumno: confirmado en el código, sin cambios
+  respecto a lo diseñado — solo entra a v2 quien Alejandro habilita. ✅
+- Pendiente para la próxima sesión: probar el entrenamiento con un
+  alumno real o de prueba ya en producción, y revisar el panel nuevo
+  de administrador/alumno en vivo.
