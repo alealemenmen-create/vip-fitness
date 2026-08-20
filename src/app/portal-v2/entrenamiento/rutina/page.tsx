@@ -67,7 +67,11 @@ export default async function RutinaV2Page({
     fotoRespaldo,
     rutinaId: rutina.id,
     diaId,
-    numeroCalendario: Math.max(1, Number(numero) || 1),
+    // Sin `numero` en la URL (ej. al entrar desde la lista del programa, no
+    // desde la rueda de calendario de Inicio) no hay un cupo real resuelto:
+    // se muestra en solo vista previa en vez de ofrecer "Iniciar" contra un
+    // número inventado que podría chocar con otra sesión ya usada ahí.
+    numeroCalendario: numero ? Math.max(1, Number(numero) || 1) : null,
     soloLectura: contexto.soloLectura,
     items: vista.ejercicios.map((ejercicio, indice) => ({
       id: ejercicio.id,

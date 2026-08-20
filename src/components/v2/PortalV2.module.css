@@ -904,11 +904,13 @@
 .menuItem:nth-child(7) { animation-delay: 150ms; }
 
 .workoutDetailPage,
-.activeSessionPage {
+.activeSessionPage,
+.programaPage {
   min-height: 100%;
   padding-bottom: 76px;
 }
-.workoutDetailPage {
+.workoutDetailPage,
+.programaPage {
   --routine-photo-width: 66px;
   --routine-photo-height: 64px;
   --routine-name-size: 12px;
@@ -917,7 +919,8 @@
   --routine-row-height: 78px;
   --routine-row-gap: 12px;
 }
-.workoutDetailPage[data-visual-scale="compacta"] {
+.workoutDetailPage[data-visual-scale="compacta"],
+.programaPage[data-visual-scale="compacta"] {
   --routine-photo-width: 54px;
   --routine-photo-height: 52px;
   --routine-name-size: 10px;
@@ -926,7 +929,8 @@
   --routine-row-height: 61px;
   --routine-row-gap: 9px;
 }
-.workoutDetailPage[data-visual-scale="grande"] {
+.workoutDetailPage[data-visual-scale="grande"],
+.programaPage[data-visual-scale="grande"] {
   --routine-photo-width: 74px;
   --routine-photo-height: 72px;
   --routine-name-size: 13px;
@@ -935,7 +939,8 @@
   --routine-row-height: 90px;
   --routine-row-gap: 13px;
 }
-.workoutDetailPage[data-visual-scale="maxima"] {
+.workoutDetailPage[data-visual-scale="maxima"],
+.programaPage[data-visual-scale="maxima"] {
   --routine-photo-width: 82px;
   --routine-photo-height: 80px;
   --routine-name-size: 14px;
@@ -2145,6 +2150,40 @@
   .navIcon,
   .utilityCard { transition: none; }
 }
+
+.programaHeader { display: flex; align-items: center; gap: 12px; padding: 14px 2px 6px; }
+.programaHeader a { display: grid; width: 36px; height: 36px; flex-shrink: 0; place-items: center; border-radius: 50%; color: #e7e9e5; background: #1a1b1b; }
+.programaHeader h1 { overflow: hidden; font-size: 19px; font-weight: 780; letter-spacing: -.03em; text-overflow: ellipsis; white-space: nowrap; }
+.programaHeader p { margin-top: 3px; color: #8d908c; font-size: 9px; }
+
+.programaMetrics { display: grid; grid-template-columns: repeat(3, 1fr); margin: 14px 0; padding: 12px 0; border-top: 1px solid rgba(255,255,255,.055); border-bottom: 1px solid rgba(255,255,255,.055); }
+.programaMetrics div { text-align: center; }
+.programaMetrics strong { display: block; margin-bottom: 3px; color: #f1f3ef; font-size: 16px; }
+.programaMetrics span { color: #797d79; font-size: 7px; letter-spacing: .05em; text-transform: uppercase; }
+
+.programaTabs { display: grid; grid-template-columns: repeat(2, 1fr); margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.programaTabs button { position: relative; min-height: 39px; color: #686c69; font-size: 9px; font-weight: 690; }
+.programaTabs button:focus { outline: 0; }
+.programaTabs button[aria-selected="true"] { color: #f0f1ed; }
+.programaTabs button[aria-selected="true"]::after { position: absolute; right: 10%; bottom: -1px; left: 10%; height: 1px; background: #f0f1ed; content: ""; }
+
+.programaOverview { padding-top: 14px; }
+.programaOverview h2 { font-size: 12px; font-weight: 750; }
+.programaOverview > p { margin-top: 6px; color: #a6a9a5; font-size: 10px; line-height: 1.55; }
+.programaSplitList { display: grid; gap: 1px; overflow: hidden; margin-top: 12px; border-radius: 9px; background: rgba(255,255,255,.05); }
+.programaSplitList li { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; background: #151616; }
+.programaSplitList b { width: 20px; color: #c695ff; font-size: 9px; font-weight: 780; }
+.programaSplitList span { color: #d5d7d3; font-size: 10px; }
+
+.programaDayList { display: grid; gap: 8px; padding-top: 14px; }
+.programaDayCard { display: grid; min-height: var(--routine-row-height); grid-template-columns: var(--routine-photo-width) minmax(0, 1fr) 16px; align-items: center; gap: var(--routine-row-gap); padding: 6px 10px; border: 1px solid rgba(255,255,255,.045); border-radius: 10px; background: linear-gradient(112deg, #131414, #1a1b1b); color: #e8eae6; text-align: left; }
+.programaDayThumb,
+.programaDayThumbRest { position: relative; width: var(--routine-photo-width); height: var(--routine-photo-height); overflow: hidden; border-radius: 8px; background: #121313; }
+.programaDayThumb img { object-fit: cover; }
+.programaDayThumbRest { display: grid; place-items: center; color: #7d8079; }
+.programaDayCard strong { display: block; overflow: hidden; color: #fff; font-size: var(--routine-name-size); font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
+.programaDayCard small { display: block; margin-top: 3px; color: #9a9d99; font-size: var(--routine-meta-size); }
+.programaDayCard > svg { color: #7d8079; justify-self: end; }
 
 @media (max-width: 350px) {
   .content { padding-inline: 10px; }
