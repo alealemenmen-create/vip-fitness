@@ -908,6 +908,20 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
   soltar en otra posición reordene de verdad y que aparezca el aviso
   "Orden actualizado" con "Deshacer" (`290b630`, bloque 10.2).
 - Push a `origin/portal-v2` — esperando autorización.
+- **Auditoría de Impulso VIP (Prioridad 1 del handoff de continuidad) —
+  hecha, sin cambios de código necesarios.** Leí `src/lib/impulso-vip/motor.ts`
+  completo y confirmé contra las 141 pruebas ya existentes (9 archivos
+  `.test.ts` en esa carpeta, todas pasando): es automático (función pura),
+  escaso (probado: "deja como máximo un reto" sin check-in, "hasta 3
+  técnicas intensas por sesión, no más"), no pregunta por serie (la
+  dificultad se pregunta una vez por ejercicio, ya documentado en el
+  código), y no propone incrementos absurdos (siempre redondea al
+  escalón de carga configurado). Único punto abierto para el criterio de
+  Alejandro, no un bug: el motor no usa `tipo de equipo` como entrada
+  directa — el incremento de peso se configura por ejercicio en su
+  lugar, reflejándolo indirectamente. Si Alejandro quiere que el motor
+  distinga equipo de forma automática, es una decisión de producto a
+  hablar antes de tocar el motor.
 - **Precarga de datos "una sola vez por alumno" (service worker con
   caché real, no solo push notifications) — Alejandro preguntó, quedó
   explícitamente diferido a otra sesión aparte, NO empezado.** Ya existe
