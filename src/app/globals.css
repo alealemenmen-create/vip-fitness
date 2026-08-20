@@ -142,6 +142,21 @@ body {
   color: var(--color-text);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-body), sans-serif;
   transition: background-color 180ms ease, color 180ms ease;
+  /* Mantener presionado en un texto/botón no debe abrir el menú nativo de
+     seleccionar/copiar ni pintar la selección celeste — se siente como una
+     página web, no como una app. Los campos donde de verdad se escribe
+     (input/textarea/contenteditable) quedan exceptuados abajo. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 /* Panel del entrenador: profundidad sobria, superficies consistentes y una
