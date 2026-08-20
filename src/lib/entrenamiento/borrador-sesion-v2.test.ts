@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { restaurarBorradorSesionV2 } from "./borrador-sesion-v2";
+import { resolverVistaAlRestaurarDescanso, restaurarBorradorSesionV2 } from "./borrador-sesion-v2";
 
 const ahora = new Date("2026-08-19T12:00:00Z").getTime();
 const base = {
@@ -146,5 +146,20 @@ describe("borrador local de sesión V2", () => {
     expect(restaurarBorradorSesionV2(crudo({
       descanso: { ...descanso, finEn: ahora - 6 * 60_000 },
     }), input)?.descanso).toBeNull();
+  });
+
+  it("mantiene el descanso dentro de la lista y reserva la pantalla grande para video", () => {
+    const baseDescanso = {
+      ejercicioId: "press",
+      serieIndice: 0,
+      finEn: ahora + 45_000,
+      tipo: "automatico" as const,
+      enFoco: true,
+    };
+
+    expect(resolverVistaAlRestaurarDescanso({ ...baseDescanso, vistaRetorno: "lista" })).toBe("lista");
+    expect(resolverVistaAlRestaurarDescanso({ ...baseDescanso, vistaRetorno: "video" })).toBe("descanso");
+    expect(resolverVistaAlRestaurarDescanso({ ...baseDescanso, vistaRetorno: "video", enFoco: false })).toBe("video");
+    expect(resolverVistaAlRestaurarDescanso(null)).toBeNull();
   });
 });

@@ -37,6 +37,7 @@ import { avisarFinDescansoV2, cortarAviso, prepararAviso } from "@/lib/entrenami
 import {
   claveBorradorSesionV2,
   restaurarBorradorSesionV2,
+  resolverVistaAlRestaurarDescanso,
   type BorradorSesionV2,
 } from "@/lib/entrenamiento/borrador-sesion-v2";
 import { reconciliarDuracionSesionSegundos } from "@/lib/entrenamiento/duracion-sesion";
@@ -465,7 +466,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             vistaRetorno: borrador.descanso.vistaRetorno,
           });
           setDescansoEnFoco(borrador.descanso.enFoco);
-          if (borrador.descanso.enFoco) setVista("descanso");
+          const vistaRestaurada = resolverVistaAlRestaurarDescanso(borrador.descanso);
+          if (vistaRestaurada) setVista(vistaRestaurada);
         }
         setAvisoBorrador("Recuperamos el progreso que estaba pendiente en este dispositivo.");
       } else if (window.localStorage.getItem(clave)) {

@@ -31,6 +31,21 @@ export type BorradorSesionV2 = {
   descanso?: DescansoBorradorSesionV2 | null;
 };
 
+export type VistaRestauradaSesionV2 = "lista" | "video" | "descanso";
+
+/**
+ * El descanso en foco existe tanto en la lista como en la experiencia de
+ * video. Sólo esta última usa la pantalla inmersiva: en lista el mismo estado
+ * debe seguir dibujándose entre la serie completada y la siguiente.
+ */
+export function resolverVistaAlRestaurarDescanso(
+  descanso: DescansoBorradorSesionV2 | null | undefined,
+): VistaRestauradaSesionV2 | null {
+  if (!descanso) return null;
+  if (!descanso.enFoco) return descanso.vistaRetorno;
+  return descanso.vistaRetorno === "video" ? "descanso" : "lista";
+}
+
 type RestaurarBorradorInput = {
   sesionId: string;
   registroBase: RegistroBorradorSesionV2;
