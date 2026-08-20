@@ -26,6 +26,7 @@ revisar, aceptar o rechazar cada bloque por separado.
   15. `9ec3449` — `fix: quitar el aviso "Recuperamos el progreso", recuperar sigue silencioso`
   16. `b8d97c9` — `fix: exigir el mismo angulo/cabeza muscular al sustituir un ejercicio`
   17. `7fc111a` — `fix: "Iniciar entrenamiento" en vez de "Explorar" para el proximo dia`
+  18. `d73cb40` — `perf: eliminar N+1 en el "ultimo registro" de la sesion de entrenamiento`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -630,6 +631,51 @@ ahora trae `&numero=4`; la pantalla de detalle muestra un botón real
 `<form action={iniciarRutinaDesdeCalendarioV2}>`, el mismo server action
 que ya usa el botón fijo de Programa), no el link de solo explorar.
 
+## 13. `d73cb40` — quitar el N+1 del "último registro" (retomando el tema de velocidad)
+
+Alejandro retomó una conversación anterior sobre acelerar la app y pidió
+avanzar con opciones **gratis** (sin gastar más cuota de Vercel/Supabase)
+y sin arriesgar nada. Antes de tocar código investigué con un agente de
+exploración qué había realmente disponible — importante: encontré que el
+**prefetch de `<Link>` ya se probó antes y NO fue gratis**: el commit
+`e021245` ("perf: eliminar sondeo y precargas que agotan vercel", de una
+sesión anterior) desactivó `prefetch` a propósito en la barra inferior
+porque cada prefetch dispara el proxy/middleware en Vercel y eso ya
+agotó cuota real una vez, junto con un polling que se sacó en el mismo
+commit. No toqué eso — sigue como está.
+
+Lo que sí encontré, gratis y de alto impacto real: `obtenerUltimoRegistro()`
+(`src/app/alumno/entrenar/data.ts`) hacía **2 consultas secuenciales a
+Supabase por cada ejercicio de la rutina**, dentro de un `for` con
+`await` — en una rutina de 9 ejercicios, hasta 18 viajes de ida y vuelta
+uno atrás del otro, en la pantalla de sesión en vivo (la de más tráfico
+real, se usa en cada entrenamiento). La reemplacé por
+`obtenerUltimosRegistros()` (plural): resuelve el día completo en **2
+consultas totales**, sin importar cuántos ejercicios tenga la rutina —
+mismo criterio exacto por ejercicio (sesión previa más reciente de ese
+alumno que incluyó ese ejercicio, y la última serie registrada ahí),
+aprovechando que el resultado ya viene ordenado por fecha/número de serie
+descendente para no duplicar la lógica de "el más reciente por grupo".
+
+Es código puro — no agrega dependencias, no toca ningún schema, y de
+hecho **reduce** la cantidad de queries a Supabase en vez de aumentarla,
+así que no hay ningún costo nuevo, ni siquiera imperceptible.
+
+**Verificado:** gate completo (tsc/eslint/vitest — 599 tests — /build)
+limpio; en vivo con la cuenta QA, inicié una sesión nueva y confirmé que
+el panel "Historial" de un ejercicio sigue mostrando fecha/reps/peso
+correctos de una sesión anterior real (20 ago, 12 reps, 45 kg).
+
+**Lo que quedó pendiente de la conversación de velocidad, sin tocar:**
+el agente también encontró que `SesionActivaV2.tsx` importa `@dnd-kit`
+(usado por el arrastre para reordenar, bloque 10) siempre al tope del
+archivo aunque sólo se use si el alumno abre "Orden de la sesión" —
+convertirlo a `next/dynamic(..., {ssr:false})` bajaría el JS que hay que
+parsear en esa pantalla en celulares de gama baja. Es gratis y de riesgo
+bajo, pero no lo hice todavía porque no se habló específicamente de esto
+con Alejandro — se lo puedo proponer como siguiente paso si quiere seguir
+por esta línea.
+
 ## Comandos y resultados
 
 ```
@@ -640,7 +686,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 17 commits (o de sus cambios
+Corridos después de cada uno de los 18 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -765,7 +811,7 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 17 commits por separado (son independientes entre sí, en
+cada uno de los 18 commits por separado (son independientes entre sí, en
 este orden: `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
 `d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
 `5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
@@ -777,7 +823,7 @@ real, `290b630` el "Deshacer" tras reordenar, `b85ddfe` los avisos
 flotando en vez de empujar la pantalla, `9ec3449` sacar el aviso de
 recuperar progreso, `b8d97c9` exigir el mismo ángulo muscular al
 sustituir un ejercicio, `7fc111a` "Iniciar entrenamiento" para el
-próximo día). El primero es el más
+próximo día, `d73cb40` quitar el N+1 del último registro). El primero es el más
 importante y el de menor riesgo (reutiliza
 código ya probado, no toca UI). El tercero es el más grande y el que más
 vale mirar con cuidado, sobre todo la sección "Alcance recortado a
