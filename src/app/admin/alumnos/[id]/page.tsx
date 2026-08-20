@@ -150,7 +150,7 @@ export default async function AlumnoDetallePage({
         secciones={{
           resumen: (
             <>
-              {sesion.rol === "admin" ? (
+              {sesion.rol === "admin" || sesion.rol === "entrenador" ? (
                 <AccesoPortalV2Alumno
                   alumnoId={alumnoId}
                   habilitado={alumnoPerfil?.portal_v2_habilitado === true}

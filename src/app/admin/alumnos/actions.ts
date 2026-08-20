@@ -417,7 +417,7 @@ export async function actualizarAccesoPortalV2(
   _prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
-  await requireAdmin();
+  await requireRol(["entrenador", "admin"]);
   const alumnoId = String(formData.get("alumno_id") || "");
   const habilitado = formData.get("habilitado") === "true";
 
