@@ -908,6 +908,20 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
   soltar en otra posición reordene de verdad y que aparezca el aviso
   "Orden actualizado" con "Deshacer" (`290b630`, bloque 10.2).
 - Push a `origin/portal-v2` — esperando autorización.
+- **Precarga de datos "una sola vez por alumno" (service worker con
+  caché real, no solo push notifications) — Alejandro preguntó, quedó
+  explícitamente diferido a otra sesión aparte, NO empezado.** Ya existe
+  `public/sw.js`, pero escrito a propósito para NO cachear nada (solo
+  las notificaciones de fin de descanso — ver el comentario en ese
+  archivo). Extenderlo para cachear la rutina/progreso del alumno es
+  técnicamente posible y no le agrega gasto a Vercel/Supabase (corre en
+  el teléfono, no en el servidor), pero conlleva riesgo real de mostrar
+  datos desactualizados (rutina vieja, peso de una sesión anterior) si
+  la invalidación de caché no se hace con cuidado — a diferencia de los
+  arreglos de hoy, este si necesita su propia sesión dedicada con
+  tiempo para probarlo bien. Si se retoma, empezar leyendo
+  `public/sw.js` completo y pensar la estrategia de invalidación
+  (stale-while-revalidate) antes de escribir código.
 
 ## Para Codex
 
