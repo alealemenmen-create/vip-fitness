@@ -137,6 +137,18 @@ export async function programarAvisoSesionSinCerrar(
  * eso sin sumar una cola externa) — en el peor caso llega una notificación
  * de más, ya vencida. Preferible a la alternativa de no avisar nunca.
  */
+// Alejandro pidió tope de 2 avisos por descanso, ni uno más (cada push
+// enviado consume cuota): el de siempre al terminar, y un único recordatorio
+// 180s después si para entonces todavía no volvió. `TECHO_ESPERA_TOTAL_SEGUNDOS`
+// deja margen dentro de `maxDuration = 300` (ver `sesion/[id]/page.tsx`) --
+// ambas esperas viven en la misma invocación de `after()`, así que si el
+// descanso configurado ya es largo, se acorta la segunda espera para no
+// pasarse; si no queda margen real, se omite el recordatorio en vez de
+// arriesgar que la plataforma corte la ejecución antes de que salga el
+// primero.
+const RECORDATORIO_ADICIONAL_SEGUNDOS = 180;
+const TECHO_ESPERA_TOTAL_SEGUNDOS = 280;
+
 export async function programarAvisoDescanso(segundos: number, sesionId?: string): Promise<void> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (soloLectura || !segundos || segundos <= 0) return;
@@ -160,5 +172,15 @@ export async function programarAvisoDescanso(segundos: number, sesionId?: string
         : "/portal-v2/entrenamiento",
     };
     await Promise.all(suscripciones.map((sub) => enviarPush(admin, sub, payload)));
+
+    const segundaEspera = Math.min(RECORDATORIO_ADICIONAL_SEGUNDOS, TECHO_ESPERA_TOTAL_SEGUNDOS - segundos);
+    if (segundaEspera < 30) return;
+    await esperar(segundaEspera * 1000);
+    await Promise.all(suscripciones.map((sub) => enviarPush(admin, sub, {
+      ...payload,
+      title: "Sigues de descanso",
+      body: "Ya pasaron unos minutos. Vuelve a la app para tu siguiente serie.",
+      tag: sesionId ? `fin-descanso-recordatorio-${sesionId}` : "fin-descanso-recordatorio",
+    })));
   });
 }

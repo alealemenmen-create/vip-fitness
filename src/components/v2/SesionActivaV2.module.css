@@ -353,12 +353,14 @@
 .videoOverlaySpacer { flex: 1; min-height: 10px; }
 .videoBottomGroup { display: flex; flex-direction: column; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); pointer-events: auto; }
 .videoIdentity { padding: 0 15px; }
-.videoIdentity small { color: #b8dc38; font-size: 7px; font-weight: 800; }
-.videoIdentity h1 { margin-top: 5px; font-size: 23px; letter-spacing: -.04em; }
-.videoIdentity p { margin-top: 5px; color: #a2a5a1; font-size: 9px; }
+.videoIdentity small { color: #b8dc38; font-size: 12px; font-weight: 800; }
+.videoIdentityTitleRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 5px; }
+.videoIdentityTitleRow h1 { min-width: 0; font-size: 23px; letter-spacing: -.04em; }
+.videoCheckFloating { display: grid; width: 36px; height: 36px; flex-shrink: 0; place-items: center; border: 1.5px solid rgba(255, 255, 255, .9); border-radius: 50%; color: #fff; background: rgba(10, 11, 11, .55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.videoCheckFloating[aria-pressed="true"] { border-color: var(--blue); color: #fff; background: var(--blue); box-shadow: 0 0 0 1px rgba(10,132,255,.24); }
 .videoActions { display: flex; gap: 5px; overflow-x: auto; padding: 10px 14px; scrollbar-width: none; }
 .videoActions button { display: flex; min-height: 34px; flex: none; align-items: center; gap: 4px; padding: 0 10px; border-radius: 999px; color: #f0f2ee; background: #1e1f1f; font-size: 9px; }
-.videoSetStrip { display: grid; grid-template-columns: 1fr 1fr 1.2fr 42px; align-items: end; gap: 7px; padding: 4px 14px 0; }
+.videoSetStrip { display: grid; grid-template-columns: 1fr 1fr 1.2fr; align-items: end; gap: 7px; padding: 4px 14px 0; }
 .videoSetStrip span { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
 .videoSetStrip b { color: #b6b9b6; font-size: 8px; font-weight: 600; }
 .videoSetStrip strong, .videoSetStrip em { min-height: 32px; padding: 8px 5px; border-radius: 6px; color: #f1f2ef; background: #101111; font-size: 10px; font-style: normal; font-weight: 620; text-align: center; }
@@ -366,8 +368,6 @@
 .videoSetStrip input:focus { border-color: #4c5050; background: #161717; }
 .videoSetStrip input::placeholder { color: #7b7e7a; opacity: 1; }
 .videoSetStrip input[readonly] { border-color: transparent; color: #b7bab5; }
-.videoSetStrip button { display: grid; width: 36px; height: 36px; place-items: center; border: 1.5px solid rgba(255,255,255,.9); border-radius: 50%; color: #fff; background: transparent; }
-.videoSetStrip button[aria-pressed="true"] { border-color: var(--blue); color: #fff; background: var(--blue); box-shadow: 0 0 0 1px rgba(10,132,255,.24); }
 .videoSetStripImpulse { margin-inline: 7px; padding: 7px; border: 1px solid rgba(167, 216, 55, .13); border-radius: 9px; background: rgba(167, 216, 55, .035); }
 
 .sheetBackdrop { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, .76); }

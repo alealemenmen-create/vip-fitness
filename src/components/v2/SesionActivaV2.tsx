@@ -1319,7 +1319,22 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             </div>
             <div className={styles.videoOverlaySpacer} />
             <div className={styles.videoBottomGroup}>
-              <div className={styles.videoIdentity}><small>SERIE {ejercicioActivo.codigo}</small><h1>{ejercicioActivo.nombre}</h1><p>{ejercicioActivo.equipo}</p></div>
+              <div className={styles.videoIdentity}>
+                <small>SERIE {ejercicioActivo.codigo}</small>
+                <div className={styles.videoIdentityTitleRow}>
+                  <h1>{ejercicioActivo.nombre}</h1>
+                  <button
+                    type="button"
+                    className={styles.videoCheckFloating}
+                    disabled={sesion?.soloLectura}
+                    onClick={() => alternarSerie(ejercicioActivo, serieActivaIndiceSeguro)}
+                    aria-label={`${serieActiva.completada ? "Desmarcar" : "Registrar"} serie ${serieActivaIndiceSeguro + 1}`}
+                    aria-pressed={serieActiva.completada}
+                  >
+                    {serieActiva.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}
+                  </button>
+                </div>
+              </div>
               <div className={styles.videoActions}>
                 <button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={13} fill="currentColor" />Impulso VIP</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={13} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={13} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={13} />Notas</button><button type="button" onClick={() => setPanel("informacion")}><Info size={13} />Información</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicioActivo.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={13} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={13} />Orden</button> : null}
               </div>
@@ -1335,15 +1350,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                 <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} · trabajo</em></span>
                 <span><b>Reps</b><input aria-label={`Repeticiones, serie ${serieActivaIndiceSeguro + 1}`} inputMode="numeric" value={serieActiva.reps} readOnly={sesion?.soloLectura} onChange={(evento) => actualizarSerie(ejercicioActivo.id, serieActivaIndiceSeguro, "reps", evento.target.value)} /></span>
                 <span><b>Peso ({unidadPeso})</b><input aria-label={`Peso en ${unidadPeso}, serie ${serieActivaIndiceSeguro + 1}`} inputMode="decimal" value={serieActiva.peso} readOnly={sesion?.soloLectura} placeholder={`— ${unidadPeso}`} onChange={(evento) => actualizarSerie(ejercicioActivo.id, serieActivaIndiceSeguro, "peso", evento.target.value)} /></span>
-                <button
-                  type="button"
-                  disabled={sesion?.soloLectura}
-                  onClick={() => alternarSerie(ejercicioActivo, serieActivaIndiceSeguro)}
-                  aria-label={`${serieActiva.completada ? "Desmarcar" : "Registrar"} serie ${serieActivaIndiceSeguro + 1}`}
-                  aria-pressed={serieActiva.completada}
-                >
-                  {serieActiva.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}
-                </button>
               </div>
             </div>
           </div>
