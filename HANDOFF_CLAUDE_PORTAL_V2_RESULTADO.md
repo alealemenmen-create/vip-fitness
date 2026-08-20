@@ -17,6 +17,9 @@ revisar, aceptar o rechazar cada bloque por separado.
   6. `01b9b4a` — `style: fijar el boton "Vista de video" en la lista`
   7. `b8a8b26` — `style: renombrar Momento Alejandro a Impulso VIP en el texto de V2`
   8. `d14309c` — `feat: preguntar como le fue al alumno tras una serie de Impulso VIP`
+  9. `fe56072` — `fix: quitar seleccion de texto nativa al mantener presionado`
+  10. `dc5e80f` — `feat: reordenar ejercicios arrastrando, en vez de flechas`
+  11. `0527347` — `refactor: arrastrar ejercicios directo en la lista, sin pantalla aparte`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -242,6 +245,87 @@ fue en esa serie?", elegí "Estuvo justo", y confirmé por consulta directa
 a Supabase que `resultado_data.dificultad` quedó en `"justo"` con
 `verificacion: "datos"` (el chequeo objetivo por reps/peso corrió igual).
 
+## 9. Quitar la selección de texto nativa al mantener presionado
+
+Alejandro reportó que mantener presionado sobre texto en la app dispara la
+selección nativa del navegador (se siente como página web, no como app).
+`user-select: none` + `-webkit-touch-callout: none` en `body`
+(`src/app/globals.css`), con excepción explícita para
+`input`/`textarea`/`[contenteditable="true"]` (ahí la selección sigue
+funcionando — hace falta para editar). Verificado por `getComputedStyle`:
+`body`/títulos en `"none"`, inputs en `"text"`.
+
+## 10. Reordenar ejercicios arrastrando (drag), en vez de flechas
+
+**Archivos:** `src/components/v2/OrdenSesionV2.tsx` (nuevo),
+`src/components/v2/SesionActivaV2.tsx` (+ CSS), `package.json` (+
+`@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` — no había
+ninguna librería de drag-and-drop en el repo).
+
+Alejandro no quería más las flechas subir/bajar del panel "Orden de la
+sesión": pidió un gesto de arrastre premium (mantener presionado, se
+levanta en 3D semi-transparente, soltar donde quiera), respetando que
+biseries/triseries/series gigantes se muevan como bloque, y que el mismo
+gesto funcione directo en la lista principal del entrenamiento en
+ejecución, no solo en el panel modal. Cerró con "ayudame con lo mejor que
+puedas hacer" — le di mi recomendación técnica directamente (agregar
+dnd-kit, el estándar de facto) en vez de una lista de opciones, con Plan
+Mode de por medio dado el tamaño real del cambio.
+
+**Un componente, dos lugares — y desde `0527347`, sin pantalla aparte:**
+Primero (`dc5e80f`) armé un "modo ordenar": mantener presionado entraba a
+una pantalla separada con la lista compacta y un botón "Listo". Alejandro
+la vio con dos capturas y preguntó si el mismo gesto podía funcionar
+directo sobre la tarjeta visible, sin mandarlo a esa segunda pantalla — así
+que `0527347` lo cambió:
+
+- Panel "Orden de la sesión": sigue igual, `<OrdenSesionV2>` con las filas
+  arrastrables.
+- Lista principal: **ya no hay modo ni pantalla separada.** Cada bloque
+  compacto (o el ejercicio suelto que no forma parte de una biserie/
+  triserie) se envuelve directo con el mismo wrapper `useSortable` de
+  dnd-kit (`BloqueArrastrableEnLinea`), en el lugar donde ya se ve. Mantener
+  presionado (~400 ms) cualquier tarjeta compacta la levanta ahí mismo. El
+  bloque que contiene el ejercicio expandido (con los inputs de reps/peso
+  en vivo) se renderiza **sin envolver** — no arrastrable — así el gesto
+  nunca compite con la edición en vivo; para reordenarlo hay que contraerlo
+  primero (tocar el nombre para cerrarlo).
+- `OrdenSesionV2.tsx` quedó reorganizado en piezas reusables:
+  `DndContextOrden` (el `DndContext`+`SortableContext`+`DragOverlay`) y
+  `BloqueArrastrableEnLinea` (el wrapper de una fila) se usan tanto en el
+  panel como en la lista principal, sin duplicar la lógica de agrupar
+  bloques ni de sensores.
+
+`reordenarEjerciciosSesionV2` (servidor) no cambió — ya hacía exactamente
+lo que hacía falta. `moverBloqueEjercicio` se reemplazó por
+`aplicarNuevoOrden`, que recibe el orden ya calculado (por arrastre o por
+teclado) en vez de un paso -1/+1.
+
+**Verificado en vivo con la cuenta QA (después de `0527347`):**
+- Ya no aparece ninguna pantalla ni modo separado — la lista se ve igual
+  que siempre, con las tarjetas compactas y la expandida en el mismo lugar
+  de antes.
+- Confirmado por inspección del DOM: la tarjeta compacta de un ejercicio
+  suelto queda envuelta en un `<div role="button" aria-roledescription=
+  "sortable" aria-disabled="false">` puesto directo en la lista (no dentro
+  de ningún panel ni pantalla aparte); el bloque con el ejercicio expandido
+  queda colgado directo de `<main>`, sin ningún wrapper — confirma que no
+  es arrastrable mientras está expandido.
+- El inicio del arrastre se dispara correctamente sobre la tarjeta en su
+  lugar: un evento de puntero sintético disparado directo sobre ese
+  wrapper dispara `onDragStart` (mismo llamado a `navigator.vibrate`, que
+  efectivamente se invocó, correlacionado uno a uno con el evento
+  disparado).
+
+**Sigue sin poder verificarse, y se lo dije así a Alejandro (misma
+limitación que ya valía para `dc5e80f`, no es nueva de este cambio):** el
+ciclo completo de soltar y reordenar. Los eventos de puntero sintéticos que
+puedo generar con las herramientas de este entorno no producen el
+seguimiento continuo de posición que dnd-kit necesita para calcular sobre
+qué fila se soltó. El código sigue el patrón estándar y documentado de
+dnd-kit sin desviaciones. Falta probarlo en un teléfono real para
+confirmarlo de punta a punta.
+
 ## Comandos y resultados
 
 ```
@@ -252,7 +336,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 8 commits (o de sus cambios
+Corridos después de cada uno de los 11 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -345,6 +429,14 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
   (borrada al terminar, ver bloque 8) — no encontré una forma natural de
   disparar un momento nuevo sin eso, porque el cupo por sesión es escaso a
   propósito y la cuenta QA ya había consumido el suyo en pruebas previas.
+- Dependencia nueva: `@dnd-kit/core`, `@dnd-kit/sortable`,
+  `@dnd-kit/utilities` (bloque 10) — paquetes chicos, sin binarios nativos,
+  mantenidos activamente. Primera librería de drag-and-drop del repo.
+- El ciclo completo de soltar-y-reordenar (bloque 10) no quedó verificado
+  de punta a punta por una limitación de las herramientas de este entorno
+  para simular gestos de arrastre reales — ver el bloque 10 y "Para Codex"
+  más abajo. Pido probarlo en un teléfono real antes de darlo por
+  completamente confirmado.
 
 ## NO TERMINADO
 
@@ -352,28 +444,45 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
   sonido/vibración reales) — ver arriba. Vista de video en sí ya se
   rediseñó y se probó (bloques 4-6).
 - Prioridad 1 en adelante del handoff de continuidad: sin tocar.
-- Campos de nivel/fase/duración/equipamiento y reordenar días — deferidos
-  a propósito, documentado arriba, esperando decisión de Alejandro.
+- Campos de nivel/fase/duración/equipamiento y reordenar días **de la
+  rutina/programa** (distinto del reorden de ejercicios del bloque 10, que
+  sí quedó resuelto) — deferidos a propósito, documentado arriba,
+  esperando decisión de Alejandro.
 - Resumen de "Registrar entrenamiento" — Alejandro pidió dejarlo para
   después explícitamente.
+- Confirmar en un teléfono real el ciclo completo de arrastrar-y-soltar
+  del bloque 10 (ver arriba; `0527347` cambió dónde se arrastra, no esto).
 - Push a `origin/portal-v2` — esperando autorización.
 
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 8 commits por separado (son independientes entre sí, en
+cada uno de los 11 commits por separado (son independientes entre sí, en
 este orden: `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
 `d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
 `5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
-renombrado a Impulso VIP, `d14309c` la pregunta de seguimiento). El primero
-es el más importante y el de menor riesgo (reutiliza código ya probado, no
-toca UI). El tercero es el más grande y el que más vale mirar con cuidado,
-sobre todo la sección "Alcance recortado a propósito" — quiero que quede
-claro qué es real y qué quedó afuera antes de que alguien asuma que la
-pantalla ya está completa. El cuarto (`4a1724f`) toca bastante CSS de
-posicionamiento (`position:fixed` a pantalla completa) — vale la pena
-probarlo en un teléfono real, no solo en el emulador de viewport, sobre
-todo con notch/safe-area distintos al que probé yo. El octavo (`d14309c`)
-cambia cómo se resuelve una intervención de Impulso VIP (antes automático,
-ahora espera la respuesta del alumno) — revisar que `resultado_data.dificultad`
-no se use en ningún lado que esperara solo `repsExtra`/`pesoDescargaKg`.
+renombrado a Impulso VIP, `d14309c` la pregunta de seguimiento, `fe56072`
+quitar la selección de texto, `dc5e80f` el arrastre para reordenar,
+`0527347` el mismo arrastre pero directo en la lista, sin pantalla
+aparte). El primero es el más importante y el de menor riesgo (reutiliza
+código ya probado, no toca UI). El tercero es el más grande y el que más
+vale mirar con cuidado, sobre todo la sección "Alcance recortado a
+propósito" — quiero que quede claro qué es real y qué quedó afuera antes de
+que alguien asuma que la pantalla ya está completa. El cuarto (`4a1724f`)
+toca bastante CSS de posicionamiento (`position:fixed` a pantalla
+completa) — vale la pena probarlo en un teléfono real, no solo en el
+emulador de viewport, sobre todo con notch/safe-area distintos al que
+probé yo. El octavo (`d14309c`) cambia cómo se resuelve una intervención de
+Impulso VIP (antes automático, ahora espera la respuesta del alumno) —
+revisar que `resultado_data.dificultad` no se use en ningún lado que
+esperara solo `repsExtra`/`pesoDescargaKg`. **`dc5e80f` y `0527347` juntos
+son los que más necesitan ojos humanos en un teléfono real**: agregan una
+dependencia nueva (`@dnd-kit`) y un gesto de arrastre que confirmé
+parcialmente (se activa correctamente, directo sobre la tarjeta visible
+desde `0527347`, sin pantalla aparte) pero no pude confirmar de punta a
+punta con las herramientas de este entorno — no es una duda sobre si el
+código está bien escrito (sigue el patrón estándar de la librería sin
+desviaciones), es sobre si el gesto se siente bien y termina de soltar
+correctamente en un dispositivo real. Si se rechaza `0527347` solo, el
+código queda funcionando igual con el "modo ordenar" de pantalla aparte
+que traía `dc5e80f` — son cambios independientes y en capas.
