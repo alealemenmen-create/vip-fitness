@@ -20,6 +20,7 @@ revisar, aceptar o rechazar cada bloque por separado.
   9. `fe56072` — `fix: quitar seleccion de texto nativa al mantener presionado`
   10. `dc5e80f` — `feat: reordenar ejercicios arrastrando, en vez de flechas`
   11. `0527347` — `refactor: arrastrar ejercicios directo en la lista, sin pantalla aparte`
+  12. `d75beea` — `fix: hacer que el arrastre en la lista funcione de verdad en el telefono`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -326,6 +327,63 @@ qué fila se soltó. El código sigue el patrón estándar y documentado de
 dnd-kit sin desviaciones. Falta probarlo en un teléfono real para
 confirmarlo de punta a punta.
 
+### 10.1 `d75beea` — el arrastre no arrancaba de verdad en el teléfono
+
+Alejandro probó `0527347` en su teléfono y avisó: "el gesto no funciona
+aún". Tenía razón — mis pruebas con eventos de puntero sintéticos no
+podían detectar este bug porque no pasan por el reconocedor de gestos
+táctiles real del navegador.
+
+**Causa real** (leída directo del código fuente de `@dnd-kit/core`):
+mientras el mantenido de ~400 ms está pendiente, dnd-kit **no** llama
+`preventDefault()` en el `touchmove` — sólo lo hace después de activarse.
+Sin `touch-action: none` puesto desde el principio en el elemento, el
+navegador ya arrancó su propio scroll nativo antes de que el mantenido
+termine, y ese scroll nativo gana siempre. `.ordenFila` (el panel modal)
+ya tenía `touch-action: none` puesto a mano desde antes, por eso ese
+camino no se vio afectado; el envoltorio nuevo de la lista principal
+(`BloqueArrastrableEnLinea`) no lo tenía.
+
+Ponérselo a toda la tarjeta arreglaría el arrastre pero volvería la lista
+principal imposible de scrollear con el dedo (la tarjeta ocupa casi toda
+la pantalla). La solución — el patrón "drag handle" que el propio dnd-kit
+documenta para exactamente este conflicto — es un asa de arrastre chica y
+dedicada: `BloqueArrastrableEnLinea` ahora pasa `attributes`/`listeners`
+por contexto de React en vez de ponerlos en toda la tarjeta, y el
+componente nuevo `AsaArrastre` los consume en un botón chico (ícono de
+agarre) con `touch-action: none`. El resto de la tarjeta queda en
+`touch-action: auto` — scroll normal intacto.
+
+De paso apareció un segundo bug real al revisar esto con la consola del
+navegador: `DndContext` generaba su `aria-describedby` con un contador
+interno de módulo que no coincide entre servidor y cliente sin pasarle un
+`id` explícito, disparando un mismatch de hidratación en cada carga
+(React lo "autocuraba" descartando y re-renderizando ese pedazo del árbol
+en el cliente, pero seguía siendo un error real en consola). Ahora cada
+`DndContextOrden` recibe un `id` fijo (`"orden-sesion-lista"` /
+`"orden-sesion-panel"`).
+
+**Nota aparte, no es un cambio de código:** mientras diagnosticaba esto
+me encontré con que el servidor `next dev` de este entorno (usando
+`.next-preview` como carpeta de compilación, para convivir con otro
+`next dev` que pudiera estar corriendo sobre `.next`) tenía caché de
+Turbopack corrompida/vieja — seguía sirviendo un chunk compilado que
+todavía hacía referencia a `modoOrdenar` (una variable que ya no existe
+desde `0527347`), incluso después de reiniciar el proceso. Tuve que
+borrar `.next-preview` a mano y arrancar de cero para poder verificar
+limpio. Si alguien más ve errores raros/viejos en este entorno de
+preview, probablemente sea lo mismo — borrar esa carpeta y reiniciar.
+
+**Verificado en vivo con la cuenta QA** (servidor reiniciado con caché
+limpia): por `getComputedStyle`, el asa tiene `touch-action: none`, la
+tarjeta y su envoltorio quedan en `auto`; ya no aparece el mismatch de
+hidratación; un puntero sintético disparado específicamente sobre el asa
+sigue activando `onDragStart`. Lo que NO cambia respecto a `0527347`: el
+ciclo completo de soltar-y-reordenar sigue sin poder probarse de punta a
+punta con las herramientas de este entorno — lo nuevo acá es que la razón
+real de por qué el gesto no arrancaba en un teléfono de verdad quedó
+identificada y corregida, no sólo el arranque del gesto en sí.
+
 ## Comandos y resultados
 
 ```
@@ -336,7 +394,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 11 commits (o de sus cambios
+Corridos después de cada uno de los 12 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -451,20 +509,23 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
 - Resumen de "Registrar entrenamiento" — Alejandro pidió dejarlo para
   después explícitamente.
 - Confirmar en un teléfono real el ciclo completo de arrastrar-y-soltar
-  del bloque 10 (ver arriba; `0527347` cambió dónde se arrastra, no esto).
+  del bloque 10 (ver arriba). `d75beea` corrigió por qué el gesto ni
+  siquiera arrancaba en un teléfono real (`touch-action`); lo que falta
+  confirmar ahora es sólo el soltar-y-reordenar en sí, con el asa nueva.
 - Push a `origin/portal-v2` — esperando autorización.
 
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 11 commits por separado (son independientes entre sí, en
+cada uno de los 12 commits por separado (son independientes entre sí, en
 este orden: `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
 `d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
 `5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
 renombrado a Impulso VIP, `d14309c` la pregunta de seguimiento, `fe56072`
 quitar la selección de texto, `dc5e80f` el arrastre para reordenar,
 `0527347` el mismo arrastre pero directo en la lista, sin pantalla
-aparte). El primero es el más importante y el de menor riesgo (reutiliza
+aparte, `d75beea` el arreglo de por qué no arrancaba en un teléfono
+real). El primero es el más importante y el de menor riesgo (reutiliza
 código ya probado, no toca UI). El tercero es el más grande y el que más
 vale mirar con cuidado, sobre todo la sección "Alcance recortado a
 propósito" — quiero que quede claro qué es real y qué quedó afuera antes de
@@ -475,14 +536,17 @@ emulador de viewport, sobre todo con notch/safe-area distintos al que
 probé yo. El octavo (`d14309c`) cambia cómo se resuelve una intervención de
 Impulso VIP (antes automático, ahora espera la respuesta del alumno) —
 revisar que `resultado_data.dificultad` no se use en ningún lado que
-esperara solo `repsExtra`/`pesoDescargaKg`. **`dc5e80f` y `0527347` juntos
-son los que más necesitan ojos humanos en un teléfono real**: agregan una
-dependencia nueva (`@dnd-kit`) y un gesto de arrastre que confirmé
-parcialmente (se activa correctamente, directo sobre la tarjeta visible
-desde `0527347`, sin pantalla aparte) pero no pude confirmar de punta a
-punta con las herramientas de este entorno — no es una duda sobre si el
-código está bien escrito (sigue el patrón estándar de la librería sin
-desviaciones), es sobre si el gesto se siente bien y termina de soltar
-correctamente en un dispositivo real. Si se rechaza `0527347` solo, el
-código queda funcionando igual con el "modo ordenar" de pantalla aparte
-que traía `dc5e80f` — son cambios independientes y en capas.
+esperara solo `repsExtra`/`pesoDescargaKg`. **`dc5e80f`, `0527347` y
+`d75beea` juntos son los que más necesitan ojos humanos en un teléfono
+real**: agregan una dependencia nueva (`@dnd-kit`) y un gesto de arrastre
+que ya pasó por una ronda de "no funciona en el teléfono → causa real
+encontrada y corregida" (ver bloque 10.1: faltaba `touch-action: none` en
+el punto de agarre, así que el navegador ganaba la carrera contra el
+mantenido de dnd-kit antes de que el gesto arrancara). Confirmé por
+`getComputedStyle` que el asa nueva tiene `touch-action: none` y el resto
+de la tarjeta sigue en `auto`, pero **no pude confirmar el ciclo completo
+de soltar-y-reordenar de punta a punta** con las herramientas de este
+entorno — eso sigue pendiente de un teléfono real. Si se rechaza
+`0527347`+`d75beea`, el código queda funcionando igual con el "modo
+ordenar" de pantalla aparte que traía `dc5e80f` — son cambios
+independientes y en capas.
