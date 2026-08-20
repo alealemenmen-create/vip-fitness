@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useState, useSyncExternalStore } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Check, ShieldAlert, Target, X, Zap } from "lucide-react";
 import {
@@ -61,6 +61,7 @@ export function MomentoImpulsoEnVivo({
   puedeVerInstruccion,
   serieTerminada,
   onDecision,
+  onResultado,
 }: {
   intervencion: IntervencionImpulsoEnVivo;
   visible: boolean;
@@ -81,6 +82,14 @@ export function MomentoImpulsoEnVivo({
    * haber tocado el Momento Impulso para nada — quedaba
    * `estado: "preparada"`, `resultado: null` para siempre en la base. */
   onDecision?: (decidido: boolean) => void;
+  /** Avisa al padre si YA se registró el resultado del reto ("¿Cómo salió?")
+   * — mientras esto siga en `false` para una intervención cuya serie
+   * objetivo ya se hizo, la encuesta genérica de fin de ejercicio
+   * (`SelectorDificultad`, z-70) no debe abrirse sola ni avanzar de
+   * ejercicio: tapaba por completo a esta tarjeta (z-65) y el alumno nunca
+   * llegaba a ver ni responder "¿Cómo salió?" salvo que retrocediera al
+   * ejercicio ya terminado. Bug real, 2026-08-20. */
+  onResultado?: (resuelto: boolean) => void;
 }) {
   const [state, action, pending] = useActionState(resolverIntervencionEnVivo, inicial);
   const [calibracion, calibrarAction, calibrando] = useActionState(
@@ -109,6 +118,18 @@ export function MomentoImpulsoEnVivo({
           objetivo todavía no se hizo → la instrucción completa.
        3. La serie objetivo ya se hizo → "¿cómo salió?". */
   const necesitaCalibrar = !listaParaMostrar;
+  // La nota de orientación (`esOrientacion && !esPersonalAle`, más abajo)
+  // no tiene reto que aceptar/rechazar ni formulario de resultado — es su
+  // propio return temprano, solo con un botón "Cerrar indicación". Nunca
+  // puede volver `decisionTomada`/`resuelta` verdaderos, así que NUNCA debe
+  // entrar en las condiciones que fuerzan `mostrarExpandido`: si entrara,
+  // "Cerrar indicación" dejaba de tener efecto (mismo bug de fondo que el
+  // de "Acepto el reto" de abajo) y la tarjeta quedaba trabada para
+  // siempre — desde que esto pasó a ser un overlay de pantalla completa
+  // (commit `29f96b3`), eso significa bloquear al alumno por completo.
+  // Bug real en producción, 2026-08-18 (alumna Fabiola Galleguillos, en
+  // pleno entrenamiento): reportado por Alejandro con captura de pantalla.
+  const esNotaOrientacion = esOrientacion && !esPersonalAle;
   // `!decisionTomada`: sin esto, "Acepto el reto" no tenía ningún efecto
   // visible — el botón solo hace `setExpandido(false)`, pero esta condición
   // por sí sola ya forzaba el panel abierto, así que quedaba igual pase lo
@@ -118,9 +139,21 @@ export function MomentoImpulsoEnVivo({
   // registrado. Bug reportado en vivo, 2026-08-17, mismo día del fix de
   // timing de arriba — efecto colateral de esa misma condición nueva.
   const decisionTomada = retoAceptado || retoRechazado;
-  const listoParaInstruccion = listaParaMostrar && puedeVerInstruccion && !serieTerminada && !decisionTomada;
-  const listoParaResultado = serieTerminada && !resuelta;
+  const listoParaInstruccion = !esNotaOrientacion
+    && listaParaMostrar && puedeVerInstruccion && !serieTerminada && !decisionTomada;
+  const listoParaResultado = !esNotaOrientacion && serieTerminada && !resuelta;
   const mostrarExpandido = expandido || necesitaCalibrar || listoParaInstruccion || listoParaResultado;
+  // La nota de orientación sí se abre sola UNA vez (pedido original: "Ale
+  // aparece una vez antes del cierre para ordenar el esfuerzo"), pero solo
+  // eso — a partir de ahí manda el propio "Cerrar indicación" del alumno
+  // (`expandido`), sin que nada la vuelva a forzar.
+  const avisadoOrientacionRef = useRef(false);
+  useEffect(() => {
+    if (esNotaOrientacion && listaParaMostrar && !avisadoOrientacionRef.current) {
+      avisadoOrientacionRef.current = true;
+      setExpandido(true);
+    }
+  }, [esNotaOrientacion, listaParaMostrar]);
   const pesoObjetivo = typeof intervencion.prescripcion?.pesoKg === "number"
     ? `sube a ${intervencion.prescripcion.pesoKg} kg`
     : intervencion.tipo === "rest_pause"
@@ -142,6 +175,11 @@ export function MomentoImpulsoEnVivo({
     onDecision?.(decisionTomada || (esOrientacion && !esPersonalAle));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisionTomada, esOrientacion, esPersonalAle]);
+
+  useEffect(() => {
+    onResultado?.(resuelta || (esOrientacion && !esPersonalAle));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resuelta, esOrientacion, esPersonalAle]);
 
   if (!intervencion || !visible || intervencion.estado === "cancelada") return null;
 
@@ -175,15 +213,33 @@ export function MomentoImpulsoEnVivo({
   if (esOrientacion && !esPersonalAle) {
     return (
       <OverlayImpulso onCerrarFondo={() => setExpandido(false)}>
-        <section className="flex items-start gap-2.5 rounded-[17px] border border-vip/25 bg-[#0b0c0e] p-3 shadow-[0_24px_80px_rgba(0,0,0,.72)]">
-          <button type="button" onClick={() => setExpandido(false)} aria-label="Cerrar indicación" className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-vip/15 text-vip">
-            <Zap size={15} fill="currentColor" />
+        <section className="relative rounded-[17px] border border-vip/25 bg-[#0b0c0e] p-3 pr-9 shadow-[0_24px_80px_rgba(0,0,0,.72)]">
+          <button
+            type="button"
+            onClick={() => setExpandido(false)}
+            aria-label="Cerrar indicación"
+            title="Cerrar"
+            className="absolute right-2 top-2 grid size-8 shrink-0 place-items-center rounded-full border border-white/15 bg-white/10 text-text"
+          >
+            <X size={16} strokeWidth={2.8} />
           </button>
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-vip">Ale te marca el ritmo</p>
-            <p className="mt-0.5 text-caption leading-relaxed text-text">{intervencion.instruccion}</p>
-            <p className="mt-1 text-micro font-semibold text-text-secondary">{intervencion.firma}</p>
+          <div className="flex items-start gap-2.5">
+            <div className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-vip/15 text-vip">
+              <Zap size={15} fill="currentColor" />
+            </div>
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-vip">Ale te marca el ritmo</p>
+              <p className="mt-0.5 text-caption leading-relaxed text-text">{intervencion.instruccion}</p>
+              <p className="mt-1 text-micro font-semibold text-text-secondary">{intervencion.firma}</p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setExpandido(false)}
+            className="mt-3 w-full rounded-xl border border-white/12 bg-white/[0.05] py-2 text-center text-micro font-bold uppercase tracking-[0.08em] text-text-secondary active:scale-[.98]"
+          >
+            Entendido, continuar
+          </button>
         </section>
       </OverlayImpulso>
     );
