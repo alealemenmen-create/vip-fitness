@@ -22,6 +22,7 @@ revisar, aceptar o rechazar cada bloque por separado.
   11. `0527347` — `refactor: arrastrar ejercicios directo en la lista, sin pantalla aparte`
   12. `d75beea` — `fix: hacer que el arrastre en la lista funcione de verdad en el telefono`
   13. `290b630` — `feat: agregar "Deshacer" tras reordenar ejercicios arrastrando`
+  14. `b85ddfe` — `style: mostrar los avisos de sesion flotando, no empujando la pantalla`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -414,6 +415,33 @@ soltar real). Pido que lo confirmes vos: arrastrá un ejercicio a otra
 posición y fijate que aparezca "Orden actualizado" con el botón
 "Deshacer", y que tocarlo lo regrese a como estaba.
 
+### 10.3 `b85ddfe` — los avisos flotan en vez de empujar la pantalla
+
+Al pedirle que probara `290b630`, Alejandro señaló un problema distinto en
+el aviso existente "Recuperamos el progreso...": "me baja toda la
+pantalla... no que se encaje ahí y abra el espacio, porque me mueve toda
+la pantalla y es incómodo" — pidió que flote por encima ("por encima")
+en vez de empujar el contenido. Ese aviso (`.sessionNotice`, compartido
+con `errorGuardado`) estaba en flujo normal (`position: relative`),
+así que empujaba la lista de ejercicios hacia abajo al aparecer y la
+recuperaba al desaparecer. Lo pasé a `position: fixed`, anclado justo
+debajo del topbar con la misma fórmula de centrado que ya usan
+`.topbar`/`.videoViewButton`. Apliqué el mismo cambio al aviso nuevo
+"Orden actualizado" (bloque 10.2) por tener el mismo problema
+estructural.
+
+De paso, pidió explícitamente alargar sólo la duración de "Orden
+actualizado" ("unos segundos más") — pasó de 6 a 9 segundos. La duración
+de "Recuperamos el progreso..." queda igual (3 s, fix de un bloque
+anterior) — pidió dejar esa como está.
+
+**Verificado:** gate completo (tsc/eslint/vitest/build) limpio; por
+`getComputedStyle`/CSSOM confirmé `position: fixed` con el `top`/`left`/
+`right` correctos en ambas clases; inyecté temporalmente un clon del
+aviso en el DOM (sin tocar el estado real de la app, sólo para verlo
+renderizado) y confirmé que flota sobre "SERIE A" sin mover la lista de
+lugar — capturado en pantalla y removido después.
+
 ## Comandos y resultados
 
 ```
@@ -424,7 +452,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 13 commits (o de sus cambios
+Corridos después de cada uno de los 14 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -549,7 +577,7 @@ hoy también numera el calendario de Inicio (riesgo ya señalado en el plan).
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 13 commits por separado (son independientes entre sí, en
+cada uno de los 14 commits por separado (son independientes entre sí, en
 este orden: `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
 `d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
 `5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
@@ -557,7 +585,8 @@ renombrado a Impulso VIP, `d14309c` la pregunta de seguimiento, `fe56072`
 quitar la selección de texto, `dc5e80f` el arrastre para reordenar,
 `0527347` el mismo arrastre pero directo en la lista, sin pantalla
 aparte, `d75beea` el arreglo de por qué no arrancaba en un teléfono
-real, `290b630` el "Deshacer" tras reordenar). El primero es el más
+real, `290b630` el "Deshacer" tras reordenar, `b85ddfe` los avisos
+flotando en vez de empujar la pantalla). El primero es el más
 importante y el de menor riesgo (reutiliza
 código ya probado, no toca UI). El tercero es el más grande y el que más
 vale mirar con cuidado, sobre todo la sección "Alcance recortado a
