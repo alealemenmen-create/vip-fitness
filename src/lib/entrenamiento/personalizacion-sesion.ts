@@ -32,7 +32,15 @@ export function sustitucionEsCompatible(
   if (origen.id === sustituto.id || !sustituto.activo || !sustituto.fichaCompleta) return false;
   if (!origen.grupoMuscular || origen.grupoMuscular !== sustituto.grupoMuscular) return false;
   if (origen.categoria && sustituto.categoria && origen.categoria !== sustituto.categoria) return false;
-  return !origen.patronMovimiento || !sustituto.patronMovimiento || origen.patronMovimiento === sustituto.patronMovimiento;
+  // Si el origen ya tiene patron_movimiento cargado (ángulo/cabeza muscular
+  // específica -- abducción vs aducción, cabeza de tríceps, flexión vs
+  // extensión de rodilla), exigimos que el sustituto comparta exactamente
+  // ese patrón. Antes bastaba con que grupo_muscular coincidiera, una
+  // categoría demasiado amplia (p. ej. "piernas" mezcla abductor y
+  // aductor, "brazos" mezcla bíceps y tríceps) que ofrecía sustitutos sin
+  // sentido. Sin patrón cargado en el origen, seguimos con la comparación
+  // más laxa de arriba (grupo + categoría) hasta que se clasifique.
+  return !origen.patronMovimiento || origen.patronMovimiento === sustituto.patronMovimiento;
 }
 
 /** Dos cargas solo alimentan la misma progresión si el implemento también es

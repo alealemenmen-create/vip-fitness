@@ -29,6 +29,17 @@ describe("personalización segura de una sesión", () => {
     expect(sustitucionEsCompatible(origen, { id: "hack", grupoMuscular: "piernas", categoria: "pierna", activo: true, fichaCompleta: false })).toBe(false);
   });
 
+  it("exige el mismo patrón de movimiento cuando el origen ya lo tiene clasificado, aunque compartan grupo y categoría", () => {
+    const abductor = { id: "abductor", grupoMuscular: "piernas", categoria: "aislamiento", patronMovimiento: "pierna_abduccion", activo: true, fichaCompleta: true };
+    // Mismo grupo_muscular y categoría que el abductor, pero es el músculo opuesto (aductor) — antes se ofrecía igual.
+    expect(sustitucionEsCompatible(abductor, { id: "aductor", grupoMuscular: "piernas", categoria: "aislamiento", patronMovimiento: "pierna_aduccion", activo: true, fichaCompleta: true })).toBe(false);
+    // Sin patron_movimiento clasificado todavía en el sustituto: no se puede confirmar que sea el mismo ángulo, se descarta.
+    expect(sustitucionEsCompatible(abductor, { id: "sin-clasificar", grupoMuscular: "piernas", categoria: "aislamiento", activo: true, fichaCompleta: true })).toBe(false);
+    // Si el ORIGEN todavía no está clasificado, sigue la comparación laxa de antes (no se rompe nada mientras se completa la biblioteca).
+    const sinClasificar = { id: "sin-clasificar", grupoMuscular: "piernas", categoria: "aislamiento", activo: true, fichaCompleta: true };
+    expect(sustitucionEsCompatible(sinClasificar, { id: "aductor", grupoMuscular: "piernas", categoria: "aislamiento", patronMovimiento: "pierna_aduccion", activo: true, fichaCompleta: true })).toBe(true);
+  });
+
   it("no compara cargas entre implementos distintos aunque el reemplazo sea válido", () => {
     const base = { id: "press-smith", grupoMuscular: "pecho", categoria: "empuje", patronMovimiento: "empuje_horizontal", equipo: "smith", activo: true, fichaCompleta: true };
     expect(cargasSonComparables(base, { ...base, id: "otro-smith" })).toBe(true);

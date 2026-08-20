@@ -158,7 +158,12 @@ export default async function SesionV2Page({
       .filter((ficha) => ficha.id !== origen.id
         && ficha.grupo_muscular === origen.grupo_muscular
         && (!origen.categoria || !ficha.categoria || ficha.categoria === origen.categoria)
-        && (!origen.patron_movimiento || !ficha.patron_movimiento || ficha.patron_movimiento === origen.patron_movimiento))
+        // Si el origen ya tiene el ángulo/cabeza muscular clasificado
+        // (patron_movimiento), exigimos coincidencia exacta -- no basta con
+        // compartir grupo_muscular, que mezcla abductor con aductor, o
+        // bíceps con tríceps. Mismo criterio que sustitucionEsCompatible,
+        // la validación real del lado del servidor.
+        && (!origen.patron_movimiento || ficha.patron_movimiento === origen.patron_movimiento))
       .sort((a, b) => Number(b.categoria === origen.categoria) - Number(a.categoria === origen.categoria)
         || Number(a.equipo !== origen.equipo) - Number(b.equipo !== origen.equipo)
         || a.nombre.localeCompare(b.nombre, "es"))
