@@ -1242,7 +1242,9 @@ export async function solicitarBorradoSesion(formData: FormData): Promise<void> 
 export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
   const sesionId = String(formData.get("sesion_id") || "");
   const origenV2 = formData.get("origen_v2") === "true";
-  const rutaEntrenamiento = origenV2 ? "/portal-v2/entrenamiento" : "/alumno/entrenar";
+  // Descartar ya no vuelve a Inicio en V2: Alejandro pidió ver de una el
+  // programa/rutina semanal después de salir, en vez de rebotar a la portada.
+  const rutaEntrenamiento = origenV2 ? "/portal-v2/entrenamiento/programa" : "/alumno/entrenar";
   const { alumnoId, soloLectura } = await requireAlumno();
   if (!sesionId || soloLectura) redirect(rutaEntrenamiento);
 
@@ -1269,6 +1271,10 @@ export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
       .update({ estado: "abandonada" })
       .eq("id", sesionId)
       .eq("alumno_id", alumnoId);
+    // Mismo bug que ya se corrigió una vez en `abandonarSesion`: sin esta
+    // llamada el comentario de arriba mentía y el alumno seguía cobrando en
+    // el ranking una sesión que la propia UI le prometía que no sumaría.
+    await abandonarEntrenamiento(alumnoId, sesionId, sesion.fecha);
     revalidateTag(TAG_RANKING, { expire: 0 });
   } else {
     await supabase.from("sesiones_entrenamiento").delete().eq("id", sesionId).eq("alumno_id", alumnoId);
@@ -1279,6 +1285,7 @@ export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
   revalidatePath("/alumno/inicio");
   revalidatePath("/portal-v2/entrenamiento");
   revalidatePath("/portal-v2/entrenamiento/historial");
+  revalidatePath("/portal-v2/entrenamiento/programa");
   redirect(rutaEntrenamiento);
 }
 
