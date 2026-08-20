@@ -812,7 +812,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       if (opciones?.conDeshacer !== false) {
         setOrdenAnterior(anterior);
         if (deshacerOrdenTimeoutRef.current) clearTimeout(deshacerOrdenTimeoutRef.current);
-        deshacerOrdenTimeoutRef.current = setTimeout(() => setOrdenAnterior(null), 6000);
+        deshacerOrdenTimeoutRef.current = setTimeout(() => setOrdenAnterior(null), 9000);
       }
     };
     if (!sesion?.real) {
