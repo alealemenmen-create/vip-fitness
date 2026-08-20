@@ -61,6 +61,7 @@ export function MomentoImpulsoEnVivo({
   puedeVerInstruccion,
   serieTerminada,
   onDecision,
+  onResultado,
 }: {
   intervencion: IntervencionImpulsoEnVivo;
   visible: boolean;
@@ -81,6 +82,14 @@ export function MomentoImpulsoEnVivo({
    * haber tocado el Momento Impulso para nada — quedaba
    * `estado: "preparada"`, `resultado: null` para siempre en la base. */
   onDecision?: (decidido: boolean) => void;
+  /** Avisa al padre si YA se registró el resultado del reto ("¿Cómo salió?")
+   * — mientras esto siga en `false` para una intervención cuya serie
+   * objetivo ya se hizo, la encuesta genérica de fin de ejercicio
+   * (`SelectorDificultad`, z-70) no debe abrirse sola ni avanzar de
+   * ejercicio: tapaba por completo a esta tarjeta (z-65) y el alumno nunca
+   * llegaba a ver ni responder "¿Cómo salió?" salvo que retrocediera al
+   * ejercicio ya terminado. Bug real, 2026-08-20. */
+  onResultado?: (resuelto: boolean) => void;
 }) {
   const [state, action, pending] = useActionState(resolverIntervencionEnVivo, inicial);
   const [calibracion, calibrarAction, calibrando] = useActionState(
@@ -167,6 +176,11 @@ export function MomentoImpulsoEnVivo({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisionTomada, esOrientacion, esPersonalAle]);
 
+  useEffect(() => {
+    onResultado?.(resuelta || (esOrientacion && !esPersonalAle));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resuelta, esOrientacion, esPersonalAle]);
+
   if (!intervencion || !visible || intervencion.estado === "cancelada") return null;
 
   // En reposo ocupa solo el rayo. La instrucción se abre al tocarlo y el
@@ -199,15 +213,33 @@ export function MomentoImpulsoEnVivo({
   if (esOrientacion && !esPersonalAle) {
     return (
       <OverlayImpulso onCerrarFondo={() => setExpandido(false)}>
-        <section className="flex items-start gap-2.5 rounded-[17px] border border-vip/25 bg-[#0b0c0e] p-3 shadow-[0_24px_80px_rgba(0,0,0,.72)]">
-          <button type="button" onClick={() => setExpandido(false)} aria-label="Cerrar indicación" className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-vip/15 text-vip">
-            <Zap size={15} fill="currentColor" />
+        <section className="relative rounded-[17px] border border-vip/25 bg-[#0b0c0e] p-3 pr-9 shadow-[0_24px_80px_rgba(0,0,0,.72)]">
+          <button
+            type="button"
+            onClick={() => setExpandido(false)}
+            aria-label="Cerrar indicación"
+            title="Cerrar"
+            className="absolute right-2 top-2 grid size-8 shrink-0 place-items-center rounded-full border border-white/15 bg-white/10 text-text"
+          >
+            <X size={16} strokeWidth={2.8} />
           </button>
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-vip">Ale te marca el ritmo</p>
-            <p className="mt-0.5 text-caption leading-relaxed text-text">{intervencion.instruccion}</p>
-            <p className="mt-1 text-micro font-semibold text-text-secondary">{intervencion.firma}</p>
+          <div className="flex items-start gap-2.5">
+            <div className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl bg-vip/15 text-vip">
+              <Zap size={15} fill="currentColor" />
+            </div>
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-vip">Ale te marca el ritmo</p>
+              <p className="mt-0.5 text-caption leading-relaxed text-text">{intervencion.instruccion}</p>
+              <p className="mt-1 text-micro font-semibold text-text-secondary">{intervencion.firma}</p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setExpandido(false)}
+            className="mt-3 w-full rounded-xl border border-white/12 bg-white/[0.05] py-2 text-center text-micro font-bold uppercase tracking-[0.08em] text-text-secondary active:scale-[.98]"
+          >
+            Entendido, continuar
+          </button>
         </section>
       </OverlayImpulso>
     );

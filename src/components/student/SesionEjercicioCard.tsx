@@ -788,6 +788,7 @@ export function SelectorDificultad({
   disabled,
   onGuardar,
   forzarModal = false,
+  bloqueadoPorImpulso = false,
   onResponder,
   nombreCampo = "dificultad_ejercicio",
 }: {
@@ -799,6 +800,11 @@ export function SelectorDificultad({
    * después de elegirla: quedaba sin persistir. */
   onGuardar: () => void;
   forzarModal?: boolean;
+  /** Hay un reto de Impulso VIP con la serie ya hecha esperando "¿Cómo
+   * salió?" — mientras esto sea `true`, esta encuesta ni se abre sola ni se
+   * puede reabrir a mano, para no taparle la pregunta pendiente al alumno
+   * (ver `pendienteResultadoImpulso` en el padre). */
+  bloqueadoPorImpulso?: boolean;
   onResponder?: () => void;
   nombreCampo?: string;
 }) {
@@ -821,7 +827,7 @@ export function SelectorDificultad({
           VIP parpadeando, para volver a abrirla cuando el alumno quiera. Es
           también la única forma de responderla de un ejercicio que se terminó
           en otro momento. */}
-      {!valor && (
+      {!valor && !bloqueadoPorImpulso && (
         <button
           type="button"
           onClick={() => {
@@ -836,7 +842,7 @@ export function SelectorDificultad({
           ¿Cómo te fue en este ejercicio?
         </button>
       )}
-      {montado && (forzarModal || reabierto) && !valor && !omitido
+      {montado && !bloqueadoPorImpulso && (forzarModal || reabierto) && !valor && !omitido
         ? createPortal(
             <div className="fixed inset-0 z-[70] grid place-items-center bg-black/80 px-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="titulo-impulso-vip">
               <div className="w-full max-w-sm overflow-hidden rounded-[28px] border border-vip/30 bg-[#0b0c0e] shadow-[0_24px_80px_rgba(0,0,0,.72)]">
@@ -2104,6 +2110,11 @@ export const SesionEjercicioCard = forwardRef<
    * en `FilaSerie`) — antes de esto se podía completar la serie sin haber
    * tocado el Momento Impulso para nada. */
   const [decisionesImpulso, setDecisionesImpulso] = useState<Record<string, boolean>>({});
+  /** Por intervención: ¿ya se registró el resultado ("¿Cómo salió?")? Mientras
+   * siga en `false` para una intervención con la serie objetivo ya hecha, la
+   * encuesta genérica de fin de ejercicio no se abre sola ni avanza de
+   * ejercicio — ver `onResultado` en `MomentoImpulsoEnVivo`. */
+  const [resultadosImpulso, setResultadosImpulso] = useState<Record<string, boolean>>({});
   // Solo una recomendación APROBADA precarga algo — 'propuesta' (esperando
   // al entrenador) y 'bloqueada' (Regla E) nunca sugieren peso ni reps.
   const recomendacionAprobada =
@@ -2240,6 +2251,18 @@ export const SesionEjercicioCard = forwardRef<
       })
       .map((intervencion) => intervencion.serieObjetivo)
   );
+  /** ¿Queda algún reto de Impulso VIP con la serie objetivo ya hecha pero sin
+   * "¿Cómo salió?" respondida? Mientras esto sea `true`, la encuesta
+   * genérica de fin de ejercicio (`SelectorDificultad`) no debe abrirse sola
+   * ni avanzar de ejercicio al responderla — su overlay (z-70) tapaba por
+   * completo a la tarjeta de Impulso VIP (z-65), y el alumno terminaba en el
+   * ejercicio siguiente sin haber visto ni respondido esa pregunta. Bug
+   * real, 2026-08-20. */
+  const pendienteResultadoImpulso = intervencionesImpulso.some((intervencion) => {
+    if (intervencion.estado === "cancelada" || intervencion.tipo === "tempo_controlado") return false;
+    if (!seriesHechas.has(intervencion.serieObjetivo)) return false;
+    return !(resultadosImpulso[intervencion.id] ?? intervencion.estado === "resuelta");
+  });
   // La meta de reps de Impulso VIP (si hay una aprobada) manda por sobre el
   // techo del rango del PDF — mismo criterio que el peso: sin recomendación
   // aprobada, el comportamiento de precarga queda igual que siempre.
@@ -3116,6 +3139,11 @@ export const SesionEjercicioCard = forwardRef<
                   previo[intervencion.id] === decidido ? previo : { ...previo, [intervencion.id]: decidido }
                 )
               }
+              onResultado={(resuelto) =>
+                setResultadosImpulso((previo) =>
+                  previo[intervencion.id] === resuelto ? previo : { ...previo, [intervencion.id]: resuelto }
+                )
+              }
             />
           );
         })}
@@ -3330,7 +3358,8 @@ export const SesionEjercicioCard = forwardRef<
               // El último gesto de toda la rutina abre la celebración. La
               // encuesta sigue disponible al volver, pero no compite con ese
               // cierre especial encima de la pantalla.
-              forzarModal={modoEnfocado && recienCompletado && !esUltimoEjercicioDeRutina}
+              forzarModal={modoEnfocado && recienCompletado && !esUltimoEjercicioDeRutina && !pendienteResultadoImpulso}
+              bloqueadoPorImpulso={pendienteResultadoImpulso}
               onResponder={() => {
                 setMostrandoSiguiente(false);
                 onDificultadRespondida?.();
