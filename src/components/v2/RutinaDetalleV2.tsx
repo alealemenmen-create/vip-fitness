@@ -8,10 +8,18 @@ import {
   CalendarDays,
   History,
   Play,
+  Type,
   X,
 } from "lucide-react";
 import { iniciarRutinaDesdeCalendarioV2 } from "@/app/alumno/entrenar/actions";
 import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
+import {
+  CLAVE_ESCALA_VISUAL_V2,
+  ESCALAS_VISUALES_V2,
+  ETIQUETAS_ESCALA_VISUAL_V2,
+  escalaVisualV2Valida,
+  type EscalaVisualV2,
+} from "@/lib/v2/escala-visual";
 import styles from "./PortalV2.module.css";
 
 export type RutinaDetallePresentacionV2 = {
@@ -102,11 +110,15 @@ const RUTINA_DEMO: RutinaDetallePresentacionV2 = {
 export function RutinaDetalleV2({ rutina = RUTINA_DEMO }: { rutina?: RutinaDetallePresentacionV2 }) {
   const [guardada, setGuardada] = useState(false);
   const [ejercicioAbierto, setEjercicioAbierto] = useState<RutinaDetallePresentacionV2["items"][number] | null>(null);
+  const [escalaVisual, setEscalaVisual] = useState<EscalaVisualV2>("normal");
+  const [selectorEscalaAbierto, setSelectorEscalaAbierto] = useState(false);
   const puedeIniciar = Boolean(rutina.rutinaId && rutina.diaId && rutina.numeroCalendario && !rutina.soloLectura);
 
   useEffect(() => {
     const cuadro = window.requestAnimationFrame(() => {
       setGuardada(window.localStorage.getItem(`vip-v2-rutina-guardada-${rutina.diaId ?? rutina.nombre}`) === "true");
+      const escala = window.localStorage.getItem(CLAVE_ESCALA_VISUAL_V2);
+      if (escalaVisualV2Valida(escala)) setEscalaVisual(escala);
     });
     return () => window.cancelAnimationFrame(cuadro);
   }, [rutina.diaId, rutina.nombre]);
@@ -118,7 +130,7 @@ export function RutinaDetalleV2({ rutina = RUTINA_DEMO }: { rutina?: RutinaDetal
   };
 
   return (
-    <div className={styles.workoutDetailPage}>
+    <div className={styles.workoutDetailPage} data-visual-scale={escalaVisual}>
       <section className={styles.workoutDetailHero}>
         <ImagenV2Segura src={rutina.foto} fallbackSrc={rutina.fotoRespaldo} alt={`Entrenamiento ${rutina.nombre}`} fill priority sizes="(max-width: 460px) 100vw, 460px" className={styles.workoutDetailImage} />
         <div className={styles.workoutDetailShade} />
@@ -136,6 +148,7 @@ export function RutinaDetalleV2({ rutina = RUTINA_DEMO }: { rutina?: RutinaDetal
         </button>
         <Link href="/portal-v2/entrenamiento"><CalendarDays size={18} /><span>Calendario</span></Link>
         <Link href="/portal-v2/entrenamiento/historial"><History size={18} /><span>Historial</span></Link>
+        <button type="button" onClick={() => setSelectorEscalaAbierto(true)}><Type size={18} /><span>Tamaño</span></button>
       </div>
 
       <section className={styles.workoutOverview}>
@@ -182,6 +195,27 @@ export function RutinaDetalleV2({ rutina = RUTINA_DEMO }: { rutina?: RutinaDetal
             <h2>{ejercicioAbierto.nombre}</h2>
             <p>{ejercicioAbierto.detalle}</p>
             <div className={styles.infoGrid}><span><small>Bloque</small><strong>{ejercicioAbierto.grupo || ejercicioAbierto.codigo}</strong></span><span><small>Técnica</small><strong>{ejercicioAbierto.tempo || "Ejecución controlada"}</strong></span></div>
+          </section>
+        </div>
+      ) : null}
+      {selectorEscalaAbierto ? (
+        <div className={styles.nutritionPanelBackdrop} role="presentation" onClick={() => setSelectorEscalaAbierto(false)}>
+          <section className={styles.nutritionPanel} role="dialog" aria-modal="true" aria-label="Tamaño de visualización" onClick={(evento) => evento.stopPropagation()}>
+            <header><button type="button" onClick={() => setSelectorEscalaAbierto(false)} aria-label="Cerrar"><X size={19} /></button></header>
+            <h2>Tamaño de visualización</h2>
+            <p>Elige el tamaño que te permita leer y entrenar con comodidad.</p>
+            <div className={styles.workoutVisualScaleOptions} role="group" aria-label="Tamaño de visualización">
+              {ESCALAS_VISUALES_V2.map((escala) => (
+                <button type="button" key={escala} aria-pressed={escalaVisual === escala} onClick={() => {
+                  setEscalaVisual(escala);
+                  window.localStorage.setItem(CLAVE_ESCALA_VISUAL_V2, escala);
+                  setSelectorEscalaAbierto(false);
+                }}>
+                  <strong>{ETIQUETAS_ESCALA_VISUAL_V2[escala]}</strong>
+                  <span>{escala === "compacta" ? "Compacta" : escala === "normal" ? "Normal" : escala === "grande" ? "Grande" : "Máxima"}</span>
+                </button>
+              ))}
+            </div>
           </section>
         </div>
       ) : null}

@@ -908,6 +908,42 @@
   min-height: 100%;
   padding-bottom: 76px;
 }
+.workoutDetailPage {
+  --routine-photo-width: 66px;
+  --routine-photo-height: 64px;
+  --routine-name-size: 12px;
+  --routine-meta-size: 9px;
+  --routine-group-size: 9px;
+  --routine-row-height: 78px;
+  --routine-row-gap: 12px;
+}
+.workoutDetailPage[data-visual-scale="compacta"] {
+  --routine-photo-width: 54px;
+  --routine-photo-height: 52px;
+  --routine-name-size: 10px;
+  --routine-meta-size: 8px;
+  --routine-group-size: 7px;
+  --routine-row-height: 61px;
+  --routine-row-gap: 9px;
+}
+.workoutDetailPage[data-visual-scale="grande"] {
+  --routine-photo-width: 74px;
+  --routine-photo-height: 72px;
+  --routine-name-size: 13px;
+  --routine-meta-size: 10px;
+  --routine-group-size: 10px;
+  --routine-row-height: 90px;
+  --routine-row-gap: 13px;
+}
+.workoutDetailPage[data-visual-scale="maxima"] {
+  --routine-photo-width: 82px;
+  --routine-photo-height: 80px;
+  --routine-name-size: 14px;
+  --routine-meta-size: 11px;
+  --routine-group-size: 11px;
+  --routine-row-height: 102px;
+  --routine-row-gap: 14px;
+}
 
 .workoutDetailHero {
   position: relative;
@@ -1009,16 +1045,25 @@
 .workoutOverviewMetrics strong { display: block; font-size: 17px; }
 .workoutOverviewMetrics span { color: var(--v2-muted); font-size: 8px; }
 
-.workoutExerciseList { display: grid; gap: 3px; }
-.exerciseGroupLabel { margin: 9px 1px 5px; color: #8e918e; font-size: 7px; font-weight: 760; letter-spacing: .08em; }
-.workoutExerciseCard { display: grid; min-height: 61px; grid-template-columns: 54px 1fr 28px; align-items: center; gap: 9px; padding: 6px 2px; }
-.workoutExerciseThumb { position: relative; width: 54px; height: 52px; overflow: hidden; border-radius: 5px; background: #121313; }
+.workoutExerciseList { display: grid; gap: 7px; }
+.exerciseGroupLabel { margin: 12px 1px 6px; color: #d0d3cf; font-size: var(--routine-group-size); font-weight: 820; letter-spacing: .085em; }
+.workoutExerciseCard { display: grid; min-height: var(--routine-row-height); grid-template-columns: var(--routine-photo-width) minmax(0, 1fr) 28px; align-items: center; gap: var(--routine-row-gap); padding: 7px 2px; }
+.workoutExerciseThumb { position: relative; width: var(--routine-photo-width); height: var(--routine-photo-height); overflow: hidden; border-radius: 7px; background: #121313; }
 .workoutExerciseThumb img { object-fit: cover; }
-.workoutExerciseCard strong { display: block; overflow: hidden; font-size: 10px; font-weight: 640; text-overflow: ellipsis; white-space: nowrap; }
-.workoutExerciseCard strong b { color: #d0a6ff; font-size: 8px; }
+.workoutExerciseCard strong { display: block; overflow: hidden; color: #fff; font-size: var(--routine-name-size); font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
+.workoutExerciseCard strong b { color: #debfff; font-size: var(--routine-meta-size); }
 .workoutExerciseCard span:not(.workoutExerciseThumb),
-.workoutExerciseCard small { display: block; margin-top: 3px; color: #a0a29f; font-size: 8px; }
+.workoutExerciseCard small { display: block; margin-top: 4px; color: #c7cac6; font-size: var(--routine-meta-size); }
 .workoutExerciseCard button { display: grid; width: 28px; height: 34px; place-items: center; color: #c7c9c5; }
+
+.workoutVisualScaleOptions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 18px; }
+.workoutVisualScaleOptions button { min-height: 66px; padding: 10px; border: 1px solid #303332; border-radius: 10px; color: #d6d9d5; background: linear-gradient(105deg, #202221, #111212); text-align: left; }
+.workoutVisualScaleOptions button strong,
+.workoutVisualScaleOptions button span { display: block; }
+.workoutVisualScaleOptions button strong { color: #fff; font-size: 15px; }
+.workoutVisualScaleOptions button span { margin-top: 4px; color: #9da19d; font-size: 10px; }
+.workoutVisualScaleOptions button[aria-pressed="true"] { border-color: rgba(10,132,255,.7); background: linear-gradient(105deg, #0a84ff, #0764c2); }
+.workoutVisualScaleOptions button[aria-pressed="true"] span { color: #eaf4ff; }
 
 .workoutFixedStart {
   position: fixed;

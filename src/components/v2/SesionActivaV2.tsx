@@ -72,6 +72,13 @@ import { ModalVideo } from "@/components/student/ModalVideo";
 import { ModalVideoCloudflare } from "@/components/student/ModalVideoCloudflare";
 import { VideoCloudflareAutomatico } from "@/components/student/VideoCloudflareAutomatico";
 import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
+import {
+  CLAVE_ESCALA_VISUAL_V2,
+  ESCALAS_VISUALES_V2,
+  ETIQUETAS_ESCALA_VISUAL_V2,
+  escalaVisualV2Valida,
+  type EscalaVisualV2,
+} from "@/lib/v2/escala-visual";
 import styles from "./SesionActivaV2.module.css";
 
 export type SerieRegistradaV2 = {
@@ -310,6 +317,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [temporizadorAutomatico, setTemporizadorAutomatico] = useState(sesion?.temporizadorAutomaticoInicial ?? true);
   const [sonidoDescansoActivo, setSonidoDescansoActivo] = useState(true);
   const [unidadPeso, setUnidadPeso] = useState<UnidadPeso>("kg");
+  const [escalaVisual, setEscalaVisual] = useState<EscalaVisualV2>("normal");
   const [impulsoAutomaticoActivo, setImpulsoAutomaticoActivo] = useState(true);
   const [momentosVistos, setMomentosVistos] = useState<Record<string, boolean>>(() => Object.fromEntries(
     MOMENTOS_ALEJANDRO.filter((momento) => momento.mostradoInicial).map((momento) => [momento.id, true]),
@@ -380,6 +388,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       const sonido = window.localStorage.getItem("vip-v2-sonido-descanso");
       const unidad = window.localStorage.getItem("vip-v2-unidad-peso");
       const impulso = window.localStorage.getItem("vip-v2-impulso-automatico");
+      const escala = window.localStorage.getItem(CLAVE_ESCALA_VISUAL_V2);
       if (sonido !== null) setSonidoDescansoActivo(sonido === "true");
       if (unidad === "lb") {
         setRegistro((actual) => Object.fromEntries(
@@ -391,6 +400,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         setUnidadPeso("lb");
       }
       if (impulso !== null) setImpulsoAutomaticoActivo(impulso === "true");
+      if (escalaVisualV2Valida(escala)) setEscalaVisual(escala);
     });
     return () => window.cancelAnimationFrame(cuadro);
   }, []);
@@ -1143,7 +1153,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   }
 
   return (
-    <div ref={paginaSesionRef} className={styles.sessionPage}>
+    <div ref={paginaSesionRef} className={styles.sessionPage} data-visual-scale={escalaVisual}>
       <header className={styles.topbar}>
         <div className={styles.sessionStatus}><span>{formatearTiempo(segundosSesion)}</span><i aria-hidden="true" /><strong>{sesion?.soloLectura ? "Registro" : "Serie"} {serieActivaNumero}/{totalSeries}</strong></div>
         {sesion?.soloLectura
@@ -1320,10 +1330,15 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           sonidoDescansoActivo={sonidoDescansoActivo}
           impulsoAutomaticoActivo={impulsoAutomaticoActivo}
           unidadPeso={unidadPeso}
+          escalaVisual={escalaVisual}
           cambiarTemporizadorAutomatico={cambiarTemporizadorAutomatico}
           cambiarSonidoDescanso={cambiarSonidoDescanso}
           cambiarImpulsoAutomatico={cambiarImpulsoAutomatico}
           cambiarUnidadPeso={cambiarUnidadPeso}
+          cambiarEscalaVisual={(escala) => {
+            setEscalaVisual(escala);
+            window.localStorage.setItem(CLAVE_ESCALA_VISUAL_V2, escala);
+          }}
           impulsoActual={impulsoActivo}
           preparacionAlejandro={sesion?.preparacionAlejandro}
           cupoImpulso={MOMENTOS_ALEJANDRO.length}
@@ -1412,10 +1427,12 @@ function PanelAuxiliar({
   sonidoDescansoActivo,
   impulsoAutomaticoActivo,
   unidadPeso,
+  escalaVisual,
   cambiarTemporizadorAutomatico,
   cambiarSonidoDescanso,
   cambiarImpulsoAutomatico,
   cambiarUnidadPeso,
+  cambiarEscalaVisual,
   impulsoActual,
   preparacionAlejandro,
   cupoImpulso,
@@ -1437,10 +1454,12 @@ function PanelAuxiliar({
   sonidoDescansoActivo: boolean;
   impulsoAutomaticoActivo: boolean;
   unidadPeso: UnidadPeso;
+  escalaVisual: EscalaVisualV2;
   cambiarTemporizadorAutomatico: (activo: boolean) => void;
   cambiarSonidoDescanso: (activo: boolean) => void;
   cambiarImpulsoAutomatico: (activo: boolean) => void;
   cambiarUnidadPeso: (unidad: UnidadPeso) => void;
+  cambiarEscalaVisual: (escala: EscalaVisualV2) => void;
   impulsoActual: MomentoSesionAlejandro | null;
   preparacionAlejandro?: PreparacionDiariaAlejandro;
   cupoImpulso: number;
@@ -1497,6 +1516,16 @@ function PanelAuxiliar({
             <div className={styles.settingRow}>
               <span><strong>Unidad de peso</strong><small>Convierte los pesos registrados</small></span>
               <div className={styles.unitSelector} role="group" aria-label="Unidad de peso"><button type="button" aria-pressed={unidadPeso === "kg"} onClick={() => cambiarUnidadPeso("kg")}>kg</button><button type="button" aria-pressed={unidadPeso === "lb"} onClick={() => cambiarUnidadPeso("lb")}>lb</button></div>
+            </div>
+            <div className={`${styles.settingRow} ${styles.visualScaleRow}`}>
+              <span><strong>Tamaño de visualización</strong><small>Aumenta textos, fotografías y separación</small></span>
+              <div className={styles.visualScaleSelector} role="group" aria-label="Tamaño de visualización">
+                {ESCALAS_VISUALES_V2.map((escala) => (
+                  <button type="button" key={escala} aria-pressed={escalaVisual === escala} onClick={() => cambiarEscalaVisual(escala)}>
+                    {ETIQUETAS_ESCALA_VISUAL_V2[escala]}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : null}
