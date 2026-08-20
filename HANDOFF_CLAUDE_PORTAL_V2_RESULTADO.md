@@ -30,6 +30,7 @@ revisar, aceptar o rechazar cada bloque por separado.
   19. `6a35278` — `feat: pantalla animada de marca mientras arranca una rutina`
   20. `916a00e` — `fix: aplicar la pantalla animada tambien al boton de Inicio`
   21. `b6196f5` — `feat: contador de progreso simulado en la pantalla de arranque`
+  22. `f198eb7` — `fix: verificar que los guardados del admin realmente afecten una fila`
 - **Todavía no hice push.** Falta la autorización de Alejandro para subir a
   `origin/portal-v2` (regla del handoff de continuidad: pedirla antes de
   cada push, no asumirla).
@@ -777,6 +778,41 @@ nombre de la marca.
 inspeccioné visualmente las clases CSS reales del build a un valor
 intermedio (47%) para confirmar que la barra y el número se ven bien.
 
+## 16. `f198eb7` — verificar que los guardados del admin realmente afecten una fila
+
+Alejandro pidió empezar a resolver la auditoría del bloque 15 "por lo
+más importante" — el hallazgo #1 de 15.4 (bloquear a un alumno puede
+fallar en silencio).
+
+Varios `.update()` del panel del entrenador (`admin/alumnos/actions.ts`,
+`alumno/perfil/actions.ts`) solo chequeaban `error`, no si Supabase
+realmente afectó una fila — si algo lo bloqueara en silencio (RLS,
+condición de carrera), el admin vería "guardado" sin que el cambio se
+haya aplicado. El más grave: `actualizarPerfilAlumno` incluye
+`acceso_bloqueado`, el corte de acceso de un alumno problemático.
+
+Apliqué el mismo patrón que ya existía correctamente en
+`actualizarAccesoPortalV2` (unas líneas más arriba en el mismo
+archivo): agregar `.select().maybeSingle()` y chequear `error ||
+!actualizado`. Arreglado en `actualizarPerfilAlumno` (el más crítico),
+`actualizarPlanRapido`, `actualizarNombrePerfil`, `guardarNota` (rama de
+update — la de insert ya estaba bien), y `guardarTemaBoton` (menor
+impacto, pero mismo patrón).
+
+**Verificado en vivo contra la base real** (única forma honesta de
+probar esto — no alcanza con el gate automático): entré como admin con
+la cuenta QA de entrenador, bloqueé y después desbloqueé el acceso de
+la **cuenta QA de alumno únicamente** (`99d82081-...`, ningún alumno
+real tocado), y confirmé por SQL directo que `acceso_bloqueado` cambió
+correctamente en las dos direcciones, con `updated_at` reflejando cada
+cambio. Gate completo (tsc/eslint/vitest/build) también limpio.
+
+**Sigue pendiente del bloque 15** (no lo hice todavía, esperando que
+Alejandro confirme si quiere seguir con esto): auditoría de acceso para
+"ver como alumno" (hallazgo #2, también de seguridad), y proteger
+circuitos/series gigantes sin numerar contra reordenarse mal (hallazgo
+funcional de la auditoría de técnicas, 15.1).
+
 ## Comandos y resultados
 
 ```
@@ -787,7 +823,7 @@ npm run build            → compiló y generó las 71 rutas, incluida
                             /portal-v2/entrenamiento/programa
 ```//
 
-Corridos después de cada uno de los 21 commits (o de sus cambios
+Corridos después de cada uno de los 22 commits (o de sus cambios
 acumulados), no solo al final.
 
 ## Recorridos móviles comprobados
@@ -1066,8 +1102,12 @@ por qué el patrón #1/#3 se nota tanto por contraste.
 ## Para Codex
 
 Decí "revisa el trabajo de Claude en portal-v2" y podés aceptar o rechazar
-cada uno de los 21 commits por separado (son independientes entre sí, en
-este orden: `dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
+cada uno de los 22 commits por separado (son independientes entre sí; el
+más nuevo, `f198eb7`, arregla varios `.update()` del panel del
+entrenador que no verificaban si el guardado realmente afectó una fila
+— ver bloque 16, especial atención a `actualizarPerfilAlumno` que
+incluye el bloqueo de acceso de un alumno. En orden:
+`dbba3ba` el fix de puntos, `96d59e0` quitar el botón,
 `d91847c` la pantalla nueva, `4a1724f` el rediseño de Vista de video,
 `5eb19fe` reps/peso editables, `01b9b4a` el botón fijo, `b8a8b26` el
 renombrado a Impulso VIP, `d14309c` la pregunta de seguimiento, `fe56072`
