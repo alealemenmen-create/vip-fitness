@@ -26,3 +26,13 @@ ingesta persistentes, Modo gimnasio. Es un proyecto de varias sesiones, no de
 una tarde: si Alejandro pide retomarlo, léelo completo primero y confirmá con
 él el alcance (¿toda la Fase 1 nomás, o el instructivo completo?) antes de
 escribir código — no asumas que hay que implementarlo entero de una.
+
+## Pendiente por retomar: Estudio VIP (configuración global de portal-v2)
+
+Alejandro pidió el 2026-08-20 poder configurar pantallas/fotos/nombres/botones
+de portal-v2 para todos los alumnos a la vez, no uno por uno. Ya estaba
+previsto desde el inicio del proyecto con el nombre "Estudio VIP" (ver
+`docs/PORTAL_VIP_V2_VISION.md`, sección 4 y Etapa 5) pero nunca se construyó.
+Alcance y preguntas abiertas quedaron en `HANDOFF_ESTUDIO_VIP_ALCANCE.md` —
+léelo completo y resolvé el alcance con Alejandro (rol, qué es configurable,
+dónde vive) antes de escribir código.
