@@ -418,14 +418,21 @@
 .exerciseNotes button, .reorderPreview > button { min-height: 44px; border-radius: 8px; color: #080909; background: #f6f6f3; font-size: 10px; font-weight: 740; }
 .reorderPreview { display: grid; gap: 5px; margin-top: 17px; }
 .reorderPreview > .sheetCopy { margin: 0 0 7px; }
-.reorderPreview > div { display: grid; min-height: 54px; grid-template-columns: minmax(0, 1fr) 40px 40px; align-items: center; gap: 5px; padding: 5px 7px 5px 11px; border: 1px solid #303230; border-radius: 8px; color: #f1f2ef; background: #202121; }
-.reorderPreview > div[data-blocked="true"] { min-height: 45px; margin-top: -5px; border-top: 0; border-radius: 0 0 8px 8px; background: #1b1d1c; }
-.reorderPreview > div > span { display: grid; min-width: 0; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 5px; }
-.reorderPreview span b { color: #7dbbff; font-size: 9px; }
-.reorderPreview span strong { overflow: hidden; color: #fff; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.reorderPreview span small { grid-column: 2; color: #9da09c; font-size: 8px; }
-.reorderPreview > div > button { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid #383b39; border-radius: 8px; color: #fff; background: #292b2a; }
-.reorderPreview > div > i { width: 38px; }
+.ordenLista { display: grid; gap: 8px; }
+.ordenFila { display: flex; min-height: 58px; align-items: center; gap: 10px; padding: 7px 12px 7px 8px; border: 1px solid #303230; border-radius: 10px; color: #f1f2ef; background: #202121; touch-action: none; cursor: grab; user-select: none; }
+.ordenFila:active { cursor: grabbing; }
+.ordenFilaOculta { opacity: .25; }
+.ordenFilaLevantada { border-color: rgba(10, 132, 255, .4); background: #262826; box-shadow: 0 18px 40px rgba(0, 0, 0, .55), 0 0 0 1px rgba(10, 132, 255, .25); transform: scale(1.04) rotate(1.2deg); opacity: .95; }
+.ordenAsa { display: grid; width: 20px; flex-shrink: 0; place-items: center; color: #6f7370; }
+.ordenThumb { position: relative; width: 42px; height: 42px; flex-shrink: 0; overflow: hidden; border-radius: 7px; background: #121313; }
+.ordenThumb img { object-fit: cover; }
+.ordenCopy { min-width: 0; }
+.ordenCopy strong { display: block; overflow: hidden; color: #fff; font-size: 11px; font-weight: 720; text-overflow: ellipsis; white-space: nowrap; }
+.ordenCopy small { display: block; overflow: hidden; margin-top: 3px; color: #9da09c; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+
+.ordenHeaderLista { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid rgba(10, 132, 255, .22); border-radius: 10px; background: linear-gradient(100deg, #10151c, #151a1f); }
+.ordenHeaderLista p { flex: 1; margin: 0; color: #cddcee; font-size: 10px; line-height: 1.4; }
+.ordenHeaderLista button { flex-shrink: 0; min-height: 36px; padding: 0 14px; border-radius: 999px; color: #080909; background: #f6f6f3; font-size: 10px; font-weight: 740; }
 
 .summaryPage { min-height: 100%; padding: 24px 0 28px; color: #f2f3f0; }
 .summaryEyebrow { color: #25cb98; font-size: 8px; font-weight: 800; letter-spacing: .1em; }

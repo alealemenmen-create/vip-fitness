@@ -7,7 +7,6 @@ import {
   Activity,
   ArrowLeft,
   Check,
-  ArrowDown,
   ArrowUp,
   ChevronLeft,
   ChevronRight,
@@ -77,6 +76,7 @@ import { ModalVideo } from "@/components/student/ModalVideo";
 import { ModalVideoCloudflare } from "@/components/student/ModalVideoCloudflare";
 import { VideoCloudflareAutomatico } from "@/components/student/VideoCloudflareAutomatico";
 import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
+import { OrdenSesionV2 } from "@/components/v2/OrdenSesionV2";
 import {
   CLAVE_ESCALA_VISUAL_V2,
   ESCALAS_VISUALES_V2,
@@ -348,6 +348,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [momentosRegistrados, setMomentosRegistrados] = useState<Record<string, boolean>>({});
   const [momentoVisible, setMomentoVisible] = useState<MomentoSesionAlejandro | null>(null);
   const [momentoParaResultado, setMomentoParaResultado] = useState<MomentoSesionAlejandro | null>(null);
+  const [modoOrdenar, setModoOrdenar] = useState(false);
+  const presionLargaRef = useRef<number | null>(null);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
   const [avisoBorrador, setAvisoBorrador] = useState<string | null>(null);
   const [borradorCargado, setBorradorCargado] = useState(false);
@@ -796,19 +798,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     });
   };
 
-  const moverBloqueEjercicio = (ejercicioId: string, direccion: -1 | 1) => {
-    const bloques: EjercicioSesionV2[][] = [];
-    for (const ejercicio of EJERCICIOS) {
-      const ultimo = bloques.at(-1);
-      if (ejercicio.bloqueId && ultimo?.[0]?.bloqueId === ejercicio.bloqueId) ultimo.push(ejercicio);
-      else bloques.push([ejercicio]);
-    }
-    const bloqueIndice = bloques.findIndex((bloque) => bloque.some((ejercicio) => ejercicio.id === ejercicioId));
-    const destino = bloqueIndice + direccion;
-    if (bloqueIndice < 0 || destino < 0 || destino >= bloques.length) return;
-    const siguientesBloques = [...bloques];
-    [siguientesBloques[bloqueIndice], siguientesBloques[destino]] = [siguientesBloques[destino], siguientesBloques[bloqueIndice]];
-    const siguientes = siguientesBloques.flat();
+  const aplicarNuevoOrden = (siguientes: EjercicioSesionV2[]) => {
     const aplicarLocal = () => {
       setEjerciciosSesion(siguientes);
       setErrorPersonalizacion(null);
@@ -1061,6 +1051,28 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     });
   };
 
+  // Mantener presionado un ejercicio de la lista entra al modo ordenar
+  // (pedido de Alejandro: "pulsándolos... se levante... y ubicarlos donde
+  // yo quiera", directo en la lista principal, no solo en el panel).
+  // 400 ms: un mantenido de 3 s se siente lento para algo que se hace
+  // seguido durante el entrenamiento.
+  const iniciarPresionLarga = () => {
+    if (!personalizacionDisponible || sesion?.soloLectura) return;
+    cancelarPresionLarga();
+    presionLargaRef.current = window.setTimeout(() => {
+      setModoOrdenar(true);
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        try { navigator.vibrate(12); } catch { /* sin gesto directo previo, algunos navegadores lo bloquean */ }
+      }
+    }, 400);
+  };
+  const cancelarPresionLarga = () => {
+    if (presionLargaRef.current !== null) {
+      window.clearTimeout(presionLargaRef.current);
+      presionLargaRef.current = null;
+    }
+  };
+
   const cambiarUnidadPeso = (siguienteUnidad: UnidadPeso) => {
     if (siguienteUnidad === unidadPeso) return;
     setRegistro((actual) => Object.fromEntries(
@@ -1301,7 +1313,15 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         </section>
       ) : (
         <main className={styles.workoutList}>
-          {EJERCICIOS.map((ejercicio) => {
+          {modoOrdenar ? (
+            <>
+              <div className={styles.ordenHeaderLista}>
+                <p>Mantén presionado y arrastra. Los bloques (biserie, triserie, serie gigante) se mueven juntos.</p>
+                <button type="button" onClick={() => setModoOrdenar(false)}>Listo</button>
+              </div>
+              <OrdenSesionV2 ejercicios={EJERCICIOS} deshabilitado={personalizando} onReordenar={aplicarNuevoOrden} />
+            </>
+          ) : EJERCICIOS.map((ejercicio) => {
             const activa = ejercicio.id === ejercicioExpandidoId;
             const impulsoEjercicio = MOMENTOS_ALEJANDRO.find((momento) =>
               momento.ejercicioId === ejercicio.id && momentosVistos[momento.id]
@@ -1315,7 +1335,14 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                 setDescansoEnFoco(false);
               };
               return (
-                <article className={styles.compactExercise} key={ejercicio.id}>
+                <article
+                  className={styles.compactExercise}
+                  key={ejercicio.id}
+                  onPointerDown={iniciarPresionLarga}
+                  onPointerUp={cancelarPresionLarga}
+                  onPointerLeave={cancelarPresionLarga}
+                  onPointerCancel={cancelarPresionLarga}
+                >
                   <span className={styles.compactCode}>{ejercicio.codigo} SERIE</span>
                   <button type="button" className={styles.compactThumb} onClick={() => abrirFichaEjercicio(ejercicio)} aria-label={`Abrir ficha técnica de ${ejercicio.nombre}`}>
                     <ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="68px" loading="eager" /><i><Play size={12} fill="currentColor" /></i>
@@ -1328,7 +1355,14 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
               );
             }
             return (
-              <section className={styles.activeExercise} key={ejercicio.id}>
+              <section
+                className={styles.activeExercise}
+                key={ejercicio.id}
+                onPointerDown={iniciarPresionLarga}
+                onPointerUp={cancelarPresionLarga}
+                onPointerLeave={cancelarPresionLarga}
+                onPointerCancel={cancelarPresionLarga}
+              >
                 <button type="button" className={styles.seriesLabel} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)} aria-label={`Contraer ${ejercicio.nombre}`}>SERIE {ejercicio.codigo}<i aria-hidden="true">›››</i>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}</button>
                 <div className={styles.exerciseHeading}>
                   <button type="button" className={styles.exerciseMedia} onClick={() => abrirFichaEjercicio(ejercicio)} aria-label={`Abrir ficha técnica de ${ejercicio.nombre}`}><ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="70px" loading={ejercicio.codigo === "A" ? "eager" : "lazy"} /><i><Play size={17} fill="currentColor" /></i></button>
@@ -1429,7 +1463,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           personalizando={personalizando}
           errorPersonalizacion={errorPersonalizacion}
           onSustituir={aplicarSustitucion}
-          onMover={moverBloqueEjercicio}
+          onReordenar={aplicarNuevoOrden}
           guardarNota={(nota) => guardarNotaEjercicio(ejercicioActivo, nota)}
           cerrar={() => setPanel(null)}
         />
@@ -1645,7 +1679,7 @@ function PanelAuxiliar({
   personalizando,
   errorPersonalizacion,
   onSustituir,
-  onMover,
+  onReordenar,
   guardarNota,
   cerrar,
 }: {
@@ -1672,7 +1706,7 @@ function PanelAuxiliar({
   personalizando: boolean;
   errorPersonalizacion: string | null;
   onSustituir: (alternativa: AlternativaEjercicioV2) => void;
-  onMover: (ejercicioId: string, direccion: -1 | 1) => void;
+  onReordenar: (siguientes: EjercicioSesionV2[]) => void;
   guardarNota: (nota: string) => void;
   cerrar: () => void;
 }) {
@@ -1747,18 +1781,8 @@ function PanelAuxiliar({
         ) : null}
         {tipo === "reordenar" ? (
           <div className={styles.reorderPreview}>
-            <p className={styles.sheetCopy}>Mueve ejercicios completos. Las biseries, trisets y series gigantes permanecen unidas.</p>
-            {ejerciciosSesion.map((item, indice) => {
-              const esInicioBloque = !item.bloqueId || ejerciciosSesion[indice - 1]?.bloqueId !== item.bloqueId;
-              const esFinBloque = !item.bloqueId || ejerciciosSesion[indice + 1]?.bloqueId !== item.bloqueId;
-              return (
-                <div key={item.id} data-blocked={!esInicioBloque && !esFinBloque}>
-                  <span><b>{item.codigo}</b><strong>{item.nombre}</strong>{item.tecnica ? <small>{item.tecnica}</small> : null}</span>
-                  {esInicioBloque ? <button type="button" disabled={personalizando || indice === 0} onClick={() => onMover(item.id, -1)} aria-label={`Subir ${item.nombre}`}><ArrowUp size={16} /></button> : <i />}
-                  {esFinBloque ? <button type="button" disabled={personalizando || indice === ejerciciosSesion.length - 1} onClick={() => onMover(item.id, 1)} aria-label={`Bajar ${item.nombre}`}><ArrowDown size={16} /></button> : <i />}
-                </div>
-              );
-            })}
+            <p className={styles.sheetCopy}>Mantén presionado y arrastra. Las biseries, trisets y series gigantes se mueven juntas.</p>
+            <OrdenSesionV2 ejercicios={ejerciciosSesion} deshabilitado={personalizando} onReordenar={onReordenar} />
             {errorPersonalizacion ? <p className={styles.personalizationError} role="alert">{errorPersonalizacion}</p> : null}
           </div>
         ) : null}
