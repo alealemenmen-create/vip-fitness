@@ -232,7 +232,7 @@
 .inlineRest button { min-height: 38px; border-radius: 7px; color: #f4f5f2; background: #252627; font-size: 11px; }
 .inlineRest .inlineRestTime { display: grid; min-height: 38px; place-items: center; border-radius: 7px; color: #fff; background: transparent; font-size: 11px; font-weight: 720; }
 
-.compactExercise { position: relative; display: grid; width: 100%; min-height: var(--compact-row-height); grid-template-columns: var(--compact-photo-width) minmax(0, 1fr) auto auto; align-items: center; gap: var(--exercise-gap); color: #fff; text-align: left; }
+.compactExercise { position: relative; display: grid; width: 100%; min-height: var(--compact-row-height); grid-template-columns: var(--compact-photo-width) minmax(0, 1fr) auto; align-items: center; gap: var(--exercise-gap); color: #fff; text-align: left; }
 .compactCode { position: absolute; top: 10px; left: 0; color: #d1d4d0; font-size: var(--series-label-size); font-weight: 820; letter-spacing: .065em; }
 .compactThumb { position: relative; width: var(--compact-photo-width); height: var(--compact-photo-height); overflow: hidden; margin-top: 22px; border-radius: 8px; background: #151616; }
 .compactThumb img { object-fit: cover; filter: saturate(.68) brightness(.76); }
@@ -242,15 +242,16 @@
 .compactCopy small { display: block; margin-top: 7px; color: #d8dbd7; font-size: var(--compact-meta-size); font-weight: 590; }
 .compactExercise > em { margin-top: 19px; color: #c49a42; font-size: 8px; font-style: normal; }
 .asaTarjeta {
-  grid-column: -1;
+  position: absolute;
+  top: 0;
+  right: 0;
   display: grid;
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
+  width: 34px;
+  height: 22px;
   place-items: center;
-  color: #6f7370;
+  color: #45473f;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   touch-action: none;
   -webkit-touch-callout: none;
   cursor: grab;
@@ -379,6 +380,7 @@
 .finishActions { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .finishActions button { display: flex; min-height: 46px; align-items: center; justify-content: center; border-radius: 8px; font-size: 9px; font-weight: 720; text-align: center; }
 .finishActions > button { color: #080909; background: #f5f5f2; }
+.finishActions > button.tertiaryAction { color: #c7cac6; background: transparent; border: 1px solid rgba(255, 255, 255, .12); }
 .finishActions form button { width: 100%; border: 1px solid rgba(255, 126, 108, .2); color: #ffad9f; background: rgba(91, 31, 24, .3); }
 
 .auxSheet { padding-top: 10px; }
@@ -532,7 +534,7 @@
   .actionChips { margin-inline: -10px; padding-inline: 10px; }
   .impulsoNotice { width: calc(100% - 20px); margin-inline: 10px; }
   .impulsoOptions { grid-template-columns: 1fr; }
-  .compactExercise { grid-template-columns: 66px minmax(0, 1fr) auto auto; gap: 9px; }
+  .compactExercise { grid-template-columns: 66px minmax(0, 1fr) auto; gap: 9px; }
   .compactThumb { width: 66px; }
 }
 

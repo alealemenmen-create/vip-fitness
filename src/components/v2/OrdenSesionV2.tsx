@@ -5,7 +5,7 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   closestCenter,
   useSensor,
@@ -39,15 +39,23 @@ export function agruparEnBloques(ejercicios: EjercicioSesionV2[]): EjercicioSesi
 }
 
 /** Mismos sensores en el panel "Orden de la sesión" y en el arrastre
- * directo sobre la lista principal -- un mantenido corto (400 ms, no los
- * 3 s pedidos textualmente: se siente lento) activa el arrastre táctil;
- * el mouse activa con una distancia mínima; el teclado sigue moviendo el
- * bloque enfocado con las flechas (dnd-kit KeyboardSensor), como
- * alternativa accesible a un gesto que por naturaleza es solo táctil. */
+ * directo sobre la lista principal -- un mantenido de 1.5 s activa el
+ * arrastre táctil (pedido explícito de Alejandro después de probar los
+ * 400 ms: el asa quedaba del lado que más toca la mano derecha y el gesto
+ * se disparaba sin querer). Antes se combinaba `TouchSensor` con
+ * `PointerSensor` para el mouse, pero `PointerSensor` también reacciona al
+ * dedo (los navegadores emiten `pointerdown` en touch) y con solo 6px de
+ * movimiento -- sin esperar nada -- así que le ganaba la carrera al
+ * `TouchSensor` y el retraso quedaba sin efecto en el celular real. Se
+ * cambia a `MouseSensor`, que sólo escucha `mousedown` real, para que el
+ * dedo dependa exclusivamente del retraso de `TouchSensor`. El teclado
+ * sigue moviendo el bloque enfocado con las flechas (dnd-kit
+ * KeyboardSensor), como alternativa accesible a un gesto que por
+ * naturaleza es solo táctil. */
 export function useSensoresOrden() {
   return useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 400, tolerance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 1500, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 }
@@ -143,7 +151,7 @@ export function AsaArrastre() {
   if (!contexto) return null;
   return (
     <button type="button" className={styles.asaTarjeta} aria-label="Mantén presionado y arrastra para reordenar" {...contexto.attributes} {...contexto.listeners}>
-      <GripVertical size={18} />
+      <GripVertical size={13} />
     </button>
   );
 }

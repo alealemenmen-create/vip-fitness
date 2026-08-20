@@ -41,6 +41,11 @@ import {
 } from "@/lib/entrenamiento/borrador-sesion-v2";
 import { reconciliarDuracionSesionSegundos } from "@/lib/entrenamiento/duracion-sesion";
 import {
+  consumirSalidaTemporalSesionV2,
+  marcarSalidaTemporalSesionV2,
+  UMBRAL_AUSENCIA_MS,
+} from "@/lib/entrenamiento/salida-temporal-sesion-v2";
+import {
   ajustarFinDescanso,
   claveDescansoSesion,
   destinoAlAvanzarSerieCompletada,
@@ -335,6 +340,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   ));
   const [comentarioSesion, setComentarioSesion] = useState(sesion?.comentarioInicial ?? "");
   const [confirmarSalida, setConfirmarSalida] = useState(false);
+  const [avisoRegresoTardio, setAvisoRegresoTardio] = useState(false);
   const [registrada, setRegistrada] = useState(false);
   const [temporizadorAutomatico, setTemporizadorAutomatico] = useState(sesion?.temporizadorAutomaticoInicial ?? true);
   const [sonidoDescansoActivo, setSonidoDescansoActivo] = useState(true);
@@ -490,6 +496,19 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         window.localStorage.removeItem(clave);
       }
       setBorradorCargado(true);
+    });
+    return () => window.cancelAnimationFrame(cuadro);
+  }, [sesion]);
+
+  // Si el alumno usó "Salir un momento" (por ejemplo, para anotar algo en
+  // Nutrición) y tardó 5 minutos o más en volver, se le fuerza a elegir en
+  // vez de retomar en silencio -- puede haber pasado mucho rato entrenando
+  // "de fondo" sin darse cuenta. Si volvió antes, sigue como si nada.
+  useEffect(() => {
+    if (!sesion?.real || sesion.soloLectura) return;
+    const cuadro = window.requestAnimationFrame(() => {
+      const ausenciaMs = consumirSalidaTemporalSesionV2(sesion.id);
+      if (ausenciaMs !== null && ausenciaMs >= UMBRAL_AUSENCIA_MS) setAvisoRegresoTardio(true);
     });
     return () => window.cancelAnimationFrame(cuadro);
   }, [sesion]);
@@ -1139,6 +1158,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const registrarEntrenamiento = () => {
     if (!sesion?.real) {
       setConfirmarSalida(false);
+      setAvisoRegresoTardio(false);
       setRegistrada(true);
       return;
     }
@@ -1151,12 +1171,23 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         if (!resultado.error) {
           window.localStorage.removeItem(claveBorradorSesionV2(sesion.id));
           setConfirmarSalida(false);
+          setAvisoRegresoTardio(false);
           setRegistrada(true);
         }
       } catch {
         setErrorGuardado("No pudimos cerrar la sesión. Tu progreso sigue protegido en este dispositivo; vuelve a intentarlo con conexión.");
       }
     });
+  };
+
+  /** El progreso ya queda guardado (borrador local + servidor por cada
+   * serie), así que "salir un momento" sólo necesita marcar cuándo se fue y
+   * mandar al alumno a Nutrición -- ahí puede volver por la barra inferior,
+   * que en esta pantalla inmersiva no se ve. */
+  const salirUnMomento = () => {
+    if (sesion?.real) marcarSalidaTemporalSesionV2(sesion.id);
+    setConfirmarSalida(false);
+    router.push("/portal-v2/nutricion");
   };
 
   const alternarPausaSesion = () => {
@@ -1530,6 +1561,27 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             {errorGuardado ? <p role="alert">{errorGuardado}</p> : null}
             <div className={styles.finishActions}>
               <button type="button" disabled={guardando || sesion?.soloLectura} onClick={registrarEntrenamiento}>{guardando ? "Guardando…" : "Registrar entrenamiento"}</button>
+              <button type="button" className={styles.tertiaryAction} disabled={guardando} onClick={salirUnMomento}>Salir un momento</button>
+              <form action={cancelarSesionEnCurso} onSubmit={() => {
+                if (sesion?.real) window.localStorage.removeItem(claveBorradorSesionV2(sesion.id));
+              }}>
+                <input type="hidden" name="sesion_id" value={sesion?.id ?? ""} />
+                <input type="hidden" name="origen_v2" value="true" />
+                <button type="submit" disabled={guardando || !sesion?.real}>Salir y descartar</button>
+              </form>
+            </div>
+          </section>
+        </div>
+      ) : null}
+      {avisoRegresoTardio ? (
+        <div className={styles.sheetBackdrop} role="presentation">
+          <section className={styles.finishSheet} role="alertdialog" aria-modal="true" aria-label="Volviste después de un rato">
+            <h2>¿Seguimos?</h2>
+            <p>Pasaron varios minutos desde que saliste. Elige si retomas esta serie, cierras el entrenamiento ahora o lo descartas.</p>
+            {errorGuardado ? <p role="alert">{errorGuardado}</p> : null}
+            <div className={styles.finishActions}>
+              <button type="button" onClick={() => setAvisoRegresoTardio(false)}>Volver a mi ejercicio</button>
+              <button type="button" className={styles.tertiaryAction} disabled={guardando || sesion?.soloLectura} onClick={registrarEntrenamiento}>{guardando ? "Guardando…" : "Registrar entrenamiento"}</button>
               <form action={cancelarSesionEnCurso} onSubmit={() => {
                 if (sesion?.real) window.localStorage.removeItem(claveBorradorSesionV2(sesion.id));
               }}>

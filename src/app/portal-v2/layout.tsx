@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AvisoSesionPausadaV2 } from "@/components/v2/AvisoSesionPausadaV2";
 import { BottomNavV2 } from "@/components/v2/BottomNavV2";
 import { EstadoConexionV2 } from "@/components/v2/EstadoConexionV2";
 import { VipSplash } from "@/components/v2/VipSplash";
@@ -34,6 +35,7 @@ export default async function PortalV2Layout({ children }: { children: React.Rea
       <VipSplash />
       <EstadoConexionV2 />
       <main className={styles.content}>{children}</main>
+      <AvisoSesionPausadaV2 />
       <BottomNavV2 />
     </div>
   );

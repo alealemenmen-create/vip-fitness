@@ -63,6 +63,33 @@
 .connectionNoticeRecovered span { color: #bdcec8; }
 @keyframes connectionNoticeIn { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
+.pausedSessionNotice {
+  position: fixed;
+  right: 0;
+  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  z-index: 49;
+  display: grid;
+  width: min(calc(100% - 24px), 430px);
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(206, 244, 74, .2);
+  border-radius: 14px;
+  color: #f7f8f5;
+  background: rgba(20, 23, 15, .95);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .55);
+  backdrop-filter: blur(18px);
+  text-decoration: none;
+  animation: connectionNoticeIn 180ms ease-out both;
+}
+.pausedSessionNotice > svg { justify-self: center; color: #cef44a; }
+.pausedSessionNotice strong, .pausedSessionNotice span { display: block; }
+.pausedSessionNotice strong { font-size: 12px; font-weight: 760; color: #f7f8f5; }
+.pausedSessionNotice span { margin-top: 2px; color: #c3c6c1; font-size: 10px; line-height: 1.35; }
+
 .v2Loading { display: grid; gap: 12px; padding-top: 8px; }
 .v2Loading header { display: grid; min-height: 52px; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: center; gap: 11px; }
 .v2Loading header > i, .v2Loading header div span, .v2Loading header div b, .v2LoadingDial i, .v2LoadingHero i, .v2LoadingHero span, .v2LoadingCards i { display: block; border-radius: 9px; background: linear-gradient(100deg, #151616 24%, #252726 42%, #151616 61%); background-size: 220% 100%; animation: v2LoadingShimmer 1.25s ease-in-out infinite; }
