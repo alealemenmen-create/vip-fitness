@@ -192,7 +192,26 @@
 .compactCopy strong { display: block; overflow: hidden; color: #fff; font-size: var(--compact-title-size); font-weight: 790; text-overflow: ellipsis; white-space: nowrap; }
 .compactCopy small { display: block; margin-top: 7px; color: #d8dbd7; font-size: var(--compact-meta-size); font-weight: 590; }
 .compactExercise > em { margin-top: 19px; color: #c49a42; font-size: 8px; font-style: normal; }
-.videoViewButton { display: flex; min-height: 38px; align-items: center; gap: 6px; margin: 6px 0 5px auto; padding: 0 14px; border: 1px solid #393b3a; border-radius: 999px; color: #eceeeb; background: linear-gradient(100deg, #272828, #151616); font-size: 10px; }
+.videoViewButton {
+  position: fixed;
+  right: max(14px, calc((100vw - 460px) / 2 + 14px));
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px) + 12px);
+  z-index: 55;
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(23, 24, 24, .92);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .45);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  font-size: 10px;
+  font-weight: 720;
+}
 
 .exerciseDetail { overflow: hidden; margin: 0 -14px; padding-bottom: 34px; background: #050606; }
 .exerciseDetailBack { position: fixed; top: calc(72px + env(safe-area-inset-top, 0px)); left: max(14px, calc((100vw - 460px) / 2 + 14px)); z-index: 45; display: flex; min-height: 38px; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px; color: #fff; background: rgba(11, 12, 12, .72); box-shadow: 0 7px 22px rgba(0, 0, 0, .35); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-size: 11px; font-weight: 720; }

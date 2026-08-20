@@ -1354,9 +1354,12 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
               </section>
             );
           })}
-          <button type="button" className={styles.videoViewButton} onClick={abrirVistaVideo}><ListVideo size={14} /> Vista de video</button>
         </main>
       )}
+
+      {!fichaEjercicio && vista === "lista" && !sesion?.soloLectura ? (
+        <button type="button" className={styles.videoViewButton} onClick={abrirVistaVideo}><ListVideo size={14} /> Vista de video</button>
+      ) : null}
 
       {!fichaEjercicio && vista !== "video" && (sesion?.soloLectura ? (
         <nav className={styles.sessionControls} aria-label="Controles del registro">
