@@ -333,8 +333,18 @@ export async function crearMiPerfilAlumno(): Promise<void> {
 
 /** Entra en modo "ver como alumno" (solo lectura) sobre otro alumno —
  * guarda su id en una cookie de corta duración que requireAlumno() lee. */
+// Cookie aparte de COOKIE_VISTA_ALUMNO -- guarda el id de la fila de
+// auditoría (accesos_vista_alumno) que hay que cerrar al salir, para no
+// tener que adivinar "la más reciente sin cerrar" (ambiguo con varias
+// pestañas/entrenadores). No es httpOnly-crítica por sí sola: solo apunta a
+// una fila que ya está protegida por RLS a nombre del propio entrenador.
+const COOKIE_VISTA_ALUMNO_ACCESO_ID = "vista_alumno_acceso_id";
+
+/** "Ver como alumno" expone fotos de progreso, notas y datos personales —
+ * queda un registro de quién entró, a quién y cuándo (migración 0117,
+ * bloque 15.4/16 del handoff). Solo el admin puede leer esta tabla. */
 export async function entrarComoAlumno(formData: FormData): Promise<void> {
-  await requireRol(["entrenador", "admin"]);
+  const sesion = await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
 
   const alumnoId = String(formData.get("alumno_id") || "");
@@ -346,6 +356,12 @@ export async function entrarComoAlumno(formData: FormData): Promise<void> {
     .maybeSingle();
 
   if (!alumno) return;
+
+  const { data: acceso } = await supabase
+    .from("accesos_vista_alumno")
+    .insert({ entrenador_id: sesion.userId, alumno_id: alumnoId })
+    .select("id")
+    .single();
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_VISTA_ALUMNO, alumnoId, {
@@ -361,15 +377,36 @@ export async function entrarComoAlumno(formData: FormData): Promise<void> {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });
+  if (acceso) {
+    cookieStore.set(COOKIE_VISTA_ALUMNO_ACCESO_ID, acceso.id, {
+      httpOnly: true,
+      maxAge: 60 * 60 * 8,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+  }
 
   redirect("/alumno/inicio");
 }
 
-/** Sale del modo "ver como alumno" y vuelve al panel del alumno visitado. */
+/** Sale del modo "ver como alumno" y vuelve al panel del alumno visitado.
+ * Cierra la fila de auditoría abierta en `entrarComoAlumno` -- si la cookie
+ * del acceso no está (expiró, sesión vieja de antes de la migración 0117),
+ * no hay nada que cerrar y sigue igual que antes. */
 export async function salirDeVistaAlumno(): Promise<void> {
   const cookieStore = await cookies();
   const alumnoId = cookieStore.get(COOKIE_VISTA_ALUMNO)?.value;
+  const accesoId = cookieStore.get(COOKIE_VISTA_ALUMNO_ACCESO_ID)?.value;
+  if (accesoId) {
+    const supabase = await createClient();
+    await supabase
+      .from("accesos_vista_alumno")
+      .update({ finalizado_en: new Date().toISOString() })
+      .eq("id", accesoId);
+  }
   cookieStore.delete(COOKIE_VISTA_ALUMNO);
+  cookieStore.delete(COOKIE_VISTA_ALUMNO_ACCESO_ID);
   redirect(alumnoId ? `/admin/alumnos/${alumnoId}` : "/admin/alumnos");
 }
 

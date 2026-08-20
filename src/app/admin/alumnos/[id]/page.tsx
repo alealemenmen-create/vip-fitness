@@ -66,6 +66,7 @@ export default async function AlumnoDetallePage({
     movimientosPuntos,
     ficha,
     panelIndicaciones,
+    { data: accesosVistaAlumno },
   ] = await Promise.all([
     supabase.from("perfiles").select("nombre").eq("id", alumnoId).single(),
     supabase
@@ -92,6 +93,15 @@ export default async function AlumnoDetallePage({
     obtenerMovimientosAlumno(alumnoId, 1000),
     leerFicha(supabase as unknown as SupabaseClient, alumnoId),
     obtenerPanelIndicacionesAle(supabase, alumnoId),
+    // Auditoría de "ver como alumno" (migración 0117) -- RLS solo deja leer
+    // esto al admin, así que para un entrenador esta consulta simplemente
+    // vuelve vacía sin necesidad de un `if` acá.
+    supabase
+      .from("accesos_vista_alumno")
+      .select("id, iniciado_en, finalizado_en, entrenador:perfiles!accesos_vista_alumno_entrenador_id_fkey(nombre)")
+      .eq("alumno_id", alumnoId)
+      .order("iniciado_en", { ascending: false })
+      .limit(10),
   ]);
 
   // Marca como vistas las notas que generó la IA para este alumno, ahora que
@@ -145,6 +155,26 @@ export default async function AlumnoDetallePage({
                   alumnoId={alumnoId}
                   habilitado={alumnoPerfil?.portal_v2_habilitado === true}
                 />
+              ) : null}
+              {sesion.rol === "admin" && accesosVistaAlumno && accesosVistaAlumno.length > 0 ? (
+                <Card padding="p-3">
+                  <p className="text-[10px] mb-2 text-text-tertiary">ÚLTIMOS ACCESOS COMO ALUMNO</p>
+                  <ul className="space-y-1.5 text-caption text-text-secondary">
+                    {accesosVistaAlumno.map((acceso) => {
+                      const entrenadorNombre = Array.isArray(acceso.entrenador)
+                        ? acceso.entrenador[0]?.nombre
+                        : acceso.entrenador?.nombre;
+                      const formatear = (iso: string) =>
+                        new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Santiago" }).format(new Date(iso));
+                      return (
+                        <li key={acceso.id}>
+                          {entrenadorNombre ?? "Entrenador"} · entró {formatear(acceso.iniciado_en)}
+                          {acceso.finalizado_en ? ` · salió ${formatear(acceso.finalizado_en)}` : " · sesión sin cerrar"}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Card>
               ) : null}
               {indicador && (
                 <Card padding="p-3">

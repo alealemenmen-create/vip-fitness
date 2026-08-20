@@ -308,6 +308,43 @@ export interface Database {
           },
         ];
       };
+      // 0117_accesos_vista_alumno.sql — auditoría de "ver como alumno":
+      // solo el admin puede leer esta tabla (RLS), entrenador/admin solo
+      // pueden insertar/actualizar su propia fila.
+      accesos_vista_alumno: {
+        Row: {
+          id: string;
+          entrenador_id: string;
+          alumno_id: string;
+          iniciado_en: string;
+          finalizado_en: string | null;
+        };
+        Insert: {
+          entrenador_id: string;
+          alumno_id: string;
+          iniciado_en?: string;
+          finalizado_en?: string | null;
+        };
+        Update: {
+          finalizado_en?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "accesos_vista_alumno_alumno_id_fkey";
+            columns: ["alumno_id"];
+            isOneToOne: false;
+            referencedRelation: "perfiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "accesos_vista_alumno_entrenador_id_fkey";
+            columns: ["entrenador_id"];
+            isOneToOne: false;
+            referencedRelation: "perfiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       // 0018_anuncios.sql, 0019_anuncio_importante.sql
       anuncios: {
         Row: {
