@@ -409,6 +409,9 @@
 .impulsoMoment > span { margin-top: 14px; color: #d3d6cf; font-size: 17px; font-weight: 620; line-height: 1.4; }
 .impulsoMoment > button { width: 100%; min-height: 58px; margin-top: 28px; border-radius: 14px; color: #0a0c06; background: #d2f450; font-size: 18px; font-weight: 900; letter-spacing: .08em; }
 .impulsoMoment > .impulsoSafetyExit { min-height: 42px; margin-top: 10px; color: #c4c6c1; background: transparent; font-size: 14px; font-weight: 650; letter-spacing: 0; }
+.impulsoResultadoOpciones { display: grid; width: 100%; gap: 8px; margin-top: 24px; }
+.impulsoResultadoOpciones button { min-height: 46px; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 12px; color: #eef0ea; background: #1c1e14; font-size: 13px; font-weight: 700; }
+.impulsoResultadoOpciones button:last-child { border-color: rgba(255, 126, 108, .28); color: #ffad9f; }
 .exerciseNotes { display: grid; gap: 8px; margin-top: 17px; }
 .exerciseNotes > span { color: #a9aca8; font-size: 9px; }
 .exerciseNotes textarea { min-height: 104px; padding: 12px; border: 1px solid #303230; border-radius: 9px; color: #fff; background: #0e0f0f; font: inherit; font-size: 11px; resize: vertical; outline: none; }

@@ -166,6 +166,15 @@ type PanelSesion = "consejo" | "historial" | "notas" | "ajustes" | "informacion"
 type VistaSesion = "lista" | "video" | "descanso";
 type UnidadPeso = "kg" | "lb";
 type PausaTecnica = { clave: string; segundos: number; pasoSiguiente: number };
+type DificultadImpulsoVIP = "muy_facil" | "facil" | "justo" | "dificil" | "fallo";
+
+const OPCIONES_DIFICULTAD_IMPULSO: { valor: DificultadImpulsoVIP; etiqueta: string }[] = [
+  { valor: "muy_facil", etiqueta: "Estuvo fácil" },
+  { valor: "facil", etiqueta: "Podía hacer más" },
+  { valor: "justo", etiqueta: "Estuvo justo" },
+  { valor: "dificil", etiqueta: "Estuvo muy difícil" },
+  { valor: "fallo", etiqueta: "No pude completarlo" },
+];
 
 const EJERCICIOS_DEMO: EjercicioSesionV2[] = [
   { id: "sentadilla-smith", codigo: "A", nombre: "Sentadilla Smith", repeticiones: [10, 10, 10, 10], descanso: 60, foto: "/v2/piernas.webp", equipo: "Máquina Smith", grupo: "Cuádriceps · glúteos" },
@@ -338,6 +347,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [momentosLogrados, setMomentosLogrados] = useState<Record<string, boolean>>({});
   const [momentosRegistrados, setMomentosRegistrados] = useState<Record<string, boolean>>({});
   const [momentoVisible, setMomentoVisible] = useState<MomentoSesionAlejandro | null>(null);
+  const [momentoParaResultado, setMomentoParaResultado] = useState<MomentoSesionAlejandro | null>(null);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
   const [avisoBorrador, setAvisoBorrador] = useState<string | null>(null);
   const [borradorCargado, setBorradorCargado] = useState(false);
@@ -694,19 +704,32 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       try {
         const resultado = await guardarSesionV2(payload);
         setErrorGuardado(resultado.error);
-        if (!resultado.error && momentoCompletado) {
-          const resolucion = await resolverIntervencionAutomaticaV2(momentoCompletado.id);
-          if (resolucion.ok) {
-            setMomentosRegistrados((actuales) => ({ ...actuales, [momentoCompletado.id]: true }));
-            if (resolucion.verificada) {
-              setMomentosLogrados((actuales) => ({ ...actuales, [momentoCompletado.id]: true }));
-            }
-          } else if (resolucion.error) {
-            setErrorGuardado(`La serie quedó guardada, pero Impulso VIP no pudo confirmar el reto: ${resolucion.error}`);
-          }
-        }
+        // No se auto-resuelve acá: se le pregunta al alumno cómo le fue en
+        // esta serie puntual (pedido de Alejandro) y recién con su respuesta
+        // se llama a resolverIntervencionAutomaticaV2 — ver responderResultadoImpulso.
+        if (!resultado.error && momentoCompletado) setMomentoParaResultado(momentoCompletado);
       } catch {
         setErrorGuardado("No pudimos sincronizar esta serie. Quedó protegida en este dispositivo para reintentarla.");
+      }
+    });
+  };
+
+  const responderResultadoImpulso = (momento: MomentoSesionAlejandro, dificultad: DificultadImpulsoVIP) => {
+    setMomentoParaResultado(null);
+    const resultado = dificultad === "fallo" ? "no_lograda" : "lograda";
+    iniciarGuardado(async () => {
+      try {
+        const resolucion = await resolverIntervencionAutomaticaV2(momento.id, resultado, dificultad);
+        if (resolucion.ok) {
+          setMomentosRegistrados((actuales) => ({ ...actuales, [momento.id]: true }));
+          if (resolucion.verificada) {
+            setMomentosLogrados((actuales) => ({ ...actuales, [momento.id]: true }));
+          }
+        } else if (resolucion.error) {
+          setErrorGuardado(`La serie quedó guardada, pero Impulso VIP no pudo confirmar el reto: ${resolucion.error}`);
+        }
+      } catch {
+        setErrorGuardado("La serie quedó guardada, pero no pudimos enviar tu respuesta. Intenta de nuevo desde Impulso VIP.");
       }
     });
   };
@@ -1445,6 +1468,23 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
               cambiarImpulsoAutomatico(false);
               setMomentoVisible(null);
             }}>Tengo una molestia</button>
+          </section>
+        </div>
+      ) : null}
+      {momentoParaResultado ? (
+        <div className={styles.impulsoMomentBackdrop} role="presentation">
+          <section className={styles.impulsoMoment} role="alertdialog" aria-modal="true" aria-labelledby="resultado-impulso-titulo">
+            <Zap size={28} fill="currentColor" aria-hidden="true" />
+            <p id="resultado-impulso-titulo">Impulso VIP</p>
+            <h2>¿Cómo te fue en esa serie?</h2>
+            <span>{momentoParaResultado.instruccion}</span>
+            <div className={styles.impulsoResultadoOpciones}>
+              {OPCIONES_DIFICULTAD_IMPULSO.map((opcion) => (
+                <button type="button" key={opcion.valor} onClick={() => responderResultadoImpulso(momentoParaResultado, opcion.valor)}>
+                  {opcion.etiqueta}
+                </button>
+              ))}
+            </div>
           </section>
         </div>
       ) : null}

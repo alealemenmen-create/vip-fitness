@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAlumno } from "@/lib/auth";
 import { refrescarRecomendacionesFaltantes } from "@/lib/impulso-vip/data";
 import type { MomentoAlertaImpulso } from "@/lib/supabase/types";
-import type { ResultadoIntervencionImpulso } from "@/lib/supabase/types";
+import type { DificultadPercibidaImpulso, ResultadoIntervencionImpulso } from "@/lib/supabase/types";
 import { calibrarCierreControlado } from "@/lib/impulso-vip/en-vivo";
 import { evaluarTecnicaIntensiva } from "@/lib/impulso-vip/elegibilidad";
 import type { TipoIntervencionImpulso } from "@/lib/supabase/types";
@@ -115,6 +115,8 @@ const RESULTADOS_INTERVENCION = new Set<ResultadoIntervencionImpulso>([
   "omitida",
   "omitida_molestia",
 ]);
+
+const DIFICULTADES_VALIDAS_INTERVENCION = new Set(["muy_facil", "facil", "justo", "dificil", "fallo"]);
 
 export type CalibrarIntervencionState = {
   error: string | null;
@@ -488,6 +490,13 @@ export async function resolverIntervencionEnVivo(
   const pesoDescargaRaw = String(formData.get("peso_descarga") || "").trim().replace(",", ".");
   const repsExtra = repsExtraRaw ? Number(repsExtraRaw) : null;
   const pesoDescarga = pesoDescargaRaw ? Number(pesoDescargaRaw) : null;
+  // Como te fue en ESTA serie puntual del reto -- distinto de
+  // `dificultad_ejercicio` en guardarUnEjercicio, que pregunta una sola vez
+  // por todo el ejercicio. Ninguna de las dos reemplaza a la otra.
+  const dificultadRaw = String(formData.get("dificultad") || "");
+  const dificultad: DificultadPercibidaImpulso | null = DIFICULTADES_VALIDAS_INTERVENCION.has(dificultadRaw)
+    ? (dificultadRaw as DificultadPercibidaImpulso)
+    : null;
   if ((repsExtra !== null && (!Number.isInteger(repsExtra) || repsExtra < 0 || repsExtra > 100))
       || (pesoDescarga !== null && (!Number.isFinite(pesoDescarga) || pesoDescarga < 0 || pesoDescarga > 1000))) {
     return { error: "Revisa los numeros de la tecnica.", ok: false, verificada: false };
@@ -524,6 +533,7 @@ export async function resolverIntervencionEnVivo(
       resultado_data: {
         repsExtra,
         pesoDescargaKg: pesoDescarga,
+        dificultad,
       },
       resuelta_en: new Date().toISOString(),
     })
@@ -549,17 +559,23 @@ export async function resolverIntervencionEnVivo(
 }
 
 /**
- * Adaptador de la sesión V2: no obliga al alumno a responder una encuesta.
- * La serie ya guardada aporta la evidencia; cuando una técnica exige datos
- * adicionales que la V2 todavía no captura, queda honestamente como declarada
- * y nunca se usa como éxito verificado para subir la intensidad futura.
+ * Adaptador de la sesión V2. La serie ya guardada aporta la evidencia
+ * numérica; cuando una técnica exige datos adicionales que la V2 todavía no
+ * captura (reps_extra, peso_descarga), queda honestamente como declarada y
+ * nunca se usa como éxito verificado para subir la intensidad futura.
+ *
+ * `dificultad` es la respuesta subjetiva a "¿cómo te fue?" en esa serie
+ * puntual (pedido de Alejandro, 2026-08-20) -- no reemplaza la verificación
+ * por datos, solo la acompaña como color adicional en `resultado_data`.
  */
 export async function resolverIntervencionAutomaticaV2(
   intervencionId: string,
-  resultado: "lograda" | "omitida_molestia" = "lograda",
+  resultado: "lograda" | "no_lograda" | "omitida_molestia" = "lograda",
+  dificultad?: DificultadPercibidaImpulso,
 ): Promise<ResolverIntervencionState> {
   const formData = new FormData();
   formData.set("intervencion_id", intervencionId);
   formData.set("resultado", resultado);
+  if (dificultad) formData.set("dificultad", dificultad);
   return resolverIntervencionEnVivo({ error: null, ok: false, verificada: false }, formData);
 }
