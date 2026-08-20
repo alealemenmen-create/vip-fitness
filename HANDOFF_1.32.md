@@ -62,36 +62,43 @@ solo lectura) — es interno de la plataforma.
 `vipfitness.cl` sigue sirviendo un build de hace ~15 horas hasta que se
 resuelva ese error de caché.
 
-## Lo único que falta
+## Causa real encontrada (no era caché de Vercel)
 
-Un redeploy de producción **sin usar la caché de build guardada**. Se
-intentó desde acá con `vercel --prod --force --yes` pero el entorno de
-Claude Code bloqueó el comando (control de seguridad automático, igual
-que bloqueó el primer intento de `git push` a `main` — ese sí se pudo
-reintentar y pasó, este no).
+Alejandro hizo el redeploy manual sin caché que se sugería más abajo, y
+**siguió fallando con el mismo error**. Eso descartó la teoría de la
+caché corrupta y llevó a revisar el código.
 
-Dos caminos, sin necesidad de que Alejandro entienda de Vercel:
+La causa real estaba en `next.config.ts`:
 
-1. **Redeploy manual (2 minutos, una sola vez)**: entrar a
-   vercel.com → proyecto `vip-fitness-center` → pestaña *Deployments* →
-   el despliegue más reciente de `main` → botón **"Redeploy"** →
-   destildar **"Use existing Build Cache"** → confirmar. Una vez que
-   ese primero salga bien, los próximos push normales deberían volver
-   a desplegar solos sin este problema (la caché rota queda
-   descartada).
-2. Si en algún momento el permiso del entorno se habilita para el
-   comando `vercel` (pasó una vez con `git push`, no se repitió con
-   `vercel`), Claude puede intentarlo de nuevo sin que Alejandro toque
-   nada.
+```ts
+deploymentId: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || process.env.NEXT_DEPLOYMENT_ID,
+```
+
+Este `deploymentId` personalizado (el SHA de git, recortado a 12
+caracteres) se agregó antes para que Next detecte cuando el celular de
+un alumno sigue con el JavaScript del despliegue anterior abierto, y
+fuerce una recarga completa en vez de mezclar versiones. El comentario
+original ya documentaba un incidente previo relacionado (el límite de
+32 caracteres de Vercel), pero no bastaba: **Vercel exige que ese ID
+coincida exactamente con su propio `NEXT_DEPLOYMENT_ID` interno**
+(`dpl_...`). Como en Vercel `VERCEL_GIT_COMMIT_SHA` siempre existe, la
+rama del SHA se usaba siempre y nunca coincidía con el ID real de
+Vercel → build rechazado, cada vez, caché o no caché.
+
+**Arreglo aplicado** (`next.config.ts`): se cambió a usar directamente
+`process.env.NEXT_DEPLOYMENT_ID` (el ID que Vercel ya provee solo, sin
+inventar uno propio). Logra el mismo objetivo — un ID distinto en cada
+despliegue, fuerza recarga completa si el celular quedó con JS viejo —
+sin chocar con la validación de Vercel. Verificado con `npm run build`
+local: compila limpio, igual que antes.
 
 ## Estado en este momento (2026-08-20)
 
-- GitHub `main`: actualizado, con toda la v2 y los 2 fixes de Impulso
-  VIP. ✅
+- GitHub `main`: actualizado, con toda la v2, los 2 fixes de Impulso
+  VIP, y el arreglo del `deploymentId`. ✅
 - Base de datos: todas las migraciones que necesita v2 ya aplicadas. ✅
 - Build de producción: probado en limpio, compila sin errores. ✅
-- `vipfitness.cl` en vivo: **todavía sirviendo la versión vieja** hasta
-  que se haga el redeploy sin caché descrito arriba. ⏳
+- `vipfitness.cl` en vivo: pendiente de un despliegue nuevo con este
+  arreglo — debería salir bien ahora que se corrigió la causa real. ⏳
 - El interruptor de "activar v2 por alumno" (`alumno_perfil.portal_v2_habilitado`)
-  funciona y ya está probado — el problema no es ese interruptor, es que
-  el despliegue de fondo no se actualizó.
+  funciona y ya está probado — nunca fue el problema.
