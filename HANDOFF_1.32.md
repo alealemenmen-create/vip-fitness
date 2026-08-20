@@ -133,6 +133,57 @@ Alejandro habilite con su botón**, exactamente como se pidió.
   `main` commit `a119645`. ✅
 - Acceso controlado por alumno: confirmado en el código, sin cambios
   respecto a lo diseñado — solo entra a v2 quien Alejandro habilita. ✅
-- Pendiente para la próxima sesión: probar el entrenamiento con un
-  alumno real o de prueba ya en producción, y revisar el panel nuevo
-  de administrador/alumno en vivo.
+
+## Sesión del mismo día, continuación — pendientes cerrados
+
+Después de publicar, Alejandro siguió probando en vivo y aparecieron
+varios ajustes puntuales, todos ya en producción:
+
+- **Asa de arrastre**: reposicionada arriba del nombre, después vuelta
+  al centro derecho pero casi transparente (pedido explícito, dos
+  vueltas de ajuste). Retraso táctil bajado de 400ms → 1.8s → 1s → 0.6s.
+- **Causa real encontrada** del "se dispara solo con un toque": no era
+  el retraso, era que `PointerSensor` (reacciona también al dedo, sin
+  esperar nada) le ganaba la carrera a `TouchSensor`. Se reemplazó por
+  `MouseSensor` (solo mouse real) — el dedo ahora depende
+  exclusivamente del retraso configurado.
+- **Vista de video**: etiqueta "SERIE X" de 7px a 12px, descripción
+  técnica duplicada (ya estaba en "Consejo") eliminada, botón de check
+  alineado en la misma línea que el nombre del ejercicio.
+- **Push de "se acabó el descanso"**: tope de 2 avisos por descanso
+  (antes podían llegar 3+). Causa: suscripciones push duplicadas por
+  dispositivo (confirmado en la tabla `push_suscripciones`) más
+  ausencia de límite en el código.
+- **Permiso del botón "Autorizar acceso a V2"**: exigía rol `admin`
+  exacto: en toda la base solo la cuenta de prueba QA tenía ese rol,
+  la cuenta real de Alejandro es `entrenador`. Ampliado al mismo
+  criterio que ya usan otras acciones de la ficha del alumno
+  (`entrenador` o `admin`). Confirmado en vivo que el botón ya aparece
+  con la cuenta real.
+- **Verificación pendiente de `HANDOFF_CLAUDE_PORTAL_V2_RESULTADO.md`
+  (bloque 10, "Para Codex") cerrada**: ese documento dejaba explícito
+  que nunca se había confirmado de punta a punta que soltar un
+  ejercicio arrastrado en otra posición reordenara de verdad y
+  mostrara el aviso "Orden actualizado" con "Deshacer". Se probó hoy
+  con un arrastre real (mouse, sensor `MouseSensor`): el orden cambió
+  correctamente, el aviso apareció, y "Deshacer" revirtió al estado
+  anterior tal cual. Sigue sin probarse con el dedo en un teléfono
+  físico real (fuera del alcance de las herramientas de este entorno),
+  pero el ciclo completo del código ya está confirmado.
+
+Todo lo anterior: build limpio, lint limpio, 602 tests pasando,
+publicado en `main` y confirmado con despliegue `Ready` en Vercel cada
+vez.
+
+## Pendiente real para la próxima sesión
+
+- Confirmar en un teléfono físico real (no emulador) que el gesto de
+  arrastrar se sienta bien con los últimos ajustes de posición/retraso.
+- Los pendientes explícitamente diferidos por Alejandro en
+  `HANDOFF_CLAUDE_PORTAL_V2_RESULTADO.md` siguen así: precarga de datos
+  del alumno (service worker con caché real, sesión aparte dedicada),
+  campos de nivel/fase/duración/equipamiento y reordenar días de la
+  rutina/programa (decisión de producto pendiente), resumen de
+  "Registrar entrenamiento" (pedido explícito de dejarlo para después).
+  Ninguno es un bug — son decisiones o trabajo grande a propósito
+  pospuestos, no hace falta tocarlos salvo que Alejandro los pida.
