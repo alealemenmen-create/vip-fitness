@@ -12,11 +12,24 @@ import styles from "./PortalV2.module.css";
  * padre empieza a enviarse, así que la pantalla de marca (mismo estilo
  * que `VipSplash`, el arranque de la app) aparece de inmediato en vez de
  * esperar a que el servidor responda. */
-export function BotonIniciarEntrenamientoV2({ texto }: { texto: string }) {
+export function BotonIniciarEntrenamientoV2({
+  texto,
+  className = styles.workoutFixedStart,
+  deshabilitado = false,
+}: {
+  texto: string;
+  /** Clase del botón -- las tres pantallas que arrancan una rutina usan
+   * estilos distintos (`workoutFixedStart` fijo abajo, `primaryButton`
+   * en la tarjeta de Inicio). */
+  className?: string;
+  /** Bloqueo real de negocio (plan pausado, cupo agotado, solo lectura)
+   * -- independiente de `pending`, que es sólo mientras se envía. */
+  deshabilitado?: boolean;
+}) {
   const { pending } = useFormStatus();
   return (
     <>
-      <button type="submit" className={styles.workoutFixedStart} disabled={pending} aria-busy={pending}>
+      <button type="submit" className={className} disabled={deshabilitado || pending} aria-busy={pending}>
         <Play size={16} fill="currentColor" /> {texto}
       </button>
       {pending ? (

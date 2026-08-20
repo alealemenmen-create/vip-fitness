@@ -21,6 +21,7 @@ import { iniciarRutinaDesdeCalendarioV2 } from "@/app/alumno/entrenar/actions";
 import type { DiaVistaPrevia, NumeroCalendario } from "@/app/alumno/entrenar/data";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { FOTOS_GRUPO_MUSCULAR } from "@/lib/grupos-musculares/fotos";
+import { BotonIniciarEntrenamientoV2 } from "@/components/v2/BotonIniciarEntrenamientoV2";
 import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
 import styles from "./PortalV2.module.css";
 
@@ -177,9 +178,11 @@ export function EntrenamientoInicioV2({
               <input type="hidden" name="dia_id" value={actual.dia.id} />
               <input type="hidden" name="rutina_id" value={rutinaId} />
               <input type="hidden" name="numero_calendario" value={actual.numero} />
-              <button type="submit" className={styles.primaryButton} disabled={bloqueado}>
-                <Play size={14} fill="currentColor" /> Iniciar día {actual.numero}
-              </button>
+              <BotonIniciarEntrenamientoV2
+                texto={`Iniciar día ${actual.numero}`}
+                className={styles.primaryButton}
+                deshabilitado={bloqueado}
+              />
             </form>
           )}
         </div>
