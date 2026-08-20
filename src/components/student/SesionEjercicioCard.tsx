@@ -43,6 +43,7 @@ import {
   limpiarDescanso,
 } from "@/lib/entrenamiento/descanso";
 import { resolverGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import { impulsoPendienteDeAvance } from "@/lib/entrenamiento/impulso-avance";
 import { etiquetaSeriesTecnica, tecnicaAplicaASerie } from "@/lib/entrenamiento/tecnica-series";
 import { explicacionTecnica } from "@/lib/entrenamiento/glosario-tecnicas";
 import { PUNTOS_VIP } from "@/lib/ranking/reglas";
@@ -2113,7 +2114,8 @@ export const SesionEjercicioCard = forwardRef<
   /** Por intervención: ¿ya se registró el resultado ("¿Cómo salió?")? Mientras
    * siga en `false` para una intervención con la serie objetivo ya hecha, la
    * encuesta genérica de fin de ejercicio no se abre sola ni avanza de
-   * ejercicio — ver `onResultado` en `MomentoImpulsoEnVivo`. */
+   * ejercicio — ver `onResultado` en `MomentoImpulsoEnVivo` y
+   * `impulsoPendienteDeAvance` en `lib/entrenamiento/impulso-avance.ts`. */
   const [resultadosImpulso, setResultadosImpulso] = useState<Record<string, boolean>>({});
   // Solo una recomendación APROBADA precarga algo — 'propuesta' (esperando
   // al entrenador) y 'bloqueada' (Regla E) nunca sugieren peso ni reps.
@@ -2256,13 +2258,22 @@ export const SesionEjercicioCard = forwardRef<
    * genérica de fin de ejercicio (`SelectorDificultad`) no debe abrirse sola
    * ni avanzar de ejercicio al responderla — su overlay (z-70) tapaba por
    * completo a la tarjeta de Impulso VIP (z-65), y el alumno terminaba en el
-   * ejercicio siguiente sin haber visto ni respondido esa pregunta. Bug
-   * real, 2026-08-20. */
-  const pendienteResultadoImpulso = intervencionesImpulso.some((intervencion) => {
-    if (intervencion.estado === "cancelada" || intervencion.tipo === "tempo_controlado") return false;
-    if (!seriesHechas.has(intervencion.serieObjetivo)) return false;
-    return !(resultadosImpulso[intervencion.id] ?? intervencion.estado === "resuelta");
-  });
+   * ejercicio siguiente sin haber visto ni respondido esa pregunta. Bug real,
+   * 2026-08-19/20 (corregido dos veces en paralelo, ver
+   * `impulso-avance.ts`).
+   *
+   * Delega en la función pura y testeada `impulsoPendienteDeAvance` en vez de
+   * repetir la condición acá: a diferencia de simplemente excluir todo
+   * `tipo === "tempo_controlado"`, `requiereResultado` distingue la nota de
+   * orientación automática (`origen === "metodo_ale"`, se cierra sola sin
+   * pedir resultado) de un mensaje PERSONAL de Ale con esa misma técnica
+   * (`origen` "personal_ale"/"preparada_por_ale"), que sí tiene formulario de
+   * resultado y sí debía bloquear el avance mientras siguiera sin responder. */
+  const pendienteResultadoImpulso = impulsoPendienteDeAvance(
+    intervencionesImpulso,
+    seriesHechas,
+    resultadosImpulso
+  );
   // La meta de reps de Impulso VIP (si hay una aprobada) manda por sobre el
   // techo del rango del PDF — mismo criterio que el peso: sin recomendación
   // aprobada, el comportamiento de precarga queda igual que siempre.

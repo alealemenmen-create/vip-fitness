@@ -88,7 +88,9 @@ export function MomentoImpulsoEnVivo({
    * (`SelectorDificultad`, z-70) no debe abrirse sola ni avanzar de
    * ejercicio: tapaba por completo a esta tarjeta (z-65) y el alumno nunca
    * llegaba a ver ni responder "¿Cómo salió?" salvo que retrocediera al
-   * ejercicio ya terminado. Bug real, 2026-08-20. */
+   * ejercicio ya terminado. Bug real, 2026-08-19/20 (corregido dos veces en
+   * paralelo), ver `impulsoPendienteDeAvance` en
+   * `lib/entrenamiento/impulso-avance.ts`. */
   onResultado?: (resuelto: boolean) => void;
 }) {
   const [state, action, pending] = useActionState(resolverIntervencionEnVivo, inicial);

@@ -47,6 +47,11 @@ const PESTANAS: { id: IdPestanaFicha; etiqueta: string; Icon: typeof Dumbbell }[
  * alcanza con leer el searchParam en el servidor y, en cada clic, reescribir
  * la URL con `history.replaceState`. Por defecto ambos quedan apagados, así
  * que `/admin/alumnos/[id]` sigue exactamente igual que antes.
+ *
+ * El link "Editar ficha" del banner de "viendo como alumno" (solo admin,
+ * `src/app/alumno/layout.tsx`) usa exactamente este mecanismo: llega con
+ * `?tab=plan` y `/admin/alumnos/[id]/page.tsx` ya lo valida y lo pasa como
+ * `pestanaInicial`.
  */
 export function FichaAlumnoTabs({
   secciones,

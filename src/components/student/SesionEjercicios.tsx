@@ -8,6 +8,7 @@ import { SesionEjercicioCard, type SesionEjercicioCardHandle } from "@/component
 import { SesionGrupoCard } from "@/components/student/SesionGrupoCard";
 import { ControlDescansoSesion } from "@/components/student/ControlDescansoSesion";
 import { resolverGrupoTecnica, tamanoGrupoTecnica } from "@/lib/entrenamiento/tecnica-grupo";
+import { ejercicioResueltoDeVerdad } from "@/lib/entrenamiento/impulso-avance";
 import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 import type { EjercicioSesion } from "@/app/alumno/entrenar/data";
 
@@ -117,7 +118,7 @@ export function SesionEjercicios({
    * en esos dos lugares por el resto de la sesión. Reportado en vivo,
    * 2026-08-17. */
   const grupoEstaCompleto = (grupo: EjercicioSesion[]) =>
-    grupo.every((ej) => ej.completado || gruposTerminadosEnVista.has(ej.sesionEjercicioId));
+    grupo.every((ej) => ejercicioResueltoDeVerdad(ej) || gruposTerminadosEnVista.has(ej.sesionEjercicioId));
   const indiceActivo = Math.max(
     0,
     grupos.findIndex((grupo) => !grupoEstaCompleto(grupo))
@@ -320,7 +321,7 @@ export function SesionEjercicios({
   // una, deliberadamente escondida detrás de varios toques.
   const grupoVisibleBloqueado = !gruposDesbloqueados.has(indiceVisible) && grupos
     .slice(0, indiceVisible)
-    .some((grupo) => grupo.some((ejercicio) => !ejercicio.completado && !gruposTerminadosEnVista.has(ejercicio.sesionEjercicioId)));
+    .some((grupo) => grupo.some((ejercicio) => !ejercicioResueltoDeVerdad(ejercicio) && !gruposTerminadosEnVista.has(ejercicio.sesionEjercicioId)));
 
   /* El RIR cambia de posición con el tamaño de pantalla y con el zoom. Las
      flechas del ejercicio individual se miden contra ese control real, no
