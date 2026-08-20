@@ -989,6 +989,17 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
   revalidatePath(`/alumno/entrenar/sesion/${sesionId}`);
   revalidatePath("/alumno/inicio");
   revalidatePath("/alumno/entrenar");
+  // V2 muestra su propio resumen inline (sección "registrada" de
+  // `SesionActivaV2`: título, duración, métricas, ejercicios y notas) en vez
+  // de depender de esta redirección heredada de V1. Sin este corte, el
+  // alumno nunca llegaba a verlo -- el redirect abandonaba la pantalla antes
+  // de que el cliente pudiera poner `registrada = true` después del
+  // `await guardarYFinalizarSesionV2(...)`.
+  if (origenV2) {
+    revalidatePath("/portal-v2/entrenamiento/sesion");
+    revalidatePath("/portal-v2/entrenamiento");
+    return;
+  }
   redirect(`${rutaEntrenamiento}?puntos=${puntos + puntosImpulso}`);
 }
 
