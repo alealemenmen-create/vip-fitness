@@ -126,6 +126,26 @@ describe("calcularRecomendacion — Regla B (subir peso)", () => {
     expect(r.regla).toBe("B_subir_peso");
     expect(r.pesoSugeridoKg).toBe(45);
   });
+
+  it("si la sesión más reciente no tiene peso cargado, busca hacia atrás en el historial en vez de dejar la sugerencia vacía", () => {
+    const sinPeso = sesion([
+      serie({ pesoKg: null, repsRealizadas: 12 }),
+      serie({ pesoKg: null, repsRealizadas: 12 }),
+    ]);
+    const conPeso = sesion([serie({ pesoKg: 30, repsRealizadas: 12 }), serie({ pesoKg: 30, repsRealizadas: 12 })]);
+    const r = calcularRecomendacion(input({ historialUltimasSesiones: [sinPeso, conPeso] }));
+    expect(r.regla).toBe("B_subir_peso");
+    expect(r.pesoSugeridoKg).toBe(32.5);
+  });
+
+  it("sin ningún peso en todo el historial disponible, no inventa un número y lo dice explícito en la justificación", () => {
+    const sinPeso1 = sesion([serie({ pesoKg: null, repsRealizadas: 12 })]);
+    const sinPeso2 = sesion([serie({ pesoKg: null, repsRealizadas: 12 })]);
+    const r = calcularRecomendacion(input({ historialUltimasSesiones: [sinPeso1, sinPeso2] }));
+    expect(r.regla).toBe("B_subir_peso");
+    expect(r.pesoSugeridoKg).toBeNull();
+    expect(r.justificacion).toMatch(/aún no registraste un peso/i);
+  });
 });
 
 describe("calcularRecomendacion — Regla C (mantener, resultado de respaldo)", () => {
@@ -168,6 +188,17 @@ describe("calcularRecomendacion — Regla D (reducir)", () => {
     const falla = sesion([serie({ repsRealizadas: 6 }), serie({ repsRealizadas: 5 })]);
     const r = calcularRecomendacion(input({ objetivo: "perdida_grasa", historialUltimasSesiones: [falla, falla] }));
     expect(r.regla).not.toBe("D_reducir");
+  });
+
+  it("sin ningún peso registrado nunca, no inventa una reducción desde 0kg", () => {
+    const falla = sesion([
+      serie({ pesoKg: null, repsRealizadas: 6 }),
+      serie({ pesoKg: null, repsRealizadas: 5 }),
+    ]);
+    const r = calcularRecomendacion(input({ historialUltimasSesiones: [falla, falla] }));
+    expect(r.regla).toBe("D_reducir");
+    expect(r.pesoSugeridoKg).toBeNull();
+    expect(r.justificacion).toMatch(/aún no hay un peso registrado/i);
   });
 });
 

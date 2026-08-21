@@ -120,6 +120,23 @@ function ultimoPesoTrabajado(sesion: SesionHistorial | undefined): number | null
   return Math.max(...pesos);
 }
 
+/**
+ * A diferencia de `ultimoPesoTrabajado`, no se limita a la sesión más
+ * reciente: si esa sesión no tiene ningún peso cargado (el alumno registró
+ * repeticiones pero dejó el peso en blanco), sigue buscando hacia atrás en
+ * el historial disponible (hasta 3 sesiones, ver `obtenerHistorialParaMotor`)
+ * hasta encontrar la última vez que sí se cargó un peso real. Sin esto, una
+ * sola sesión sin peso cargado dejaba la sugerencia en blanco para siempre,
+ * aunque hubiera un peso real una o dos sesiones más atrás.
+ */
+function ultimoPesoConocido(historial: SesionHistorial[]): number | null {
+  for (const sesion of historial) {
+    const peso = ultimoPesoTrabajado(sesion);
+    if (peso !== null) return peso;
+  }
+  return null;
+}
+
 function construir(
   regla: Recomendacion["regla"],
   args: {
@@ -176,7 +193,7 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
   }
 
   const pesoCorporal = esPesoCorporal(ultima);
-  const pesoActual = ultimoPesoTrabajado(ultima);
+  const pesoActual = ultimoPesoConocido(historial);
   // Sin lever de peso (ejercicio de peso corporal, o entrenador lo marcó como
   // 'manual'/'solo_reps'), la progresión solo puede jugar con repeticiones.
   const tipoEfectivo = pesoCorporal && cfg.tipoProgresion === "doble" ? "solo_reps" : cfg.tipoProgresion;
@@ -256,12 +273,18 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
     sesionesParaFallo.length >= toleranciaFallos &&
     sesionesParaFallo.every((s) => algunaFalloMinimo(s.series, rango.min));
   if (fallosConsecutivos) {
-    const base = pesoActual ?? 0;
+    // Sin un peso real de dónde partir (pesoCorporal, o nunca se cargó un
+    // peso en este ejercicio) no hay nada que reducir en un 92.5% -- eso
+    // daba antes un "sube a 0kg" sin sentido. Se deja pesoSugeridoKg en
+    // null igual que hace la Regla B en el mismo caso.
+    const sinPesoDeReferencia = pesoCorporal || pesoActual === null;
     return construir("D_reducir", {
-      peso: pesoCorporal ? null : redondearAIncremento(base * 0.925, cfg.incrementoKg),
+      peso: sinPesoDeReferencia ? null : redondearAIncremento((pesoActual as number) * 0.925, cfg.incrementoKg),
       rango,
       pesoCorporal,
-      justificacion: `No completaste el mínimo de ${rango.min} repeticiones en tus últimas sesiones. Bajamos un poco la carga para recuperar buena técnica.`,
+      justificacion: !pesoCorporal && pesoActual === null
+        ? `No completaste el mínimo de ${rango.min} repeticiones en tus últimas sesiones. Aún no hay un peso registrado en este ejercicio para poder ajustarlo -- anota el que uses hoy.`
+        : `No completaste el mínimo de ${rango.min} repeticiones en tus últimas sesiones. Bajamos un poco la carga para recuperar buena técnica.`,
       motivos: ["fallos_consecutivos_minimo"],
       metaTotalReps: input.seriesProgramadas * rango.min,
     });
@@ -303,7 +326,7 @@ export function calcularRecomendacion(input: CalcularRecomendacionInput): Recome
         pesoCorporal,
         justificacion:
           pesoActual === null
-            ? `Completaste el rango de ${rango.max} repeticiones en todas las series. Sube al siguiente peso disponible.`
+            ? `Completaste el rango de ${rango.max} repeticiones en todas las series. Aún no registraste un peso en este ejercicio -- anota el que uses hoy para que la próxima vez Ale te sugiera cuánto subir.`
             : `Completaste ${rango.max} repeticiones en todas las series con ${pesoActual}kg. Hoy debes subir a ${nuevoPeso}kg y volver a ${rango.min} repeticiones.`,
         motivos: ["completo_maximo", "sin_esfuerzo_alto"],
         metaTotalReps: input.seriesProgramadas * rango.min,
