@@ -180,7 +180,8 @@ export default async function SesionV2Page({
   const ejercicios = ejerciciosSesionOrdenados.map((ejercicio, indice) => {
     const slug = normalizarTecnicaSesion(ejercicio.tecnicaTipo);
     const encadenada = slug !== null && esTecnicaEncadenada(slug);
-    const familia = resolverGrupoTecnica(ejercicio.tecnicaTipo)?.etiqueta ?? "";
+    const grupoTecnica = resolverGrupoTecnica(ejercicio.tecnicaTipo);
+    const familia = grupoTecnica?.etiqueta ?? "";
     const bloqueId = bloquesTecnica.get(ejercicio.sesionEjercicioId);
 
     const sustitutoId = personalizacionPorId.get(ejercicio.sesionEjercicioId)?.ejercicio_sustituto_id;
@@ -239,6 +240,7 @@ export default async function SesionV2Page({
       instrucciones: [fichaVisual?.tecnica, ...(fichaVisual?.consejos ?? [])].filter((texto): texto is string => Boolean(texto?.trim())),
       erroresComunes: fichaVisual?.errores_comunes ?? [],
       tecnica: familia || ejercicio.tecnicaTipo || undefined,
+      tecnicaColor: grupoTecnica?.color,
       bloqueId,
       tecnicaSlug: encadenada ? slug as TecnicaEncadenadaSlug : undefined,
       tecnicaIndividualSlug: slug && !encadenada ? slug as TecnicaIndividualSlug : undefined,

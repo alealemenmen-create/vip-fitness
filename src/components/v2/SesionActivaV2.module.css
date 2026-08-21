@@ -156,6 +156,9 @@
 .ordenToastActions button:last-child:active { background: rgba(255, 255, 255, .08); }
 
 .workoutList { padding-top: 15px; }
+.exerciseBlock { position: relative; }
+.exerciseBlockChained { padding-left: 12px; }
+.exerciseBlockChained::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 3px; border-radius: 3px; background: var(--tecnica-color, #666); }
 .activeExercise { padding-bottom: 14px; }
 .seriesLabel { display: flex; width: 100%; min-height: 32px; align-items: center; gap: 7px; color: #fff; font-size: var(--series-label-size); font-weight: 840; letter-spacing: .065em; text-align: left; }
 .seriesLabel i { color: #505352; font-size: 18px; font-style: normal; letter-spacing: -4px; }
@@ -240,7 +243,7 @@
 .compactCopy { min-width: 0; align-self: stretch; margin-top: 22px; }
 .compactCopy strong { display: block; overflow: hidden; color: #fff; font-size: var(--compact-title-size); font-weight: 790; text-overflow: ellipsis; white-space: nowrap; }
 .compactCopy small { display: block; margin-top: 7px; color: #d8dbd7; font-size: var(--compact-meta-size); font-weight: 590; }
-.compactExercise > em { margin-top: 19px; color: #c49a42; font-size: 8px; font-style: normal; }
+.compactCopy em { display: block; margin-top: 5px; color: #c49a42; font-size: 9px; font-weight: 700; font-style: normal; }
 .asaTarjeta {
   position: absolute;
   top: 50%;
@@ -354,6 +357,7 @@
 .videoBottomGroup { display: flex; flex-direction: column; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); pointer-events: auto; }
 .videoIdentity { padding: 0 15px; }
 .videoIdentity small { color: #b8dc38; font-size: 12px; font-weight: 800; }
+.videoTecnicaTag { font-style: normal; }
 .videoIdentityTitleRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 5px; }
 .videoIdentityTitleRow h1 { min-width: 0; font-size: 23px; letter-spacing: -.04em; }
 .videoCheckFloating { display: grid; width: 36px; height: 36px; flex-shrink: 0; place-items: center; border: 1.5px solid rgba(255, 255, 255, .9); border-radius: 50%; color: #fff; background: rgba(10, 11, 11, .55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }

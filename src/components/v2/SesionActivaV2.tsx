@@ -122,6 +122,12 @@ export type EjercicioSesionV2 = {
   instrucciones?: string[];
   erroresComunes?: string[];
   tecnica?: string;
+  /** Color de la familia de técnica (superserie, biserie...), ver
+   * `resolverGrupoTecnica` en tecnica-grupo.ts. Pinta el "lazo" que une los
+   * ejercicios de un mismo bloque en vista de lista y la etiqueta de técnica
+   * en vista de video — antes ese color se calculaba en el servidor
+   * (sesion/page.tsx) pero se descartaba, solo viajaba el nombre. */
+  tecnicaColor?: string;
   bloqueId?: string;
   tecnicaSlug?: TecnicaEncadenadaSlug;
   tecnicaIndividualSlug?: TecnicaIndividualSlug;
@@ -185,8 +191,8 @@ const OPCIONES_DIFICULTAD_IMPULSO: { valor: DificultadImpulsoVIP; etiqueta: stri
 
 const EJERCICIOS_DEMO: EjercicioSesionV2[] = [
   { id: "sentadilla-smith", codigo: "A", nombre: "Sentadilla Smith", repeticiones: [10, 10, 10, 10], descanso: 60, foto: "/v2/piernas.webp", equipo: "Máquina Smith", grupo: "Cuádriceps · glúteos" },
-  { id: "peso-muerto-rumano", codigo: "B1", nombre: "Peso muerto rumano", repeticiones: [8, 8, 8], descanso: 0, foto: "/v2/espalda.webp", equipo: "Barra", grupo: "Femoral · glúteos", tecnica: "Superserie", bloqueId: "superserie-b", tecnicaSlug: "superserie" },
-  { id: "prensa-inclinada", codigo: "B2", nombre: "Prensa inclinada", repeticiones: [12, 12, 12], descanso: 90, foto: "/v2/piernas.webp", equipo: "Prensa 45°", grupo: "Cuádriceps", tecnica: "Superserie", bloqueId: "superserie-b", tecnicaSlug: "superserie" },
+  { id: "peso-muerto-rumano", codigo: "B1", nombre: "Peso muerto rumano", repeticiones: [8, 8, 8], descanso: 0, foto: "/v2/espalda.webp", equipo: "Barra", grupo: "Femoral · glúteos", tecnica: "Superserie", tecnicaColor: "var(--color-tecnica-superserie)", bloqueId: "superserie-b", tecnicaSlug: "superserie" },
+  { id: "prensa-inclinada", codigo: "B2", nombre: "Prensa inclinada", repeticiones: [12, 12, 12], descanso: 90, foto: "/v2/piernas.webp", equipo: "Prensa 45°", grupo: "Cuádriceps", tecnica: "Superserie", tecnicaColor: "var(--color-tecnica-superserie)", bloqueId: "superserie-b", tecnicaSlug: "superserie" },
   { id: "extension-cuadriceps", codigo: "C", nombre: "Extensión de cuádriceps", repeticiones: [15, 15, 15], descanso: 75, foto: "/v2/hombros.webp", equipo: "Máquina de extensión", grupo: "Cuádriceps" },
 ];
 
@@ -1374,7 +1380,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             <div className={styles.videoOverlaySpacer} />
             <div className={styles.videoBottomGroup}>
               <div className={styles.videoIdentity}>
-                <small>SERIE {ejercicioActivo.codigo}</small>
+                <small>SERIE {ejercicioActivo.codigo}{ejercicioActivo.tecnica ? <em className={styles.videoTecnicaTag} style={ejercicioActivo.tecnicaColor ? { color: ejercicioActivo.tecnicaColor } : undefined}> · {ejercicioActivo.tecnica}</em> : null}</small>
                 <div className={styles.videoIdentityTitleRow}>
                   <h1>{ejercicioActivo.nombre}</h1>
                   <button
@@ -1417,8 +1423,15 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
               // El resto se arrastra tal cual se ve, sin pantalla aparte
               // (pedido de Alejandro: "sin que me mande a la segunda foto").
               const bloqueDeshabilitado = !personalizacionDisponible || sesion?.soloLectura || bloque.some((item) => item.id === ejercicioExpandidoId);
+              // El "lazo" que une visualmente los ejercicios de una técnica
+              // encadenada (biserie, triserie, serie gigante...): solo tiene
+              // sentido con 2+ ejercicios reales en el bloque, nunca en uno
+              // suelto (pedido de Alejandro: identificar de un vistazo qué
+              // ejercicios van encadenados en vista de lista).
+              const colorLazo = bloque.length > 1 ? bloque[0].tecnicaColor : undefined;
               return (
-                <BloqueArrastrableEnLinea key={bloque[0].id} id={bloque[0].id} deshabilitado={bloqueDeshabilitado}>
+                <div key={bloque[0].id} className={`${styles.exerciseBlock} ${colorLazo ? styles.exerciseBlockChained : ""}`} style={colorLazo ? ({ "--tecnica-color": colorLazo } as React.CSSProperties) : undefined}>
+                <BloqueArrastrableEnLinea id={bloque[0].id} deshabilitado={bloqueDeshabilitado}>
                   {bloque.map((ejercicio) => {
                     const activa = ejercicio.id === ejercicioExpandidoId;
                     const impulsoEjercicio = MOMENTOS_ALEJANDRO.find((momento) =>
@@ -1440,15 +1453,15 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                           </button>
                           <button type="button" className={styles.compactCopy} aria-expanded="false" onClick={expandirEjercicio}>
                             <strong>{ejercicio.nombre}</strong><small>Reps: {ejercicio.repeticiones.join(" · ")}</small>
+                            {ejercicio.tecnica ? <em style={ejercicio.tecnicaColor ? { color: ejercicio.tecnicaColor } : undefined}>{ejercicio.tecnica}</em> : null}
                           </button>
-                          {ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}
                           <AsaArrastre />
                         </article>
                       );
                     }
                     return (
                       <section className={styles.activeExercise} key={ejercicio.id}>
-                        <button type="button" className={styles.seriesLabel} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)} aria-label={`Contraer ${ejercicio.nombre}`}>SERIE {ejercicio.codigo}<i aria-hidden="true">›››</i>{ejercicio.tecnica ? <em>{ejercicio.tecnica}</em> : null}</button>
+                        <button type="button" className={styles.seriesLabel} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)} aria-label={`Contraer ${ejercicio.nombre}`}>SERIE {ejercicio.codigo}<i aria-hidden="true">›››</i>{ejercicio.tecnica ? <em style={ejercicio.tecnicaColor ? { color: ejercicio.tecnicaColor } : undefined}>{ejercicio.tecnica}</em> : null}</button>
                         <div className={styles.exerciseHeading}>
                           <button type="button" className={styles.exerciseMedia} onClick={() => abrirFichaEjercicio(ejercicio)} aria-label={`Abrir ficha técnica de ${ejercicio.nombre}`}><ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="70px" loading={ejercicio.codigo === "A" ? "eager" : "lazy"} /><i><Play size={17} fill="currentColor" /></i></button>
                           <button type="button" className={styles.exerciseHeadingToggle} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)}><h1>{ejercicio.nombre}</h1><p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p></button>
@@ -1497,6 +1510,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                     );
                   })}
                 </BloqueArrastrableEnLinea>
+                </div>
               );
             })}
           </DndContextOrden>
