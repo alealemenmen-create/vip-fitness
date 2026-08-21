@@ -95,6 +95,9 @@
 .sessionStatus span, .sessionStatus strong { color: #fff; font-size: 14px; font-weight: 780; letter-spacing: -.015em; }
 .sessionStatus strong { color: #fff; }
 .sessionStatus i { width: 1px; height: 18px; background: #3a3c3b; }
+.sessionStatus .saveStatus { color: #aeb2ae; font-size: 8px; font-weight: 720; white-space: nowrap; }
+.sessionStatus .saveStatus[data-estado="guardado"] { color: #b9e64b; }
+.sessionStatus .saveStatus[data-estado="error"] { color: #ffad9f; }
 .endButton { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; padding: 0 16px; border: 1px solid #393b3a; border-radius: 999px; color: #fff; background: linear-gradient(110deg, #2c2d2d, #1b1c1c); font-size: 11px; font-weight: 740; }
 .progressTrack { position: absolute; right: 0; bottom: 0; left: 0; height: 3px; background: #54575a; }
 .progressTrack i { display: block; height: 100%; background: #f4f4f2; transition: width 240ms ease; }
@@ -167,7 +170,12 @@
 .seriesLabel em { margin-left: auto; color: #c29b48; font-size: 8px; font-style: normal; letter-spacing: 0; }
 .exerciseHeading { display: grid; min-height: calc(var(--active-photo-height) + 8px); grid-template-columns: var(--active-photo-width) minmax(0, 1fr); align-items: center; gap: var(--exercise-gap); }
 .exerciseHeadingToggle { min-width: 0; color: inherit; text-align: left; }
+.exerciseTitleLine, .compactTitleLine { display: flex; min-width: 0; align-items: center; gap: 9px; }
+.exerciseTitleLine h1, .compactTitleLine strong { min-width: 0; flex: 1; }
 .exerciseHeading h1 { overflow: hidden; color: #fff; font-size: var(--active-title-size); font-weight: 800; letter-spacing: -.025em; text-overflow: ellipsis; white-space: nowrap; }
+.exerciseProgress { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; color: #d6d9d5; font-size: var(--active-title-size); font-weight: 800; letter-spacing: -.025em; white-space: nowrap; }
+.exerciseProgress svg { width: 1em; height: 1em; }
+.exerciseProgressDone { color: #b9e64b; }
 .exerciseHeading p { margin-top: 8px; color: #e0e2df; font-size: var(--compact-meta-size); font-weight: 610; }
 .exerciseHeading p b { color: #f1f2ef; }
 .exerciseMedia { position: relative; width: var(--active-photo-width); height: var(--active-photo-height); overflow: hidden; border-radius: 9px; background: #181919; }
@@ -210,7 +218,7 @@
 .setRowSelected { background: rgba(255, 255, 255, .045); }
 .setRowSelected::after { content: ""; position: absolute; top: 8px; bottom: 8px; left: 0; width: 2px; border-radius: 0 2px 2px 0; background: var(--blue); box-shadow: 0 0 10px rgba(10, 132, 255, .28); }
 .setRowLocked { color: #747774; cursor: pointer; }
-.setRowLocked input { border-color: #1b1d1c; color: #656865; background: #080909; cursor: pointer; }
+.setRowLocked input { border-color: #292b2b; color: #fff; background: #0b0c0c; cursor: text; }
 .setRowLocked .setNumber em { color: #777a77; background: #191b1b; }
 .setRowLocked .checkButton { color: #666966; }
 .setRowActive { background: #161819; }
@@ -245,6 +253,8 @@
 .compactThumb, .compactCopy { color: inherit; text-align: left; }
 .compactCopy { min-width: 0; align-self: stretch; margin-top: 22px; }
 .compactCopy strong { display: block; overflow: hidden; color: #fff; font-size: var(--compact-title-size); font-weight: 790; text-overflow: ellipsis; white-space: nowrap; }
+.compactTitleLine { font-size: var(--compact-title-size); }
+.compactTitleLine .exerciseProgress { font-size: inherit; }
 .compactCopy small { display: block; margin-top: 7px; color: #d8dbd7; font-size: var(--compact-meta-size); font-weight: 590; }
 .compactCopy em { display: block; margin-top: 5px; color: #c49a42; font-size: 9px; font-weight: 700; font-style: normal; }
 .asaTarjeta {
@@ -363,7 +373,8 @@
 .videoIdentity small { color: #b8dc38; font-size: 12px; font-weight: 800; }
 .videoTecnicaTag { font-style: normal; }
 .videoIdentityTitleRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 5px; }
-.videoIdentityTitleRow h1 { min-width: 0; font-size: 23px; letter-spacing: -.04em; }
+.videoIdentityTitleRow h1 { min-width: 0; flex: 1; overflow: hidden; font-size: 23px; letter-spacing: -.04em; text-overflow: ellipsis; white-space: nowrap; }
+.videoIdentityTitleRow .exerciseProgress { font-size: 18px; text-shadow: 0 2px 8px rgba(0, 0, 0, .75); }
 .videoCheckFloating { display: grid; width: 36px; height: 36px; flex-shrink: 0; place-items: center; border: 1.5px solid rgba(255, 255, 255, .9); border-radius: 50%; color: #fff; background: rgba(10, 11, 11, .55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 .videoCheckFloating[aria-pressed="true"] { border-color: var(--blue); color: #fff; background: var(--blue); box-shadow: 0 0 0 1px rgba(10,132,255,.24); }
 .videoActions { display: flex; gap: 5px; overflow-x: auto; padding: 10px 14px; scrollbar-width: none; }

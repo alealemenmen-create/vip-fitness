@@ -52,6 +52,25 @@ describe("leerSeriesFormulario", () => {
     });
   });
 
+  it("conserva peso y repeticiones aunque la serie todavía no esté marcada", () => {
+    const datos = new FormData();
+    datos.set("peso_2", "42,5");
+    datos.set("reps_2", "10");
+    datos.set("realizada_2", "false");
+
+    expect(leerSeriesFormulario(datos, "ejercicio-a", 3, "")).toMatchObject({
+      ok: true,
+      seriesRealizadas: 0,
+      filas: [{
+        sesion_ejercicio_id: "ejercicio-a",
+        numero_serie: 2,
+        peso_kg: 42.5,
+        reps_realizadas: 10,
+        realizada: false,
+      }],
+    });
+  });
+
   it("acepta hasta tres series extra sin permitir reducir las programadas", () => {
     expect(resolverCantidadSeriesRegistro(3, 4, true)).toBe(4);
     expect(resolverCantidadSeriesRegistro(3, 99, true)).toBe(6);

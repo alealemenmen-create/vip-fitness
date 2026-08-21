@@ -20,6 +20,7 @@ import { urlMiniaturaFirmada } from "@/lib/cloudflare/stream";
 import { obtenerSeguimientoHoy } from "@/app/alumno/inicio/data";
 import { evaluarPreparacionDiariaAlejandro, limitarMomentosPorPreparacion } from "@/lib/impulso-vip/preparacion-diaria";
 import { calcularDuracionSesionSegundos } from "@/lib/entrenamiento/duracion-sesion";
+import { objetivoSerie } from "@/lib/entrenamiento/objetivo-serie";
 
 // `programarAvisoDescanso` espera en el servidor hasta que vence el descanso.
 // La V2 necesita el mismo margen que la sesión clásica para que un push de
@@ -217,13 +218,10 @@ export default async function SesionV2Page({
     // El dato ya viajaba en `ejercicio.recomendacionImpulso` (lo arma
     // obtenerSesionCompleta, compartido con V1) pero V2 nunca lo leía --
     // por eso el peso salía en blanco en vez de "calibrado" como en V1.
-    const recomendacionAprobada = ejercicio.recomendacionImpulso
-      && (ejercicio.recomendacionImpulso.estado === "aprobada" || ejercicio.recomendacionImpulso.estado === "modificada")
-      ? ejercicio.recomendacionImpulso
-      : null;
-    const pesoSugeridoEfectivo = recomendacionAprobada && !recomendacionAprobada.esPesoCorporal
-      ? recomendacionAprobada.pesoSugeridoKg
-      : null;
+    // Reutiliza literalmente la prioridad probada de V1: Impulso aprobado
+    // primero y, si no existe, el último peso real del alumno. Nunca inventa
+    // carga para peso corporal ni para recomendaciones bloqueadas.
+    const { recomendacionAprobada, pesoObjetivoKg: pesoReferenciaKg } = objetivoSerie(ejercicio, false);
     const repsSugeridasEfectivas = recomendacionAprobada?.repsObjetivoMax ?? null;
     return {
       id: ejercicio.sesionEjercicioId,
@@ -274,7 +272,7 @@ export default async function SesionV2Page({
           reps: String(guardada?.repsRealizadas ?? repsSugeridasEfectivas ?? objetivo),
           peso: guardada?.pesoKg != null
             ? String(guardada.pesoKg)
-            : pesoSugeridoEfectivo != null ? String(pesoSugeridoEfectivo) : "",
+            : pesoReferenciaKg != null ? String(pesoReferenciaKg) : "",
           completada: guardada?.realizada === true,
         };
       }),

@@ -75,6 +75,7 @@ import type { ResultadoIntervencionImpulso } from "@/lib/supabase/types";
 import {
   actualizarTemporizadorDescansoAlumno,
   cancelarSesionEnCurso,
+  guardarAvanceSesionV2,
   guardarSesionV2,
   guardarYFinalizarSesionV2,
   type RegistroSesionV2,
@@ -177,6 +178,7 @@ type DescansoActivo = {
 };
 
 type PanelSesion = "consejo" | "historial" | "notas" | "ajustes" | "informacion" | "impulso" | "sustituir" | "reordenar" | null;
+type EstadoSincronizacion = "listo" | "pendiente" | "guardando" | "guardado" | "error";
 type VistaSesion = "lista" | "video" | "descanso";
 type UnidadPeso = "kg" | "lb";
 type PausaTecnica = { clave: string; segundos: number; pasoSiguiente: number };
@@ -276,6 +278,10 @@ function formatearTiempo(total: number) {
   return `${minutos}:${segundos}`;
 }
 
+function finDescansoDesdeAhora(segundos: number) {
+  return Date.now() + segundos * 1_000;
+}
+
 function limitar(valor: number, minimo: number, maximo: number) {
   return Math.min(Math.max(valor, minimo), maximo);
 }
@@ -366,6 +372,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [errorCalibracion, setErrorCalibracion] = useState<string | null>(null);
   const [momentoParaResultado, setMomentoParaResultado] = useState<MomentoSesionAlejandro | null>(null);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
+  const [estadoSincronizacion, setEstadoSincronizacion] = useState<EstadoSincronizacion>("listo");
   const [borradorCargado, setBorradorCargado] = useState(false);
   const [pasosTecnica, setPasosTecnica] = useState<Record<string, number>>({});
   const [pausaTecnica, setPausaTecnica] = useState<PausaTecnica | null>(null);
@@ -383,6 +390,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const descansosResueltosRef = useRef<Set<string>>(new Set());
   const paginaSesionRef = useRef<HTMLDivElement | null>(null);
   const resumenRef = useRef<HTMLElement | null>(null);
+  const temporizadoresAutoguardadoRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const colaGuardadoRef = useRef<Promise<void>>(Promise.resolve());
 
   const totalSeries = useMemo(() => EJERCICIOS.reduce((total, ejercicio) => total + ejercicio.repeticiones.length, 0), [EJERCICIOS]);
   const seriesCompletadas = useMemo(() => Object.values(registro).reduce(
@@ -403,6 +412,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     : EJERCICIOS.find((ejercicio) => ejercicio.id === fichaEjercicioId) ?? null;
   const serieActivaIndiceSeguro = limitar(serieActivaIndice, 0, ejercicioActivo.repeticiones.length - 1);
   const serieActiva = registro[ejercicioActivo.id][serieActivaIndiceSeguro];
+  const seriesCompletadasEjercicioActivo = registro[ejercicioActivo.id].filter((serie) => serie.completada).length;
+  const ejercicioActivoRealizado = seriesCompletadasEjercicioActivo === registro[ejercicioActivo.id].length;
   const indicePasoActivo = ORDEN_EJECUCION.findIndex((paso) =>
     paso.ejercicioIndice === ejercicioActivoIndice && paso.serieIndice === serieActivaIndiceSeguro
   );
@@ -431,8 +442,11 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   };
 
   useEffect(() => {
+    const temporizadoresAutoguardado = temporizadoresAutoguardadoRef.current;
     return () => {
       if (deshacerOrdenTimeoutRef.current) clearTimeout(deshacerOrdenTimeoutRef.current);
+      for (const temporizador of temporizadoresAutoguardado.values()) clearTimeout(temporizador);
+      temporizadoresAutoguardado.clear();
     };
   }, []);
 
@@ -746,13 +760,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     });
   };
 
-  const actualizarSerie = (ejercicioId: string, indice: number, campo: "reps" | "peso", valor: string) => {
-    setRegistro((actual) => ({
-      ...actual,
-      [ejercicioId]: actual[ejercicioId].map((serie, serieIndice) => serieIndice === indice ? { ...serie, [campo]: valor } : serie),
-    }));
-  };
-
   const serializarSeries = (series: SerieRegistradaV2[]) => series.map((serie) => ({
     ...serie,
     peso: unidadPeso === "lb" ? convertirPeso(serie.peso, "lb", "kg") : serie.peso,
@@ -777,6 +784,60 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     return { sesionId: sesion.id, ejercicios, comentario: comentarioSesion };
   };
 
+  const encolarGuardado = (
+    guardar: () => Promise<{ error: string | null }>,
+    mensajeConexion: string,
+    alGuardar?: () => void,
+  ) => {
+    setEstadoSincronizacion("guardando");
+    const tarea = colaGuardadoRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        try {
+          const resultado = await guardar();
+          setErrorGuardado(resultado.error);
+          setEstadoSincronizacion(resultado.error ? "error" : "guardado");
+          if (!resultado.error) alGuardar?.();
+        } catch {
+          setEstadoSincronizacion("error");
+          setErrorGuardado(mensajeConexion);
+        }
+      });
+    colaGuardadoRef.current = tarea;
+    iniciarGuardado(async () => tarea);
+  };
+
+  const cancelarAutoguardado = (ejercicioId: string) => {
+    const temporizador = temporizadoresAutoguardadoRef.current.get(ejercicioId);
+    if (temporizador) clearTimeout(temporizador);
+    temporizadoresAutoguardadoRef.current.delete(ejercicioId);
+  };
+
+  const guardarAvanceEjercicio = (ejercicio: EjercicioSesionV2, series: SerieRegistradaV2[]) => {
+    cancelarAutoguardado(ejercicio.id);
+    const payload = construirRegistroServidor(ejercicio, series);
+    if (!payload) return;
+    encolarGuardado(
+      () => guardarAvanceSesionV2(payload),
+      "No pudimos sincronizar el peso. Quedó protegido en este dispositivo y se reintentará al marcar la serie.",
+    );
+  };
+
+  const programarAutoguardado = (ejercicio: EjercicioSesionV2, series: SerieRegistradaV2[]) => {
+    cancelarAutoguardado(ejercicio.id);
+    setEstadoSincronizacion("pendiente");
+    const temporizador = setTimeout(() => guardarAvanceEjercicio(ejercicio, series), 650);
+    temporizadoresAutoguardadoRef.current.set(ejercicio.id, temporizador);
+  };
+
+  const actualizarSerie = (ejercicio: EjercicioSesionV2, indice: number, campo: "reps" | "peso", valor: string) => {
+    const seriesActualizadas = registro[ejercicio.id].map((serie, serieIndice) =>
+      serieIndice === indice ? { ...serie, [campo]: valor } : serie
+    );
+    setRegistro((actual) => ({ ...actual, [ejercicio.id]: seriesActualizadas }));
+    programarAutoguardado(ejercicio, seriesActualizadas);
+  };
+
   const persistirEjercicio = (
     ejercicio: EjercicioSesionV2,
     series: SerieRegistradaV2[],
@@ -784,18 +845,14 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   ) => {
     const payload = construirRegistroServidor(ejercicio, series);
     if (!payload) return;
-    iniciarGuardado(async () => {
-      try {
-        const resultado = await guardarSesionV2(payload);
-        setErrorGuardado(resultado.error);
-        // No se auto-resuelve acá: se le pregunta al alumno cómo le fue en
-        // esta serie puntual (pedido de Alejandro) y recién con su respuesta
-        // se llama a resolverIntervencionAutomaticaV2 — ver responderResultadoImpulso.
-        if (!resultado.error && momentoCompletado) setMomentoParaResultado(momentoCompletado);
-      } catch {
-        setErrorGuardado("No pudimos sincronizar esta serie. Quedó protegida en este dispositivo para reintentarla.");
-      }
-    });
+    cancelarAutoguardado(ejercicio.id);
+    encolarGuardado(
+      () => guardarSesionV2(payload),
+      "No pudimos sincronizar esta serie. Quedó protegida en este dispositivo para reintentarla.",
+      // No se auto-resuelve acá: se le pregunta al alumno cómo le fue en
+      // esta serie puntual y recién con su respuesta se resuelve Impulso VIP.
+      momentoCompletado ? () => setMomentoParaResultado(momentoCompletado) : undefined,
+    );
   };
 
   const responderResultadoImpulso = (momento: MomentoSesionAlejandro, dificultad: DificultadImpulsoVIP) => {
@@ -996,7 +1053,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     else cortarAviso();
     descansoAvisadoRef.current = null;
     descansosResueltosRef.current.delete(claveDescansoSesion(ejercicio.id, serieIndice));
-    const finEn = Date.now() + ejercicio.descanso * 1_000;
+    const finEn = finDescansoDesdeAhora(ejercicio.descanso);
     setDescanso({
       ejercicioId: ejercicio.id,
       serieIndice,
@@ -1014,7 +1071,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       if (actual === null) return null;
       if (actual.tipo === "referencia") {
         const segundos = Math.max(0, actual.segundos + cantidad);
-        return { ...actual, segundos, finEn: Date.now() + segundos * 1_000 };
+        return { ...actual, segundos, finEn: finDescansoDesdeAhora(segundos) };
       }
       return { ...actual, ...ajustarFinDescanso({ finEn: actual.finEn, cambioSegundos: cantidad }) };
     });
@@ -1095,7 +1152,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     if (temporizadorAutomatico) prepararAviso();
     else cortarAviso();
     descansoAvisadoRef.current = null;
-    const finEn = Date.now() + ejercicioActivo.descanso * 1_000;
+    const finEn = finDescansoDesdeAhora(ejercicioActivo.descanso);
     setDescanso({
       ejercicioId: ejercicioActivo.id,
       serieIndice: serieActivaIndiceSeguro,
@@ -1119,14 +1176,14 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     if (descanso === null) return;
     if (activo && descanso.tipo === "referencia") {
       prepararAviso();
-      const finEn = Date.now() + descanso.segundos * 1_000;
+      const finEn = finDescansoDesdeAhora(descanso.segundos);
       setDescanso({ ...descanso, tipo: "automatico", finEn });
       return;
     }
     if (activo) return;
     cortarAviso();
     if (descanso.tipo === "automatico") {
-      setDescanso({ ...descanso, tipo: "referencia", finEn: Date.now() + descanso.segundos * 1_000 });
+      setDescanso({ ...descanso, tipo: "referencia", finEn: finDescansoDesdeAhora(descanso.segundos) });
     }
   };
 
@@ -1259,10 +1316,16 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       setRegistrada(true);
       return;
     }
+    for (const temporizador of temporizadoresAutoguardadoRef.current.values()) clearTimeout(temporizador);
+    temporizadoresAutoguardadoRef.current.clear();
     const payload = construirRegistroServidor();
     if (!payload) return;
     iniciarGuardado(async () => {
       try {
+        // Un peso escrito justo antes de terminar puede tener un autoguardado
+        // anterior todavía viajando. Se espera esa cola y el cierre completo
+        // se ejecuta al final, por lo que la versión más nueva siempre gana.
+        await colaGuardadoRef.current;
         const resultado = await guardarYFinalizarSesionV2(payload);
         setErrorGuardado(resultado.error);
         if (!resultado.error) {
@@ -1296,7 +1359,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     // el alumno ve. Al reanudar, se vuelve a anclar ese tiempo al reloj real.
     setDescanso((actual) => actual === null || actual.segundos <= 0
       ? actual
-      : { ...actual, finEn: Date.now() + actual.segundos * 1_000 });
+      : { ...actual, finEn: finDescansoDesdeAhora(actual.segundos) });
     setPausada(false);
   };
 
@@ -1329,7 +1392,14 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   return (
     <div ref={paginaSesionRef} className={styles.sessionPage} data-visual-scale={escalaVisual} data-vista={vista}>
       <header className={styles.topbar} data-transparente={vista === "video" ? "true" : undefined}>
-        <div className={styles.sessionStatus}><span>{formatearTiempo(segundosSesion)}</span><i aria-hidden="true" /><strong>{sesion?.soloLectura ? "Registro" : "Serie"} {serieActivaNumero}/{totalSeries}</strong></div>
+        <div className={styles.sessionStatus}>
+          <span>{formatearTiempo(segundosSesion)}</span><i aria-hidden="true" /><strong>{sesion?.soloLectura ? "Registro" : "Serie"} {serieActivaNumero}/{totalSeries}</strong>
+          {!sesion?.soloLectura && estadoSincronizacion !== "listo" ? (
+            <small className={styles.saveStatus} data-estado={estadoSincronizacion} aria-live="polite">
+              {estadoSincronizacion === "guardado" ? "Guardado" : estadoSincronizacion === "error" ? "En dispositivo" : "Guardando…"}
+            </small>
+          ) : null}
+        </div>
         {sesion?.soloLectura
           ? <Link className={styles.endButton} href="/portal-v2/entrenamiento/historial">Historial</Link>
           : <button type="button" className={styles.endButton} onClick={() => setConfirmarSalida(true)}>Terminar</button>}
@@ -1426,6 +1496,9 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                 <small>SERIE {ejercicioActivo.codigo}{ejercicioActivo.tecnica ? <em className={styles.videoTecnicaTag} style={ejercicioActivo.tecnicaColor ? { color: ejercicioActivo.tecnicaColor } : undefined}> · {ejercicioActivo.tecnica}</em> : null}</small>
                 <div className={styles.videoIdentityTitleRow}>
                   <h1>{ejercicioActivo.nombre}</h1>
+                  <span className={`${styles.exerciseProgress} ${ejercicioActivoRealizado ? styles.exerciseProgressDone : ""}`} aria-label={`${seriesCompletadasEjercicioActivo} de ${registro[ejercicioActivo.id].length} series realizadas`}>
+                    {ejercicioActivoRealizado ? <><Check size={18} strokeWidth={3} /> Realizado</> : `${seriesCompletadasEjercicioActivo} de ${registro[ejercicioActivo.id].length}`}
+                  </span>
                   <button
                     type="button"
                     className={styles.videoCheckFloating}
@@ -1451,8 +1524,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
               {segmentosTecnicaActiva.length ? <TecnicaActivaCard ejercicio={ejercicioActivo} segmentos={segmentosTecnicaActiva} paso={pasoTecnicaActivo} pausa={pausaTecnica?.clave === claveTecnicaActiva ? pausaTecnica.segundos : null} /> : null}
               <div className={`${styles.videoSetStrip} ${impulsoActivo?.serieIndice === serieActivaIndiceSeguro ? styles.videoSetStripImpulse : ""}`}>
                 <span><b>Serie</b><em>{serieActivaIndiceSeguro + 1} · trabajo</em></span>
-                <span><b>Reps</b><input aria-label={`Repeticiones, serie ${serieActivaIndiceSeguro + 1}`} inputMode="numeric" value={serieActiva.reps} readOnly={sesion?.soloLectura} onChange={(evento) => actualizarSerie(ejercicioActivo.id, serieActivaIndiceSeguro, "reps", evento.target.value)} /></span>
-                <span><b>Peso ({unidadPeso})</b><input aria-label={`Peso en ${unidadPeso}, serie ${serieActivaIndiceSeguro + 1}`} inputMode="decimal" value={serieActiva.peso} readOnly={sesion?.soloLectura} placeholder={`— ${unidadPeso}`} onChange={(evento) => actualizarSerie(ejercicioActivo.id, serieActivaIndiceSeguro, "peso", evento.target.value)} /></span>
+                <span><b>Reps</b><input aria-label={`Repeticiones, serie ${serieActivaIndiceSeguro + 1}`} inputMode="numeric" value={serieActiva.reps} readOnly={sesion?.soloLectura} onBlur={() => guardarAvanceEjercicio(ejercicioActivo, registro[ejercicioActivo.id])} onChange={(evento) => actualizarSerie(ejercicioActivo, serieActivaIndiceSeguro, "reps", evento.target.value)} /></span>
+                <span><b>Peso ({unidadPeso})</b><input aria-label={`Peso en ${unidadPeso}, serie ${serieActivaIndiceSeguro + 1}`} inputMode="decimal" value={serieActiva.peso} readOnly={sesion?.soloLectura} placeholder={`— ${unidadPeso}`} onBlur={() => guardarAvanceEjercicio(ejercicioActivo, registro[ejercicioActivo.id])} onChange={(evento) => actualizarSerie(ejercicioActivo, serieActivaIndiceSeguro, "peso", evento.target.value)} /></span>
               </div>
             </div>
           </div>
@@ -1477,6 +1550,9 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                 <BloqueArrastrableEnLinea id={bloque[0].id} deshabilitado={bloqueDeshabilitado}>
                   {bloque.map((ejercicio) => {
                     const activa = ejercicio.id === ejercicioExpandidoId;
+                    const seriesEjercicio = registro[ejercicio.id];
+                    const cantidadCompletadas = seriesEjercicio.filter((serie) => serie.completada).length;
+                    const ejercicioRealizado = cantidadCompletadas === seriesEjercicio.length;
                     const impulsoEjercicio = MOMENTOS_ALEJANDRO.find((momento) =>
                       momento.ejercicioId === ejercicio.id && momentosVistos[momento.id]
                     ) ?? null;
@@ -1495,7 +1571,13 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                             <ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="68px" loading="eager" /><i><Play size={12} fill="currentColor" /></i>
                           </button>
                           <button type="button" className={styles.compactCopy} aria-expanded="false" onClick={expandirEjercicio}>
-                            <strong>{ejercicio.nombre}</strong><small>Reps: {ejercicio.repeticiones.join(" · ")}</small>
+                            <span className={styles.compactTitleLine}>
+                              <strong>{ejercicio.nombre}</strong>
+                              <span className={`${styles.exerciseProgress} ${ejercicioRealizado ? styles.exerciseProgressDone : ""}`} aria-label={`${cantidadCompletadas} de ${seriesEjercicio.length} series realizadas`}>
+                                {ejercicioRealizado ? <><Check size={16} strokeWidth={3} /> Realizado</> : `${cantidadCompletadas} de ${seriesEjercicio.length}`}
+                              </span>
+                            </span>
+                            <small>Reps: {ejercicio.repeticiones.join(" · ")}</small>
                             {ejercicio.tecnica ? <em style={ejercicio.tecnicaColor ? { color: ejercicio.tecnicaColor } : undefined}>{ejercicio.tecnica}</em> : null}
                           </button>
                           <AsaArrastre />
@@ -1507,7 +1589,15 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                         <button type="button" className={styles.seriesLabel} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)} aria-label={`Contraer ${ejercicio.nombre}`}>SERIE {ejercicio.codigo}<i aria-hidden="true">›››</i>{ejercicio.tecnica ? <em style={ejercicio.tecnicaColor ? { color: ejercicio.tecnicaColor } : undefined}>{ejercicio.tecnica}</em> : null}</button>
                         <div className={styles.exerciseHeading}>
                           <button type="button" className={styles.exerciseMedia} onClick={() => abrirFichaEjercicio(ejercicio)} aria-label={`Abrir ficha técnica de ${ejercicio.nombre}`}><ImagenV2Segura src={ejercicio.foto} fallbackSrc={ejercicio.fotoRespaldo} alt="" fill sizes="70px" loading={ejercicio.codigo === "A" ? "eager" : "lazy"} /><i><Play size={17} fill="currentColor" /></i></button>
-                          <button type="button" className={styles.exerciseHeadingToggle} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)}><h1>{ejercicio.nombre}</h1><p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p></button>
+                          <button type="button" className={styles.exerciseHeadingToggle} aria-expanded="true" onClick={() => setEjercicioExpandidoId(null)}>
+                            <span className={styles.exerciseTitleLine}>
+                              <h1>{ejercicio.nombre}</h1>
+                              <span className={`${styles.exerciseProgress} ${ejercicioRealizado ? styles.exerciseProgressDone : ""}`} aria-label={`${cantidadCompletadas} de ${seriesEjercicio.length} series realizadas`}>
+                                {ejercicioRealizado ? <><Check size={18} strokeWidth={3} /> Realizado</> : `${cantidadCompletadas} de ${seriesEjercicio.length}`}
+                              </span>
+                            </span>
+                            <p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p>
+                          </button>
                         </div>
                         <div className={styles.actionChips}><button type="button" className={styles.impulsoAction} onClick={() => setPanel("impulso")}><Zap size={14} fill="currentColor" />Impulso VIP</button><button type="button" onClick={() => setPanel("consejo")}><Lightbulb size={14} />Consejo</button><button type="button" onClick={() => setPanel("historial")}><History size={14} />Historial</button><button type="button" onClick={() => setPanel("notas")}><StickyNote size={14} />Notas</button>{personalizacionDisponible && !sesion?.soloLectura && (alternativas[ejercicio.id]?.length ?? 0) > 0 ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("sustituir"); }}><Shuffle size={14} />Cambiar</button> : null}{personalizacionDisponible && !sesion?.soloLectura ? <button type="button" onClick={() => { setErrorPersonalizacion(null); setPanel("reordenar"); }}><ArrowUp size={14} />Orden</button> : null}</div>
                         {impulsoEjercicio ? (
@@ -1539,8 +1629,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                               <div className={styles.setGroup} key={`${ejercicio.id}-${serieIndice}`}>
                                 <div className={`${styles.setRow} ${serie.completada ? styles.setRowDone : ""} ${descansoDeEstaSerie ? styles.setRowActive : ""} ${esSerieActiva ? styles.setRowSelected : styles.setRowLocked} ${esObjetivoImpulso ? styles.setRowImpulse : ""}`} aria-current={esSerieActiva ? "step" : undefined} onClick={activarEstaSerie}>
                                   <span className={styles.setNumber}><b>{serieIndice + 1}</b><em aria-label="Serie de trabajo">TRAB.</em></span>
-                                  <input aria-label={`Repeticiones, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva || sesion?.soloLectura} inputMode="numeric" value={serie.reps} readOnly={!esSerieActiva || sesion?.soloLectura} tabIndex={esSerieActiva && !sesion?.soloLectura ? 0 : -1} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "reps", evento.target.value)} />
-                                  <input aria-label={`Peso en ${unidadPeso}, serie ${serieIndice + 1}`} aria-readonly={!esSerieActiva || sesion?.soloLectura} inputMode="decimal" value={serie.peso} readOnly={!esSerieActiva || sesion?.soloLectura} tabIndex={esSerieActiva && !sesion?.soloLectura ? 0 : -1} placeholder={`— ${unidadPeso}`} onFocus={activarEstaSerie} onChange={(evento) => actualizarSerie(ejercicio.id, serieIndice, "peso", evento.target.value)} />
+                                  <input aria-label={`Repeticiones, serie ${serieIndice + 1}`} aria-readonly={sesion?.soloLectura} inputMode="numeric" value={serie.reps} readOnly={sesion?.soloLectura} tabIndex={sesion?.soloLectura ? -1 : 0} onFocus={activarEstaSerie} onBlur={() => guardarAvanceEjercicio(ejercicio, registro[ejercicio.id])} onChange={(evento) => actualizarSerie(ejercicio, serieIndice, "reps", evento.target.value)} />
+                                  <input aria-label={`Peso en ${unidadPeso}, serie ${serieIndice + 1}`} aria-readonly={sesion?.soloLectura} inputMode="decimal" value={serie.peso} readOnly={sesion?.soloLectura} tabIndex={sesion?.soloLectura ? -1 : 0} placeholder={`— ${unidadPeso}`} onFocus={activarEstaSerie} onBlur={() => guardarAvanceEjercicio(ejercicio, registro[ejercicio.id])} onChange={(evento) => actualizarSerie(ejercicio, serieIndice, "peso", evento.target.value)} />
                                   <span className={styles.restValue}>{esUltimaSerieRutina ? "Final" : requiereDescansoDespues(EJERCICIOS, ORDEN_EJECUCION, EJERCICIOS.findIndex((item) => item.id === ejercicio.id), serieIndice) ? `${ejercicio.descanso} s` : "Avanza"}</span>
                                   <button type="button" className={styles.checkButton} disabled={sesion?.soloLectura} onClick={(evento) => { evento.stopPropagation(); if (esSerieActiva) alternarSerie(ejercicio, serieIndice); else activarEstaSerie(); }} aria-label={esSerieActiva ? `${serie.completada ? "Desmarcar" : "Registrar"} serie ${serieIndice + 1}` : `Activar serie ${serieIndice + 1}`} aria-pressed={serie.completada}>{serie.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}</button>
                                 </div>

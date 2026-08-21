@@ -816,10 +816,17 @@ export async function guardarSeriesGrupo(
  * El cliente solo describe lo que ve; `guardarUnEjercicio` vuelve a validar
  * pertenencia, cantidad asignada, límites y estado de la sesión en servidor.
  */
-export async function guardarSesionV2(registro: RegistroSesionV2): Promise<GuardarSeriesState> {
+async function guardarRegistroSesionV2(
+  registro: RegistroSesionV2,
+  opciones: { revalidar: boolean; unSoloEjercicio?: boolean },
+): Promise<GuardarSeriesState> {
   const { alumnoId, soloLectura } = await requireAlumno();
   if (!registro.sesionId || soloLectura) return { error: "Esta sesión ya no se puede editar." };
-  if (!Array.isArray(registro.ejercicios) || registro.ejercicios.length > 80) {
+  if (
+    !Array.isArray(registro.ejercicios)
+    || registro.ejercicios.length > 80
+    || (opciones.unSoloEjercicio && registro.ejercicios.length !== 1)
+  ) {
     return { error: "El registro de la sesión no es válido." };
   }
 
@@ -847,12 +854,25 @@ export async function guardarSesionV2(registro: RegistroSesionV2): Promise<Guard
     if (resultado.error) return { error: resultado.error };
   }
 
-  revalidatePath("/portal-v2/entrenamiento/sesion");
-  revalidatePath("/portal-v2/entrenamiento");
-  revalidatePath(`/alumno/entrenar/sesion/${registro.sesionId}`);
-  revalidatePath("/alumno/inicio");
-  revalidatePath("/alumno/entrenar");
+  if (opciones.revalidar) {
+    revalidatePath("/portal-v2/entrenamiento/sesion");
+    revalidatePath("/portal-v2/entrenamiento");
+    revalidatePath(`/alumno/entrenar/sesion/${registro.sesionId}`);
+    revalidatePath("/alumno/inicio");
+    revalidatePath("/alumno/entrenar");
+  }
   return { error: null };
+}
+
+/** Guarda peso/repeticiones todavía no marcados sin refrescar la ruta. Así el
+ * alumno puede preparar cualquier serie y el propio autoguardado no remonta
+ * la pantalla ni reemplaza el valor que acaba de escribir. */
+export async function guardarAvanceSesionV2(registro: RegistroSesionV2): Promise<GuardarSeriesState> {
+  return guardarRegistroSesionV2(registro, { revalidar: false, unSoloEjercicio: true });
+}
+
+export async function guardarSesionV2(registro: RegistroSesionV2): Promise<GuardarSeriesState> {
+  return guardarRegistroSesionV2(registro, { revalidar: true });
 }
 
 export async function guardarYFinalizarSesionV2(registro: RegistroSesionV2): Promise<GuardarSeriesState> {
