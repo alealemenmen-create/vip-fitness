@@ -285,7 +285,7 @@
 .exerciseDetail { overflow: hidden; margin: 0 -14px; padding-bottom: 34px; background: #050606; }
 .exerciseDetailBack { position: fixed; top: calc(72px + env(safe-area-inset-top, 0px)); left: max(14px, calc((100vw - 460px) / 2 + 14px)); z-index: 45; display: flex; min-height: 38px; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px; color: #fff; background: rgba(11, 12, 12, .72); box-shadow: 0 7px 22px rgba(0, 0, 0, .35); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-size: 11px; font-weight: 720; }
 .exerciseDetailHero { position: relative; height: min(64dvh, 610px); min-height: 470px; overflow: hidden; background: #141515; }
-.exerciseDetailHero > img { object-fit: cover; filter: saturate(.76) contrast(1.05) brightness(.78); }
+.exerciseDetailHero > img { object-fit: contain; object-position: center; filter: saturate(.86) contrast(1.03) brightness(.88); }
 .exerciseDetailShade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .03) 35%, rgba(3, 4, 4, .3) 65%, #050606 100%); pointer-events: none; }
 .exerciseDetailPlay { position: absolute; top: 45%; left: 50%; display: grid; width: 58px; height: 58px; transform: translate(-50%, -50%); place-items: center; border: 1px solid rgba(255, 255, 255, .34); border-radius: 50%; color: #fff; background: rgba(0, 0, 0, .36); box-shadow: 0 10px 30px rgba(0, 0, 0, .38); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
 .exerciseDetailIdentity { position: absolute; right: 20px; bottom: 24px; left: 20px; }
@@ -333,8 +333,8 @@
 .switchView { position: absolute; bottom: 25px; left: 18px; display: flex; min-height: 40px; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid #303332; border-radius: 999px; color: #d9dbd7; background: #171818; font-size: 9px; }
 
 .videoMode { position: fixed; inset: 0; z-index: 40; overflow: hidden; background: #050606; }
-.videoStage { position: absolute; inset: 0; overflow: hidden; background: #101111; touch-action: pan-y; }
-.videoStage > img { object-fit: cover; filter: saturate(.72) contrast(1.05) brightness(.75); }
+.videoStage { position: absolute; inset: 0; overflow: hidden; background: #050606; touch-action: pan-y; }
+.videoStage > img { object-fit: contain; object-position: center; filter: saturate(.86) contrast(1.03) brightness(.86); }
 .videoShade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .05) 0%, rgba(0, 0, 0, .08) 42%, rgba(4, 5, 5, .58) 66%, #050606 100%); }
 .videoPlay { position: absolute; top: 42%; left: 50%; display: grid; width: 58px; height: 58px; transform: translate(-50%, -50%); place-items: center; border: 1px solid rgba(255, 255, 255, .32); border-radius: 50%; color: #fff; background: rgba(0, 0, 0, .38); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
 .immersiveArrow { position: absolute; top: 42%; z-index: 5; display: grid; width: 42px; height: 58px; transform: translateY(-50%); place-items: center; border: 0; border-radius: 0; color: #a7d837; background: transparent; box-shadow: none; animation: controlsIn 180ms ease-out both; }

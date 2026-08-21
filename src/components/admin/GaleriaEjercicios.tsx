@@ -52,6 +52,7 @@ import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/clie
 import { IlustracionEjercicio } from "@/components/student/IlustracionEjercicio";
 import { ModalVideo } from "@/components/student/ModalVideo";
 import { CuadroFotoReferencia } from "@/components/student/SesionEjercicioCard";
+import { VideoCloudflareAutomatico } from "@/components/student/VideoCloudflareAutomatico";
 import type { UsoEjercicioInventario } from "@/lib/ejercicios/inventario";
 import type { FusionEjercicio } from "@/lib/ejercicios/data";
 import { duracionVideo, subirDirectoCloudflare } from "@/lib/ejercicios/videoCliente";
@@ -2096,6 +2097,9 @@ function EditorVideoCloudflare({ ejercicio }: { ejercicio: Ejercicio }) {
       <div>
         <p className="text-caption font-semibold text-text">Clip automático del ejercicio</p>
         <p className="text-micro text-text-tertiary">MP4, MOV o WebM · máximo 30 segundos y 100 MB</p>
+        <p className="mt-1 text-[10px] leading-relaxed text-text-secondary">
+          Vertical u horizontal: el alumno verá siempre el encuadre completo, sin cortar cabeza ni pies. Para una toma nueva, deja aire alrededor del cuerpo y mantén el teléfono quieto.
+        </p>
       </div>
       {estado && (
         <p className={`text-caption ${estado === "error" ? "text-error" : estado === "listo" ? "text-success" : "text-text-secondary"}`}>
@@ -2231,6 +2235,65 @@ function EncuadreArrastrable({
           <span className="size-5 rounded-full border border-white/80 shadow-[0_0_0_1px_rgba(0,0,0,.35)]" />
         </span>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Vista vertical equivalente a la rutina activa V2. A diferencia de los dos
+ * encuadres editables de arriba (que sí recortan miniaturas), esta vista usa
+ * siempre el archivo completo. Así el entrenador detecta antes de guardar si
+ * cabeza, manos o pies quedaron fuera de la toma original.
+ */
+function VistaCompletaRutinaActiva({
+  ejercicio,
+  foto,
+}: {
+  ejercicio: Ejercicio;
+  foto: string;
+}) {
+  const tieneVideo = Boolean(ejercicio.videoCloudflareUid && ejercicio.videoCloudflareEstado === "listo");
+  const [mostrarVideo, setMostrarVideo] = useState(false);
+
+  return (
+    <div className="rounded-[20px] border border-vip/25 bg-black/35 p-2.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div>
+          <p className="text-caption font-semibold text-text">Vista completa en rutina activa</p>
+          <p className="text-micro text-text-tertiary">Sin recorte · sirve para foto vertical u horizontal</p>
+        </div>
+        {tieneVideo ? (
+          <button
+            type="button"
+            onClick={() => setMostrarVideo((actual) => !actual)}
+            aria-pressed={mostrarVideo}
+            className="radius-control flex h-8 shrink-0 items-center gap-1.5 border border-border px-2 text-[10px] font-semibold text-text"
+          >
+            {mostrarVideo ? <ImageIcon size={12} /> : <Film size={12} />}
+            {mostrarVideo ? "Ver foto" : "Ver video"}
+          </button>
+        ) : null}
+      </div>
+      <div className="relative mx-auto aspect-[9/16] w-full max-w-[265px] overflow-hidden rounded-[24px] border border-white/10 bg-black shadow-[0_18px_44px_rgba(0,0,0,.28)]">
+        {/* La URL puede ser un blob local mientras la foto todavía se está
+            preparando, por eso esta previsualización usa img nativo. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={foto} alt={`Vista completa de ${ejercicio.nombre}`} className="h-full w-full object-contain" />
+        {tieneVideo ? (
+          <VideoCloudflareAutomatico
+            ejercicioId={ejercicio.id}
+            activo={mostrarVideo}
+            nombre={ejercicio.nombre}
+          />
+        ) : null}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-t from-black/80 to-transparent px-3 pb-3 pt-12">
+          <p className="text-[9px] font-bold uppercase tracking-[.08em] text-vip">Ejercicio</p>
+          <p className="mt-1 text-sm font-semibold text-white">{ejercicio.nombre}</p>
+        </div>
+      </div>
+      <p className="mt-2 text-center text-[10px] leading-relaxed text-text-tertiary">
+        Las franjas negras son normales cuando la proporción no coincide: evitan cortar el movimiento.
+      </p>
     </div>
   );
 }
@@ -2425,6 +2488,7 @@ function FichaMesa({
             <p className="text-micro text-text-tertiary">Arrastrá la foto para centrarla. Cada formato guarda su propio centro.</p>
             <EncuadreArrastrable src={imagenAMostrar} nombre="Vista rectangular del alumno" formato="panorama" posicion={panorama} onChange={setPanorama} onError={() => setPreviaRota(true)} />
             <EncuadreArrastrable src={imagenAMostrar} nombre="Vista cuadrada del alumno" formato="cuadrado" posicion={cuadrada} onChange={setCuadrada} onError={() => setPreviaRota(true)} />
+            <VistaCompletaRutinaActiva ejercicio={ejercicio} foto={imagenAMostrar} />
             <label className="radius-control flex h-10 w-full cursor-pointer items-center justify-center gap-2 border border-border text-caption font-semibold text-text">
               <Camera size={15} /> Cambiar la foto
               <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void elegirArchivo(f); }} />
@@ -3017,6 +3081,7 @@ function ModalSubirFoto({
           </p>
           <EncuadreArrastrable src={imagenAMostrar} nombre="Vista rectangular del alumno" formato="panorama" posicion={panorama} onChange={setPanorama} onError={() => setPreviaRota(true)} />
           <EncuadreArrastrable src={imagenAMostrar} nombre="Vista cuadrada del alumno" formato="cuadrado" posicion={cuadrada} onChange={setCuadrada} onError={() => setPreviaRota(true)} />
+          <VistaCompletaRutinaActiva ejercicio={ejercicio} foto={imagenAMostrar} />
           <label className="radius-control flex h-10 w-full cursor-pointer items-center justify-center gap-2 border border-border text-caption font-semibold text-text">
             <Camera size={15} /> Elegir o tomar otra foto
             <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" className="sr-only" onChange={(e) => {

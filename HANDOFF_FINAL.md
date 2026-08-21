@@ -64,6 +64,8 @@ La versión 1 fue guardada y publicada desde la interfaz real con la cuenta admi
 
 ## Portal V2 y móvil
 
+- Revisión multimedia posterior: la rutina activa ya no amplía el iframe para llenar el cuadro. Fotos y videos grandes usan encaje completo, preservan cabeza, manos y pies, y aceptan material vertical u horizontal con franjas negras cuando la proporción lo requiere.
+- El editor de ejercicios incorpora una vista vertical real de la rutina activa para alternar foto/video y revisar el archivo completo antes de publicarlo.
 - Diseño comprobado en viewport iPhone `390x844` y Android `412x915`.
 - Corregido el desplazamiento horizontal involuntario de la pantalla de entrenamiento.
 - Zoom del navegador habilitado para accesibilidad (`maximumScale: 5`, `userScalable: true`).
@@ -100,6 +102,7 @@ Todas las migraciones conocidas y las columnas/RPC requeridas, incluida `0118`, 
 - Tests enfocados: 85/85 aprobados.
 - Suite completa: 82 archivos, 632/632 tests aprobados.
 - Build de producción: Next.js 16.3.1, 72 páginas, aprobado.
+- Revisión de encuadre multimedia: ESLint, TypeScript, 10 pruebas enfocadas, suite completa y build repetidos en verde.
 - QA autenticada local: Estudio VIP guardar/publicar, Portal V2, Generador y centro multimedia, aprobada.
 - QA autenticada en producción: Estudio VIP y video Cloudflare real, aprobada sin error de consola ni overlay.
 - Accesibilidad automatizada: 0 infracciones confirmadas; algunos contrastes sobre gradientes quedaron como comprobación manual indeterminada.

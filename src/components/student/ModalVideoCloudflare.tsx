@@ -8,10 +8,9 @@ import { obtenerVideoCloudflareEjercicio } from "@/app/alumno/entrenar/video-act
 /**
  * Reproductor a pantalla completa para un video de Cloudflare Stream — se
  * pide en modo "completo" (con controles, con sonido, sin bucle): el
- * cuadro chico del ejercicio activo usa un recorte agresivo para tapar
- * franjas (ver VideoCloudflareAutomatico), pero acá el alumno tocó a
- * propósito para ver el video entero, así que se prioriza que se vea
- * completo — cabeza y pies incluidos — sobre llenar el cuadro.
+ * Tanto la reproducción automática como este visor priorizan que se vea el
+ * movimiento completo — cabeza y pies incluidos — sobre llenar el cuadro.
+ * Este modal agrega controles y sonido para una revisión detenida.
  */
 export function ModalVideoCloudflare({
   ejercicioId,

@@ -198,14 +198,10 @@ export async function urlEmbedFirmada(
       loop: completo ? "false" : "true",
       controls: completo ? "true" : "false",
       preload: "auto",
-      // Antes "transparent": dejaba ver el relleno borroso pensado para
-      // fotos detrás de las franjas de un video vertical, dos capas
-      // compitiendo. Ahora el cliente agranda el iframe para tapar esas
-      // franjas del todo (ver VideoCloudflareAutomatico); esto es solo el
-      // respaldo para cuando no se conoce el ancho/alto real del clip.
-      // En modo "completo" no aplica: ahí no se agranda nada, así que un
-      // fondo sólido detrás del letterbox real se ve más limpio que dejar
-      // transparencia.
+      // Fondo negro estable para las franjas necesarias cuando la proporción
+      // del clip no coincide con la pantalla. El cliente ya no agranda ni
+      // recorta el iframe: preservar cabeza, manos y pies es más importante
+      // que llenar cada píxel del cuadro.
       letterboxColor: "000000",
     });
     return `https://customer-${codigo}.cloudflarestream.com/${token}/iframe?${parametros}`;
