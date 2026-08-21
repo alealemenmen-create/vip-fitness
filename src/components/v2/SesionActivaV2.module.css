@@ -228,7 +228,7 @@
 .setNumber em { padding: 5px 6px; border-radius: 5px; color: #f4f8ff; background: #2a3038; font-size: 10px; font-style: normal; font-weight: 680; }
 .setRowSelected .setNumber b { color: var(--blue); }
 .setRowSelected .setNumber em { color: #fff; background: var(--blue); box-shadow: 0 0 0 1px rgba(10, 132, 255, .28); }
-.setRow input { width: 100%; height: 37px; border: 1px solid #292b2b; border-radius: 7px; color: #fff; background: #0b0c0c; font-size: 12px; font-weight: 650; text-align: center; outline: none; }
+.setRow input { width: 100%; height: 37px; border: 1px solid #292b2b; border-radius: 7px; color: #fff; background: #0b0c0c; font-size: 12px; font-weight: 650; text-align: center; outline: none; touch-action: manipulation; user-select: text; -webkit-user-select: text; scroll-margin-bottom: calc(280px + env(safe-area-inset-bottom, 0px)); }
 .setRow input:focus { border-color: #4c5050; background: #101111; }
 .setRow input::placeholder { color: #606360; opacity: 1; }
 .restValue { text-align: center; }
@@ -383,7 +383,7 @@
 .videoSetStrip span { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
 .videoSetStrip b { color: #b6b9b6; font-size: 8px; font-weight: 600; }
 .videoSetStrip strong, .videoSetStrip em { min-height: 32px; padding: 8px 5px; border-radius: 6px; color: #f1f2ef; background: #101111; font-size: 10px; font-style: normal; font-weight: 620; text-align: center; }
-.videoSetStrip input { width: 100%; min-height: 32px; padding: 8px 5px; border: 1px solid #292b2b; border-radius: 6px; color: #f1f2ef; background: #101111; font-size: 10px; font-weight: 620; text-align: center; outline: none; }
+.videoSetStrip input { width: 100%; min-height: 32px; padding: 8px 5px; border: 1px solid #292b2b; border-radius: 6px; color: #f1f2ef; background: #101111; font-size: 10px; font-weight: 620; text-align: center; outline: none; touch-action: manipulation; user-select: text; -webkit-user-select: text; scroll-margin-bottom: calc(280px + env(safe-area-inset-bottom, 0px)); }
 .videoSetStrip input:focus { border-color: #4c5050; background: #161717; }
 .videoSetStrip input::placeholder { color: #7b7e7a; opacity: 1; }
 .videoSetStrip input[readonly] { border-color: transparent; color: #b7bab5; }
@@ -566,6 +566,10 @@
   .impulsoOptions { grid-template-columns: 1fr; }
   .compactExercise { grid-template-columns: 66px minmax(0, 1fr) auto; gap: 9px; }
   .compactThumb { width: 66px; }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .setRow input, .videoSetStrip input { font-size: 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
