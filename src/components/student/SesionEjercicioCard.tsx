@@ -2179,6 +2179,26 @@ export const SesionEjercicioCard = forwardRef<
   );
   // Solo el descanso de esta serie corre — arrancar el de otra la pausa sola.
   const [serieActivaNumero, setSerieActivaNumero] = useState<number | null>(null);
+  /** Cuánto le queda al descanso de `serieActivaNumero` cuando el alumno ya
+   * está mirando otra serie (`serieVisibleNumero` distinta). Antes ese
+   * descanso pausado no se veía en ningún lado de la pantalla — para el
+   * alumno, "desaparecía" aunque siguiera corriendo por debajo. Se lee de la
+   * misma ancla de `localStorage` que ya usa cada `FilaSerie`
+   * (`lib/entrenamiento/descanso.ts`): no es un cronómetro nuevo, solo un
+   * reflejo de lectura del que ya existe. `null` = no hay nada que mostrar. */
+  const [restanteSerieEnPausa, setRestanteSerieEnPausa] = useState<number | null>(null);
+  const hayOtraSerieDescansando = serieActivaNumero !== null && serieActivaNumero !== serieVisibleNumero;
+  useEffect(() => {
+    if (!hayOtraSerieDescansando) return;
+    const numero = serieActivaNumero as number;
+    const actualizar = () => {
+      const finEn = leerDescanso(sesionId, ejercicio.sesionEjercicioId, numero);
+      setRestanteSerieEnPausa(finEn === null ? null : Math.max(0, Math.round((finEn - Date.now()) / 1000)));
+    };
+    actualizar();
+    const id = setInterval(actualizar, 1000);
+    return () => clearInterval(id);
+  }, [hayOtraSerieDescansando, serieActivaNumero, sesionId, ejercicio.sesionEjercicioId]);
   const [mostrandoSiguiente, setMostrandoSiguiente] = useState(false);
   // El indicador de continuación pertenece a la navegación lateral, no debajo
   // de la última serie. La pantalla contenedora decide si realmente existe un
@@ -2954,6 +2974,13 @@ export const SesionEjercicioCard = forwardRef<
           </strong>
         </p>
       </div>
+
+      {modoEnfocado && hayOtraSerieDescansando && restanteSerieEnPausa !== null && (
+        <p className="chip-descanso-en-pausa" role="status">
+          <Timer size={11} strokeWidth={2.2} aria-hidden />
+          Descansando serie {serieActivaNumero} · {formatoRestante(restanteSerieEnPausa)}
+        </p>
+      )}
 
       {modoEnfocado && (
         <div

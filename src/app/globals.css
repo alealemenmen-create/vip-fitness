@@ -4643,9 +4643,14 @@ input[type="number"] {
   margin-inline: 2px;
 }
 
-/* Las series son cápsulas rellenas con las mismas tonalidades que ya usaba
-   la pantalla. El color identifica la serie; check y relieve identifican el
-   estado, para que una serie azul pendiente no parezca completada. */
+/* Un solo lenguaje de color por ESTADO, no por índice — igual criterio que
+   ya usa la tira de navegación entre ejercicios de abajo
+   (`.lista-tira-navegacion`: blanco/negro/gris, sin colores por posición).
+   Antes "actual" y "completa" se pintaban con el mismo relleno (solo un
+   glow los diferenciaba), así que costaba distinguir "te toca ahora" de
+   "ya la hiciste" de un vistazo — reporte real de confusión de alumnos,
+   2026-08-21. Impulso VIP sigue siendo la única señal que rompe el
+   monocromo, porque es un eje de información distinto (reto especial). */
 .tarjeta-ejercicio-enfocada .selector-series-movido {
   gap: 8px !important;
   /* Con márgen a los costados (antes 0) y no de punta a punta de la
@@ -4656,32 +4661,19 @@ input[type="number"] {
   margin: 10px 22px 8px !important;
   padding: 0 !important;
 }
-/* Paleta de series atenuada (pedido de Alejandro, 2026-08-16): los tonos de
-   neón (#45e57b, #ffd12f, #2dccff, #ff7a32, #8b7bff) competían con el resto
-   del sistema, ya de por sí discreto — y el morado de la rotación se
-   confundía con el morado de Impulso VIP, que tiene que ser la única señal
-   que salta a la vista. Los nuevos tonos son la misma familia pero
-   desaturada, más cerca del "grafito silencioso" del resto de la sesión;
-   el morado sale de la rotación por completo. */
 .tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador {
-  --color-serie: #6bb98f;
   display: grid;
   min-width: 0;
   flex: 1 1 0;
   gap: 4px;
   justify-items: center;
 }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(2) { --color-serie: #c9ab6f; }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(3) { --color-serie: #6bacc0; }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(4) { --color-serie: #c78a68; }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador:nth-child(5n) { --color-serie: #8f96ad; }
 .tarjeta-ejercicio-enfocada .selector-series-movido button {
-  --color-serie: inherit;
   display: grid;
   width: 100%;
-  /* Más finas — pedido explícito de que se lean como líneas, no como
-     píldoras/botones (venían de 22px, casi el doble de altas que su
-     versión "densa" de 6+ series). */
+  /* El alto real de esta línea lo decide la regla `!important` de más abajo
+     (~6083, "de 22px a 13px, y de ahí a 5px" — pedido de Alejandro,
+     2026-08-16); esto es solo el valor base antes de esa cascada. */
   height: 15px;
   min-height: 15px;
   overflow: hidden;
@@ -4694,26 +4686,20 @@ input[type="number"] {
   opacity: 1;
 }
 .tarjeta-ejercicio-enfocada .selector-series-movido button > span:not(.resumen-registro-serie) { display: none; }
+/* Pendiente/actual: el color por estado que distingue "te toca ahora" de
+   "todavía no" se define más abajo (~6131), junto a la regla que también
+   fija el alto real — quedan juntas para no repetir la misma cascada en dos
+   lugares del archivo. */
+/* Ya hecha: blanco con el registro en negro — mismo tratamiento que
+   "completa" en `.lista-tira-navegacion`, para que "listo" se lea igual en
+   toda la pantalla. Reemplaza el relleno arcoíris por índice que tenía
+   antes (raíz de la confusión reportada, 2026-08-21: el color no decía
+   nada del estado de la serie, solo de su posición). */
 .tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="completa"] {
   color: #06090b;
-  border-color: var(--color-serie);
-  background: var(--color-serie);
-  box-shadow: 0 0 13px color-mix(in srgb, var(--color-serie) 50%, transparent), inset 0 1px 0 rgba(255,255,255,.3);
-}
-.tarjeta-ejercicio-enfocada .selector-series-movido .resumen-registro-serie {
-  display: -webkit-box;
-  height: auto !important;
-  max-width: 100%;
-  max-height: 15px;
-  overflow: hidden;
-  color: #06090b;
-  font-size: calc(7px * var(--escala-texto));
-  font-weight: 780;
-  line-height: 1.06;
-  text-align: center;
-  text-wrap: balance;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  border-color: #fff;
+  background: #fff;
+  box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.25);
 }
 .tarjeta-ejercicio-enfocada .selector-series-movido button[data-reinicio="true"] {
   color: #f4f4f6;
@@ -4726,18 +4712,6 @@ input[type="number"] {
 @keyframes confirmar-reinicio-serie {
   0%, 100% { opacity: .68; }
   50% { opacity: 1; }
-}
-.tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="actual"] {
-  color: #06090b;
-  background: var(--color-serie);
-  border-color: var(--color-serie);
-  box-shadow: 0 0 17px color-mix(in srgb, var(--color-serie) 58%, transparent), 0 0 4px color-mix(in srgb, var(--color-serie) 75%, transparent), inset 0 1px 0 rgba(255,255,255,.35);
-}
-.tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="pendiente"] {
-  color: #85898f;
-  border-color: #35383d;
-  background: #1c1f23;
-  box-shadow: none;
 }
 .tarjeta-ejercicio-enfocada .selector-series-movido button[data-impulso="true"][data-estado="actual"],
 .tarjeta-ejercicio-enfocada .selector-series-movido button[data-impulso="true"][data-estado="completa"] {
@@ -4758,10 +4732,16 @@ input[type="number"] {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  color: var(--color-serie);
+  color: #85898f;
   font-size: calc(8px * var(--escala-texto));
   font-weight: 720;
   line-height: 1;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador[data-estado="actual"] .etiqueta-serie-indicador {
+  color: var(--color-vip);
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador[data-estado="completa"] .etiqueta-serie-indicador {
+  color: #f4f4f6;
 }
 .tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador[data-especial="true"] .etiqueta-serie-indicador {
   color: #e0a1ff;
@@ -5263,6 +5243,24 @@ input[type="number"] {
 @keyframes aviso-siguiente-tira {
   0%, 100% { transform: translateX(0); }
   48%, 64% { transform: translateX(3px); }
+}
+/* El descanso de una serie que quedó en pausa (el alumno ya está mirando
+   otra) no tenía ningún reflejo visible en la pantalla — para el alumno
+   "desaparecía" aunque siguiera corriendo por debajo (reporte real,
+   2026-08-21). Chip discreto, mismo acento que el resto de la pantalla. */
+.chip-descanso-en-pausa {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 8px;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--color-vip) 35%, transparent);
+  border-radius: 999px;
+  color: var(--color-vip);
+  background: color-mix(in srgb, var(--color-vip) 10%, transparent);
+  font-size: calc(10px * var(--escala-texto));
+  font-weight: 650;
 }
 .control-descanso-sesion {
   position: relative;
@@ -6118,21 +6116,30 @@ input[type="number"] {
 .tarjeta-ejercicio-enfocada .selector-series-movido .etiqueta-serie-indicador {
   display: none;
 }
-/* Pendiente o en curso: cápsula vacía. Solo una serie realizada rellena su
-   color; la excepción es Impulso VIP, que conserva su señal morada activa.
-   El borde pasa de un gris sólido (#35383d, opaco) a blanco translúcido —
-   más delicado, en línea con el resto de los controles de esta fila
-   (pedido de Alejandro, 2026-08-16). */
-.tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="pendiente"],
-.tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="actual"]:not([data-especial="true"]) {
+/* Pendiente: cápsula vacía, borde blanco translúcido (pedido de Alejandro,
+   2026-08-16). Antes "actual" se pintaba exactamente igual que "pendiente"
+   — ambas cápsulas vacías, sin ninguna diferencia — así que no había forma
+   de saber cuál serie tocaba ahora con solo mirar la fila. Reporte real de
+   confusión de alumnos, 2026-08-21: se le da a "actual" su propia línea
+   rellena con el mismo acento que ya usa el botón de Descanso en esta
+   pantalla (--color-vip), sin agregar número ni texto — sigue siendo "solo
+   líneas" como se pidió, pero ahora la que toca se distingue de un vistazo. */
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="pendiente"] {
   color: #85898f;
   border-color: rgba(255,255,255,.1);
   background: #1c1f23;
   box-shadow: none;
 }
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador[data-estado="pendiente"] .etiqueta-serie-indicador,
-.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador[data-estado="actual"]:not([data-especial="true"]) .etiqueta-serie-indicador {
+.tarjeta-ejercicio-enfocada .selector-series-movido button[data-estado="actual"]:not([data-especial="true"]) {
+  border-color: var(--color-vip);
+  background: var(--color-vip);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-vip) 55%, transparent);
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador[data-estado="pendiente"] .etiqueta-serie-indicador {
   color: #85898f;
+}
+.tarjeta-ejercicio-enfocada .selector-series-movido .selector-serie-indicador[data-estado="actual"]:not([data-especial="true"]) .etiqueta-serie-indicador {
+  color: var(--color-vip);
 }
 
 .informe-vip table th,
