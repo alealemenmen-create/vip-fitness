@@ -113,6 +113,7 @@ export type EjercicioSesionV2 = {
   fotoRespaldo?: string;
   videoUrl?: string;
   videoCloudflareListo?: boolean;
+  videoPoster?: string;
   equipo: string;
   grupo: string;
   grupoClave?: string;
@@ -150,6 +151,7 @@ export type AlternativaEjercicioV2 = {
   grupo: string;
   videoUrl?: string;
   videoCloudflareListo?: boolean;
+  videoPoster?: string;
 };
 
 export type SesionActivaModeloV2 = {
@@ -922,6 +924,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             grupo: alternativa.grupo,
             videoUrl: alternativa.videoUrl,
             videoCloudflareListo: alternativa.videoCloudflareListo,
+            videoPoster: alternativa.videoPoster,
             ultimoRegistro: undefined,
           }
         : ejercicio));
@@ -1477,7 +1480,15 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             onPointerDown={(evento) => iniciarGesto(evento.clientX)}
             onPointerUp={(evento) => terminarGesto(evento.clientX)}
           >
-            <ImagenV2Segura src={ejercicioActivo.foto} fallbackSrc={ejercicioActivo.fotoRespaldo} alt={`Demostración de ${ejercicioActivo.nombre}`} fill loading="eager" sizes="(max-width: 460px) 100vw, 460px" />
+            <ImagenV2Segura
+              src={ejercicioActivo.videoCloudflareListo && ejercicioActivo.videoPoster ? ejercicioActivo.videoPoster : ejercicioActivo.foto}
+              fallbackSrc={ejercicioActivo.fotoRespaldo ?? ejercicioActivo.foto}
+              alt={`Demostración de ${ejercicioActivo.nombre}`}
+              fill
+              loading="eager"
+              sizes="(max-width: 460px) 100vw, 460px"
+              className={ejercicioActivo.videoCloudflareListo && ejercicioActivo.videoPoster ? styles.videoPoster : undefined}
+            />
             {ejercicioActivo.videoCloudflareListo ? <VideoCloudflareAutomatico ejercicioId={ejercicioActivo.bibliotecaEjercicioId} activo nombre={ejercicioActivo.nombre} modoInmersivo claseSuperficieToque={styles.videoTapSurface} /> : null}
             <div className={styles.videoShade} />
             {controlesVideoVisibles && puedeIrAtras ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={() => moverSerie(-1)} aria-label="Ver serie anterior"><ChevronsLeft size={27} strokeWidth={2.4} /></button> : null}
@@ -1662,10 +1673,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         </main>
       )}
 
-      {!fichaEjercicio && vista === "lista" && !sesion?.soloLectura ? (
-        <button type="button" className={styles.videoViewButton} onClick={abrirVistaVideo}><ListVideo size={14} /> Vista de video</button>
-      ) : null}
-
       {!fichaEjercicio && vista !== "video" && (sesion?.soloLectura ? (
         <nav className={styles.sessionControls} aria-label="Controles del registro">
           <Link href="/portal-v2/entrenamiento/historial" aria-label="Volver al historial"><History size={20} /></Link>
@@ -1680,6 +1687,9 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           <button type="button" aria-label={vista === "descanso" ? "Volver a la serie actual" : "Serie anterior"} onClick={retrocederPaso} disabled={vista !== "descanso" && !puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
           <button type="button" aria-label={pausada ? "Reanudar sesión" : "Pausar sesión"} onClick={alternarPausaSesion}>{pausada ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>
           <button type="button" aria-label={vista === "descanso" ? descanso?.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
+          {vista === "lista" ? (
+            <button type="button" aria-label="Vista de video" onClick={abrirVistaVideo}><ListVideo size={20} /></button>
+          ) : <span aria-hidden="true" />}
         </nav>
       ))}
 

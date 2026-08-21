@@ -66,6 +66,7 @@ export function VideoCloudflareAutomatico({
 }) {
   const [video, setVideo] = useState<VideoEjercicio | null>(() => videoEnCache(ejercicioId));
   const [urlIframeCargado, setUrlIframeCargado] = useState<string | null>(null);
+  const [urlReproduccionIniciada, setUrlReproduccionIniciada] = useState<string | null>(null);
   const [sdkListo, setSdkListo] = useState(false);
   const [pausado, setPausado] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -97,10 +98,14 @@ export function VideoCloudflareAutomatico({
   useEffect(() => {
     if (!modoInmersivo || !sdkListo || !iframeRef.current || !window.Stream || !videoActualUrl || urlIframeCargado !== videoActualUrl) return;
     const reproductor = window.Stream(iframeRef.current);
-    const alReproducir = () => setPausado(false);
+    const alReproducir = () => {
+      setPausado(false);
+      setUrlReproduccionIniciada(videoActualUrl);
+    };
     const alPausar = () => setPausado(true);
     reproductorRef.current = reproductor;
     setPausado(reproductor.paused);
+    if (!reproductor.paused) setUrlReproduccionIniciada(videoActualUrl);
     reproductor.addEventListener("play", alReproducir);
     reproductor.addEventListener("pause", alPausar);
     return () => {
@@ -123,6 +128,9 @@ export function VideoCloudflareAutomatico({
   if (!activo || !ejercicioId || !videoActual) return null;
   const vertical = videoActual.ancho !== null && videoActual.alto !== null && videoActual.alto > videoActual.ancho;
   const proporcion = vertical ? `${videoActual.ancho} / ${videoActual.alto}` : undefined;
+  const visible = modoInmersivo
+    ? urlReproduccionIniciada === videoActual.url
+    : urlIframeCargado === videoActual.url;
   return (
     <>
       {modoInmersivo ? (
@@ -144,7 +152,7 @@ export function VideoCloudflareAutomatico({
         data-orientacion={vertical ? "vertical" : "otra"}
         style={proporcion ? { aspectRatio: proporcion } : undefined}
         onLoad={() => setUrlIframeCargado(videoActual.url)}
-        className={`pointer-events-none absolute inset-0 z-[2] h-full w-full border-0 transition-opacity duration-300 ${urlIframeCargado === videoActual.url ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute inset-0 z-[2] h-full w-full border-0 transition-opacity duration-300 ${visible ? "opacity-100" : "opacity-0"}`}
       />
       {modoInmersivo && claseSuperficieToque ? (
         <button

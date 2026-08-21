@@ -228,6 +228,23 @@ export async function urlMiniaturaFirmada(
     : null;
 }
 
+/**
+ * Portada que coincide con el inicio real del clip. Se usa en la vista
+ * inmersiva para que la imagen inicial y el primer fotograma compartan
+ * encuadre y el paso a reproducción no produzca un salto visual.
+ */
+export async function urlPosterVideoFirmado(
+  uid: string,
+  expSegundos = 4 * 60 * 60
+): Promise<string | null> {
+  const codigo = process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE;
+  if (!codigo) return null;
+  const token = await obtenerTokenFirmado(uid, expSegundos);
+  return token
+    ? `https://customer-${codigo}.cloudflarestream.com/${token}/thumbnails/thumbnail.jpg?time=0s&height=1080`
+    : null;
+}
+
 export function firmaWebhookValida(
   cuerpoCrudo: string,
   headerFirma: string | null,

@@ -16,7 +16,7 @@ import { construirBloquesTecnica, resolverGrupoTecnica } from "@/lib/entrenamien
 import type { Database } from "@/lib/supabase/types";
 import styles from "@/components/v2/PortalV2.module.css";
 import { firmarMiniaturasCloudflareV2 } from "@/lib/cloudflare/miniaturas-v2";
-import { urlMiniaturaFirmada } from "@/lib/cloudflare/stream";
+import { urlPosterVideoFirmado } from "@/lib/cloudflare/stream";
 import { obtenerSeguimientoHoy } from "@/app/alumno/inicio/data";
 import { evaluarPreparacionDiariaAlejandro, limitarMomentosPorPreparacion } from "@/lib/impulso-vip/preparacion-diaria";
 import { calcularDuracionSesionSegundos } from "@/lib/entrenamiento/duracion-sesion";
@@ -160,8 +160,8 @@ export default async function SesionV2Page({
   const uidsMiniatura = [...new Set(fichasQueSeMuestran
     .filter((ficha) => ficha.video_cloudflare_uid && ficha.video_cloudflare_estado === "listo")
     .map((ficha) => ficha.video_cloudflare_uid as string))];
-  const miniaturaFirmadaPorUid = new Map(await Promise.all(
-    uidsMiniatura.map(async (uid) => [uid, await urlMiniaturaFirmada(uid)] as const)
+  const posterFirmadoPorUid = new Map(await Promise.all(
+    uidsMiniatura.map(async (uid) => [uid, await urlPosterVideoFirmado(uid)] as const)
   ));
 
   const fotoGrupo = (grupo: string | null | undefined) =>
@@ -171,8 +171,12 @@ export default async function SesionV2Page({
   const fotoFicha = (ficha: FichaEjercicioV2 | undefined, grupo: string | null) =>
     ficha?.foto_completa_url
       ?? ficha?.foto_miniatura_url
-      ?? (ficha?.video_cloudflare_uid ? miniaturaFirmadaPorUid.get(ficha.video_cloudflare_uid) : null)
+      ?? (ficha?.video_cloudflare_uid ? posterFirmadoPorUid.get(ficha.video_cloudflare_uid) : null)
       ?? fotoGrupo(grupo);
+  const posterVideoFicha = (ficha: FichaEjercicioV2 | undefined) =>
+    ficha?.video_cloudflare_uid && ficha.video_cloudflare_estado === "listo"
+      ? posterFirmadoPorUid.get(ficha.video_cloudflare_uid) ?? undefined
+      : undefined;
   const alternativaVisual = (ficha: FichaEjercicioV2): AlternativaEjercicioV2 => ({
     id: ficha.id,
     nombre: ficha.nombre,
@@ -182,6 +186,7 @@ export default async function SesionV2Page({
     grupo: ficha.grupo_muscular ? ETIQUETAS_GRUPO_MUSCULAR[ficha.grupo_muscular] : "Entrenamiento",
     videoUrl: ficha.video_url ?? undefined,
     videoCloudflareListo: Boolean(ficha.video_cloudflare_uid && ficha.video_cloudflare_estado === "listo"),
+    videoPoster: posterVideoFicha(ficha),
   });
   const alternativas: Record<string, AlternativaEjercicioV2[]> = {};
   for (const ejercicio of ejerciciosSesionOrdenados) {
@@ -237,6 +242,7 @@ export default async function SesionV2Page({
       videoCloudflareListo: fichaSustituta
         ? Boolean(fichaSustituta.video_cloudflare_uid && fichaSustituta.video_cloudflare_estado === "listo")
         : Boolean(ejercicio.videoCloudflareUid && ejercicio.videoCloudflareEstado === "listo"),
+      videoPoster: posterVideoFicha(fichaVisual) ?? ejercicio.videoCloudflareMiniaturaUrl ?? undefined,
       equipo: fichaSustituta?.equipo?.replaceAll("_", " ") ?? ejercicio.tecnicaSugerida ?? "Equipo asignado",
       grupo: fichaSustituta?.grupo_muscular
         ? ETIQUETAS_GRUPO_MUSCULAR[fichaSustituta.grupo_muscular]
