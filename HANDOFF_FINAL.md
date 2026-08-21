@@ -64,6 +64,7 @@ La versión 1 fue guardada y publicada desde la interfaz real con la cuenta admi
 
 ## Portal V2 y móvil
 
+- Las cinco jornadas del programa actual usan cuatro portadas editoriales no destructivas (press inclinado se comparte entre días 1 y 5): mantienen las identidades y escenas originales, con mejora corporal leve y realista. El bloque aplica un degradado inferior uniforme; biblioteca y fichas conservan las fotos técnicas originales.
 - Revisión multimedia posterior: la rutina activa ya no amplía el iframe para llenar el cuadro. Fotos y videos grandes usan encaje completo, preservan cabeza, manos y pies, y aceptan material vertical u horizontal con franjas negras cuando la proporción lo requiere.
 - El editor de ejercicios incorpora una vista vertical real de la rutina activa para alternar foto/video y revisar el archivo completo antes de publicarlo.
 - Diseño comprobado en viewport iPhone `390x844` y Android `412x915`.

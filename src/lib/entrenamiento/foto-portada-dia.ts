@@ -3,6 +3,26 @@ import { resolverFotoCompleta, resolverIlustracion } from "@/lib/ejercicios/ilus
 import { FOTOS_PREFERIDAS_POR_GRUPO } from "@/lib/grupos-musculares/fotos-preferidas";
 import { cardioIdentificaElDia } from "./grupos-dia";
 
+/**
+ * Variantes editoriales exclusivas del bloque principal de Entrenar.
+ *
+ * Los archivos originales siguen alimentando biblioteca, fichas y sesiones.
+ * Así la portada puede tener una dirección visual más fuerte sin convertir
+ * una foto tratada para texto superpuesto en la referencia técnica del
+ * ejercicio. Los días repetidos reutilizan la misma variante.
+ */
+const PORTADAS_VIP_POR_SLUG: Readonly<Record<string, string>> = {
+  "press-inclinado": "/portadas-entrenamiento/press-inclinado-vip-v2.webp",
+  "jalon-pecho": "/portadas-entrenamiento/jalon-pecho-vip-v2.webp",
+  prensa: "/portadas-entrenamiento/prensa-vip-v2.webp",
+  "elevaciones-laterales": "/portadas-entrenamiento/elevaciones-laterales-vip-v2.webp",
+};
+
+function resolverFotoPortada(slug: string | null | undefined): string | null {
+  if (!slug) return null;
+  return PORTADAS_VIP_POR_SLUG[slug] ?? resolverFotoCompleta(slug);
+}
+
 export type EjercicioParaPortada = {
   ilustracionSlug: string | null;
   grupoMuscular: GrupoMuscular | null;
@@ -42,11 +62,11 @@ export function fotoPortadaDia(ejercicios: EjercicioParaPortada[]): string | nul
       mejorSlug = ejercicio.ilustracionSlug;
     }
   }
-  const fotoCurada = mejorSlug ? resolverFotoCompleta(mejorSlug) : null;
+  const fotoCurada = resolverFotoPortada(mejorSlug);
   if (fotoCurada) return fotoCurada;
 
   const fotoCompleta = candidatos
-    .map((ejercicio) => resolverFotoCompleta(ejercicio.ilustracionSlug))
+    .map((ejercicio) => resolverFotoPortada(ejercicio.ilustracionSlug))
     .find((src): src is string => Boolean(src));
   if (fotoCompleta) return fotoCompleta;
 

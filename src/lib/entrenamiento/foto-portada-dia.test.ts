@@ -33,6 +33,11 @@ describe("fotoPortadaDia", () => {
     expect(fotoPortadaDia(dia)).toBe("/ejercicios-completas/face-pull.webp");
   });
 
+  it("usa la variante editorial solo en la portada cuando existe", () => {
+    const dia = [ejercicio("press-inclinado", "pecho")];
+    expect(fotoPortadaDia(dia)).toBe("/portadas-entrenamiento/press-inclinado-vip-v2.webp");
+  });
+
   it("devuelve null sin ejercicios con foto identificada", () => {
     expect(fotoPortadaDia([ejercicio(null, "pecho")])).toBeNull();
   });

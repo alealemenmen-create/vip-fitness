@@ -600,7 +600,9 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 46%, rgba(8,9,9,.96) 100%);
+  background:
+    linear-gradient(180deg, rgba(7,8,8,0) 25%, rgba(7,8,8,.08) 43%, rgba(7,8,8,.48) 68%, rgba(8,9,9,.9) 88%, #121313 100%),
+    linear-gradient(90deg, rgba(6,7,7,.2) 0%, transparent 48%);
 }
 
 .heroImage {
