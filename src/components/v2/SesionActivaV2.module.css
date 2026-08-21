@@ -274,27 +274,6 @@
   cursor: grab;
 }
 .asaTarjeta:active { color: #a8abaa; background: #202121; cursor: grabbing; }
-.videoViewButton {
-  position: fixed;
-  right: max(14px, calc((100vw - 460px) / 2 + 14px));
-  bottom: calc(76px + env(safe-area-inset-bottom, 0px) + 12px);
-  z-index: 55;
-  display: flex;
-  min-height: 40px;
-  align-items: center;
-  gap: 6px;
-  padding: 0 16px;
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 999px;
-  color: #fff;
-  background: rgba(23, 24, 24, .92);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, .45);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  font-size: 10px;
-  font-weight: 720;
-}
-
 .exerciseDetail { overflow: hidden; margin: 0 -14px; padding-bottom: 34px; background: #050606; }
 .exerciseDetailBack { position: fixed; top: calc(72px + env(safe-area-inset-top, 0px)); left: max(14px, calc((100vw - 460px) / 2 + 14px)); z-index: 45; display: flex; min-height: 38px; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px; color: #fff; background: rgba(11, 12, 12, .72); box-shadow: 0 7px 22px rgba(0, 0, 0, .35); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-size: 11px; font-weight: 720; }
 .exerciseDetailHero { position: relative; height: min(64dvh, 610px); min-height: 470px; overflow: hidden; background: #141515; }
@@ -349,6 +328,7 @@
 .videoMode { position: fixed; inset-block: 0; left: 50%; z-index: 40; width: min(100%, 460px); overflow: hidden; background: #050606; transform: translateX(-50%); }
 .videoStage { position: absolute; inset: 0; overflow: hidden; background: #050606; touch-action: pan-y; }
 .videoStage > img { z-index: 0; object-fit: contain; object-position: center; filter: saturate(.9) contrast(1.03) brightness(.88); }
+.videoStage > img.videoPoster { object-fit: cover; filter: saturate(.96) contrast(1.02) brightness(.9); }
 .videoStage > iframe { z-index: 1 !important; background: #050606; }
 .videoTapSurface { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .videoShade { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(180deg, rgba(5, 6, 6, .82) 0%, rgba(5, 6, 6, .26) 11%, transparent 24%, transparent 52%, rgba(4, 5, 5, .22) 61%, rgba(4, 5, 5, .78) 78%, #050606 100%); }

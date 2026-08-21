@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { firmaWebhookValida, tiempoFirmaWebhookCloudflare, urlMiniaturaFirmada } from "./stream";
+import { firmaWebhookValida, tiempoFirmaWebhookCloudflare, urlMiniaturaFirmada, urlPosterVideoFirmado } from "./stream";
 
 const SECRETO = "secreto-de-prueba";
 const AHORA = 1_700_000_000_000;
@@ -54,6 +54,20 @@ describe("urlMiniaturaFirmada", () => {
     expect(segunda).toBe(primera);
     expect(primera).not.toContain("video-privado-qa");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("genera una portada privada desde el primer fotograma", async () => {
+    vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "cuenta-qa");
+    vi.stubEnv("CLOUDFLARE_STREAM_API_TOKEN", "token-api-qa");
+    vi.stubEnv("CLOUDFLARE_STREAM_CUSTOMER_CODE", "cliente-qa");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, result: { token: "poster-firmado-qa" } }),
+    }));
+
+    expect(await urlPosterVideoFirmado("video-poster-qa")).toBe(
+      "https://customer-cliente-qa.cloudflarestream.com/poster-firmado-qa/thumbnails/thumbnail.jpg?time=0s&height=1080"
+    );
   });
 
   it("extrae sólo un tiempo firmado bien formado", () => {
