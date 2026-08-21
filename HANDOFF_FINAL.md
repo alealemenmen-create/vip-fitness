@@ -11,7 +11,7 @@ Este es el único handoff vigente. Los handoffs anteriores se conservan como his
 - Producción principal: https://vipfitness.cl
 - Alias V2: https://vip-fitness-v2.vercel.app
 - Rama canónica: `main`, sincronizada con `origin/main`.
-- Despliegue funcional validado: `dpl_DTM1T2ij7BkaNM33jNBxpdhW9cW6` (`Ready`), publicado también en el alias V2; 16/16 portadas respondieron correctamente en producción.
+- Despliegue funcional validado: `dpl_81sjAWZiJVQoxmeMdAHVAh9QNDmP` (`Ready`), publicado tanto en `vipfitness.cl` como en el alias V2; ambos dominios fueron inspeccionados y resuelven al mismo artefacto.
 - Portal V2 usa datos reales de alumnos, rutinas, progreso y nutrición. Se retiraron estados demostrativos que podían confundirse con información real.
 - Estudio VIP quedó conectado al Portal V2 mediante una única configuración publicada en Supabase Storage.
 - Generador conserva el motor determinista probado, las técnicas avanzadas y la lógica de Impulso VIP. Se agregó validación estricta antes de publicar.
@@ -25,6 +25,7 @@ Este es el único handoff vigente. Los handoffs anteriores se conservan como his
 - `195775d` — auditoría de rutinas, validación del generador y centro multimedia para entrenador/administrador.
 - `4383b53` — portadas editoriales de los días de entrenamiento, preservación de originales y degradado adaptable.
 - `a1491f6` — biblioteca de dos portadas por grupo muscular y selección estable por día.
+- `678da09` — descanso automático de Fabiola reactivado, acción clara para activar la cuenta regresiva y bloqueo de zoom limitado a la sesión activa.
 
 El commit posterior que contiene este documento y `HANDOFF_1.33.md` es únicamente documental.
 
@@ -71,7 +72,9 @@ La versión 1 fue guardada y publicada desde la interfaz real con la cuenta admi
 - El editor de ejercicios incorpora una vista vertical real de la rutina activa para alternar foto/video y revisar el archivo completo antes de publicarlo.
 - Diseño comprobado en viewport iPhone `390x844` y Android `412x915`.
 - Corregido el desplazamiento horizontal involuntario de la pantalla de entrenamiento.
-- Zoom del navegador habilitado para accesibilidad (`maximumScale: 5`, `userScalable: true`).
+- Zoom del navegador habilitado para accesibilidad en el portal general (`maximumScale: 5`, `userScalable: true`) y bloqueado únicamente en la rutina activa (`maximumScale: 1`, `userScalable: false`) para evitar pinzas accidentales mientras se entrena. La sesión conserva sus escalas visuales internas.
+- Incidencia Fabiola Galleguillos: se confirmó que el reloj general funcionaba y que su descanso estaba guardado como referencia libre (`temporizador_descanso=false`), por eso el número era estático. Se reactivó la preferencia real sin tocar sesión, series, pesos, repeticiones ni progreso. Si cualquier alumno elige descanso libre, la interfaz ahora dice claramente que no hay conteo y ofrece `Activar cuenta regresiva` en las vistas de lista e inmersiva.
+- El service worker fue auditado: no intercepta `fetch` ni cachea páginas, por lo que una PWA instalada no puede conservar una versión vieja de la sesión.
 - Portada y ficha prioritaria ajustadas para carga visual.
 - Navegación y tarjetas consumen la configuración publicada por Estudio VIP.
 - Biblioteca real: 134 ejercicios; 113 con foto y 21 pendientes de foto en el momento de la auditoría.
@@ -105,6 +108,8 @@ Todas las migraciones conocidas y las columnas/RPC requeridas, incluida `0118`, 
 - Tests enfocados: 85/85 aprobados.
 - Suite completa: 82 archivos, 635/635 tests aprobados.
 - Build de producción: Next.js 16.3.1, 72 páginas, aprobado.
+- Corrección de sesión activa (`678da09`): ESLint aprobado; TypeScript aprobado; suite completa 82 archivos y 635/635 tests; build de 72 páginas aprobado.
+- QA posterior al despliegue: viewport publicado `width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-visual`; sin overflow horizontal, overlay ni errores/advertencias de consola. Logs de Vercel sin errores durante la comprobación.
 - Revisión de encuadre multimedia: ESLint, TypeScript, 10 pruebas enfocadas, suite completa y build repetidos en verde.
 - QA autenticada local: Estudio VIP guardar/publicar, Portal V2, Generador y centro multimedia, aprobada.
 - QA autenticada en producción: Estudio VIP y video Cloudflare real, aprobada sin error de consola ni overlay.
