@@ -11,7 +11,7 @@ Este es el único handoff vigente. Los handoffs anteriores se conservan como his
 - Producción principal: https://vipfitness.cl
 - Alias V2: https://vip-fitness-v2.vercel.app
 - Rama canónica: `main`, sincronizada con `origin/main`.
-- Despliegue funcional validado: `dpl_4JgbchRtwpXALH4JWnLFiCC3LBvv` (`Ready`), publicado tanto en `vipfitness.cl` como en el alias V2; ambos dominios fueron inspeccionados y resuelven al mismo artefacto.
+- Despliegue funcional validado: `dpl_51PgeiBhEMEGCqYujNE6iN8woXcW` (`Ready`), publicado tanto en `vipfitness.cl` como en el alias V2; ambos dominios fueron reasignados al mismo artefacto.
 - Portal V2 usa datos reales de alumnos, rutinas, progreso y nutrición. Se retiraron estados demostrativos que podían confundirse con información real.
 - Estudio VIP quedó conectado al Portal V2 mediante una única configuración publicada en Supabase Storage.
 - Generador conserva el motor determinista probado, las técnicas avanzadas y la lógica de Impulso VIP. Se agregó validación estricta antes de publicar.
@@ -27,6 +27,11 @@ Este es el único handoff vigente. Los handoffs anteriores se conservan como his
 - `a1491f6` — biblioteca de dos portadas por grupo muscular y selección estable por día.
 - `678da09` — descanso automático de Fabiola reactivado, acción clara para activar la cuenta regresiva y bloqueo de zoom limitado a la sesión activa.
 - `ba42ff4` — edición libre y autoguardado ordenado de cargas, recuperación del último peso real y progreso por ejercicio.
+- `d20a18b` — teclado móvil estable en todos los campos editables de la sesión.
+- `915c932` y `92c7637` — refinamiento del video inmersivo, encuadre vertical y control discreto del reproductor.
+- `00eabb1` — primer ajuste del área inferior, sustituido por la geometría estable del parche posterior.
+- `0121bbe` — reutilización de videos firmados y separación funcional entre el reproductor y el tiempo del entrenamiento.
+- `931def8` — barra inferior de seis controles, sin botón flotante de cambio de vista.
 
 El commit posterior que contiene este documento y `HANDOFF_1.33.md` es únicamente documental.
 
@@ -82,7 +87,9 @@ La versión 1 fue guardada y publicada desde la interfaz real con la cuenta admi
 - Teclado móvil reforzado en todos los inputs de sesión: las series no activas ya no usan `readOnly`, el input conserva el toque/foco sin que lo intercepte la fila o el arrastre, repeticiones abre teclado numérico y peso teclado decimal. En pantallas táctiles se usa fuente de 16 px para evitar zoom de enfoque en iOS y margen inferior para que el teclado no cubra el campo.
 - Vista inmersiva refinada contra la referencia visual entregada: foto y video conservan el cuerpo completo sin recorte, el reproductor queda por debajo del degradado superior/inferior, el lienzo se limita al ancho móvil y Ajustes/Vista de lista se reubicaron junto a la identidad del ejercicio. Los chips de acciones mantienen todas sus funciones, con mejor área táctil y desplazamiento horizontal estable.
 - Corrección específica para iPhone alto (captura de iPhone 13 Pro Max): la sesión declara `viewport-fit=cover`, el video vertical usa su proporción real para llenar el alto y elimina las barras negras superiores sin recortar cabeza ni piernas (solo márgenes laterales). Foto de espera e iframe comparten el mismo encuadre para evitar el salto de carga. Se eliminó el play central que abría un segundo visor y se añadió pausa/reanudación discreta sobre el mismo reproductor automático mediante la API oficial de Cloudflare Stream. Los rótulos Serie/Reps/Peso ahora se alinean desde arriba aunque iOS agrande los inputs a 16 px.
-- Área inferior adaptativa: video inmersivo y barra de controles de descanso extienden su superficie visual a través del `safe-area-inset-bottom` de iOS, sin mover hacia el gesto de inicio los botones ni los campos. Android y teléfonos sin área segura conservan la geometría anterior. El indicador de la franja de datos ahora muestra `Serie` y el número actual destacado, sin la palabra `trabajo`.
+- Área inferior adaptativa: se eliminó la doble aplicación de `safe-area-inset-bottom` que levantaba controles y dejaba una franja visual incorrecta en iPhone. Video y barra inferior usan ahora una sola zona segura, anclada al borde real; Android y teléfonos sin área segura conservan la misma geometría. El indicador de la franja de datos muestra `Serie` y el número actual destacado, sin la palabra `trabajo`.
+- La barra de la sesión activa quedó organizada en seis controles: Ajustes, Anterior, Pausar/Reanudar tiempo del entrenamiento, Lista/Video, Siguiente e Información. Se eliminó el botón flotante de cambio de vista. La pausa pequeña sobre el video conserva una función independiente y controla exclusivamente el reproductor.
+- El resultado firmado de Cloudflare Stream se conserva durante tres horas en la pestaña y las solicitudes simultáneas se deduplican. Entrar y salir de la vista de video ya no solicita nuevamente la misma firma en cada cambio, evitando las demoras intermitentes observadas.
 - Portada y ficha prioritaria ajustadas para carga visual.
 - Navegación y tarjetas consumen la configuración publicada por Estudio VIP.
 - Biblioteca real: 134 ejercicios; 113 con foto y 21 pendientes de foto en el momento de la auditoría.
@@ -122,6 +129,7 @@ Todas las migraciones conocidas y las columnas/RPC requeridas, incluida `0118`, 
 - Refinamiento visual de sesión inmersiva: ESLint, TypeScript, suite completa 82 archivos/636 tests y build de 72 páginas aprobados.
 - Corrección iPhone 13 Pro Max y control de pausa: ESLint, TypeScript, suite completa 82 archivos/636 tests y build de 72 páginas aprobados antes de publicar.
 - Ajuste inferior multidispositivo e indicador de serie: ESLint, TypeScript, suite completa 82 archivos/636 tests y build de 72 páginas aprobados antes de publicar.
+- Incidencia de controles y bloqueo intermitente (`0121bbe`, `931def8`): diagnóstico de logs sin fallos de servidor; ESLint y TypeScript aprobados; suite completa 82 archivos/636 tests; build de producción de 72 páginas aprobado. Vercel `dpl_51PgeiBhEMEGCqYujNE6iN8woXcW` quedó `Ready`; `vipfitness.cl` y `vip-fitness-v2.vercel.app` se apuntaron explícitamente a ese artefacto y el barrido posterior no encontró errores de runtime.
 - Revisión de encuadre multimedia: ESLint, TypeScript, 10 pruebas enfocadas, suite completa y build repetidos en verde.
 - QA autenticada local: Estudio VIP guardar/publicar, Portal V2, Generador y centro multimedia, aprobada.
 - QA autenticada en producción: Estudio VIP y video Cloudflare real, aprobada sin error de consola ni overlay.
