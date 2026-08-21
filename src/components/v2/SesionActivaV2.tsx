@@ -70,6 +70,7 @@ import {
   marcarIntervencionMostrada,
   resolverIntervencionAutomaticaV2,
 } from "@/app/alumno/entrenar/impulso-actions";
+import type { ResultadoIntervencionImpulso } from "@/lib/supabase/types";
 import {
   actualizarTemporizadorDescansoAlumno,
   cancelarSesionEnCurso,
@@ -756,7 +757,17 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
 
   const responderResultadoImpulso = (momento: MomentoSesionAlejandro, dificultad: DificultadImpulsoVIP) => {
     setMomentoParaResultado(null);
-    const resultado = dificultad === "fallo" ? "no_lograda" : "lograda";
+    // Antes esto colapsaba las 5 respuestas en solo dos resultados posibles
+    // (lograda/no_lograda), perdiendo el matiz de "quedé corto" que la
+    // memoria adaptativa necesita para no volver a ofrecer algo que costó
+    // demasiado. "Muy difícil" no es lo mismo que "estuvo justo": completar
+    // algo al límite de sufrimiento es una señal de cautela, no un éxito
+    // limpio que habilite subir más la próxima vez.
+    const resultado: ResultadoIntervencionImpulso = dificultad === "fallo"
+      ? "no_lograda"
+      : dificultad === "dificil"
+        ? "parcial"
+        : "lograda";
     iniciarGuardado(async () => {
       try {
         const resolucion = await resolverIntervencionAutomaticaV2(momento.id, resultado, dificultad);

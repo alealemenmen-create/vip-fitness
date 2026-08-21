@@ -567,10 +567,17 @@ export async function resolverIntervencionEnVivo(
  * `dificultad` es la respuesta subjetiva a "¿cómo te fue?" en esa serie
  * puntual (pedido de Alejandro, 2026-08-20) -- no reemplaza la verificación
  * por datos, solo la acompaña como color adicional en `resultado_data`.
+ *
+ * El parámetro `resultado` acepta el mismo abanico completo que la sesión
+ * clásica (`ResultadoIntervencionImpulso`, 5 valores) -- antes este
+ * adaptador solo aceptaba 3 y quien lo llamaba colapsaba "quedé corto" y
+ * "no la hice" dentro de "lograda"/"no_lograda", perdiendo justo el matiz
+ * que alimenta la memoria adaptativa (ver `responderResultadoImpulso` en
+ * SesionActivaV2.tsx).
  */
 export async function resolverIntervencionAutomaticaV2(
   intervencionId: string,
-  resultado: "lograda" | "no_lograda" | "omitida_molestia" = "lograda",
+  resultado: ResultadoIntervencionImpulso = "lograda",
   dificultad?: DificultadPercibidaImpulso,
 ): Promise<ResolverIntervencionState> {
   const formData = new FormData();
