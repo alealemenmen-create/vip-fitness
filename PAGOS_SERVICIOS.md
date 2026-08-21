@@ -32,7 +32,7 @@ Su objetivo es evitar suspensiones inesperadas y registrar qué depende de cada 
 |---|---|---:|---:|---|
 | Vercel | Hosting, funciones y cron | **Por confirmar** | **Por confirmar** | La web o funciones pueden quedar limitadas o fuera de línea. |
 | Supabase | Base de datos, usuarios y archivos | **Por confirmar** | **Por confirmar** | Login, datos, fotos y operaciones principales pueden fallar. |
-| Dominio `vipfitness.cl` | Dirección pública de la aplicación | Registrador **por confirmar** | **Por confirmar** | El dominio deja de dirigir a la aplicación. |
+| Dominio `vipfitness.cl` | Dirección pública de la aplicación | Registrador **NIC Chile** (registrante: Alejandro Mendoza Galíndez) | **28 de julio de 2027** | El dominio deja de dirigir a la aplicación. |
 | Anthropic API | Asistente de IA | Cobro por consumo **por confirmar** | Sin renovación fija conocida | El asistente deja de responder; el resto de la app debería continuar. |
 | Resend | Correos transaccionales | Plan **por confirmar** | **Por confirmar** | Los correos de la aplicación dejan de enviarse. |
 | GitHub | Repositorio privado | Plan **por confirmar** | **Por confirmar** | Puede afectar colaboración o automatizaciones, no la web ya desplegada. |
@@ -67,7 +67,8 @@ Abrir cada panel de facturación y reemplazar los campos **Por confirmar**:
 
 - Vercel: plan, importe, ciclo y próxima factura.
 - Supabase: plan, importe, ciclo y próxima factura.
-- Registrador de `vipfitness.cl`: empresa, fecha exacta de vencimiento y precio anual.
+- Registrador de `vipfitness.cl`: confirmado NIC Chile, vence 28/07/2027 (falta el precio anual).
+- Cuenta de Cloudflare que tiene la zona DNS de `vipfitness.cl`: la cuenta `Alealemenmen@gm...` NO la tiene — hay que ubicar con qué otro correo se configuró.
 - Anthropic: límite de gasto mensual configurado.
 - Resend: plan y límite mensual.
 - GitHub: plan y fecha de cobro, si corresponde.
@@ -77,4 +78,5 @@ Abrir cada panel de facturación y reemplazar los campos **Por confirmar**:
 | Fecha | Cambio |
 |---|---|
 | 2026-08-08 | Se activó Cloudflare Stream Starter Bundle por USD 5/mes. |
+| 2026-08-18 | Confirmado por WHOIS de NIC Chile: registrador NIC Chile, registrante Alejandro Mendoza Galíndez, vence 28/07/2027. Detectado que la cuenta de Cloudflare usada para revisar Stream no tiene la zona DNS de `vipfitness.cl` — falta ubicar la cuenta correcta. |
 
