@@ -178,7 +178,7 @@ export function BibliotecaEjerciciosV2({
           <article className={styles.librarySheet} role="dialog" aria-modal="true" aria-labelledby="library-detail-title" onClick={(evento) => evento.stopPropagation()}>
             <button type="button" className={styles.libraryClose} onClick={cerrarFicha} aria-label="Cerrar ficha"><X size={19} /></button>
             <div className={styles.libraryDetailMedia}>
-              {fotoDe(seleccionado) ? <ImagenV2Segura src={seleccionado.fotoCompletaUrl ?? fotoDe(seleccionado)!} fallbackSrc={fotoDe(seleccionado)} alt={`Demostración de ${seleccionado.nombre}`} fill sizes="460px" /> : <Dumbbell size={40} />}
+              {fotoDe(seleccionado) ? <ImagenV2Segura src={seleccionado.fotoCompletaUrl ?? fotoDe(seleccionado)!} fallbackSrc={fotoDe(seleccionado)} alt={`Demostración de ${seleccionado.nombre}`} fill sizes="460px" loading="eager" /> : <Dumbbell size={40} />}
               {seleccionado.videoCloudflareEstado === "listo" && puedeVerVideos ? (
                 <button type="button" className={styles.libraryPlay} onClick={() => setVideoAbierto(true)}><Play size={16} fill="currentColor" /> Ver demostración</button>
               ) : null}

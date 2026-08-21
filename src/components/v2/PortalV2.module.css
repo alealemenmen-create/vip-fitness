@@ -133,7 +133,7 @@
 .progressLoading p { color: #717572; font-size: 9px; text-align: center; }
 
 .shell :is(a, button, input, textarea, select):focus-visible {
-  outline: 2px solid #f7f8f5;
+  outline: 2px solid var(--v2-accent);
   outline-offset: 3px;
 }
 
@@ -280,12 +280,12 @@
 }
 
 .navActive {
-  color: #f7f7f3;
+  color: var(--v2-accent);
   background: transparent;
 }
 
 .navActive .navIcon { transform: scale(1.06); opacity: 1; }
-.navActive .navLabel { color: #f7f7f3; }
+.navActive .navLabel { color: var(--v2-accent); }
 .navItem:active .navIcon { transform: scale(.92); }
 
 .pageHeader {
@@ -297,6 +297,31 @@
 }
 
 .trainingPage { padding-bottom: 8px; }
+
+.studioBrand {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--v2-accent);
+  font-size: 8px;
+  font-weight: 820;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.studioNotice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--v2-accent) 28%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--v2-accent) 8%, #111312);
+}
+.studioNotice strong { display: block; font-size: 11px; }
+.studioNotice p { margin-top: 2px; color: var(--v2-muted); font-size: 9px; line-height: 1.4; }
+.studioNotice a { padding: 8px 10px; border-radius: 8px; color: #080909; background: var(--v2-accent); font-size: 9px; font-weight: 800; white-space: nowrap; }
 
 .demoAccessNotice {
   display: grid;
@@ -662,9 +687,9 @@
 }
 
 .primaryButton {
-  border: 1px solid #fff;
+  border: 1px solid var(--v2-accent);
   color: #080909;
-  background: #f5f5f2;
+  background: var(--v2-accent);
 }
 
 .heroActions form { display: flex; }

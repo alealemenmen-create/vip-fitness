@@ -23,6 +23,7 @@ import { fotoPortadaDia } from "@/lib/entrenamiento/foto-portada-dia";
 import { BotonIniciarEntrenamientoV2 } from "@/components/v2/BotonIniciarEntrenamientoV2";
 import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
 import styles from "./PortalV2.module.css";
+import type { ConfiguracionEstudioVip } from "@/lib/estudio-vip/configuracion";
 
 type Props = {
   numeros: NumeroCalendario[];
@@ -36,6 +37,7 @@ type Props = {
   planPausado: boolean;
   cupoAgotado: boolean;
   soloLectura: boolean;
+  configuracion: ConfiguracionEstudioVip;
 };
 
 function tituloDia(numero: NumeroCalendario) {
@@ -59,6 +61,7 @@ export function EntrenamientoInicioV2({
   planPausado,
   cupoAgotado,
   soloLectura,
+  configuracion,
 }: Props) {
   const [seleccionado, setSeleccionado] = useState(seleccionInicial);
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -74,7 +77,13 @@ export function EntrenamientoInicioV2({
   // la tira solo, se ve la posición del tap.
   const tiraDiasRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    tiraDiasRef.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ inline: "center", block: "nearest" });
+    const tira = tiraDiasRef.current;
+    const activo = tira?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!tira || !activo) return;
+    // `scrollIntoView()` también desplazaba el <main> horizontalmente en
+    // Chrome/iOS cuando el día activo estaba al final del ciclo: toda la app
+    // amanecía corrida 32 px. Movemos sólo la tira, nunca sus ancestros.
+    tira.scrollTo({ left: activo.offsetLeft - (tira.clientWidth - activo.clientWidth) / 2 });
   }, []);
 
   // Respaldo si ningún ejercicio del día tiene foto real identificada
@@ -93,8 +102,8 @@ export function EntrenamientoInicioV2({
   // ponga cardio [por una bicicleta de calentamiento]").
   const foto = useMemo(() => {
     const ejerciciosDia = vista?.tipo === "entrenamiento" ? vista.ejercicios : [];
-    return fotoPortadaDia(ejerciciosDia) ?? fotoRespaldo;
-  }, [vista, fotoRespaldo]);
+    return configuracion.entrenamiento.imagenPortadaUrl || fotoPortadaDia(ejerciciosDia) || fotoRespaldo;
+  }, [vista, fotoRespaldo, configuracion.entrenamiento.imagenPortadaUrl]);
 
   if (!actual) return null;
 
@@ -109,10 +118,17 @@ export function EntrenamientoInicioV2({
 
   return (
     <div>
+      {configuracion.entrenamiento.aviso.visible && (configuracion.entrenamiento.aviso.titulo || configuracion.entrenamiento.aviso.texto) ? (
+        <section className={styles.studioNotice}>
+          <div><strong>{configuracion.entrenamiento.aviso.titulo}</strong><p>{configuracion.entrenamiento.aviso.texto}</p></div>
+          {configuracion.entrenamiento.aviso.botonTexto && configuracion.entrenamiento.aviso.botonHref ? <Link href={configuracion.entrenamiento.aviso.botonHref}>{configuracion.entrenamiento.aviso.botonTexto}</Link> : null}
+        </section>
+      ) : null}
       <header className={styles.pageHeader}>
         <div>
+          <span className={styles.studioBrand}>{configuracion.marca.nombre}</span>
           <h1 className={styles.programName}>{rutinaNombre ? nombreCortoRutina(rutinaNombre) : "Programa VIP"}</h1>
-          <p className={styles.phase}>{planNombre ? `${planNombre} · ` : ""}Fase activa</p>
+          <p className={styles.phase}>{planNombre ? `${planNombre} · ` : ""}{configuracion.entrenamiento.etiquetaFase}</p>
         </div>
         <button
           type="button"
@@ -197,7 +213,7 @@ export function EntrenamientoInicioV2({
               <input type="hidden" name="rutina_id" value={rutinaId} />
               <input type="hidden" name="numero_calendario" value={actual.numero} />
               <BotonIniciarEntrenamientoV2
-                texto={`Iniciar día ${actual.numero}`}
+                texto={`${configuracion.entrenamiento.textoBotonIniciar} ${actual.numero}`}
                 className={styles.primaryButton}
                 deshabilitado={bloqueado}
               />
@@ -213,35 +229,35 @@ export function EntrenamientoInicioV2({
       )}
 
       <div className={styles.utilityGrid}>
-        <button type="button" className={styles.utilityCard} onClick={() => setVerRutina((valor) => !valor)} aria-expanded={verRutina}>
-          <LibraryBig size={20} />
-          <span><strong>{verRutina ? "Ocultar ejercicios" : "Rutina asignada"}</strong><span>Revisa tu sesión completa</span></span>
-        </button>
-        <Link href="/portal-v2/entrenamiento/biblioteca" className={styles.utilityCard}>
-          <Dumbbell size={20} />
-          <span><strong>Biblioteca de ejercicios</strong><span>Técnica, videos y consejos</span></span>
-        </Link>
-        <Link href="/portal-v2/entrenamiento/programas" className={styles.utilityCard}>
-          <CalendarDays size={20} />
-          <span><strong>Mis programas</strong><span>Programa actual y recorrido</span></span>
-        </Link>
-        <Link href="/portal-v2/entrenamiento/historial" className={styles.utilityCard}>
-          <History size={20} />
-          <span><strong>Registro de entrenamientos</strong><span>Revisa tus sesiones anteriores</span></span>
-        </Link>
+        {configuracion.tarjetas.rutina.visible ? <button type="button" className={styles.utilityCard} onClick={() => setVerRutina((valor) => !valor)} aria-expanded={verRutina}>
+          <span className={styles.utilityIcon}><LibraryBig /></span>
+          <span className={styles.utilityCopy}><strong>{verRutina ? "Ocultar ejercicios" : configuracion.tarjetas.rutina.titulo}</strong><span>{configuracion.tarjetas.rutina.detalle}</span></span>
+        </button> : null}
+        {configuracion.tarjetas.biblioteca.visible ? <Link href="/portal-v2/entrenamiento/biblioteca" className={styles.utilityCard}>
+          <span className={styles.utilityIcon}><Dumbbell /></span>
+          <span className={styles.utilityCopy}><strong>{configuracion.tarjetas.biblioteca.titulo}</strong><span>{configuracion.tarjetas.biblioteca.detalle}</span></span>
+        </Link> : null}
+        {configuracion.tarjetas.programas.visible ? <Link href="/portal-v2/entrenamiento/programas" className={styles.utilityCard}>
+          <span className={styles.utilityIcon}><CalendarDays /></span>
+          <span className={styles.utilityCopy}><strong>{configuracion.tarjetas.programas.titulo}</strong><span>{configuracion.tarjetas.programas.detalle}</span></span>
+        </Link> : null}
+        {configuracion.tarjetas.historial.visible ? <Link href="/portal-v2/entrenamiento/historial" className={styles.utilityCard}>
+          <span className={styles.utilityIcon}><History /></span>
+          <span className={styles.utilityCopy}><strong>{configuracion.tarjetas.historial.titulo}</strong><span>{configuracion.tarjetas.historial.detalle}</span></span>
+        </Link> : null}
       </div>
 
-      <section className={styles.impulso}>
+      {configuracion.tarjetas.impulso.visible ? <section className={styles.impulso}>
         <span className={styles.impulsoIcon}><Zap size={17} fill="currentColor" /></span>
         <div>
-          <strong>Impulso VIP</strong>
-          <p>Al iniciar, tu sesión activa objetivos y ajustes según tu rendimiento.</p>
+          <strong>{configuracion.tarjetas.impulso.titulo}</strong>
+          <p>{configuracion.tarjetas.impulso.detalle}</p>
         </div>
         <span className={styles.impulsoBadge}>Preparado</span>
-      </section>
+      </section> : null}
 
-      <div className={styles.sectionHeader}>
-        <h2>Preparación de hoy</h2>
+      {configuracion.tarjetas.preparacion.visible ? <><div className={styles.sectionHeader}>
+        <h2>{configuracion.tarjetas.preparacion.titulo}</h2>
         <span>{ejercicios.length} ejercicios</span>
       </div>
       <div className={styles.chipRow} aria-label="Categorías">
@@ -255,6 +271,7 @@ export function EntrenamientoInicioV2({
           {ejercicios.slice(0, 3).map((ejercicio) => <EjercicioFila key={ejercicio.id} ejercicio={ejercicio} />)}
         </section>
       )}
+      </> : null}
 
       {menuAbierto && (
         <div className={styles.menuBackdrop} role="presentation" onClick={() => setMenuAbierto(false)}>

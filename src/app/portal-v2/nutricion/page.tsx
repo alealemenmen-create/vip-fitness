@@ -3,10 +3,11 @@ import { obtenerContextoAlumnoOpcional } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerPlanAlimentacion, obtenerRegistrosRango } from "@/app/alumno/comer/data";
 import { diasVentanaISO, horaActualISO, hoyISO, sumarDiasISO } from "@/lib/date";
+import styles from "@/components/v2/PortalV2.module.css";
 
 export default async function NutricionV2Page() {
   const contexto = await obtenerContextoAlumnoOpcional();
-  if (!contexto) return <NutricionV2 />;
+  if (!contexto) return <div className={styles.trainingPage}><section className={styles.impulso}><div><strong>Selecciona un perfil de alumno</strong><p>La nutrición de Portal V2 sólo muestra registros y planes reales. Usa “Ver como alumno” desde el panel o activa tu perfil personal.</p></div></section></div>;
 
   const fechaInicial = hoyISO();
   const desde = sumarDiasISO(fechaInicial, -3);

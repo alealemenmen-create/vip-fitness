@@ -26,13 +26,13 @@ export const metadata: Metadata = {
   },
 };
 
-// Se bloquea el zoom en celular y tablet: la app está pensada para usarse con
-// una mano en el gimnasio y el pellizco accidental descuadraba la pantalla.
+// El layout evita desplazamientos accidentales, pero conserva el zoom del
+// sistema: alumnos con baja visión deben poder ampliar la interfaz (WCAG 1.4.4).
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
   /*
     Qué pasa cuando sube el teclado. Es la diferencia de fondo entre iPhone y
     Android, y la causa de que Nutrición se viera bien en uno y roto en el otro:

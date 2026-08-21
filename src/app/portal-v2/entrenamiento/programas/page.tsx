@@ -2,13 +2,8 @@ import Link from "next/link";
 import { ArrowLeft, Archive, CalendarDays, ChevronRight, Dumbbell, History, ShieldCheck } from "lucide-react";
 import { obtenerContextoAlumnoOpcional } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { obtenerProgramasAlumno, type ProgramaAlumno } from "@/app/alumno/entrenar/data";
+import { obtenerProgramasAlumno } from "@/app/alumno/entrenar/data";
 import styles from "@/components/v2/PortalV2.module.css";
-
-const PROGRAMAS_DEMO: ProgramaAlumno[] = [
-  { id: "metodo-vip", nombre: "Método VIP", activa: true, archivada: false, version: 3, creadoEn: "2026-07-22T12:00:00-04:00", diasEntrenamiento: 5, ejercicios: 36, series: 122, sesionesCerradas: 7, ultimaSesion: "2026-08-18" },
-  { id: "base-fuerza", nombre: "Base de fuerza", activa: false, archivada: false, version: 2, creadoEn: "2026-06-03T12:00:00-04:00", diasEntrenamiento: 4, ejercicios: 28, series: 96, sesionesCerradas: 12, ultimaSesion: "2026-07-16" },
-];
 
 function fechaPrograma(fecha: string | null) {
   if (!fecha) return "Sin sesiones todavía";
@@ -19,7 +14,7 @@ export default async function ProgramasV2Page() {
   const contexto = await obtenerContextoAlumnoOpcional();
   const programas = contexto
     ? await obtenerProgramasAlumno(await createClient(), contexto.alumnoId)
-    : PROGRAMAS_DEMO;
+    : [];
   const activos = programas.filter((programa) => programa.activa && !programa.archivada);
   const anteriores = programas.filter((programa) => !programa.activa || programa.archivada);
 
@@ -30,7 +25,7 @@ export default async function ProgramasV2Page() {
         <div><span>ENTRENAMIENTO</span><h1>Mis programas</h1></div>
       </header>
 
-      {!contexto ? <p className={styles.historyV2Demo}>Vista directa de demostración. Al entrar con un alumno, aquí aparecen únicamente sus programas publicados y sus cifras reales.</p> : null}
+      {!contexto ? <p className={styles.historyV2Demo}>Selecciona “Ver como alumno” desde el panel para revisar sus programas reales. Esta pantalla no completa espacios con datos inventados.</p> : null}
 
       <section className={styles.programsV2Intro}>
         <ShieldCheck size={20} />

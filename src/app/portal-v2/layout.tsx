@@ -6,9 +6,13 @@ import { VipSplash } from "@/components/v2/VipSplash";
 import styles from "@/components/v2/PortalV2.module.css";
 import { obtenerSesionActualOpcional } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { obtenerDocumentoPublicadoEstudioVip } from "@/lib/estudio-vip/data";
 
 export default async function PortalV2Layout({ children }: { children: React.ReactNode }) {
-  const sesion = await obtenerSesionActualOpcional();
+  const [sesion, documentoEstudio] = await Promise.all([
+    obtenerSesionActualOpcional(),
+    obtenerDocumentoPublicadoEstudioVip(),
+  ]);
 
   // El piloto ya usa cuentas reales. Sin sesión siempre se vuelve al login:
   // así el enlace corto no puede confundirse con la antigua demostración y
@@ -30,13 +34,19 @@ export default async function PortalV2Layout({ children }: { children: React.Rea
     }
   }
 
+  const configuracion = documentoEstudio.configuracion;
+  const estilo = {
+    "--v2-accent": configuracion.tema.colorAcento,
+    "--v2-bg": configuracion.tema.colorFondo,
+  } as React.CSSProperties;
+
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} style={estilo}>
       <VipSplash />
       <EstadoConexionV2 />
       <main className={styles.content}>{children}</main>
       <AvisoSesionPausadaV2 />
-      <BottomNavV2 />
+      <BottomNavV2 navegacion={configuracion.navegacion} />
     </div>
   );
 }

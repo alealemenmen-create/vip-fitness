@@ -20,6 +20,7 @@ import {
   Users,
   WandSparkles,
   PencilRuler,
+  PanelsTopLeft,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,6 +56,18 @@ export type GrupoDestinos = {
 };
 
 export const GRUPOS_DESTINOS: GrupoDestinos[] = [
+  {
+    label: "Portal V2",
+    items: [
+      {
+        href: "/admin/estudio-vip",
+        label: "Estudio VIP",
+        detalle: "Diseño, textos, secciones y publicación de Portal V2",
+        icon: PanelsTopLeft,
+        seccion: "estudio-vip",
+      },
+    ],
+  },
   {
     label: "Trabajo diario",
     items: [
@@ -124,7 +137,6 @@ export const GRUPOS_DESTINOS: GrupoDestinos[] = [
         detalle: "Fotos, videos y control de calidad",
         icon: Dumbbell,
         seccion: "ejercicios",
-        soloAdmin: true,
       },
       {
         href: "/admin/alimentos",

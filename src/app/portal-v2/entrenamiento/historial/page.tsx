@@ -13,22 +13,9 @@ import { createClient } from "@/lib/supabase/server";
 import {
   obtenerHistorialSesiones,
   obtenerRutinasHistorial,
-  type RutinaHistorial,
   type SesionHistorial,
 } from "@/app/alumno/entrenar/data";
 import styles from "@/components/v2/PortalV2.module.css";
-
-const RUTINAS_DEMO: RutinaHistorial[] = [
-  { id: "metodo-vip", nombre: "Método VIP", activa: true, primeraFecha: "2026-07-22", ultimaFecha: "2026-08-18", cantidadSesiones: 7, puntos: 2100 },
-  { id: "base-fuerza", nombre: "Base de fuerza", activa: false, primeraFecha: "2026-06-03", ultimaFecha: "2026-07-16", cantidadSesiones: 12, puntos: 3320 },
-];
-
-const SESIONES_DEMO: SesionHistorial[] = [
-  { id: "demo-1", fecha: "2026-08-18", numeroCalendario: 7, estado: "completada", diaNombre: "Piernas", completados: 5, total: 5, comentario: null, horaInicio: "2026-08-18T18:32:00-04:00", horaFin: "2026-08-18T19:29:00-04:00", rutinaId: "metodo-vip" },
-  { id: "demo-2", fecha: "2026-08-15", numeroCalendario: 6, estado: "completada", diaNombre: "Espalda y bíceps", completados: 6, total: 6, comentario: null, horaInicio: "2026-08-15T17:41:00-04:00", horaFin: "2026-08-15T18:34:00-04:00", rutinaId: "metodo-vip" },
-  { id: "demo-3", fecha: "2026-08-12", numeroCalendario: 5, estado: "finalizada_incompleta", diaNombre: "Pecho y hombros", completados: 4, total: 5, comentario: "Sesión cerrada antes del último ejercicio", horaInicio: "2026-08-12T19:05:00-04:00", horaFin: "2026-08-12T19:48:00-04:00", rutinaId: "metodo-vip" },
-  { id: "demo-4", fecha: "2026-07-16", numeroCalendario: 12, estado: "completada", diaNombre: "Cuerpo completo", completados: 7, total: 7, comentario: null, horaInicio: "2026-07-16T18:10:00-04:00", horaFin: "2026-07-16T19:14:00-04:00", rutinaId: "base-fuerza" },
-];
 
 function fechaLarga(fecha: string) {
   return new Intl.DateTimeFormat("es-CL", {
@@ -60,16 +47,14 @@ export default async function HistorialEntrenamientoV2Page({
 }) {
   const contexto = await obtenerContextoAlumnoOpcional();
   const { programa } = await searchParams;
-  let rutinas = RUTINAS_DEMO;
-  let sesiones = SESIONES_DEMO;
+  let rutinas: Awaited<ReturnType<typeof obtenerRutinasHistorial>> = [];
+  let sesiones: SesionHistorial[] = [];
 
   if (contexto) {
     const supabase = await createClient();
     rutinas = await obtenerRutinasHistorial(supabase, contexto.alumnoId);
     const filtroValido = programa && rutinas.some((rutina) => rutina.id === programa) ? programa : undefined;
     sesiones = await obtenerHistorialSesiones(supabase, contexto.alumnoId, 60, filtroValido);
-  } else if (programa && RUTINAS_DEMO.some((rutina) => rutina.id === programa)) {
-    sesiones = SESIONES_DEMO.filter((sesion) => sesion.rutinaId === programa);
   }
 
   const programaActivo = programa && rutinas.some((rutina) => rutina.id === programa) ? programa : null;
@@ -85,7 +70,7 @@ export default async function HistorialEntrenamientoV2Page({
         <div><span>ENTRENAMIENTO</span><h1>Tu historial</h1></div>
       </header>
 
-      {!contexto ? <p className={styles.historyV2Demo}>Vista directa: puedes recorrer el historial sin modificar datos de alumnos.</p> : null}
+      {!contexto ? <p className={styles.historyV2Demo}>Selecciona “Ver como alumno” desde el panel para abrir su historial real. No mostramos sesiones de ejemplo.</p> : null}
 
       <section className={styles.historyV2Summary} aria-label="Resumen del historial">
         <article><CheckCircle2 size={17} /><strong>{sesiones.length}</strong><span>Sesiones</span></article>
@@ -120,7 +105,7 @@ export default async function HistorialEntrenamientoV2Page({
           <article className={styles.historyV2Empty}><CalendarDays size={22} /><strong>Aún no hay sesiones cerradas</strong><p>Cuando termines un entrenamiento, su registro aparecerá aquí.</p></article>
         ) : sesiones.map((sesion) => {
           const duracion = duracionMinutos(sesion);
-          const href = contexto ? `/portal-v2/entrenamiento/sesion?id=${sesion.id}` : "/portal-v2/entrenamiento/sesion";
+          const href = `/portal-v2/entrenamiento/sesion?id=${sesion.id}`;
           return (
             <Link href={href} className={styles.historyV2Session} key={sesion.id}>
               <span className={styles.historyV2Date}><b>{new Date(`${sesion.fecha}T12:00:00`).getDate()}</b><small>{new Intl.DateTimeFormat("es-CL", { month: "short" }).format(new Date(`${sesion.fecha}T12:00:00`)).replace(".", "")}</small></span>

@@ -1,4 +1,3 @@
-import { EntrenamientoDemoV2 } from "@/components/v2/EntrenamientoDemoV2";
 import { EntrenamientoInicioV2 } from "@/components/v2/EntrenamientoInicioV2";
 import { obtenerContextoAlumnoOpcional } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -14,10 +13,14 @@ import {
 import { descansosDespuesDe, diasQueNumeran, mesDelNumero, sesionesPorMes } from "@/lib/entrenamiento/ciclo-sesiones";
 import { firmarMiniaturasCloudflareV2 } from "@/lib/cloudflare/miniaturas-v2";
 import styles from "@/components/v2/PortalV2.module.css";
+import { obtenerDocumentoPublicadoEstudioVip } from "@/lib/estudio-vip/data";
 
 export default async function EntrenamientoV2Page() {
-  const contexto = await obtenerContextoAlumnoOpcional();
-  if (!contexto) return <EntrenamientoDemoV2 />;
+  const [contexto, documentoEstudio] = await Promise.all([
+    obtenerContextoAlumnoOpcional(),
+    obtenerDocumentoPublicadoEstudioVip(),
+  ]);
+  if (!contexto) return <div className={styles.trainingPage}><section className={styles.impulso}><div><strong>Selecciona un perfil de alumno</strong><p>Tu cuenta profesional no tiene una rutina personal activa. Abre Alumnos y usa “Ver como alumno” para revisar datos reales, o activa tu propio perfil desde el panel.</p></div></section></div>;
 
   const { alumnoId, soloLectura } = contexto;
   const supabase = await createClient();
@@ -94,6 +97,7 @@ export default async function EntrenamientoV2Page() {
       planPausado={balanceSesiones?.pausado ?? false}
       cupoAgotado={(balanceSesiones?.balance ?? 1) <= 0}
       soloLectura={soloLectura}
+      configuracion={documentoEstudio.configuracion}
     />
   );
 }

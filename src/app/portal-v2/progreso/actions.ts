@@ -58,7 +58,7 @@ type ContextoAlumnoV2 = NonNullable<Awaited<ReturnType<typeof obtenerContextoAlu
  * pertenecieran al alumno autenticado. */
 export async function cargarProgresoV2Action(): Promise<CargaProgresoV2> {
   const contexto = await obtenerContextoAlumnoOpcional();
-  if (!contexto) return { estado: "demo" };
+  if (!contexto) return { estado: "error", mensaje: "Selecciona un alumno desde el panel para revisar su progreso real, o activa tu perfil personal." };
   try {
     const datos = await construirProgresoV2(contexto);
     return datos
