@@ -14,6 +14,7 @@ import { serializarRutinaATexto } from "@/lib/generador-rutinas/serializar";
 import type { RutinaExtraida } from "@/lib/ai/extraerRutina";
 import type { CambioResuelto, RevisionResuelta } from "@/lib/ai/revisarRutina";
 import type { TipoProgresionImpulso } from "@/lib/supabase/types";
+import type { OrigenRutina } from "@/lib/generador-rutinas/validacion";
 import { PLANES_ENTRENAMIENTO, type CodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
 import { esBaseEstructural, patronMovimiento, prioridadEstructural, type PatronMovimiento } from "@/lib/rutinas/patrones";
 import { detectarHallazgosRutina, type HallazgoRutina } from "@/lib/rutinas/validacion";
@@ -1618,6 +1619,8 @@ export function RutinaDraftEditor({
   configuracionArmado,
   deshacerSignal = 0,
   onPuedeDeshacer,
+  origen = "legado_pdf",
+  borradorId = null,
 }: {
   /** Herramienta de armado manual: la vista previa deja de ser una vista y
    * pasa a ser la mesa de trabajo — a lo ancho, siempre abierta y con los
@@ -1654,6 +1657,10 @@ export function RutinaDraftEditor({
   /** Sin esto no aparece el panel de revisión: el editor sigue funcionando
    * igual que siempre para las rutinas importadas de PDF. */
   onRevisar?: RevisarRutinaFn;
+  /** Determina si la publicación exige IDs oficiales o conserva el fallback
+   * por nombre para documentos históricos. */
+  origen?: OrigenRutina;
+  borradorId?: string | null;
 }) {
   const patronPorEjercicio = new Map((ejercicios ?? []).map((ejercicio) => [ejercicio.id, ejercicio.patronMovimiento ?? null]));
   // `draftInicial` viene de la extracción por IA (`RutinaExtraida` plano,
@@ -2636,7 +2643,7 @@ export function RutinaDraftEditor({
     // entrenador no tenía forma de saber que había fallado, ni yo de saber por
     // qué. Cualquier fallo tiene que terminar en un mensaje en pantalla.
     try {
-      const resultado = await publicarRutinaAVariosAlumnos(idsParaPublicar, draft, planCodigo);
+      const resultado = await publicarRutinaAVariosAlumnos(idsParaPublicar, draft, planCodigo, false, origen, borradorId);
 
       // No se publicó nada todavía: son deficiencias de calidad (Semáforo
       // VIP), no un bloqueo técnico. Antes esto usaba `window.confirm()` —
@@ -2670,7 +2677,7 @@ export function RutinaDraftEditor({
     setPublicando(true);
     setError(null);
     try {
-      const resultado = await publicarRutinaAVariosAlumnos(idsParaPublicar, draft, planCodigo as CodigoPlanEntrenamiento, true);
+      const resultado = await publicarRutinaAVariosAlumnos(idsParaPublicar, draft, planCodigo as CodigoPlanEntrenamiento, true, origen, borradorId);
       aplicarResultadoPublicacion(resultado);
     } catch (e) {
       const detalle = e instanceof Error ? e.message : "error inesperado";

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { requireRol } from "@/lib/auth";
 import { extraerRutinaDesdePdf, type RutinaExtraida } from "@/lib/ai/extraerRutina";
@@ -10,6 +11,7 @@ import { obtenerBiblioteca } from "@/lib/ejercicios/data";
 import { emparejarEjercicio } from "@/lib/ejercicios/emparejar";
 import { rellenarTemposFaltantes } from "@/lib/ejercicios/rellenarTempos";
 import { serializarRutinaATexto } from "@/lib/generador-rutinas/serializar";
+import { auditarRutinaDeterminista, primerErrorAuditoria, type OrigenRutina } from "@/lib/generador-rutinas/validacion";
 import { reconciliarObjetivos } from "@/lib/alimentacion/objetivos";
 import { detectarDeficienciasRutina } from "@/lib/rutinas/validacion";
 import { normalizarTecnicaSeries } from "@/lib/entrenamiento/tecnica-series";
@@ -893,7 +895,9 @@ export async function publicarRutinaAVariosAlumnos(
   alumnoIds: string[],
   datos: RutinaConProgresion,
   planCodigo: CodigoPlanEntrenamiento,
-  forzarConDeficiencias = false
+  forzarConDeficiencias = false,
+  origen: OrigenRutina = "legado_pdf",
+  borradorId: string | null = null
 ): Promise<PublicarAVariosState> {
   const sesion = await requireRol(["entrenador", "admin"]);
 
@@ -917,6 +921,9 @@ export async function publicarRutinaAVariosAlumnos(
   // confía en él para decidir si una rutina puede publicarse.
   const { error: invalida, deficiencias } = validarRutina(datos, biblioteca);
   if (invalida) return { error: invalida, publicados: 0, fallidos: [] };
+  const auditoria = auditarRutinaDeterminista({ rutina: datos, biblioteca, origen });
+  const errorAuditoria = primerErrorAuditoria(auditoria);
+  if (errorAuditoria) return { error: `La validación automática impidió publicar: ${errorAuditoria}`, publicados: 0, fallidos: [] };
   // Las deficiencias del Semáforo VIP (repeticiones, cobertura incompleta) son
   // criterio del entrenador, no un bloqueo técnico — Alejandro pidió poder
   // publicar igual. Se avisa una vez; si confirma, se publica con ellas.
@@ -936,7 +943,8 @@ export async function publicarRutinaAVariosAlumnos(
       alumnoId,
       datos,
       biblioteca,
-      planCodigo
+      planCodigo,
+      origen
     );
     if (resultado.ok) {
       publicados++;
@@ -951,6 +959,19 @@ export async function publicarRutinaAVariosAlumnos(
 
   revalidatePath("/alumno/entrenar");
   revalidatePath("/alumno/inicio");
+  revalidatePath("/portal-v2/entrenamiento");
+  if (borradorId && origen === "generador" && publicados > 0) {
+    const ahora = new Date().toISOString();
+    const db = supabase as unknown as SupabaseClient;
+    const { error } = await db.from("borradores_generador_rutinas").update({
+      estado: "publicado",
+      aprobado_en: ahora,
+      publicado_en: ahora,
+      resultado: { rutina: datos, auditoriaDeterminista: auditoria },
+      updated_at: ahora,
+    }).eq("id", borradorId).eq("entrenador_id", sesion.userId);
+    if (error) console.error("[generador] Rutina publicada, pero no se pudo cerrar su trazabilidad:", error);
+  }
   return { error: null, publicados, fallidos };
 }
 
@@ -1006,7 +1027,8 @@ async function publicarUnaRutina(
   alumnoId: string,
   datos: RutinaConProgresion,
   biblioteca: Biblioteca,
-  planCodigo: CodigoPlanEntrenamiento
+  planCodigo: CodigoPlanEntrenamiento,
+  origen: OrigenRutina = "legado_pdf"
 ): Promise<PublicarRutinaState> {
   const { data: rutinasPrevias } = await supabase
     .from("rutinas")
@@ -1065,7 +1087,7 @@ async function publicarUnaRutina(
         : null;
       const emparejado = elegidoPorId
         ? { ejercicio: elegidoPorId }
-        : emparejarEjercicio(ej.nombre, biblioteca);
+        : origen === "legado_pdf" ? emparejarEjercicio(ej.nombre, biblioteca) : null;
       return {
         dia_id: idPorOrden.get(i + 1)!,
         orden: idx + 1,

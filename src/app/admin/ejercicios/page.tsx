@@ -1,4 +1,5 @@
-import { requireAdmin } from "@/lib/auth";
+import Link from "next/link";
+import { requireRol } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
   obtenerBibliotecaSinCache,
@@ -9,17 +10,13 @@ import {
 import { GaleriaEjercicios, type ReporteFotoPendiente } from "@/components/admin/GaleriaEjercicios";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
-import { CircleAlert, Dumbbell, Images } from "lucide-react";
+import { CircleAlert, Dumbbell, Images, Smartphone, Upload, WandSparkles } from "lucide-react";
 import { obtenerInventarioUsosRutina } from "@/lib/ejercicios/inventario";
 import { obtenerCambiosRecientesMultimedia } from "@/app/admin/ejercicios/multimediaActions";
 import { obtenerItemsIngestaHuerfanos } from "@/app/admin/ejercicios/ingestaActions";
 
-export default async function EjerciciosAdminPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ demoSolicitudFoto?: string }>;
-}) {
-  await requireAdmin();
+export default async function EjerciciosAdminPage() {
+  await requireRol(["entrenador", "admin"]);
   const supabase = await createClient();
   // Sin caché a propósito — ver `obtenerBibliotecaSinCache`: esta es la
   // pantalla donde el entrenador acaba de subir una foto y tiene que verla.
@@ -58,29 +55,25 @@ export default async function EjerciciosAdminPage({
     creadoEn: fila.creado_en,
     alumnoNombre: nombres.get(fila.alumno_id) ?? "Alumno",
   }));
-  const { demoSolicitudFoto } = await searchParams;
   const conFoto = biblioteca.filter((ejercicio) => ejercicio.fotoMiniaturaUrl || ejercicio.fotoCompletaUrl).length;
-  if (demoSolicitudFoto === "1") {
-    const ejercicioDemo = biblioteca.find((ejercicio) =>
-      ejercicio.nombre.toLowerCase().includes("cuerda") && ejercicio.nombre.toLowerCase().includes("jal")
-    );
-    reportes.unshift({
-      id: "demo-solicitud-foto",
-      ejercicioId: ejercicioDemo?.id ?? null,
-      nombreEjercicio: ejercicioDemo?.nombre ?? "Jal\u00f3n con cuerda",
-      fotoUrl: null,
-      creadoEn: new Date().toISOString(),
-      alumnoNombre: "Solicitud de ejemplo",
-    });
-  }
 
   return (
     <div className="space-y-6 pb-8">
       <AdminPageHeader
         eyebrow="Ejercicios"
         title="Galería multimedia"
-        description="Administra fotos y clips técnicos. La vista previa coincide con lo que verá el alumno en su rutina."
+        description="Centro de control para crear, subir, reemplazar, reparar, combinar y revisar fotos y videos de ejercicios."
+        actions={<>
+          <Link href="/admin/ejercicios#biblioteca-ejercicios" className="btn-accion radius-control flex min-h-10 items-center justify-center gap-2 px-3 text-xs font-bold"><Upload size={15} /> Subir o crear</Link>
+          <Link href="/admin/estudio-vip" className="boton-panel-secundario"><Smartphone size={15} /> Estudio VIP</Link>
+          <Link href="/admin/generador" className="boton-panel-secundario"><WandSparkles size={15} /> Usar en rutina</Link>
+        </>}
       />
+      <section className="grid gap-3 md:grid-cols-3" aria-label="Flujo recomendado de multimedia">
+        <a href="#biblioteca-ejercicios" className="admin-panel-card rounded-2xl p-4 transition hover:border-vip/40"><span className="text-[10px] font-black uppercase tracking-widest text-vip">1 · Cargar</span><strong className="mt-2 block text-sm text-text">Archivos individuales o masivos</strong><p className="mt-1 text-xs leading-relaxed text-text-secondary">Arrastra fotos y videos; el sistema relaciona nombres, conserva la cola y permite reintentar.</p></a>
+        <a href="#biblioteca-ejercicios" className="admin-panel-card rounded-2xl p-4 transition hover:border-vip/40"><span className="text-[10px] font-black uppercase tracking-widest text-vip">2 · Revisar</span><strong className="mt-2 block text-sm text-text">Vista exacta del alumno</strong><p className="mt-1 text-xs leading-relaxed text-text-secondary">Comprueba portada, clip, técnica, calidad y faltantes antes de usar el ejercicio.</p></a>
+        <a href="#reportes-ejercicios" className="admin-panel-card rounded-2xl p-4 transition hover:border-vip/40"><span className="text-[10px] font-black uppercase tracking-widest text-vip">3 · Reparar</span><strong className="mt-2 block text-sm text-text">Versiones, fusiones y reportes</strong><p className="mt-1 text-xs leading-relaxed text-text-secondary">Restaura fotos, repara vínculos, combina duplicados y resuelve avisos sin perder historial.</p></a>
+      </section>
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-3" aria-label="Resumen de ejercicios">
         <AdminStatCard href="/admin/ejercicios#biblioteca-ejercicios" icon={<Dumbbell size={20} />} value={biblioteca.length} label="Ejercicios" detail="Ver biblioteca disponible" color="#3b82f6" />
         <AdminStatCard href="/admin/ejercicios#inventario-ejercicios" icon={<Images size={20} />} value={`${conFoto} · ${biblioteca.length - conFoto}`} label="Con foto · Sin foto" detail="Ver inventario alfabético" color="#a78bfa" />

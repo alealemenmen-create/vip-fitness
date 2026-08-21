@@ -6,6 +6,7 @@ import { calcularEdad } from "@/lib/date";
 import { obtenerBiblioteca } from "@/lib/ejercicios/data";
 import { obtenerTecnicas } from "@/lib/generador-rutinas/data";
 import { generarRutinaPorReglas } from "@/lib/generador-rutinas/motor";
+import { auditarRutinaDeterminista, primerErrorAuditoria } from "@/lib/generador-rutinas/validacion";
 import { combinarPerfilesGrupo } from "@/lib/generador-rutinas/perfil-grupal";
 import type { BriefGenerador, EjercicioGenerador, PerfilEntrenamiento } from "@/lib/generador-rutinas/tipos";
 import { extraerRutinaDesdePdf, type RutinaExtraida } from "@/lib/ai/extraerRutina";
@@ -141,9 +142,13 @@ export async function generarBorradorRutina(brief: BriefGenerador): Promise<Resu
       ? `${generada.nombreRutina} — Grupo de ${contextos.length} — v${version}`
       : nombreAlumno ? `${generada.nombreRutina} — ${nombreAlumno} — v${version}` : generada.nombreRutina;
     const rutina: RutinaExtraida = { nombreRutina: nombreConVersion, dias: generada.dias };
-    const { data: guardado, error } = await db.from("borradores_generador_rutinas").insert({ alumno_id: brief.alumnoId, entrenador_id: sesion.userId, brief, perfil_snapshot: perfil, resultado: rutina, reglas_aplicadas: generada.reglasAplicadas, alertas: generada.alertas, origen: "motor_reglas" }).select("id").single();
+    const auditoria = auditarRutinaDeterminista({ rutina, biblioteca, origen: "generador", idsProhibidos: brief.prohibidos });
+    const errorAuditoria = primerErrorAuditoria(auditoria);
+    if (errorAuditoria) return { ok: false, error: `La validación automática detuvo el borrador: ${errorAuditoria}` };
+    const alertas = [...generada.alertas, ...auditoria.hallazgos.filter((hallazgo) => hallazgo.gravedad === "advertencia").map((hallazgo) => hallazgo.mensaje)];
+    const { data: guardado, error } = await db.from("borradores_generador_rutinas").insert({ alumno_id: brief.alumnoId, entrenador_id: sesion.userId, brief, perfil_snapshot: perfil, resultado: { rutina, auditoriaDeterminista: auditoria }, reglas_aplicadas: generada.reglasAplicadas, alertas, origen: "motor_reglas" }).select("id").single();
     if (error) console.error("[generador] no se pudo guardar trazabilidad:", error);
-    return { ok: true, borradorId: guardado?.id ?? null, rutina, alertas: generada.alertas, reglas: generada.reglasAplicadas };
+    return { ok: true, borradorId: guardado?.id ?? null, rutina, alertas, reglas: generada.reglasAplicadas };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "No fue posible generar el borrador." };
   }

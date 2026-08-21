@@ -394,6 +394,8 @@ export function GeneradorRutinasPanel({
       onDescartar={() => setRutina(null)}
       ejercicios={ejercicios.map((e) => ({ id: e.id, nombre: e.nombre, grupo: e.grupo, equipo: e.equipo }))}
       onRevisar={briefUsado ? (borrador) => revisarBorradorConIA({ alumnoId: primerAlumnoId, alumnoIds: [...seleccionados], brief: briefUsado, rutina: borrador, reglas, borradorId }) : undefined}
+      origen="generador"
+      borradorId={borradorId}
     />
   </div>;
 
