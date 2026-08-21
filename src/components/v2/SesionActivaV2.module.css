@@ -476,6 +476,8 @@
 .impulsoMoment > span { margin-top: 14px; color: #d3d6cf; font-size: 17px; font-weight: 620; line-height: 1.4; }
 .impulsoMoment > button { width: 100%; min-height: 58px; margin-top: 28px; border-radius: 14px; color: #0a0c06; background: #d2f450; font-size: 18px; font-weight: 900; letter-spacing: .08em; }
 .impulsoMoment > .impulsoSafetyExit { min-height: 42px; margin-top: 10px; color: #c4c6c1; background: transparent; font-size: 14px; font-weight: 650; letter-spacing: 0; }
+.impulsoSupervision { width: 100%; margin-top: 16px; padding: 10px 12px; border: 1px solid rgba(255, 126, 108, .38); border-radius: 12px; background: rgba(91, 31, 24, .28); color: #fff; font-size: 12px; font-weight: 650; line-height: 1.4; text-align: center; }
+.impulsoSupervision > span { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 3px; color: #ffad9f; font-size: 10px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
 .impulsoResultadoOpciones { display: grid; width: 100%; gap: 8px; margin-top: 24px; }
 .impulsoResultadoOpciones button { min-height: 46px; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 12px; color: #eef0ea; background: #1c1e14; font-size: 13px; font-weight: 700; }
 .impulsoResultadoOpciones button:last-child { border-color: rgba(255, 126, 108, .28); color: #ffad9f; }

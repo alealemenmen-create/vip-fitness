@@ -25,6 +25,7 @@ import {
   Play,
   Plus,
   Settings,
+  ShieldAlert,
   Shuffle,
   StickyNote,
   Target,
@@ -1554,6 +1555,12 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             <p id="momento-alejandro-titulo">{momentoVisible.titulo}</p>
             <h2>{momentoVisible.instruccion}</h2>
             <span>{momentoVisible.apoyo}</span>
+            {momentoVisible.intensiva ? (
+              <p className={styles.impulsoSupervision}>
+                <span><ShieldAlert size={13} strokeWidth={2.8} aria-hidden="true" /> Supervisión obligatoria</span>
+                Realiza esta serie con tu entrenador vigilando.
+              </p>
+            ) : null}
             <button type="button" onClick={() => {
               const id = momentoVisible.id;
               if (sesion?.real && !sesion.soloLectura) {

@@ -38,6 +38,14 @@ export type MomentoSesionAlejandro = {
   instruccion: string;
   apoyo: string;
   mostradoInicial?: boolean;
+  /** drop_set, rest_pause o fallo_controlado -- exige el mismo aviso de
+   * "supervisión obligatoria" que ya muestra la sesión clásica
+   * (MomentoImpulsoEnVivo.tsx). Se calcula contra el tipo ORIGINAL de la
+   * intervención (antes de que `tipoMomento()` en la página de sesión lo
+   * agrupe para la UI), porque ese agrupamiento mete "fallo_controlado"
+   * dentro de "cierre_controlado" y perdería justo la señal que hace
+   * falta para el aviso. */
+  intensiva: boolean;
 };
 
 export type EstimacionRirAlejandro = {
@@ -131,6 +139,7 @@ export function seleccionarMomentosAlejandro(
         serieIndice: candidato.totalSeries - 1,
         tipo,
         titulo: "MOMENTO IMPULSO VIP",
+        intensiva: tipo === "drop_set" || tipo === "rest_pause",
         ...texto,
       };
     });

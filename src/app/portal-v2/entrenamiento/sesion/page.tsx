@@ -280,6 +280,10 @@ export default async function SesionV2Page({
         instruccion: momento.instruccion,
         apoyo: momento.motivo,
         mostradoInicial: momento.estado === "mostrada",
+        // Contra el tipo ORIGINAL (momento.tipo), no el ya agrupado por
+        // tipoMomento() -- ese agrupamiento mete "fallo_controlado" dentro
+        // de "cierre_controlado" para la UI y perdería la señal.
+        intensiva: momento.tipo === "drop_set" || momento.tipo === "rest_pause" || momento.tipo === "fallo_controlado",
       })),
   );
 
