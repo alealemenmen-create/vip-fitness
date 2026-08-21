@@ -150,7 +150,7 @@ export const GRUPOS_DESTINOS_CONTROL_VIP_V2: GrupoDestinos[] = [
     label: "Estudio VIP",
     items: [
       {
-        href: "/admin/estudio-vip",
+        href: "/control-vip/estudio-vip",
         label: "Estudio VIP",
         detalle: "Diseño, contenidos y publicación de Portal V2",
         icon: PanelsTopLeft,
