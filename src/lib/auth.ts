@@ -205,6 +205,19 @@ export async function requireControlVipV2(): Promise<SesionActual> {
 }
 
 /**
+ * Igual que `requireControlVipV2()`, para las pantallas que en `/admin` son
+ * `requireAdmin()` (Puntos, Arena VIP, Gastos, Auditoría, Borrados, Noticias,
+ * Reportes, Reseñas). Un entrenador con el piloto activado no debe ganar
+ * acceso a algo que hoy tampoco tiene en el panel clásico — vuelve a `Hoy`
+ * en vez de a `/admin/alumnos`, porque ya está adentro de Control VIP V2.
+ */
+export async function requireControlVipV2Admin(): Promise<SesionActual> {
+  const sesion = await requireControlVipV2();
+  if (sesion.rol !== "admin") redirect("/control-vip");
+  return sesion;
+}
+
+/**
  * Acceso a /alumno/* — se basa en tener una fila en `alumno_perfil`, no en
  * `perfiles.rol`: así un entrenador/admin con perfil de alumno propio también
  * puede entrar (ver plan "vista de entrenador sobre alumnos"). Si quien pide

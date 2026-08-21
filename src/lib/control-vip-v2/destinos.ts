@@ -100,7 +100,7 @@ export const GRUPOS_DESTINOS_CONTROL_VIP_V2: GrupoDestinos[] = [
     label: "Progreso y puntos",
     items: [
       {
-        href: "/admin/puntos",
+        href: "/control-vip/puntos",
         label: "Otorgar puntos",
         detalle: "Ajustes manuales de Puntos VIP",
         icon: Sparkles,
@@ -108,7 +108,7 @@ export const GRUPOS_DESTINOS_CONTROL_VIP_V2: GrupoDestinos[] = [
         soloAdmin: true,
       },
       {
-        href: "/admin/torneos",
+        href: "/control-vip/torneos",
         label: "Arena VIP",
         detalle: "Competencias y temporadas",
         icon: Trophy,
@@ -121,7 +121,7 @@ export const GRUPOS_DESTINOS_CONTROL_VIP_V2: GrupoDestinos[] = [
     label: "Comunicación",
     items: [
       {
-        href: "/admin/noticias",
+        href: "/control-vip/noticias",
         label: "Noticias",
         detalle: "Avisos que ven los alumnos",
         icon: Megaphone,
@@ -129,7 +129,7 @@ export const GRUPOS_DESTINOS_CONTROL_VIP_V2: GrupoDestinos[] = [
         soloAdmin: true,
       },
       {
-        href: "/admin/reportes",
+        href: "/control-vip/reportes",
         label: "Errores reportados",
         detalle: "Fallas que avisaron los alumnos",
         icon: Bug,
@@ -137,7 +137,7 @@ export const GRUPOS_DESTINOS_CONTROL_VIP_V2: GrupoDestinos[] = [
         soloAdmin: true,
       },
       {
-        href: "/admin/resenas",
+        href: "/control-vip/resenas",
         label: "Reseñas de la app",
         detalle: "Estrellas y sugerencias de los alumnos",
         icon: Star,
@@ -162,7 +162,7 @@ export const GRUPOS_DESTINOS_CONTROL_VIP_V2: GrupoDestinos[] = [
     label: "Administración",
     items: [
       {
-        href: "/admin/gastos",
+        href: "/control-vip/gastos",
         label: "Gastos de la app",
         detalle: "Pagos de servicios y vencimientos",
         icon: CircleDollarSign,
@@ -170,7 +170,7 @@ export const GRUPOS_DESTINOS_CONTROL_VIP_V2: GrupoDestinos[] = [
         soloAdmin: true,
       },
       {
-        href: "/admin/auditoria",
+        href: "/control-vip/auditoria",
         label: "Auditoría de Puntos VIP",
         detalle: "Historial y hallazgos por revisar",
         icon: ShieldCheck,
@@ -178,7 +178,7 @@ export const GRUPOS_DESTINOS_CONTROL_VIP_V2: GrupoDestinos[] = [
         soloAdmin: true,
       },
       {
-        href: "/admin/borrados",
+        href: "/control-vip/borrados",
         label: "Pedidos de borrado",
         detalle: "Solicitudes de eliminación de datos",
         icon: Trash2,
