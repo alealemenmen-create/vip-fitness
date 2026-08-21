@@ -17,7 +17,6 @@ import {
 import { iniciarRutinaDesdeCalendarioV2 } from "@/app/alumno/entrenar/actions";
 import type { DiaVistaPrevia, NumeroCalendario } from "@/app/alumno/entrenar/data";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
-import { nombreCortoRutina } from "@/lib/entrenamiento/nombre-rutina";
 import { FOTOS_GRUPO_MUSCULAR } from "@/lib/grupos-musculares/fotos";
 import { fotoPortadaDia } from "@/lib/entrenamiento/foto-portada-dia";
 import { BotonIniciarEntrenamientoV2 } from "@/components/v2/BotonIniciarEntrenamientoV2";
@@ -53,7 +52,6 @@ export function EntrenamientoInicioV2({
   numeros,
   seleccionInicial,
   rutinaId,
-  rutinaNombre,
   descansoDespuesDe,
   vistasPrevias,
   sesionEnProgresoId,
@@ -127,7 +125,6 @@ export function EntrenamientoInicioV2({
       <header className={styles.pageHeader}>
         <div>
           <span className={styles.studioBrand}>{configuracion.marca.nombre}</span>
-          <h1 className={styles.programName}>{rutinaNombre ? nombreCortoRutina(rutinaNombre) : "Programa VIP"}</h1>
           <p className={styles.phase}>{planNombre ? `${planNombre} · ` : ""}{configuracion.entrenamiento.etiquetaFase}</p>
         </div>
         <button
