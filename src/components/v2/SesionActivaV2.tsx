@@ -21,7 +21,6 @@ import {
   Lightbulb,
   ListVideo,
   Minus,
-  Pause,
   Play,
   Plus,
   Settings,
@@ -340,7 +339,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     [EJERCICIOS, sesion],
   );
   const [segundosSesion, setSegundosSesion] = useState(() => sesion?.duracionSegundosInicial ?? 0);
-  const [pausada, setPausada] = useState(false);
   const [registro, setRegistro] = useState(() => crearRegistroInicial(EJERCICIOS));
   const [ejercicioActivoId, setEjercicioActivoId] = useState(EJERCICIOS[0].id);
   const [serieActivaIndice, setSerieActivaIndice] = useState(0);
@@ -607,14 +605,14 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   ]);
 
   useEffect(() => {
-    if (pausada || registrada || sesion?.soloLectura) return;
+    if (registrada || sesion?.soloLectura) return;
     const intervalo = window.setInterval(() => setSegundosSesion((valor) => valor + 1), 1000);
     return () => window.clearInterval(intervalo);
-  }, [pausada, registrada, sesion?.soloLectura]);
+  }, [registrada, sesion?.soloLectura]);
 
   const finDescansoActivo = descanso?.tipo === "referencia" ? null : descanso?.finEn ?? null;
   useEffect(() => {
-    if (pausada || finDescansoActivo === null) return;
+    if (finDescansoActivo === null) return;
     const actualizar = () => {
       setDescanso((actual) => {
         if (actual === null) return null;
@@ -625,15 +623,15 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     actualizar();
     const intervalo = window.setInterval(actualizar, 250);
     return () => window.clearInterval(intervalo);
-  }, [finDescansoActivo, pausada]);
+  }, [finDescansoActivo]);
 
   useEffect(() => {
-    if (pausada || pausaTecnica === null || pausaTecnica.segundos <= 0) return;
+    if (pausaTecnica === null || pausaTecnica.segundos <= 0) return;
     const intervalo = window.setInterval(() => {
       setPausaTecnica((actual) => actual === null ? null : { ...actual, segundos: Math.max(0, actual.segundos - 1) });
     }, 1000);
     return () => window.clearInterval(intervalo);
-  }, [pausaTecnica, pausada]);
+  }, [pausaTecnica]);
 
   useEffect(() => {
     if (pausaTecnica === null || pausaTecnica.segundos > 0) return;
@@ -1350,19 +1348,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     router.push("/portal-v2/nutricion");
   };
 
-  const alternarPausaSesion = () => {
-    if (!pausada) {
-      setPausada(true);
-      return;
-    }
-    // Mientras la sesión está pausada se conserva exactamente el número que
-    // el alumno ve. Al reanudar, se vuelve a anclar ese tiempo al reloj real.
-    setDescanso((actual) => actual === null || actual.segundos <= 0
-      ? actual
-      : { ...actual, finEn: finDescansoDesdeAhora(actual.segundos) });
-    setPausada(false);
-  };
-
   if (registrada) {
     return (
       <section className={styles.summaryPage} ref={resumenRef}>
@@ -1478,7 +1463,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             onPointerUp={(evento) => terminarGesto(evento.clientX)}
           >
             <ImagenV2Segura src={ejercicioActivo.foto} fallbackSrc={ejercicioActivo.fotoRespaldo} alt={`Demostración de ${ejercicioActivo.nombre}`} fill loading="eager" sizes="(max-width: 460px) 100vw, 460px" />
-            {ejercicioActivo.videoCloudflareListo ? <VideoCloudflareAutomatico ejercicioId={ejercicioActivo.bibliotecaEjercicioId} activo nombre={ejercicioActivo.nombre} modoInmersivo claseControlPausa={styles.videoPause} /> : null}
+            {ejercicioActivo.videoCloudflareListo ? <VideoCloudflareAutomatico ejercicioId={ejercicioActivo.bibliotecaEjercicioId} activo nombre={ejercicioActivo.nombre} modoInmersivo /> : null}
             <div className={styles.videoShade} />
             {controlesVideoVisibles && puedeIrAtras ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={() => moverSerie(-1)} aria-label="Ver serie anterior"><ChevronsLeft size={27} strokeWidth={2.4} /></button> : null}
             {controlesVideoVisibles && (!sesion?.soloLectura || puedeIrAdelante) ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={sesion?.soloLectura ? () => moverSerie(1) : avanzarDesdeVideo} aria-label={sesion?.soloLectura ? "Ver serie siguiente" : puedeIrAdelante ? "Finalizar serie e ir al descanso" : "Finalizar entrenamiento"}><ChevronsRight size={27} strokeWidth={2.4} /></button> : null}
@@ -1671,18 +1656,9 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           <button type="button" aria-label="Información" onClick={() => setPanel("informacion")}><Info size={20} /></button>
         </nav>
       ) : (
-        <nav className={`${styles.sessionControls} ${styles.sessionControlsActive}`} aria-label="Controles de la sesión">
+        <nav className={styles.sessionControls} aria-label="Controles de la sesión">
           <button type="button" aria-label="Ajustes" onClick={() => setPanel("ajustes")}><Settings size={20} /></button>
           <button type="button" aria-label={vista === "descanso" ? "Volver a la serie actual" : "Serie anterior"} onClick={retrocederPaso} disabled={vista !== "descanso" && !puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
-          <button
-            type="button"
-            className={styles.sessionTimerControl}
-            data-pausada={pausada ? "true" : undefined}
-            aria-label={pausada ? "Reanudar tiempo del entrenamiento" : "Pausar tiempo del entrenamiento"}
-            onClick={alternarPausaSesion}
-          >
-            {pausada ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}
-          </button>
           <button type="button" aria-label={vista === "lista" ? "Vista de video" : "Vista de lista"} onClick={vista === "lista" ? abrirVistaVideo : () => setVista("lista")}><ListVideo size={20} /></button>
           <button type="button" aria-label={vista === "descanso" ? descanso?.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
           <button type="button" aria-label="Información" onClick={() => setPanel("informacion")}><Info size={20} /></button>
