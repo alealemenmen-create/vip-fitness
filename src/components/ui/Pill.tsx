@@ -3,6 +3,7 @@ const TONES = {
   vip: "bg-vip/15 text-vip",
   success: "bg-success/15 text-success",
   error: "bg-error/15 text-error",
+  warning: "bg-warning/15 text-warning",
 } as const;
 
 export function Pill({

@@ -15,6 +15,8 @@ import { obtenerSaldoIA } from "@/lib/asistente/saldo";
 import { SaldoIAPanel } from "@/components/admin/SaldoIAPanel";
 import { GavetaConfig } from "@/components/admin/GavetaConfig";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { ControlVipV2BetaPanel } from "@/components/admin/ControlVipV2BetaPanel";
+import { obtenerCuentasBetaControlVipV2 } from "@/lib/control-vip-v2/beta";
 import Link from "next/link";
 
 export default async function ConfiguracionAdminPage() {
@@ -25,11 +27,12 @@ export default async function ConfiguracionAdminPage() {
   // lo dejara pasar). Arranca igual antes de esperar al grupo, así que no
   // agrega ni un milisegundo de espera.
   const saldoPromesa = obtenerSaldoIA();
-  const [config, supervision, registro, asistente] = await Promise.all([
+  const [config, supervision, registro, asistente, cuentasBetaControlVipV2] = await Promise.all([
     obtenerConfiguracionReconocimientos(),
     obtenerConfiguracionSupervision(),
     obtenerConfiguracionRegistro(),
     obtenerConfiguracionAsistenteVip(),
+    obtenerCuentasBetaControlVipV2(),
   ]);
   const saldoIA = await saldoPromesa;
 
@@ -80,6 +83,9 @@ export default async function ConfiguracionAdminPage() {
       </GavetaConfig>
       <GavetaConfig titulo="Reconocimientos semanales" subtitulo="Felicitaciones automáticas por IA">
         <ConfiguracionReconocimientos config={config} supervision={supervision} />
+      </GavetaConfig>
+      <GavetaConfig titulo="Control VIP V2 (beta)" subtitulo="Quién puede probar el panel nuevo en /control-vip">
+        <ControlVipV2BetaPanel cuentas={cuentasBetaControlVipV2} />
       </GavetaConfig>
       </section>
     </div>

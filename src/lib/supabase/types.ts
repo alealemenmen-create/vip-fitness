@@ -87,9 +87,17 @@ export interface Database {
           nombre: string;
           rol: Rol;
           created_at: string;
+          // 0119: bandera de piloto para el panel nuevo "Control VIP V2".
+          control_vip_v2_habilitado: boolean;
         };
-        Insert: { id: string; nombre: string; rol: Rol; created_at?: string };
-        Update: { nombre?: string; rol?: Rol };
+        Insert: {
+          id: string;
+          nombre: string;
+          rol: Rol;
+          created_at?: string;
+          control_vip_v2_habilitado?: boolean;
+        };
+        Update: { nombre?: string; rol?: Rol; control_vip_v2_habilitado?: boolean };
         Relationships: [];
       };
       alumno_perfil: {

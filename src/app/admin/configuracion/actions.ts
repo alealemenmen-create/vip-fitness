@@ -3,6 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { TAG_CONFIG_SUPERVISION } from "@/lib/configuracion/supervision";
 import { TAG_CONFIG_REGISTRO } from "@/lib/configuracion/registro";
 import { generarReconocimientosSemanales } from "@/lib/ai/reconocimientosSemanales";
@@ -242,4 +243,47 @@ export async function generarReconocimientosAhora(
     ok: resultado.ok && motivacion.ok && notas.ok,
     mensaje: `${resultado.mensaje} ${motivacion.mensaje} ${notas.mensaje}`,
   };
+}
+
+/**
+ * Habilita o retira el acceso al piloto de "Control VIP V2" para una cuenta
+ * de entrenador/admin. Solo el administrador puede ampliar el grupo — mismo
+ * criterio que `actualizarAccesoPortalV2` para alumnos.
+ */
+export async function actualizarAccesoControlVipV2(
+  _prevState: FormState,
+  formData: FormData
+): Promise<FormState> {
+  await requireAdmin();
+  const cuentaId = String(formData.get("cuenta_id") || "");
+  const habilitado = formData.get("habilitado") === "true";
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cuentaId)) {
+    return { error: "La cuenta indicada no es válida.", ok: false };
+  }
+
+  const admin = createAdminClient();
+  const { data: perfil } = await admin
+    .from("perfiles")
+    .select("id, rol")
+    .eq("id", cuentaId)
+    .maybeSingle();
+  if (!perfil || (perfil.rol !== "entrenador" && perfil.rol !== "admin")) {
+    return { error: "No se encontró una cuenta de entrenador o administrador.", ok: false };
+  }
+
+  const { data: actualizado, error } = await admin
+    .from("perfiles")
+    .update({ control_vip_v2_habilitado: habilitado })
+    .eq("id", cuentaId)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !actualizado) {
+    return { error: "No fue posible cambiar el acceso a Control VIP V2. Intenta nuevamente.", ok: false };
+  }
+
+  revalidatePath("/admin/configuracion");
+  revalidatePath("/control-vip", "layout");
+  return { error: null, ok: true };
 }

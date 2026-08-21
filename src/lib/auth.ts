@@ -180,6 +180,31 @@ export async function requireAdmin(): Promise<SesionActual> {
 }
 
 /**
+ * Gate para el panel nuevo "Control VIP V2" durante su piloto (Fase 0 de
+ * docs/PROYECTO_CONTROL_VIP_V2.md). Además del rol de siempre, exige la
+ * bandera `perfiles.control_vip_v2_habilitado`: publicar el shell nuevo
+ * nunca cambia lo que ve una cuenta que Alejandro no invitó explícitamente
+ * a probarlo. Mismo patrón que `portal_v2_habilitado` para alumnos, pero
+ * aplicado a cuentas de staff en vez de a alumnos.
+ */
+export async function requireControlVipV2(): Promise<SesionActual> {
+  const sesion = await requireRol(["entrenador", "admin"]);
+
+  const supabase = await createClient();
+  const { data: perfil } = await supabase
+    .from("perfiles")
+    .select("control_vip_v2_habilitado")
+    .eq("id", sesion.userId)
+    .maybeSingle();
+
+  if (perfil?.control_vip_v2_habilitado !== true) {
+    redirect("/admin/alumnos?control_vip_v2=no_habilitado");
+  }
+
+  return sesion;
+}
+
+/**
  * Acceso a /alumno/* — se basa en tener una fila en `alumno_perfil`, no en
  * `perfiles.rol`: así un entrenador/admin con perfil de alumno propio también
  * puede entrar (ver plan "vista de entrenador sobre alumnos"). Si quien pide

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Search } from "lucide-react";
 import { gruposDestinosParaRol } from "@/lib/admin/destinos";
+import { gruposControlVipV2ParaRol } from "@/lib/control-vip-v2/destinos";
 
 /** Sin acentos y en minúsculas: "auditoria" tiene que encontrar "Auditoría". */
 function normalizar(texto: string) {
@@ -25,14 +26,23 @@ function normalizar(texto: string) {
 export function DirectorioPanel({
   rol,
   contadores = {},
+  fuente = "admin",
 }: {
   rol: "entrenador" | "admin";
   contadores?: Record<string, number>;
+  /** Para reusar este mismo directorio con otro inventario de destinos (p. ej.
+   * Control VIP V2, docs/PROYECTO_CONTROL_VIP_V2.md). Va por bandera y no por
+   * los grupos ya resueltos: cada grupo lleva el componente de ícono, y un
+   * Server Component no puede pasarle eso como prop a un Client Component
+   * ("Only plain objects can be passed..."). Sin este prop se comporta
+   * exactamente igual que antes: lee `gruposDestinosParaRol(rol)`. */
+  fuente?: "admin" | "control-vip-v2";
 }) {
   const [consulta, setConsulta] = useState("");
 
   const grupos = useMemo(() => {
-    const disponibles = gruposDestinosParaRol(rol);
+    const disponibles =
+      fuente === "control-vip-v2" ? gruposControlVipV2ParaRol(rol) : gruposDestinosParaRol(rol);
     const buscado = normalizar(consulta.trim());
     if (!buscado) return disponibles;
     return disponibles.map((grupo) => ({
@@ -41,7 +51,7 @@ export function DirectorioPanel({
         normalizar(`${item.label} ${item.detalle} ${grupo.label}`).includes(buscado)
       ),
     })).filter((grupo) => grupo.items.length > 0);
-  }, [consulta, rol]);
+  }, [consulta, rol, fuente]);
 
   return (
     <div className="space-y-3">

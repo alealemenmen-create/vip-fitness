@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { obtenerHallazgosPendientes } from "@/lib/auditoria/data";
 import { obtenerResumenAlertasGastos } from "@/lib/gastos/data";
@@ -25,7 +26,12 @@ export type CategoriaPendiente = {
  * fuente en el momento, un pendiente resuelto en su pantalla de origen
  * desaparece acá solo, sin ningún estado propio que sincronizar.
  */
-export async function obtenerColaPendientes(): Promise<CategoriaPendiente[]> {
+/** `cache()`: Control VIP V2 la pide una vez en el layout (para la insignia
+ * de la pestaña Hoy) y otra vez en la página — sin memoizar por request
+ * serían el doble de consultas por carga. `/admin/pendientes` la sigue
+ * llamando igual, solo que ahora comparte resultado si algo más la pide en
+ * el mismo request. */
+export const obtenerColaPendientes = cache(async function obtenerColaPendientes(): Promise<CategoriaPendiente[]> {
   const supabase = await createClient();
 
   const [
@@ -111,4 +117,4 @@ export async function obtenerColaPendientes(): Promise<CategoriaPendiente[]> {
   // Solo lo que de verdad tiene algo pendiente — una cola vacía de "Gastos"
   // no es información útil, es ruido.
   return categorias.filter((c) => c.cantidad > 0).sort((a, b) => b.cantidad - a.cantidad);
-}
+});
