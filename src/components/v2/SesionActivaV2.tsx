@@ -1478,12 +1478,10 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             onPointerUp={(evento) => terminarGesto(evento.clientX)}
           >
             <ImagenV2Segura src={ejercicioActivo.foto} fallbackSrc={ejercicioActivo.fotoRespaldo} alt={`Demostración de ${ejercicioActivo.nombre}`} fill loading="eager" sizes="(max-width: 460px) 100vw, 460px" />
-            {ejercicioActivo.videoCloudflareListo ? <VideoCloudflareAutomatico ejercicioId={ejercicioActivo.bibliotecaEjercicioId} activo nombre={ejercicioActivo.nombre} /> : null}
+            {ejercicioActivo.videoCloudflareListo ? <VideoCloudflareAutomatico ejercicioId={ejercicioActivo.bibliotecaEjercicioId} activo nombre={ejercicioActivo.nombre} modoInmersivo claseControlPausa={styles.videoPause} /> : null}
             <div className={styles.videoShade} />
-            {(ejercicioActivo.videoCloudflareListo || ejercicioActivo.videoUrl) ? <button type="button" className={styles.videoPlay} onClick={() => setVideoAmpliado(true)} aria-label="Reproducir demostración completa"><Play size={23} fill="currentColor" /></button> : null}
             {controlesVideoVisibles && puedeIrAtras ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowLeft}`} onClick={() => moverSerie(-1)} aria-label="Ver serie anterior"><ChevronsLeft size={27} strokeWidth={2.4} /></button> : null}
             {controlesVideoVisibles && (!sesion?.soloLectura || puedeIrAdelante) ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={sesion?.soloLectura ? () => moverSerie(1) : avanzarDesdeVideo} aria-label={sesion?.soloLectura ? "Ver serie siguiente" : puedeIrAdelante ? "Finalizar serie e ir al descanso" : "Finalizar entrenamiento"}><ChevronsRight size={27} strokeWidth={2.4} /></button> : null}
-            <span className={styles.videoSpeed}>1× velocidad</span>
           </div>
           <div className={styles.videoOverlay}>
             <div className={styles.videoOverlaySpacer} />
