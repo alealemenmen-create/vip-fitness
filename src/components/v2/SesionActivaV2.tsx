@@ -21,7 +21,6 @@ import {
   Lightbulb,
   ListVideo,
   Minus,
-  Pause,
   Play,
   Plus,
   Settings,
@@ -29,6 +28,8 @@ import {
   Shuffle,
   StickyNote,
   Target,
+  TimerOff,
+  TimerReset,
   X,
   Zap,
 } from "lucide-react";
@@ -1678,7 +1679,15 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         <nav className={styles.sessionControls} aria-label="Controles de la sesión">
           <button type="button" aria-label="Ajustes" onClick={() => setPanel("ajustes")}><Settings size={20} /></button>
           <button type="button" aria-label={vista === "descanso" ? "Volver a la serie actual" : "Serie anterior"} onClick={retrocederPaso} disabled={vista !== "descanso" && !puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
-          <button type="button" aria-label={pausada ? "Reanudar sesión" : "Pausar sesión"} onClick={alternarPausaSesion}>{pausada ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>
+          <button
+            type="button"
+            className={styles.sessionTimerControl}
+            data-pausada={pausada ? "true" : undefined}
+            aria-label={pausada ? "Reanudar tiempo del entrenamiento" : "Pausar tiempo del entrenamiento"}
+            onClick={alternarPausaSesion}
+          >
+            {pausada ? <TimerReset size={21} /> : <TimerOff size={21} />}
+          </button>
           <button type="button" aria-label={vista === "descanso" ? descanso?.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
         </nav>
       ))}

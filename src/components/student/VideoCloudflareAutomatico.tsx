@@ -2,8 +2,41 @@
 
 import Script from "next/script";
 import { Pause, Play } from "lucide-react";
-import { startTransition, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { obtenerVideoCloudflareEjercicio } from "@/app/alumno/entrenar/video-actions";
+
+type VideoEjercicio = {
+  ejercicioId: string;
+  url: string;
+  ancho: number | null;
+  alto: number | null;
+};
+
+type ResultadoVideo = Awaited<ReturnType<typeof obtenerVideoCloudflareEjercicio>>;
+
+const TRES_HORAS_MS = 3 * 60 * 60 * 1000;
+const cacheVideos = new Map<string, { video: VideoEjercicio; venceEn: number }>();
+const solicitudesVideos = new Map<string, Promise<ResultadoVideo>>();
+
+function videoEnCache(ejercicioId: string | null | undefined) {
+  if (!ejercicioId) return null;
+  const entrada = cacheVideos.get(ejercicioId);
+  if (!entrada || entrada.venceEn <= Date.now()) {
+    cacheVideos.delete(ejercicioId);
+    return null;
+  }
+  return entrada.video;
+}
+
+function solicitarVideo(ejercicioId: string) {
+  const existente = solicitudesVideos.get(ejercicioId);
+  if (existente) return existente;
+  const solicitud = obtenerVideoCloudflareEjercicio(ejercicioId).finally(() => {
+    solicitudesVideos.delete(ejercicioId);
+  });
+  solicitudesVideos.set(ejercicioId, solicitud);
+  return solicitud;
+}
 
 type ReproductorStream = {
   paused: boolean;
@@ -32,7 +65,7 @@ export function VideoCloudflareAutomatico({
   modoInmersivo?: boolean;
   claseControlPausa?: string;
 }) {
-  const [video, setVideo] = useState<{ ejercicioId: string; url: string; ancho: number | null; alto: number | null } | null>(null);
+  const [video, setVideo] = useState<VideoEjercicio | null>(() => videoEnCache(ejercicioId));
   const [sdkListo, setSdkListo] = useState(false);
   const [pausado, setPausado] = useState(false);
   const [iframeVisible, setIframeVisible] = useState(false);
@@ -44,13 +77,18 @@ export function VideoCloudflareAutomatico({
     if (!activo || !ejercicioId) {
       return () => { vigente = false; };
     }
-    startTransition(() => {
-      void obtenerVideoCloudflareEjercicio(ejercicioId).then((resultado) => {
-        if (vigente && resultado.ok) {
-          setIframeVisible(false);
-          setVideo({ ejercicioId, url: resultado.url, ancho: resultado.ancho, alto: resultado.alto });
-        }
-      });
+    const almacenado = videoEnCache(ejercicioId);
+    if (almacenado) {
+      return () => { vigente = false; };
+    }
+    void solicitarVideo(ejercicioId).then((resultado) => {
+      if (!resultado.ok) return;
+      const siguiente = { ejercicioId, url: resultado.url, ancho: resultado.ancho, alto: resultado.alto };
+      cacheVideos.set(ejercicioId, { video: siguiente, venceEn: Date.now() + TRES_HORAS_MS });
+      if (vigente) {
+        setIframeVisible(false);
+        setVideo(siguiente);
+      }
     });
     return () => { vigente = false; };
   }, [activo, ejercicioId]);
@@ -81,9 +119,10 @@ export function VideoCloudflareAutomatico({
     }
   };
 
-  if (!activo || !ejercicioId || video?.ejercicioId !== ejercicioId) return null;
-  const vertical = video.ancho !== null && video.alto !== null && video.alto > video.ancho;
-  const proporcion = vertical ? `${video.ancho} / ${video.alto}` : undefined;
+  const videoActual = video?.ejercicioId === ejercicioId ? video : videoEnCache(ejercicioId);
+  if (!activo || !ejercicioId || !videoActual) return null;
+  const vertical = videoActual.ancho !== null && videoActual.alto !== null && videoActual.alto > videoActual.ancho;
+  const proporcion = vertical ? `${videoActual.ancho} / ${videoActual.alto}` : undefined;
   return (
     <>
       {modoInmersivo ? (
@@ -96,7 +135,7 @@ export function VideoCloudflareAutomatico({
       ) : null}
       <iframe
         ref={iframeRef}
-        src={video.url}
+        src={videoActual.url}
         title={`Demostración automática de ${nombre}`}
         aria-label={`Demostración automática de ${nombre}`}
         allow="autoplay; encrypted-media; picture-in-picture"
