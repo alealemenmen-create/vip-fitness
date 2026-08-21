@@ -10,8 +10,8 @@ Este es el único handoff vigente. Los handoffs anteriores se conservan como his
 
 - Producción principal: https://vipfitness.cl
 - Alias V2: https://vip-fitness-v2.vercel.app
-- Rama canónica: `main`, sincronizada con `origin/main` antes del commit documental final.
-- Despliegue de código validado: `dpl_76YYokaKPJm9UrSLZ6MSDZtaJkrv` (`Ready`).
+- Rama canónica: `main`, sincronizada con `origin/main`.
+- Despliegue de código validado: `dpl_97rrojbYovzCKoRUoR4Ron98rp8i` (`Ready`), publicado también en el alias V2.
 - Portal V2 usa datos reales de alumnos, rutinas, progreso y nutrición. Se retiraron estados demostrativos que podían confundirse con información real.
 - Estudio VIP quedó conectado al Portal V2 mediante una única configuración publicada en Supabase Storage.
 - Generador conserva el motor determinista probado, las técnicas avanzadas y la lógica de Impulso VIP. Se agregó validación estricta antes de publicar.
@@ -23,6 +23,7 @@ Este es el único handoff vigente. Los handoffs anteriores se conservan como his
 - `2deff05` — recuperación del último peso conocido y corrección de sugerencias sin base.
 - `344800c` — Estudio VIP conectado a Portal V2 y mejoras de experiencia móvil.
 - `195775d` — auditoría de rutinas, validación del generador y centro multimedia para entrenador/administrador.
+- `4383b53` — portadas editoriales de los días de entrenamiento, preservación de originales y degradado adaptable.
 
 El commit posterior que contiene este documento y `HANDOFF_1.33.md` es únicamente documental.
 
@@ -101,7 +102,7 @@ Todas las migraciones conocidas y las columnas/RPC requeridas, incluida `0118`, 
 - ESLint: aprobado, sin advertencias.
 - TypeScript: `npx tsc --noEmit --incremental false`, aprobado.
 - Tests enfocados: 85/85 aprobados.
-- Suite completa: 82 archivos, 632/632 tests aprobados.
+- Suite completa: 82 archivos, 633/633 tests aprobados.
 - Build de producción: Next.js 16.3.1, 72 páginas, aprobado.
 - Revisión de encuadre multimedia: ESLint, TypeScript, 10 pruebas enfocadas, suite completa y build repetidos en verde.
 - QA autenticada local: Estudio VIP guardar/publicar, Portal V2, Generador y centro multimedia, aprobada.
