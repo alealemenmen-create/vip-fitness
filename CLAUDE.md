@@ -36,3 +36,14 @@ previsto desde el inicio del proyecto con el nombre "Estudio VIP" (ver
 Alcance y preguntas abiertas quedaron en `HANDOFF_ESTUDIO_VIP_ALCANCE.md` —
 léelo completo y resolvé el alcance con Alejandro (rol, qué es configurable,
 dónde vive) antes de escribir código.
+
+## Pendiente por retomar: Rediseño del portal clásico ("Entrenar")
+
+Alejandro pidió el 2026-08-21 un rediseño de la pantalla de sesión activa del
+portal clásico ("Entrenar"), más claro y de nivel profesional, usando el
+portal v2 como referencia de calidad SIN fusionar los dos sistemas. Primera
+sesión (rama `feature/rediseno-entrenar-clasico`, sin PR ni publicar todavía)
+arregló el selector de series y el descanso que "desaparecía" visualmente —
+ver `HANDOFF_REDISENO_PORTAL_CLASICO.md` para la causa raíz encontrada, las
+decisiones de diseño tomadas y qué falta (el resto del portal clásico, cuyo
+alcance todavía no está definido con Alejandro).
