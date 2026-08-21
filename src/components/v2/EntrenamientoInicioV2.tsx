@@ -93,17 +93,17 @@ export function EntrenamientoInicioV2({
     return principal ? FOTOS_GRUPO_MUSCULAR[principal]?.[0] ?? null : null;
   }, [actual]);
 
-  // Portada del día: una foto REAL y curada de algún ejercicio de la sesión
-  // (modelo haciendo el movimiento -- ej. press militar en un día de
-  // hombros), no el cuerpo genérico resaltado en naranja. Ignora ejercicios
-  // de cardio que son solo calentamiento (ver fotoPortadaDia) y solo cae al
-  // dibujo anatómico si ningún ejercicio del día tiene foto identificada
-  // (pedido de Alejandro, 2026-08-21: "elegí las mejores fotos" + "no me
-  // ponga cardio [por una bicicleta de calentamiento]").
+  // Dos portadas editoriales por grupo muscular, separadas de las imágenes
+  // técnicas. El ID estable del día alterna variantes sin parpadeos; glúteos
+  // se reconoce como familia visual aunque el esquema lo agrupe en piernas.
   const foto = useMemo(() => {
     const ejerciciosDia = vista?.tipo === "entrenamiento" ? vista.ejercicios : [];
-    return configuracion.entrenamiento.imagenPortadaUrl || fotoPortadaDia(ejerciciosDia) || fotoRespaldo;
-  }, [vista, fotoRespaldo, configuracion.entrenamiento.imagenPortadaUrl]);
+    return configuracion.entrenamiento.imagenPortadaUrl || fotoPortadaDia(ejerciciosDia, {
+      nombreDia: actual?.dia.nombre,
+      gruposMusculares: actual?.dia.resumen?.gruposMusculares,
+      variante: actual?.dia.id,
+    }) || fotoRespaldo;
+  }, [actual, vista, fotoRespaldo, configuracion.entrenamiento.imagenPortadaUrl]);
 
   if (!actual) return null;
 

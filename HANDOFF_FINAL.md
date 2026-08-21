@@ -65,7 +65,7 @@ La versión 1 fue guardada y publicada desde la interfaz real con la cuenta admi
 
 ## Portal V2 y móvil
 
-- Las cinco jornadas del programa actual usan cuatro portadas editoriales no destructivas (press inclinado se comparte entre días 1 y 5): mantienen las identidades y escenas originales, con mejora corporal leve y realista. El bloque aplica un degradado inferior uniforme; biblioteca y fichas conservan las fotos técnicas originales.
+- La pantalla principal de Entrenar usa una biblioteca no destructiva de 16 portadas: dos por cada familia editorial (`pecho`, `espalda`, `hombros`, `brazos`, `piernas`, `glúteos`, `core` y `cardio`). Mantienen las identidades y escenas originales, con mejora corporal leve y realista. La elección depende del grupo principal real del día, alterna de forma estable y reconoce glúteos aunque el esquema histórico los agrupe dentro de piernas. El bloque aplica un degradado inferior uniforme; biblioteca y fichas conservan las fotos técnicas originales.
 - Revisión multimedia posterior: la rutina activa ya no amplía el iframe para llenar el cuadro. Fotos y videos grandes usan encaje completo, preservan cabeza, manos y pies, y aceptan material vertical u horizontal con franjas negras cuando la proporción lo requiere.
 - El editor de ejercicios incorpora una vista vertical real de la rutina activa para alternar foto/video y revisar el archivo completo antes de publicarlo.
 - Diseño comprobado en viewport iPhone `390x844` y Android `412x915`.
@@ -102,7 +102,7 @@ Todas las migraciones conocidas y las columnas/RPC requeridas, incluida `0118`, 
 - ESLint: aprobado, sin advertencias.
 - TypeScript: `npx tsc --noEmit --incremental false`, aprobado.
 - Tests enfocados: 85/85 aprobados.
-- Suite completa: 82 archivos, 633/633 tests aprobados.
+- Suite completa: 82 archivos, 635/635 tests aprobados.
 - Build de producción: Next.js 16.3.1, 72 páginas, aprobado.
 - Revisión de encuadre multimedia: ESLint, TypeScript, 10 pruebas enfocadas, suite completa y build repetidos en verde.
 - QA autenticada local: Estudio VIP guardar/publicar, Portal V2, Generador y centro multimedia, aprobada.
