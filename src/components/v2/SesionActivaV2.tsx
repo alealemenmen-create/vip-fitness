@@ -1486,12 +1486,12 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             <span className={styles.videoSpeed}>1× velocidad</span>
           </div>
           <div className={styles.videoOverlay}>
-            <div className={styles.videoToolRow}>
-              {!sesion?.soloLectura ? <button type="button" className={styles.videoToolButton} aria-label="Ajustes" onClick={() => setPanel("ajustes")}><Settings size={17} /></button> : <span />}
-              <button type="button" className={styles.switchView} onClick={() => setVista("lista")}><ListVideo size={14} /> Vista de lista</button>
-            </div>
             <div className={styles.videoOverlaySpacer} />
             <div className={styles.videoBottomGroup}>
+              <div className={styles.videoToolRow}>
+                {!sesion?.soloLectura ? <button type="button" className={styles.videoToolButton} aria-label="Ajustes" onClick={() => setPanel("ajustes")}><Settings size={17} /></button> : <span />}
+                <button type="button" className={styles.switchView} onClick={() => setVista("lista")}><ListVideo size={14} /> Vista de lista</button>
+              </div>
               <div className={styles.videoIdentity}>
                 <small>SERIE {ejercicioActivo.codigo}{ejercicioActivo.tecnica ? <em className={styles.videoTecnicaTag} style={ejercicioActivo.tecnicaColor ? { color: ejercicioActivo.tecnicaColor } : undefined}> · {ejercicioActivo.tecnica}</em> : null}</small>
                 <div className={styles.videoIdentityTitleRow}>
