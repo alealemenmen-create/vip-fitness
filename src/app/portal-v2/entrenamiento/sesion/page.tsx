@@ -286,6 +286,8 @@ export default async function SesionV2Page({
         // tipoMomento() -- ese agrupamiento mete "fallo_controlado" dentro
         // de "cierre_controlado" para la UI y perdería la señal.
         intensiva: momento.tipo === "drop_set" || momento.tipo === "rest_pause" || momento.tipo === "fallo_controlado",
+        estado: momento.estado,
+        calibrada: momento.calibrada,
       })),
   );
 

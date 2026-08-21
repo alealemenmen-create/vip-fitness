@@ -46,6 +46,14 @@ export type MomentoSesionAlejandro = {
    * dentro de "cierre_controlado" y perdería justo la señal que hace
    * falta para el aviso. */
   intensiva: boolean;
+  /** "preparada" es la única que todavía puede pedir calibración; una vez
+   * "mostrada" o "resuelta" ya no. */
+  estado: "preparada" | "mostrada" | "resuelta" | "cancelada";
+  /** Si ya se le preguntó al alumno "¿cuántas más podías hacer?" sobre la
+   * serie anterior. Mientras sea `false` en una intervención "preparada",
+   * la sesión V2 debe pedir esa calibración antes de mostrar el momento
+   * (mismo criterio que MomentoImpulsoEnVivo.tsx en la sesión clásica). */
+  calibrada: boolean;
 };
 
 export type EstimacionRirAlejandro = {
@@ -140,6 +148,10 @@ export function seleccionarMomentosAlejandro(
         tipo,
         titulo: "MOMENTO IMPULSO VIP",
         intensiva: tipo === "drop_set" || tipo === "rest_pause",
+        // La demo (sin sesión real detrás) no pasa por el flujo de
+        // calibración -- se muestra tal cual, lista.
+        estado: "mostrada",
+        calibrada: true,
         ...texto,
       };
     });

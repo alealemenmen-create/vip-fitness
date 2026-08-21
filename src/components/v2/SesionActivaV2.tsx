@@ -67,6 +67,7 @@ import {
 } from "@/lib/impulso-vip/alejandro-sesion";
 import type { PreparacionDiariaAlejandro } from "@/lib/impulso-vip/preparacion-diaria";
 import {
+  calibrarIntervencionEnVivoV2,
   marcarIntervencionMostrada,
   resolverIntervencionAutomaticaV2,
 } from "@/app/alumno/entrenar/impulso-actions";
@@ -361,6 +362,8 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [momentosLogrados, setMomentosLogrados] = useState<Record<string, boolean>>({});
   const [momentosRegistrados, setMomentosRegistrados] = useState<Record<string, boolean>>({});
   const [momentoVisible, setMomentoVisible] = useState<MomentoSesionAlejandro | null>(null);
+  const [momentoPorCalibrar, setMomentoPorCalibrar] = useState<MomentoSesionAlejandro | null>(null);
+  const [errorCalibracion, setErrorCalibracion] = useState<string | null>(null);
   const [momentoParaResultado, setMomentoParaResultado] = useState<MomentoSesionAlejandro | null>(null);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
   const [borradorCargado, setBorradorCargado] = useState(false);
@@ -694,6 +697,18 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       && !registro[ejercicioActivo.id][serieActivaIndiceSeguro].completada
     );
     if (!momento) return;
+    // Antes de mostrar el momento, si todavia no se calibro con la
+    // pregunta "¿cuantas mas podias hacer?" sobre la serie anterior -- y
+    // esa serie anterior ya esta hecha -- se pide esa calibracion primero
+    // (mismo criterio que MomentoImpulsoEnVivo.tsx en la sesion clasica).
+    // Sin esto, el motor automatico de V2 nunca llegaba a escalar a
+    // drop set/rest-pause/fallo controlado por esta via.
+    if (momento.estado === "preparada" && !momento.calibrada) {
+      const previa = registro[momento.ejercicioId]?.[momento.serieIndice - 1];
+      if (!previa?.completada) return;
+      const transicion = window.setTimeout(() => setMomentoPorCalibrar(momento), 0);
+      return () => window.clearTimeout(transicion);
+    }
     const transicion = window.setTimeout(() => setMomentoVisible(momento), 0);
     return () => window.clearTimeout(transicion);
   }, [
@@ -708,6 +723,28 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     sesion?.soloLectura,
     serieActivaIndiceSeguro,
   ]);
+
+  const calibrarMomento = (momento: MomentoSesionAlejandro, rir: number) => {
+    setMomentoPorCalibrar(null);
+    setErrorCalibracion(null);
+    if (!sesion?.real) return;
+    iniciarGuardado(async () => {
+      try {
+        const resultado = await calibrarIntervencionEnVivoV2(momento.id, rir);
+        if (!resultado.ok) {
+          setErrorCalibracion(resultado.error ?? "No pudimos calibrar esa serie.");
+          return;
+        }
+        // La calibracion puede haber cambiado la tecnica (por ejemplo, a
+        // drop set) o la instruccion -- se vuelve a pedir la sesion al
+        // servidor para traer ese resultado real en vez de intentar
+        // reconstruirlo a mano en el cliente.
+        router.refresh();
+      } catch {
+        setErrorCalibracion("No pudimos enviar tu respuesta. Intenta de nuevo desde Impulso VIP.");
+      }
+    });
+  };
 
   const actualizarSerie = (ejercicioId: string, indice: number, campo: "reps" | "peso", valor: string) => {
     setRegistro((actual) => ({
@@ -1573,6 +1610,33 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       ) : null}
       {videoAmpliado && ejercicioActivo.videoCloudflareListo && ejercicioActivo.bibliotecaEjercicioId ? <ModalVideoCloudflare ejercicioId={ejercicioActivo.bibliotecaEjercicioId} nombre={ejercicioActivo.nombre} onCerrar={() => setVideoAmpliado(false)} /> : null}
       {videoAmpliado && !ejercicioActivo.videoCloudflareListo && ejercicioActivo.videoUrl ? <ModalVideo videoUrl={ejercicioActivo.videoUrl} nombre={ejercicioActivo.nombre} onCerrar={() => setVideoAmpliado(false)} /> : null}
+      {momentoPorCalibrar ? (
+        <div className={styles.impulsoMomentBackdrop} role="presentation">
+          <section className={styles.impulsoCalibracion} role="alertdialog" aria-modal="true" aria-labelledby="calibracion-titulo">
+            <p className={styles.impulsoCalibracionEyebrow}>Ale calibra tu última serie</p>
+            <h2 id="calibracion-titulo">¿Cuántas repeticiones más podías hacer?</h2>
+            <span>Responde sobre la serie anterior. Impulso ajustará la exigencia sin pedirte esto en todas.</span>
+            <div className={styles.impulsoCalibracionOpciones}>
+              {[
+                { valor: 0, etiqueta: "Ninguna" },
+                { valor: 1, etiqueta: "Una" },
+                { valor: 2, etiqueta: "Dos" },
+                { valor: 3, etiqueta: "3 o más" },
+              ].map((opcion) => (
+                <button
+                  type="button"
+                  key={opcion.valor}
+                  disabled={guardando}
+                  onClick={() => calibrarMomento(momentoPorCalibrar, opcion.valor)}
+                >
+                  {opcion.etiqueta}
+                </button>
+              ))}
+            </div>
+            {errorCalibracion ? <p role="alert">{errorCalibracion}</p> : null}
+          </section>
+        </div>
+      ) : null}
       {momentoVisible ? (
         <div className={styles.impulsoMomentBackdrop} role="presentation">
           <section className={styles.impulsoMoment} role="alertdialog" aria-modal="true" aria-labelledby="momento-alejandro-titulo">

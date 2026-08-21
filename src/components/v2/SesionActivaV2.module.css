@@ -485,6 +485,14 @@
 .impulsoResultadoOpciones { display: grid; width: 100%; gap: 8px; margin-top: 24px; }
 .impulsoResultadoOpciones button { min-height: 46px; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 12px; color: #eef0ea; background: #1c1e14; font-size: 13px; font-weight: 700; }
 .impulsoResultadoOpciones button:last-child { border-color: rgba(255, 126, 108, .28); color: #ffad9f; }
+.impulsoCalibracion { width: 100%; max-width: 360px; padding: 20px; border: 1px solid rgba(206, 244, 74, .22); border-radius: 18px; background: #101110; text-align: left; }
+.impulsoCalibracionEyebrow { margin: 0; color: #d5fa55; font-size: 10px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.impulsoCalibracion h2 { margin-top: 7px; color: #fff; font-size: 19px; font-weight: 850; line-height: 1.2; letter-spacing: -.01em; }
+.impulsoCalibracion > span { display: block; margin-top: 5px; color: #a9aca8; font-size: 12px; line-height: 1.45; }
+.impulsoCalibracionOpciones { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px; }
+.impulsoCalibracionOpciones button { min-height: 46px; padding: 0 4px; border: 1px solid rgba(255, 255, 255, .1); border-radius: 12px; color: #eef0ea; background: #1c1e14; font-size: 11px; font-weight: 750; }
+.impulsoCalibracionOpciones button:active { border-color: #d5fa55; color: #d5fa55; }
+.impulsoCalibracion > p[role="alert"] { margin: 12px 0 0; color: #ffad9f; font-size: 12px; }
 .exerciseNotes { display: grid; gap: 8px; margin-top: 17px; }
 .exerciseNotes > span { color: #a9aca8; font-size: 9px; }
 .exerciseNotes textarea { min-height: 104px; padding: 12px; border: 1px solid #303230; border-radius: 9px; color: #fff; background: #0e0f0f; font: inherit; font-size: 11px; resize: vertical; outline: none; }

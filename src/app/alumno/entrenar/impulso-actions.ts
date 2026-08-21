@@ -586,3 +586,25 @@ export async function resolverIntervencionAutomaticaV2(
   if (dificultad) formData.set("dificultad", dificultad);
   return resolverIntervencionEnVivo({ error: null, ok: false, verificada: false }, formData);
 }
+
+/**
+ * Adaptador de la sesión V2 para `calibrarIntervencionEnVivo` -- la
+ * pregunta "¿cuántas repeticiones más podías hacer?" que la sesión clásica
+ * hace antes de la última serie, y que hasta ahora V2 nunca disparaba (el
+ * motor automático quedaba más conservador de lo diseñado, sin escalar
+ * nunca a drop set/rest-pause/fallo controlado por esta vía). Misma función
+ * de servidor que V1, cero lógica nueva -- solo arma el FormData que esa
+ * función ya espera.
+ */
+export async function calibrarIntervencionEnVivoV2(
+  intervencionId: string,
+  rir: number,
+): Promise<CalibrarIntervencionState> {
+  const formData = new FormData();
+  formData.set("intervencion_id", intervencionId);
+  formData.set("rir", String(rir));
+  return calibrarIntervencionEnVivo(
+    { error: null, ok: false, instruccion: null, tipo: null, prescripcion: null },
+    formData
+  );
+}
