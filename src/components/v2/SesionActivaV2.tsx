@@ -21,6 +21,7 @@ import {
   Lightbulb,
   ListVideo,
   Minus,
+  Pause,
   Play,
   Plus,
   Settings,
@@ -28,8 +29,6 @@ import {
   Shuffle,
   StickyNote,
   Target,
-  TimerOff,
-  TimerReset,
   X,
   Zap,
 } from "lucide-react";
@@ -1663,10 +1662,6 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         </main>
       )}
 
-      {!fichaEjercicio && vista === "lista" && !sesion?.soloLectura ? (
-        <button type="button" className={styles.videoViewButton} onClick={abrirVistaVideo}><ListVideo size={14} /> Vista de video</button>
-      ) : null}
-
       {!fichaEjercicio && vista !== "video" && (sesion?.soloLectura ? (
         <nav className={styles.sessionControls} aria-label="Controles del registro">
           <Link href="/portal-v2/entrenamiento/historial" aria-label="Volver al historial"><History size={20} /></Link>
@@ -1676,7 +1671,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           <button type="button" aria-label="Información" onClick={() => setPanel("informacion")}><Info size={20} /></button>
         </nav>
       ) : (
-        <nav className={styles.sessionControls} aria-label="Controles de la sesión">
+        <nav className={`${styles.sessionControls} ${styles.sessionControlsActive}`} aria-label="Controles de la sesión">
           <button type="button" aria-label="Ajustes" onClick={() => setPanel("ajustes")}><Settings size={20} /></button>
           <button type="button" aria-label={vista === "descanso" ? "Volver a la serie actual" : "Serie anterior"} onClick={retrocederPaso} disabled={vista !== "descanso" && !puedeIrAtras}><ChevronLeft size={23} strokeWidth={2.8} /></button>
           <button
@@ -1686,9 +1681,11 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
             aria-label={pausada ? "Reanudar tiempo del entrenamiento" : "Pausar tiempo del entrenamiento"}
             onClick={alternarPausaSesion}
           >
-            {pausada ? <TimerReset size={21} /> : <TimerOff size={21} />}
+            {pausada ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}
           </button>
+          <button type="button" aria-label={vista === "lista" ? "Vista de video" : "Vista de lista"} onClick={vista === "lista" ? abrirVistaVideo : () => setVista("lista")}><ListVideo size={20} /></button>
           <button type="button" aria-label={vista === "descanso" ? descanso?.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie" : "Serie siguiente"} onClick={avanzarPaso} disabled={vista === "lista" && !puedeIrAdelante}><ChevronRight size={23} strokeWidth={2.8} /></button>
+          <button type="button" aria-label="Información" onClick={() => setPanel("informacion")}><Info size={20} /></button>
         </nav>
       ))}
 

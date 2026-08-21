@@ -274,27 +274,6 @@
   cursor: grab;
 }
 .asaTarjeta:active { color: #a8abaa; background: #202121; cursor: grabbing; }
-.videoViewButton {
-  position: fixed;
-  right: max(14px, calc((100vw - 460px) / 2 + 14px));
-  bottom: calc(76px + env(safe-area-inset-bottom, 0px) + 12px);
-  z-index: 55;
-  display: flex;
-  min-height: 40px;
-  align-items: center;
-  gap: 6px;
-  padding: 0 16px;
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 999px;
-  color: #fff;
-  background: rgba(23, 24, 24, .92);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, .45);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  font-size: 10px;
-  font-weight: 720;
-}
-
 .exerciseDetail { overflow: hidden; margin: 0 -14px; padding-bottom: 34px; background: #050606; }
 .exerciseDetailBack { position: fixed; top: calc(72px + env(safe-area-inset-top, 0px)); left: max(14px, calc((100vw - 460px) / 2 + 14px)); z-index: 45; display: flex; min-height: 38px; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px; color: #fff; background: rgba(11, 12, 12, .72); box-shadow: 0 7px 22px rgba(0, 0, 0, .35); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font-size: 11px; font-weight: 720; }
 .exerciseDetailHero { position: relative; height: min(64dvh, 610px); min-height: 470px; overflow: hidden; background: #141515; }
@@ -330,6 +309,7 @@
 .sessionControls { position: fixed; right: max(0px, calc((100vw - 460px) / 2)); bottom: 0; left: max(0px, calc((100vw - 460px) / 2)); z-index: 50; display: grid; min-height: calc(76px + env(safe-area-inset-bottom, 0px)); grid-template-columns: repeat(5, 1fr); align-items: start; padding: 12px 8px env(safe-area-inset-bottom, 0px); border: 1px solid #303232; border-bottom: 0; border-radius: 18px 18px 0 0; background: rgba(23, 24, 24, .98); box-shadow: 0 -20px 42px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .035); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); }
 .sessionControls button, .sessionControls > a { display: grid; width: 44px; height: 44px; place-self: start center; place-items: center; color: #f1f2ef; }
 .sessionControls button:disabled { color: #525552; }
+.sessionControlsActive { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .sessionControls .sessionTimerControl { border: 1px solid rgba(190, 230, 66, .24); border-radius: 50%; color: #d8ef72; background: rgba(166, 207, 55, .08); }
 .sessionControls .sessionTimerControl[data-pausada="true"] { border-color: rgba(10, 132, 255, .42); color: #77b9ff; background: rgba(10, 132, 255, .13); }
 
