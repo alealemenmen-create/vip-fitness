@@ -83,7 +83,7 @@ export default async function ControlVipV2HoyPage() {
 
       <AsistenciaImpulsoEnVivo solicitudes={solicitudesImpulso} />
 
-      <SugerenciasHoy reportes={reportes} baseHref="/control-vip/alumnos" />
+      <SugerenciasHoy reportes={reportes} baseHref="/control-vip/alumnos" hrefSinRutina="/control-vip/rutinas" />
 
       {ejerciciosIncompletos.length > 0 && (
         <section className="space-y-2">
@@ -108,7 +108,7 @@ export default async function ControlVipV2HoyPage() {
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-text">Acciones rápidas</h2>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          <Link href="/admin/generador" className="boton-panel-secundario">
+          <Link href="/control-vip/rutinas" className="boton-panel-secundario">
             <WandSparkles size={15} /> Armar rutina
           </Link>
           <Link href="/admin/ejercicios" className="boton-panel-secundario">

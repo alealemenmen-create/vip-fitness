@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, ArrowLeft, Eye, MessageCircle, PencilRuler } from "lucide-react";
+import { Activity, ArrowLeft, Eye, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireControlVipV2 } from "@/lib/auth";
 import { entrarComoAlumno, eliminarAlumno, actualizarCorreoPerfil } from "@/app/admin/alumnos/actions";
@@ -41,6 +41,7 @@ import { IndicacionesAlePanel } from "@/components/admin/IndicacionesAlePanel";
 import { FichaAlumnoTabs } from "@/components/admin/FichaAlumnoTabs";
 import { IDS_PESTANA_FICHA, type IdPestanaFicha } from "@/lib/alumnos/pestanas-ficha";
 import { AccesoPortalV2Alumno } from "@/components/admin/AccesoPortalV2Alumno";
+import { BotonRutinaFicha } from "@/components/control-vip-v2/BotonRutinaFicha";
 
 /**
  * Ficha del alumno en Control VIP V2 (Fase 2). Misma composición exacta que
@@ -147,9 +148,7 @@ export default async function ControlVipV2AlumnoDetallePage({
           <Link href={`/control-vip/alumnos/${alumnoId}?tab=comunicacion`} className="boton-panel-secundario">
             <MessageCircle size={14} /> <span className="hidden sm:inline">Indicación</span>
           </Link>
-          <Link href="/admin/armar-rutina" className="boton-panel-secundario">
-            <PencilRuler size={14} /> <span className="hidden sm:inline">Rutina</span>
-          </Link>
+          <BotonRutinaFicha alumnoId={alumnoId} />
           <Link href={`/admin/alumnos/${alumnoId}/seguimiento`} className="boton-panel-secundario">
             <Activity size={14} /> <span className="hidden sm:inline">Seguimiento</span>
           </Link>

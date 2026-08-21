@@ -76,7 +76,7 @@ export const GRUPOS_DESTINOS_CONTROL_VIP_V2: GrupoDestinos[] = [
     label: "Rutinas",
     items: [
       {
-        href: "/admin/rutinas",
+        href: "/control-vip/rutinas",
         label: "Rutinas",
         detalle: "Armar, generar, reutilizar e importar",
         icon: PencilRuler,

@@ -26,11 +26,15 @@ function severidad(r: ReporteAlumno): number {
 export function SugerenciasHoy({
   reportes,
   baseHref = "/admin/alumnos",
+  hrefSinRutina = "/admin/generador",
 }: {
   reportes: ReporteAlumno[];
   /** Ver `ListaAlumnos` — mismo criterio para que Control VIP V2 abra su
    * propia ficha (`/control-vip/alumnos/[id]`) en vez de la clásica. */
   baseHref?: string;
+  /** A dónde manda "N alumnos sin rutina" — Control VIP V2 usa su propia
+   * pantalla de Rutinas (Fase 3) en vez del generador clásico. */
+  hrefSinRutina?: string;
 }) {
   const sinRutina = reportes.filter((r) => r.motivo === "Sin rutina activa asignada");
   const enAtencion = reportes
@@ -53,7 +57,7 @@ export function SugerenciasHoy({
       </div>
       {sinRutina.length > 0 && (
         <Link
-          href="/admin/generador"
+          href={hrefSinRutina}
           className="group flex items-center gap-3 border-b border-border bg-error/5 px-4 py-3.5 transition-colors hover:bg-error/10"
         >
           <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-error/10 text-error">
