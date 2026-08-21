@@ -11,7 +11,7 @@ Este es el único handoff vigente. Los handoffs anteriores se conservan como his
 - Producción principal: https://vipfitness.cl
 - Alias V2: https://vip-fitness-v2.vercel.app
 - Rama canónica: `main`, sincronizada con `origin/main`.
-- Despliegue funcional validado: `dpl_81sjAWZiJVQoxmeMdAHVAh9QNDmP` (`Ready`), publicado tanto en `vipfitness.cl` como en el alias V2; ambos dominios fueron inspeccionados y resuelven al mismo artefacto.
+- Despliegue funcional validado: `dpl_4JgbchRtwpXALH4JWnLFiCC3LBvv` (`Ready`), publicado tanto en `vipfitness.cl` como en el alias V2; ambos dominios fueron inspeccionados y resuelven al mismo artefacto.
 - Portal V2 usa datos reales de alumnos, rutinas, progreso y nutrición. Se retiraron estados demostrativos que podían confundirse con información real.
 - Estudio VIP quedó conectado al Portal V2 mediante una única configuración publicada en Supabase Storage.
 - Generador conserva el motor determinista probado, las técnicas avanzadas y la lógica de Impulso VIP. Se agregó validación estricta antes de publicar.
@@ -26,6 +26,7 @@ Este es el único handoff vigente. Los handoffs anteriores se conservan como his
 - `4383b53` — portadas editoriales de los días de entrenamiento, preservación de originales y degradado adaptable.
 - `a1491f6` — biblioteca de dos portadas por grupo muscular y selección estable por día.
 - `678da09` — descanso automático de Fabiola reactivado, acción clara para activar la cuenta regresiva y bloqueo de zoom limitado a la sesión activa.
+- `ba42ff4` — edición libre y autoguardado ordenado de cargas, recuperación del último peso real y progreso por ejercicio.
 
 El commit posterior que contiene este documento y `HANDOFF_1.33.md` es únicamente documental.
 
@@ -75,6 +76,9 @@ La versión 1 fue guardada y publicada desde la interfaz real con la cuenta admi
 - Zoom del navegador habilitado para accesibilidad en el portal general (`maximumScale: 5`, `userScalable: true`) y bloqueado únicamente en la rutina activa (`maximumScale: 1`, `userScalable: false`) para evitar pinzas accidentales mientras se entrena. La sesión conserva sus escalas visuales internas.
 - Incidencia Fabiola Galleguillos: se confirmó que el reloj general funcionaba y que su descanso estaba guardado como referencia libre (`temporizador_descanso=false`), por eso el número era estático. Se reactivó la preferencia real sin tocar sesión, series, pesos, repeticiones ni progreso. Si cualquier alumno elige descanso libre, la interfaz ahora dice claramente que no hay conteo y ofrece `Activar cuenta regresiva` en las vistas de lista e inmersiva.
 - El service worker fue auditado: no intercepta `fetch` ni cachea páginas, por lo que una PWA instalada no puede conservar una versión vieja de la sesión.
+- Todos los campos de peso y repeticiones de la sesión activa son editables aunque la serie aún no esté seleccionada ni marcada. El borrador continúa protegiéndose localmente y, además, se sincroniza automáticamente con Supabase tras 650 ms o al salir del campo. Los guardados por ejercicio se serializan para impedir que una respuesta antigua sobrescriba un valor nuevo; la pantalla muestra `Guardando…`, `Guardado` o `En dispositivo`.
+- La carga inicial reutiliza la prioridad compartida con V1: valor ya guardado en la sesión, luego sugerencia aprobada/modificada de Impulso VIP y, en ausencia de ella, último peso real del alumno. Las recomendaciones propuestas, bloqueadas o de peso corporal no inventan una carga.
+- Cada nombre de ejercicio muestra el avance de sus propias series (`1 de 3`, etc.) en vista de lista, contraída y de video. Al completar todas cambia a check verde y `Realizado`.
 - Portada y ficha prioritaria ajustadas para carga visual.
 - Navegación y tarjetas consumen la configuración publicada por Estudio VIP.
 - Biblioteca real: 134 ejercicios; 113 con foto y 21 pendientes de foto en el momento de la auditoría.
@@ -106,9 +110,10 @@ Todas las migraciones conocidas y las columnas/RPC requeridas, incluida `0118`, 
 - ESLint: aprobado, sin advertencias.
 - TypeScript: `npx tsc --noEmit --incremental false`, aprobado.
 - Tests enfocados: 85/85 aprobados.
-- Suite completa: 82 archivos, 635/635 tests aprobados.
+- Suite completa: 82 archivos, 636/636 tests aprobados.
 - Build de producción: Next.js 16.3.1, 72 páginas, aprobado.
 - Corrección de sesión activa (`678da09`): ESLint aprobado; TypeScript aprobado; suite completa 82 archivos y 635/635 tests; build de 72 páginas aprobado.
+- Autoguardado de cargas (`ba42ff4`): ESLint y TypeScript aprobados; 12/12 pruebas enfocadas; suite completa 82 archivos y 636/636 tests; build de 72 páginas aprobado. Consulta posterior de solo lectura confirmó la geometría real de 13 ejercicios y 17 series ya guardadas de la sesión activa auditada, sin modificar sus datos.
 - QA posterior al despliegue: viewport publicado `width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-visual`; sin overflow horizontal, overlay ni errores/advertencias de consola. Logs de Vercel sin errores durante la comprobación.
 - Revisión de encuadre multimedia: ESLint, TypeScript, 10 pruebas enfocadas, suite completa y build repetidos en verde.
 - QA autenticada local: Estudio VIP guardar/publicar, Portal V2, Generador y centro multimedia, aprobada.
