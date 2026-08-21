@@ -347,7 +347,7 @@
 .videoToolButton { display: grid; width: 42px; height: 42px; flex-shrink: 0; place-items: center; border: 1px solid rgba(255, 255, 255, .2); border-radius: 50%; color: #fff; background: rgba(10, 11, 11, .68); box-shadow: 0 8px 24px rgba(0, 0, 0, .2); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
 .videoToolRow .switchView { position: static; min-height: 42px; padding-inline: 15px; border-color: rgba(255, 255, 255, .16); background: rgba(10, 11, 11, .68); box-shadow: 0 8px 24px rgba(0, 0, 0, .2); font-size: 10px; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
 .videoOverlaySpacer { flex: 1; min-height: 10px; }
-.videoBottomGroup { display: flex; flex-direction: column; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); pointer-events: auto; }
+.videoBottomGroup { display: flex; flex-direction: column; padding-bottom: 8px; pointer-events: auto; }
 .videoIdentity { padding: 0 15px; }
 .videoIdentity small { color: #b8dc38; font-size: 12px; font-weight: 800; }
 .videoTecnicaTag { font-style: normal; }
