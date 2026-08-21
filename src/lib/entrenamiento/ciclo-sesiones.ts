@@ -112,3 +112,13 @@ export function sesionDelMes(numero: number, sesionesPorSemana: number): number 
 export function semanaDelMes(semanaAbsoluta: number): number {
   return ((Math.max(1, semanaAbsoluta) - 1) % SEMANAS_POR_MES) + 1;
 }
+
+/** El mes ABSOLUTO (1, 2, 3...) en el que cae un número de la rueda -- igual
+ * que `semanaDelNumero` pero de a bloques de `sesionesPorMes` en vez de a
+ * bloques de `sesionesPorSemana`. La pantalla de Entrenamiento la usa para
+ * traer el ciclo mensual completo (12/16/20/24 días según el split) como una
+ * sola tira, sin paginar semana por semana (pedido de Alejandro,
+ * 2026-08-21: "quita lo de semana, déjame nada más los días"). */
+export function mesDelNumero(numero: number, sesionesPorSemana: number): number {
+  return Math.max(1, Math.ceil(numero / sesionesPorMes(sesionesPorSemana)));
+}

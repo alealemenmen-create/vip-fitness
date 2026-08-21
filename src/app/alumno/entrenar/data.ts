@@ -7,6 +7,7 @@ import { emparejarEjercicio } from "@/lib/ejercicios/emparejar";
 import { obtenerBiblioteca } from "@/lib/ejercicios/data";
 import { normalizarTecnicaSeries } from "@/lib/entrenamiento/tecnica-series";
 import { obtenerEstadoPlanMensual } from "@/lib/planes-entrenamiento-servidor";
+import { gruposIdentificadoresDia } from "@/lib/entrenamiento/grupos-dia";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -159,9 +160,7 @@ export const obtenerDiasRutina = cache(async (rutinaId: string): Promise<DiaRuti
           e.series_programadas * (SEGUNDOS_TRABAJO_POR_SERIE + (e.descanso_segundos ?? DESCANSO_DEFAULT_SEGUNDOS)),
         0
       );
-      const gruposMusculares = [
-        ...new Set(ejercicios.map((e) => e.grupo_muscular).filter((g): g is GrupoMuscular => g !== null)),
-      ];
+      const gruposMusculares = gruposIdentificadoresDia(ejercicios.map((e) => e.grupo_muscular));
       resumen = {
         cantidadEjercicios: ejercicios.length,
         cantidadSeries,

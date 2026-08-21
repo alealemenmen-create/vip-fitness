@@ -411,17 +411,20 @@
 .dayDial {
   display: flex;
   align-items: center;
-  justify-content: space-around;
-  gap: 4px;
-  margin: 3px -4px 12px;
+  gap: 6px;
+  margin: 3px -14px 12px;
+  padding: 0 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.dayDial::-webkit-scrollbar { display: none; }
 
 .dayItem,
 .restItem {
   position: relative;
   display: flex;
+  flex: none;
   min-width: 42px;
-  flex: 1;
   flex-direction: column;
   align-items: center;
   gap: 3px;
@@ -432,6 +435,7 @@
 }
 
 .dayLabel {
+  min-height: 8px;
   font-size: 8px;
   font-weight: 800;
   letter-spacing: .09em;
@@ -448,6 +452,41 @@
   font-weight: 750;
 }
 
+/* Cuadro del día. Ligeramente inclinado ("como si el viento se lo llevara",
+   pedido de Alejandro); el número interno se corrige con el skew opuesto
+   para que se lea derecho -- importa en un público que incluye alumnos
+   mayores (ver reglas de diseño V2). */
+.dayBox {
+  position: relative;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  transform: skewX(-8deg);
+  border-radius: 9px;
+  border: 1.5px solid #3ecf8e;
+  background: rgba(62, 207, 142, .1);
+  color: #3ecf8e;
+  font-size: 12px;
+  font-weight: 800;
+}
+.dayBox b { display: inline-block; transform: skewX(8deg); font-style: normal; }
+
+/* Mismo cuadro inclinado que .dayBox, en gris neutro -- el descanso no es
+   verde (pendiente) ni azul (hecho), no es un día que se marque. */
+.restBox {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  transform: skewX(-8deg);
+  border-radius: 9px;
+  border: 1.5px solid #444746;
+  background: rgba(255, 255, 255, .04);
+  color: #8a8d8b;
+}
+.restBox svg { transform: skewX(8deg); }
+
 .dayActive { color: #f2f4ef; }
 .dayActive::before {
   content: "";
@@ -459,17 +498,48 @@
   background: var(--v2-accent);
   box-shadow: 0 0 10px rgba(255,255,255,.22);
 }
-.dayActive .dayCircle {
+
+/* Luz que recorre el borde del día activo -- solo mientras sigue pendiente.
+   Si el alumno vuelve a mirar un día activo que YA completó, el cuadro
+   queda azul sólido sin animación: la luz es "esto falta", no un adorno
+   permanente. */
+.dayActive:not(.dayCompleted) .dayBox {
   border-color: transparent;
-  color: var(--v2-accent);
-  background: transparent;
-  box-shadow: none;
+  background: var(--v2-bg);
 }
-.dayCompleted { color: #868987; }
-.dayCompleted .dayCircle {
-  border-color: #777a78;
-  color: #090a0a;
-  background: #777a78;
+.dayActive:not(.dayCompleted) .dayBox::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: conic-gradient(from var(--angulo-luz-dia, 0deg), transparent 0deg, #6ee7b0 55deg, transparent 120deg);
+  animation: girarBordeDia 2.4s linear infinite;
+}
+.dayActive:not(.dayCompleted) .dayBox::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: 0;
+  border-radius: 7px;
+  background: var(--v2-bg);
+}
+.dayActive:not(.dayCompleted) .dayBox b { position: relative; z-index: 1; }
+
+@property --angulo-luz-dia {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes girarBordeDia {
+  to { --angulo-luz-dia: 360deg; }
+}
+
+.dayCompleted { color: #9fb8ea; }
+.dayCompleted .dayBox {
+  border-color: transparent;
+  background: #2f6fed;
+  color: #eaf1ff;
 }
 
 .heroCard {
@@ -512,12 +582,20 @@
   object-fit: cover;
   object-position: center 48%;
   filter: saturate(.62) contrast(1.08) brightness(.82);
+  /* Leve inclinación editorial ("como fotos profesionales", pedido de
+     Alejandro) -- el scale de más cubre las esquinas que la rotación deja
+     al descubierto en un contenedor a sangre completa. */
+  transform: rotate(-2deg) scale(1.12);
+  transform-origin: center;
 }
 
 .heroCopy {
   position: absolute;
   right: 12px;
-  bottom: 120px;
+  /* Antes 120px: dejaba solo ~6px libres antes de .metrics (border-top
+     incluido) -- un subtítulo de dos grupos ("Piernas · Espalda") quedaba
+     pegado a esa línea. Más aire acá. */
+  bottom: 134px;
   left: 12px;
   z-index: 2;
 }
@@ -547,7 +625,6 @@
   z-index: 3;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  border-top: 1px solid var(--v2-line);
 }
 
 .metric { padding: 9px 5px 8px; text-align: center; }

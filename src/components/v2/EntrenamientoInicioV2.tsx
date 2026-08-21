@@ -1,12 +1,9 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
-import Image from "next/image";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
-  ChevronLeft,
-  ChevronRight,
   Dumbbell,
   History,
   LibraryBig,
@@ -20,14 +17,15 @@ import {
 import { iniciarRutinaDesdeCalendarioV2 } from "@/app/alumno/entrenar/actions";
 import type { DiaVistaPrevia, NumeroCalendario } from "@/app/alumno/entrenar/data";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
+import { nombreCortoRutina } from "@/lib/entrenamiento/nombre-rutina";
 import { FOTOS_GRUPO_MUSCULAR } from "@/lib/grupos-musculares/fotos";
+import { fotoPortadaDia } from "@/lib/entrenamiento/foto-portada-dia";
 import { BotonIniciarEntrenamientoV2 } from "@/components/v2/BotonIniciarEntrenamientoV2";
 import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
 import styles from "./PortalV2.module.css";
 
 type Props = {
   numeros: NumeroCalendario[];
-  pagina: number;
   seleccionInicial: number;
   rutinaId: string;
   rutinaNombre: string;
@@ -41,15 +39,16 @@ type Props = {
 };
 
 function tituloDia(numero: NumeroCalendario) {
-  const grupos = numero.dia.resumen?.gruposMusculares ?? [];
-  const principales = grupos.filter((grupo) => grupo !== "cardio").slice(0, 2);
-  if (principales.length > 0) return principales.map((grupo) => ETIQUETAS_GRUPO_MUSCULAR[grupo]).join(" · ");
+  // `gruposMusculares` ya viene filtrado por `gruposIdentificadoresDia`
+  // (obtenerDiasRutina): cardio solo aparece acá si de verdad identifica al
+  // día (todo cardio, o 3+ ejercicios), nunca por un calentamiento suelto.
+  const grupos = (numero.dia.resumen?.gruposMusculares ?? []).slice(0, 2);
+  if (grupos.length > 0) return grupos.map((grupo) => ETIQUETAS_GRUPO_MUSCULAR[grupo]).join(" · ");
   return numero.dia.nombre || "Entrenamiento";
 }
 
 export function EntrenamientoInicioV2({
   numeros,
-  pagina,
   seleccionInicial,
   rutinaId,
   rutinaNombre,
@@ -67,10 +66,35 @@ export function EntrenamientoInicioV2({
   const actual = numeros.find((numero) => numero.numero === seleccionado) ?? numeros[0];
   const vista = actual ? vistasPrevias[actual.dia.id] ?? null : null;
 
-  const foto = useMemo(() => {
-    const principal = actual?.dia.resumen?.gruposMusculares.find((grupo) => grupo !== "cardio");
+  // Con el ciclo completo (12/16/20/24 días) a la vista sin paginar por
+  // semana, el día activo puede caer bien a la derecha de la tira -- sin
+  // esto el alumno abría Entrenar y no sabía "dónde viene" hasta scrollear a
+  // mano (pedido de Alejandro, 2026-08-21: "muchos alumnos nunca saben qué
+  // día vienen"). Solo al montar: un tap manual después no debe reacomodar
+  // la tira solo, se ve la posición del tap.
+  const tiraDiasRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    tiraDiasRef.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, []);
+
+  // Respaldo si ningún ejercicio del día tiene foto real identificada
+  // todavía (biblioteca incompleta) -- el dibujo anatómico de siempre.
+  const fotoRespaldo = useMemo(() => {
+    const principal = actual?.dia.resumen?.gruposMusculares[0];
     return principal ? FOTOS_GRUPO_MUSCULAR[principal]?.[0] ?? null : null;
   }, [actual]);
+
+  // Portada del día: una foto REAL y curada de algún ejercicio de la sesión
+  // (modelo haciendo el movimiento -- ej. press militar en un día de
+  // hombros), no el cuerpo genérico resaltado en naranja. Ignora ejercicios
+  // de cardio que son solo calentamiento (ver fotoPortadaDia) y solo cae al
+  // dibujo anatómico si ningún ejercicio del día tiene foto identificada
+  // (pedido de Alejandro, 2026-08-21: "elegí las mejores fotos" + "no me
+  // ponga cardio [por una bicicleta de calentamiento]").
+  const foto = useMemo(() => {
+    const ejerciciosDia = vista?.tipo === "entrenamiento" ? vista.ejercicios : [];
+    return fotoPortadaDia(ejerciciosDia) ?? fotoRespaldo;
+  }, [vista, fotoRespaldo]);
 
   if (!actual) return null;
 
@@ -87,7 +111,7 @@ export function EntrenamientoInicioV2({
     <div>
       <header className={styles.pageHeader}>
         <div>
-          <h1 className={styles.programName}>{rutinaNombre || "Programa VIP"}</h1>
+          <h1 className={styles.programName}>{rutinaNombre ? nombreCortoRutina(rutinaNombre) : "Programa VIP"}</h1>
           <p className={styles.phase}>{planNombre ? `${planNombre} · ` : ""}Fase activa</p>
         </div>
         <button
@@ -100,33 +124,26 @@ export function EntrenamientoInicioV2({
         </button>
       </header>
 
-      <section id="semana" aria-label={`Semana ${pagina}`}>
-        <div className={styles.weekRow}>
-          <Link href={`/portal-v2/entrenamiento?pagina=${Math.max(1, pagina - 1)}`} className={styles.iconButton} aria-label="Semana anterior">
-            <ChevronLeft size={18} />
-          </Link>
-          <p className={styles.weekTitle}>Semana {pagina}</p>
-          <Link href={`/portal-v2/entrenamiento?pagina=${pagina + 1}`} className={styles.iconButton} aria-label="Semana siguiente">
-            <ChevronRight size={18} />
-          </Link>
-        </div>
-
-        <div className={styles.dayDial}>
+      <section id="dias" aria-label="Días de tu programa">
+        <div className={styles.dayDial} ref={tiraDiasRef}>
           {numeros.map((numero, indice) => (
             <Fragment key={numero.numero}>
               <button
                 type="button"
-                className={`${styles.dayItem} ${numero.numero === seleccionado ? styles.dayActive : ""} ${numero.estado === "completado" ? styles.dayDone : ""}`}
+                className={`${styles.dayItem} ${numero.numero === seleccionado ? styles.dayActive : ""} ${numero.estado === "completado" ? styles.dayCompleted : ""}`}
                 onClick={() => setSeleccionado(numero.numero)}
                 aria-pressed={numero.numero === seleccionado}
+                aria-label={`Día ${indice + 1}${numero.estado === "completado" ? ", completado" : ""}`}
               >
-                <span className={styles.dayLabel}>{numero.estado === "completado" ? "HECHO" : "DÍA"}</span>
-                <span className={styles.dayCircle}>{indice + 1}</span>
+                {/* El cuadro ya marca "hecho" con su propio color (azul
+                    sólido) -- no repetimos la palabra en texto. */}
+                <span className={styles.dayLabel}>{numero.estado === "completado" ? "" : "DÍA"}</span>
+                <span className={styles.dayBox}><b>{indice + 1}</b></span>
               </button>
               {indice < numeros.length - 1 && descansoDespuesDe.includes(numero.dia.id) && (
                 <div className={styles.restItem} aria-label="Descanso">
                   <span className={styles.dayLabel}>DESC.</span>
-                  <span className={styles.dayCircle}><Moon size={10} /></span>
+                  <span className={styles.restBox}><Moon size={14} /></span>
                 </div>
               )}
             </Fragment>
@@ -137,8 +154,9 @@ export function EntrenamientoInicioV2({
       <section className={styles.heroCard} aria-label={`Día seleccionado: ${titulo}`}>
         <div className={styles.heroMedia}>
           {foto && (
-            <Image
+            <ImagenV2Segura
               src={foto}
+              fallbackSrc={fotoRespaldo}
               alt={`Entrenamiento de ${titulo}`}
               fill
               sizes="(max-width: 460px) 100vw, 460px"
@@ -247,7 +265,7 @@ export function EntrenamientoInicioV2({
             <Link href="/portal-v2/entrenamiento/programas" className={styles.menuItem}><span>Todos mis programas</span><Dumbbell size={16} /></Link>
             <Link href="/portal-v2/entrenamiento/biblioteca" className={styles.menuItem}><span>Biblioteca de ejercicios</span><LibraryBig size={16} /></Link>
             <Link href="/portal-v2/entrenamiento/historial" className={styles.menuItem}><span>Registro de entrenamientos</span><History size={16} /></Link>
-            <a href="#semana" className={styles.menuItem} onClick={() => setMenuAbierto(false)}><span>Calendario</span><CalendarDays size={16} /></a>
+            <a href="#dias" className={styles.menuItem} onClick={() => setMenuAbierto(false)}><span>Calendario</span><CalendarDays size={16} /></a>
             <Link href="/alumno/entrenar" className={styles.menuItem}><span>Vista clásica del portal</span><Sparkles size={16} /></Link>
           </div>
         </div>

@@ -11,15 +11,11 @@ import {
   obtenerRutinaActiva,
   obtenerSesionEnProgreso,
 } from "@/app/alumno/entrenar/data";
-import { descansosDespuesDe, diasQueNumeran, semanaDelNumero } from "@/lib/entrenamiento/ciclo-sesiones";
+import { descansosDespuesDe, diasQueNumeran, mesDelNumero, sesionesPorMes } from "@/lib/entrenamiento/ciclo-sesiones";
 import { firmarMiniaturasCloudflareV2 } from "@/lib/cloudflare/miniaturas-v2";
 import styles from "@/components/v2/PortalV2.module.css";
 
-export default async function EntrenamientoV2Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ pagina?: string; plan?: string }>;
-}) {
+export default async function EntrenamientoV2Page() {
   const contexto = await obtenerContextoAlumnoOpcional();
   if (!contexto) return <EntrenamientoDemoV2 />;
 
@@ -55,19 +51,22 @@ export default async function EntrenamientoV2Page({
     );
   }
 
-  const { pagina: paginaParam } = await searchParams;
+  // Ciclo mensual completo (12/16/20/24 días según el split, ver
+  // sesionesPorMes) como una sola tira, sin paginar semana por semana --
+  // pedido de Alejandro, 2026-08-21: "quita lo de semana, déjame nada más
+  // los días". El bloque que se trae es el que contiene el próximo número
+  // del alumno, igual que antes se traía la semana que lo contenía.
   const sesionesPorSemana = Math.max(1, diasEntrenamiento.length);
-  const pagina = paginaParam
-    ? Math.max(1, Number(paginaParam) || 1)
-    : semanaDelNumero(avance.proximoNumero, sesionesPorSemana);
-  const desde = (pagina - 1) * sesionesPorSemana + 1;
+  const totalDelMes = sesionesPorMes(sesionesPorSemana);
+  const mes = mesDelNumero(avance.proximoNumero, sesionesPorSemana);
+  const desde = (mes - 1) * totalDelMes + 1;
   const numeros = await obtenerNumerosCalendario(
     supabase,
     alumnoId,
     rutina.id,
     diasEntrenamiento,
     desde,
-    sesionesPorSemana,
+    totalDelMes,
     diasRutina,
   );
   const numeroEnProgreso = numeros.find((numero) => numero.sesionId === sesionEnProgresoId)?.numero;
@@ -85,7 +84,6 @@ export default async function EntrenamientoV2Page({
   return (
     <EntrenamientoInicioV2
       numeros={numeros}
-      pagina={pagina}
       seleccionInicial={seleccionInicial}
       rutinaId={rutina.id}
       rutinaNombre={rutina.nombre}

@@ -3,6 +3,7 @@ import {
   descansosDespuesDe,
   diaDelNumero,
   diasQueNumeran,
+  mesDelNumero,
   semanaDelMes,
   semanaDelNumero,
   sesionDeLaSemana,
@@ -138,5 +139,22 @@ describe("el mes que ve el alumno", () => {
   it("la semana del mes nunca pasa de 4 ni baja de 1", () => {
     expect([1, 2, 3, 4, 5, 6, 7, 8].map(semanaDelMes)).toEqual([1, 2, 3, 4, 1, 2, 3, 4]);
     expect(semanaDelMes(0)).toBe(1);
+  });
+});
+
+describe("mesDelNumero", () => {
+  it("las primeras 12 sesiones de una rutina de 3 días caen en el mes 1", () => {
+    expect([1, 6, 12].map((n) => mesDelNumero(n, 3))).toEqual([1, 1, 1]);
+  });
+
+  it("la sesión 13 ya es del mes 2", () => {
+    expect(mesDelNumero(13, 3)).toBe(2);
+    expect(mesDelNumero(24, 3)).toBe(2);
+    expect(mesDelNumero(25, 3)).toBe(3);
+  });
+
+  it("una rutina de 5 días son bloques de 20", () => {
+    expect(mesDelNumero(20, 5)).toBe(1);
+    expect(mesDelNumero(21, 5)).toBe(2);
   });
 });
