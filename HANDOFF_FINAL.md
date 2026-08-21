@@ -11,7 +11,7 @@ Este es el único handoff vigente. Los handoffs anteriores se conservan como his
 - Producción principal: https://vipfitness.cl
 - Alias V2: https://vip-fitness-v2.vercel.app
 - Rama canónica: `main`, sincronizada con `origin/main`.
-- Despliegue de código validado: `dpl_97rrojbYovzCKoRUoR4Ron98rp8i` (`Ready`), publicado también en el alias V2.
+- Despliegue funcional validado: `dpl_DTM1T2ij7BkaNM33jNBxpdhW9cW6` (`Ready`), publicado también en el alias V2; 16/16 portadas respondieron correctamente en producción.
 - Portal V2 usa datos reales de alumnos, rutinas, progreso y nutrición. Se retiraron estados demostrativos que podían confundirse con información real.
 - Estudio VIP quedó conectado al Portal V2 mediante una única configuración publicada en Supabase Storage.
 - Generador conserva el motor determinista probado, las técnicas avanzadas y la lógica de Impulso VIP. Se agregó validación estricta antes de publicar.
@@ -24,6 +24,7 @@ Este es el único handoff vigente. Los handoffs anteriores se conservan como his
 - `344800c` — Estudio VIP conectado a Portal V2 y mejoras de experiencia móvil.
 - `195775d` — auditoría de rutinas, validación del generador y centro multimedia para entrenador/administrador.
 - `4383b53` — portadas editoriales de los días de entrenamiento, preservación de originales y degradado adaptable.
+- `a1491f6` — biblioteca de dos portadas por grupo muscular y selección estable por día.
 
 El commit posterior que contiene este documento y `HANDOFF_1.33.md` es únicamente documental.
 
