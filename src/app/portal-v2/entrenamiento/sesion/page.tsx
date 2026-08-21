@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Viewport } from "next";
 import { SesionActivaV2, type AlternativaEjercicioV2, type SesionActivaModeloV2 } from "@/components/v2/SesionActivaV2";
 import { obtenerContextoAlumnoOpcional } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -24,6 +25,17 @@ import { calcularDuracionSesionSegundos } from "@/lib/entrenamiento/duracion-ses
 // La V2 necesita el mismo margen que la sesión clásica para que un push de
 // 90–180 segundos no sea cortado por el límite por defecto de la plataforma.
 export const maxDuration = 300;
+
+// Durante una serie, un gesto involuntario de pinza no debe ampliar la
+// interfaz ni ocultar controles. El resto del portal conserva el zoom de
+// accesibilidad; esta restriccion solo se aplica a la sesion activa.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  interactiveWidget: "resizes-visual",
+};
 
 type FichaEjercicioV2 = Pick<Database["public"]["Tables"]["ejercicios"]["Row"],
   | "id" | "nombre" | "grupo_muscular" | "categoria" | "equipo" | "activo" | "calidad_ficha"

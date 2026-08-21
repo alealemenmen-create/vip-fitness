@@ -1388,7 +1388,13 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           {descanso !== null && (descanso.tipo === "manual" || puedeIrAdelante) ? <button type="button" className={`${styles.immersiveArrow} ${styles.immersiveArrowRight}`} onClick={saltarDescanso} aria-label={descanso.tipo === "manual" ? "Finalizar temporizador" : "Ir a la siguiente serie"}><ChevronsRight size={27} strokeWidth={2.4} /></button> : null}
           <div className={styles.restCenter}>
             <span>{descanso?.tipo === "referencia" ? "Descanso recomendado" : "Descanso"}</span><strong>{descanso?.segundos ?? 0}</strong><small>{descanso?.tipo === "referencia" ? "segundos · sin conteo" : "segundos"}</small>
-            <div className={styles.restAdjustments}><button type="button" onClick={() => ajustarDescanso(-15)} aria-label="Restar 15 segundos"><Minus size={13} />15 s</button><button type="button" onClick={() => ajustarDescanso(15)} aria-label="Sumar 15 segundos"><Plus size={13} />15 s</button></div>
+            {descanso?.tipo === "referencia" ? (
+              <button type="button" className={styles.enableCountdown} onClick={() => cambiarTemporizadorAutomatico(true)}>
+                Activar cuenta regresiva
+              </button>
+            ) : (
+              <div className={styles.restAdjustments}><button type="button" onClick={() => ajustarDescanso(-15)} aria-label="Restar 15 segundos"><Minus size={13} />15 s</button><button type="button" onClick={() => ajustarDescanso(15)} aria-label="Sumar 15 segundos"><Plus size={13} />15 s</button></div>
+            )}
           </div>
           <div className={styles.upNext}><span>{descanso?.tipo === "manual" ? "CONTINÚAS" : "SIGUE"}</span><strong>{ejercicioDespuesDescanso.nombre}</strong><small>Serie {posicionDespuesDescanso.serieIndice + 1} · {ejercicioDespuesDescanso.repeticiones[posicionDespuesDescanso.serieIndice]} repeticiones</small></div>
           <button type="button" className={styles.skipRest} onClick={saltarDescanso}><FastForward size={15} /> Saltar descanso</button>
@@ -1538,7 +1544,21 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                                   <span className={styles.restValue}>{esUltimaSerieRutina ? "Final" : requiereDescansoDespues(EJERCICIOS, ORDEN_EJECUCION, EJERCICIOS.findIndex((item) => item.id === ejercicio.id), serieIndice) ? `${ejercicio.descanso} s` : "Avanza"}</span>
                                   <button type="button" className={styles.checkButton} disabled={sesion?.soloLectura} onClick={(evento) => { evento.stopPropagation(); if (esSerieActiva) alternarSerie(ejercicio, serieIndice); else activarEstaSerie(); }} aria-label={esSerieActiva ? `${serie.completada ? "Desmarcar" : "Registrar"} serie ${serieIndice + 1}` : `Activar serie ${serieIndice + 1}`} aria-pressed={serie.completada}>{serie.completada ? <Check size={16} strokeWidth={3} /> : <CircleCheck size={19} />}</button>
                                 </div>
-                                {descansoDeEstaSerie ? <div className={`${styles.inlineRest} ${descansoEnFoco ? styles.inlineRestActive : ""}`} aria-current={descansoEnFoco ? "step" : undefined} aria-live="polite"><button type="button" onClick={() => ajustarDescanso(-15)}>−15 s</button><span className={styles.inlineRestTime}>{descanso.tipo === "referencia" ? "Descanso recomendado" : "Descanso"} {descanso.segundos} s</span><button type="button" onClick={() => ajustarDescanso(15)}>+15 s</button></div> : null}
+                                {descansoDeEstaSerie ? (
+                                  <div className={`${styles.inlineRest} ${descansoEnFoco ? styles.inlineRestActive : ""}`} aria-current={descansoEnFoco ? "step" : undefined} aria-live="polite">
+                                    {descanso.tipo === "referencia" ? (
+                                      <button type="button" className={styles.inlineRestEnable} onClick={() => cambiarTemporizadorAutomatico(true)}>
+                                        Activar cuenta regresiva · {descanso.segundos} s
+                                      </button>
+                                    ) : (
+                                      <>
+                                        <button type="button" onClick={() => ajustarDescanso(-15)}>−15 s</button>
+                                        <span className={styles.inlineRestTime}>Descanso {descanso.segundos} s</span>
+                                        <button type="button" onClick={() => ajustarDescanso(15)}>+15 s</button>
+                                      </>
+                                    )}
+                                  </div>
+                                ) : null}
                               </div>
                             );
                           })}

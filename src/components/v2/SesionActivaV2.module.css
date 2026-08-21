@@ -15,6 +15,8 @@
   padding-bottom: 92px;
   color: #fff;
   background: #050606;
+  touch-action: pan-y;
+  overscroll-behavior-x: none;
 }
 
 .sessionPage[data-visual-scale="compacta"] {
@@ -234,6 +236,7 @@
 .inlineRestActive::before { background: var(--blue); box-shadow: 0 0 10px rgba(10, 132, 255, .28); }
 .inlineRest button { min-height: 38px; border-radius: 7px; color: #f4f5f2; background: #252627; font-size: 11px; }
 .inlineRest .inlineRestTime { display: grid; min-height: 38px; place-items: center; border-radius: 7px; color: #fff; background: transparent; font-size: 11px; font-weight: 720; }
+.inlineRest .inlineRestEnable { grid-column: 1 / -1; border: 1px solid rgba(10, 132, 255, .72); color: #fff; background: rgba(10, 132, 255, .16); font-weight: 760; letter-spacing: .01em; }
 
 .compactExercise { position: relative; display: grid; width: 100%; min-height: var(--compact-row-height); grid-template-columns: var(--compact-photo-width) minmax(0, 1fr) auto; align-items: center; gap: var(--exercise-gap); color: #fff; text-align: left; }
 .compactCode { position: absolute; top: 10px; left: 0; color: #d1d4d0; font-size: var(--series-label-size); font-weight: 820; letter-spacing: .065em; }
@@ -325,6 +328,7 @@
 .restCenter > small { margin-top: 7px; color: #8f928f; font-size: 9px; text-transform: uppercase; }
 .restAdjustments { display: flex; gap: 8px; margin-top: 19px; }
 .restAdjustments button { display: flex; min-height: 38px; align-items: center; gap: 3px; padding: 0 14px; border-radius: 7px; color: #d5d7d4; background: #222323; font-size: 9px; }
+.enableCountdown { min-height: 42px; margin-top: 19px; padding: 0 18px; border: 1px solid rgba(10, 132, 255, .72); border-radius: 9px; color: #fff; background: rgba(10, 132, 255, .16); font-size: 10px; font-weight: 780; letter-spacing: .02em; }
 .upNext { position: absolute; right: 20px; bottom: 91px; left: 20px; text-align: center; }
 .upNext span { display: block; color: #b6d936; font-size: 8px; font-weight: 800; letter-spacing: .08em; }
 .upNext strong { display: block; margin-top: 7px; font-size: 12px; }
