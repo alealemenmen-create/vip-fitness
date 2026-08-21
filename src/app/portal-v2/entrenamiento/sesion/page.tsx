@@ -197,6 +197,21 @@ export default async function SesionV2Page({
       : ejercicio.fotoMiniaturaUrl ?? ejercicio.videoCloudflareMiniaturaUrl ?? fotoGrupo(ejercicio.grupoMuscular);
     const historicoPorNumero = new Map(ejercicio.series.map((serie) => [serie.numeroSerie, serie]));
     const objetivos = objetivoRepeticiones(ejercicio.repsProgramadas, ejercicio.seriesProgramadas);
+    // Mismo criterio que la sesión clásica (SesionEjercicioCard.tsx): solo una
+    // recomendación APROBADA o MODIFICADA precarga algo -- una "propuesta"
+    // (esperando revisión del entrenador) o "bloqueada" (Regla E: dolor,
+    // estancamiento, caída de rendimiento) nunca deben sugerir peso ni reps.
+    // El dato ya viajaba en `ejercicio.recomendacionImpulso` (lo arma
+    // obtenerSesionCompleta, compartido con V1) pero V2 nunca lo leía --
+    // por eso el peso salía en blanco en vez de "calibrado" como en V1.
+    const recomendacionAprobada = ejercicio.recomendacionImpulso
+      && (ejercicio.recomendacionImpulso.estado === "aprobada" || ejercicio.recomendacionImpulso.estado === "modificada")
+      ? ejercicio.recomendacionImpulso
+      : null;
+    const pesoSugeridoEfectivo = recomendacionAprobada && !recomendacionAprobada.esPesoCorporal
+      ? recomendacionAprobada.pesoSugeridoKg
+      : null;
+    const repsSugeridasEfectivas = recomendacionAprobada?.repsObjetivoMax ?? null;
     return {
       id: ejercicio.sesionEjercicioId,
       sesionEjercicioId: ejercicio.sesionEjercicioId,
@@ -242,8 +257,10 @@ export default async function SesionV2Page({
       seriesIniciales: objetivos.map((objetivo, serieIndice) => {
         const guardada = historicoPorNumero.get(serieIndice + 1);
         return {
-          reps: String(guardada?.repsRealizadas ?? objetivo),
-          peso: guardada?.pesoKg === null || guardada?.pesoKg === undefined ? "" : String(guardada.pesoKg),
+          reps: String(guardada?.repsRealizadas ?? repsSugeridasEfectivas ?? objetivo),
+          peso: guardada?.pesoKg != null
+            ? String(guardada.pesoKg)
+            : pesoSugeridoEfectivo != null ? String(pesoSugeridoEfectivo) : "",
           completada: guardada?.realizada === true,
         };
       }),
