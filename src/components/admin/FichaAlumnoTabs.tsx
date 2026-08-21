@@ -10,15 +10,9 @@ import {
   Salad,
   UserCog,
 } from "lucide-react";
+import type { IdPestanaFicha } from "@/lib/alumnos/pestanas-ficha";
 
-export type IdPestanaFicha =
-  | "resumen"
-  | "plan"
-  | "actividad"
-  | "nutricion"
-  | "comunicacion"
-  | "documentos"
-  | "cuenta";
+export type { IdPestanaFicha };
 
 const PESTANAS: { id: IdPestanaFicha; etiqueta: string; Icon: typeof Dumbbell }[] = [
   { id: "resumen", etiqueta: "Resumen", Icon: ClipboardList },
@@ -29,6 +23,11 @@ const PESTANAS: { id: IdPestanaFicha; etiqueta: string; Icon: typeof Dumbbell }[
   { id: "documentos", etiqueta: "Documentos", Icon: BookOpen },
   { id: "cuenta", etiqueta: "Cuenta", Icon: UserCog },
 ];
+
+// `IDS_PESTANA_FICHA` (mismos 7 ids que `PESTANAS` de arriba, para validar
+// `?tab=` desde un Server Component) vive en lib/alumnos/pestanas-ficha.ts —
+// ver el comentario ahí de por qué no puede declararse ni re-exportarse
+// desde este archivo "use client".
 
 /**
  * La ficha del alumno reunía estado, plan, actividad, nutrición, notas,
@@ -41,9 +40,44 @@ const PESTANAS: { id: IdPestanaFicha; etiqueta: string; Icon: typeof Dumbbell }[
  * La pestaña elegida no se guarda en la URL a propósito, en esta primera
  * versión: es más simple y no rompe nada de lo que ya existe. Si hace falta
  * que sobreviva a un refresh, se puede sumar después como `?tab=`.
+ *
+ * Control VIP V2 (docs/PROYECTO_CONTROL_VIP_V2.md, Fase 2) sí lo necesita:
+ * `pestanaInicial` (validada por el Server Component contra `?tab=`) y
+ * `sincronizarUrl` activan ese comportamiento sin useSearchParams/Suspense —
+ * alcanza con leer el searchParam en el servidor y, en cada clic, reescribir
+ * la URL con `history.replaceState`. Por defecto ambos quedan apagados, así
+ * que `/admin/alumnos/[id]` sigue exactamente igual que antes.
  */
-export function FichaAlumnoTabs({ secciones }: { secciones: Record<IdPestanaFicha, ReactNode> }) {
-  const [activa, setActiva] = useState<IdPestanaFicha>("resumen");
+export function FichaAlumnoTabs({
+  secciones,
+  pestanaInicial,
+  sincronizarUrl = false,
+}: {
+  secciones: Record<IdPestanaFicha, ReactNode>;
+  pestanaInicial?: IdPestanaFicha;
+  sincronizarUrl?: boolean;
+}) {
+  const [activa, setActiva] = useState<IdPestanaFicha>(pestanaInicial ?? "resumen");
+  // Un link como "Indicación" navega a la misma ruta con otro `?tab=`
+  // (mismo alumno): Next.js reutiliza esta instancia del componente en vez
+  // de remontarla, así que el valor inicial de `useState` no vuelve a
+  // leerse. Patrón oficial de React para "ajustar estado cuando cambia un
+  // prop" (no un efecto, para no disparar renders en cascada): comparar
+  // contra el último `pestanaInicial` visto y resetear durante el render.
+  const [pestanaPrevia, setPestanaPrevia] = useState(pestanaInicial);
+  if (pestanaInicial !== pestanaPrevia) {
+    setPestanaPrevia(pestanaInicial);
+    setActiva(pestanaInicial ?? "resumen");
+  }
+
+  function elegir(id: IdPestanaFicha) {
+    setActiva(id);
+    if (sincronizarUrl && typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", id);
+      window.history.replaceState(null, "", url);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -63,7 +97,7 @@ export function FichaAlumnoTabs({ secciones }: { secciones: Record<IdPestanaFich
               type="button"
               role="tab"
               aria-selected={activo}
-              onClick={() => setActiva(id)}
+              onClick={() => elegir(id)}
               className="ficha-panel"
               data-activa={activo ? "true" : undefined}
             >

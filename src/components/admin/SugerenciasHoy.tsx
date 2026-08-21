@@ -23,7 +23,15 @@ function severidad(r: ReporteAlumno): number {
  * vista detallada o entrar a cada ficha para enterarse de POR QUÉ un alumno
  * necesita atención; acá está listo para actuar de un vistazo.
  */
-export function SugerenciasHoy({ reportes }: { reportes: ReporteAlumno[] }) {
+export function SugerenciasHoy({
+  reportes,
+  baseHref = "/admin/alumnos",
+}: {
+  reportes: ReporteAlumno[];
+  /** Ver `ListaAlumnos` — mismo criterio para que Control VIP V2 abra su
+   * propia ficha (`/control-vip/alumnos/[id]`) en vez de la clásica. */
+  baseHref?: string;
+}) {
   const sinRutina = reportes.filter((r) => r.motivo === "Sin rutina activa asignada");
   const enAtencion = reportes
     .filter((r) => r.estado === "atencion" && r.motivo !== "Sin rutina activa asignada")
@@ -64,7 +72,7 @@ export function SugerenciasHoy({ reportes }: { reportes: ReporteAlumno[] }) {
         {visibles.map((r) => (
           <Link
             key={r.alumnoId}
-            href={`/admin/alumnos/${r.alumnoId}`}
+            href={`${baseHref}/${r.alumnoId}`}
             className="group flex items-center gap-2 px-4 py-3 transition-colors hover:bg-surface-2 active:bg-surface-2"
           >
             <div className="min-w-0 flex-1">

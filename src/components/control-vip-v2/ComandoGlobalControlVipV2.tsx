@@ -66,7 +66,7 @@ export function ComandoGlobalControlVipV2({ alumnos }: { alumnos: AlumnoBasico[]
       id: `alumno-${a.id}`,
       label: a.nombre,
       detalle: "Alumno",
-      href: `/admin/alumnos/${a.id}`,
+      href: `/control-vip/alumnos/${a.id}`,
     }));
 
     const todo = [...destinos, ...alumnosResultado];

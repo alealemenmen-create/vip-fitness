@@ -164,10 +164,15 @@ export function ListaAlumnos({
   reportes,
   sesionUserId,
   filtroInicial = "todos",
+  baseHref = "/admin/alumnos",
 }: {
   reportes: ReporteAlumno[];
   sesionUserId: string;
   filtroInicial?: FiltroAlumnos;
+  /** Para reusar esta misma lista desde Control VIP V2
+   * (docs/PROYECTO_CONTROL_VIP_V2.md), que enlaza a su propia ficha en vez de
+   * a `/admin/alumnos/[id]`. Sin este prop navega exactamente igual que antes. */
+  baseHref?: string;
 }) {
   const router = useRouter();
   const [vista, setVista] = useState<"compacta" | "detallada">("compacta");
@@ -401,9 +406,9 @@ export function ListaAlumnos({
                   key={reporte.alumnoId}
                   role="link"
                   tabIndex={0}
-                  onClick={() => router.push(`/admin/alumnos/${reporte.alumnoId}`)}
+                  onClick={() => router.push(`${baseHref}/${reporte.alumnoId}`)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") router.push(`/admin/alumnos/${reporte.alumnoId}`);
+                    if (e.key === "Enter") router.push(`${baseHref}/${reporte.alumnoId}`);
                   }}
                   className="group grid cursor-pointer gap-2 px-4 py-3.5 transition-colors hover:bg-surface-2 md:grid-cols-[minmax(180px,1fr)_minmax(220px,1.35fr)_150px_24px] md:items-center md:gap-4"
                 >
@@ -458,6 +463,7 @@ export function ListaAlumnos({
               key={reporte.alumnoId}
               reporte={reporte}
               esTuPerfil={reporte.alumnoId === sesionUserId}
+              baseHref={baseHref}
             />
           ))}
         </div>

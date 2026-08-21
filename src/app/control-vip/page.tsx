@@ -83,7 +83,7 @@ export default async function ControlVipV2HoyPage() {
 
       <AsistenciaImpulsoEnVivo solicitudes={solicitudesImpulso} />
 
-      <SugerenciasHoy reportes={reportes} />
+      <SugerenciasHoy reportes={reportes} baseHref="/control-vip/alumnos" />
 
       {ejerciciosIncompletos.length > 0 && (
         <section className="space-y-2">

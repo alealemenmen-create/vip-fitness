@@ -58,9 +58,13 @@ function Dato({
 export function TarjetaReporteAlumno({
   reporte,
   esTuPerfil = false,
+  baseHref = "/admin/alumnos",
 }: {
   reporte: ReporteAlumno;
   esTuPerfil?: boolean;
+  /** Ver `ListaAlumnos` — mismo criterio para reusar esta tarjeta desde
+   * Control VIP V2 sin cambiar el destino de `/admin/alumnos`. */
+  baseHref?: string;
 }) {
   const { Icon, color, etiqueta } = CONFIG[reporte.estado];
 
@@ -94,7 +98,7 @@ export function TarjetaReporteAlumno({
           </p>
         </div>
         <Link
-          href={`/admin/alumnos/${reporte.alumnoId}`}
+          href={`${baseHref}/${reporte.alumnoId}`}
           className="text-caption flex shrink-0 items-center gap-1 text-text-tertiary"
         >
           Ficha <ChevronRight size={14} />

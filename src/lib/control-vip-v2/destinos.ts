@@ -49,7 +49,7 @@ export const GRUPOS_DESTINOS_CONTROL_VIP_V2: GrupoDestinos[] = [
     label: "Alumnos",
     items: [
       {
-        href: "/admin/alumnos",
+        href: "/control-vip/alumnos",
         label: "Alumnos",
         detalle: "Directorio, prioridad y fichas",
         icon: Users,
