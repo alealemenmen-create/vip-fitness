@@ -1524,7 +1524,13 @@
   background: linear-gradient(100deg, #161817 0%, #1b1e1c 58%, #262927 100%) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 9px 24px rgba(0,0,0,.26);
 }
-.foodLibrarySearch input { color: #fff !important; font-size: 15px !important; font-weight: 590; }
+/* Selector con .foodLibraryV2 al frente (no solo .foodLibrarySearch) para
+   ganarle en especificidad a ".foodLibraryV2 .text-secondary" (línea de más
+   abajo, 13px !important) — si no, este input queda a 13px y iOS Safari hace
+   zoom automático al enfocarlo (umbral: cualquier valor menor a 16px). Pasa
+   sobre todo al usar "Sumar y buscar otro", que reenfoca este campo por
+   código (ver HojaAgregarComida.tsx). */
+.foodLibraryV2 .foodLibrarySearch input { color: #fff !important; font-size: 16px !important; font-weight: 590; }
 .foodLibrarySearch input::placeholder { color: #777b78; opacity: 1; }
 .foodLibraryV2 :global(.bg-surface),
 .foodLibraryV2 :global(.bg-surface-2) { background-color: #171918 !important; }
