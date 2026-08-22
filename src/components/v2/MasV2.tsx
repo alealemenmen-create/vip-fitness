@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   Bell,
   AlertCircle,
@@ -25,8 +25,11 @@ import { logout } from "@/app/actions";
 import styles from "@/components/v2/PortalV2.module.css";
 import { asegurarSuscripcionPush, desactivarSuscripcionPush, suscripcionPushActiva } from "@/lib/entrenamiento/push";
 import { cargarMasV2Action, type CargaMasV2, type MasDatosV2 } from "@/app/portal-v2/mas/actions";
+import { reiniciarMiPlan, type FormStateReinicio } from "@/app/alumno/entrenar/actions";
 
-type Panel = "perfil" | "notificaciones" | "plan" | "soporte" | "terminos" | "social" | null;
+type Panel = "perfil" | "notificaciones" | "plan" | "soporte" | "terminos" | "social" | "reiniciar" | null;
+
+const inicialReinicio: FormStateReinicio = { error: null, ok: false };
 
 const INSTAGRAM_URL = process.env.NEXT_PUBLIC_INSTAGRAM_URL?.trim();
 const FACEBOOK_URL = process.env.NEXT_PUBLIC_FACEBOOK_URL?.trim();
@@ -188,6 +191,9 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
         <Fila href={datos ? (datos.tienePerfilAlumno ? "/portal-v2/perfil" : "/admin/mas") : undefined} icon={UserRound} texto={datos?.soloLectura ? "Ver perfil del alumno" : "Gestionar perfil"} detalle={datos?.soloLectura ? "Datos protegidos · sin edición" : undefined} onClick={!datos ? () => setPanel("perfil") : undefined} />
         <Fila icon={Bell} texto="Gestionar notificaciones" onClick={() => setPanel("notificaciones")} />
         <Fila icon={CreditCard} texto="Plan VIP" onClick={() => setPanel("plan")} />
+        {datos?.tienePerfilAlumno && !datos.soloLectura ? (
+          <Fila icon={RotateCcw} texto="Reiniciar mi plan" detalle="Volver al día 1, sin perder historial" onClick={() => setPanel("reiniciar")} />
+        ) : null}
       </div>
 
       <p className={styles.moreGroupLabel}>Soporte</p>
@@ -221,6 +227,7 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
             {panel === "plan" ? <div className={styles.morePlanPanel}><span>{datos?.soloLectura ? "PLAN DEL ALUMNO" : "PLAN ACTUAL"}</span><strong>{datos?.planNombre ?? "Método VIP"}</strong><p>{datos?.planDetalle ?? "Entrenamiento, nutrición, progreso y seguimiento personalizado"}</p><b>{datos?.planActivo === false ? "Pausado" : "Activo"}</b><Link href="/portal-v2/soporte" className={styles.morePlanAction}>{datos?.soloLectura ? "Revisar seguimiento" : "Consultar sobre mi plan"}<ChevronRight size={15} /></Link></div> : null}
             {panel === "soporte" ? <div className={styles.morePlanPanel}><span>SOPORTE VIP</span><strong>La conversación queda ligada a tu cuenta</strong><p>En la vista directa no fingimos el envío de mensajes. Al usar una cuenta autorizada, este acceso abre el asistente y conserva el contexto para que el equipo pueda responder.</p><b>Sin mensajes perdidos</b></div> : null}
             {panel === "terminos" ? <div><p className={styles.moreSheetCopy}>El portal registra entrenamientos, alimentación y progreso para prestar el servicio contratado. Los puntos y premios requieren actividad verificable; cualquier manipulación puede invalidarlos. Las indicaciones no reemplazan evaluación médica.</p><Link href="/portal-v2/terminos" className={styles.moreSettingsLink}><span>Leer términos completos</span><ChevronRight size={15} /></Link><Link href="/portal-v2/privacidad" className={styles.moreSettingsLink}><span>Leer política de privacidad</span><ChevronRight size={15} /></Link></div> : null}
+            {panel === "reiniciar" ? <PanelReiniciarPlan /> : null}
             {panel === "social" ? <div className={styles.moreSocialList}>
               {INSTAGRAM_URL ? <a href={INSTAGRAM_URL} target="_blank" rel="noreferrer">Instagram <b>Abrir perfil</b></a> : <span>Instagram <b>Pendiente de configurar</b></span>}
               {FACEBOOK_URL ? <a href={FACEBOOK_URL} target="_blank" rel="noreferrer">Facebook <b>Abrir página</b></a> : <span>Facebook <b>Pendiente de configurar</b></span>}
@@ -234,7 +241,52 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
 }
 
 function tituloPanel(panel: Exclude<Panel, null>) {
-  return { perfil: "Perfil", notificaciones: "Notificaciones", plan: "Plan VIP", soporte: "Soporte", terminos: "Términos y condiciones", social: "Redes sociales" }[panel];
+  return {
+    perfil: "Perfil",
+    notificaciones: "Notificaciones",
+    plan: "Plan VIP",
+    soporte: "Soporte",
+    terminos: "Términos y condiciones",
+    social: "Redes sociales",
+    reiniciar: "Reiniciar mi plan",
+  }[panel];
+}
+
+function PanelReiniciarPlan() {
+  const [confirmando, setConfirmando] = useState(false);
+  const [estado, accion, pendiente] = useActionState(reiniciarMiPlan, inicialReinicio);
+
+  if (estado.ok) {
+    return (
+      <div className={styles.morePlanPanel}>
+        <span>LISTO</span>
+        <strong>Tu plan volvió al día 1</strong>
+        <p>Tu rutina anterior queda guardada en tu historial, con todas las sesiones y Puntos VIP que ganaste — no se borró nada.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.morePlanPanel}>
+      <span>REINICIAR MI PLAN</span>
+      <strong>Volvés a ver el día 1</strong>
+      <p>Tu historial (sesiones y Puntos VIP ya ganados) queda intacto — esto solo vuelve a empezar tu rutina desde el principio.</p>
+      {estado.error && <p className={styles.moreReinicioError}>{estado.error}</p>}
+      {!confirmando ? (
+        <button type="button" className={styles.morePlanAction} onClick={() => setConfirmando(true)}>
+          Reiniciar mi plan <ChevronRight size={15} />
+        </button>
+      ) : (
+        <form action={accion} className={styles.moreReinicioConfirmar}>
+          <p>¿Confirmás? Volvés al día 1 ahora mismo.</p>
+          <div>
+            <button type="submit" disabled={pendiente}>{pendiente ? "Reiniciando…" : "Sí, reiniciar"}</button>
+            <button type="button" onClick={() => setConfirmando(false)}>Cancelar</button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
 }
 
 function Fila({ href, icon: Icon, texto, detalle, onClick }: { href?: string; icon: typeof UserRound; texto: string; detalle?: string; onClick?: () => void }) {

@@ -28,6 +28,9 @@ import {
 } from "@/lib/entrenamiento/leer-series-formulario";
 import { ESTADOS_CORREGIBLES, sePuedeCorregir } from "@/lib/entrenamiento/estado-sesion";
 import { obtenerEstadoPlanMensual } from "@/lib/planes-entrenamiento-servidor";
+import { reabrirSesionCore, reiniciarPlanCore, type ResultadoReinicio } from "@/lib/entrenamiento/reiniciar";
+import { obtenerBalanceSesionesMes } from "./data";
+import { crearNotificacionEntrenador } from "@/lib/notificaciones/crear";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const DIFICULTADES_VALIDAS = new Set(["muy_facil", "facil", "justo", "dificil", "fallo"]);
@@ -1003,6 +1006,38 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
   // bloquea poder finalizar la sesión).
   const puntosImpulso = await calcularYRegistrarPuntosImpulso(alumnoId, sesionId, sesion.fecha);
 
+  // Aviso al entrenador cuando el alumno se queda sin sesiones del mes.
+  //
+  // El bloqueo automático de "iniciar día nuevo" por cupo agotado se sacó a
+  // pedido de Alejandro (2026-08-22): mientras no exista la sincronización
+  // con la app "Gestión VIP Fitness" (que va a manejar la membresía real),
+  // el alumno sigue viendo y usando su plan sin cortes. Pero el entrenador
+  // necesita enterarse igual para decidir a mano si bloquea o le suma
+  // sesiones extra — por eso este aviso reemplaza al bloqueo, no lo
+  // complementa. `claveDedup` con ~31 días evita mandar un aviso por cada
+  // sesión adicional que haga de más en el mismo mes; el mes siguiente el
+  // balance se recalcula solo y puede volver a avisar.
+  //
+  // TODO(gestión-vip-sync): cuando la sincronización con Gestión VIP Fitness
+  // exista, este aviso y el concepto entero de "cupo de sesiones del mes"
+  // deberían dejar de tener sentido — el acceso pasa a depender de la
+  // membresía activa (como cualquier app comercial de suscripción), no de
+  // contar sesiones. No borrar este comentario al tocar el tema.
+  const balanceTrasCierre = await obtenerBalanceSesionesMes(supabase, alumnoId);
+  if (balanceTrasCierre && balanceTrasCierre.balance <= 0) {
+    const { data: perfilAlumno } = await supabase.from("perfiles").select("nombre").eq("id", alumnoId).maybeSingle();
+    await crearNotificacionEntrenador({
+      tipo: "cupo_agotado",
+      alumnoId,
+      titulo: `${perfilAlumno?.nombre ?? "Un alumno"} se quedó sin sesiones del mes`,
+      cuerpo: `Consumió las ${balanceTrasCierre.asignadas} sesiones de su plan${balanceTrasCierre.planNombre ? ` (${balanceTrasCierre.planNombre})` : ""}. No se le bloqueó el acceso — decidí si lo bloqueás o le sumás sesiones extra desde su ficha.`,
+      prioridad: "alta",
+      ruta: `/admin/alumnos/${alumnoId}`,
+      claveDedup: `cupo_agotado:${alumnoId}`,
+      horasDedup: 24 * 31,
+    });
+  }
+
   // Finalizar una sesión cambia los puntos de asistencia: el ranking cacheado
   // tiene que rehacerse ahora, no cuando venza solo.
   revalidateTag(TAG_RANKING, { expire: 0 });
@@ -1364,4 +1399,44 @@ export async function penalizarExcesoDescanso(
     fecha: hoyISO(),
   });
   revalidateTag(TAG_RANKING, { expire: 0 });
+}
+
+export type FormStateReinicio = ResultadoReinicio;
+
+/**
+ * El propio alumno reabre una sesión suya que quedó completada/registrada
+ * por error, para corregirla. Misma lógica que usa el entrenador desde
+ * Control VIP (`reabrirSesionCore`) — no borra historial ni Puntos VIP,
+ * solo vuelve la sesión a "en progreso". `soloLectura` bloquea esto: es el
+ * modo en que un entrenador mira el portal "como alumno", no una cuenta real.
+ */
+export async function reabrirMiSesion(_prevState: FormStateReinicio, formData: FormData): Promise<FormStateReinicio> {
+  const { alumnoId, nombre, soloLectura } = await requireAlumno();
+  if (soloLectura) return { error: "Esta cuenta está en modo de solo lectura.", ok: false };
+  const sesionId = String(formData.get("sesion_id") || "");
+  if (!sesionId) return { error: "Falta la sesión.", ok: false };
+
+  const resultado = await reabrirSesionCore(alumnoId, sesionId, { userId: alumnoId, nombre, quien: "el alumno" });
+  if (resultado.ok) {
+    revalidatePath("/alumno", "layout");
+    revalidatePath("/portal-v2", "layout");
+  }
+  return resultado;
+}
+
+/**
+ * El propio alumno reinicia su plan (vuelve al día 1). Misma lógica que usa
+ * el entrenador desde Control VIP (`reiniciarPlanCore`) — no borra nada, la
+ * rutina anterior queda archivada con su historial intacto.
+ */
+export async function reiniciarMiPlan(_prevState: FormStateReinicio, _formData: FormData): Promise<FormStateReinicio> {
+  const { alumnoId, nombre, soloLectura } = await requireAlumno();
+  if (soloLectura) return { error: "Esta cuenta está en modo de solo lectura.", ok: false };
+
+  const resultado = await reiniciarPlanCore(alumnoId, { userId: alumnoId, nombre, quien: "el alumno" });
+  if (resultado.ok) {
+    revalidatePath("/alumno", "layout");
+    revalidatePath("/portal-v2", "layout");
+  }
+  return resultado;
 }

@@ -220,7 +220,7 @@ export default async function AlumnoDetallePage({
           plan: (
             <>
               <FichaAlumnoAdmin alumnoId={alumnoId} nombre={perfil?.nombre ?? "este alumno"} ficha={ficha} />
-              <HistorialEntrenamiento rutinaActivaNombre={rutinaActiva?.nombre ?? null} sesiones={sesiones} />
+              <HistorialEntrenamiento alumnoId={alumnoId} rutinaActivaNombre={rutinaActiva?.nombre ?? null} sesiones={sesiones} />
               {rutinaActiva && (
                 <>
                   <AplicarRutinaAOtrosAlumnos rutinaId={rutinaActiva.id} nombreRutina={rutinaActiva.nombre} />

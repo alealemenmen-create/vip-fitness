@@ -207,7 +207,9 @@ export default async function EntrenarPage({
         ultimoNumeroHecho={ultimoNumeroHecho}
         planNombre={balanceSesiones?.planNombre ?? null}
         planPausado={balanceSesiones?.pausado ?? false}
-        cupoAgotado={(balanceSesiones?.balance ?? 1) <= 0}
+        // Pausado a pedido de Alejandro (2026-08-22): ver el mismo comentario
+        // en `portal-v2/entrenamiento/page.tsx`.
+        cupoAgotado={false}
         vistasPrevias={vistasPrevias}
       />
 

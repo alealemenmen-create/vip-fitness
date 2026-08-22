@@ -95,7 +95,13 @@ export default async function EntrenamientoV2Page() {
       sesionEnProgresoId={sesionEnProgresoId}
       planNombre={balanceSesiones?.planNombre ?? null}
       planPausado={balanceSesiones?.pausado ?? false}
-      cupoAgotado={(balanceSesiones?.balance ?? 1) <= 0}
+      // Pausado a pedido de Alejandro (2026-08-22): mientras el control de
+      // acceso real dependa de la membresía sincronizada con la app
+      // "Gestión VIP Fitness" (todavía no existe esa integración), el cupo
+      // de sesiones del mes no debe bloquear que el alumno inicie un día.
+      // El cálculo de `balanceSesiones` sigue existiendo (se usa en el panel
+      // del entrenador), solo se dejó de usar para bloquear acá.
+      cupoAgotado={false}
       soloLectura={soloLectura}
       configuracion={documentoEstudio.configuracion}
     />

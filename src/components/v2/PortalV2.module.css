@@ -1926,7 +1926,15 @@
 .morePlanPanel strong { display: block; margin-top: 7px; font-size: 18px; }
 .morePlanPanel p, .moreSheetCopy { margin-top: 8px; color: #a8aca8; font-size: 11px; line-height: 1.6; }
 .morePlanPanel b { position: absolute; top: 14px; right: 14px; padding: 5px 8px; border-radius: 999px; color: #1ed19c; background: rgba(31,210,156,.1); font-size: 7px; }
-.morePlanAction { display: flex; min-height: 40px; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; padding: 0 11px; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; color: #f1f3ef; background: var(--v2-polished-button); font-size: 11px; font-weight: 680; }
+.morePlanAction { display: flex; width: 100%; min-height: 40px; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; padding: 0 11px; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; color: #f1f3ef; background: var(--v2-polished-button); font-size: 11px; font-weight: 680; cursor: pointer; text-align: left; }
+.moreReinicioError { color: #e0665e; font-size: 10px; }
+.moreReinicioConfirmar { margin-top: 14px; padding: 11px; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; background: #151616; }
+.moreReinicioConfirmar > p { color: #e9ece7; font-size: 11px; font-weight: 600; }
+.moreReinicioConfirmar > div { display: flex; gap: 8px; margin-top: 10px; }
+.moreReinicioConfirmar button { padding: 8px 14px; border: none; border-radius: 999px; font-size: 10px; font-weight: 700; cursor: pointer; }
+.moreReinicioConfirmar button[type="submit"] { color: #0b0d0c; background: #1ed29d; }
+.moreReinicioConfirmar button[type="submit"]:disabled { opacity: .6; cursor: default; }
+.moreReinicioConfirmar button[type="button"] { color: #9a9e9a; background: #242625; }
 .moreSheetCopy { margin-bottom: 8px; }
 .moreSocialList { display: grid; gap: 1px; overflow: hidden; margin-top: 12px; border-radius: 10px; background: rgba(255,255,255,.05); }
 .moreSocialList > span,
@@ -1984,6 +1992,18 @@
 .historyV2Session em { display: inline-flex; margin-top: 6px; padding: 3px 6px; border-radius: 999px; color: #b7bbb7; background: #242625; font-size: 6px; font-style: normal; font-weight: 650; }
 .historyV2Session em[data-completa="true"] { color: #24d3a0; background: rgba(31,210,157,.09); }
 .historyV2Session > svg { color: #616562; }
+.historyV2SessionGroup { display: grid; gap: 4px; }
+.historyV2ReabrirBoton { display: inline-flex; align-items: center; gap: 4px; justify-self: end; padding: 0; border: none; background: none; color: #6f746f; font-size: 8px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.historyV2ReabrirBoton:hover { color: #9a9e9a; }
+.historyV2ReabrirHecho { justify-self: end; color: #24d3a0; font-size: 8px; font-weight: 650; }
+.historyV2ReabrirConfirmar { display: grid; justify-items: end; gap: 5px; padding: 8px 11px; border: 1px solid rgba(255,255,255,.06); border-radius: 8px; background: #151616; }
+.historyV2ReabrirConfirmar > p { color: #9a9e9a; font-size: 8px; text-align: right; }
+.historyV2ReabrirError { color: #e0665e !important; }
+.historyV2ReabrirConfirmar > div { display: flex; gap: 8px; }
+.historyV2ReabrirConfirmar button { padding: 5px 10px; border: none; border-radius: 999px; font-size: 8px; font-weight: 650; cursor: pointer; }
+.historyV2ReabrirConfirmar form button { color: #0b0d0c; background: #1ed29d; }
+.historyV2ReabrirConfirmar form button:disabled { opacity: .6; cursor: default; }
+.historyV2ReabrirConfirmar > div > button:last-child { color: #9a9e9a; background: #242625; }
 .historyV2Empty { display: grid; min-height: 150px; place-items: center; align-content: center; padding: 20px; border: 1px dashed rgba(255,255,255,.08); border-radius: 10px; color: #7b807b; text-align: center; }
 .historyV2Empty strong { margin-top: 9px; color: #dfe1dd; font-size: 11px; }
 .historyV2Empty p { max-width: 250px; margin-top: 5px; font-size: 8px; line-height: 1.5; }

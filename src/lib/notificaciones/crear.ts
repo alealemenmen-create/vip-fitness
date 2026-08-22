@@ -7,7 +7,8 @@ export type TipoNotificacionEntrenador =
   | "habito_entrenamiento"
   | "bug"
   | "resena"
-  | "foto_reporte";
+  | "foto_reporte"
+  | "cupo_agotado";
 
 /**
  * Registra un aviso en la bandeja del entrenador (`notificaciones_entrenador`)

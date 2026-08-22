@@ -15,6 +15,7 @@ import {
   obtenerRutinasHistorial,
   type SesionHistorial,
 } from "@/app/alumno/entrenar/data";
+import { ReabrirMiSesionBoton } from "@/components/v2/ReabrirMiSesionBoton";
 import styles from "@/components/v2/PortalV2.module.css";
 
 function fechaLarga(fecha: string) {
@@ -107,16 +108,21 @@ export default async function HistorialEntrenamientoV2Page({
           const duracion = duracionMinutos(sesion);
           const href = `/portal-v2/entrenamiento/sesion?id=${sesion.id}`;
           return (
-            <Link href={href} className={styles.historyV2Session} key={sesion.id}>
-              <span className={styles.historyV2Date}><b>{new Date(`${sesion.fecha}T12:00:00`).getDate()}</b><small>{new Intl.DateTimeFormat("es-CL", { month: "short" }).format(new Date(`${sesion.fecha}T12:00:00`)).replace(".", "")}</small></span>
-              <div>
-                <small>{fechaLarga(sesion.fecha)}</small>
-                <strong>{sesion.diaNombre || "Entrenamiento VIP"}</strong>
-                <p>{sesion.completados}/{sesion.total} ejercicios{duracion ? ` · ${duracion} min` : ""}</p>
-                <em data-completa={sesion.estado === "completada"}>{estadoSesion(sesion)}</em>
-              </div>
-              <ChevronRight size={17} />
-            </Link>
+            <div className={styles.historyV2SessionGroup} key={sesion.id}>
+              <Link href={href} className={styles.historyV2Session}>
+                <span className={styles.historyV2Date}><b>{new Date(`${sesion.fecha}T12:00:00`).getDate()}</b><small>{new Intl.DateTimeFormat("es-CL", { month: "short" }).format(new Date(`${sesion.fecha}T12:00:00`)).replace(".", "")}</small></span>
+                <div>
+                  <small>{fechaLarga(sesion.fecha)}</small>
+                  <strong>{sesion.diaNombre || "Entrenamiento VIP"}</strong>
+                  <p>{sesion.completados}/{sesion.total} ejercicios{duracion ? ` · ${duracion} min` : ""}</p>
+                  <em data-completa={sesion.estado === "completada"}>{estadoSesion(sesion)}</em>
+                </div>
+                <ChevronRight size={17} />
+              </Link>
+              {contexto && !contexto.soloLectura && sesion.total > 0 ? (
+                <ReabrirMiSesionBoton sesionId={sesion.id} />
+              ) : null}
+            </div>
           );
         })}
       </div>

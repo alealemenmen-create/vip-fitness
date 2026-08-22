@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
+import { ReiniciarSesionBoton } from "@/components/admin/ReiniciarSesionBoton";
 import type { SesionHistorial } from "@/app/alumno/entrenar/data";
 
 const ESTADO_LABEL: Record<SesionHistorial["estado"], { texto: string; tone: "success" | "error" | "neutral" }> = {
@@ -9,9 +10,11 @@ const ESTADO_LABEL: Record<SesionHistorial["estado"], { texto: string; tone: "su
 };
 
 export function HistorialEntrenamiento({
+  alumnoId,
   rutinaActivaNombre,
   sesiones,
 }: {
+  alumnoId: string;
   rutinaActivaNombre: string | null;
   sesiones: SesionHistorial[];
 }) {
@@ -40,7 +43,10 @@ export function HistorialEntrenamiento({
                       {s.fecha} · {s.total === 0 ? "Descanso" : `${s.completados}/${s.total} ejercicios`}
                     </p>
                   </div>
-                  <Pill tone={estado.tone}>{estado.texto}</Pill>
+                  <div className="flex flex-col items-end gap-1">
+                    <Pill tone={estado.tone}>{estado.texto}</Pill>
+                    {s.total > 0 && <ReiniciarSesionBoton alumnoId={alumnoId} sesionId={s.id} />}
+                  </div>
                 </div>
                 {s.comentario && (
                   <p className="text-caption mt-1 text-text-secondary">&quot;{s.comentario}&quot;</p>
