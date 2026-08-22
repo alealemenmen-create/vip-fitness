@@ -30,6 +30,28 @@ archivo, alta reducida a nombre + sugerencias (`calidad_ficha`, migración
 0099), ingestión persistente (migraciones 0100/0101), Modo gimnasio. No
 retomar como si estuviera pendiente.
 
+## Trabajo activo: Control VIP V2 (panel nuevo del entrenador)
+
+Fases 0 a 6 de `docs/PROYECTO_CONTROL_VIP_V2.md` ya implementadas y en
+producción, en `/control-vip/**`, detrás de la bandera
+`perfiles.control_vip_v2_habilitado` (piloto por cuenta) — no reemplaza
+`/admin/**`, que sigue funcionando exactamente igual. Antes de tocar nada
+de esto, lee completo `docs/CONTROL_VIP_V2_INVENTARIO.md` (inventario de
+rutas, permisos y contrato de conservación) y `docs/PROYECTO_CONTROL_VIP_V2.md`
+(la visión original, para no reinterpretarla desde cero).
+
+Pendiente si se retoma:
+
+- Estudio VIP: restringir "publicar" a solo el propietario (hoy cualquier
+  entrenador/admin con el piloto activado puede publicar) y agregar
+  comparación visual entre versiones del historial.
+- Capturas base del panel actual — necesita una sesión logueada real, no
+  se puede automatizar sin credenciales.
+- El comando global (`Ctrl/Cmd+K`) busca destinos y alumnos, no ejercicios
+  ni rutinas guardadas todavía.
+- `/admin/configuracion` y Notificaciones del entrenador siguen sin
+  pantalla V2 — decisión deliberada (bajo valor), no un olvido.
+
 ## Resuelto: Estudio VIP (configuración global de portal-v2)
 
 Ya está construido y en `main`: editor en `/admin/estudio-vip` (borrador,
