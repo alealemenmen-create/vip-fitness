@@ -14,7 +14,15 @@ Si el usuario pide verificar y respaldar este trabajo en GitHub, sigue
 Antes de revisar, probar o continuar Impulso VIP, lee completo
 `INSTRUCTIVO_CLAUDE_IMPULSO_VIP_V2_PUNTA_A_PUNTA.md`. Ese es el documento
 maestro vigente y prevalece cuando una indicación anterior sea ambigua. Luego
-lee `HANDOFF_IMPULSO_VIP_CLAUDE.md` como contexto histórico. Alejandro pidió
+lee `HANDOFF_IMPULSO_VIP_CLAUDE.md` como contexto histórico. También existe
+`PLAN_IMPLEMENTACION_IMPULSO_VIP_2_CLAUDE.md` (rescatado de un worktree
+abandonado el 2026-08-21, escrito ~2026-08-17): es una especificación de UX
+más estrecha y específica sobre un solo punto — que el alumno vea la meta de
+Impulso ANTES de empezar cada ejercicio, no después — con su propia lista de
+pruebas obligatorias. No es el documento maestro y no lo reemplaza; úsalo
+solo como insumo de detalle para esa regla puntual si el instructivo maestro
+no la cubre con suficiente precisión cuando llegue el momento de implementar.
+Alejandro pidió
 expresamente que Claude implemente y revise el flujo completo, ejecute las
 pruebas y le deje la demostración abierta en pantalla porque le duelen las
 manos. No hagas push, despliegue ni cambios destructivos en producción sin una
