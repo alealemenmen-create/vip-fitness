@@ -210,17 +210,22 @@ antes de tocar nada de `/control-vip/**`). Pendiente si se retoma:
 - `/admin/configuracion` y notificaciones del entrenador sin pantalla V2:
   decisión deliberada (bajo valor), no un olvido.
 
-### Portal V2 (alumno) — dos pendientes menores sueltos, pedido de Alejandro 2026-08-22
-No implementados esta sesión, solo registrados para retomar cuando corresponda:
-1. **Nombre del alumno en la pantalla principal de Entrenar** (portal-v2,
-   probablemente `EntrenamientoInicioV2.tsx`) — toque personalizado, hoy esa
-   pantalla no saluda por nombre.
-2. **Versión de la app visible al final de "Más"** (portal-v2 y probablemente
-   también el panel admin) — un número/etiqueta de versión simple, para que
-   Alejandro y cualquier alumno puedan confirmar a simple vista si ya
-   recibieron una actualización o siguen en la versión vieja. Falta definir
-   de dónde sale ese número (¿`package.json`? ¿un valor manual por deploy?) y
-   si conviene mostrar también el commit/fecha de build.
+### Portal V2 (alumno) — dos pendientes menores, pedido de Alejandro 2026-08-22 — RESUELTOS esta misma sesión
+1. **Nombre del alumno en la pantalla principal de Entrenar** — hecho en
+   `EntrenamientoInicioV2.tsx`: "Hola, {primer nombre} · ..." en la línea de
+   fase, mismo patrón que ya usaba `ProgresoDashboardV2.tsx`. `nombre` llega
+   como prop nueva desde `portal-v2/entrenamiento/page.tsx`
+   (`contexto.nombre`, ya disponible ahí, sin consulta nueva).
+2. **Versión de la app al final de "Más"** — hecho en `MasV2.tsx`: se
+   completó una línea que ya existía como placeholder
+   (`VIP FITNESS V2 · MÉTODO VIP`) con el commit corto de Vercel
+   (`leerDespliegueActual()` de `novedades-deploy.ts`, el mismo mecanismo ya
+   probado que alimenta el historial de Novedades — no se inventó una fuente
+   nueva). Solo aparece en producción; en local/preview la línea queda igual
+   que antes, sin versión.
+
+No se tocó el panel admin (`/admin/mas`) — el pedido fue específicamente
+sobre portal-v2. Verificado: tsc, lint, 710 tests, build, todo verde.
 
 ## Pendiente sin dueño claro: orden de los 58 `.md` de la raíz
 

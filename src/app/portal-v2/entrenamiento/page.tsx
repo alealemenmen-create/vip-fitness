@@ -91,6 +91,7 @@ export default async function EntrenamientoV2Page() {
 
   return (
     <EntrenamientoInicioV2
+      nombre={contexto.nombre}
       numeros={numeros}
       seleccionInicial={seleccionInicial}
       rutinaId={rutina.id}

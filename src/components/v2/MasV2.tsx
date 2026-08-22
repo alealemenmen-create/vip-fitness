@@ -35,7 +35,7 @@ const INSTAGRAM_URL = process.env.NEXT_PUBLIC_INSTAGRAM_URL?.trim();
 const FACEBOOK_URL = process.env.NEXT_PUBLIC_FACEBOOK_URL?.trim();
 const PUSH_SERVIDOR_CONFIGURADO = Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim());
 
-export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
+export function MasV2({ cargaInicial, version }: { cargaInicial: CargaMasV2; version?: string | null }) {
   const esDemoInicial = cargaInicial.estado === "demo";
   const [panel, setPanel] = useState<Panel>(null);
   const [datos, setDatos] = useState<MasDatosV2 | null>(cargaInicial.estado === "real" ? cargaInicial.datos : null);
@@ -210,7 +210,7 @@ export function MasV2({ cargaInicial }: { cargaInicial: CargaMasV2 }) {
         <ChevronRight size={16} />
       </Link>
       {datos ? <form action={logout} className={styles.moreLogoutForm}><button type="submit"><LogOut size={16} />Cerrar sesión</button></form> : null}
-      <p className={styles.moreVersion}>VIP FITNESS V2 · MÉTODO VIP</p>
+      <p className={styles.moreVersion}>VIP FITNESS V2 · MÉTODO VIP{version ? ` · v${version}` : ""}</p>
 
       {panel ? (
         <div className={styles.moreSheetBackdrop} role="presentation" onClick={() => setPanel(null)}>

@@ -29,6 +29,7 @@ import type { FilaRanking } from "@/lib/ranking/data";
 import type { PulsoComunidadV2 } from "@/app/portal-v2/progreso/comunidad/data";
 
 type Props = {
+  nombre: string;
   numeros: NumeroCalendario[];
   seleccionInicial: number;
   rutinaId: string;
@@ -55,6 +56,7 @@ function tituloDia(numero: NumeroCalendario) {
 }
 
 export function EntrenamientoInicioV2({
+  nombre,
   numeros,
   seleccionInicial,
   rutinaId,
@@ -136,7 +138,7 @@ export function EntrenamientoInicioV2({
             <span className={styles.studioBrand}>{configuracion.marca.nombre}</span>
             <XpBadgeV2 xpInicial={rankingPropia?.puntosAcumulados ?? 0} />
           </div>
-          <p className={styles.phase}>{planNombre ? `${planNombre} · ` : ""}{configuracion.entrenamiento.etiquetaFase}</p>
+          <p className={styles.phase}>Hola, {nombre.split(" ")[0]} · {planNombre ? `${planNombre} · ` : ""}{configuracion.entrenamiento.etiquetaFase}</p>
         </div>
         <button
           type="button"
