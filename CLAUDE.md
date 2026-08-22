@@ -28,6 +28,20 @@ pruebas y le deje la demostración abierta en pantalla porque le duelen las
 manos. No hagas push, despliegue ni cambios destructivos en producción sin una
 nueva autorización explícita.
 
+## Trabajo activo: Club VIP V2 (economía, navegación y pantalla nueva)
+
+Propuesta aprobada por Alejandro en `INSTRUCTIVO_CLAUDE_CLUB_VIP_V2.md`
+(2026-08-22): separa XP de carrera / Saldo VIP / Puntaje de temporada,
+agrega una quinta pestaña "Club" a la barra inferior y reescribe la
+liquidación de puntos en un libro contable nuevo (`club_vip_movimientos`),
+con migración sin pérdida obligatoria. **No empezar sin leer primero
+`HANDOFF_CLUB_VIP_V2_CLAUDE.md` completo** — su sección 22.2 liquida el
+bono de Impulso VIP dentro del mismo libro contable nuevo, y esa es
+justo la pieza que la revisión de Impulso VIP En Vivo (ver más abajo)
+está reescribiendo en paralelo sin commitear todavía. Empezar Club VIP V2
+antes de que Impulso VIP En Vivo esté cerrado y aprobado duplica o
+choca con ese trabajo.
+
 ## Resuelto: Galería multimedia / Carga masiva
 
 El instructivo `INSTRUCTIVO_CLAUDE_GALERIA_MULTIMEDIA_CARGA_MASIVA.md` (2026-08-16)
