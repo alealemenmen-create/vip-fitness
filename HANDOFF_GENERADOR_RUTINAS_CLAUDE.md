@@ -6,6 +6,15 @@ Claude es el agente principal para continuar este trabajo. Este documento es la 
 
 **Estado del commit**: este trabajo ya está commiteado y pusheado. Rama `main`, commit `87f6150` ("Agregar revisión de IA al generador y ficha obligatoria del alumno"), sincronizado con `origin/main` en `github.com/alealemenmen-create/vip-fitness`. El detalle sesión por sesión de todo lo agregado después de la primera versión de este handoff está en `HANDOFF_1.10.md` y `HANDOFF_1.11.md` — este documento consolida el estado resultante, no repite esa narrativa.
 
+**Nota 2026-08-22 (madrugada)**: `main` local avanzó mucho más allá de
+`87f6150` desde entonces (incluye Impulso VIP V2 completo, sin pushear —
+ver `HANDOFF_2026-08-22_ESTADO_Y_PENDIENTES.md` para el estado real y
+actualizado del repo, ese es el handoff maestro de hoy). El único commit de
+esta sesión que toca el generador es `24af1ca` ("editor de metadatos
+biomecanicos y sustitutos por ejercicio", punto 3 de abajo) — alcance
+confirmado explícitamente por el usuario antes de tocar código, como pide
+la regla de más abajo. Sin pushear.
+
 ## Decisión de arquitectura
 
 El generador forma parte del portal VIP Fitness. No debe convertirse en una aplicación separada.
@@ -128,13 +137,13 @@ Flujo verificado que funciona: en la máquina nueva, `git fetch origin` + `git s
 2. Subir foto a los 6 ejercicios de cardio funcional que quedaron sin ilustración (jumping jacks, sentadilla con salto, slam ball, wall ball, mountain climber, TRX profundo). El usuario avisó que las va a sacar el 10/08/2026, cuando esté en el gimnasio.
 3. Revisar si conviene ya el CRUD visual de técnicas (postergado de común acuerdo — el entrenador avisa si necesita técnicas fuera de las 10 cargadas).
 4. Impulsar que los alumnos completen la ficha: el bloqueo ya obliga al abrir la app, pero al cierre de la última sesión había ~56 alumnos marcados "para revisar" sin ficha completa.
-5. Pasar la prop `ejercicios` a `RutinaDraftEditor` desde `ArchivosManager`/`DocumentosManager` para que el selector de ejercicios por clic y la vista previa también estén disponibles fuera del flujo del generador (hoy solo ahí).
+5. ~~Pasar la prop `ejercicios` a `RutinaDraftEditor` desde `ArchivosManager`/`DocumentosManager`~~ — **verificado el 22/08/2026, ya estaba resuelto**: los 4 llamadores de `RutinaDraftEditor` (`GeneradorRutinasPanel`, `RutinasGeneradasPanel`, `ArmarRutinaPanel`, `ArchivosManager`) ya pasan `ejercicios`. Este documento estaba desactualizado en este punto — no repitas el trabajo sin confirmar contra el código primero.
 
 ## Desarrollo pendiente, en orden recomendado
 
-### 1. Selector de ejercicios y vista previa fuera del generador
+### 1. Selector de ejercicios y vista previa fuera del generador — resuelto, ver punto 5 de arriba
 
-Ver punto 5 arriba — es lo más inmediato y acotado de lo que falta.
+No hace falta ningún cambio: los 4 llamadores de `RutinaDraftEditor` ya pasan `ejercicios`.
 
 ### 2. Multi-alumno real — resuelto (commit `16e9bbd`)
 
@@ -151,9 +160,31 @@ Lo único que sigue tomando solo al primer alumno del grupo es cosmético: el
 nombre de la rutina y el número de versión (`rutinasPrevias`), no la
 calibración de seguridad ni el contenido.
 
-### 3. Metadatos de ejercicios
+### 3. Metadatos de ejercicios — resuelto el 22/08/2026, con alcance confirmado por el usuario
 
-Ampliar la galería administrativa para editar los campos agregados por `0051`. Incorporar selección visual de sustitutos.
+`EditorMetadatosGenerador` y `EditorSustitutos` en `GaleriaEjercicios.tsx`
+(modal de edición de la Biblioteca clásica, no Mesa), acciones
+`actualizarMetadatosGenerador`/`actualizarSustitutosEjercicio` en
+`admin/ejercicios/actions.ts`. Sin migración nueva — las 11 columnas de
+`0051` ya existían en producción, confirmado vía el MCP de Supabase antes de
+tocar código.
+
+- Impacto, salto, complejidad, supervisión, posición en la sesión y
+  precauciones: **el motor real ya los lee** (`cargarContextoAlumno`,
+  `admin/generador/actions.ts`) — editarlos acá cambia de verdad qué
+  recomienda el generador la próxima vez, no es cosmético.
+- Articulaciones, lateralidad y tiempo de montaje: sin consumidor todavía —
+  es preparación de datos, mismo caso que `patron_movimiento`.
+- Sustitutos (`sustitutos_ids`): multi-select buscable contra la biblioteca
+  real (nunca texto libre). Sin consumidor todavía — el flujo de
+  "reemplazar con alternativas" sigue siendo el punto 5 de abajo, sin
+  empezar.
+- `Ejercicio` (`lib/ejercicios/tipos.ts`) ganó los 9 campos correspondientes.
+  Un solo lugar se rompió por el tipo más estricto: `emparejar.test.ts`
+  (fixture manual), corregido en el mismo commit.
+- Verificado: `tsc`, `eslint`, `vitest` (710/710), `next build`. **No
+  probado con un login real en el navegador** — sesión sin forma de
+  autenticarse (madrugada, autónoma).
 
 ### 4. Sub-grupos de pierna y enfoque de forma como datos estructurados
 
