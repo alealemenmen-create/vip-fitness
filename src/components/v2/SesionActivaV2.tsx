@@ -61,6 +61,7 @@ import {
   type TecnicaIndividualSlug,
 } from "@/lib/entrenamiento/motor-tecnicas-sesion";
 import { tecnicaAplicaASerie } from "@/lib/entrenamiento/tecnica-series";
+import { EVENTO_XP_GANADO } from "@/lib/xp-eventos";
 import {
   encontrarMomentoPendienteDeResultado,
   seleccionarMomentosAlejandro,
@@ -1341,6 +1342,9 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           setConfirmarSalida(false);
           setAvisoRegresoTardio(false);
           setRegistrada(true);
+          if (resultado.puntosGanados) {
+            window.dispatchEvent(new CustomEvent(EVENTO_XP_GANADO, { detail: { puntos: resultado.puntosGanados } }));
+          }
         }
       } catch {
         setErrorGuardado("No pudimos cerrar la sesión. Tu progreso sigue protegido en este dispositivo; vuelve a intentarlo con conexión.");

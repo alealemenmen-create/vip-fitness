@@ -552,7 +552,7 @@ export async function cancelarOtraYIniciarRutina(formData: FormData): Promise<vo
   revalidatePath("/alumno/entrenar");
 }
 
-export type GuardarSeriesState = { error: string | null };
+export type GuardarSeriesState = { error: string | null; puntosGanados?: number };
 
 export type SerieRegistroV2 = {
   reps: string;
@@ -886,8 +886,8 @@ export async function guardarYFinalizarSesionV2(registro: RegistroSesionV2): Pro
   formData.set("sesion_id", registro.sesionId);
   formData.set("comentario", registro.comentario ?? "");
   formData.set("origen_v2", "true");
-  await finalizarSesion(formData);
-  return { error: null };
+  const resultado = await finalizarSesionInterna(formData);
+  return { error: null, puntosGanados: resultado ? resultado.puntos + resultado.puntosImpulso : undefined };
 }
 
 /** Compara las series recién guardadas contra la recomendación congelada de
@@ -937,7 +937,13 @@ async function resolverCumplimientoImpulso(
     .eq("sesion_ejercicio_id", sesionEjercicioId);
 }
 
-export async function finalizarSesion(formData: FormData): Promise<void> {
+/** Misma lógica de cierre de sesión para V1 y V2 (validación, cierre atómico,
+ * recompensas, aviso de cupo, revalidación). Devuelve los puntos ganados
+ * cuando cierra por V2 -- V1 nunca llega a leer el valor de retorno: termina
+ * en un `redirect()`, que corta la ejecución antes con una excepción propia
+ * de Next.js, así que su contrato público (`finalizarSesion`, más abajo)
+ * puede seguir siendo `Promise<void>` sin mentir. */
+async function finalizarSesionInterna(formData: FormData): Promise<{ puntos: number; puntosImpulso: number } | void> {
   const sesionId = String(formData.get("sesion_id") || "");
   const comentario = String(formData.get("comentario") || "").trim();
   const origenV2 = formData.get("origen_v2") === "true";
@@ -1051,9 +1057,13 @@ export async function finalizarSesion(formData: FormData): Promise<void> {
   if (origenV2) {
     revalidatePath("/portal-v2/entrenamiento/sesion");
     revalidatePath("/portal-v2/entrenamiento");
-    return;
+    return { puntos, puntosImpulso };
   }
   redirect(`${rutaEntrenamiento}?puntos=${puntos + puntosImpulso}`);
+}
+
+export async function finalizarSesion(formData: FormData): Promise<void> {
+  await finalizarSesionInterna(formData);
 }
 
 /**
@@ -1321,28 +1331,15 @@ export async function cancelarSesionEnCurso(formData: FormData): Promise<void> {
     .maybeSingle();
   if (!sesion || sesion.estado !== "en_progreso") redirect(rutaEntrenamiento);
 
-  const { count } = await supabase
-    .from("sesion_ejercicios")
-    .select("id", { count: "exact", head: true })
-    .eq("sesion_id", sesionId)
-    .eq("completado", true);
-  if (count && count > 0) {
-    // Si ya existe progreso real no se destruye: se conserva en el historial
-    // como abandonado y se retiran sus puntos. La sesión deja igualmente de
-    // ocupar el cupo de entrenamiento activo.
-    await supabase
-      .from("sesiones_entrenamiento")
-      .update({ estado: "abandonada" })
-      .eq("id", sesionId)
-      .eq("alumno_id", alumnoId);
-    // Mismo bug que ya se corrigió una vez en `abandonarSesion`: sin esta
-    // llamada el comentario de arriba mentía y el alumno seguía cobrando en
-    // el ranking una sesión que la propia UI le prometía que no sumaría.
-    await abandonarEntrenamiento(alumnoId, sesionId, sesion.fecha);
-    revalidateTag(TAG_RANKING, { expire: 0 });
-  } else {
-    await supabase.from("sesiones_entrenamiento").delete().eq("id", sesionId).eq("alumno_id", alumnoId);
-  }
+  // "Salir y descartar" es un descarte real sin importar cuánto progreso
+  // había marcado el alumno (decisión de Alejandro, 2026-08-22): antes, con
+  // al menos un ejercicio marcado, la sesión no se borraba -- quedaba
+  // "abandonada" y seguía apareciendo en el historial ("No finalizada"),
+  // que es justo lo que "descartar" prometía no hacer. Los puntos reales
+  // (`registrarEntrenamiento`) sólo se otorgan al finalizar, y una sesión que
+  // pasa por acá nunca llegó a finalizarse -- no hay puntos que revertir, así
+  // que borrar de una es seguro.
+  await supabase.from("sesiones_entrenamiento").delete().eq("id", sesionId).eq("alumno_id", alumnoId);
 
   revalidatePath("/alumno/entrenar");
   revalidatePath("/alumno/entrenar/historial");

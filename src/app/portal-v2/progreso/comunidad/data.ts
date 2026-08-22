@@ -211,3 +211,38 @@ export async function obtenerComunidadV2(): Promise<ComunidadDatosV2 | null> {
     })),
   };
 }
+
+export type PulsoComunidadV2 = {
+  nombre: string;
+  fecha: string;
+  aplausos: number;
+} | null;
+
+/** Versión mínima de `obtenerSocialComunidadV2` para la tarjeta de pulso de
+ * Entrenar: solo la última publicación de OTRO alumno (no la propia, para que
+ * siempre sea una señal de comunidad, no un espejo) con sus aplausos. Nada de
+ * fotos, comentarios ni el resto del feed -- eso lo sigue resolviendo
+ * Comunidad completa. */
+export async function obtenerPulsoComunidadV2(alumnoId: string): Promise<PulsoComunidadV2> {
+  const db = createAdminClient();
+  const { data: publicaciones, error } = await db
+    .from("comunidad_publicaciones")
+    .select("id, alumno_id, created_at")
+    .eq("estado", "publicada")
+    .neq("alumno_id", alumnoId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (faltaMigracion(error) || error || !publicaciones?.length) return null;
+
+  const post = publicaciones[0];
+  const [{ data: perfil }, { count: aplausos }] = await Promise.all([
+    db.from("perfiles").select("nombre").eq("id", post.alumno_id).maybeSingle(),
+    db.from("comunidad_reacciones").select("id", { count: "exact", head: true }).eq("publicacion_id", post.id),
+  ]);
+
+  return {
+    nombre: perfil?.nombre ?? "Alumno VIP",
+    fecha: post.created_at,
+    aplausos: aplausos ?? 0,
+  };
+}

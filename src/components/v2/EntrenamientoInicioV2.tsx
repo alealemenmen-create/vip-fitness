@@ -21,8 +21,12 @@ import { FOTOS_GRUPO_MUSCULAR } from "@/lib/grupos-musculares/fotos";
 import { fotoPortadaDia } from "@/lib/entrenamiento/foto-portada-dia";
 import { BotonIniciarEntrenamientoV2 } from "@/components/v2/BotonIniciarEntrenamientoV2";
 import { ImagenV2Segura } from "@/components/v2/ImagenV2Segura";
+import { PulsoArenaComunidadV2 } from "@/components/v2/PulsoArenaComunidadV2";
+import { XpBadgeV2 } from "@/components/v2/XpBadgeV2";
 import styles from "./PortalV2.module.css";
 import type { ConfiguracionEstudioVip } from "@/lib/estudio-vip/configuracion";
+import type { FilaRanking } from "@/lib/ranking/data";
+import type { PulsoComunidadV2 } from "@/app/portal-v2/progreso/comunidad/data";
 
 type Props = {
   numeros: NumeroCalendario[];
@@ -37,6 +41,8 @@ type Props = {
   cupoAgotado: boolean;
   soloLectura: boolean;
   configuracion: ConfiguracionEstudioVip;
+  rankingPropia: FilaRanking | null;
+  pulsoComunidad: PulsoComunidadV2;
 };
 
 function tituloDia(numero: NumeroCalendario) {
@@ -60,6 +66,8 @@ export function EntrenamientoInicioV2({
   cupoAgotado,
   soloLectura,
   configuracion,
+  rankingPropia,
+  pulsoComunidad,
 }: Props) {
   const [seleccionado, setSeleccionado] = useState(seleccionInicial);
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -124,7 +132,10 @@ export function EntrenamientoInicioV2({
       ) : null}
       <header className={styles.pageHeader}>
         <div>
-          <span className={styles.studioBrand}>{configuracion.marca.nombre}</span>
+          <div className={styles.brandRow}>
+            <span className={styles.studioBrand}>{configuracion.marca.nombre}</span>
+            <XpBadgeV2 xpInicial={rankingPropia?.puntosAcumulados ?? 0} />
+          </div>
           <p className={styles.phase}>{planNombre ? `${planNombre} · ` : ""}{configuracion.entrenamiento.etiquetaFase}</p>
         </div>
         <button
@@ -218,6 +229,8 @@ export function EntrenamientoInicioV2({
           )}
         </div>
       </section>
+
+      <PulsoArenaComunidadV2 propia={rankingPropia} pulso={pulsoComunidad} />
 
       {verRutina && ejercicios.length > 0 && (
         <section className={`${styles.exerciseList} ${styles.expanded}`} aria-label="Rutina completa">

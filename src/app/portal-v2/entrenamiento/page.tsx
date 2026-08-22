@@ -14,6 +14,8 @@ import { descansosDespuesDe, diasQueNumeran, mesDelNumero, sesionesPorMes } from
 import { firmarMiniaturasCloudflareV2 } from "@/lib/cloudflare/miniaturas-v2";
 import styles from "@/components/v2/PortalV2.module.css";
 import { obtenerDocumentoPublicadoEstudioVip } from "@/lib/estudio-vip/data";
+import { obtenerRankingSemanal } from "@/lib/ranking/data";
+import { obtenerPulsoComunidadV2 } from "@/app/portal-v2/progreso/comunidad/data";
 
 export default async function EntrenamientoV2Page() {
   const [contexto, documentoEstudio] = await Promise.all([
@@ -36,12 +38,15 @@ export default async function EntrenamientoV2Page() {
     );
   }
 
-  const [diasRutina, avance, balanceSesiones, sesionEnProgresoId] = await Promise.all([
+  const [diasRutina, avance, balanceSesiones, sesionEnProgresoId, rankingSemanal, pulsoComunidad] = await Promise.all([
     obtenerDiasRutina(rutina.id),
     obtenerAvanceCiclo(supabase, alumnoId, rutina.id),
     obtenerBalanceSesionesMes(supabase, alumnoId),
     soloLectura ? Promise.resolve(null) : obtenerSesionEnProgreso(supabase, alumnoId),
+    obtenerRankingSemanal(),
+    obtenerPulsoComunidadV2(alumnoId),
   ]);
+  const rankingPropia = rankingSemanal.find((fila) => fila.alumnoId === alumnoId) ?? null;
   const diasEntrenamiento = diasQueNumeran(diasRutina);
 
   if (diasEntrenamiento.length === 0) {
@@ -104,6 +109,8 @@ export default async function EntrenamientoV2Page() {
       cupoAgotado={false}
       soloLectura={soloLectura}
       configuracion={documentoEstudio.configuracion}
+      rankingPropia={rankingPropia}
+      pulsoComunidad={pulsoComunidad}
     />
   );
 }
