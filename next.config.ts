@@ -40,7 +40,12 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "iowuocmxqwuddickiofi.supabase.co",
-        pathname: "/storage/v1/object/public/**",
+        // "public/**" cubre getPublicUrl (fotos de ejercicios). Fotos de
+        // progreso y documentos usan createSignedUrl (buckets privados), que
+        // genera rutas "sign/**" — sin esto next/image las rechazaba con 400
+        // y el navegador mostraba el ícono roto + el alt (bug de fotos que
+        // no se ven en Comunidad, 2026-08-22).
+        pathname: "/storage/v1/object/{public,sign}/**",
       },
       {
         protocol: "https",
