@@ -361,6 +361,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
   const [confirmarSalida, setConfirmarSalida] = useState(false);
   const [avisoRegresoTardio, setAvisoRegresoTardio] = useState(false);
   const [registrada, setRegistrada] = useState(false);
+  const [puntosGanados, setPuntosGanados] = useState<number | null>(null);
   const [temporizadorAutomatico, setTemporizadorAutomatico] = useState(sesion?.temporizadorAutomaticoInicial ?? true);
   const [sonidoDescansoActivo, setSonidoDescansoActivo] = useState(true);
   const [unidadPeso, setUnidadPeso] = useState<UnidadPeso>("kg");
@@ -1341,6 +1342,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
           window.localStorage.removeItem(claveBorradorSesionV2(sesion.id));
           setConfirmarSalida(false);
           setAvisoRegresoTardio(false);
+          setPuntosGanados(resultado.puntosGanados ?? 0);
           setRegistrada(true);
           if (resultado.puntosGanados) {
             window.dispatchEvent(new CustomEvent(EVENTO_XP_GANADO, { detail: { puntos: resultado.puntosGanados } }));
@@ -1381,10 +1383,11 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
         <span className={styles.summaryEyebrow}>ENTRENAMIENTO REGISTRADO</span>
         <h1>{sesion?.titulo ?? "Día de piernas"}</h1>
         <p>{sesion?.fecha ?? "18 de agosto de 2026"} · {formatearTiempo(segundosSesion)}</p>
-        <div className={styles.summaryMetrics}>
+        <div className={`${styles.summaryMetrics} ${puntosGanados !== null ? styles.summaryMetricsXp : ""}`}>
           <span><strong>{EJERCICIOS.length}</strong>Ejercicios</span>
           <span><strong>{seriesCompletadas}</strong>Series</span>
           <span><strong>{repeticionesCompletadas}</strong>Repeticiones</span>
+          {puntosGanados !== null ? <span><strong>+{puntosGanados.toLocaleString("es-CL")}</strong>XP ganado</span> : null}
         </div>
         <div className={styles.summaryList}>
           {EJERCICIOS.map((ejercicio) => (

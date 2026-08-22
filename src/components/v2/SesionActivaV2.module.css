@@ -516,6 +516,8 @@
 .summaryMetrics span { color: #848784; font-size: 7px; text-align: center; }
 .summaryMetrics span + span { border-left: 1px solid #292b2a; }
 .summaryMetrics strong { display: block; margin-bottom: 5px; color: #f1f2ef; font-size: 18px; }
+.summaryMetricsXp { grid-template-columns: repeat(4, 1fr); }
+.summaryMetricsXp span:last-child strong { color: var(--v2-accent); }
 .summaryList { display: grid; gap: 1px; overflow: hidden; border-radius: 9px; background: #282a29; }
 .summaryList article { display: grid; min-height: 72px; grid-template-columns: 48px 1fr; align-items: center; gap: 10px; padding: 6px 10px; background: #171818; }
 .summaryList img { width: 48px; height: 62px; border-radius: 6px; object-fit: cover; }
