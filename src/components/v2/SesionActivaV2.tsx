@@ -62,6 +62,7 @@ import {
 } from "@/lib/entrenamiento/motor-tecnicas-sesion";
 import { tecnicaAplicaASerie } from "@/lib/entrenamiento/tecnica-series";
 import {
+  encontrarMomentoPendienteDeResultado,
   seleccionarMomentosAlejandro,
   type MomentoSesionAlejandro,
 } from "@/lib/impulso-vip/alejandro-sesion";
@@ -874,6 +875,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       try {
         const resolucion = await resolverIntervencionAutomaticaV2(momento.id, resultado, dificultad);
         if (resolucion.ok) {
+          setErrorGuardado(null);
           setMomentosRegistrados((actuales) => ({ ...actuales, [momento.id]: true }));
           if (resolucion.verificada) {
             setMomentosLogrados((actuales) => ({ ...actuales, [momento.id]: true }));
@@ -1013,8 +1015,11 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     const seriesActualizadas = registro[ejercicio.id].map((serie, indice) =>
       indice === serieIndice ? { ...serie, completada: !serie.completada } : serie
     );
-    const momentoCompletado = MOMENTOS_ALEJANDRO.find((momento) =>
-      momento.ejercicioId === ejercicio.id && momento.serieIndice === serieIndice
+    const momentoCompletado = encontrarMomentoPendienteDeResultado(
+      MOMENTOS_ALEJANDRO,
+      ejercicio.id,
+      serieIndice,
+      momentosRegistrados,
     );
     setRegistro((actual) => ({ ...actual, [ejercicio.id]: seriesActualizadas }));
     persistirEjercicio(ejercicio, seriesActualizadas, estabaCompletada ? undefined : momentoCompletado);

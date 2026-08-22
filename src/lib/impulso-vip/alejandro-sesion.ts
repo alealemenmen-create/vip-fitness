@@ -63,6 +63,24 @@ export type EstimacionRirAlejandro = {
 };
 
 /**
+ * Encuentra el reto asociado a la serie solo si todavía no fue respondido en
+ * este montaje de la sesión. Al corregir y volver a marcar una serie no debe
+ * abrirse otra vez la encuesta del mismo Impulso VIP.
+ */
+export function encontrarMomentoPendienteDeResultado(
+  momentos: readonly MomentoSesionAlejandro[],
+  ejercicioId: string,
+  serieIndice: number,
+  registrados: Readonly<Record<string, boolean>>,
+): MomentoSesionAlejandro | undefined {
+  return momentos.find((momento) =>
+    momento.ejercicioId === ejercicioId
+    && momento.serieIndice === serieIndice
+    && !registrados[momento.id]
+  );
+}
+
+/**
  * El cupo no es una recompensa visual: limita deliberadamente las irrupciones.
  * La progresion ordinaria ocurre en silencio y no consume este cupo.
  */

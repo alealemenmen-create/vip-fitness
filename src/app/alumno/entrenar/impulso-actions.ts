@@ -11,6 +11,7 @@ import { calibrarCierreControlado } from "@/lib/impulso-vip/en-vivo";
 import { evaluarTecnicaIntensiva } from "@/lib/impulso-vip/elegibilidad";
 import type { TipoIntervencionImpulso } from "@/lib/supabase/types";
 import { avisarResultadoIntervencion, avisarSolicitudAsistencia } from "@/lib/impulso-vip/avisos-entrenador";
+import { evaluarDisponibilidadIntervencion } from "@/lib/impulso-vip/resolucion-intervencion";
 
 export type ReportarDolorState = { error: string | null; ok: boolean };
 
@@ -472,18 +473,17 @@ export async function resolverIntervencionEnVivo(
   }
 
   const supabase = createAdminClient();
-  const { data: intervencion } = await supabase
+  const { data: intervencionEncontrada } = await supabase
     .from("impulso_vip_intervenciones")
-    .select("id, sesion_ejercicio_id, serie_objetivo, prescripcion, estado")
+    .select("id, sesion_ejercicio_id, serie_objetivo, prescripcion, estado, verificacion")
     .eq("id", intervencionId)
     .eq("alumno_id", alumnoId)
     .maybeSingle();
-  // "resuelta" bloquea acá también, no solo en el UPDATE final: un doble
-  // envío (doble tap, reintento de red) no puede reescribir un resultado ya
-  // guardado — el resultado que vio el alumno es el que queda.
-  if (!intervencion || intervencion.estado === "cancelada" || intervencion.estado === "resuelta") {
-    return { error: "Esta intervencion ya no esta disponible.", ok: false, verificada: false };
-  }
+  // El primer resultado sigue siendo inmutable. Un reintento posterior se
+  // confirma como éxito idempotente, en vez de mostrar un error falso.
+  const disponibilidad = evaluarDisponibilidadIntervencion(intervencionEncontrada);
+  if (!disponibilidad.puedeResolver) return disponibilidad.resultado;
+  const intervencion = disponibilidad.intervencion;
 
   let verificada = false;
   const repsExtraRaw = String(formData.get("reps_extra") || "").trim();
@@ -524,7 +524,7 @@ export async function resolverIntervencionEnVivo(
       && (pesoDescargaObjetivo === null || (pesoDescarga ?? -1) >= pesoDescargaObjetivo - 0.01);
   }
 
-  const { error } = await supabase
+  const { data: intervencionActualizada, error } = await supabase
     .from("impulso_vip_intervenciones")
     .update({
       estado: "resuelta",
@@ -544,9 +544,30 @@ export async function resolverIntervencionEnVivo(
     // rápida; si los dos pasan ese chequeo, acá solo el primer UPDATE
     // encuentra la fila todavía en "preparada"/"mostrada" — para cuando el
     // segundo se ejecuta, la fila ya quedó en "resuelta" y no matchea.
-    .in("estado", ["preparada", "mostrada"]);
+    .in("estado", ["preparada", "mostrada"])
+    .select("id")
+    .maybeSingle();
 
   if (error) return { error: "No pudimos guardar el resultado. Intenta nuevamente.", ok: false, verificada: false };
+
+  // Supabase no considera error que un UPDATE condicional afecte cero filas.
+  // Eso ocurre si otro envío resolvió la intervención entre el SELECT y el
+  // UPDATE. Releemos el estado: si ya está resuelta, el reintento fue exitoso
+  // y no enviamos una segunda notificación al entrenador.
+  if (!intervencionActualizada) {
+    const { data: intervencionActual, error: errorIntervencionActual } = await supabase
+      .from("impulso_vip_intervenciones")
+      .select("estado, verificacion")
+      .eq("id", intervencionId)
+      .eq("alumno_id", alumnoId)
+      .maybeSingle();
+    if (errorIntervencionActual) {
+      return { error: "No pudimos confirmar el resultado. Intenta nuevamente.", ok: false, verificada: false };
+    }
+    const disponibilidadActual = evaluarDisponibilidadIntervencion(intervencionActual);
+    if (!disponibilidadActual.puedeResolver) return disponibilidadActual.resultado;
+    return { error: "No pudimos confirmar el resultado. Intenta nuevamente.", ok: false, verificada: false };
+  }
 
   await avisarResultadoIntervencion({
     intervencionId,
