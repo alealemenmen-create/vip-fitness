@@ -41,14 +41,23 @@ import { IndicacionesAlePanel } from "@/components/admin/IndicacionesAlePanel";
 import { FichaAlumnoTabs } from "@/components/admin/FichaAlumnoTabs";
 import { PencilRuler } from "lucide-react";
 import { AccesoPortalV2Alumno } from "@/components/admin/AccesoPortalV2Alumno";
+import { IDS_PESTANA_FICHA, type IdPestanaFicha } from "@/lib/alumnos/pestanas-ficha";
 
 export default async function AlumnoDetallePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const sesion = await requireRol(["entrenador", "admin"]);
   const { id: alumnoId } = await params;
+  const { tab } = await searchParams;
+  // El link "Editar ficha" del banner "viendo como alumno" (alumno/layout.tsx)
+  // llega con `?tab=plan` — reusa el mismo mecanismo de Control VIP V2
+  // (pestanaInicial/sincronizarUrl en FichaAlumnoTabs) en vez de que el
+  // componente lea useSearchParams() por su cuenta.
+  const pestanaInicial = IDS_PESTANA_FICHA.includes(tab as IdPestanaFicha) ? (tab as IdPestanaFicha) : undefined;
   const supabase = await createClient();
 
   const [
@@ -148,6 +157,7 @@ export default async function AlumnoDetallePage({
       </div>
 
       <FichaAlumnoTabs
+        pestanaInicial={pestanaInicial}
         secciones={{
           resumen: (
             <>

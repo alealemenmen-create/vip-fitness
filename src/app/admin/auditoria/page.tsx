@@ -17,7 +17,12 @@ export default async function AuditoriaPage() {
 
   return (
     <div className="space-y-4 pb-8">
-      <Link href="/admin/configuracion" className="flex items-center gap-2">
+      {/* Antes volvía a /admin/configuracion — era el directorio del panel
+          antes de la reorganización (INSTRUCTIVO_CLAUDE_REORDENO_PANEL_ENTRENADOR.md
+          §4.3). Desde que /admin/mas tomó ese rol y /admin/configuracion pasó
+          a ser solo ajustes del sistema, ese "volver" llevaba a una pantalla
+          sin relación con Auditoría. */}
+      <Link href="/admin/mas" className="flex items-center gap-2">
         <ArrowLeft size={20} className="text-text-secondary" />
         <span className="text-h3 text-text">Auditoría global</span>
       </Link>

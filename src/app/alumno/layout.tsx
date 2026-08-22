@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Eye } from "lucide-react";
+import { Eye, Pencil } from "lucide-react";
 import { requireAlumno } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { leerFicha } from "@/lib/perfil-alumno/datos";
@@ -117,16 +117,36 @@ export default async function AlumnoLayout({ children }: { children: React.React
        documento que arrastrar. */
     <div className="shell-alumno fixed inset-0 flex flex-col overflow-hidden bg-bg">
       {contexto.soloLectura && (
-        <div className="imprimir-oculto z-10 flex shrink-0 items-center justify-between gap-2 bg-vip px-4 py-3">
+        <div className="imprimir-oculto z-10 flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-vip px-4 py-3">
           <span className="text-caption flex items-center gap-1.5 text-black">
             <Eye size={16} />
             Viendo como {nombreAlumnoPublicado(contexto.nombre)} · modo solo lectura
           </span>
-          <form action={salirDeVistaAlumno}>
-            <button type="submit" className="text-caption font-semibold text-black underline">
-              Volver al panel
-            </button>
-          </form>
+          <span className="flex items-center gap-3">
+            {/* Edición en contexto: solo admin puede editar desde acá —
+                entrenador conserva exactamente el mismo modo solo lectura de
+                siempre. Este link NO limpia la cookie `vista_alumno_id` (no
+                llama a `salirDeVistaAlumno`): el admin puede editar en la
+                ficha y volver a esta misma vista sin perder el contexto,
+                porque la cookie sigue viva hasta que toque "Volver al panel"
+                o expire (8 h). Enlaza a la ficha real del alumno en vez de
+                simular edición acá: ahí viven las acciones, validaciones y
+                auditoría reales — nunca se escribe directo desde esta
+                pantalla. */}
+            {contexto.rolSesion === "admin" && (
+              <Link
+                href={`/admin/alumnos/${contexto.alumnoId}?tab=plan`}
+                className="text-caption flex items-center gap-1 font-semibold text-black underline"
+              >
+                <Pencil size={13} /> Editar ficha
+              </Link>
+            )}
+            <form action={salirDeVistaAlumno}>
+              <button type="submit" className="text-caption font-semibold text-black underline">
+                Volver al panel
+              </button>
+            </form>
+          </span>
         </div>
       )}
 
