@@ -12,10 +12,13 @@ Si el usuario pide verificar y respaldar este trabajo en GitHub, sigue
 ## Revisión pendiente: Impulso VIP En Vivo
 
 Antes de revisar, probar o continuar Impulso VIP, lee completo
-`HANDOFF_IMPULSO_VIP_CLAUDE.md`. Alejandro pidió expresamente que Claude haga
-la revisión técnica y visual, ejecute las pruebas y le deje la demostración
-abierta en pantalla porque le duelen las manos. No hagas push sin una nueva
-autorización explícita.
+`INSTRUCTIVO_CLAUDE_IMPULSO_VIP_V2_PUNTA_A_PUNTA.md`. Ese es el documento
+maestro vigente y prevalece cuando una indicación anterior sea ambigua. Luego
+lee `HANDOFF_IMPULSO_VIP_CLAUDE.md` como contexto histórico. Alejandro pidió
+expresamente que Claude implemente y revise el flujo completo, ejecute las
+pruebas y le deje la demostración abierta en pantalla porque le duelen las
+manos. No hagas push, despliegue ni cambios destructivos en producción sin una
+nueva autorización explícita.
 
 ## Pendiente por retomar: Galería multimedia / Carga masiva
 
