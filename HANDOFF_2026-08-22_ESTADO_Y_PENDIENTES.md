@@ -1,242 +1,324 @@
 # Handoff — Estado del repo y pendientes consolidados
 
-Fecha: 2026-08-22.
+Fecha: 2026-08-22 (actualizado, misma fecha, sesión posterior a la que abrió
+este documento — ver "Historial de este documento" al final).
 
 ## Mensaje para la próxima sesión
 
-Empieza por acá, no por los otros 58 `.md`. En orden de lectura:
+Empieza por acá, no por los otros `.md` sueltos de la raíz. En orden de
+lectura:
 
-1. **`git log --oneline -3`**: local tiene 3 commits que `origin/main` no
-   tiene (Impulso VIP Fases 0-5 + 2 de docs). **No los pushees sin que
-   Alejandro lo pida explícitamente** — es la regla de `CLAUDE.md` para este
-   trabajo específico, no una preferencia general.
-2. Si Alejandro te pide seguir con **Impulso VIP**: lee
+1. **`git status` y `git log --oneline origin/main..main`** primero que
+   nada. A la fecha de este párrafo: `main` local tiene **10 commits** que
+   `origin/main` no tiene, pero en la práctica es **una sola pieza real**:
+   todo el motor de Impulso VIP V2 (Fases 0-6, ~2175 líneas en 32 archivos —
+   confirmado con `git diff --stat origin/main main`). Todo lo demás de esta
+   sesión (fixes de video/galería, saludo por nombre, versión de la app, los
+   docs) **ya está pusheado**. **No pushees el resto de Impulso VIP sin que
+   Alejandro lo pida explícitamente** — regla de `CLAUDE.md`, confirmada de
+   nuevo por Alejandro en esta sesión.
+2. Si te pide seguir con **Impulso VIP**: lee
    `INSTRUCTIVO_CLAUDE_IMPULSO_VIP_V2_PUNTA_A_PUNTA.md` completo primero (es
-   el documento maestro), después la sección "Impulso VIP V2" más abajo en
-   este handoff para saber exactamente dónde quedó cada fase. Fase 5 quedó a
-   mitad de camino (2 de 7 puntos); Fases 6 y 7 sin empezar.
-3. Si te pide seguir con **Club VIP V2**: no arranques todavía. Lee la
-   sección "Club VIP V2" más abajo — depende de que Impulso VIP esté
-   pusheado y aprobado primero, porque comparten el mismo libro contable
-   nuevo.
-4. El resto de las secciones (`Videos`, `Rediseño Entrenar`, `Generador de
-   Rutinas`, `Control VIP V2`) son independientes entre sí — se puede entrar
-   directo a cualquiera si Alejandro pide otra cosa.
-5. Antes de dar por buena cualquier afirmación vieja de este documento
-   (incluida esta), verifícala contra el código o la base — esta misma
-   sesión encontró dos secciones desactualizadas (estado del repo, video
-   Cloudflare) que decían algo que ya no era cierto.
+   el documento maestro), después la sección "Impulso VIP V2" más abajo. Fase
+   6 ya está completa y verificada con datos reales (ver abajo). Fase 5 sigue
+   a mitad de camino (2 de 7 puntos). Fase 7 sin empezar.
+3. **Importante sobre el push parcial**: la Fase 6 (y cualquier trabajo
+   nuevo sobre paneles del entrenador) importa componentes que creó la Fase 5
+   (`ConfiguracionProgresionPanel.tsx`, `ExplicacionRecomendacionesPanel.tsx`,
+   etc.). Como esos componentes viven solo en el `main` local, **no se puede
+   cherry-pickear un commit nuevo de Impulso VIP hacia `origin/main` sin
+   arrastrar esas piezas también** — ya pasó en esta sesión (conflicto real,
+   resuelto abortando el cherry-pick). Si Alejandro pide pushear "solo lo de
+   hoy" y hay código nuevo de Impulso VIP de por medio, avisale este acoplamiento
+   antes de improvisar una solución.
+4. Si te pide seguir con **Club VIP V2**: no arranques todavía. Sigue
+   bloqueado por Impulso VIP sin pushear (ver sección abajo).
+5. El resto de las secciones (`Galería/videos`, `Rediseño Entrenar`,
+   `Generador de Rutinas`, `Control VIP V2`) son independientes entre sí — se
+   puede entrar directo a cualquiera si Alejandro pide otra cosa.
+6. **Antes de dar por buena cualquier afirmación vieja de este documento**
+   (incluida esta), verifícala contra el código o la base. Dos sesiones
+   seguidas ya encontraron secciones desactualizadas acá mismo — no es
+   hipotético.
+7. Si te toca revisar el estado del repo o del historial de un alumno y no
+   tenés acceso MCP de Supabase autorizado: `.env.local` tiene
+   `SUPABASE_SERVICE_ROLE_KEY` real (el mismo que usa la app) — se puede usar
+   con `@supabase/supabase-js` directo en un script Node desechable
+   (`node --env-file=.env.local script.mjs`, **nunca commitear ese script**)
+   para consultas de solo lectura. Sirve para leer/escribir filas via REST,
+   pero **no puede ejecutar DDL** (`CREATE TABLE`, etc.) — para eso hace
+   falta el SQL Editor del dashboard (Alejandro lo corre) o un token de
+   acceso de Supabase para enlazar el CLI (`supabase link`, pendiente,
+   Alejandro dijo que lo da "después").
 
 ## Por qué existe este documento
 
-Hay 58 archivos `.md` sueltos en la raíz del repo (handoffs, instructivos e
-informes de sesiones distintas, varios contradictorios entre sí sobre qué
-está "pendiente"). El propio `HANDOFF_GENERADOR_RUTINAS_CLAUDE.md` (punto 9,
-"Orden de los `.md` sueltos en la raíz") ya señalaba esto como una tarea sin
-hacer. Este documento no reemplaza a ninguno de esos archivos — los reúne,
-para que la próxima sesión no tenga que releer 58 documentos para saber qué
+Hay más de 58 archivos `.md` sueltos en la raíz del repo (handoffs,
+instructivos e informes de sesiones distintas, varios contradictorios entre
+sí sobre qué está "pendiente"). Este documento no los reemplaza — los reúne,
+para que la próxima sesión no tenga que releerlos todos para saber qué
 falta. Si algo acá contradice a un instructivo específico más nuevo, gana el
 instructivo específico.
 
-## Estado del repo al cerrar esta sesión
+## Estado del repo ahora mismo
 
-- `main` local está en `1bdb9fd`, **3 commits adelante de `origin/main`**
-  (`0dac2ca`, verificado con `git fetch` — no pusheados, a propósito: son las
-  Fases 0-5 de Impulso VIP y no deben pushearse sin autorización expresa de
-  Alejandro). `origin/main` en sí mismo ya no es `199e033`: avanzó por otra
-  sesión de Claude en paralelo (ver Club VIP V2 abajo) mientras esta corría.
+- `main` local: `4621ad4`. `origin/main`: `0855501`. **Divergieron a
+  propósito** — no es un error, no hagas `git pull` sin leer el punto 3 de
+  arriba primero. Confirmado con `git diff --stat origin/main main`: la
+  única diferencia real de contenido es Impulso VIP V2 completo (Fases 0-6).
+- **Ya pusheado a `origin/main` en esta sesión** (dos tandas, cada commit
+  aplicado con cherry-pick directo sobre `origin/main` para no arrastrar
+  Impulso VIP — por eso los hashes en remoto son distintos a los locales
+  aunque el contenido sea el mismo):
+  - Fix real recuperado de un commit huérfano (ver abajo) — avance incorrecto
+    de Impulso VIP durante la sesión activa.
+  - Video de ejercicio reproduciéndose inline en la Biblioteca (antes solo
+    foto + botón a overlay).
+  - Botón "Actualizar catálogo" conectado (existía pero no se renderizaba en
+    ninguna pantalla) + link "1 · Cargar" corregido (llevaba a Biblioteca en
+    vez de a Carga masiva).
+  - Saludo "Hola, {nombre}" en la pantalla principal de Entrenar (portal-v2)
+    y versión real de la app (commit corto de Vercel) al final de "Más".
+  - Este mismo documento.
+- **Sin pushear, a propósito** (regla explícita, ver arriba): Fases 0-6 de
+  Impulso VIP V2 completas en el working tree/`main` local, sin probar en
+  vivo con una sesión real de entrenamiento.
+- Rama local extra `recuperado/portal-v1-organizacion`: apunta a un commit
+  que estuvo a punto de perderse (ver "Commit recuperado" abajo). Ya está
+  fusionado en `main` — esta rama es solo un respaldo, se puede borrar
+  cuando alguien confirme que ya no hace falta como referencia.
 - Sin worktrees activos salvo el checkout principal (`C:\dev\vip-fitness`).
-- Ramas remotas: solo `main` y `feature/rediseno-entrenar-clasico` (ver
-  abajo). Las otras 19 ramas vivas al empezar esta limpieza (2026-08-21) se
-  compararon funcionalmente contra `main` —no solo por hash— y se borraron
-  por estar 100% absorbidas.
-- `respaldo-cloud-ia-2026-08-09.bundle` (2.21 GB, confirmado redundante:
-  cada commit/tag/rama que contiene ya está en `main` o en GitHub) vive en
-  `C:\dev\vip-fitness-backups\2026-08-09-respaldo-cloud-ia\`, fuera del
-  repo activo. No se borró — decisión pendiente del usuario, sin apuro.
-- `.claude/settings.local.json` está correctamente excluido (ignorado, no
-  rastreado).
-- `_fotos_ejercicios_staging/` (340 MB) NO es caché: está versionado en git
-  a propósito, con seguimiento propio en `_pendientes_procesamiento.md`
-  (que a su vez dice que el trabajo de fotos ya fue procesado el 14/08).
-  No tocar sin releer ese archivo primero.
-- Commit `199e033` ("reiniciar sesion/plan, sacar bloqueo de cupo, avisar
-  cupo agotado") lo hizo otra sesión de Claude trabajando en paralelo sobre
-  este mismo `main` el 2026-08-21/22 — no forma parte de esta limpieza, se
-  documenta acá solo para que quede el rastro de por qué `main` avanzó
-  durante la sesión de limpieza.
+  El worktree `C:\dev\vip-fitness-v1-claude` mencionado en handoffs previos
+  **ya no existe** — se borró en algún momento sin que quedara registro de
+  quién ni cuándo; solo sobrevivía una carpeta `.next` vacía. Su único
+  commit real se recuperó (ver abajo). Si en algún momento se vuelve a crear
+  un worktree aislado para trabajo paralelo, **no lo borres nunca sin
+  primero confirmar que su trabajo está mergeado o descartado a propósito**
+  — así se perdió este.
+- Archivos sueltos sin trackear, no tocados esta sesión (no son míos, no sé
+  su origen): `INSTRUCTIVO_CLAUDE_CLUB_VIP_V2.md` en la raíz y
+  `supabase/.temp/` (carpeta de trabajo del CLI de Supabase, probablemente
+  se puede gitignorar).
+- Resto del estado (ramas remotas, backup bundle, `_fotos_ejercicios_staging/`)
+  sin cambios desde la última vez que se confirmó — ver el historial de este
+  documento si hace falta el detalle exacto.
+
+## Commit recuperado: fix real de Impulso VIP que casi se pierde
+
+Hallazgo de esta sesión, documentado en detalle porque puede volver a pasar.
+`HANDOFF_CLAUDE_PORTAL_V1_RESULTADO.md` e `INVENTARIO_CONTROL_PORTAL_V1.md`
+(21-ago, 23:04) describen una sesión de Claude que trabajó en el worktree
+`vip-fitness-v1-claude` (rama `claude/portal-v1-organizacion`) y dejó un
+commit real, firmado con la cuenta de Alejandro, que corregía un bug
+prioritario: la encuesta general de fin de ejercicio se habilitaba antes de
+que el alumno viera el resultado de un reto de Impulso VIP, tapándolo. Ese
+commit **nunca se mergeó ni se pusheó**, y el worktree se borró — el commit
+quedó como objeto huérfano en la base de git, a un `git gc` de desaparecer
+para siempre. Ninguno de los handoffs consolidados posteriores lo mencionaba.
+
+Se recuperó (`git fsck --unreachable`, rama de respaldo
+`recuperado/portal-v1-organizacion`), se comparó contra el fix equivalente
+que **otra sesión ya había hecho de forma independiente un día después**
+(mismo bug, mejor UX pero con una regla más laxa para mensajes personales de
+Ale), se reconciliaron ambas versiones quedándose con lo mejor de cada una, y
+se verificó con el gate completo. Ya está pusheado a `origin/main`.
+
+**Lección para la próxima sesión**: antes de dar por completo un
+relevamiento de "qué falta", vale la pena correr `git fsck --unreachable`
+sobre el repo — puede haber más commits huérfanos de sesiones que se
+cortaron sin avisar. Esta sesión encontró ~50 más, pero corresponden a la
+limpieza de ramas ya documentada y revisada del 2026-08-21 (no son casos
+nuevos, se confirmó comparando mensajes de commit y fechas).
 
 ## Pendientes reales, consolidados por área
 
-### Videos de ejercicios atascados en "procesando" — RESUELTO esta sesión
-Empezó por dos capturas de Alejandro ("Curl con barra EZ" y "Curl en banco
-predicador" sin reproducirse en `/portal-v2`). Causa raíz: 17 ejercicios
-con `ejercicios.video_cloudflare_estado = 'procesando'` (algunos desde hacía
-23 días), y `videoCloudflareListo` exige literalmente `estado === "listo"`
-para reproducir el clip. Conseguido un token válido de la cuenta correcta de
-Cloudflare Stream, se corrió `sincronizarVideoCloudflare` contra los 17 y
-quedó verificado en la base real (2026-08-22): **0 ejercicios en
-"procesando"** (`select count(*) from ejercicios where
-video_cloudflare_estado = 'procesando'` → 0; los dos casos originales están
-en `"listo"`). No fue necesario escribir código nuevo.
+### Galería/videos de ejercicios — relevamiento hecho, 1 de 2 candidatos corregido
+Pedido explícito de Alejandro: mapear todas las secciones de `/portal-v2`
+que muestran video de ejercicio, y decir cuáles siguen con el patrón viejo
+(foto quieta + botón que abre un overlay a pantalla completa) en vez del
+nuevo (video reproduciéndose dentro de su propio recuadro). Relevamiento
+completo hecho esta sesión — 12 secciones revisadas, la mayoría solo muestra
+foto sin video. Dos candidatos encontrados:
 
-**Sigue sin hacerse** (pedido explícito de Alejandro, aparte del bug): un
-relevamiento de TODAS las secciones de `/portal-v2` que muestran video (no
-solo la sesión activa), con una lista concreta de dónde debe reproducirse
-cada clip dentro de su recuadro — nunca la versión vieja de foto+overlay a
-pantalla completa. Esta sesión no llegó a hacer ese relevamiento.
+1. **`BibliotecaEjerciciosV2.tsx` (ficha de detalle)** — **CORREGIDO** esta
+   sesión. Ahora reproduce el video inline (mudo, automático) dentro del
+   recuadro, igual que ya hacía `FichaEjercicioActiva`; el botón se
+   renombró a "Ampliar video" para la misma opción de siempre (ver con
+   sonido/controles en overlay), no se sacó nada.
+2. **`FichaEjercicioActiva` en `SesionActivaV2.tsx`** — **sin tocar, a
+   propósito**. Ya tiene el mecanismo nuevo (inline) como comportamiento
+   base, pero conserva el botón "Ampliar video" que abre el overlay viejo
+   como acción secundaria explícita (ver con sonido). No quedó claro si esto
+   cuenta como el "antipatrón a corregir" o como un uso legítimo — pendiente
+   de que Alejandro decida antes de tocarlo.
 
-### Impulso VIP V2 — Fases 0 a 5 implementadas en el working tree, nada pusheado
+También encontrado (fuera de portal-v2, no se tocó): `SesionEjercicioCard.tsx`
+(ruta clásica `/alumno/entrenar`) tiene un modo "video ambiente en el
+cuadro" ya construido pero apagado a propósito
+(`VIDEO_EN_CUADRO_ACTIVO = false`, comentario de Alejandro 2026-08-17 sobre
+no poder verificarlo en su momento) — podría ser la referencia si algún día
+se quiere portar el mismo enfoque a más lugares.
+
+### Panel de administración `/admin/ejercicios` — auditoría hecha, 3 de alta confianza corregidos, 2 preguntas abiertas
+Pedido de Alejandro: "tiene cosas que nunca se usan". Auditoría completa de
+`GaleriaEjercicios.tsx` (3847 líneas), `actions.ts`, `ingestaActions.ts`,
+`multimediaActions.ts`. Hallazgo tranquilizador: el sistema de "ingesta"
+(carga masiva) **no duplica** la subida de archivos — reusa las mismas
+Server Actions clásicas por debajo, solo agrega una capa de persistencia de
+cola encima. El temor de "dos sistemas paralelos" de una auditoría anterior
+no se confirmó a nivel de servidor.
+
+Corregidos esta sesión (ya pusheados):
+- `BotonRefrescarCatalogo.tsx` estaba completo y funcional pero nunca se
+  renderizaba en ninguna pantalla — **conectado** en el header de
+  `/admin/ejercicios` y `/control-vip/galeria` (no se borró: resuelve un
+  problema real, forzar el refresco del caché de 1h cuando se edita la
+  tabla de ejercicios directo en Supabase).
+- La tarjeta "1 · Cargar" del header llevaba a la pestaña Biblioteca en vez
+  de a Carga masiva — **corregido** el link y agregado el ancla
+  `#carga-masiva-ejercicios` que faltaba en `GaleriaEjercicios.tsx`.
+- Comentario desactualizado que decía "4 pestañas" cuando ya son 6 (se
+  agregaron "Mesa" y "Referencia" sin actualizar el comentario) —
+  **corregido**.
+
+**Dos preguntas sin responder, hechas a Alejandro, sin decisión tomada
+todavía** — no tocar sin su respuesta:
+1. Hay dos lugares distintos para subir/cambiar una foto de un ejercicio
+   (pestaña "Mesa" y el modal de "Biblioteca") — es intencional por diseño
+   (comentario explícito en el código), pero ¿usa las dos en el día a día o
+   sobra una?
+2. La pestaña "Mesa" y la pestaña "Pendientes" muestran en parte el mismo
+   problema (reclamos de fotos de alumnos) de dos formas distintas — ¿usa
+   las dos, o conviene unificar?
+
+Hallazgo menor, no corregido (muy bajo impacto): `guardarVideoEjercicio` en
+`actions.ts` está exportada pero solo se llama desde dentro del mismo
+archivo — se podría sacar el `export`, cosmético.
+
+### Impulso VIP V2 — Fases 0-6 completas en `main` local, sin pushear
 Documento vigente: `INSTRUCTIVO_CLAUDE_IMPULSO_VIP_V2_PUNTA_A_PUNTA.md`
-(prevalece sobre cualquier indicación anterior ambigua, 8 fases). Contexto
-histórico: `HANDOFF_IMPULSO_VIP_CLAUDE.md` (encargo original, ya superado).
-Esta sesión (2026-08-22) avanzó fase por fase con reporte y autorización de
-Alejandro entre cada una. **Nada de esto está pusheado ni desplegado** — sigue
-solo en el working tree local, esperando autorización expresa antes de push
-(regla explícita del instructivo y de `CLAUDE.md`). Gate completo (eslint,
-`tsc --noEmit`, vitest, `next build`) verde en todas las fases.
+(8 fases). Contexto histórico: `HANDOFF_IMPULSO_VIP_CLAUDE.md` (encargo
+original, superado). Gate completo (`tsc --noEmit`, lint, vitest, `next
+build`) verde en todo lo implementado hasta ahora.
 
-- **Fase 0 (auditoría)**: confirmó en vivo que los 4 diagnósticos del
-  instructivo seguían vigentes (mancuernas sin cap de salto, historial no
-  comparable entre asignaciones, un solo tipo de intervención, sin línea de
-  tiempo de sesión).
-- **Fase 1 (política de carga)**: `src/lib/impulso-vip/politica-carga.ts`
-  (nuevo, funciones puras) — cap real de 2.5kg/decisión para mancuernas
-  (antes saltaba libre), snap a inventario real si existe. `alejandro.ts` y
-  `motor.ts` reescritos para usarlo.
-- **Fase 2 (historial comparable)**: `data.ts`/`politica-carga.ts` — el
-  historial que alimenta el motor ahora cruza distintas asignaciones del
-  mismo ejercicio (antes solo miraba una), con guarda de anomalías
-  (`esComparableEntreAsignaciones`) para no mezclar peso-unitario con
-  suma-del-par.
-- **Fase 3 (orquestador de 5 clases)**: `en-vivo.ts` — implementó
-  orientación/adaptación/seguridad/reto (reconocimiento sigue sin lógica de
-  disparo, ver pendientes). Encontró y corrigió 2 bugs de ciclo de vida
-  propios de esta fase antes de reportarla: el gate de calibración RIR no
-  distinguía clase, y `limitarMomentosPorPreparacion` recortaba
-  posicionalmente sin importar la clase (podía tapar un aviso de seguridad).
-- **Fase 4 (experiencia Portal V2)**: `SesionActivaV2.tsx`/`.module.css` —
-  reto sigue siendo el modal a pantalla completa sin cambios; orientación/
-  adaptación/seguridad ahora es una banda no bloqueante arriba de la
-  pantalla. Etiqueta "kg c/u" en mancuernas (`etiquetaPeso()`). Verificado
-  en navegador real (no solo tipos/tests): encontró y corrigió un bug
-  encontrado en vivo — completar la serie sin tocar "descartar" dejaba la
-  banda pegada en pantalla (el auto-resuelto silencioso no limpiaba el
-  estado ni corría en modo demo).
-- **Fase 5 (control del entrenador) — 2 de 7 puntos, el resto pendiente**:
-  auditó los 7 puntos del instructivo contra el código real antes de tocar
-  nada (evitó duplicar lo que ya existía). Hechos: **configuración por
-  asignación** (`ConfiguracionProgresionPanel.tsx`, nuevo — progresión on/off,
-  tipo, salto de carga, RIR objetivo por ejercicio; antes solo se podía fijar
-  una vez al generar la rutina y `rir_objetivo` no tenía ninguna UI) y
-  **explicación de la decisión** (`ExplicacionRecomendacionesPanel.tsx`,
-  nuevo, solo lectura — regla, motivos y qué historial se usó por cada
-  recomendación reciente; deliberadamente NO muestra una "confianza"
-  inventada porque el motor no calcula ni persiste ese dato por alumno hoy).
-  Verificado con queries reales contra producción (solo lectura, vía MCP de
-  Supabase) además del gate completo — no con captura de pantalla real
-  porque esta ruta no tiene modo demo sin sesión de entrenador/admin.
-  **Pendiente, sin empezar**: configuración de carga del ejercicio (falta
-  modelo de datos: modalidad, etiqueta, inventario — hoy solo existe un
-  `equipo` de texto libre), línea de tiempo de sesión, simulador. El punto
-  "anomalías de carga" de esta fase se pisa con toda la Fase 6 (ver abajo) —
-  decisión: resolverlo ahí directamente, no duplicar una cola de revisión.
-- **Fases 6 y 7**: sin empezar. Fase 6 (auditoría de datos históricos) tiene
-  un caso de prueba ya identificado en el instructivo (Nicolás,
-  15/16/20/32/35). Fase 7 (despliegue gradual) depende de que Alejandro
-  autorice expresamente el push, y de que las fases anteriores estén
-  cerradas.
+- **Fases 0-4**: sin cambios desde la sesión anterior — ver el historial de
+  este documento si hace falta el detalle fase por fase.
+- **Fase 5 (control del entrenador) — sigue en 2 de 7 puntos.** Hechos:
+  configuración por asignación, explicación de la decisión. **Pendiente**:
+  configuración de carga del ejercicio (falta modelo de datos: modalidad,
+  etiqueta, inventario), línea de tiempo de sesión, simulador, intervención
+  personal manual desde el panel.
+- **Fase 6 (auditoría de datos históricos) — COMPLETA esta sesión.** Motor
+  de detección puro y testeado (`src/lib/impulso-vip/anomalias-carga.ts`, 10
+  tests) que marca 3 de las 6 señales que pide el instructivo: salto que
+  aproximadamente duplica el peso entre sesiones (mezcla probable de peso
+  unitario con suma del par), salto que excede el límite duro del equipo, e
+  inconsistencia dentro de una misma sesión. Las otras 3 (inventario real,
+  oscilación unitario/total, patrón artificial de corrección) no se
+  implementaron — falta modelo de datos que no existe todavía, documentado
+  en el propio código en vez de inventar una detección sin base real.
+  - **Verificado con datos reales de producción**, no solo con tests: el
+    caso obligatorio del instructivo (Nicolás Albornoz, elevaciones
+    laterales, registros 15/16/20/32/35 kg) se confirmó exacto contra la
+    base real, y el motor detecta 7 anomalías reales en su historial —
+    reveló que son 3 asignaciones del mismo ejercicio corriendo en paralelo,
+    una de ellas aparentemente registrando la suma del par en vez del peso
+    unitario.
+  - **Migración 0121 aplicada y verificada en producción** (tabla
+    `impulso_vip_anomalias_clasificaciones`, aditiva, RLS con
+    `es_admin_o_entrenador()`). Verificado con un insert/delete de prueba
+    (borrado después) y confirmando la política real vía
+    `select policyname from pg_policies where tablename = '...'` — no solo
+    con la clave de service role, que se salta RLS por diseño.
+  - Panel nuevo en la ficha del alumno (`AnomaliasCargaPanel.tsx`): cola de
+    revisión, el entrenador clasifica cada anomalía como error/válida/
+    ignorada sin tocar nunca `series_realizadas` — conserva el dato
+    original, registra quién decidió qué y cuándo.
+  - QA propio antes de commitear encontró y corrigió un bug real (comparador
+    de ordenamiento inválido que no devolvía 0 para fechas iguales).
+  - **Interpretación más estrecha que el texto del instructivo**: "mismo día
+    aparecen convenciones incompatibles" se implementó como "misma sesión"
+    (una sola instancia de entrenamiento), no literalmente "mismo día
+    calendario" (dos sesiones distintas el mismo día) — en la práctica los
+    otros dos criterios suelen capturar ese caso igual, pero no es 100% lo
+    mismo si hace falta ser exacto.
+  - **Limitación heredada, no nueva**: ejercicios de "peso corporal" con
+    carga extra (ej. dominadas con lastre) pueden generar falsos positivos
+    porque `limiteIncrementoKg` ya devuelve 0kg para ese equipo desde la
+    Fase 1 — es el mismo comportamiento que ya tiene el motor en vivo, no
+    algo que esta fase haya introducido.
+- **Fase 7 (despliegue gradual)**: sin empezar. Depende de que Alejandro
+  autorice expresamente el push, y de que las Fases 5 anteriores estén
+  cerradas y **probadas en vivo** — nada de Impulso VIP V2 se probó todavía
+  con una sesión de entrenamiento real, ni las Fases 0-5 ni la 6.
 
-Huecos documentados a propósito, no bugs: la clase "reconocimiento" nunca
-tuvo lógica de disparo definida (¿cuándo confirma algo breve? no hay spec);
+Huecos documentados a propósito, no bugs (sin cambios): la clase
+"reconocimiento" nunca tuvo lógica de disparo definida;
 `seleccionarDestacadosSesion` en `en-vivo-data.ts` limita a 1-2 ejercicios
-por sesión sin distinguir clase, así que un aviso de seguridad en un
-ejercicio no destacado todavía no se muestra.
+por sesión sin distinguir clase.
 
-### Club VIP V2 — propuesta aprobada, sin empezar, NO tocar todavía
-Documento: `INSTRUCTIVO_CLAUDE_CLUB_VIP_V2.md` (2026-08-22, 1555 líneas — no es
-trabajo de esta sesión, lo escribió otra sesión de Claude en paralelo sobre
-este mismo `main`). Reemplaza Ranking + Comunidad por un destino nuevo
-"Club" en la barra inferior de Portal V2 (Entrenar/Nutrición/Dashboard/
-Club/Más — sin "Inicio"), con 4 pestañas (Hoy/Arena/Comunidad/Premios)
-reproduciendo una maqueta HTML aprobada pixel a pixel. Reescribe además toda
-la economía de puntos en un libro contable nuevo append-only
-(`club_vip_movimientos`), separando XP de carrera / Saldo VIP / Puntaje de
-temporada — hoy todo eso vive mezclado en `puntos_vip_movimientos`.
+### Club VIP V2 — propuesta aprobada, sin empezar, sigue bloqueada
+Documento: `INSTRUCTIVO_CLAUDE_CLUB_VIP_V2.md` (2026-08-22, 1555 líneas).
+Sigue bloqueada por la misma razón que antes: la sección 22.2 de ese
+instructivo liquida la bonificación de Impulso VIP dentro del mismo libro
+contable nuevo que propone, y Impulso VIP En Vivo sigue sin pushear ni
+aprobar (ahora con Fase 6 sumada, el acoplamiento es aún mayor). No es
+simple orden de prioridad, es una dependencia real de datos y de código.
 
-**Por qué esperar**: la sección 22.2 de ese instructivo liquida la
-bonificación de Impulso VIP (máx. 60 por sesión) dentro de ese mismo libro
-contable nuevo — exactamente la pieza que esta sesión estuvo reescribiendo en
-paralelo (ver Impulso VIP arriba) sin haberla commiteado hasta ahora. `CLAUDE.md`
-ya lo marca explícito: no empezar Club VIP V2 hasta que Impulso VIP En Vivo
-quede cerrado y aprobado, para no duplicar ni chocar. Como esta sesión recién
-commiteó Fases 0-5 de Impulso VIP (sin pushear ni aprobar todavía), Club VIP
-V2 sigue bloqueado por ese motivo — no es simple orden de prioridad, es una
-dependencia real de datos.
-
-### Rediseño "Entrenar" (portal clásico) — primera sesión de varias
+### Rediseño "Entrenar" (portal clásico) — sin cambios
 Rama: `feature/rediseno-entrenar-clasico` (viva en GitHub, sin PR a
-propósito — se abre cuando el bloque completo esté terminado, acuerdo
-vigente con Alejandro). Handoff: `HANDOFF_REDISENO_PORTAL_CLASICO.md` en esa
-misma rama. Último commit ahí: `8806203`. Arrancó por pedido de Alejandro
-tras probar la pantalla como entrenador y encontrarla confusa comparada con
-portal-v2.
+propósito). Handoff: `HANDOFF_REDISENO_PORTAL_CLASICO.md` en esa misma
+rama. Sin actividad esta sesión.
 
-### Generador de Rutinas VIP — 7 pendientes abiertos
-Documento: `HANDOFF_GENERADOR_RUTINAS_CLAUDE.md` (sigue siendo "trabajo
-activo" en `CLAUDE.md`). En orden recomendado por ese mismo documento:
+### Generador de Rutinas VIP — 7 pendientes abiertos, sin cambios
+Documento: `HANDOFF_GENERADOR_RUTINAS_CLAUDE.md`. En orden recomendado por
+ese mismo documento:
 1. Selector de ejercicios y vista previa fuera del generador.
 2. ~~Multi-alumno real~~ — resuelto, commit `16e9bbd`.
 3. Metadatos de ejercicios editables en la galería administrativa +
    selección visual de sustitutos.
-4. Sub-grupos de pierna / enfoque de forma como dato estructurado (hoy es
-   heurística por nombre en `motor.ts`).
-5. Reemplazo y regeneración parcial (un ejercicio, un día, sin destruir el
-   resto del borrador).
+4. Sub-grupos de pierna / enfoque de forma como dato estructurado.
+5. Reemplazo y regeneración parcial (un ejercicio, un día).
 6. Usar historial + Impulso VIP para orientar el Generador.
 7. Modelar disponibilidad de sala (máquinas, estaciones, capacidad).
 8. CRUD visual de técnicas de entrenamiento.
-9. Este mismo punto: ordenar los `.md` sueltos de la raíz.
+9. Ordenar los `.md` sueltos de la raíz (ver sección final).
 
-### Control VIP V2 (panel nuevo del entrenador) — Fases 0-6 ya en producción
-Documentos: `docs/PROYECTO_CONTROL_VIP_V2.md` (visión original),
-`docs/CONTROL_VIP_V2_INVENTARIO.md` (inventario de rutas/permisos, léelo
-antes de tocar nada de `/control-vip/**`). Pendiente si se retoma:
-- Estudio VIP: restringir "publicar" a solo el propietario (hoy cualquier
-  entrenador/admin con el piloto activado puede publicar).
+### Control VIP V2 (panel nuevo del entrenador) — Fases 0-6 en producción, sin cambios
+Documentos: `docs/PROYECTO_CONTROL_VIP_V2.md`, `docs/CONTROL_VIP_V2_INVENTARIO.md`
+(léelo antes de tocar `/control-vip/**`). Pendiente si se retoma:
+- Estudio VIP: restringir "publicar" a solo el propietario.
 - Comparación visual entre versiones del historial de Estudio VIP.
-- Comando global (`Ctrl/Cmd+K`) todavía no busca ejercicios ni rutinas
-  guardadas, solo destinos y alumnos.
+- Comando global (`Ctrl/Cmd+K`) todavía no busca ejercicios ni rutinas.
 - `/admin/configuracion` y notificaciones del entrenador sin pantalla V2:
-  decisión deliberada (bajo valor), no un olvido.
+  decisión deliberada, no un olvido.
 
-### Portal V2 (alumno) — dos pendientes menores, pedido de Alejandro 2026-08-22 — RESUELTOS esta misma sesión
-1. **Nombre del alumno en la pantalla principal de Entrenar** — hecho en
-   `EntrenamientoInicioV2.tsx`: "Hola, {primer nombre} · ..." en la línea de
-   fase, mismo patrón que ya usaba `ProgresoDashboardV2.tsx`. `nombre` llega
-   como prop nueva desde `portal-v2/entrenamiento/page.tsx`
-   (`contexto.nombre`, ya disponible ahí, sin consulta nueva).
-2. **Versión de la app al final de "Más"** — hecho en `MasV2.tsx`: se
-   completó una línea que ya existía como placeholder
-   (`VIP FITNESS V2 · MÉTODO VIP`) con el commit corto de Vercel
-   (`leerDespliegueActual()` de `novedades-deploy.ts`, el mismo mecanismo ya
-   probado que alimenta el historial de Novedades — no se inventó una fuente
-   nueva). Solo aparece en producción; en local/preview la línea queda igual
-   que antes, sin versión.
+### Portal V2 (alumno) — dos pendientes menores, RESUELTOS y PUSHEADOS esta sesión
+1. Saludo "Hola, {primer nombre}" en la pantalla principal de Entrenar.
+2. Versión real de la app (commit corto de Vercel) al final de "Más".
 
 No se tocó el panel admin (`/admin/mas`) — el pedido fue específicamente
-sobre portal-v2. Verificado: tsc, lint, 710 tests, build, todo verde.
+sobre portal-v2.
 
-## Pendiente sin dueño claro: orden de los 58 `.md` de la raíz
+## Pendiente sin dueño claro: orden de los `.md` de la raíz
 
-No se auditó archivo por archivo en esta sesión (se decidió no hacerlo sin
-pedido explícito). Candidatos obvios a revisar/archivar en una próxima
-pasada, por nombre: la serie `HANDOFF_1.md` a `HANDOFF_1.33.md` (33
-archivos, casi con certeza historial de sesiones muy viejas ya superadas por
-documentos con nombre propio como este), más `CONTINUIDAD_PROYECTO.md`,
+Sin cambios esta sesión — sigue sin auditar archivo por archivo. Candidatos
+obvios a revisar/archivar en una próxima pasada, por nombre: la serie
+`HANDOFF_1.md` a `HANDOFF_1.33.md`, más `CONTINUIDAD_PROYECTO.md`,
 `HANDOFF_FINAL.md`, `HANDOFF_CLAUDE_2026-07-30.md`,
 `RECUPERACION_POST_D20A18B.md`, `INFORME_ERROR_SCROLL_NUTRICION.md`,
 `INFORME_ENTRENAMIENTO_ACTIVO_2026-08-14.md`. No se confirmó contenido de
-ninguno — antes de borrar o mover cualquiera, hay que leerlo entero, igual
-que se hizo con los archivos del worktree de Codex en la limpieza del
-2026-08-21.
+ninguno — leer entero antes de borrar o mover cualquiera.
+
+## Historial de este documento
+
+- **2026-08-22, versión original**: creado tras la limpieza de ramas/backups
+  del 2026-08-21, documentaba el cierre de Fases 0-5 de Impulso VIP V2 (sin
+  pushear) y el relevamiento de video pendiente.
+- **2026-08-22, esta actualización**: sesión posterior, mismo día. Recuperó
+  un commit huérfano con un fix real de Impulso VIP (ya pusheado), hizo el
+  relevamiento de video pendiente (1 de 2 candidatos corregido, ya
+  pusheado), auditó y corrigió cosas sin usar en `/admin/ejercicios` (ya
+  pusheado), completó la Fase 6 de Impulso VIP V2 (verificada con datos
+  reales, migración aplicada, sin pushear por el acoplamiento con Fase 5), y
+  resolvió dos pedidos de personalización de portal-v2 (ya pusheados).
