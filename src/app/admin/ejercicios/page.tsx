@@ -10,6 +10,7 @@ import {
 import { GaleriaEjercicios, type ReporteFotoPendiente } from "@/components/admin/GaleriaEjercicios";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
+import { BotonRefrescarCatalogo } from "@/components/admin/BotonRefrescarCatalogo";
 import { CircleAlert, Dumbbell, Images, Smartphone, Upload, WandSparkles } from "lucide-react";
 import { obtenerInventarioUsosRutina } from "@/lib/ejercicios/inventario";
 import { obtenerCambiosRecientesMultimedia } from "@/app/admin/ejercicios/multimediaActions";
@@ -67,10 +68,11 @@ export default async function EjerciciosAdminPage() {
           <Link href="/admin/ejercicios#biblioteca-ejercicios" className="btn-accion radius-control flex min-h-10 items-center justify-center gap-2 px-3 text-xs font-bold"><Upload size={15} /> Subir o crear</Link>
           <Link href="/admin/estudio-vip" className="boton-panel-secundario"><Smartphone size={15} /> Estudio VIP</Link>
           <Link href="/admin/generador" className="boton-panel-secundario"><WandSparkles size={15} /> Usar en rutina</Link>
+          <BotonRefrescarCatalogo />
         </>}
       />
       <section className="grid gap-3 md:grid-cols-3" aria-label="Flujo recomendado de multimedia">
-        <a href="#biblioteca-ejercicios" className="admin-panel-card rounded-2xl p-4 transition hover:border-vip/40"><span className="text-[10px] font-black uppercase tracking-widest text-vip">1 · Cargar</span><strong className="mt-2 block text-sm text-text">Archivos individuales o masivos</strong><p className="mt-1 text-xs leading-relaxed text-text-secondary">Arrastra fotos y videos; el sistema relaciona nombres, conserva la cola y permite reintentar.</p></a>
+        <a href="#carga-masiva-ejercicios" className="admin-panel-card rounded-2xl p-4 transition hover:border-vip/40"><span className="text-[10px] font-black uppercase tracking-widest text-vip">1 · Cargar</span><strong className="mt-2 block text-sm text-text">Archivos individuales o masivos</strong><p className="mt-1 text-xs leading-relaxed text-text-secondary">Arrastra fotos y videos; el sistema relaciona nombres, conserva la cola y permite reintentar.</p></a>
         <a href="#biblioteca-ejercicios" className="admin-panel-card rounded-2xl p-4 transition hover:border-vip/40"><span className="text-[10px] font-black uppercase tracking-widest text-vip">2 · Revisar</span><strong className="mt-2 block text-sm text-text">Vista exacta del alumno</strong><p className="mt-1 text-xs leading-relaxed text-text-secondary">Comprueba portada, clip, técnica, calidad y faltantes antes de usar el ejercicio.</p></a>
         <a href="#reportes-ejercicios" className="admin-panel-card rounded-2xl p-4 transition hover:border-vip/40"><span className="text-[10px] font-black uppercase tracking-widest text-vip">3 · Reparar</span><strong className="mt-2 block text-sm text-text">Versiones, fusiones y reportes</strong><p className="mt-1 text-xs leading-relaxed text-text-secondary">Restaura fotos, repara vínculos, combina duplicados y resuelve avisos sin perder historial.</p></a>
       </section>
@@ -81,6 +83,7 @@ export default async function EjerciciosAdminPage() {
       </section>
       <section id="biblioteca-ejercicios" className="admin-panel-card scroll-mt-28 rounded-3xl p-4 md:p-5">
         <span id="reportes-ejercicios" className="block scroll-mt-28" />
+        <span id="carga-masiva-ejercicios" className="block scroll-mt-28" />
         <GaleriaEjercicios ejercicios={biblioteca} reportes={reportes} usosPorEjercicio={inventario.usosPorEjercicio} nombresRutinaSinVincular={inventario.nombresSinVincular} historialFusiones={historialFusiones} versionesAnterioresFotos={versionesAnterioresFotos} ejerciciosIncompletos={ejerciciosIncompletos} cambiosRecientesMultimedia={cambiosRecientesMultimedia} itemsIngestaHuerfanos={itemsIngestaHuerfanos} />
       </section>
     </div>

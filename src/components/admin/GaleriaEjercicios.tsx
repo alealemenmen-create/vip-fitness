@@ -690,9 +690,11 @@ export function GaleriaEjercicios({
   // Un timestamp nunca se repite entre sesiones.
   // Antes todo (34 reportes, duplicados, 124 ejercicios) vivía apilado en una
   // sola pantalla de más de 40.000px de alto en celular — había que bajar
-  // muchísimo para llegar a la biblioteca de fotos. Se reparte en 4 pestañas
-  // (sección 8.1 del instructivo de reorganización): Pendientes abre primero
-  // si hay trabajo, si no abre Biblioteca directamente.
+  // muchísimo para llegar a la biblioteca de fotos. Se reparte en pestañas
+  // (sección 8.1 del instructivo de reorganización, que preveía 4: Pendientes,
+  // Biblioteca, Carga masiva, Calidad; se sumaron después "Mesa" y
+  // "Referencia"): Pendientes abre primero si hay trabajo, si no abre
+  // Biblioteca directamente.
   const [pestana, setPestana] = useState<"pendientes" | "mesa" | "biblioteca" | "carga" | "calidad" | "referencia">(
     reportes.length > 0 ? "pendientes" : "biblioteca"
   );
@@ -710,6 +712,7 @@ export function GaleriaEjercicios({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (window.location.hash === "#inventario-ejercicios") setPestana("referencia");
     else if (window.location.hash === "#reportes-ejercicios") setPestana("pendientes");
+    else if (window.location.hash === "#carga-masiva-ejercicios") setPestana("carga");
     else if (window.location.hash === "#biblioteca-ejercicios") setPestana("biblioteca");
   }, []);
   const [erroresFoto, setErroresFoto] = useState<ReadonlySet<string>>(new Set());
