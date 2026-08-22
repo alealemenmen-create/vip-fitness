@@ -124,7 +124,7 @@ const ZONA_POR_GRUPO: Partial<Record<Ejercicio["grupoMuscular"], string>> = {
  * "banca" por ningún lado, así que comparando solo contra el alias, un "press
  * de hombro en Smith" pasaba el veto y se llevaba la foto del pecho.
  */
-function zonasDelEjercicio(ejercicio: Ejercicio, nombreCoincidente: string): Set<string> {
+function zonasDelEjercicio(ejercicio: EjercicioParaEmparejar, nombreCoincidente: string): Set<string> {
   const zonas = zonasMencionadas(clave(ejercicio.nombre));
   for (const zona of zonasMencionadas(clave(nombreCoincidente))) zonas.add(zona);
   const porGrupo = ZONA_POR_GRUPO[ejercicio.grupoMuscular];
@@ -172,13 +172,22 @@ function equipoMencionado(textoNormalizado: string): EquipoEjercicio | null {
 
 export type ConfianzaEjercicio = "exacta" | "alta" | "media";
 
-export type EmparejamientoEjercicio = {
-  ejercicio: Ejercicio;
+/**
+ * Lo mínimo que necesita este archivo para emparejar — genérico sobre `T`
+ * (que en la práctica casi siempre es `Ejercicio` completo, pero
+ * `RutinaDraftEditor.tsx` solo tiene la versión liviana `EjercicioBiblioteca`
+ * que le pasa el servidor) para no obligar a nadie a armar un `Ejercicio`
+ * completo con 25 campos de relleno solo para poder emparejar un nombre.
+ */
+export type EjercicioParaEmparejar = Pick<Ejercicio, "id" | "nombre" | "slug" | "aliases" | "grupoMuscular" | "equipo">;
+
+export type EmparejamientoEjercicio<T extends EjercicioParaEmparejar = Ejercicio> = {
+  ejercicio: T;
   confianza: ConfianzaEjercicio;
 } | null;
 
 /** Todas las formas de nombrar un ejercicio: su nombre, su slug y sus alias. */
-function nombresDe(ejercicio: Ejercicio): string[] {
+function nombresDe(ejercicio: EjercicioParaEmparejar): string[] {
   return [ejercicio.nombre, ejercicio.slug.replace(/-/g, " "), ...ejercicio.aliases];
 }
 
@@ -213,10 +222,10 @@ function variantes(nombrePdf: string): string[] {
   return lista;
 }
 
-export function emparejarEjercicio(
+export function emparejarEjercicio<T extends EjercicioParaEmparejar>(
   nombrePdf: string,
-  biblioteca: Ejercicio[]
-): EmparejamientoEjercicio {
+  biblioteca: T[]
+): EmparejamientoEjercicio<T> {
   for (const [i, variante] of variantes(nombrePdf).entries()) {
     const r = emparejarExacto(variante, biblioteca);
     // Solo el nombre tal cual puede dar confianza máxima: si hubo que recortar
@@ -262,10 +271,10 @@ export function detectarAliasEnDisputa(biblioteca: Ejercicio[]): AliasEnDisputa[
     .sort((a, b) => a.alias.localeCompare(b.alias, "es", { sensitivity: "base" }));
 }
 
-function emparejarExacto(
+function emparejarExacto<T extends EjercicioParaEmparejar>(
   nombrePdf: string,
-  biblioteca: Ejercicio[]
-): EmparejamientoEjercicio {
+  biblioteca: T[]
+): EmparejamientoEjercicio<T> {
   const objetivo = clave(nombrePdf);
   if (!objetivo) return null;
 
@@ -284,7 +293,7 @@ function emparejarExacto(
    * inclinaba la balanza cuando dos candidatos empataban en puntaje; si el de
    * barra puntuaba un poco más alto, ganaba igual.
    */
-  function vetado(ejercicio: Ejercicio, nombreCandidato: string): boolean {
+  function vetado(ejercicio: T, nombreCandidato: string): boolean {
     if (zonasEnConflicto(zonasObjetivo, zonasDelEjercicio(ejercicio, nombreCandidato))) return true;
     if (equipoPedido === null) return false;
     // El veto exige que el candidato NOMBRE su propio equipo, no que lo tenga
@@ -307,7 +316,7 @@ function emparejarExacto(
   //    indecidible. Devolver `null` lo deja sin foto y lo manda a la cola del
   //    entrenador, que es exactamente lo que este archivo promete desde el
   //    principio: preferir ninguna foto antes que la del ejercicio equivocado.
-  const exactos = new Map<string, Ejercicio>();
+  const exactos = new Map<string, T>();
   for (const ejercicio of biblioteca) {
     if (nombresDe(ejercicio).some((n) => clave(n) === objetivo)) {
       exactos.set(ejercicio.id, ejercicio);
@@ -356,7 +365,7 @@ function emparejarExacto(
   const principalObjetivo = tokensObjetivo.find((t) => !MODIFICADORES_DELANTE.has(t)) ?? tokensObjetivo[0];
 
   let mejor:
-    | { ejercicio: Ejercicio; puntaje: number; sobrantes: number; equipoOk: boolean }
+    | { ejercicio: T; puntaje: number; sobrantes: number; equipoOk: boolean }
     | null = null;
   for (const ejercicio of biblioteca) {
     for (const nombre of nombresDe(ejercicio)) {

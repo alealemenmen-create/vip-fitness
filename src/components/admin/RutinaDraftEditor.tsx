@@ -17,6 +17,7 @@ import type { TipoProgresionImpulso } from "@/lib/supabase/types";
 import type { OrigenRutina } from "@/lib/generador-rutinas/validacion";
 import { PLANES_ENTRENAMIENTO, type CodigoPlanEntrenamiento } from "@/lib/planes-entrenamiento";
 import { esBaseEstructural, patronMovimiento, prioridadEstructural, type PatronMovimiento } from "@/lib/rutinas/patrones";
+import { emparejarEjercicio, type EjercicioParaEmparejar } from "@/lib/ejercicios/emparejar";
 import { detectarHallazgosRutina, type HallazgoRutina } from "@/lib/rutinas/validacion";
 import { NIVELES_ARMADO, type NivelArmado } from "@/lib/generador-rutinas/niveles-armado";
 import { FORMATO_RUTINA_SIN_IA } from "@/lib/generador-rutinas/importar-texto-estructurado";
@@ -1864,12 +1865,19 @@ export function RutinaDraftEditor({
 
   const cargarRutinaImportada = () => {
     if (!rutinaImportada) return;
-    const bibliotecaPorNombre = new Map((ejercicios ?? []).flatMap((ejercicio) =>
-      [ejercicio.nombre, ...(ejercicio.aliases ?? [])].map((nombre) => [
-        nombre.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim(),
-        ejercicio,
-      ] as const)
-    ));
+    // Mismo emparejador que usa el resto de la app (alias, abreviaturas, veto
+    // por músculo y por equipo) — antes esto era una comparación exacta de
+    // texto normalizado, así que "Press banca" no encontraba "Press de banca
+    // plano" aunque `emparejarEjercicio` los hubiera resuelto sin problema en
+    // cualquier otra pantalla. Con una rutina pegada entera de una sola vez,
+    // esa diferencia se nota mucho más que editando un ejercicio a la vez.
+    const bibliotecaParaEmparejar = (ejercicios ?? []).map((item) => ({
+      ...item,
+      slug: item.id,
+      aliases: item.aliases ?? [],
+      grupoMuscular: item.grupo as EjercicioParaEmparejar["grupoMuscular"],
+      equipo: item.equipo as EjercicioParaEmparejar["equipo"],
+    }));
     const nueva: RutinaConProgresion = {
       ...rutinaImportada,
       metodoGeneracion: rutinaImportada.metodoGeneracion ?? {
@@ -1882,9 +1890,7 @@ export function RutinaDraftEditor({
         ...dia,
         numero: indiceDia + 1,
         ejercicios: dia.ejercicios.map((ejercicio, indiceEjercicio) => {
-          const coincidencia = bibliotecaPorNombre.get(
-            ejercicio.nombre.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim()
-          );
+          const coincidencia = emparejarEjercicio(ejercicio.nombre, bibliotecaParaEmparejar)?.ejercicio;
           return {
             ...DEFAULTS_PROGRESION,
             ...ejercicio,

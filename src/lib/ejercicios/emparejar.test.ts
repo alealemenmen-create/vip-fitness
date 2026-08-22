@@ -129,6 +129,20 @@ describe("emparejarEjercicio", () => {
   it("devuelve null con biblioteca vacía", () => {
     expect(emparejarEjercicio("Press de banca", [])).toBeNull();
   });
+
+  it("funciona con un objeto liviano que no es un Ejercicio completo (RutinaDraftEditor pasa EjercicioBiblioteca, no Ejercicio)", () => {
+    // Mismo caso que emparejarExacto ya cubre arriba ("Press banca" →
+    // "Press de banca plano"), pero con la forma reducida que arma
+    // cargarRutinaImportada: solo los campos que EjercicioParaEmparejar
+    // exige, nada del resto de Ejercicio (foto, video, impulso...).
+    const bibliotecaLiviana = [
+      { id: "1", nombre: "Press de banca plano", slug: "1", aliases: [] as string[], grupoMuscular: "pecho" as const, equipo: "barra" as const },
+      { id: "2", nombre: "Sentadilla", slug: "2", aliases: [] as string[], grupoMuscular: "piernas" as const, equipo: "barra" as const },
+    ];
+    const resultado = emparejarEjercicio("Press banca", bibliotecaLiviana);
+    expect(resultado?.ejercicio.id).toBe("1");
+    expect(resultado?.confianza).toBe("media");
+  });
 });
 
 /**
