@@ -16,6 +16,8 @@ import {
   actualizarClasificacionEjercicio,
   actualizarDetallesEjercicio,
   actualizarPatronMovimiento,
+  actualizarMetadatosGenerador,
+  actualizarSustitutosEjercicio,
   actualizarPerfilImpulsoEjercicio,
   desactivarEjercicio,
   quitarVideoEjercicio,
@@ -2035,6 +2037,150 @@ function EditorDetalles({ ejercicio }: { ejercicio: Ejercicio }) {
   );
 }
 
+const ESTADO_INICIAL_METADATOS_GENERADOR = { error: null, ok: false };
+const ESTADO_INICIAL_SUSTITUTOS = { error: null, ok: false };
+
+/**
+ * Clasificación biomecánica de la migración 0051 (`docs/GENERADOR_RUTINAS_VIP.md`)
+ * que todavía no tenía editor — instructivo del generador §"Desarrollo
+ * pendiente" punto 3. Impacto, salto, complejidad, supervisión, posición en
+ * la sesión y precauciones ya los usa el motor real para filtrar y ordenar
+ * (ver el comentario de `actualizarMetadatosGenerador` en actions.ts):
+ * cambiar un valor acá cambia de verdad qué recomienda el generador la
+ * próxima vez. Articulaciones, lateralidad y tiempo de montaje todavía no
+ * tienen consumidor — es preparación de datos, igual que ya pasa con el
+ * patrón de movimiento (arriba).
+ */
+function EditorMetadatosGenerador({ ejercicio }: { ejercicio: Ejercicio }) {
+  const [state, action, pending] = useActionState(actualizarMetadatosGenerador, ESTADO_INICIAL_METADATOS_GENERADOR);
+  return (
+    <form action={action} className="space-y-2">
+      <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+      <p className="text-caption font-semibold text-text">Clasificación para el generador de rutinas</p>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="text-micro text-text-tertiary">Impacto</span>
+          <select name="impacto" defaultValue={ejercicio.impacto} className="radius-control mt-1 w-full border border-border bg-surface-2 px-3 py-2 text-caption text-text">
+            <option value="bajo">Bajo</option>
+            <option value="medio">Medio</option>
+            <option value="alto">Alto</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-micro text-text-tertiary">Complejidad</span>
+          <select name="complejidad" defaultValue={ejercicio.complejidad} className="radius-control mt-1 w-full border border-border bg-surface-2 px-3 py-2 text-caption text-text">
+            <option value="baja">Baja</option>
+            <option value="media">Media</option>
+            <option value="alta">Alta</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-micro text-text-tertiary">Lateralidad</span>
+          <select name="lateralidad" defaultValue={ejercicio.lateralidad} className="radius-control mt-1 w-full border border-border bg-surface-2 px-3 py-2 text-caption text-text">
+            <option value="bilateral">Bilateral</option>
+            <option value="unilateral">Unilateral</option>
+            <option value="indistinto">Indistinto</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-micro text-text-tertiary">Tiempo de montaje</span>
+          <select name="tiempo_montaje" defaultValue={ejercicio.tiempoMontaje} className="radius-control mt-1 w-full border border-border bg-surface-2 px-3 py-2 text-caption text-text">
+            <option value="bajo">Bajo</option>
+            <option value="medio">Medio</option>
+            <option value="alto">Alto</option>
+          </select>
+        </label>
+      </div>
+      <label className="block">
+        <span className="text-micro text-text-tertiary">Posición dentro de la sesión</span>
+        <select name="posicion_sesion" defaultValue={ejercicio.posicionSesion} className="radius-control mt-1 w-full border border-border bg-surface-2 px-3 py-2 text-caption text-text">
+          <option value="activacion">Activación</option>
+          <option value="principal">Principal</option>
+          <option value="accesorio">Accesorio</option>
+          <option value="finalizador">Finalizador</option>
+          <option value="cardio">Cardio</option>
+        </select>
+      </label>
+      <div className="flex flex-wrap gap-3">
+        <label className="flex items-center gap-1.5 text-caption text-text-secondary">
+          <input type="checkbox" name="requiere_salto" defaultChecked={ejercicio.requiereSalto} /> Requiere salto
+        </label>
+        <label className="flex items-center gap-1.5 text-caption text-text-secondary">
+          <input type="checkbox" name="requiere_supervision" defaultChecked={ejercicio.requiereSupervision} /> Requiere supervisión
+        </label>
+        <label className="flex items-center gap-1.5 text-caption text-text-secondary">
+          <input type="checkbox" name="apto_circuito" defaultChecked={ejercicio.aptoCircuito} /> Apto para circuito
+        </label>
+      </div>
+      <label className="block">
+        <span className="text-micro text-text-tertiary">Articulaciones involucradas · una por línea</span>
+        <Textarea name="articulaciones" rows={2} defaultValue={ejercicio.articulaciones.join("\n")} placeholder="Hombro, codo, muñeca..." className="mt-1 text-caption" />
+      </label>
+      <label className="block">
+        <span className="text-micro text-text-tertiary">Precauciones · una por línea</span>
+        <Textarea name="etiquetas_precaucion" rows={2} defaultValue={ejercicio.etiquetasPrecaucion.join("\n")} placeholder="Ej.: evitar con molestia lumbar" className="mt-1 text-caption" />
+      </label>
+      {state.error && <p className="text-caption text-error">{state.error}</p>}
+      {state.ok && <p className="text-caption text-success">Clasificación guardada.</p>}
+      <Button type="submit" size="xs" loading={pending}>Guardar clasificación</Button>
+    </form>
+  );
+}
+
+/**
+ * Sustitutos sugeridos por este ejercicio (`sustitutos_ids`, migración
+ * 0051) — todavía sin ningún flujo que los lea (ver el comentario de
+ * `actualizarSustitutosEjercicio` en actions.ts), pero cada opción sale de
+ * la biblioteca real, nunca de texto libre.
+ */
+function EditorSustitutos({ ejercicio, todosLosEjercicios }: { ejercicio: Ejercicio; todosLosEjercicios: Ejercicio[] }) {
+  const [state, action, pending] = useActionState(actualizarSustitutosEjercicio, ESTADO_INICIAL_SUSTITUTOS);
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set(ejercicio.sustitutosIds));
+  const [busqueda, setBusqueda] = useState("");
+  const candidatos = todosLosEjercicios
+    .filter((item) => item.id !== ejercicio.id)
+    .filter((item) => !busqueda.trim() || normalizar(item.nombre).includes(normalizar(busqueda)))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }));
+
+  function alternar(id: string) {
+    setSeleccionados((actual) => {
+      const siguiente = new Set(actual);
+      if (siguiente.has(id)) siguiente.delete(id); else siguiente.add(id);
+      return siguiente;
+    });
+  }
+
+  return (
+    <form action={action} className="space-y-2">
+      <input type="hidden" name="ejercicio_id" value={ejercicio.id} />
+      {[...seleccionados].map((id) => <input key={id} type="hidden" name="sustitutos_ids" value={id} />)}
+      <p className="text-caption font-semibold text-text">Sustitutos sugeridos</p>
+      <input
+        type="text"
+        value={busqueda}
+        onChange={(evento) => setBusqueda(evento.target.value)}
+        placeholder="Buscar ejercicio..."
+        className="radius-control w-full border border-border bg-surface-2 px-3 py-2 text-caption text-text"
+      />
+      <div className="radius-control max-h-40 overflow-y-auto border border-border">
+        {candidatos.length === 0 ? (
+          <p className="p-2 text-micro text-text-tertiary">Sin resultados.</p>
+        ) : (
+          candidatos.map((item) => (
+            <label key={item.id} className="flex items-center gap-2 border-b border-border px-2 py-1.5 text-caption text-text last:border-b-0">
+              <input type="checkbox" checked={seleccionados.has(item.id)} onChange={() => alternar(item.id)} />
+              {item.nombre}
+            </label>
+          ))
+        )}
+      </div>
+      {state.error && <p className="text-caption text-error">{state.error}</p>}
+      {state.ok && <p className="text-caption text-success">Sustitutos guardados.</p>}
+      <Button type="submit" size="xs" loading={pending}>Guardar sustitutos</Button>
+    </form>
+  );
+}
+
 const ESTADO_INICIAL_QUITAR_VIDEO = { error: null, ok: false };
 const ESTADO_INICIAL_QUITAR_CLOUDFLARE = { error: null, ok: false };
 
@@ -3220,6 +3366,14 @@ function ModalSubirFoto({
 
       <div className="mt-4 border-t border-border pt-3">
         <EditorDetalles ejercicio={ejercicio} />
+      </div>
+
+      <div className="mt-4 border-t border-border pt-3">
+        <EditorMetadatosGenerador ejercicio={ejercicio} />
+      </div>
+
+      <div className="mt-4 border-t border-border pt-3">
+        <EditorSustitutos ejercicio={ejercicio} todosLosEjercicios={todosLosEjercicios} />
       </div>
 
       <div className="mt-4 border-t border-border pt-3">

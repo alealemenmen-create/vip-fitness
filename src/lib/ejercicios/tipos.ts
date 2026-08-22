@@ -75,6 +75,25 @@ export type Ejercicio = {
    * toda la biblioteca todavía — mientras no se cargue, el generador sigue
    * clasificando por nombre (ver `patronMovimiento()` en lib/rutinas/patrones.ts). */
   patronMovimiento: PatronMovimiento | null;
+  /** Resto de la clasificación biomecánica de la migración 0051. `impacto`,
+   * `requiereSalto`, `complejidad`, `requiereSupervision`, `posicionSesion` y
+   * `etiquetasPrecaucion` ya los consume el motor real del generador
+   * (`cargarContextoAlumno`, admin/generador/actions.ts). `articulaciones`,
+   * `lateralidad` y `tiempoMontaje` todavía no tienen ningún consumidor. */
+  articulaciones: string[];
+  impacto: "bajo" | "medio" | "alto";
+  requiereSalto: boolean;
+  lateralidad: "bilateral" | "unilateral" | "indistinto";
+  complejidad: "baja" | "media" | "alta";
+  requiereSupervision: boolean;
+  tiempoMontaje: "bajo" | "medio" | "alto";
+  aptoCircuito: boolean;
+  posicionSesion: "activacion" | "principal" | "accesorio" | "finalizador" | "cardio";
+  etiquetasPrecaucion: string[];
+  /** Sugeridos por el propio ejercicio como alternativas — todavía sin
+   * ningún flujo que los lea (el "reemplazar con alternativas" del
+   * generador no existe aún). */
+  sustitutosIds: string[];
   /** Perfil de seguridad explícito de Impulso VIP. Si no fue revisado, el
    * motor nunca debe interpretar el nombre del ejercicio para intensificarlo. */
   impulsoIntensidadMaxima: IntensidadImpulsoEjercicio;
@@ -94,7 +113,9 @@ export const COLUMNAS_EJERCICIO_CON_ENCUADRE =
   `${COLUMNAS_EJERCICIO}, foto_panorama_x, foto_panorama_y, foto_cuadrada_x, foto_cuadrada_y`;
 export const COLUMNAS_EJERCICIO_MULTIMEDIA =
   `${COLUMNAS_EJERCICIO_CON_ENCUADRE}, video_cloudflare_uid, video_cloudflare_estado, ` +
-  "video_cloudflare_duracion_seg, video_cloudflare_miniatura_url, video_cloudflare_error, patron_movimiento";
+  "video_cloudflare_duracion_seg, video_cloudflare_miniatura_url, video_cloudflare_error, patron_movimiento, " +
+  "articulaciones, impacto, requiere_salto, lateralidad, complejidad, requiere_supervision, tiempo_montaje, " +
+  "apto_circuito, posicion_sesion, etiquetas_precaucion, sustitutos_ids";
 export const COLUMNAS_EJERCICIO_IMPULSO =
   `${COLUMNAS_EJERCICIO_MULTIMEDIA}, impulso_intensidad_maxima, impulso_tecnicas_permitidas, ` +
   "impulso_requiere_supervision, impulso_perfil_revisado";
@@ -148,6 +169,17 @@ type FilaEjercicio = {
   foto_cuadrada_y?: number | null;
   foto_hash?: string | null;
   patron_movimiento?: PatronMovimiento | null;
+  articulaciones?: string[] | null;
+  impacto?: "bajo" | "medio" | "alto" | null;
+  requiere_salto?: boolean | null;
+  lateralidad?: "bilateral" | "unilateral" | "indistinto" | null;
+  complejidad?: "baja" | "media" | "alta" | null;
+  requiere_supervision?: boolean | null;
+  tiempo_montaje?: "bajo" | "medio" | "alto" | null;
+  apto_circuito?: boolean | null;
+  posicion_sesion?: "activacion" | "principal" | "accesorio" | "finalizador" | "cardio" | null;
+  etiquetas_precaucion?: string[] | null;
+  sustitutos_ids?: string[] | null;
   impulso_intensidad_maxima?: IntensidadImpulsoEjercicio | null;
   impulso_tecnicas_permitidas?: TecnicaImpulsoEjercicio[] | null;
   impulso_requiere_supervision?: boolean | null;
@@ -185,6 +217,17 @@ export function aEjercicio(fila: FilaEjercicio): Ejercicio {
     fotoCuadradaY: fila.foto_cuadrada_y ?? 50,
     fotoHash: fila.foto_hash ?? null,
     patronMovimiento: fila.patron_movimiento ?? null,
+    articulaciones: fila.articulaciones ?? [],
+    impacto: fila.impacto ?? "bajo",
+    requiereSalto: fila.requiere_salto ?? false,
+    lateralidad: fila.lateralidad ?? "bilateral",
+    complejidad: fila.complejidad ?? "media",
+    requiereSupervision: fila.requiere_supervision ?? false,
+    tiempoMontaje: fila.tiempo_montaje ?? "bajo",
+    aptoCircuito: fila.apto_circuito ?? true,
+    posicionSesion: fila.posicion_sesion ?? "accesorio",
+    etiquetasPrecaucion: fila.etiquetas_precaucion ?? [],
+    sustitutosIds: fila.sustitutos_ids ?? [],
     impulsoIntensidadMaxima: fila.impulso_intensidad_maxima ?? "ninguna",
     impulsoTecnicasPermitidas: fila.impulso_tecnicas_permitidas ?? [],
     impulsoRequiereSupervision: fila.impulso_requiere_supervision ?? true,

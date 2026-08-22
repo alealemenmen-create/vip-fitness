@@ -1013,6 +1013,24 @@ export interface Database {
           // restricción `check` en la base: es texto libre validado en la
           // Server Action (ver PATRONES_MOVIMIENTO_VALIDOS).
           patron_movimiento: string | null;
+          // 0051_generador_rutinas.sql — resto de la clasificación
+          // biomecánica estructurada. `articulaciones` y `etiquetas_precaucion`
+          // son texto libre (sin `check` en la base); el resto tiene valores
+          // fijos validados en la Server Action.
+          articulaciones: string[];
+          impacto: "bajo" | "medio" | "alto";
+          requiere_salto: boolean;
+          lateralidad: "bilateral" | "unilateral" | "indistinto";
+          complejidad: "baja" | "media" | "alta";
+          requiere_supervision: boolean;
+          tiempo_montaje: "bajo" | "medio" | "alto";
+          apto_circuito: boolean;
+          posicion_sesion: "activacion" | "principal" | "accesorio" | "finalizador" | "cardio";
+          etiquetas_precaucion: string[];
+          // Todavía sin ningún consumidor (el flujo de "reemplazar con
+          // alternativas" no existe aún) — cargarlo acá es preparación, igual
+          // que patron_movimiento.
+          sustitutos_ids: string[];
           // 0082_elegibilidad_tecnicas_impulso.sql
           impulso_intensidad_maxima: "ninguna" | "baja" | "media" | "alta";
           impulso_tecnicas_permitidas: Array<
@@ -1092,6 +1110,17 @@ export interface Database {
           foto_completa_url?: string | null;
           foto_hash?: string | null;
           patron_movimiento?: string | null;
+          articulaciones?: string[];
+          impacto?: "bajo" | "medio" | "alto";
+          requiere_salto?: boolean;
+          lateralidad?: "bilateral" | "unilateral" | "indistinto";
+          complejidad?: "baja" | "media" | "alta";
+          requiere_supervision?: boolean;
+          tiempo_montaje?: "bajo" | "medio" | "alto";
+          apto_circuito?: boolean;
+          posicion_sesion?: "activacion" | "principal" | "accesorio" | "finalizador" | "cardio";
+          etiquetas_precaucion?: string[];
+          sustitutos_ids?: string[];
           activo?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["ejercicios"]["Insert"]>;

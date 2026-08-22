@@ -754,6 +754,111 @@ export async function actualizarPatronMovimiento(
   return { error: null, ok: true };
 }
 
+export type ActualizarMetadatosGeneradorState = { error: string | null; ok: boolean };
+
+const IMPACTOS_VALIDOS = ["bajo", "medio", "alto"] as const;
+const LATERALIDADES_VALIDAS = ["bilateral", "unilateral", "indistinto"] as const;
+const COMPLEJIDADES_VALIDAS = ["baja", "media", "alta"] as const;
+const TIEMPOS_MONTAJE_VALIDOS = ["bajo", "medio", "alto"] as const;
+const POSICIONES_SESION_VALIDAS = ["activacion", "principal", "accesorio", "finalizador", "cardio"] as const;
+
+function lineasATexto(valor: FormDataEntryValue | null): string[] {
+  return String(valor || "")
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Metadatos de clasificación biomecánica del generador de rutinas (migración
+ * 0051, ver `docs/GENERADOR_RUTINAS_VIP.md`). `impacto`, `requiere_salto`,
+ * `complejidad`, `requiere_supervision`, `posicion_sesion` y
+ * `etiquetas_precaucion` ya los lee el motor real (`cargarContextoAlumno` en
+ * `admin/generador/actions.ts`) — cambiar un valor acá cambia de verdad
+ * qué recomienda el generador la próxima vez, no es cosmético.
+ * `articulaciones`, `lateralidad` y `tiempo_montaje` todavía no tienen
+ * ningún consumidor: es preparación de datos, mismo caso que
+ * `patron_movimiento` (`actualizarPatronMovimiento`, arriba).
+ */
+export async function actualizarMetadatosGenerador(
+  _prevState: ActualizarMetadatosGeneradorState,
+  formData: FormData,
+): Promise<ActualizarMetadatosGeneradorState> {
+  await requireAdmin();
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+
+  const impacto = String(formData.get("impacto") || "bajo");
+  const lateralidad = String(formData.get("lateralidad") || "bilateral");
+  const complejidad = String(formData.get("complejidad") || "media");
+  const tiempoMontaje = String(formData.get("tiempo_montaje") || "bajo");
+  const posicionSesion = String(formData.get("posicion_sesion") || "accesorio");
+  if (!IMPACTOS_VALIDOS.includes(impacto as never)) return { error: "Impacto inválido.", ok: false };
+  if (!LATERALIDADES_VALIDAS.includes(lateralidad as never)) return { error: "Lateralidad inválida.", ok: false };
+  if (!COMPLEJIDADES_VALIDAS.includes(complejidad as never)) return { error: "Complejidad inválida.", ok: false };
+  if (!TIEMPOS_MONTAJE_VALIDOS.includes(tiempoMontaje as never)) return { error: "Tiempo de montaje inválido.", ok: false };
+  if (!POSICIONES_SESION_VALIDAS.includes(posicionSesion as never)) return { error: "Posición en la sesión inválida.", ok: false };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ejercicios")
+    .update({
+      impacto: impacto as (typeof IMPACTOS_VALIDOS)[number],
+      requiere_salto: formData.get("requiere_salto") === "on",
+      lateralidad: lateralidad as (typeof LATERALIDADES_VALIDAS)[number],
+      complejidad: complejidad as (typeof COMPLEJIDADES_VALIDAS)[number],
+      requiere_supervision: formData.get("requiere_supervision") === "on",
+      tiempo_montaje: tiempoMontaje as (typeof TIEMPOS_MONTAJE_VALIDOS)[number],
+      apto_circuito: formData.get("apto_circuito") === "on",
+      posicion_sesion: posicionSesion as (typeof POSICIONES_SESION_VALIDAS)[number],
+      articulaciones: lineasATexto(formData.get("articulaciones")),
+      etiquetas_precaucion: lineasATexto(formData.get("etiquetas_precaucion")),
+    })
+    .eq("id", ejercicioId);
+  if (error) return { error: "No se pudieron guardar los metadatos. Probá de nuevo.", ok: false };
+
+  avisarCambios();
+  return { error: null, ok: true };
+}
+
+export type ActualizarSustitutosState = { error: string | null; ok: boolean };
+
+/**
+ * Sustitutos sugeridos por el propio ejercicio (`sustitutos_ids`, migración
+ * 0051) — todavía sin ningún flujo que los lea (el "reemplazar con tres
+ * alternativas" del generador, pendiente #5 del handoff, no existe aún),
+ * pero cada id se valida contra la biblioteca real antes de guardar para no
+ * dejar nunca una referencia rota — mismo principio de "nunca inventar un
+ * ejercicio" que ya rige el resto del generador.
+ */
+export async function actualizarSustitutosEjercicio(
+  _prevState: ActualizarSustitutosState,
+  formData: FormData,
+): Promise<ActualizarSustitutosState> {
+  await requireAdmin();
+  const ejercicioId = String(formData.get("ejercicio_id") || "");
+  if (!ejercicioId) return { error: "Falta el ejercicio.", ok: false };
+
+  const sustitutosIds = [...new Set(formData.getAll("sustitutos_ids").map(String).filter(Boolean))].filter(
+    (id) => id !== ejercicioId
+  );
+
+  const supabase = await createClient();
+  if (sustitutosIds.length > 0) {
+    const { data: existentes } = await supabase.from("ejercicios").select("id").in("id", sustitutosIds);
+    const idsValidos = new Set((existentes ?? []).map((fila) => fila.id));
+    if (sustitutosIds.some((id) => !idsValidos.has(id))) {
+      return { error: "Alguno de los sustitutos elegidos ya no existe. Volvé a intentar.", ok: false };
+    }
+  }
+
+  const { error } = await supabase.from("ejercicios").update({ sustitutos_ids: sustitutosIds }).eq("id", ejercicioId);
+  if (error) return { error: "No se pudieron guardar los sustitutos.", ok: false };
+
+  avisarCambios();
+  return { error: null, ok: true };
+}
+
 export type DesactivarEjercicioState = { error: string | null; ok: boolean };
 
 /**
