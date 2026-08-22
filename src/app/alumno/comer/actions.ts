@@ -610,13 +610,13 @@ export async function quitarAlimentoDeComida(alimentoConsumidoId: string, fechaS
     await supabase.from("comidas_registradas").delete().eq("id", referencia.comidaId);
   }
   await registrarCambioAlimentacion(quien.alumnoId, "quitar_alimento");
-  await recalcularAlimentacionDia(quien.alumnoId, referencia.fecha);
+  const puntos = await recalcularAlimentacionDia(quien.alumnoId, referencia.fecha);
   revalidateTag(TAG_RANKING, { expire: 0 });
   revalidatePath(`/alumno/comer/${referencia.fecha}`);
   revalidatePath("/alumno/inicio");
   revalidatePath("/portal-v2/nutricion");
   revalidatePath("/portal-v2/progreso");
-  return { error: null };
+  return { error: null, puntos };
 }
 
 export async function actualizarCantidadAlimento(

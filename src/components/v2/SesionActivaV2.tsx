@@ -62,6 +62,7 @@ import {
 } from "@/lib/entrenamiento/motor-tecnicas-sesion";
 import { tecnicaAplicaASerie } from "@/lib/entrenamiento/tecnica-series";
 import { EVENTO_XP_GANADO } from "@/lib/xp-eventos";
+import { calcularPuntosEntrenamiento } from "@/lib/ranking/reglas";
 import {
   encontrarMomentoPendienteDeResultado,
   seleccionarMomentosAlejandro,
@@ -410,6 +411,36 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
     ),
     0,
   ), [registro]);
+
+  // Vista previa de puntos: la MISMA fórmula que usa el servidor al cerrar
+  // la sesión (`calcularPuntosEntrenamiento`, proporcional a ejercicios
+  // completos sobre el total), calculada en el cliente solo para mostrar el
+  // número en vivo mientras se marca/desmarca -- no escribe nada en
+  // `puntos_vip_movimientos`. El crédito real sigue naciendo únicamente al
+  // finalizar (ver `finalizarSesionInterna`), así que no hay forma de
+  // "farmear" marcando y desmarcando: el saldo real no se mueve hasta ahí.
+  const ejerciciosCompletadosPreview = useMemo(
+    () => EJERCICIOS.filter((ejercicio) => {
+      const series = registro[ejercicio.id] ?? [];
+      return series.length > 0 && series.every((serie) => serie.completada);
+    }).length,
+    [EJERCICIOS, registro],
+  );
+  const puntosPreview = useMemo(
+    () => calcularPuntosEntrenamiento(ejerciciosCompletadosPreview, EJERCICIOS.length),
+    [ejerciciosCompletadosPreview, EJERCICIOS.length],
+  );
+  const puntosPreviewAnteriorRef = useRef(puntosPreview);
+  const [flashPuntosPreview, setFlashPuntosPreview] = useState<"sube" | "baja" | null>(null);
+  useEffect(() => {
+    const anterior = puntosPreviewAnteriorRef.current;
+    puntosPreviewAnteriorRef.current = puntosPreview;
+    if (puntosPreview === anterior || !sesion?.real || sesion.soloLectura) return;
+    window.dispatchEvent(new CustomEvent(EVENTO_XP_GANADO, { detail: { puntos: puntosPreview - anterior } }));
+    setFlashPuntosPreview(puntosPreview > anterior ? "sube" : "baja");
+    const temporizador = setTimeout(() => setFlashPuntosPreview(null), 900);
+    return () => clearTimeout(temporizador);
+  }, [puntosPreview, sesion?.real, sesion?.soloLectura]);
   const ejercicioActivoIndice = EJERCICIOS.findIndex((ejercicio) => ejercicio.id === ejercicioActivoId);
   const ejercicioActivo = EJERCICIOS[ejercicioActivoIndice] ?? EJERCICIOS[0];
   const fichaEjercicio = fichaEjercicioId === null
@@ -1409,6 +1440,14 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
       <header className={styles.topbar} data-transparente={vista === "video" ? "true" : undefined}>
         <div className={styles.sessionStatus}>
           <span>{formatearTiempo(segundosSesion)}</span><i aria-hidden="true" /><strong>{sesion?.soloLectura ? "Registro" : "Serie"} {serieActivaNumero}/{totalSeries}</strong>
+          {!sesion?.soloLectura && sesion?.real ? (
+            <>
+              <i aria-hidden="true" />
+              <span className={styles.xpPreview} data-cambio={flashPuntosPreview ?? undefined}>
+                {puntosPreview.toLocaleString("es-CL")} XP
+              </span>
+            </>
+          ) : null}
           {!sesion?.soloLectura && estadoSincronizacion !== "listo" ? (
             <small className={styles.saveStatus} data-estado={estadoSincronizacion} aria-live="polite">
               {estadoSincronizacion === "guardado" ? "Guardado" : estadoSincronizacion === "error" ? "En dispositivo" : "Guardando…"}

@@ -10,6 +10,7 @@ import type { ProductoOFF } from "@/lib/alimentos/openFoodFacts";
 import { errorMetasNutricionales } from "@/lib/alimentos/metasNutricionales";
 import { resumirMicronutrientes, sodioGramosAMiligramos, type ResumenMicronutrientes } from "@/lib/alimentos/resumenMicronutrientes";
 import { puedeRegistrarComidaEnFecha } from "@/lib/alimentos/ventanaRegistro";
+import { EVENTO_XP_GANADO } from "@/lib/xp-eventos";
 import {
   Beef,
   ChevronRight,
@@ -150,6 +151,21 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
   const [aviso, setAviso] = useState("");
   const [operacion, setOperacion] = useState<OperacionNutricion>(null);
   const operacionRef = useRef(false);
+  // Puntos provisionales del día (misma cuenta que ve el entrenador al
+  // cerrar el día en `recalcularAlimentacionDia`) -- solo para avisar el
+  // cambio en vivo al agregar/quitar un alimento. Nada de esto escribe en
+  // `puntos_vip_movimientos`: el crédito real sigue naciendo al cerrar el
+  // día, igual que antes de este aviso.
+  const puntosAlimentacionRef = useRef<number | null>(null);
+  const avisarPuntosAlimentacion = (puntosNuevos: number | undefined): string => {
+    if (!datos || puntosNuevos === undefined) return "";
+    const anterior = puntosAlimentacionRef.current;
+    puntosAlimentacionRef.current = puntosNuevos;
+    if (anterior === null || puntosNuevos === anterior) return "";
+    const delta = puntosNuevos - anterior;
+    window.dispatchEvent(new CustomEvent(EVENTO_XP_GANADO, { detail: { puntos: delta } }));
+    return ` · ${delta > 0 ? "+" : ""}${delta} XP`;
+  };
   const [comidaSeleccionada, setComidaSeleccionada] = useState<ComidaVisual | null>(null);
   const [cantidadBorrador, setCantidadBorrador] = useState("");
   const [objetivosLocales, setObjetivosLocales] = useState(() => ({
@@ -231,17 +247,19 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
     setOperacion("copiar");
     try {
       let consumidoId = origen.consumidoId;
+      let xpAviso = "";
       if (datos && origen.alimentoId && origen.cantidad && origen.unidad) {
         const resultado = await agregarAlimentoAHora(fechaActiva, horaActual, origen.alimentoId, origen.cantidad, origen.unidad);
         if (resultado.error) {
           setAviso(resultado.error);
           return;
         }
+        xpAviso = avisarPuntosAlimentacion(resultado.puntos);
         consumidoId = resultado.consumidoId;
       }
       setComidas((actuales) => [...actuales, { ...origen, fecha: fechaActiva, hora: horaActual, consumidoId }]);
       setPanel(null);
-      setAviso("Comida copiada correctamente");
+      setAviso(`Comida copiada correctamente${xpAviso}`);
     } catch {
       setAviso("No pudimos copiar la comida. Revisa tu conexión e intenta nuevamente.");
     } finally {
@@ -278,6 +296,7 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
     setPanel(null);
     setAviso("Guardando alimentos…");
     let guardados = 0;
+    let xpAviso = "";
     try {
       for (const elegido of elegidos) {
         const resultado = await agregarAlimentoAHora(
@@ -291,6 +310,7 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
           setAviso(guardados > 0 ? `${resultado.error} Se guardaron ${guardados} alimentos.` : resultado.error);
           return;
         }
+        xpAviso = avisarPuntosAlimentacion(resultado.puntos);
         const factor = elegido.alimento.porcionBase > 0 ? elegido.cantidadBase / elegido.alimento.porcionBase : 0;
         setComidas((actuales) => [...actuales, {
           nombre: elegido.alimento.nombre,
@@ -312,7 +332,7 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
         }]);
         guardados += 1;
       }
-      setAviso(`${guardados} ${guardados === 1 ? "alimento agregado" : "alimentos agregados"}`);
+      setAviso(`${guardados} ${guardados === 1 ? "alimento agregado" : "alimentos agregados"}${xpAviso}`);
     } catch {
       setAviso(guardados > 0
         ? `Se guardaron ${guardados} alimentos antes de perder la conexión. Reintenta los restantes.`
@@ -369,13 +389,15 @@ export function NutricionV2({ datos }: { datos?: NutricionDatosV2 }) {
     operacionRef.current = true;
     setOperacion("eliminar");
     try {
+      let xpAviso = "";
       if (datos && comidaSeleccionada.consumidoId) {
         const resultado = await quitarAlimentoDeComida(comidaSeleccionada.consumidoId, comidaSeleccionada.fecha);
         if (resultado.error) { setAviso(resultado.error); return; }
+        xpAviso = avisarPuntosAlimentacion(resultado.puntos);
       }
       setComidas((actuales) => actuales.filter((comida) => comida !== comidaSeleccionada));
       setComidaSeleccionada(null);
-      setAviso("Alimento eliminado del registro");
+      setAviso(`Alimento eliminado del registro${xpAviso}`);
     } catch {
       setAviso("No pudimos eliminar el alimento. El registro se conserva.");
     } finally {
