@@ -88,7 +88,7 @@ export const GRUPOS_DESTINOS_CONTROL_VIP_V2: GrupoDestinos[] = [
     label: "Galería",
     items: [
       {
-        href: "/admin/ejercicios",
+        href: "/control-vip/galeria",
         label: "Galería de ejercicios",
         detalle: "Fotos, videos y control de calidad",
         icon: Dumbbell,

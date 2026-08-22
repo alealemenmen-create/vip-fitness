@@ -36,7 +36,7 @@ export default async function ControlVipV2EstudioVipPage() {
         description="Editá, previsualizá con la navegación real, guardá como borrador y publicá — o restaurá una versión anterior."
         actions={
           <>
-            <Link href="/admin/ejercicios" className="boton-panel-secundario">
+            <Link href="/control-vip/galeria" className="boton-panel-secundario">
               <Images size={15} /> Fotos y videos
             </Link>
             <Link href="/portal-v2/entrenamiento" target="_blank" className="boton-panel-primario">

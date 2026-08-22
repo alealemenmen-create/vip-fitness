@@ -88,7 +88,7 @@ export default async function ControlVipV2HoyPage() {
       {ejerciciosIncompletos.length > 0 && (
         <section className="space-y-2">
           <h2 className="text-sm font-semibold text-text">Producción</h2>
-          <Link href="/admin/ejercicios#biblioteca-ejercicios" className="block">
+          <Link href="/control-vip/galeria#biblioteca-ejercicios" className="block">
             <Card padding="p-3" className="flex items-center gap-3">
               <span className="grid size-9 shrink-0 place-items-center rounded-full border border-warning/30 bg-warning/10 text-sm font-bold text-warning">
                 {ejerciciosIncompletos.length > 99 ? "99+" : ejerciciosIncompletos.length}
@@ -111,7 +111,7 @@ export default async function ControlVipV2HoyPage() {
           <Link href="/control-vip/rutinas" className="boton-panel-secundario">
             <WandSparkles size={15} /> Armar rutina
           </Link>
-          <Link href="/admin/ejercicios" className="boton-panel-secundario">
+          <Link href="/control-vip/galeria" className="boton-panel-secundario">
             <Dumbbell size={15} /> Subir material
           </Link>
           <Link href="/admin/puntos" className="boton-panel-secundario">

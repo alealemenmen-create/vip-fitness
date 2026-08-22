@@ -130,7 +130,7 @@ export default async function ControlVipV2RutinasPage({
       />
 
       <div className="grid grid-cols-3 gap-2">
-        <Link href="/admin/ejercicios" className="boton-panel-secundario">
+        <Link href="/control-vip/galeria" className="boton-panel-secundario">
           <Dumbbell size={14} /> Biblioteca
         </Link>
         <Link href="/admin/documentos" className="boton-panel-secundario">
