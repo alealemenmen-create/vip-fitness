@@ -143,12 +143,12 @@ async function crearOEntrarSesion(
     return existente.id;
   }
 
-  if (diaPropio.tipo === "entrenamiento") {
-    const plan = await obtenerEstadoPlanMensual(supabase as unknown as SupabaseClient, alumnoId);
-    if (plan?.pausado) redirect("/alumno/entrenar?plan=pausado");
-    if (plan && plan.restantes <= 0) redirect("/alumno/entrenar?plan=agotado");
-  }
-
+  // El cupo de sesiones del mes ya no bloquea el inicio (decisión de
+  // Alejandro, 2026-08-22): el control de acceso real pasa a ser la
+  // membresía sincronizada con "Gestión VIP Fitness" cuando exista esa
+  // integración. Mientras tanto, `finalizarSesion` avisa al entrenador
+  // (notificación `cupo_agotado`) para que decida a mano, en vez de
+  // bloquear acá antes de empezar.
   const inicioDescanso = diaPropio.tipo === "descanso" ? new Date().toISOString() : null;
   const { data: sesion, error: errorSesion } = await supabase
     .from("sesiones_entrenamiento")
@@ -428,11 +428,9 @@ export async function iniciarRutinaDesdeCalendarioV2(formData: FormData): Promis
   if (activa) redirect(`/portal-v2/entrenamiento/sesion?id=${activa.id}`);
 
   const sesionId = await crearOEntrarSesion(supabase, alumnoId, diaId, rutinaId, numero);
-  const plan = await obtenerEstadoPlanMensual(supabase as unknown as SupabaseClient, alumnoId);
-  if (plan?.pausado || (plan && plan.restantes <= 0)) {
-    redirect(`/portal-v2/entrenamiento?plan=${plan.pausado ? "pausado" : "agotado"}`);
-  }
 
+  // El cupo de sesiones del mes ya no bloquea el inicio (decisión de
+  // Alejandro, 2026-08-22) — ver la misma nota en `crearOEntrarSesion`.
   const { error } = await supabase.from("sesiones_entrenamiento")
     .update({ rutina_iniciada_en: new Date().toISOString() })
     .eq("id", sesionId)
