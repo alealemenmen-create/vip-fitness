@@ -1511,7 +1511,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                 <div className={styles.videoIdentityTitleRow}>
                   <h1>{ejercicioActivo.nombre}</h1>
                   <span className={`${styles.exerciseProgress} ${ejercicioActivoRealizado ? styles.exerciseProgressDone : ""}`} aria-label={`${seriesCompletadasEjercicioActivo} de ${registro[ejercicioActivo.id].length} series realizadas`}>
-                    {ejercicioActivoRealizado ? <><Check size={18} strokeWidth={3} /> Realizado</> : `${seriesCompletadasEjercicioActivo} de ${registro[ejercicioActivo.id].length}`}
+                    {ejercicioActivoRealizado ? <><Check size={18} strokeWidth={3} /> Realizado</> : `${seriesCompletadasEjercicioActivo}/${registro[ejercicioActivo.id].length}`}
                   </span>
                   <button
                     type="button"
@@ -1588,7 +1588,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                             <span className={styles.compactTitleLine}>
                               <strong>{ejercicio.nombre}</strong>
                               <span className={`${styles.exerciseProgress} ${ejercicioRealizado ? styles.exerciseProgressDone : ""}`} aria-label={`${cantidadCompletadas} de ${seriesEjercicio.length} series realizadas`}>
-                                {ejercicioRealizado ? <><Check size={16} strokeWidth={3} /> Realizado</> : `${cantidadCompletadas} de ${seriesEjercicio.length}`}
+                                {ejercicioRealizado ? <><Check size={16} strokeWidth={3} /> Realizado</> : `${cantidadCompletadas}/${seriesEjercicio.length}`}
                               </span>
                             </span>
                             <small>Reps: {ejercicio.repeticiones.join(" · ")}</small>
@@ -1607,7 +1607,7 @@ export function SesionActivaV2({ sesion }: { sesion?: SesionActivaModeloV2 }) {
                             <span className={styles.exerciseTitleLine}>
                               <h1>{ejercicio.nombre}</h1>
                               <span className={`${styles.exerciseProgress} ${ejercicioRealizado ? styles.exerciseProgressDone : ""}`} aria-label={`${cantidadCompletadas} de ${seriesEjercicio.length} series realizadas`}>
-                                {ejercicioRealizado ? <><Check size={18} strokeWidth={3} /> Realizado</> : `${cantidadCompletadas} de ${seriesEjercicio.length}`}
+                                {ejercicioRealizado ? <><Check size={18} strokeWidth={3} /> Realizado</> : `${cantidadCompletadas}/${seriesEjercicio.length}`}
                               </span>
                             </span>
                             <p><b>Reps:</b> {ejercicio.repeticiones.join("  ·  ")}</p>

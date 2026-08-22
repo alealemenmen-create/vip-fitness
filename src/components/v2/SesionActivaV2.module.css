@@ -173,9 +173,9 @@
 .exerciseTitleLine, .compactTitleLine { display: flex; min-width: 0; align-items: center; gap: 9px; }
 .exerciseTitleLine h1, .compactTitleLine strong { min-width: 0; flex: 1; }
 .exerciseHeading h1 { overflow: hidden; color: #fff; font-size: var(--active-title-size); font-weight: 800; letter-spacing: -.025em; text-overflow: ellipsis; white-space: nowrap; }
-.exerciseProgress { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; color: #d6d9d5; font-size: var(--active-title-size); font-weight: 800; letter-spacing: -.025em; white-space: nowrap; }
-.exerciseProgress svg { width: 1em; height: 1em; }
-.exerciseProgressDone { color: #b9e64b; }
+.exerciseProgress { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; padding: 3px 9px 3px 8px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; background: rgba(255, 255, 255, .08); color: #e4e6e1; font-size: var(--series-label-size); font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.01em; white-space: nowrap; }
+.exerciseProgress svg { width: 1.15em; height: 1.15em; }
+.exerciseProgressDone { border-color: transparent; color: #0d1206; background: linear-gradient(135deg, #d4f57e, #a3dc38); box-shadow: 0 3px 10px -3px rgba(163, 220, 56, .55); }
 .exerciseHeading p { margin-top: 8px; color: #e0e2df; font-size: var(--compact-meta-size); font-weight: 610; }
 .exerciseHeading p b { color: #f1f2ef; }
 .exerciseMedia { position: relative; width: var(--active-photo-width); height: var(--active-photo-height); overflow: hidden; border-radius: 9px; background: #181919; }
@@ -254,7 +254,6 @@
 .compactCopy { min-width: 0; align-self: stretch; margin-top: 22px; }
 .compactCopy strong { display: block; overflow: hidden; color: #fff; font-size: var(--compact-title-size); font-weight: 790; text-overflow: ellipsis; white-space: nowrap; }
 .compactTitleLine { font-size: var(--compact-title-size); }
-.compactTitleLine .exerciseProgress { font-size: inherit; }
 .compactCopy small { display: block; margin-top: 7px; color: #d8dbd7; font-size: var(--compact-meta-size); font-weight: 590; }
 .compactCopy em { display: block; margin-top: 5px; color: #c49a42; font-size: 9px; font-weight: 700; font-style: normal; }
 .asaTarjeta {
@@ -354,7 +353,8 @@
 .videoTecnicaTag { font-style: normal; }
 .videoIdentityTitleRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 5px; }
 .videoIdentityTitleRow h1 { min-width: 0; flex: 1; overflow: hidden; font-size: 23px; letter-spacing: -.04em; text-overflow: ellipsis; white-space: nowrap; }
-.videoIdentityTitleRow .exerciseProgress { font-size: 18px; text-shadow: 0 2px 8px rgba(0, 0, 0, .75); }
+.videoIdentityTitleRow .exerciseProgress { border-color: rgba(255, 255, 255, .22); color: #fff; background: rgba(10, 11, 11, .55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.videoIdentityTitleRow .exerciseProgressDone { border-color: transparent; }
 .videoCheckFloating { display: grid; width: 36px; height: 36px; flex-shrink: 0; place-items: center; border: 1.5px solid rgba(255, 255, 255, .9); border-radius: 50%; color: #fff; background: rgba(10, 11, 11, .55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 .videoCheckFloating[aria-pressed="true"] { border-color: var(--blue); color: #fff; background: var(--blue); box-shadow: 0 0 0 1px rgba(10,132,255,.24); }
 .videoActions { display: flex; gap: 6px; overflow-x: auto; padding: 10px 14px; scroll-padding-inline: 14px; scroll-snap-type: x proximity; scrollbar-width: none; }
