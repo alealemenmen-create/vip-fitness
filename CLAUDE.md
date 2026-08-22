@@ -30,12 +30,14 @@ archivo, alta reducida a nombre + sugerencias (`calidad_ficha`, migración
 0099), ingestión persistente (migraciones 0100/0101), Modo gimnasio. No
 retomar como si estuviera pendiente.
 
-## Pendiente por retomar: Estudio VIP (configuración global de portal-v2)
+## Resuelto: Estudio VIP (configuración global de portal-v2)
 
-Alejandro pidió el 2026-08-20 poder configurar pantallas/fotos/nombres/botones
-de portal-v2 para todos los alumnos a la vez, no uno por uno. Ya estaba
-previsto desde el inicio del proyecto con el nombre "Estudio VIP" (ver
-`docs/PORTAL_VIP_V2_VISION.md`, sección 4 y Etapa 5) pero nunca se construyó.
-Alcance y preguntas abiertas quedaron en `HANDOFF_ESTUDIO_VIP_ALCANCE.md` —
-léelo completo y resolvé el alcance con Alejandro (rol, qué es configurable,
-dónde vive) antes de escribir código.
+Ya está construido y en `main`: editor en `/admin/estudio-vip` (borrador,
+publicación, portada global, navegación) y, desde el 2026-08-21, también un
+editor de tres paneles en `/control-vip/estudio-vip` (Control VIP V2) con
+vista previa usando el componente real de navegación e historial de
+versiones con restauración. Ambos escriben al mismo borrador.json/
+publicada.json en Supabase Storage. No queda "por retomar" — lo que sigue
+pendiente, documentado en `docs/CONTROL_VIP_V2_INVENTARIO.md`, es acotar
+quién puede publicar (hoy cualquier entrenador/admin puede, no solo el
+propietario) y agregar comparación visual entre versiones.
