@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ChevronRight, Dumbbell, Play, Search, ShieldCheck, X } from "lucide-react";
 import { ETIQUETAS_GRUPO_MUSCULAR } from "@/components/student/GrupoMuscularIcon";
 import { ModalVideoCloudflare } from "@/components/student/ModalVideoCloudflare";
+import { VideoCloudflareAutomatico } from "@/components/student/VideoCloudflareAutomatico";
 import { resolverIlustracion } from "@/lib/ejercicios/ilustracion";
 import type { Ejercicio, EquipoEjercicio } from "@/lib/ejercicios/tipos";
 import { obtenerFichaEjercicioV2 } from "@/app/portal-v2/entrenamiento/biblioteca/actions";
@@ -180,7 +181,10 @@ export function BibliotecaEjerciciosV2({
             <div className={styles.libraryDetailMedia}>
               {fotoDe(seleccionado) ? <ImagenV2Segura src={seleccionado.fotoCompletaUrl ?? fotoDe(seleccionado)!} fallbackSrc={fotoDe(seleccionado)} alt={`Demostración de ${seleccionado.nombre}`} fill sizes="460px" loading="eager" /> : <Dumbbell size={40} />}
               {seleccionado.videoCloudflareEstado === "listo" && puedeVerVideos ? (
-                <button type="button" className={styles.libraryPlay} onClick={() => setVideoAbierto(true)}><Play size={16} fill="currentColor" /> Ver demostración</button>
+                <VideoCloudflareAutomatico ejercicioId={seleccionado.id} activo nombre={seleccionado.nombre} />
+              ) : null}
+              {seleccionado.videoCloudflareEstado === "listo" && puedeVerVideos ? (
+                <button type="button" className={styles.libraryPlay} onClick={() => setVideoAbierto(true)}><Play size={16} fill="currentColor" /> Ampliar video</button>
               ) : null}
             </div>
             <div className={styles.libraryDetailBody}>
