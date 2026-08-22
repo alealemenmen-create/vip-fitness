@@ -20,15 +20,15 @@ pruebas y le deje la demostración abierta en pantalla porque le duelen las
 manos. No hagas push, despliegue ni cambios destructivos en producción sin una
 nueva autorización explícita.
 
-## Pendiente por retomar: Galería multimedia / Carga masiva
+## Resuelto: Galería multimedia / Carga masiva
 
-Hay un instructivo completo en `INSTRUCTIVO_CLAUDE_GALERIA_MULTIMEDIA_CARGA_MASIVA.md`
-(dejado por Codex, revisado con Alejandro el 2026-08-16) para un rediseño grande
-de `/admin/ejercicios` — carga masiva de foto y video mezclados, sesiones de
-ingesta persistentes, Modo gimnasio. Es un proyecto de varias sesiones, no de
-una tarde: si Alejandro pide retomarlo, léelo completo primero y confirmá con
-él el alcance (¿toda la Fase 1 nomás, o el instructivo completo?) antes de
-escribir código — no asumas que hay que implementarlo entero de una.
+El instructivo `INSTRUCTIVO_CLAUDE_GALERIA_MULTIMEDIA_CARGA_MASIVA.md` (2026-08-16)
+ya está implementado completo (las 4 fases) desde ese mismo día, commit
+`1cfc22a`. Verificado en el código el 2026-08-21: selector mixto foto+video,
+"Crear ejercicio con este archivo" en filas sin match, alta con video como
+archivo, alta reducida a nombre + sugerencias (`calidad_ficha`, migración
+0099), ingestión persistente (migraciones 0100/0101), Modo gimnasio. No
+retomar como si estuviera pendiente.
 
 ## Pendiente por retomar: Estudio VIP (configuración global de portal-v2)
 
