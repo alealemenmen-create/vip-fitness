@@ -190,12 +190,41 @@ tocar código.
 
 Hoy son heurística por nombre de ejercicio (`PALABRAS_SUBGRUPO` en `motor.ts`). Si el catálogo crece con nombres que no calzan, la alternativa es una columna nueva en `ejercicios` con migración y carga manual.
 
-### 5. Reemplazo y regeneración parcial
+### Fix real 22/08/2026: emparejamiento débil al pegar una rutina (Mesa)
 
-- Reemplazar un ejercicio mostrando tres alternativas compatibles.
-- Regenerar únicamente un día.
-- Reducir duración o fatiga sin destruir el resto del borrador.
-- Mantener manualmente ejercicios bloqueados por el entrenador.
+Alejandro aclaró que su flujo real para crear rutinas es pegarlas como
+texto, no el asistente guiado — investigando ESE camino específico se
+encontró un bug real, no listado en ningún pendiente anterior:
+`cargarRutinaImportada()` en `RutinaDraftEditor.tsx` (la caja de "pegar
+rutina" de Mesa/`ArmarRutinaPanel`, alimentada por
+`importarRutinaDesdeTexto` → `importarRutinaEstructurada` o IA) resolvía
+cada nombre contra la biblioteca con comparación EXACTA de texto, no con
+`emparejarEjercicio` (el emparejador real, con alias/abreviaturas/veto por
+músculo y equipo que usa el resto de la app). Resultado real: más
+ejercicios pegados de los necesarios terminaban sin `ejercicioId`, sin
+foto/video para el alumno, y en la cola de "nombres sin vincular" de Mesa.
+
+Corregido (commit `7de0577`): `emparejarEjercicio()` pasa a ser genérico
+sobre un tipo mínimo (`EjercicioParaEmparejar`) en vez de exigir un
+`Ejercicio` completo, así `RutinaDraftEditor` puede usarlo con su
+`EjercicioBiblioteca` liviana. Cambio de tipos puro — los 19 tests
+existentes de `emparejar.test.ts` siguen en verde sin tocarlos, más uno
+nuevo para el caso de uso liviano. Verificado: tsc, eslint, vitest
+(711/711), build. **No probado con login real.**
+
+### 5. Reemplazo y regeneración parcial — despriorizado por Alejandro el 22/08/2026
+
+Alejandro pidió explícitamente no invertir tiempo acá: su flujo real y
+dominante para crear rutinas es pegar la rutina como texto (importación +
+auto-emparejamiento), no el asistente guiado paso a paso del Generador. Este
+punto mejora específicamente el asistente guiado / Varita VIP, que usa poco
+en la práctica — no confundir el orden numerado de este documento (por
+complejidad técnica) con prioridad real. Investigado pero no implementado:
+"regenerar un día" ya existe hoy (Varita VIP, `alcance: "sesion"`,
+preserva lo que no encaja en el patrón automático); lo que faltaría de
+verdad es reemplazar un ejercicio puntual con alternativas curadas (hoy es
+búsqueda libre en toda la biblioteca) y un candado por ejercicio contra la
+Varita. Ninguna de las dos, sin pedido explícito de nuevo.
 
 ### 6. Historial e Impulso VIP
 
