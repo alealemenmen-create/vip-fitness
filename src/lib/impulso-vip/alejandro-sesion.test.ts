@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  encontrarMomentoPendienteDeResultado,
   estimarRirAutomaticoAlejandro,
   resolverCupoAlejandroSesion,
   seleccionarMomentosAlejandro,
@@ -44,6 +45,34 @@ describe("seleccionarMomentosAlejandro", () => {
     expect(momentos.map((momento) => momento.ejercicioId)).toEqual(["a", "c"]);
     expect(momentos.map((momento) => momento.serieIndice)).toEqual([3, 2]);
     expect(momentos[1].tipo).toBe("drop_set");
+  });
+});
+
+describe("encontrarMomentoPendienteDeResultado", () => {
+  const momento = {
+    id: "impulso-1",
+    ejercicioId: "press-militar",
+    serieIndice: 2,
+    tipo: "cierre_controlado" as const,
+    titulo: "MOMENTO IMPULSO VIP" as const,
+    instruccion: "Llega a 1 RIR.",
+    apoyo: "Técnica limpia.",
+    intensiva: false,
+    estado: "mostrada" as const,
+    calibrada: true,
+  };
+
+  it("encuentra el reto cuando la serie se completa por primera vez", () => {
+    expect(encontrarMomentoPendienteDeResultado([momento], "press-militar", 2, {})).toBe(momento);
+  });
+
+  it("no vuelve a pedir el resultado al corregir una serie ya registrada", () => {
+    expect(encontrarMomentoPendienteDeResultado(
+      [momento],
+      "press-militar",
+      2,
+      { "impulso-1": true },
+    )).toBeUndefined();
   });
 });
 
